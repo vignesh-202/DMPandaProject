@@ -1,0 +1,48 @@
+name: Mobile App Store Build
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on tags like v1.0.0, v1.0.1
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  build:
+    name: EAS Build (Production)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for EXPO_TOKEN
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "You must provide an EXPO_TOKEN secret linked to your project's Expo account in this repo's secrets."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: npm
+          cache-dependency-path: MobileApp/package-lock.json
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: ./MobileApp
+        run: npm ci
+
+      - name: Build for Android
+        working-directory: ./MobileApp
+        run: eas build --platform android --profile production --non-interactive
+
+      - name: Build for iOS
+        working-directory: ./MobileApp
+        run: eas build --platform ios --profile production --non-interactive

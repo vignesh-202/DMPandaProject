@@ -1,0 +1,45 @@
+name: Mobile App OTA Update
+
+on:
+  push:
+    paths:
+      - 'MobileApp/**'
+    branches:
+      - main
+
+jobs:
+  update:
+    name: EAS Update
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for EXPO_TOKEN
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "You must provide an EXPO_TOKEN secret linked to your project's Expo account in this repo's secrets. https://expo.dev/accounts/[account]/settings/access-tokens"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: npm
+          cache-dependency-path: MobileApp/package-lock.json
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: ./MobileApp
+        run: npm ci
+
+      - name: Publish update
+        working-directory: ./MobileApp
+        run: eas update --auto

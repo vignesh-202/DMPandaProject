@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# IDEs
+.idea/
+.vscode/
+
+# MobileApp build artifacts
+MobileApp/node_modules/
+MobileApp/android/
+MobileApp/ios/
+MobileApp/.expo/
+MobileApp/.gradle/
+MobileApp/eas.json
+
+# Webapp build artifacts
+new-dashboard/node_modules/
+new-dashboard/dist/
