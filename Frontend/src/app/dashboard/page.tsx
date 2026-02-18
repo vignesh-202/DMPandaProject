@@ -63,7 +63,7 @@ const GaugeCard = ({ label, value, max }: { label: string; value: number; max: n
   return (
     <Card
       variant="elevated"
-      className="relative flex flex-col aspect-[4/5] sm:aspect-square group hover:shadow-lg transition-shadow cursor-pointer"
+      className="relative flex flex-col aspect-[4/5] sm:aspect-square group ig-card hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer"
       onClick={() => setCurrentView('Analytics')}
     >
       {/* Title */}
@@ -107,7 +107,7 @@ const DashboardContent: React.FC = () => {
     const url = `${import.meta.env.VITE_API_BASE_URL}/api/dashboard/counts${activeAccountID ? `?account_id=${activeAccountID}` : ''}`;
     authenticatedFetch(url)
       .then((res) => (res.ok ? res.json() : {}))
-      .then((d) => {
+      .then((d: Partial<Record<CountsKey, number>>) => {
         setCounts({
           reply_templates: d.reply_templates ?? 0,
           mention: d.mention ?? 0,
@@ -147,7 +147,7 @@ const DashboardContent: React.FC = () => {
     ];
 
     return (
-      <div className="flex flex-col gap-2 lg:gap-2.5 max-w-7xl mx-auto pb-4 lg:pb-2">
+      <div className="flex flex-col gap-2 sm:gap-3 lg:gap-2.5 max-w-7xl mx-auto pb-4 lg:pb-2">
         {/* Instagram Stats Section */}
         <section>
           <InstagramStats />
@@ -155,7 +155,7 @@ const DashboardContent: React.FC = () => {
 
         {/* Count cards - above gauges, compact top/bottom on desktop */}
         <section>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
             {COUNT_CARDS.map(({ key, label, view, icon: Icon }) => {
               const n = counts[key];
               const disabled = n === 0;
@@ -165,10 +165,10 @@ const DashboardContent: React.FC = () => {
                   type="button"
                   onClick={() => setCurrentView(view)}
                   className={cn(
-                    'flex flex-col items-start gap-1.5 py-2.5 px-4 lg:py-2 lg:px-4 rounded-xl border text-left transition-all min-h-[72px] aspect-[2/1] sm:min-h-[76px] lg:aspect-auto lg:min-h-[70px]',
+                    'relative flex flex-col items-start gap-1.5 py-2.5 px-4 lg:py-2 lg:px-4 rounded-xl border text-left transition-all min-h-[72px] aspect-[2/1] sm:min-h-[76px] lg:aspect-auto lg:min-h-[70px] bg-card shadow-sm hover:-translate-y-0.5 hover:shadow-md',
                     disabled
                       ? 'opacity-55 cursor-pointer border-border bg-muted/40 text-muted-foreground'
-                      : 'border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 text-foreground'
+                      : 'border-border hover:border-primary/40 hover:bg-secondary text-foreground'
                   )}
                 >
                   <Icon className={cn('w-5 h-5 shrink-0', disabled ? 'text-muted-foreground' : 'text-primary')} />
@@ -182,7 +182,7 @@ const DashboardContent: React.FC = () => {
 
         {/* Gauges Section */}
         <section>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-3">
             {gaugeData.map((gauge, i) => (
               <GaugeCard
                 key={i}

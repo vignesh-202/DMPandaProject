@@ -49,7 +49,7 @@ export const BUTTONS_MAX = 3;
 export const QUICK_REPLIES_MAX = 13;
 
 // --- Media ---
-export const MEDIA_URL_MAX = 2048;
+export const MEDIA_URL_MAX = 500;
 
 // --- Share post caption (optional) ---
 export const SHARE_POST_CAPTION_MAX = 1000;

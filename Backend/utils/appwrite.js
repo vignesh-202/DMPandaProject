@@ -1,4 +1,4 @@
-const { Client, Account, Databases, Users, Storage } = require('node-appwrite');
+const { Client, Account, Databases, Users, Storage, Functions } = require('node-appwrite');
 require('dotenv').config();
 
 const APPWRITE_ENDPOINT = process.env.APPWRITE_ENDPOINT;
@@ -16,8 +16,7 @@ const getAppwriteClient = (options = {}) => {
     }
 
     if (sessionToken) {
-        // node-appwrite Server SDK does not have setSession. We must set the header directly.
-        client.addHeader('X-Appwrite-Session', sessionToken);
+        client.setSession(sessionToken);
     }
 
     // Add any extra headers if provided
@@ -32,10 +31,24 @@ const getAppwriteClient = (options = {}) => {
 
 module.exports = {
     getAppwriteClient,
+    Functions,
     APPWRITE_DATABASE_ID: process.env.APPWRITE_DATABASE_ID,
     USERS_COLLECTION_ID: 'users',
     SETTINGS_COLLECTION_ID: 'settings',
     CAMPAIGNS_COLLECTION_ID: 'campaigns',
     IG_ACCOUNTS_COLLECTION_ID: 'ig_accounts',
-    PRICING_COLLECTION_ID: 'pricing'
+    PRICING_COLLECTION_ID: 'pricing',
+    AUTOMATIONS_COLLECTION_ID: 'automations',
+    REPLY_TEMPLATES_COLLECTION_ID: 'reply_templates',
+    INBOX_MENUS_COLLECTION_ID: 'inbox_menus',
+    CONVO_STARTERS_COLLECTION_ID: 'convo_starters',
+    MENTIONS_COLLECTION_ID: 'mentions',
+    SUPER_PROFILES_COLLECTION_ID: 'super_profiles',
+    SUGGEST_MORE_COLLECTION_ID: 'suggest_more',
+    COMMENT_MODERATION_COLLECTION_ID: 'comment_moderation',
+    KEYWORDS_COLLECTION_ID: 'keywords',
+    KEYWORD_INDEX_COLLECTION_ID: 'keyword_index',
+    // Function IDs
+    FUNCTION_REMOVE_INSTAGRAM: process.env.FUNCTION_REMOVE_INSTAGRAM
 };
+

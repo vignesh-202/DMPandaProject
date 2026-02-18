@@ -33,11 +33,11 @@ const AuthVerifyingScreen: React.FC<AuthVerifyingScreenProps> = ({
           style={{ animationDelay: '0s', animationDuration: '5s' }}
         />
         <div
-          className="absolute top-1/3 -right-20 w-72 h-72 rounded-full blur-3xl bg-[rgb(253_29_29)]/10 animate-float"
+          className="absolute top-1/3 -right-20 w-72 h-72 rounded-full blur-3xl bg-ig-pink/10 animate-float"
           style={{ animationDelay: '1.2s', animationDuration: '6s' }}
         />
         <div
-          className="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full blur-3xl bg-[rgb(64_93_230)]/10 animate-float"
+          className="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full blur-3xl bg-ig-blue/10 animate-float"
           style={{ animationDelay: '2.5s', animationDuration: '5.5s' }}
         />
       </div>

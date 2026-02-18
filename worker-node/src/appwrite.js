@@ -14,11 +14,25 @@ class AppwriteClient {
 
     async getIGAccount(accountId) {
         try {
-            const response = await this.databases.listDocuments(
+            let response = await this.databases.listDocuments(
                 this.databaseId,
                 process.env.IG_ACCOUNTS_COLLECTION_ID,
                 [Query.equal('ig_user_id', accountId)]
             );
+            if (response.documents.length === 0) {
+                response = await this.databases.listDocuments(
+                    this.databaseId,
+                    process.env.IG_ACCOUNTS_COLLECTION_ID,
+                    [Query.equal('account_id', accountId)]
+                );
+            }
+            if (response.documents.length === 0) {
+                response = await this.databases.listDocuments(
+                    this.databaseId,
+                    process.env.IG_ACCOUNTS_COLLECTION_ID,
+                    [Query.equal('ig_user_id', accountId)]
+                );
+            }
             return response.documents.length > 0 ? response.documents[0] : null;
         } catch (error) {
             console.error(`Error fetching IG account ${accountId}:`, error);
@@ -34,7 +48,7 @@ class AppwriteClient {
                 [
                     Query.equal('account_id', accountId),
                     Query.equal('automation_type', automationType),
-                    Query.equal('active', true)
+                    Query.equal('is_active', true)
                 ]
             );
             return response.documents;
@@ -44,13 +58,17 @@ class AppwriteClient {
         }
     }
 
-    async getTemplate(templateId) {
+    async getTemplate(templateId, accountId = null) {
         try {
-            return await this.databases.getDocument(
+            const template = await this.databases.getDocument(
                 this.databaseId,
-                process.env.TEMPLATES_COLLECTION_ID,
+                'reply_templates',
                 templateId
             );
+            if (accountId && template.account_id && String(template.account_id) !== String(accountId)) {
+                return null;
+            }
+            return template;
         } catch (error) {
             if (error.code !== 404) {
                 console.error(`Error fetching template ${templateId}:`, error);
@@ -61,3 +79,5 @@ class AppwriteClient {
 }
 
 module.exports = AppwriteClient;
+
+

@@ -45,20 +45,20 @@ const LockedFeatureModal: React.FC<LockedFeatureModalProps> = ({
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             {/* Backdrop with premium glassmorphism */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity duration-300 animate-fadeIn"
+                className="absolute inset-0 bg-foreground/30 backdrop-blur-md transition-opacity duration-300 animate-fadeIn"
                 onClick={onClose}
             />
 
             {/* Modal Container */}
-            <div className="relative w-full max-w-[420px] bg-white dark:bg-gray-950 rounded-[28px] shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden animate-fadeInScale">
+            <div className="ig-topline relative w-full max-w-[420px] bg-card rounded-[28px] shadow-2xl border border-border overflow-hidden animate-fadeInScale">
 
                 {/* Decorative Top Gradient */}
-                <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400" />
+                <div className="absolute top-0 left-0 right-0 h-2 bg-ig-gradient" />
 
                 {/* Close Button */}
                 <button
                     onClick={onClose}
-                    className="absolute top-5 right-5 p-2 rounded-full text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 z-10"
+                    className="absolute top-5 right-5 p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-all duration-200 z-10"
                 >
                     <X className="w-5 h-5" />
                 </button>
@@ -68,13 +68,13 @@ const LockedFeatureModal: React.FC<LockedFeatureModalProps> = ({
                     <div className="flex justify-center mb-8 relative">
                         <div className="relative">
                             {/* Outer Glow */}
-                            <div className="absolute inset-0 bg-pink-500/20 blur-2xl rounded-full" />
+                            <div className="absolute inset-0 bg-ig-pink/20 blur-2xl rounded-full" />
 
                             {/* Main Icon Container */}
-                            <div className="relative w-20 h-20 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 rounded-[22px] flex items-center justify-center shadow-lg transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                            <div className="relative w-20 h-20 bg-ig-gradient rounded-[22px] flex items-center justify-center shadow-lg transform -rotate-3 hover:rotate-0 transition-transform duration-300">
                                 <Instagram className="w-10 h-10 text-white" />
-                                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-black dark:bg-white rounded-full flex items-center justify-center border-4 border-white dark:border-gray-950 shadow-md">
-                                    <Lock className="w-4 h-4 text-white dark:text-black" />
+                                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-card rounded-full flex items-center justify-center border-4 border-card shadow-md">
+                                    <Lock className="w-4 h-4 text-foreground" />
                                 </div>
                             </div>
                         </div>
@@ -82,11 +82,11 @@ const LockedFeatureModal: React.FC<LockedFeatureModalProps> = ({
 
                     {/* Content */}
                     <div className="text-center space-y-4 mb-10">
-                        <h3 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+                        <h3 className="text-2xl font-bold text-foreground tracking-tight">
                             Instagram Required
                         </h3>
-                        <p className="text-gray-500 dark:text-gray-400 text-base leading-relaxed">
-                            <span className="font-semibold text-gray-900 dark:text-gray-100">{featureName}</span> requires a connected Instagram Business account to function.
+                        <p className="text-muted-foreground text-base leading-relaxed">
+                            <span className="font-semibold text-foreground">{featureName}</span> requires a connected Instagram Business account to function.
                         </p>
                     </div>
 
@@ -97,8 +97,8 @@ const LockedFeatureModal: React.FC<LockedFeatureModalProps> = ({
                             "Schedule & manage posts effortlessly",
                             "Get deep insights into your growth"
                         ].map((text, i) => (
-                            <div key={i} className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-800/50">
-                                <div className="w-1.5 h-1.5 rounded-full bg-pink-500" />
+                            <div key={i} className="flex items-center gap-3 text-sm text-muted-foreground bg-secondary p-3 rounded-xl border border-border">
+                                <div className="w-1.5 h-1.5 rounded-full bg-ig-pink" />
                                 {text}
                             </div>
                         ))}
@@ -108,9 +108,9 @@ const LockedFeatureModal: React.FC<LockedFeatureModalProps> = ({
                     <div className="space-y-3">
                         <button
                             onClick={onConnect}
-                            className="group relative w-full py-4 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-bold text-base transition-all duration-200 hover:shadow-[0_8px_25px_-5px_rgba(0,0,0,0.3)] dark:hover:shadow-[0_8px_25px_-5px_rgba(255,255,255,0.2)] active:scale-[0.98] flex items-center justify-center gap-2 overflow-hidden"
+                            className="group relative w-full py-4 bg-ig-gradient text-white rounded-2xl font-bold text-base transition-all duration-200 hover:shadow-ig-glow active:scale-[0.98] flex items-center justify-center gap-2 overflow-hidden"
                         >
-                            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-ig-purple via-ig-pink to-ig-yellow opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             <span className="relative z-10 flex items-center gap-2">
                                 Connect Instagram
                                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -119,14 +119,14 @@ const LockedFeatureModal: React.FC<LockedFeatureModalProps> = ({
 
                         <button
                             onClick={onClose}
-                            className="w-full py-3 text-gray-500 dark:text-gray-400 font-semibold text-sm hover:text-gray-900 dark:hover:text-white transition-colors"
+                            className="w-full py-3 text-muted-foreground font-semibold text-sm hover:text-foreground transition-colors"
                         >
                             Maybe Later
                         </button>
                     </div>
 
                     {/* Trust Badge */}
-                    <div className="mt-8 flex items-center justify-center gap-2 text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-widest font-bold">
+                    <div className="mt-8 flex items-center justify-center gap-2 text-[11px] text-muted-foreground uppercase tracking-widest font-bold">
                         <ShieldAlert className="w-3.5 h-3.5" />
                         Secure & Official API
                     </div>

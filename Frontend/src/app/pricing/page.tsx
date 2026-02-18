@@ -189,20 +189,20 @@ const PricingPage: React.FC = () => {
         </div>
 
         <div className="flex flex-col items-center mb-16 space-y-8">
-          <div className="bg-gray-100 p-1 rounded-full inline-flex relative">
-            <div className="w-full h-full absolute inset-0 rounded-full bg-gray-100" />
+          <div className="bg-gray-100 p-1 rounded-2xl inline-flex relative">
+            <div className="w-full h-full absolute inset-0 rounded-2xl bg-gray-100" />
             <button
               onClick={() => setIsYearly(false)}
-              className={`relative z-10 px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 ${!isYearly ? 'bg-white shadow-md text-black' : 'text-gray-500 hover:text-gray-900'}`}
+              className={`relative z-10 px-8 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${!isYearly ? 'bg-white shadow-md text-black' : 'text-gray-500 hover:text-gray-900'}`}
             >
               Monthly
             </button>
             <button
               onClick={() => setIsYearly(true)}
-              className={`relative z-10 px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2 ${isYearly ? 'bg-white shadow-md text-black' : 'text-gray-500 hover:text-gray-900'}`}
+              className={`relative z-10 px-8 py-3 rounded-2xl text-sm font-bold transition-all duration-300 flex items-center gap-2 ${isYearly ? 'bg-white shadow-md text-black' : 'text-gray-500 hover:text-gray-900'}`}
             >
               Yearly
-              <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">Save 20%</span>
+              <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-lg uppercase tracking-wider">Save 20%</span>
             </button>
           </div>
 
@@ -211,7 +211,7 @@ const PricingPage: React.FC = () => {
               <span className={`${currency === 'INR' ? 'text-black' : 'text-gray-400'}`}>INR</span>
               <button
                 onClick={handleCurrencyToggle}
-                className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${currency === 'INR' ? 'bg-black' : 'bg-gray-300'}`}
+                className={`w-12 h-6 rounded-xl p-1 transition-colors duration-300 ${currency === 'INR' ? 'bg-black' : 'bg-gray-300'}`}
               >
                 <div className={`w-4 h-4 bg-white rounded-full transition-transform duration-300 ${currency === 'INR' ? 'translate-x-0' : 'translate-x-6'}`} />
               </button>

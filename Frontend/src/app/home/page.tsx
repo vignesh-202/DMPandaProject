@@ -55,7 +55,7 @@ const HomePage: React.FC = () => {
               <p className="text-xl sm:text-2xl md:text-3xl text-gray-700 mb-6 animate-fade-in-up delay-100">
                 Save time with DM Panda's intelligent automation.
               </p>
-              <AuthRedirectButton className="inline-block bg-black hover:bg-gray-800 text-white font-bold py-4 px-10 sm:py-5 sm:px-12 rounded-full transition duration-300 ease-in-out transform hover:scale-105 animate-fade-in-up delay-200 text-base sm:text-lg">
+              <AuthRedirectButton className="inline-block bg-black hover:bg-gray-800 text-white font-bold py-4 px-10 sm:py-5 sm:px-12 rounded-2xl transition duration-300 ease-in-out transform hover:scale-105 animate-fade-in-up delay-200 text-base sm:text-lg">
                 Get Started for Free
               </AuthRedirectButton>
               <p className="text-gray-500 text-base mt-3 animate-fade-in-up delay-300">
@@ -378,7 +378,7 @@ const HomePage: React.FC = () => {
               <p className="text-lg sm:text-xl md:text-2xl text-gray-700 mb-6">
                 See how DM Panda automates your Instagram interactions seamlessly.
               </p>
-              <AuthRedirectButton className="inline-block bg-black hover:bg-gray-800 text-white font-bold py-3 px-8 rounded-full transition duration-300 ease-in-out transform hover:scale-105">
+              <AuthRedirectButton className="inline-block bg-black hover:bg-gray-800 text-white font-bold py-3 px-8 rounded-2xl transition duration-300 ease-in-out transform hover:scale-105">
                 Get Started
               </AuthRedirectButton>
             </div>
@@ -408,7 +408,7 @@ const HomePage: React.FC = () => {
               <p className="text-lg sm:text-xl md:text-2xl text-gray-700 mb-6">
                 From auto-replying to comments and story mentions to running giveaways and capturing leads, DMPanda provides a complete toolkit to put your Instagram engagement on autopilot. Discover how our features can save you time and grow your brand.
               </p>
-              <Link to="/features" className="inline-block bg-black hover:bg-gray-800 text-white font-bold py-3 px-8 rounded-full transition duration-300 ease-in-out transform hover:scale-105">
+              <Link to="/features" className="inline-block bg-black hover:bg-gray-800 text-white font-bold py-3 px-8 rounded-2xl transition duration-300 ease-in-out transform hover:scale-105">
                 See All Features
               </Link>
             </div>
@@ -433,7 +433,7 @@ const HomePage: React.FC = () => {
           <p className="text-lg sm:text-xl mb-6">
             Join DM Panda today and start automating your DMs like a pro.
           </p>
-          <AuthRedirectButton className="inline-block bg-white text-black font-bold py-3 px-8 rounded-full transition duration-300 ease-in-out transform hover:scale-105">
+          <AuthRedirectButton className="inline-block bg-white text-black font-bold py-3 px-8 rounded-2xl transition duration-300 ease-in-out transform hover:scale-105">
             Sign Up Now
           </AuthRedirectButton>
         </div>

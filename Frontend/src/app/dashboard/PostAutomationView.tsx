@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import MediaSection from '../../components/dashboard/MediaSection';
 import AutomationEditor from '../../components/dashboard/AutomationEditor';
-import MobilePreview from '../../components/dashboard/MobilePreview';
+import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
 import { ChevronRight, AlertCircle, CheckCircle2, LayoutTemplate } from 'lucide-react';
@@ -27,6 +27,7 @@ const PostAutomationView: React.FC = () => {
 
   const handleCreateAutomation = (media: any) => {
     setSelectedMedia(media);
+    setSelectedTemplateId('');
     setError(null);
     setSuccess(null);
   };
@@ -62,21 +63,54 @@ const PostAutomationView: React.FC = () => {
     }
   }, [selectedMedia, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges]);
 
+  useEffect(() => {
+    if (!activeAccountID) return;
+    const targetId = sessionStorage.getItem('openAutomationId');
+    const targetType = sessionStorage.getItem('openAutomationType');
+    if (!targetId || !['comment', 'post'].includes((targetType || '').toLowerCase())) return;
+
+    sessionStorage.removeItem('openAutomationId');
+    sessionStorage.removeItem('openAutomationType');
+
+    (async () => {
+      try {
+        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}&type=comment`);
+        if (res.ok) {
+          const data = await res.json();
+          const mediaId = data.media_id || data.mediaId || data.media?.id;
+          if (!mediaId) {
+            setError('Could not open automation: media not found.');
+            return;
+          }
+          setSelectedMedia({
+            id: mediaId,
+            automation_id: targetId,
+            caption: data.caption || data.media_caption || ''
+          });
+        } else {
+          setError('Could not open automation.');
+        }
+      } catch (_) {
+        setError('Could not open automation.');
+      }
+    })();
+  }, [activeAccountID, authenticatedFetch]);
+
   if (selectedMedia && activeAccountID) {
     return (
-      <div className="max-w-[1400px] mx-auto py-8 px-6 space-y-8 min-h-screen">
+      <div className="max-w-[1400px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
         <div className="flex items-center justify-between border-b border-content pb-6">
-          <button onClick={handleBack} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-blue-500 transition-colors">
+          <button onClick={handleBack} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
             <ChevronRight className="w-4 h-4 rotate-180" /> Back to Dashboard
           </button>
           <div className="flex items-center gap-3">
             {error && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-lg text-[10px] font-black border border-red-200 dark:border-red-500/20 animate-in fade-in slide-in-from-right-2">
+              <div className="flex items-center gap-2 px-3 py-1 bg-destructive-muted/40 text-destructive rounded-lg text-[10px] font-black border border-destructive/30 animate-in fade-in slide-in-from-right-2">
                 <AlertCircle className="w-3 h-3" /> {error}
               </div>
             )}
             {success && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-green-50 dark:bg-green-500/10 text-green-500 rounded-lg text-[10px] font-black border border-green-200 dark:border-green-500/20 animate-in fade-in slide-in-from-right-2">
+              <div className="flex items-center gap-2 px-3 py-1 bg-success-muted/60 text-success rounded-lg text-[10px] font-black border border-success/30 animate-in fade-in slide-in-from-right-2">
                 <CheckCircle2 className="w-3 h-3" /> {success}
               </div>
             )}
@@ -86,10 +120,10 @@ const PostAutomationView: React.FC = () => {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 xl:h-[calc(100vh-11rem)] xl:min-h-0">
           {/* Left: Editor - scrollable on xl */}
           <div className="xl:col-span-8 space-y-8 order-2 xl:order-1 xl:overflow-y-auto xl:overscroll-behavior-contain xl:min-h-0 xl:pr-2">
-            <section className="bg-white dark:bg-gray-950 p-8 rounded-[40px] border border-content shadow-sm space-y-8">
+            <section className="bg-card p-8 rounded-[40px] border border-content shadow-sm space-y-8">
               <AutomationEditor
                 type="posts"
-                isStandalone={false}
+                variant="embedded"
                 activeAccountID={activeAccountID}
                 authenticatedFetch={authenticatedFetch}
                 automationId={selectedMedia?.automation_id}
@@ -115,13 +149,13 @@ const PostAutomationView: React.FC = () => {
             <div className="xl:sticky xl:top-24 h-fit max-h-[calc(100vh-8rem)] overflow-y-auto">
               <div className="fixed top-4 right-4 z-[200] space-y-2 pointer-events-none">
                 {success && (
-                  <div className="bg-green-500 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-right fade-in duration-300 pointer-events-auto">
+                  <div className="bg-success text-success-foreground px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-right fade-in duration-300 pointer-events-auto">
                     <CheckCircle2 className="w-5 h-5" />
                     <span className="font-bold text-sm">{success}</span>
                   </div>
                 )}
                 {error && (
-                  <div className="bg-red-500 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-right fade-in duration-300 pointer-events-auto">
+                  <div className="bg-destructive text-destructive-foreground px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-right fade-in duration-300 pointer-events-auto">
                     <AlertCircle className="w-5 h-5" />
                     <span className="font-bold text-sm">{error}</span>
                   </div>
@@ -138,7 +172,7 @@ const PostAutomationView: React.FC = () => {
                       const profilePic = activeAccount?.profile_picture_url || null;
 
                       const previewAutomation = {
-                        template_type: template.template_type,
+                        template_type: template.template_type as any,
                         template_content: template.template_type === 'template_text' ? template.template_data?.text :
                           template.template_type === 'template_media' ? template.template_data?.media_url :
                             template.template_type === 'template_quick_replies' ? template.template_data?.text : undefined,
@@ -150,23 +184,30 @@ const PostAutomationView: React.FC = () => {
                         use_latest_post: template.template_type === 'template_share_post' ? template.template_data?.use_latest_post : undefined,
                         latest_post_type: template.template_type === 'template_share_post' ? template.template_data?.latest_post_type : undefined,
                         keyword: selectedMedia?.caption || 'Post comment',
+                        template_data: template.template_data
                       };
 
                       return (
-                        <div className="bg-gray-50 dark:bg-black p-4 flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800">
-                          <MobilePreview automation={previewAutomation} displayName={displayName} profilePic={profilePic} />
+                        <div className="bg-muted/40 p-4 flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-border">
+                          <SharedMobilePreview
+                            mode="automation"
+                            automation={previewAutomation}
+                            displayName={displayName}
+                            profilePic={profilePic || undefined}
+                          />
                         </div>
                       );
                     }
                     return null;
                   })()
                 ) : (
-                  <div className="bg-gray-50 dark:bg-black p-8 flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 min-h-[400px]">
-                    <div className="text-center space-y-2">
-                      <LayoutTemplate className="w-12 h-12 text-muted-foreground mx-auto" />
-                      <p className="text-sm font-bold text-muted-foreground">Select a reply template</p>
-                      <p className="text-xs text-muted-foreground">Choose from the Reply Templates section</p>
-                    </div>
+                  <div className="bg-muted/40 p-4 flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-border">
+                    <SharedMobilePreview
+                      mode="automation"
+                      automation={{ keyword: selectedMedia?.caption || 'Post comment' }}
+                      displayName={activeAccount?.username || 'your_account'}
+                      profilePic={activeAccount?.profile_picture_url || undefined}
+                    />
                   </div>
                 )}
               </div>

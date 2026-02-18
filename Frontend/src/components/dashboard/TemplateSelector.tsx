@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
-import { useNavigate } from 'react-router-dom';
 
 export interface ReplyTemplate {
   id: string;
@@ -74,9 +73,8 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
   allowClear = true,
 }) => {
   const { authenticatedFetch } = useAuth();
-  const { activeAccountID } = useDashboard();
-  const navigate = useNavigate();
-  
+  const { activeAccountID, setCurrentView } = useDashboard();
+
   const [templates, setTemplates] = useState<ReplyTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -154,7 +152,7 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
   }, [fetchTemplates]);
 
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
-  
+
   const filteredTemplates = templates.filter(t =>
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     TEMPLATE_TYPE_LABELS[t.template_type]?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -166,7 +164,7 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
       setLoadingTemplateIds(prev => new Set(prev).add(template.id));
       try {
         const res = await authenticatedFetch(
-          `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${template.id}`
+          `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${template.id}?account_id=${activeAccountID}`
         );
         if (res.ok) {
           const fullTemplate = await res.json();
@@ -219,6 +217,16 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
         </button>
+        {onCreateNew && (
+          <button
+            type="button"
+            onClick={onCreateNew}
+            className="p-3 rounded-xl border-2 border-blue-200 dark:border-blue-600/40 bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20"
+            title="Create reply template"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Templates Container Box */}
@@ -257,7 +265,7 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
             {filteredTemplates.map((template) => {
               const Icon = TEMPLATE_TYPE_ICONS[template.template_type] || FileText;
               const isSelected = template.id === selectedTemplateId;
-              
+
               const isTemplateLoading = loadingTemplateIds.has(template.id);
 
               return (
@@ -266,22 +274,20 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
                   type="button"
                   onClick={() => handleSelect(template)}
                   disabled={isTemplateLoading}
-                  className={`group relative p-4 rounded-xl border-2 transition-all text-left ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10 shadow-lg shadow-blue-500/20'
-                      : isTemplateLoading
-                        ? 'border-gray-300 bg-gray-100 dark:bg-gray-700 opacity-75 cursor-not-allowed'
-                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-500/5'
-                  }`}
+                  className={`group relative p-4 rounded-xl border-2 transition-all text-left ${isSelected
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10 shadow-lg shadow-blue-500/20'
+                    : isTemplateLoading
+                      ? 'border-gray-300 bg-gray-100 dark:bg-gray-700 opacity-75 cursor-not-allowed'
+                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-500/5'
+                    }`}
                 >
-                    <div className="flex items-start gap-3">
-                    <div className={`p-2.5 rounded-lg transition-all ${
-                      isSelected
-                        ? 'bg-blue-500 text-white shadow-md'
-                        : isTemplateLoading
-                          ? 'bg-gray-300 dark:bg-gray-600 text-gray-500'
-                          : 'bg-white dark:bg-gray-700 text-gray-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-500/20 group-hover:text-blue-500'
-                    }`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2.5 rounded-lg transition-all ${isSelected
+                      ? 'bg-blue-500 text-white shadow-md'
+                      : isTemplateLoading
+                        ? 'bg-gray-300 dark:bg-gray-600 text-gray-500'
+                        : 'bg-white dark:bg-gray-700 text-gray-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-500/20 group-hover:text-blue-500'
+                      }`}>
                       {isTemplateLoading ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
                       ) : (
@@ -289,14 +295,12 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-bold mb-1 truncate ${
-                        isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100'
-                      }`}>
+                      <div className={`text-sm font-bold mb-1 truncate ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100'
+                        }`}>
                         {template.name}
                       </div>
-                      <div className={`text-xs font-medium ${
-                        isSelected ? 'text-blue-500' : 'text-gray-400'
-                      }`}>
+                      <div className={`text-xs font-medium ${isSelected ? 'text-blue-500' : 'text-gray-400'
+                        }`}>
                         {TEMPLATE_TYPE_LABELS[template.template_type] || template.template_type}
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[11px]">
@@ -312,7 +316,7 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
                             } catch {
                               // ignore storage failures, still navigate
                             }
-                            navigate('/dashboard?view=Reply Templates');
+                            setCurrentView('Reply Templates');
                           }}
                           className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 font-bold"
                         >
@@ -334,18 +338,6 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
           </div>
         )}
       </div>
-
-      {/* Create New Template Button */}
-      {onCreateNew && (
-        <button
-          type="button"
-          onClick={onCreateNew}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-sm font-bold transition-all shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30"
-        >
-          <Plus className="w-4 h-4" />
-          Create New Template
-        </button>
-      )}
 
       {/* Selected Template Info */}
       {selectedTemplate && allowClear && (

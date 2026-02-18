@@ -31,6 +31,7 @@ export interface TemplateData {
     }>;
     buttons?: Array<{ title: string; url: string; type: string }>;
     media_url?: string;
+    thumbnail_url?: string;
     media_id?: string;
     replies?: Array<{ title: string; payload: string; content_type?: string }>;
     caption?: string;
@@ -57,6 +58,10 @@ export interface SharedTemplateEditorProps {
     sharePostCustomRange?: { from: Date | null; to: Date | null };
     onSharePostCustomRangeChange?: (range: { from: Date | null; to: Date | null }) => void;
 }
+
+// Coalesce duplicate share-post media fetches across strict-mode re-mounts
+let sharedSharePostMediaPromise: Promise<any[]> | null = null;
+let sharedSharePostMediaKey = '';
 
 const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
     templateType,
@@ -105,37 +110,59 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
     // Fetch media for share post template
     const fetchSharePostMedia = useCallback(async (force = false) => {
         if (!activeAccountID || !authenticatedFetch) return;
-        setIsFetchingMedia(true);
-        try {
-            const params = new URLSearchParams({
-                account_id: activeAccountID,
-                type: sharePostContentType === 'all' ? 'all' : sharePostContentType,
-                limit: '100'
-            });
-            if (sharePostDateRange !== 'all') {
-                const until = Math.floor(Date.now() / 1000);
-                let since = 0;
-                if (sharePostDateRange === '7days') since = until - (7 * 24 * 60 * 60);
-                else if (sharePostDateRange === '30days') since = until - (30 * 24 * 60 * 60);
-                else if (sharePostDateRange === '90days') since = until - (90 * 24 * 60 * 60);
-                else if (sharePostDateRange === 'custom' && sharePostCustomRange.from) {
-                    since = Math.floor(sharePostCustomRange.from.getTime() / 1000);
-                    if (sharePostCustomRange.to) {
-                        const endTs = Math.floor(sharePostCustomRange.to.getTime() / 1000) + (24 * 60 * 60) - 1;
-                        params.append('until', endTs.toString());
-                    }
+        const params = new URLSearchParams({
+            account_id: activeAccountID,
+            type: sharePostContentType === 'all' ? 'all' : sharePostContentType,
+            limit: '100'
+        });
+        if (sharePostDateRange !== 'all') {
+            const until = Math.floor(Date.now() / 1000);
+            let since = 0;
+            if (sharePostDateRange === '7days') since = until - (7 * 24 * 60 * 60);
+            else if (sharePostDateRange === '30days') since = until - (30 * 24 * 60 * 60);
+            else if (sharePostDateRange === '90days') since = until - (90 * 24 * 60 * 60);
+            else if (sharePostDateRange === 'custom' && sharePostCustomRange.from) {
+                since = Math.floor(sharePostCustomRange.from.getTime() / 1000);
+                if (sharePostCustomRange.to) {
+                    const endTs = Math.floor(sharePostCustomRange.to.getTime() / 1000) + (24 * 60 * 60) - 1;
+                    params.append('until', endTs.toString());
                 }
-                if (since > 0) params.append('since', since.toString());
-                if (sharePostDateRange !== 'custom') params.append('until', until.toString());
             }
+            if (since > 0) params.append('since', since.toString());
+            if (sharePostDateRange !== 'custom') params.append('until', until.toString());
+        }
+
+        const requestKey = `${activeAccountID}|${params.toString()}`;
+        const doFetch = async () => {
             const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/media?${params}`);
             if (res.ok) {
                 const data = await res.json();
-                setSharePostMedia(data.data || []);
+                return data.data || [];
             }
+            return [];
+        };
+
+        let promise: Promise<any[]>;
+        if (!force && sharedSharePostMediaPromise && sharedSharePostMediaKey === requestKey) {
+            promise = sharedSharePostMediaPromise;
+        } else {
+            sharedSharePostMediaKey = requestKey;
+            promise = doFetch();
+            if (!force) {
+                sharedSharePostMediaPromise = promise;
+            }
+        }
+
+        setIsFetchingMedia(true);
+        try {
+            const media = await promise;
+            setSharePostMedia(media);
         } catch (err) {
             console.error('Failed to fetch media:', err);
         } finally {
+            if (!force && sharedSharePostMediaPromise === promise) {
+                sharedSharePostMediaPromise = null;
+            }
             setIsFetchingMedia(false);
         }
     }, [activeAccountID, authenticatedFetch, sharePostContentType, sharePostDateRange, sharePostCustomRange]);
@@ -144,7 +171,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
         if (templateType === 'template_share_post' && activeAccountID) {
             fetchSharePostMedia();
         }
-    }, [templateType, activeAccountID, sharePostDateRange, sharePostSortBy, sharePostCustomRange, fetchSharePostMedia]);
+    }, [templateType, activeAccountID, sharePostDateRange, sharePostCustomRange, fetchSharePostMedia]);
 
     const filteredSharePostMedia = sharePostContentType === 'all' ? sharePostMedia :
         sharePostMedia.filter(m => sharePostContentType === 'posts' ?
@@ -195,8 +222,8 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
 
         return (
             <div className="space-y-6">
-                {/* Element Tabs - Exact match with InboxMenu */}
-                <div className="flex items-center gap-3 overflow-x-auto pb-4 px-2 scrollbar-hide no-scrollbar flex-nowrap">
+                {/* Element Tabs */}
+                <div className="flex flex-wrap items-center gap-3 pb-4 px-1">
                     {elements.map((_: any, idx: number) => (
                         <button
                             key={idx}
@@ -370,8 +397,10 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                                     value={btn.title || ''}
                                                     onChange={e => {
                                                         const elements = [...(templateData.elements || [])];
-                                                        elements[activeCarouselElementIdx].buttons[bidx].title = e.target.value;
-                                                        onUpdate({ ...templateData, elements });
+                                                        if (elements[activeCarouselElementIdx].buttons) {
+                                                            elements[activeCarouselElementIdx].buttons![bidx].title = e.target.value;
+                                                            onUpdate({ ...templateData, elements });
+                                                        }
                                                         if (validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_title`]) {
                                                             const newErr = { ...validationErrors };
                                                             delete newErr[`element_${activeCarouselElementIdx}_btn_${bidx}_title`];
@@ -389,8 +418,10 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                                     value={btn.url || ''}
                                                     onChange={e => {
                                                         const elements = [...(templateData.elements || [])];
-                                                        elements[activeCarouselElementIdx].buttons[bidx].url = e.target.value;
-                                                        onUpdate({ ...templateData, elements });
+                                                        if (elements[activeCarouselElementIdx].buttons) {
+                                                            elements[activeCarouselElementIdx].buttons![bidx].url = e.target.value;
+                                                            onUpdate({ ...templateData, elements });
+                                                        }
                                                         if (validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_url`]) {
                                                             const newErr = { ...validationErrors };
                                                             delete newErr[`element_${activeCarouselElementIdx}_btn_${bidx}_url`];
@@ -409,8 +440,10 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                                     <button
                                                         onClick={() => {
                                                             const elements = [...(templateData.elements || [])];
-                                                            elements[activeCarouselElementIdx].buttons.splice(bidx, 1);
-                                                            onUpdate({ ...templateData, elements });
+                                                            if (elements[activeCarouselElementIdx].buttons) {
+                                                                elements[activeCarouselElementIdx].buttons!.splice(bidx, 1);
+                                                                onUpdate({ ...templateData, elements });
+                                                            }
                                                         }}
                                                         className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all"
                                                     >
@@ -609,7 +642,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                 </button>
                                 <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-2" />
                                 <button
-                                    onClick={(e) => { e.preventDefault(); fetchSharePostMedia(true); }}
+                                    onClick={(e) => { e.preventDefault(); fetchSharePostMedia(); }}
                                     disabled={isFetchingMedia}
                                     className="px-4 py-2 text-gray-400 hover:text-blue-500 rounded-xl transition-all disabled:opacity-50 group"
                                     title="Refresh media"
@@ -835,7 +868,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                             <div className="space-y-4 flex flex-col items-center">
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No {sharePostContentType === 'all' ? 'media' : sharePostContentType} found</p>
                                                 <button
-                                                    onClick={(e) => { e.preventDefault(); fetchSharePostMedia(true); }}
+                                                    onClick={(e) => { e.preventDefault(); fetchSharePostMedia(); }}
                                                     className="px-5 py-2.5 bg-slate-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-200 dark:hover:bg-gray-700 shadow-sm flex items-center gap-2"
                                                 >
                                                     <RefreshCw className="w-3.5 h-3.5" />
@@ -854,6 +887,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                                             ...templateData,
                                                             media_id: media.id,
                                                             media_url: media.thumbnail_url || media.media_url,
+                                                            thumbnail_url: media.thumbnail_url || undefined,
                                                             caption: media.caption || ''
                                                         });
                                                     }}
@@ -920,18 +954,6 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                         </div>
                     )}
 
-                    {/* Optional Caption - Only show if media is selected and not using latest post */}
-                    {templateData.media_id && !templateData.use_latest_post && (
-                        <div className="space-y-2">
-                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Optional Reply Caption</label>
-                            <textarea
-                                value={templateData.caption || ''}
-                                onChange={e => onUpdate({ ...templateData, caption: e.target.value })}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border-2 border-transparent focus:border-blue-500 outline-none rounded-2xl p-6 text-xs font-bold min-h-[100px] shadow-inner transition-all resize-none"
-                                placeholder="Add a friendly message to go with your shared post..."
-                            />
-                        </div>
-                    )}
 
                     {/* Info Box - Exact match with InboxMenu */}
                     <div className="p-8 bg-blue-50 dark:bg-blue-500/5 rounded-[32px] border border-blue-100 dark:border-blue-500/10">

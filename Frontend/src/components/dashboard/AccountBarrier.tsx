@@ -12,8 +12,10 @@ const AccountBarrier: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center animate-fadeIn">
       {/* Icon Section */}
       <div className="relative mb-8">
-        <div className="w-24 h-24 sm:w-32 sm:h-32 bg-muted rounded-2xl flex items-center justify-center shadow-lg border border-border">
-          <Instagram className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground" />
+        <div className="p-[2px] rounded-2xl bg-ig-gradient shadow-ig-glow">
+          <div className="w-24 h-24 sm:w-32 sm:h-32 bg-card rounded-2xl flex items-center justify-center border border-border">
+            <Instagram className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground" />
+          </div>
         </div>
         <div className="absolute -bottom-2 -right-2 w-10 h-10 sm:w-12 sm:h-12 bg-destructive rounded-xl flex items-center justify-center border-4 border-background shadow-lg shadow-destructive/30">
           <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-destructive-foreground" />

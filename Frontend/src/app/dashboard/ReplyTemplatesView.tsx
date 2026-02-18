@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   LayoutTemplate, Plus, Pencil, Trash2, Loader2, X, AlertCircle,
   FileText, Smartphone, Image as ImageIcon, Reply, MousePointerClick, Share2, ArrowLeft,
@@ -62,6 +62,7 @@ function templateDataToPayload(type: TemplateType, d: TemplateData): Record<stri
       return {
         media_id: d.media_id || '',
         media_url: d.media_url || '',
+        thumbnail_url: d.thumbnail_url || '',
         use_latest_post: d.use_latest_post || false,
         latest_post_type: d.latest_post_type || 'post',
       };
@@ -86,6 +87,7 @@ function payloadToTemplateData(type: TemplateType, p: Record<string, unknown>): 
       return {
         media_id: (p.media_id as string) || '',
         media_url: (p.media_url as string) || '',
+        thumbnail_url: (p.thumbnail_url as string) || '',
         use_latest_post: (p.use_latest_post as boolean) || false,
         latest_post_type: (p.latest_post_type as 'post' | 'reel') || 'post',
       };
@@ -109,6 +111,21 @@ function automationTypeLabel(a: string): string {
   return m[a] || a;
 }
 
+const suggestUniqueName = (base: string, existing: string[]) => {
+  const trimmed = (base || '').trim();
+  if (!trimmed) return trimmed;
+  const lower = trimmed.toLowerCase();
+  const existingSet = new Set(existing.map(n => (n || '').trim().toLowerCase()));
+  if (!existingSet.has(lower)) return trimmed;
+  let i = 2;
+  while (i < 1000) {
+    const candidate = `${trimmed} (${i})`;
+    if (!existingSet.has(candidate.toLowerCase())) return candidate;
+    i += 1;
+  }
+  return `${trimmed} (${Date.now()})`;
+};
+
 // Shared promise to coalesce duplicate list requests (e.g. React Strict Mode double-mount)
 let replyTemplatesListPromise: Promise<{ templates: unknown[]; error: string | null }> | null = null;
 
@@ -125,15 +142,17 @@ function templateToPreviewAutomation(type: TemplateType, d: TemplateData): Recor
     replies: t === 'template_quick_replies' ? (da.replies as unknown[]) : undefined,
     buttons: (t === 'template_buttons' || t === 'template_media') ? (da.buttons as unknown[]) : undefined,
     media_url: t === 'template_share_post' ? (da.media_url as string) : undefined,
+    thumbnail_url: t === 'template_share_post' ? (da.thumbnail_url as string) : undefined,
     media_id: t === 'template_share_post' ? (da.media_id as string) : undefined,
     use_latest_post: t === 'template_share_post' ? da.use_latest_post : undefined,
     latest_post_type: t === 'template_share_post' ? da.latest_post_type : undefined,
+    template_data: d,
   };
 }
 
 export default function ReplyTemplatesView() {
   const { authenticatedFetch } = useAuth();
-  const { activeAccountID, activeAccount, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges } = useDashboard();
+  const { activeAccountID, activeAccount, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, setCurrentView } = useDashboard();
   const [templates, setTemplates] = useState<Array<{
     id: string;
     name: string;
@@ -161,6 +180,16 @@ export default function ReplyTemplatesView() {
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteLinked, setDeleteLinked] = useState<Array<{ id: string; title: string; automation_type: string }>>([]);
+  const [linkedModal, setLinkedModal] = useState<{
+    open: boolean;
+    templateId: string;
+    templateName: string;
+    automations: Array<{ automation_id: string; title: string; automation_type: string }>;
+    loading: boolean;
+    error: string | null;
+  }>({ open: false, templateId: '', templateName: '', automations: [], loading: false, error: null });
+
+  const initialValuesRef = useRef<{ name: string; type: TemplateType; data: TemplateData } | null>(null);
 
   const fetchList = useCallback(async (force = false) => {
     // Check cache first (unless forcing refresh)
@@ -207,7 +236,8 @@ export default function ReplyTemplatesView() {
     setError(null);
     const doFetch = async (): Promise<{ templates: unknown[]; error: string | null }> => {
       try {
-        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates?full=false`);
+        if (!activeAccountID) return { templates: [], error: null };
+        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates?account_id=${activeAccountID}&full=false`);
         const data = await res.json();
         if (res.ok) return { templates: data.templates || [], error: null };
         return { templates: [], error: data.error || 'Failed to load templates' };
@@ -218,7 +248,13 @@ export default function ReplyTemplatesView() {
     const p = force ? doFetch() : (replyTemplatesListPromise = doFetch());
     try {
       const d = await p;
-      setTemplates((d.templates || []) as typeof templates);
+      const sortedTemplates = (d.templates || []).sort((a: any, b: any) => {
+        const dateA = a.$createdAt || '';
+        const dateB = b.$createdAt || '';
+        if (dateA && dateB) return dateA.localeCompare(dateB);
+        return (a.id || '').localeCompare(b.id || '');
+      });
+      setTemplates(sortedTemplates as typeof templates);
       setError(d.error);
       // Update cache
       try {
@@ -235,11 +271,87 @@ export default function ReplyTemplatesView() {
       if (!force) replyTemplatesListPromise = null;
       setLoading(false);
     }
-  }, [authenticatedFetch]);
+  }, [activeAccountID, authenticatedFetch]);
 
   useEffect(() => {
     fetchList();
   }, [fetchList]);
+
+  const getAutomationCount = (t: { automation_count?: number }) => {
+    const count = Number(t.automation_count ?? 0);
+    return Number.isFinite(count) && count >= 0 ? count : 0;
+  };
+
+  const resolveAutomationView = useCallback((automationTypeRaw: string) => {
+    const automationType = (automationTypeRaw || '').toLowerCase();
+    const map: Record<string, import('../../contexts/DashboardContext').ViewType> = {
+      dm: 'DM Automation',
+      suggest_more: 'Suggest More',
+      mention: 'Mentions',
+      comment_moderation: 'Comment Moderation',
+      global: 'Global Trigger',
+      global_trigger: 'Global Trigger',
+      comment: 'Post Automation',
+      post: 'Post Automation',
+      reel: 'Reel Automation',
+      story: 'Story Automation',
+      live: 'Live Automation'
+    };
+    return map[automationType] || null;
+  }, []);
+
+  const openAutomation = useCallback((item: { automation_id?: string; id?: string; title?: string; automation_type?: string }) => {
+    const automationType = item.automation_type || '';
+    const view = resolveAutomationView(automationType);
+    if (!view) return;
+
+    const automationId = item.automation_id || item.id || '';
+    if (automationId) {
+      sessionStorage.setItem('openAutomationId', automationId);
+      sessionStorage.setItem('openAutomationType', automationType.toLowerCase());
+    }
+
+    setLinkedModal(prev => ({ ...prev, open: false }));
+    setDeleteModal({ open: false, id: '', name: '' });
+    setDeleteLinked([]);
+    setDeleteError(null);
+    setCurrentView(view);
+  }, [resolveAutomationView, setCurrentView]);
+
+  const openLinkedAutomations = useCallback(async (t: (typeof templates)[0]) => {
+    const count = getAutomationCount(t);
+    if (count <= 0) return;
+
+    setLinkedModal({
+      open: true,
+      templateId: t.id,
+      templateName: t.name,
+      automations: [],
+      loading: true,
+      error: null
+    });
+
+    let linked = Array.isArray(t.linked_automations) ? t.linked_automations : [];
+    if (linked.length === 0) {
+      try {
+        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${t.id}?account_id=${activeAccountID}`);
+        if (res.ok) {
+          const data = await res.json();
+          linked = Array.isArray(data.linked_automations) ? data.linked_automations : [];
+        }
+      } catch {
+        setLinkedModal(prev => ({ ...prev, loading: false, error: 'Failed to load linked automations.' }));
+        return;
+      }
+    }
+
+    setLinkedModal(prev => ({
+      ...prev,
+      automations: linked,
+      loading: false,
+      error: linked.length === 0 ? 'No linked automations found.' : null
+    }));
+  }, [authenticatedFetch, getAutomationCount]);
 
   // If navigated from an automation with a specific template to edit,
   // open that template in the editor view once templates are loaded.
@@ -265,8 +377,13 @@ export default function ReplyTemplatesView() {
     // Use same default values as SuggestMoreView
     setTemplateData(getDefaultTemplateData('template_text'));
     setTemplateValidationErrors({});
-    setEditorFieldErrors({});
     setEditorError(null);
+    initialValuesRef.current = {
+      name: '',
+      type: 'template_text',
+      data: getDefaultTemplateData('template_text')
+    };
+    setHasUnsavedChanges(false);
   };
 
   const openEdit = async (t: (typeof templates)[0]) => {
@@ -283,7 +400,7 @@ export default function ReplyTemplatesView() {
 
     // Always load full data when editing
     try {
-      const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${t.id}`);
+      const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${t.id}?account_id=${activeAccountID}`);
       if (res.ok) {
         const fullTemplate = await res.json();
         // Update the template in the templates array
@@ -293,7 +410,15 @@ export default function ReplyTemplatesView() {
         // Set the loaded data
         setName(fullTemplate.name);
         const payloadData = payloadToTemplateData(templateType, fullTemplate.template_data || {});
-        setTemplateData(Object.keys(payloadData).length > 0 ? payloadData : getDefaultTemplateData(templateType));
+        const finalData = Object.keys(payloadData).length > 0 ? payloadData : getDefaultTemplateData(templateType);
+        setTemplateData(finalData);
+
+        initialValuesRef.current = {
+          name: fullTemplate.name,
+          type: templateType,
+          data: finalData
+        };
+        setHasUnsavedChanges(false);
       } else {
         // Fallback to defaults if loading fails
         setName(t.name); // At least show the name from list
@@ -500,6 +625,10 @@ export default function ReplyTemplatesView() {
   };
 
   const handleSave = async (): Promise<boolean> => {
+    if (!activeAccountID) {
+      setEditorError('Select an Instagram account first.');
+      return false;
+    }
     // Clear previous errors first
     setEditorFieldErrors({});
     setTemplateValidationErrors({});
@@ -515,6 +644,19 @@ export default function ReplyTemplatesView() {
         errs.name = 'Name must be at least 2 characters.';
       } else if (nameBytes > TEMPLATE_NAME_MAX) {
         errs.name = `Name must be at most ${TEMPLATE_NAME_MAX} UTF-8 bytes.`;
+      }
+    }
+
+    // Duplicate name validation (case-insensitive, ignore current edit)
+    const normalizedName = (name || '').trim().toLowerCase();
+    const editId = (editorMode !== null && editorMode !== 'create' && typeof editorMode === 'object') ? editorMode.editId : null;
+    if (normalizedName) {
+      const existingNames = templates.filter(t => t.id !== editId).map(t => t.name || '');
+      const hasDuplicate = existingNames.some(n => (n || '').trim().toLowerCase() === normalizedName);
+      if (hasDuplicate) {
+        const suggested = suggestUniqueName(name, existingNames);
+        if (suggested && suggested !== name) setName(suggested);
+        errs.name = `Template name already exists. Suggested: ${suggested}`;
       }
     }
 
@@ -549,15 +691,15 @@ export default function ReplyTemplatesView() {
     setEditorError(null);
     setEditorFieldErrors({});
     const isEdit = editorMode !== null && editorMode !== 'create';
-    const editId = isEdit && typeof editorMode === 'object' ? editorMode.editId : null;
     try {
       const payload = {
         name: name.trim(),
         template_type: templateType,
+        account_id: activeAccountID,
         template_data: templateDataToPayload(templateType, templateData),
       };
       const url = editId
-        ? `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${editId}`
+        ? `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${editId}?account_id=${activeAccountID}`
         : `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates`;
       const res = await authenticatedFetch(url, {
         method: isEdit ? 'PATCH' : 'POST',
@@ -570,6 +712,12 @@ export default function ReplyTemplatesView() {
         if (!isEdit) setTemplates(prev => [...prev, rec]);
         else setTemplates(prev => prev.map(t => t.id === data.id ? { ...t, ...rec } : t));
         return true;
+      }
+      if (data.field === 'name') {
+        const existingNames = templates.filter(t => t.id !== editId).map(t => t.name || '');
+        const suggested = suggestUniqueName(name, existingNames);
+        if (suggested && suggested !== name) setName(suggested);
+        setEditorFieldErrors({ name: `Template name already exists. Suggested: ${suggested}` });
       }
       setEditorError(data.error || 'Save failed');
       if (data.fields) {
@@ -606,8 +754,14 @@ export default function ReplyTemplatesView() {
 
   // Register unsaved-changes handlers when in editor; clear when in list
   useEffect(() => {
-    if (editorMode !== null) {
-      setHasUnsavedChanges(true);
+    if (editorMode !== null && initialValuesRef.current) {
+      const isNameChanged = name.trim() !== initialValuesRef.current.name.trim();
+      const isTypeChanged = templateType !== initialValuesRef.current.type;
+      const isDataChanged = JSON.stringify(templateData) !== JSON.stringify(initialValuesRef.current.data);
+
+      const hasChanges = isNameChanged || isTypeChanged || isDataChanged;
+
+      setHasUnsavedChanges(hasChanges);
       setSaveUnsavedChanges(() => async () => {
         const ok = await handleSave();
         if (ok) goBack();
@@ -619,24 +773,44 @@ export default function ReplyTemplatesView() {
       setSaveUnsavedChanges(() => async () => true);
       setDiscardUnsavedChanges(() => () => { });
     }
-  }, [editorMode]);
+  }, [editorMode, name, templateType, templateData, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges]);
 
   const requestBack = () => {
-    setShowBackModal(true);
+    if (editorMode !== null) {
+      const isNameChanged = name.trim() !== (initialValuesRef.current?.name?.trim() || '');
+      const isTypeChanged = templateType !== initialValuesRef.current?.type;
+      const isDataChanged = JSON.stringify(templateData) !== JSON.stringify(initialValuesRef.current?.data);
+
+      if (isNameChanged || isTypeChanged || isDataChanged) {
+        setShowBackModal(true);
+      } else {
+        goBack();
+      }
+    } else {
+      goBack();
+    }
   };
 
-  const requestDelete = (id: string, n: string) => {
-    setDeleteModal({ open: true, id, name: n });
+  const requestDelete = (t: (typeof templates)[0]) => {
+    setDeleteModal({ open: true, id: t.id, name: t.name });
     setDeleteError(null);
-    setDeleteLinked([]);
+    const linked = Array.isArray(t.linked_automations)
+      ? t.linked_automations.map((a) => ({
+        id: a.automation_id,
+        title: a.title,
+        automation_type: a.automation_type
+      }))
+      : [];
+    setDeleteLinked(linked);
   };
 
   const confirmDelete = async () => {
     if (!deleteModal.id) return;
+    if (!activeAccountID) return;
     setDeleteError(null);
     try {
       const res = await authenticatedFetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${deleteModal.id}`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${deleteModal.id}?account_id=${activeAccountID}`,
         { method: 'DELETE' }
       );
       const data = await res.json();
@@ -645,7 +819,13 @@ export default function ReplyTemplatesView() {
         fetchList(true);
       } else {
         setDeleteError(data.error || 'Delete failed');
-        if (data.linked && Array.isArray(data.linked)) setDeleteLinked(data.linked);
+        if (data.linked && Array.isArray(data.linked)) {
+          setDeleteLinked(data.linked.map((a: any) => ({
+            id: a.automation_id || a.id,
+            title: a.title,
+            automation_type: a.automation_type
+          })));
+        }
       }
     } catch (e) {
       setDeleteError('Network error');
@@ -654,16 +834,45 @@ export default function ReplyTemplatesView() {
 
   const previewAutomation = useMemo(() => templateToPreviewAutomation(templateType, templateData), [templateType, templateData]);
 
+  const deleteLinkedDescription = useMemo(() => {
+    if (deleteLinked.length === 0) {
+      return `Delete "${deleteModal.name}"? This cannot be undone.`;
+    }
+
+    return (
+      <div className="space-y-3">
+        <p>This template is used by the following automations. Open one to edit/unlink.</p>
+        <div className="flex flex-col gap-2">
+          {deleteLinked.map((a) => (
+            <button
+              key={`${a.automation_type}-${a.id}`}
+              type="button"
+              onClick={() => openAutomation({ id: a.id, title: a.title, automation_type: a.automation_type })}
+              className="w-full text-left px-3 py-2 rounded-lg border border-border bg-card hover:bg-muted/60 transition-colors"
+            >
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                {automationTypeLabel(a.automation_type)}
+              </span>
+              <div className="text-sm font-bold text-foreground truncate">
+                {a.title || 'Untitled'}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }, [deleteLinked, deleteModal.name, openAutomation]);
+
   // Editor page (new page in section instead of popup)
   if (editorMode !== null) {
     return (
-      <div className="max-w-7xl mx-auto py-8 px-4 relative">
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 relative">
         {/* Loading overlay */}
         {editorLoading && (
-          <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-3xl">
+          <div className="absolute inset-0 bg-card/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-3xl">
             <div className="flex flex-col items-center gap-4">
-              <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-              <p className="text-sm font-bold text-gray-900 dark:text-white">Loading Template...</p>
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              <p className="text-sm font-bold text-foreground">Loading Template...</p>
             </div>
           </div>
         )}
@@ -673,15 +882,15 @@ export default function ReplyTemplatesView() {
           <button
             onClick={requestBack}
             disabled={editorLoading}
-            className="p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-all hover:scale-105 disabled:opacity-50"
+            className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105 disabled:opacity-50"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">
+            <h1 className="text-2xl font-black text-foreground uppercase tracking-tight">
               {editorMode === 'create' ? 'Create New Template' : 'Edit Template'}
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               {editorMode === 'create' ? 'Build a reusable template for your automations' : 'Update your template settings'}
             </p>
           </div>
@@ -691,19 +900,19 @@ export default function ReplyTemplatesView() {
           {/* Form column */}
           <div className="space-y-6">
             {editorError && (
-              <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-500/10 border-2 border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm flex items-center gap-3">
+              <div className="p-4 rounded-2xl bg-destructive-muted/40 border-2 border-destructive/30 text-destructive text-sm flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 shrink-0" />
                 <span className="font-bold">{editorError}</span>
               </div>
             )}
 
             {/* Template Name */}
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border-2 border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-card p-6 rounded-2xl border-2 border-border shadow-sm">
               <div className="flex justify-between items-center mb-3">
-                <label className="block text-sm font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">
+                <label className="block text-sm font-black text-foreground uppercase tracking-widest">
                   Template Name
                 </label>
-                <span className={`text-xs font-bold ${getByteLength(name || '') > TEMPLATE_NAME_MAX ? 'text-red-500' : 'text-gray-400'}`}>
+                <span className={`text-xs font-bold ${getByteLength(name || '') > TEMPLATE_NAME_MAX ? 'text-destructive' : 'text-muted-foreground'}`}>
                   {getByteLength(name || '')}/{TEMPLATE_NAME_MAX} bytes
                 </span>
               </div>
@@ -725,14 +934,14 @@ export default function ReplyTemplatesView() {
                     }
                   }
                 }}
-                className={`w-full px-5 py-3.5 rounded-xl border-2 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-bold transition-all ${editorFieldErrors['name']
-                  ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
-                  : 'border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                className={`w-full px-5 py-3.5 rounded-xl border-2 bg-muted/40 text-foreground font-bold transition-all ${editorFieldErrors['name']
+                  ? 'border-destructive focus:border-destructive focus:ring-2 focus:ring-destructive/20'
+                  : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'
                   }`}
                 placeholder="e.g. Welcome Message"
               />
               {editorFieldErrors['name'] && (
-                <p className="mt-2 text-sm font-bold text-red-500 flex items-center gap-1">
+                <p className="mt-2 text-sm font-bold text-destructive flex items-center gap-1">
                   <AlertCircle className="w-4 h-4" />
                   {editorFieldErrors['name']}
                 </p>
@@ -740,8 +949,8 @@ export default function ReplyTemplatesView() {
             </div>
 
             {/* Template Type */}
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border-2 border-gray-200 dark:border-gray-700 shadow-sm">
-              <label className="block text-sm font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-4">
+            <div className="bg-card p-6 rounded-2xl border-2 border-border shadow-sm">
+              <label className="block text-sm font-black text-foreground uppercase tracking-widest mb-4">
                 Template Type
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -758,12 +967,12 @@ export default function ReplyTemplatesView() {
                         setTemplateValidationErrors({});
                       }}
                       className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 text-center transition-all ${isSelected
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-lg shadow-blue-500/10'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'
+                        ? 'border-primary bg-primary/10 text-primary shadow-lg shadow-primary/10'
+                        : 'border-border hover:border-border/70 hover:bg-muted/40'
                         }`}
                     >
-                      <Icon className={`w-6 h-6 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
-                      <span className={`text-xs font-black uppercase tracking-widest ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                      <Icon className={`w-6 h-6 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <span className={`text-xs font-black uppercase tracking-widest ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
                         {opt.label}
                       </span>
                     </button>
@@ -773,8 +982,8 @@ export default function ReplyTemplatesView() {
             </div>
 
             {/* Content Editor */}
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border-2 border-gray-200 dark:border-gray-700 shadow-sm">
-              <label className="block text-sm font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-4">
+            <div className="bg-card p-6 rounded-2xl border-2 border-border shadow-sm">
+              <label className="block text-sm font-black text-foreground uppercase tracking-widest mb-4">
                 Template Content
               </label>
               <SharedTemplateEditor
@@ -792,14 +1001,14 @@ export default function ReplyTemplatesView() {
             <div className="flex gap-4 pt-4">
               <button
                 onClick={requestBack}
-                className="flex-1 px-6 py-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                className="flex-1 px-6 py-4 rounded-xl border-2 border-border bg-card text-foreground font-bold hover:bg-muted/40 transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={async () => { const ok = await handleSave(); if (ok) goBack(); }}
                 disabled={saving}
-                className="flex-1 px-6 py-4 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20"
+                className="flex-1 px-6 py-4 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
               >
                 {saving && <Loader2 className="w-5 h-5 animate-spin" />}
                 {editorMode === 'create' ? 'Create Template' : 'Save Changes'}
@@ -809,17 +1018,17 @@ export default function ReplyTemplatesView() {
 
           {/* Live Preview - Sticky */}
           <div className="xl:sticky xl:top-8 self-start">
-            <div className="rounded-3xl border-2 border-blue-200 dark:border-blue-500/30 bg-gradient-to-br from-blue-50/50 to-white dark:from-blue-500/5 dark:to-gray-900 p-6 shadow-2xl">
-              <div className="flex items-center gap-3 mb-6 pb-4 border-b-2 border-blue-200 dark:border-blue-500/20">
-                <div className="p-2 bg-blue-500 rounded-xl">
-                  <Smartphone className="w-5 h-5 text-white" />
+            <div className="rounded-3xl border-2 border-border bg-muted/30 p-6 shadow-2xl">
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b-2 border-border">
+                <div className="p-2 bg-primary rounded-xl">
+                  <Smartphone className="w-5 h-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">Live Preview</h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">See how it looks on Instagram</p>
+                  <h2 className="text-lg font-black text-foreground uppercase tracking-tight">Live Preview</h2>
+                  <p className="text-xs text-muted-foreground">See how it looks on Instagram</p>
                 </div>
               </div>
-              <div className="flex justify-center bg-white dark:bg-gray-950 rounded-2xl p-4 shadow-inner">
+              <div className="flex justify-center bg-card rounded-2xl p-4 shadow-inner">
                 <SharedMobilePreview
                   mode="automation"
                   automation={previewAutomation as any}
@@ -851,25 +1060,25 @@ export default function ReplyTemplatesView() {
 
   // List view
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4">
+    <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">
+          <h1 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">
             Reply Templates
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Create reusable templates for DM, Post, Reel, Story, and Live automations
           </p>
         </div>
         <div className="flex items-center gap-3">
           {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+          <div className="flex items-center gap-1 p-1 bg-muted rounded-xl">
             <button
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded-lg transition-all ${viewMode === 'grid'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                ? 'bg-card text-primary shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
                 }`}
               title="Grid view"
             >
@@ -878,8 +1087,8 @@ export default function ReplyTemplatesView() {
             <button
               onClick={() => setViewMode('list')}
               className={`p-2 rounded-lg transition-all ${viewMode === 'list'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                ? 'bg-card text-primary shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
                 }`}
               title="List view"
             >
@@ -890,7 +1099,7 @@ export default function ReplyTemplatesView() {
           <button
             onClick={() => fetchList(true)}
             disabled={loading}
-            className="p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-3 rounded-xl border-2 border-border bg-card text-foreground hover:bg-muted/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             title="Refresh templates"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -898,7 +1107,7 @@ export default function ReplyTemplatesView() {
           {/* Create Button */}
           <button
             onClick={openCreate}
-            className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-blue-600 text-white text-sm font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
+            className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
           >
             <Plus className="w-5 h-5" />
             Create Template
@@ -907,7 +1116,7 @@ export default function ReplyTemplatesView() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-500/10 border-2 border-red-200 dark:border-red-500/20 flex items-center gap-3 text-red-600 dark:text-red-400">
+        <div className="mb-6 p-4 rounded-2xl bg-destructive-muted/40 border-2 border-destructive/30 flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5 shrink-0" />
           <span className="font-bold">{error}</span>
         </div>
@@ -916,17 +1125,17 @@ export default function ReplyTemplatesView() {
       {loading ? (
         <LoadingOverlay variant="fullscreen" message="Loading Reply Templates" subMessage="Fetching your templates..." />
       ) : templates.length === 0 ? (
-        <div className="py-20 text-center rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
-          <div className="inline-flex p-4 bg-blue-100 dark:bg-blue-500/20 rounded-2xl mb-6">
-            <LayoutTemplate className="w-12 h-12 text-blue-500" />
+        <div className="py-20 text-center rounded-3xl border-2 border-dashed border-border bg-muted/40">
+          <div className="inline-flex p-4 bg-primary/10 rounded-2xl mb-6">
+            <LayoutTemplate className="w-12 h-12 text-primary" />
           </div>
-          <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">No Templates Yet</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+          <h3 className="text-xl font-black text-foreground mb-2">No Templates Yet</h3>
+          <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
             Create your first reply template to reuse across all your automations
           </p>
           <button
             onClick={openCreate}
-            className="px-6 py-3.5 rounded-xl bg-blue-600 text-white text-sm font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
+            className="px-6 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
           >
             <Plus className="w-5 h-5 inline mr-2" />
             Create Your First Template
@@ -942,57 +1151,51 @@ export default function ReplyTemplatesView() {
             return (
               <div
                 key={t.id}
-                className={`bg-white dark:bg-gray-900 rounded-2xl border-2 border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-xl group ${viewMode === 'list' ? 'p-4 flex items-center gap-4' : 'p-6'
+                className={`bg-card rounded-2xl border-2 border-border hover:border-primary transition-all shadow-sm hover:shadow-xl group ${viewMode === 'list' ? 'p-4 flex items-center gap-4' : 'p-6'
                   }`}
               >
                 {viewMode === 'list' ? (
                   <>
                     {/* Serial Number */}
-                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-black text-sm">
+                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 text-primary font-black text-sm">
                       {index + 1}
                     </div>
                     {/* Icon */}
-                    <div className="flex-shrink-0 p-3 bg-blue-50 dark:bg-blue-500/10 rounded-xl group-hover:bg-blue-100 dark:group-hover:bg-blue-500/20 transition-colors">
-                      <Icon className="w-6 h-6 text-blue-500" />
+                    <div className="flex-shrink-0 p-3 bg-primary/10 rounded-xl group-hover:bg-primary/15 transition-colors">
+                      <Icon className="w-6 h-6 text-primary" />
                     </div>
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-black text-gray-900 dark:text-white mb-1 truncate">
+                      <h3 className="text-lg font-black text-foreground mb-1 truncate">
                         {t.name}
                       </h3>
-                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
                         {typeLabel(t.template_type)}
                       </span>
-                      {t.linked_automations && t.linked_automations.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {t.linked_automations.slice(0, 3).map((a) => (
-                            <span
-                              key={a.automation_id}
-                              className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                            >
-                              {automationTypeLabel(a.automation_type)}
-                            </span>
-                          ))}
-                          {t.linked_automations.length > 3 && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                              +{t.linked_automations.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() => openLinkedAutomations(t)}
+                          disabled={getAutomationCount(t) === 0}
+                          className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold bg-primary/10 text-primary disabled:opacity-60 disabled:cursor-not-allowed hover:bg-primary/15 transition-colors"
+                          title={getAutomationCount(t) === 0 ? 'No linked automations' : 'View linked automations'}
+                        >
+                          {getAutomationCount(t)} Automations
+                        </button>
+                      </div>
                     </div>
                     {/* Actions */}
                     <div className="flex-shrink-0 flex items-center gap-2">
                       <button
                         onClick={() => openEdit(t)}
-                        className="px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                        className="px-4 py-2.5 rounded-xl border-2 border-border bg-card text-foreground font-bold hover:bg-muted/40 transition-all"
                       >
                         <Pencil className="w-4 h-4 inline mr-2" />
                         Edit
                       </button>
                       <button
-                        onClick={() => requestDelete(t.id, t.name)}
-                        className="px-4 py-2.5 rounded-xl border-2 border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-bold hover:bg-red-100 dark:hover:bg-red-500/20 transition-all"
+                        onClick={() => requestDelete(t)}
+                        className="px-4 py-2.5 rounded-xl border-2 border-destructive/30 bg-destructive-muted/40 text-destructive font-bold hover:bg-destructive-muted/60 transition-all"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1003,48 +1206,52 @@ export default function ReplyTemplatesView() {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
                         {/* Serial Number */}
-                        <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-black text-xs">
+                        <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary font-black text-xs">
                           {index + 1}
                         </div>
-                        <div className="p-3 bg-blue-50 dark:bg-blue-500/10 rounded-xl group-hover:bg-blue-100 dark:group-hover:bg-blue-500/20 transition-colors">
-                          <Icon className="w-6 h-6 text-blue-500" />
+                        <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/15 transition-colors">
+                          <Icon className="w-6 h-6 text-primary" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-black text-gray-900 dark:text-white mb-1">
+                          <h3 className="text-lg font-black text-foreground mb-1">
                             {t.name}
                           </h3>
-                          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
                             {typeLabel(t.template_type)}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Show Usage Count */}
-                    {(t.automation_count !== undefined ? t.automation_count > 0 : (t.linked_automations && t.linked_automations.length > 0)) && (
-                      <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-                        <p className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
-                          Used By
-                        </p>
-                        <div className="flex flex-wrap gap-1.5 align-middle">
-                          <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                            {t.automation_count !== undefined ? t.automation_count : t.linked_automations?.length} Automations
-                          </span>
-                        </div>
+                    {/* Live Usage Count Badge */}
+                    <div className="mb-4 pb-4 border-b border-border">
+                      <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                        Used By
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 align-middle">
+                        <button
+                          type="button"
+                          onClick={() => openLinkedAutomations(t)}
+                          disabled={getAutomationCount(t) === 0}
+                          className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold bg-primary/10 text-primary disabled:opacity-60 disabled:cursor-not-allowed hover:bg-primary/15 transition-colors"
+                          title={getAutomationCount(t) === 0 ? 'No linked automations' : 'View linked automations'}
+                        >
+                          {getAutomationCount(t)} Automations
+                        </button>
                       </div>
-                    )}
+                    </div>
 
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => openEdit(t)}
-                        className="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                        className="flex-1 px-4 py-2.5 rounded-xl border-2 border-border bg-card text-foreground font-bold hover:bg-muted/40 transition-all"
                       >
                         <Pencil className="w-4 h-4 inline mr-2" />
                         Edit
                       </button>
                       <button
-                        onClick={() => requestDelete(t.id, t.name)}
-                        className="px-4 py-2.5 rounded-xl border-2 border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 font-bold hover:bg-red-100 dark:hover:bg-red-500/20 transition-all"
+                        onClick={() => requestDelete(t)}
+                        className="px-4 py-2.5 rounded-xl border-2 border-destructive/30 bg-destructive-muted/40 text-destructive font-bold hover:bg-destructive-muted/60 transition-all"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1063,11 +1270,7 @@ export default function ReplyTemplatesView() {
         onClose={() => { setDeleteModal({ open: false, id: '', name: '' }); setDeleteLinked([]); setDeleteError(null); }}
         onConfirm={deleteLinked.length > 0 ? () => { setDeleteModal({ open: false, id: '', name: '' }); setDeleteLinked([]); setDeleteError(null); } : confirmDelete}
         title="Delete template?"
-        description={
-          deleteLinked.length > 0
-            ? `This template is used by: ${deleteLinked.map(a => `${automationTypeLabel(a.automation_type)}: ${a.title || 'Untitled'}`).join(', ')}. Unlink them first.`
-            : `Delete "${deleteModal.name}"? This cannot be undone.`
-        }
+        description={deleteLinkedDescription}
         type="danger"
         confirmLabel={deleteLinked.length > 0 ? 'OK' : 'Delete'}
         cancelLabel="Cancel"
@@ -1076,6 +1279,47 @@ export default function ReplyTemplatesView() {
       {deleteError && deleteLinked.length === 0 && deleteModal.open && (
         <p className="mt-2 text-sm text-destructive">{deleteError}</p>
       )}
+
+      {/* Linked automations list */}
+      <ModernConfirmModal
+        isOpen={linkedModal.open}
+        onClose={() => setLinkedModal(prev => ({ ...prev, open: false }))}
+        onConfirm={() => setLinkedModal(prev => ({ ...prev, open: false }))}
+        title={linkedModal.templateName ? `${linkedModal.templateName} Automations` : 'Linked Automations'}
+        description={
+          linkedModal.loading ? (
+            <div className="text-center py-2">Loading linked automations...</div>
+          ) : linkedModal.error ? (
+            <div className="text-destructive text-center">{linkedModal.error}</div>
+          ) : (
+            <div className="space-y-3">
+              <p>Click an automation to open it.</p>
+              <div className="flex flex-col gap-2">
+                {linkedModal.automations.map((a) => (
+                  <button
+                    key={`${a.automation_type}-${a.automation_id}`}
+                    type="button"
+                    onClick={() => openAutomation(a)}
+                    className="w-full text-left px-3 py-2 rounded-lg border border-border bg-card hover:bg-muted/60 transition-colors"
+                  >
+                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      {automationTypeLabel(a.automation_type)}
+                    </span>
+                    <div className="text-sm font-bold text-foreground truncate">
+                      {a.title || 'Untitled'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        }
+        type="info"
+        confirmLabel="Close"
+        cancelLabel="Cancel"
+        oneButton
+      />
     </div>
   );
 }
+

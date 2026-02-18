@@ -1,4 +1,18 @@
 /** @type {import('tailwindcss').Config} */
+const withOpacity = (cssVar) => `rgb(var(${cssVar}) / <alpha-value>)`;
+const scale = (name) => ({
+  50: withOpacity(`--${name}-50`),
+  100: withOpacity(`--${name}-100`),
+  200: withOpacity(`--${name}-200`),
+  300: withOpacity(`--${name}-300`),
+  400: withOpacity(`--${name}-400`),
+  500: withOpacity(`--${name}-500`),
+  600: withOpacity(`--${name}-600`),
+  700: withOpacity(`--${name}-700`),
+  800: withOpacity(`--${name}-800`),
+  900: withOpacity(`--${name}-900`),
+});
+
 export default {
   darkMode: 'class',
   content: [
@@ -8,6 +22,20 @@ export default {
   theme: {
     extend: {
       colors: {
+        gray: scale('neutral'),
+        slate: scale('neutral'),
+        zinc: scale('neutral'),
+        neutral: scale('neutral'),
+        stone: scale('neutral'),
+        blue: scale('blue'),
+        indigo: scale('blue'),
+        purple: scale('purple'),
+        pink: scale('pink'),
+        red: scale('red'),
+        orange: scale('orange'),
+        yellow: scale('yellow'),
+        green: scale('green'),
+        emerald: scale('green'),
         border: 'rgb(var(--border) / <alpha-value>)',
         'border-hover': 'rgb(var(--border-hover) / <alpha-value>)',
         input: 'rgb(var(--input) / <alpha-value>)',

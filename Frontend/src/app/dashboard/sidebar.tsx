@@ -261,8 +261,8 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                         "w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                         isCollapsed && "justify-center px-2",
                         isActive
-                          ? "bg-gradient-to-r from-ig-purple to-ig-blue text-white shadow-lg shadow-primary/25"
-                          : "text-muted-foreground hover:bg-primary/10 hover:text-primary",
+                          ? "bg-gradient-to-r from-ig-purple via-ig-pink to-ig-orange text-white shadow-lg shadow-primary/25 ring-1 ring-white/30"
+                          : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                         !isActive && !hasLinkedInstagram && section.title === 'Automation' && "opacity-80"
                       )}
                     >
@@ -289,10 +289,13 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
         </nav>
 
         {/* Account Switcher - Fixed at bottom, lifted upward with modern design */}
-        <div className="px-2 sm:px-3 pt-3 pb-5 sm:pb-6 border-t border-sidebar-border flex-shrink-0 mt-auto relative mb-[33.88px]" ref={profileMenuRef}>
+        <div className="px-2 sm:px-3 pt-3 pb-6 sm:pb-7 border-t border-sidebar-border flex-shrink-0 mt-auto relative mb-[3.25rem]" ref={profileMenuRef}>
           {/* Flyout Menu */}
           <div className={cn(
-            "absolute bottom-full left-1 right-1 sm:left-2 sm:right-2 mb-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-[100] transition-all duration-200",
+            "ig-topline absolute bottom-full mb-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-[100] transition-all duration-200",
+            isCollapsed
+              ? "left-full ml-3 w-64 origin-left"
+              : "left-1 right-1 sm:left-2 sm:right-2",
             isProfileMenuOpen
               ? "opacity-100 translate-y-0 visible"
               : "opacity-0 translate-y-2 invisible pointer-events-none"
@@ -397,7 +400,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                     handleNavigation('Account Settings');
                     setProfileMenuOpen(false);
                   }}
-                  className="w-full flex items-center gap-2 p-2.5 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all duration-200"
+                  className="w-full flex items-center gap-2 p-2.5 rounded-xl text-muted-foreground hover:text-primary hover:bg-secondary transition-all duration-200"
                 >
                   <Plus className="w-4 h-4" />
                   {!isCollapsed && (
@@ -413,20 +416,17 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
             onClick={() => setProfileMenuOpen(!isProfileMenuOpen)}
             className={cn(
               "w-full flex items-center gap-2 p-2.5 sm:p-3 rounded-2xl",
-              "bg-gradient-to-br from-sidebar-accent via-sidebar-accent to-sidebar-accent/90",
-              "hover:from-primary/5 hover:via-ig-pink/5 hover:to-ig-yellow/5",
-              "backdrop-blur-sm",
-              "shadow-sm hover:shadow-lg hover:shadow-primary/10",
-              "border border-sidebar-border/50 hover:border-primary/30",
-              "transition-all duration-300 ease-out",
+              "bg-card border border-sidebar-border shadow-sm",
+              "hover:shadow-md hover:border-primary/30",
+              "transition-all duration-200 ease-out",
               "min-h-[52px]",
               "group relative overflow-hidden",
               "hover:scale-[1.02] active:scale-[0.98]",
-              isCollapsed && "justify-center p-2.5 gap-0"
+              isCollapsed && "justify-center p-2.5 gap-0 rounded-full min-h-0 h-11 w-11 mx-auto"
             )}
           >
-            {/* Animated Instagram gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-ig-blue/0 via-primary/5 via-ig-pink/5 to-ig-yellow/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            {/* Subtle Instagram gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-ig-purple/0 via-ig-pink/5 to-ig-yellow/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
             {/* Profile Picture with Instagram story ring effect */}
             {activeAccount ? (
@@ -440,21 +440,24 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                     src={activeAccount.profile_picture_url || '/images/logo.png'}
                     alt="Profile"
                     className={cn(
-                      "relative w-10 h-10 rounded-full object-cover",
+                      isCollapsed ? "relative w-9 h-9" : "relative w-10 h-10",
+                      "rounded-full object-cover",
                       "border-2 border-card",
                       "transition-all duration-300 ease-out",
                       "group-hover:scale-105"
                     )}
                   />
                 </div>
-                <div className={cn(
-                  "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full",
-                  "border-2 border-card shadow-md",
-                  "transition-all duration-300",
-                  activeAccount.status === 'active'
-                    ? "bg-success group-hover:shadow-success/50"
-                    : "bg-muted-foreground/40"
-                )} />
+                {!isCollapsed && (
+                  <div className={cn(
+                    "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full",
+                    "border-2 border-card shadow-md",
+                    "transition-all duration-300",
+                    activeAccount.status === 'active'
+                      ? "bg-success group-hover:shadow-success/50"
+                      : "bg-muted-foreground/40"
+                  )} />
+                )}
               </div>
             ) : (
               <div className="relative flex-shrink-0 z-10">
@@ -462,7 +465,10 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                   "p-[2px] rounded-full transition-all duration-300",
                   "bg-border group-hover:bg-gradient-to-tr group-hover:from-ig-yellow group-hover:via-ig-pink group-hover:to-ig-purple"
                 )}>
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center border-2 border-card">
+                  <div className={cn(
+                    isCollapsed ? "w-9 h-9" : "w-10 h-10",
+                    "rounded-full bg-muted flex items-center justify-center border-2 border-card"
+                  )}>
                     <Instagram className="w-5 h-5 text-muted-foreground transition-colors duration-300 group-hover:text-primary" />
                   </div>
                 </div>
@@ -474,7 +480,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
               <>
                 <div className="flex-1 min-w-0 text-left z-10 overflow-hidden">
                   <p className={cn(
-                    "text-xs font-semibold break-words",
+                    "text-xs font-semibold truncate",
                     "text-foreground group-hover:text-primary",
                     "transition-colors duration-300 ease-out",
                     "leading-tight"

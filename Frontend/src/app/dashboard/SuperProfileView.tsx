@@ -1,38 +1,27 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Users, Plus, RefreshCw, AlertCircle, Trash2, Loader2, Save, X, Link as LinkIcon, Instagram, Facebook, Twitter, Youtube, Music, Globe, Mail, Phone, MapPin, ExternalLink, Copy, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Users, Plus, AlertCircle, Trash2, Loader2, Save, Link as LinkIcon, ExternalLink, Copy, CheckCircle2 } from 'lucide-react';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import { useDashboard } from '../../contexts/DashboardContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { SOCIAL_ICONS, SocialIcon } from '../../lib/superProfileIcons';
 
 interface Button {
     id: string;
     title: string;
     url: string;
-    icon?: string; // Social media icon name or 'default'
+    icon?: string;
 }
 
-const SOCIAL_ICONS = [
-    { name: 'instagram', icon: Instagram, label: 'Instagram' },
-    { name: 'facebook', icon: Facebook, label: 'Facebook' },
-    { name: 'twitter', icon: Twitter, label: 'Twitter' },
-    { name: 'youtube', icon: Youtube, label: 'YouTube' },
-    { name: 'tiktok', icon: Music, label: 'TikTok' },
-    { name: 'email', icon: Mail, label: 'Email' },
-    { name: 'phone', icon: Phone, label: 'Phone' },
-    { name: 'location', icon: MapPin, label: 'Location' },
-    { name: 'website', icon: Globe, label: 'Website' },
-    { name: 'default', icon: ExternalLink, label: 'Default' },
-];
-
-const TEMPLATE_PREVIEWS = Array.from({ length: 10 }, (_, i) => ({
-    id: String(i + 1),
-    name: `Template ${i + 1}`,
-    preview: `/images/template-${i + 1}.png`, // Placeholder - you can add actual preview images
-}));
-
 const SuperProfileView: React.FC = () => {
-    const { activeAccountID, activeAccount } = useDashboard();
+    const {
+        activeAccountID,
+        activeAccount,
+        setHasUnsavedChanges,
+        setSaveUnsavedChanges,
+        setDiscardUnsavedChanges
+    } = useDashboard();
     const { authenticatedFetch } = useAuth();
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -40,12 +29,30 @@ const SuperProfileView: React.FC = () => {
     const [copied, setCopied] = useState(false);
     
     const [slug, setSlug] = useState('');
-    const [templateId, setTemplateId] = useState('1');
     const [buttons, setButtons] = useState<Button[]>([]);
     const [isActive, setIsActive] = useState(true);
     const [publicUrl, setPublicUrl] = useState('');
     const fetchingRef = useRef(false);
     const lastFetchedAccountIdRef = useRef<string | null>(null);
+    const initialProfileRef = useRef<{ buttons: Button[]; isActive: boolean } | null>(null);
+
+    const buildSnapshot = useCallback((buttonsState: Button[], isActiveState: boolean) => {
+        return JSON.stringify({
+            isActive: isActiveState,
+            buttons: buttonsState.map((b) => ({
+                id: b.id,
+                title: b.title,
+                url: b.url,
+                icon: b.icon || 'internet'
+            }))
+        });
+    }, []);
+
+    const isValidUrl = useCallback((value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed) return false;
+        return /^https?:\/\/\S+$/i.test(trimmed);
+    }, []);
 
     const fetchProfile = useCallback(async () => {
         if (!activeAccountID) {
@@ -72,19 +79,32 @@ const SuperProfileView: React.FC = () => {
             );
             if (res.ok) {
                 const data = await res.json();
-                setSlug(data.slug || '');
-                setTemplateId(data.template_id || '1');
-                setButtons(data.buttons || []);
-                setIsActive(data.is_active !== false);
+                setSlug(activeAccount?.ig_user_id || data.slug || '');
+                const normalizedButtons = (data.buttons || []).map((btn: Button) => ({
+                    ...btn,
+                    icon: btn.icon || 'internet'
+                }));
+                const nextIsActive = data.is_active !== false;
+                setButtons(normalizedButtons);
+                setIsActive(nextIsActive);
                 setPublicUrl(data.public_url || '');
+                initialProfileRef.current = {
+                    buttons: normalizedButtons,
+                    isActive: nextIsActive
+                };
+                setHasUnsavedChanges(false);
                 lastFetchedAccountIdRef.current = activeAccountID;
             } else if (res.status === 404) {
                 // Profile doesn't exist yet
-                setSlug('');
-                setTemplateId('1');
+                setSlug(activeAccount?.ig_user_id || '');
                 setButtons([]);
                 setIsActive(true);
                 setPublicUrl('');
+                initialProfileRef.current = {
+                    buttons: [],
+                    isActive: true
+                };
+                setHasUnsavedChanges(false);
                 lastFetchedAccountIdRef.current = activeAccountID;
             } else {
                 const data = await res.json();
@@ -96,7 +116,7 @@ const SuperProfileView: React.FC = () => {
             setLoading(false);
             fetchingRef.current = false;
         }
-    }, [activeAccountID, authenticatedFetch]);
+    }, [activeAccountID, activeAccount?.ig_user_id, authenticatedFetch, setHasUnsavedChanges]);
 
     useEffect(() => {
         // Reset last fetched account ID when account changes
@@ -106,28 +126,38 @@ const SuperProfileView: React.FC = () => {
         fetchProfile();
     }, [activeAccountID, fetchProfile]);
 
-    const handleSave = async () => {
-        if (!activeAccountID) return;
+    useEffect(() => {
+        if (activeAccount?.ig_user_id) {
+            setSlug(activeAccount.ig_user_id);
+        }
+    }, [activeAccount?.ig_user_id]);
+
+    const handleSave = useCallback(async (): Promise<boolean> => {
+        if (!activeAccountID) return false;
 
         if (!slug.trim()) {
-            setError('Slug is required.');
-            return;
+            setError('Instagram account ID is required.');
+            return false;
         }
 
         if (buttons.length === 0) {
             setError('At least one button is required.');
-            return;
+            return false;
         }
 
         // Validate buttons
         for (const btn of buttons) {
             if (!btn.title.trim()) {
                 setError('All buttons must have a title.');
-                return;
+                return false;
             }
             if (!btn.url.trim()) {
                 setError('All buttons must have a URL.');
-                return;
+                return false;
+            }
+            if (!isValidUrl(btn.url)) {
+                setError('All URLs must start with http:// or https://');
+                return false;
             }
         }
 
@@ -142,8 +172,7 @@ const SuperProfileView: React.FC = () => {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    slug: slug.trim(),
-                    template_id: templateId,
+                    template_id: '1',
                     buttons: buttons,
                     is_active: isActive
                 })
@@ -154,6 +183,12 @@ const SuperProfileView: React.FC = () => {
                 setPublicUrl(data.public_url);
                 setSuccess('Profile saved successfully!');
                 setTimeout(() => setSuccess(null), 3000);
+                initialProfileRef.current = {
+                    buttons: buttons.map((b) => ({ ...b })),
+                    isActive
+                };
+                setHasUnsavedChanges(false);
+                return true;
             } else {
                 const data = await res.json();
                 setError(data.error || 'Failed to save profile.');
@@ -163,14 +198,24 @@ const SuperProfileView: React.FC = () => {
         } finally {
             setSaving(false);
         }
-    };
+        return false;
+    }, [activeAccountID, buttons, isActive, publicUrl, setHasUnsavedChanges, slug, authenticatedFetch, isValidUrl]);
+
+    const discardChanges = useCallback(() => {
+        if (!initialProfileRef.current) return;
+        setButtons(initialProfileRef.current.buttons.map((b) => ({ ...b })));
+        setIsActive(initialProfileRef.current.isActive);
+        setError(null);
+        setSuccess(null);
+        setHasUnsavedChanges(false);
+    }, [setHasUnsavedChanges]);
 
     const addButton = () => {
         if (buttons.length >= 50) {
             setError('Maximum 50 buttons allowed.');
             return;
         }
-        setButtons([...buttons, { id: Date.now().toString(), title: '', url: '', icon: 'default' }]);
+        setButtons([...buttons, { id: Date.now().toString(), title: '', url: '', icon: 'internet' }]);
     };
 
     const removeButton = (id: string) => {
@@ -181,22 +226,65 @@ const SuperProfileView: React.FC = () => {
         setButtons(buttons.map(b => b.id === id ? { ...b, [field]: value } : b));
     };
 
-    const copyUrl = () => {
+    const getDisplayUrl = () => {
         if (publicUrl) {
-            navigator.clipboard.writeText(publicUrl);
+            return publicUrl.startsWith('http://') || publicUrl.startsWith('https://')
+                ? publicUrl
+                : `${origin}${publicUrl.startsWith('/') ? publicUrl : `/${publicUrl}`}`;
+        }
+        if (!slug) return '';
+        return `${origin}/superprofile/${slug}`;
+    };
+
+    const copyUrl = () => {
+        const url = getDisplayUrl();
+        if (url) {
+            navigator.clipboard.writeText(url);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }
     };
 
+    const hasAnyChanges = useMemo(() => {
+        if (!initialProfileRef.current) return false;
+        const currentSnapshot = buildSnapshot(buttons, isActive);
+        const initialSnapshot = buildSnapshot(initialProfileRef.current.buttons, initialProfileRef.current.isActive);
+        return currentSnapshot !== initialSnapshot;
+    }, [buttons, isActive, buildSnapshot]);
+
+    const isFormValid = useMemo(() => {
+        if (!slug.trim() || buttons.length === 0) return false;
+        return buttons.every((btn) => btn.title.trim() && isValidUrl(btn.url));
+    }, [buttons, slug, isValidUrl]);
+
+    useEffect(() => {
+        setHasUnsavedChanges(hasAnyChanges);
+    }, [hasAnyChanges, setHasUnsavedChanges]);
+
+    useEffect(() => {
+        setSaveUnsavedChanges(() => handleSave);
+        setDiscardUnsavedChanges(() => discardChanges);
+    }, [discardChanges, handleSave, setDiscardUnsavedChanges, setSaveUnsavedChanges]);
+
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasAnyChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasAnyChanges]);
+
     if (!activeAccountID) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
-                <div className="w-20 h-20 bg-gradient-to-tr from-amber-400 to-orange-600 rounded-[28%] flex items-center justify-center text-white mb-6 shadow-2xl shadow-amber-500/20">
+                <div className="w-20 h-20 bg-primary rounded-[28%] flex items-center justify-center text-primary-foreground mb-6 shadow-2xl shadow-primary/20">
                     <Users className="w-10 h-10" />
                 </div>
-                <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-3">Select Instagram Account</h2>
-                <p className="text-gray-500 max-w-md mb-8 font-medium">Super Profile requires an active Instagram Business account.</p>
+                <h2 className="text-3xl font-black text-foreground mb-3">Select Instagram Account</h2>
+                <p className="text-muted-foreground max-w-md mb-8 font-medium">Super Profile requires an active Instagram Business account.</p>
             </div>
         );
     }
@@ -206,23 +294,23 @@ const SuperProfileView: React.FC = () => {
     }
 
     return (
-        <div className="max-w-6xl mx-auto py-8 px-6 space-y-6">
+        <div className="max-w-6xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-black text-gray-900 dark:text-white">Super Profile</h1>
-                    <p className="text-sm text-gray-500 mt-1">Create a high-converting link-in-bio page for your Instagram account.</p>
+                    <h1 className="text-2xl font-black text-foreground">Super Profile</h1>
+                    <p className="text-sm text-muted-foreground mt-1">Create a high-converting link-in-bio page for your Instagram account.</p>
                 </div>
             </div>
 
             {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-600 text-sm font-bold">
+                <div className="p-4 bg-destructive-muted/40 border border-destructive/30 rounded-2xl flex items-center gap-3 text-destructive text-sm font-bold">
                     <AlertCircle className="w-5 h-5 shrink-0" />
                     {error}
                 </div>
             )}
 
             {success && (
-                <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-center gap-3 text-green-600 text-sm font-bold">
+                <div className="p-4 bg-success-muted/60 border border-success/30 rounded-2xl flex items-center gap-3 text-success text-sm font-bold">
                     <CheckCircle2 className="w-5 h-5 shrink-0" />
                     {success}
                 </div>
@@ -231,59 +319,14 @@ const SuperProfileView: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column: Configuration */}
                 <div className="space-y-6">
-                    {/* Slug */}
-                    <div className="bg-white dark:bg-gray-950 border border-border rounded-2xl p-6 space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-900 dark:text-white">Profile URL Slug *</label>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-400">/profile/</span>
-                                <input
-                                    type="text"
-                                    value={slug}
-                                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                                    className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                    placeholder="your-username"
-                                />
-                            </div>
-                            <p className="text-xs text-gray-400">Only lowercase letters, numbers, and hyphens allowed.</p>
-                        </div>
-                    </div>
-
-                    {/* Template Selection */}
-                    <div className="bg-white dark:bg-gray-950 border border-border rounded-2xl p-6 space-y-4">
-                        <label className="text-sm font-bold text-gray-900 dark:text-white">Select Template</label>
-                        <div className="grid grid-cols-5 gap-3">
-                            {TEMPLATE_PREVIEWS.map((template) => (
-                                <button
-                                    key={template.id}
-                                    onClick={() => setTemplateId(template.id)}
-                                    className={`relative aspect-square rounded-xl border-2 transition-all ${
-                                        templateId === template.id
-                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10 ring-2 ring-blue-500/20'
-                                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                                    }`}
-                                >
-                                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 rounded-lg">
-                                        <span className="text-xs font-bold text-gray-400">{template.id}</span>
-                                    </div>
-                                    {templateId === template.id && (
-                                        <div className="absolute top-1 right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                                            <CheckCircle2 className="w-3 h-3 text-white" />
-                                        </div>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
                     {/* Buttons */}
-                    <div className="bg-white dark:bg-gray-950 border border-border rounded-2xl p-6 space-y-4">
+                    <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
                         <div className="flex items-center justify-between">
-                            <label className="text-sm font-bold text-gray-900 dark:text-white">Buttons ({buttons.length}/50)</label>
+                            <label className="text-sm font-bold text-foreground">Buttons ({buttons.length}/50)</label>
                             <button
                                 onClick={addButton}
                                 disabled={buttons.length >= 50}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <Plus className="w-4 h-4" />
                                 Add Button
@@ -292,64 +335,69 @@ const SuperProfileView: React.FC = () => {
 
                         <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar">
                             {buttons.map((button, index) => {
-                                const IconComponent = SOCIAL_ICONS.find(si => si.name === button.icon)?.icon || ExternalLink;
                                 return (
-                                    <div key={button.id} className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
+                                    <div key={button.id} className="p-4 bg-muted/40 rounded-xl border border-border space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-xs font-bold text-gray-400">Button {index + 1}</span>
+                                            <span className="text-xs font-bold text-muted-foreground">Button {index + 1}</span>
                                             <button
                                                 onClick={() => removeButton(button.id)}
-                                                className="p-1.5 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                                className="p-1.5 hover:bg-destructive-muted/60 rounded-lg transition-colors"
                                             >
-                                                <Trash2 className="w-4 h-4 text-red-500" />
+                                                <Trash2 className="w-4 h-4 text-destructive" />
                                             </button>
                                         </div>
                                         
                                         <div className="space-y-2">
                                             <div>
-                                                <label className="text-xs font-bold text-gray-400 mb-1 block">Icon</label>
-                                                <div className="grid grid-cols-5 gap-2">
-                                                    {SOCIAL_ICONS.map((si) => {
-                                                        const Icon = si.icon;
-                                                        return (
-                                                            <button
-                                                                key={si.name}
-                                                                type="button"
-                                                                onClick={() => updateButton(button.id, 'icon', si.name)}
-                                                                className={`p-2 rounded-lg border-2 transition-all ${
-                                                                    button.icon === si.name
-                                                                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10'
-                                                                        : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                                                                }`}
-                                                                title={si.label}
-                                                            >
-                                                                <Icon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                            
-                                            <div>
-                                                <label className="text-xs font-bold text-gray-400 mb-1 block">Button Title *</label>
+                                                <label className="text-xs font-bold text-muted-foreground mb-1 block">Button Title *</label>
                                                 <input
                                                     type="text"
                                                     value={button.title}
                                                     onChange={(e) => updateButton(button.id, 'title', e.target.value)}
-                                                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                    className={`w-full px-3 py-2 bg-card border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${!button.title.trim() ? 'border-destructive' : 'border-border'}`}
                                                     placeholder="e.g., Visit My Website"
                                                 />
+                                                {!button.title.trim() && (
+                                                    <p className="mt-1 text-[11px] font-semibold text-destructive">Title is required.</p>
+                                                )}
                                             </div>
                                             
                                             <div>
-                                                <label className="text-xs font-bold text-gray-400 mb-1 block">URL *</label>
+                                                <label className="text-xs font-bold text-muted-foreground mb-1 block">URL *</label>
                                                 <input
                                                     type="url"
                                                     value={button.url}
                                                     onChange={(e) => updateButton(button.id, 'url', e.target.value)}
-                                                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                    className={`w-full px-3 py-2 bg-card border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${!button.url.trim() || !isValidUrl(button.url) ? 'border-destructive' : 'border-border'}`}
                                                     placeholder="https://example.com"
                                                 />
+                                                {!button.url.trim() ? (
+                                                    <p className="mt-1 text-[11px] font-semibold text-destructive">URL is required.</p>
+                                                ) : !isValidUrl(button.url) ? (
+                                                    <p className="mt-1 text-[11px] font-semibold text-destructive">Enter a valid URL starting with http:// or https://</p>
+                                                ) : null}
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-muted-foreground mb-2 block">Icon</label>
+                                                <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
+                                                    {SOCIAL_ICONS.slice(0, 15).map((icon) => (
+                                                        <button
+                                                            key={icon.id}
+                                                            type="button"
+                                                            onClick={() => updateButton(button.id, 'icon', icon.id)}
+                                                            className={`h-9 w-9 rounded-lg border flex items-center justify-center transition-all ${
+                                                                (button.icon || 'internet') === icon.id
+                                                                    ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
+                                                                    : 'border-border bg-card hover:border-primary/60 dark:bg-slate-900'
+                                                            }`}
+                                                            title={icon.label}
+                                                            aria-label={icon.label}
+                                                        >
+                                                            <SocialIcon id={icon.id} className="h-4 w-4 text-slate-800 dark:text-white" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <p className="text-[11px] text-muted-foreground mt-2">Pick a logo that matches your link.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -359,19 +407,19 @@ const SuperProfileView: React.FC = () => {
                     </div>
 
                     {/* Active Toggle */}
-                    <div className="bg-white dark:bg-gray-950 border border-border rounded-2xl p-6">
+                    <div className="bg-card border border-border rounded-2xl p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <label className="text-sm font-bold text-gray-900 dark:text-white">Profile Active</label>
-                                <p className="text-xs text-gray-400 mt-1">Make your profile publicly accessible</p>
+                                <label className="text-sm font-bold text-foreground">Profile Active</label>
+                                <p className="text-xs text-muted-foreground mt-1">Make your profile publicly accessible</p>
                             </div>
                             <button
                                 onClick={() => setIsActive(!isActive)}
                                 className={`relative w-12 h-6 rounded-full border-2 transition-colors ${
-                                    isActive ? 'bg-blue-500 border-blue-500' : 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                                    isActive ? 'bg-primary border-primary' : 'bg-muted border-border'
                                 }`}
                             >
-                                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${
                                     isActive ? 'left-[22px]' : 'left-0.5'
                                 }`} />
                             </button>
@@ -381,8 +429,8 @@ const SuperProfileView: React.FC = () => {
                     {/* Save Button */}
                     <button
                         onClick={handleSave}
-                        disabled={saving || !slug.trim() || buttons.length === 0}
-                        className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={saving || !isFormValid}
+                        className="w-full px-6 py-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-bold transition-all shadow-md shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                         {saving ? 'Saving...' : 'Save Profile'}
@@ -392,50 +440,50 @@ const SuperProfileView: React.FC = () => {
                 {/* Right Column: Preview & Public URL */}
                 <div className="space-y-6">
                     {/* Public URL */}
-                    {publicUrl && (
-                        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-6 text-white">
+                    {getDisplayUrl() && (
+                        <div className="bg-primary rounded-2xl p-6 text-primary-foreground">
                             <div className="flex items-center gap-2 mb-2">
                                 <LinkIcon className="w-5 h-5" />
                                 <span className="text-sm font-bold">Your Public URL</span>
                             </div>
-                            <div className="flex items-center gap-2 bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                                <code className="flex-1 text-sm font-mono truncate">{publicUrl}</code>
+                            <div className="flex items-center gap-2 bg-primary-foreground/10 rounded-lg p-3 backdrop-blur-sm">
+                                <code className="flex-1 text-sm font-mono truncate">{getDisplayUrl()}</code>
                                 <button
                                     onClick={copyUrl}
-                                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                                    className="p-2 hover:bg-primary-foreground/20 rounded-lg transition-colors"
                                     title="Copy URL"
                                 >
                                     {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                                 </button>
                             </div>
-                            <p className="text-xs text-blue-100 mt-2">Add this URL to your Instagram bio</p>
+                            <p className="text-xs text-primary-foreground/70 mt-2">Add this URL to your Instagram bio</p>
                         </div>
                     )}
 
                     {/* Preview */}
-                    <div className="bg-white dark:bg-gray-950 border border-border rounded-2xl p-6">
-                        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4">Preview</h3>
-                        <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 space-y-3 min-h-[400px]">
+                    <div className="bg-card border border-border rounded-2xl p-6">
+                        <h3 className="text-sm font-bold text-foreground mb-4">Preview</h3>
+                        <div className="bg-muted/40 rounded-xl p-4 space-y-3 min-h-[400px]">
                             {/* App Logo & Tagline */}
-                            <div className="text-center py-4 border-b border-gray-200 dark:border-gray-700">
-                                <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-2xl mx-auto mb-2 flex items-center justify-center">
-                                    <Users className="w-8 h-8 text-white" />
+                            <div className="text-center py-4 border-b border-border">
+                                <div className="w-16 h-16 bg-primary rounded-2xl mx-auto mb-2 flex items-center justify-center">
+                                    <Users className="w-8 h-8 text-primary-foreground" />
                                 </div>
-                                <h2 className="text-lg font-black text-gray-900 dark:text-white">DM Panda</h2>
-                                <p className="text-xs text-gray-400">Automate your Instagram DMs</p>
+                                <h2 className="text-lg font-black text-foreground">DM Panda</h2>
+                                <p className="text-xs text-muted-foreground">Automate your Instagram DMs</p>
                             </div>
 
                             {/* Profile Info */}
                             {activeAccount && (
                                 <div className="text-center py-4">
-                                    <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-[2px] mx-auto mb-2">
+                                    <div className="w-20 h-20 rounded-full bg-primary/20 p-[2px] mx-auto mb-2">
                                         <img
                                             src={activeAccount.profile_picture_url || '/images/logo.png'}
                                             alt={activeAccount.username}
                                             className="w-full h-full rounded-full object-cover"
                                         />
                                     </div>
-                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">@{activeAccount.username}</h3>
+                                    <h3 className="text-lg font-bold text-foreground">@{activeAccount.username}</h3>
                                 </div>
                             )}
 
@@ -443,23 +491,24 @@ const SuperProfileView: React.FC = () => {
                             <div className="space-y-2">
                                 {buttons.length > 0 ? (
                                     buttons.map((button) => {
-                                        const IconComponent = SOCIAL_ICONS.find(si => si.name === button.icon)?.icon || ExternalLink;
                                         return (
                                             <a
                                                 key={button.id}
                                                 href={button.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-500 transition-colors"
+                                                className="flex items-center gap-3 p-3 bg-card rounded-xl border border-border hover:border-primary transition-colors"
                                             >
-                                                <IconComponent className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                                                <span className="flex-1 text-sm font-medium text-gray-900 dark:text-white">{button.title || 'Button'}</span>
-                                                <ExternalLink className="w-4 h-4 text-gray-400" />
+                                                <div className="h-8 w-8 rounded-lg bg-muted/40 flex items-center justify-center">
+                                                    <SocialIcon id={button.icon || 'internet'} className="h-4 w-4 text-slate-700" />
+                                                </div>
+                                                <span className="flex-1 text-sm font-medium text-foreground">{button.title || 'Button'}</span>
+                                                <ExternalLink className="w-4 h-4 text-muted-foreground" />
                                             </a>
                                         );
                                     })
                                 ) : (
-                                    <div className="text-center py-8 text-gray-400 text-sm">No buttons added yet</div>
+                                    <div className="text-center py-8 text-muted-foreground text-sm">No buttons added yet</div>
                                 )}
                             </div>
                         </div>
@@ -471,3 +520,4 @@ const SuperProfileView: React.FC = () => {
 };
 
 export default SuperProfileView;
+

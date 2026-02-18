@@ -4,15 +4,15 @@ import Card from '../../components/ui/card';
 
 const EmailCollectorView: React.FC = () => {
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
       {/* Header */}
-      <div className="border-b border-slate-200 dark:border-slate-700 pb-8">
+      <div className="border-b border-border pb-8">
         <div className="flex items-center gap-2 text-primary mb-2">
           <MailPlus className="w-4 h-4" />
           <span className="text-[10px] font-black uppercase tracking-widest">Email Collector</span>
         </div>
-        <h1 className="text-3xl font-black text-gray-900 dark:text-white">Email Collection in DMs</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
+        <h1 className="text-3xl font-black text-foreground">Email Collection in DMs</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
           Ask users for their email within the DM conversation and automatically add it to your mailing list
         </p>
       </div>
@@ -20,7 +20,7 @@ const EmailCollectorView: React.FC = () => {
       {/* Content Card */}
       <div className="flex flex-col items-center justify-center p-4 sm:p-8 min-h-[400px] relative overflow-hidden animate-fadeIn">
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 blur-[120px] rounded-full animate-pulse pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-500/10 blur-[120px] rounded-full animate-pulse pointer-events-none" style={{ animationDelay: '2s' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary/10 blur-[120px] rounded-full animate-pulse pointer-events-none" style={{ animationDelay: '2s' }} />
 
         <Card
           className="w-full max-w-2xl overflow-hidden border border-content shadow-lg rounded-3xl bg-card/80 backdrop-blur-xl relative z-10"

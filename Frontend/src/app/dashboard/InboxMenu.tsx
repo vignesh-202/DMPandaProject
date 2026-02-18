@@ -11,11 +11,12 @@ import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { useDashboard } from '../../contexts/DashboardContext';
 import { useAuth } from '../../contexts/AuthContext';
 import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
+import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
 import { useNavigate } from 'react-router-dom';
 
 interface MenuItem {
     title: string;
-    type: string;
+    type: 'web_url' | 'postback';
     payload?: string;
     url?: string;
     webview_height_ratio?: 'full';
@@ -28,6 +29,25 @@ interface MenuItem {
 const getByteLength = (str: string) => new Blob([str]).size;
 
 const MAX_INBOX_MENU_ITEMS = 20;
+
+const normalizeTitle = (value: string) => (value || '').trim().toLowerCase();
+const suggestUniqueTitle = (base: string, existing: string[]) => {
+    const trimmed = (base || '').trim();
+    if (!trimmed) return trimmed;
+    const existingSet = new Set(existing.map(t => (t || '').trim().toLowerCase()));
+    if (!existingSet.has(trimmed.toLowerCase())) return trimmed;
+    let i = 2;
+    while (i < 1000) {
+        const candidate = `${trimmed} (${i})`;
+        if (!existingSet.has(candidate.toLowerCase())) return candidate;
+        i += 1;
+    }
+    return `${trimmed} (${Date.now()})`;
+};
+
+// Coalesce duplicate share-post media fetches across strict-mode re-mounts
+let sharedInboxMenuMediaPromise: Promise<any[]> | null = null;
+let sharedInboxMenuMediaKey = '';
 
 // Task 13: Validation Helper with red borders and error messages
 const validateItem = (item: MenuItem) => {
@@ -65,476 +85,9 @@ interface InboxMenuData {
     account_id: string;
 }
 
-const MobilePreview = ({ menuItems, automations, fetchedAutomations = {}, isEditing = false, newItem = null }: { menuItems: MenuItem[], automations: any[], fetchedAutomations?: Record<string, any>, isEditing?: boolean, newItem?: MenuItem | null }) => {
-    const { activeAccount } = useDashboard();
-    const displayName = activeAccount?.username || 'Username';
-    const profilePic = activeAccount?.profile_picture_url || null;
-    const [activeIdx, setActiveIdx] = useState<number | null>(null);
-    const [isMediaDeleted, setIsMediaDeleted] = useState(false);
-
-    // Task 2: When editing, show only the menu being created (editingMenu + newItem if creating)
-    // Task 4: For auto reply, show chat interface; for web_url, show menu with title
-    const displayItems = isEditing && newItem ? [newItem] : menuItems;
-
-    // Initial state: starts with no selection to show the menu list by default
-    // Task 3: For auto reply creation, default to selected so preview shows immediately
-    useEffect(() => {
-        if (isEditing && newItem?.type === 'postback') {
-            setActiveIdx(0);
-        } else {
-            setActiveIdx(null);
-        }
-    }, [menuItems, isEditing, newItem?.type]);
-
-
-    const getAutomationTypeIcon = (item: MenuItem) => {
-        const autoInList = automations?.find(a => a.template_id === item.payload || a.$id === item.payload);
-        const auto = (autoInList?.$id && fetchedAutomations[autoInList.$id]) || autoInList;
-        const type = auto?.template_type;
-
-        switch (type) {
-            case 'template_text': return <MessageSquare className="w-3.5 h-3.5" />;
-            case 'template_carousel': return <LayoutGrid className="w-3.5 h-3.5" />;
-            case 'template_buttons': return <Smartphone className="w-3.5 h-3.5" />;
-            case 'template_media': return <ImageIcon className="w-3.5 h-3.5" />;
-            case 'template_share_post': return <Instagram className="w-3.5 h-3.5" />;
-            case 'template_quick_replies': return <List className="w-3.5 h-3.5" />;
-            default: return <MessageCircle className="w-3.5 h-3.5" />;
-        }
-    };
-
-    // Task 4: For auto reply (postback), show chat interface with title as user message and auto reply as bot response
-    // For web_url, show menu with title in the bottom sheet
-
-    // Determine the automation to preview
-    const activePreviewItem = activeIdx !== null && activeIdx >= 0 && activeIdx < displayItems.length ? displayItems[activeIdx] : null;
-    const autoInList = automations?.find(a => a.template_id === activePreviewItem?.payload || a.$id === activePreviewItem?.payload);
-    let auto = (autoInList?.$id && fetchedAutomations[autoInList.$id]) || autoInList;
-
-    // Fallback: If we are creating/editing an item and don't have a saved automation yet,
-    // construct a temporary one from the live template data
-    if (!auto && activePreviewItem && (activePreviewItem === newItem || isEditing)) {
-        auto = {
-            template_type: activePreviewItem.template_type,
-            template_content: activePreviewItem.template_type === 'template_text' ? activePreviewItem.template_data?.text :
-                activePreviewItem.template_type === 'template_media' ? activePreviewItem.template_data?.media_url :
-                    activePreviewItem.template_type === 'template_carousel' ? activePreviewItem.template_data?.elements :
-                        activePreviewItem.template_type === 'template_quick_replies' ? activePreviewItem.template_data?.text :
-                            activePreviewItem.template_type === 'template_buttons' ? activePreviewItem.template_data?.text :
-                                undefined,
-            template_elements: activePreviewItem.template_type === 'template_carousel' ? activePreviewItem.template_data?.elements : undefined,
-            replies: activePreviewItem.template_type === 'template_quick_replies' ? activePreviewItem.template_data?.replies : undefined,
-            buttons: activePreviewItem.template_type === 'template_buttons' ? activePreviewItem.template_data?.buttons : undefined,
-            media_id: activePreviewItem.template_type === 'template_share_post' ? activePreviewItem.template_data?.media_id : undefined,
-            media_url: activePreviewItem.template_type === 'template_share_post' ? activePreviewItem.template_data?.media_url : undefined,
-        };
-    }
-
-    useEffect(() => {
-        if (auto?.template_type === 'template_share_post' && auto.media_url) {
-            const img = new window.Image();
-            img.src = auto.media_url;
-            img.onload = () => setIsMediaDeleted(false);
-            img.onerror = () => setIsMediaDeleted(true);
-        } else {
-            setIsMediaDeleted(false);
-        }
-    }, [auto?.template_type, auto?.media_url]);
-
-    return (
-        <div className="w-full max-w-[340px] mx-auto xl:ml-auto animate-in fade-in slide-in-from-right-8 duration-700">
-            <div className="lg:sticky lg:top-24 h-fit flex flex-col items-center">
-                <div className="relative w-full h-[640px] bg-white dark:bg-black rounded-[55px] border-[10px] border-gray-900 shadow-[0_0_80px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col">
-                    {/* Notch */}
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-gray-900 rounded-b-3xl z-40 flex items-center justify-center">
-                        <div className="w-10 h-1.5 bg-gray-800 rounded-full" />
-                    </div>
-
-                    {/* Status Bar */}
-                    <div className="h-12 flex justify-between items-center px-9 pt-6 z-30 text-[11px] font-bold dark:text-white text-gray-900">
-                        <span>9:41</span>
-                        <div className="flex gap-1.5 items-center">
-                            <div className="w-4 h-4 border-2 border-current rounded-[3px]" />
-                            <div className="w-1.5 h-1.5 bg-current rounded-full" />
-                        </div>
-                    </div>
-
-                    {/* Instagram Header */}
-                    <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-black mt-2">
-                        <div className="flex items-center gap-3">
-                            <ChevronRight className="w-5 h-5 rotate-180" />
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-400 to-purple-600 p-[1.5px]">
-                                <div className="w-full h-full rounded-full bg-white dark:bg-black p-[1px]">
-                                    <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                                        {profilePic ? (
-                                            <img src={profilePic} className="w-full h-full object-cover" alt="" />
-                                        ) : (
-                                            <Instagram className="w-5 h-5 text-gray-400" />
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
-                                <div className="text-[13px] font-bold dark:text-white truncate max-w-[120px]">@{displayName}</div>
-                                <div className="text-[10px] text-gray-400">Instagram</div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4 text-gray-900 dark:text-white">
-                            <Smartphone className="w-4 h-4" />
-                            {activePreviewItem && (
-                                <button
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setActiveIdx(null);
-                                    }}
-                                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                                    title="Show menu"
-                                >
-                                    <Menu className="w-4 h-4" />
-                                </button>
-                            )}
-                            {!activePreviewItem && (
-                                <RefreshCcw className="w-4 h-4" />
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Chat Area - Dynamic Content */}
-                    <div className="flex-1 overflow-y-auto bg-white dark:bg-black custom-scrollbar relative">
-                        <div className="p-5 space-y-4">
-                            {/* Task 4: For auto reply (postback), show chat interface */}
-                            {activePreviewItem && activePreviewItem.type === 'postback' ? (
-                                <div className="space-y-4">
-                                    {/* User Message (The menu item title they clicked) - Right side, blue background */}
-                                    <div className="flex justify-end animate-in fade-in slide-in-from-right-2 duration-500">
-                                        <div className="max-w-[70%] p-3 bg-ig-blue-message text-white rounded-[18px] rounded-br-[4px] text-[13px] font-semibold shadow-sm">
-                                            {activePreviewItem.title}
-                                        </div>
-                                    </div>
-
-                                    {/* Response Preview (Bot response) - Left side, black/gray background like Instagram */}
-                                    <div className="flex justify-start items-end gap-2 animate-in slide-in-from-bottom-4 duration-700 delay-300">
-                                        <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 flex items-center justify-center overflow-hidden border border-content">
-                                            {profilePic ? <img src={profilePic} className="w-full h-full object-cover" /> : <Instagram className="w-3 h-3 text-gray-400" />}
-                                        </div>
-                                        <div className="max-w-[85%] space-y-2">
-                                            {auto ? (
-                                                <>
-                                                    {auto.template_type === 'template_text' && (
-                                                        <div className="p-3 bg-black dark:bg-gray-900 text-white dark:text-gray-100 rounded-[18px] rounded-bl-[4px] text-[14px] shadow-sm">
-                                                            {auto.template_content || '...'}
-                                                        </div>
-                                                    )}
-
-                                                    {auto.template_type === 'template_quick_replies' && (
-                                                        <div className="p-3 bg-black dark:bg-gray-900 text-white dark:text-gray-100 rounded-[18px] rounded-bl-[4px] text-[14px] shadow-sm">
-                                                            {auto.template_content || 'Choose an option:'}
-                                                        </div>
-                                                    )}
-
-                                                    {auto.template_type === 'template_share_post' && (
-                                                        <div className="min-w-[170px] max-w-[220px] bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-md border border-content animate-in fade-in zoom-in-95 message-bubble flex flex-col">
-                                                            <div className="p-2 flex items-center gap-2 border-b border-gray-50 dark:border-gray-800">
-                                                                <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden ring-1 ring-gray-100 dark:ring-gray-800">
-                                                                    {profilePic ? (
-                                                                        <img src={profilePic} className="w-full h-full object-cover" alt="" />
-                                                                    ) : (
-                                                                        <Instagram className="w-2.5 h-2.5 text-gray-400" />
-                                                                    )}
-                                                                </div>
-                                                                <span className="text-[10px] font-bold text-gray-900 dark:text-gray-100 truncate">
-                                                                    {displayName}
-                                                                </span>
-                                                            </div>
-                                                            <div className={`aspect-square bg-gray-50 dark:bg-gray-950 flex items-center justify-center relative group ${isMediaDeleted ? 'ring-4 ring-red-500 ring-inset' : ''}`}>
-                                                                {auto.media_url ? (
-                                                                    <div className="absolute inset-0">
-                                                                        <img src={auto.media_url} className={`w-full h-full object-cover ${isMediaDeleted ? 'opacity-50' : ''}`} alt="" />
-                                                                        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2 py-1 bg-white/20 backdrop-blur-md rounded-lg scale-90 origin-bottom-left border border-white/10">
-                                                                            <Share2 className="w-2.5 h-2.5 text-white" />
-                                                                            <span className="text-[8px] text-white font-black uppercase tracking-widest">Post</span>
-                                                                        </div>
-                                                                        {isMediaDeleted && (
-                                                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                                                <div className="px-3 py-1 bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg">
-                                                                                    Media Deleted
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="flex flex-col items-center gap-2 p-6">
-                                                                        <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-                                                                            <Share2 className="w-6 h-6 text-gray-300" />
-                                                                        </div>
-                                                                        <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest text-center leading-tight">Post to be shared</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            {auto.caption && (
-                                                                <div className="p-3 bg-white dark:bg-gray-900 border-t border-gray-50 dark:border-gray-800">
-                                                                    <p className="text-[10px] text-gray-900 dark:text-gray-100 line-clamp-3 font-medium leading-normal">
-                                                                        <span className="font-bold mr-1">{displayName}</span>
-                                                                        {auto.caption}
-                                                                    </p>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-
-                                                    {auto.template_type === 'template_buttons' && (
-                                                        <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700 w-[220px]">
-                                                            <div className="p-3 text-[14px] text-gray-900 dark:text-gray-100 border-b border-gray-100 dark:border-gray-700">
-                                                                {auto.template_content || 'Button message...'}
-                                                            </div>
-                                                            {(auto.buttons || []).map((btn: any, i: number) => (
-                                                                <div key={i} className="py-2.5 text-center text-[13px] font-bold text-ig-blue-light border-b border-border last:border-b-0">
-                                                                    {btn.title || 'Button'}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-
-                                                    {auto.template_type === 'template_media' && (
-                                                        <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 w-[220px]">
-                                                            {auto.template_content ? (
-                                                                <img src={auto.template_content} className="w-full h-auto object-cover max-h-[200px]" alt="" />
-                                                            ) : (
-                                                                <div className="w-full h-[140px] bg-gray-50 dark:bg-gray-900 flex items-center justify-center text-gray-300"><ImageIcon className="w-8 h-8" /></div>
-                                                            )}
-                                                        </div>
-                                                    )}
-
-                                                    {auto.template_type === 'template_carousel' && (
-                                                        <div className="flex overflow-x-auto gap-2 pb-2 snap-x snap-mandatory no-scrollbar max-w-[240px]">
-                                                            {(auto.template_elements || []).map((el: any, i: number) => (
-                                                                <div key={i} className="min-w-[180px] w-[180px] flex-shrink-0 bg-white dark:bg-gray-800 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm snap-center">
-                                                                    <div className="aspect-[1.91/1] bg-gray-100 dark:bg-gray-900 relative">
-                                                                        {el.image_url ? (
-                                                                            <img src={el.image_url} className="w-full h-full object-cover" draggable={false} alt="" />
-                                                                        ) : (
-                                                                            <div className="w-full h-full flex items-center justify-center text-gray-300"><ImageIcon className="w-6 h-6" /></div>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="p-2 border-b border-gray-50 dark:border-gray-700">
-                                                                        <div className="font-bold text-[12px] truncate">{el.title || 'Headline'}</div>
-                                                                        <div className="text-[10px] text-gray-500 truncate">{el.subtitle || 'Subtitle'}</div>
-                                                                    </div>
-                                                                    {(el.buttons || []).map((btn: any, bi: number) => (
-                                                                        <div key={bi} className="py-2 text-center text-[11px] font-bold text-ig-blue-light border-b last:border-b-0 border-border px-2 truncate">
-                                                                            {btn.title || 'Button'}
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-
-                                                    <div className="pt-2 flex justify-center">
-                                                        <div className="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-blue-500/20 flex items-center gap-1.5">
-                                                            {getAutomationTypeIcon(activePreviewItem)}
-                                                            {auto.template_type?.replace('template_', '').replace('_', ' ') || 'Preview'}
-                                                        </div>
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                // Task 4: Show placeholder for auto reply when no automation selected
-                                                <div className="p-3 bg-black dark:bg-gray-900 text-white dark:text-gray-100 rounded-[18px] rounded-bl-[4px] text-[14px] italic">
-                                                    {newItem && newItem.template_data?.text ? newItem.template_data.text : 'Select an automation to see preview...'}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                // Task 4: For web_url, show menu preview with title (will be shown in bottom sheet)
-                                <div className={`h-full flex flex-col items-center justify-center text-center min-h-[300px] animate-in fade-in duration-500 ${!activePreviewItem ? 'opacity-30' : ''}`}>
-                                    {activePreviewItem?.type === 'web_url' ? (
-                                        <div className="flex flex-col items-center gap-6 p-8 rounded-3xl bg-gray-50 dark:bg-gray-900/50 border border-content">
-                                            <div className="p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm">
-                                                <ExternalLink className="w-10 h-10 text-blue-500" />
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">External Link</p>
-                                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{activePreviewItem.title}</h3>
-                                                <p className="text-[11px] text-blue-500 truncate max-w-[200px]">{activePreviewItem.url || 'https://domain.com'}</p>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <Smartphone className="relative w-12 h-12 mb-4 text-gray-400" />
-                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
-                                                Inbox Menu Preview
-                                            </p>
-                                        </>
-                                    )}
-                                </div>
-                            )}
-
-
-                        </div>
-
-
-                        <style dangerouslySetInnerHTML={{
-                            __html: `
-                         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-                         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgb(var(--ig-gray-light)); border-radius: 10px; }
-                         .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: rgb(var(--ig-gray-dark)); }
-                         .no-scrollbar::-webkit-scrollbar { display: none; }
-                         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-                         .message-bubble { white-space: pre-wrap; word-break: break-word; }
-                     `}} />
-                    </div>
-
-                    {/* Bottom Menu Sheet - Instagram Style Modal */}
-                    {(!activePreviewItem || activePreviewItem.type === 'web_url') && (
-                        <div className="bg-white dark:bg-gray-950 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] z-30 pt-4 pb-10 border-t border-gray-100 dark:border-gray-800 animate-in slide-in-from-bottom duration-500">
-                            {/* Draggable Handle */}
-                            <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-4" />
-
-                            {/* Menu Modal Content */}
-                            <div className="px-6 text-center">
-                                {/* Title and Subtitle */}
-                                <div className="mb-6">
-                                    <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-1">Inbox Menu</h3>
-                                    <p className="text-[13px] text-gray-500 dark:text-gray-400">Tap a suggestion to interact with {displayName}</p>
-                                </div>
-
-                                {/* Separate postback items (buttons) and web_url items */}
-                                {(() => {
-                                    const postbackItems = displayItems.filter(item => item.type === 'postback');
-                                    const webUrlItems = displayItems.filter(item => item.type === 'web_url');
-
-                                    return (
-                                        <>
-                                            {/* Postback Menu Items - Blue text on light grey background */}
-                                            {postbackItems.length > 0 && (
-                                                <div className="flex flex-col items-center space-y-2.5 mb-4">
-                                                    {postbackItems.map((item, idx) => (
-                                                        <div
-                                                            key={idx}
-                                                            onClick={() => {
-                                                                const actualIdx = displayItems.findIndex(m => m === item);
-                                                                if (actualIdx >= 0) {
-                                                                    setActiveIdx(actualIdx);
-                                                                }
-                                                            }}
-                                                            className={`w-auto min-w-[160px] py-2.5 px-8 rounded-full transition-all duration-200 flex items-center justify-center group/btn cursor-pointer ${activeIdx === displayItems.findIndex(m => m === item)
-                                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500/30'
-                                                                : 'bg-gray-100 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-800'
-                                                                }`}
-                                                        >
-                                                            <span className={`text-[14px] font-bold truncate ${activeIdx === displayItems.findIndex(m => m === item)
-                                                                ? 'text-blue-600 dark:text-blue-400'
-                                                                : 'text-blue-600 dark:text-blue-400'
-                                                                }`}>
-                                                                {item.title || 'Menu Item'}
-                                                            </span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* Separator */}
-                                            {postbackItems.length > 0 && webUrlItems.length > 0 && (
-                                                <div className="h-px bg-gray-200 dark:bg-gray-700 my-4 mx-10" />
-                                            )}
-
-                                            {/* Web URL Items - "Visit the website" style */}
-                                            {webUrlItems.length > 0 && (
-                                                <div className="space-y-3 pb-4">
-                                                    {webUrlItems.map((item, idx) => (
-                                                        <div
-                                                            key={idx}
-                                                            onClick={() => {
-                                                                const actualIdx = displayItems.findIndex(m => m === item);
-                                                                if (actualIdx >= 0) {
-                                                                    setActiveIdx(actualIdx);
-                                                                }
-                                                            }}
-                                                            className={`w-full text-center transition-all duration-200 cursor-pointer ${activeIdx === displayItems.findIndex(m => m === item)
-                                                                ? 'opacity-100'
-                                                                : 'opacity-90 hover:opacity-100'
-                                                                }`}
-                                                        >
-                                                            <div className="text-[14px] font-bold text-gray-700 dark:text-gray-300 mb-0.5">
-                                                                {item.title || 'Visit Website'}
-                                                            </div>
-                                                            <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
-                                                                {item.url ? (item.url.startsWith('http') ? new URL(item.url).hostname.replace('www.', '') : item.url) : 'facebook.com'}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {displayItems.length === 0 && (
-                                                <div className="text-center py-6 text-[10px] text-gray-400 font-bold uppercase tracking-widest opacity-50">
-                                                    No items in menu
-                                                </div>
-                                            )}
-                                        </>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Task 2: Instagram Chat Input Field + Quick Replies Above */}
-                    {activePreviewItem && activePreviewItem.type === 'postback' && (
-                        <div className="bg-white dark:bg-black p-3 pb-8 z-30 animate-in slide-in-from-bottom duration-500">
-                            {/* Quick Replies Above Input - Instagram Style */}
-                            {auto?.template_type === 'template_quick_replies' && (
-                                <div className="flex flex-wrap justify-end gap-2 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-500">
-                                    {(auto.replies ? (typeof auto.replies === 'string' ? JSON.parse(auto.replies) : auto.replies) : []).map((reply: any, i: number) => (
-                                        <div key={i} className="px-4 py-2 bg-white dark:bg-gray-800 border-2 border-blue-500/20 text-blue-500 rounded-full text-[12px] font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer">
-                                            {reply.title || `Option ${i + 1}`}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Chat Input Bar */}
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-400 to-purple-600 p-[1px] flex items-center justify-center">
-                                    <div className="w-full h-full rounded-full bg-white dark:bg-black flex items-center justify-center">
-                                        <Camera className="w-5 h-5 text-gray-900 dark:text-white" />
-                                    </div>
-                                </div>
-                                <div className="flex-1 bg-gray-50 dark:bg-gray-900 border border-content rounded-full px-4 py-2.5 flex items-center justify-between group focus-within:border-blue-500/50 transition-all">
-                                    <span className="text-[14px] text-gray-400 font-medium">Message...</span>
-                                    <div className="flex items-center gap-3 text-gray-400">
-                                        <Mic className="w-4 h-4 cursor-pointer hover:text-gray-600 transition-colors" />
-                                        <ImageIcon className="w-4 h-4 cursor-pointer hover:text-gray-600 transition-colors" />
-                                        <PlusSquare className="w-4 h-4 cursor-pointer hover:text-gray-600 transition-colors" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <style dangerouslySetInnerHTML={{
-                        __html: `
-                        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-                        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; }
-                        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; }
-                        .no-scrollbar::-webkit-scrollbar { display: none; }
-                        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-                        .message-bubble { white-space: pre-wrap; word-break: break-word; }
-                    `}} />
-                </div>
-            </div>
-        </div>
-    );
-};
-
 const InboxMenu: React.FC = () => {
-    const { activeAccountID, activeAccount, inboxMenuData, setInboxMenuData, fetchInboxMenu, inboxMenuLoading, dmAutomations } = useDashboard();
+    const { activeAccountID, activeAccount, inboxMenuData, setInboxMenuData, fetchInboxMenu, inboxMenuLoading, dmAutomations, setCurrentView } = useDashboard();
     const { authenticatedFetch } = useAuth();
-    const navigate = useNavigate();
 
     // Check if there are any issues with the menu configuration
     const hasIssue = inboxMenuData && ['mismatch', 'ig_only', 'db_only'].includes(inboxMenuData.status);
@@ -585,49 +138,70 @@ const InboxMenu: React.FC = () => {
         if (!force && lastFetchRef.current === currentParams) return;
         lastFetchRef.current = currentParams;
 
-        setIsFetchingMedia(true);
-        try {
-            const params = new URLSearchParams({
-                account_id: activeAccountID || '',
-                type: 'all', // Always fetch all to filter locally
-                date_range: sharePostDateRange,
-                sort_by: sharePostSortBy,
-                limit: '100'
-            });
-            if (sharePostDateRange === 'custom' && sharePostCustomRange.from && sharePostCustomRange.to) {
-                params.append('from_date', sharePostCustomRange.from.toISOString());
-                params.append('to_date', sharePostCustomRange.to.toISOString());
-            }
+        const params = new URLSearchParams({
+            account_id: activeAccountID || '',
+            type: 'all', // Always fetch all to filter locally
+            date_range: sharePostDateRange,
+            sort_by: sharePostSortBy,
+            limit: '100'
+        });
+        if (sharePostDateRange === 'custom' && sharePostCustomRange.from && sharePostCustomRange.to) {
+            params.append('from_date', sharePostCustomRange.from.toISOString());
+            params.append('to_date', sharePostCustomRange.to.toISOString());
+        }
+
+        const requestKey = `${activeAccountID}|${params.toString()}`;
+        const doFetch = async () => {
             const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/media?${params}`);
             if (res.ok) {
                 const data = await res.json();
-                const mediaItems = data.data || [];
-                setSharePostMedia(mediaItems);
+                return data.data || [];
+            }
+            return [];
+        };
 
-                // If nothing is selected yet, select the first one automatically for better UX
-                // We use the functional update to avoid a stale check on newItem
-                if (mediaItems.length > 0) {
-                    setNewItem(prev => {
-                        if (!prev.template_data?.media_id) {
-                            setSharePostSelectedMediaId(mediaItems[0].id);
-                            return {
-                                ...prev,
-                                template_data: {
-                                    ...prev.template_data,
-                                    media_id: mediaItems[0].id,
-                                    media_url: mediaItems[0].thumbnail_url || mediaItems[0].media_url,
-                                    caption: mediaItems[0].caption || ''
-                                }
-                            };
-                        }
-                        return prev;
-                    });
-                }
+        let promise: Promise<any[]>;
+        if (!force && sharedInboxMenuMediaPromise && sharedInboxMenuMediaKey === requestKey) {
+            promise = sharedInboxMenuMediaPromise;
+        } else {
+            sharedInboxMenuMediaKey = requestKey;
+            promise = doFetch();
+            if (!force) {
+                sharedInboxMenuMediaPromise = promise;
+            }
+        }
+
+        setIsFetchingMedia(true);
+        try {
+            const mediaItems = await promise;
+            setSharePostMedia(mediaItems);
+
+            // If nothing is selected yet, select the first one automatically for better UX
+            // We use the functional update to avoid a stale check on newItem
+            if (mediaItems.length > 0) {
+                setNewItem(prev => {
+                    if (!prev.template_data?.media_id) {
+                        setSharePostSelectedMediaId(mediaItems[0].id);
+                        return {
+                            ...prev,
+                            template_data: {
+                                ...prev.template_data,
+                                media_id: mediaItems[0].id,
+                                media_url: mediaItems[0].thumbnail_url || mediaItems[0].media_url,
+                                caption: mediaItems[0].caption || ''
+                            }
+                        };
+                    }
+                    return prev;
+                });
             }
         } catch (error) {
             console.error('Failed to fetch media:', error);
             lastFetchRef.current = ""; // Reset on error to allow retry
         } finally {
+            if (!force && sharedInboxMenuMediaPromise === promise) {
+                sharedInboxMenuMediaPromise = null;
+            }
             setIsFetchingMedia(false);
         }
     }, [activeAccountID, sharePostDateRange, sharePostSortBy, sharePostCustomRange, authenticatedFetch]);
@@ -859,6 +433,27 @@ const InboxMenu: React.FC = () => {
             return;
         }
 
+        // Duplicate title validation (case-insensitive)
+        const currentTitle = normalizeTitle(newItem.title || '');
+        if (currentTitle) {
+            const duplicate = editingMenu.some((item, idx) => {
+                if (editingItemIndex !== null && idx === editingItemIndex) return false;
+                return normalizeTitle(item.title || '') === currentTitle;
+            });
+            if (duplicate) {
+                const existingTitles = editingMenu
+                    .filter((_, idx) => editingItemIndex === null || idx !== editingItemIndex)
+                    .map((item) => item.title || '');
+                const suggested = suggestUniqueTitle(newItem.title || '', existingTitles);
+                if (suggested && suggested !== newItem.title) {
+                    setNewItem({ ...newItem, title: suggested });
+                }
+                setValidationErrors({ title: `Title already exists. Suggested: ${suggested}` });
+                showAlert('Validation Error', `This menu title already exists. Suggested: ${suggested}`, 'warning');
+                return;
+            }
+        }
+
         setIsActionLoading(true);
         // Task 4: Skip synchronous template creation. We save data locally and create on Publish.
 
@@ -978,6 +573,7 @@ const InboxMenu: React.FC = () => {
         const menuItems = menuToSave || [];
 
         // Validate all menu items before publishing
+        const seenTitles = new Set<string>();
         for (let i = 0; i < menuItems.length; i++) {
             const item = menuItems[i];
             if (!item.title || item.title.trim() === '') {
@@ -991,6 +587,18 @@ const InboxMenu: React.FC = () => {
                 }, 100);
                 return false;
             }
+            const normalized = normalizeTitle(item.title || '');
+            if (normalized && seenTitles.has(normalized)) {
+                showAlert('Validation Error', `Menu item #${i + 1} has a duplicate title. Please use unique titles.`, 'warning');
+                setTimeout(() => {
+                    const menuCard = document.querySelector(`[data-menu-item-index="${i}"]`);
+                    if (menuCard) {
+                        menuCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 100);
+                return false;
+            }
+            if (normalized) seenTitles.add(normalized);
         }
 
         setIsActionLoading(true);
@@ -1337,9 +945,9 @@ const InboxMenu: React.FC = () => {
 
     if (!activeAccountID) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-gray-900/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800">
-                <Mail className="w-12 h-12 text-gray-300 mb-4" />
-                <p className="text-gray-500 font-bold">Please select an Instagram account to manage its Inbox Menu.</p>
+            <div className="flex flex-col items-center justify-center py-20 bg-secondary rounded-3xl border-2 border-dashed border-border">
+                <Mail className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground font-semibold">Please select an Instagram account to manage its Inbox Menu.</p>
             </div>
         );
     }
@@ -1357,46 +965,46 @@ const InboxMenu: React.FC = () => {
     const canShowMainWorkspace = status === 'match' || isEditing || isCreatingItem;
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-500 px-3 sm:px-4 md:px-6">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-gray-100 dark:border-gray-800">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 pb-6 md:pb-8 border-b border-border">
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-blue-600 mb-2">
+                    <div className="flex items-center gap-2 text-primary mb-2">
                         <Mail className="w-4 h-4" />
                         <span className="text-[10px] font-black uppercase tracking-[0.3em]">Smart Inbox Control</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <h1 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">Inbox Menu</h1>
+                        <h1 className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">Inbox Menu</h1>
                         {inboxMenuData?.status === 'match' && (
-                            <span className="flex items-center gap-1.5 px-3 py-1 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest rounded-full">
+                            <span className="flex items-center gap-1.5 px-3 py-1 bg-success-muted text-success text-[10px] font-black uppercase tracking-widest rounded-full">
                                 <CheckCircle2 className="w-3 h-3" /> Synced
                             </span>
                         )}
                     </div>
-                    <p className="text-gray-500 font-medium max-w-xl text-sm">
+                    <p className="text-muted-foreground font-medium max-w-xl text-sm">
                         Manage your Instagram Persistent Menu. Ensure your customers have quick access to support and key features.
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     {/* View Controls & Refresh */}
                     <button
                         onClick={handleRefreshClick}
-                        className="p-3 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                        className="p-3 bg-secondary text-muted-foreground rounded-xl hover:bg-secondary/80 transition-all"
                         disabled={inboxMenuLoading || isActionLoading}
                     >
                         <RefreshCw className={`w-4 h-4 ${inboxMenuLoading ? 'animate-spin' : ''}`} />
                     </button>
-                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex bg-secondary p-1 rounded-xl border border-border">
                         <button
                             onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <LayoutGrid className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <List className="w-4 h-4" />
                         </button>
@@ -1724,7 +1332,7 @@ const InboxMenu: React.FC = () => {
                                                                 }
                                                             }}
                                                             onCreateNew={() => {
-                                                                navigate('/dashboard?view=Reply Templates');
+                                                                setCurrentView('Reply Templates');
                                                             }}
                                                         />
                                                         {validationErrors['template'] && (
@@ -1756,242 +1364,7 @@ const InboxMenu: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            {/* Task 9: Button Template */}
-                                            {newItem.template_type === 'template_buttons' && (
-                                                <div className="bg-gray-50 dark:bg-gray-800/50 p-8 rounded-2xl border border-content space-y-8">
-                                                    <div className="space-y-2">
-                                                        <div className="flex justify-between items-center px-1">
-                                                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Message Content</label>
-                                                            <span className={`text-[8px] font-bold ${getByteLength(newItem.template_data?.text || '') > 640 ? 'text-red-500' : 'text-gray-400'}`}>
-                                                                {getByteLength(newItem.template_data?.text || '')}/640 bytes
-                                                            </span>
-                                                        </div>
-                                                        <textarea
-                                                            id="field_button_text"
-                                                            value={newItem.template_data?.text || ''}
-                                                            onChange={e => {
-                                                                const val = e.target.value;
-                                                                if (getByteLength(val) <= 640) {
-                                                                    setNewItem({ ...newItem, template_data: { ...newItem.template_data, text: val } });
-                                                                    if (validationErrors.button_text) {
-                                                                        const newErr = { ...validationErrors };
-                                                                        delete newErr.button_text;
-                                                                        setValidationErrors(newErr);
-                                                                    }
-                                                                }
-                                                            }}
-                                                            className={`w-full bg-white dark:bg-gray-900 border-2 ${validationErrors['button_text'] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500/50 outline-none rounded-2xl p-6 text-xs font-bold text-gray-900 dark:text-gray-100 min-h-[120px] shadow-xl shadow-black/5 transition-all resize-none`}
-                                                            placeholder="Enter your message here..."
-                                                        />
-                                                    </div>
-
-                                                    <div className="pt-8 border-t border-content space-y-4">
-                                                        <div className="flex items-center justify-between">
-                                                            <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Buttons (Max 3)</h4>
-                                                            <button
-                                                                onClick={() => {
-                                                                    const buttons = [...(newItem.template_data?.buttons || [])];
-                                                                    if (buttons.length < 3) {
-                                                                        buttons.push({ title: '', url: '', type: 'web_url' });
-                                                                        setNewItem({ ...newItem, template_data: { ...newItem.template_data, buttons } });
-                                                                    }
-                                                                }}
-                                                                disabled={(newItem.template_data?.buttons || []).length >= 3}
-                                                                className="px-4 py-2 rounded-xl bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest hover:bg-blue-500/20 disabled:opacity-20"
-                                                            >
-                                                                + Add Button
-                                                            </button>
-                                                        </div>
-                                                        <div className="space-y-4">
-                                                            {(newItem.template_data?.buttons || []).map((btn: any, idx: number) => (
-                                                                <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end p-4 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-content">
-                                                                    <div className="md:col-span-4 space-y-1.5">
-                                                                        <div className="flex justify-between items-center">
-                                                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Title</label>
-                                                                            <span className={`text-[8px] font-bold ${getByteLength(btn.title || '') > 40 ? 'text-red-500' : 'text-gray-300'}`}>
-                                                                                {getByteLength(btn.title || '')}/40 bytes
-                                                                            </span>
-                                                                        </div>
-                                                                        <input
-                                                                            id={`field_btn_${idx}_title`}
-                                                                            value={btn.title || ''}
-                                                                            onChange={e => {
-                                                                                const buttons = [...(newItem.template_data?.buttons || [])];
-                                                                                buttons[idx].title = e.target.value;
-                                                                                setNewItem({ ...newItem, template_data: { ...newItem.template_data, buttons } });
-                                                                                if (validationErrors[`btn_${idx}_title`]) {
-                                                                                    const newErr = { ...validationErrors };
-                                                                                    delete newErr[`btn_${idx}_title`];
-                                                                                    setValidationErrors(newErr);
-                                                                                }
-                                                                            }}
-                                                                            className={`w-full bg-gray-50 dark:bg-black/30 border-2 ${validationErrors[`btn_${idx}_title`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-3 text-[11px] font-black text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500/50 transition-all`}
-                                                                            placeholder="Button Text"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="md:col-span-7 space-y-1.5">
-                                                                        <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Link</label>
-                                                                        <input
-                                                                            id={`field_btn_${idx}_url`}
-                                                                            value={btn.url || ''}
-                                                                            onChange={e => {
-                                                                                const buttons = [...(newItem.template_data?.buttons || [])];
-                                                                                buttons[idx].url = e.target.value;
-                                                                                setNewItem({ ...newItem, template_data: { ...newItem.template_data, buttons } });
-                                                                                if (validationErrors[`btn_${idx}_url`]) {
-                                                                                    const newErr = { ...validationErrors };
-                                                                                    delete newErr[`btn_${idx}_url`];
-                                                                                    setValidationErrors(newErr);
-                                                                                }
-                                                                            }}
-                                                                            className={`w-full bg-gray-50 dark:bg-black/30 border-2 ${validationErrors[`btn_${idx}_url`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-3 text-[11px] font-bold text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500/50 transition-all`}
-                                                                            placeholder="https://..."
-                                                                        />
-                                                                    </div>
-                                                                    <div className="md:col-span-1 pb-1">
-                                                                        {(newItem.template_data?.buttons || []).length > 1 && (
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    const buttons = (newItem.template_data?.buttons || []).filter((_: any, i: number) => i !== idx);
-                                                                                    setNewItem({ ...newItem, template_data: { ...newItem.template_data, buttons } });
-                                                                                }}
-                                                                                className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all"
-                                                                            >
-                                                                                <Trash2 className="w-4 h-4" />
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-
-
-                                            {/* Task 12: Quick Replies Template */}
-                                            {newItem.template_type === 'template_quick_replies' && (
-                                                <div className="space-y-6">
-                                                    <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-content">
-                                                        <div className="flex justify-between items-center px-1 mb-2">
-                                                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Title Text (Prompt Message)</label>
-                                                            <span className={`text-[8px] font-bold ${getByteLength(newItem.template_data?.text || '') > 950 ? 'text-red-500' : 'text-gray-400'}`}>
-                                                                {getByteLength(newItem.template_data?.text || '')}/950 bytes
-                                                            </span>
-                                                        </div>
-                                                        <textarea
-                                                            id="field_template_content"
-                                                            value={newItem.template_data?.text || ''}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                if (getByteLength(val) <= 950) {
-                                                                    setNewItem({ ...newItem, template_data: { ...newItem.template_data, text: val } });
-                                                                    if (validationErrors.template_content) {
-                                                                        const newErr = { ...validationErrors };
-                                                                        delete newErr.template_content;
-                                                                        setValidationErrors(newErr);
-                                                                    }
-                                                                }
-                                                            }}
-                                                            placeholder="Enter the title text that will prompt a person to click a quick reply..."
-                                                            className={`w-full bg-white dark:bg-gray-900 border-2 ${validationErrors.template_content ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500/50 rounded-2xl p-4 text-xs font-bold text-gray-900 dark:text-gray-100 min-h-[100px] shadow-xl shadow-black/5 resize-none`}
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-4">
-                                                        <div className="flex items-center justify-between px-2">
-                                                            <div className="flex items-center gap-2">
-                                                                <Reply className="w-4 h-4 text-blue-500" />
-                                                                <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
-                                                                    Quick Reply Buttons ({(newItem.template_data?.replies || []).length}/13)
-                                                                </h4>
-                                                            </div>
-                                                            {(newItem.template_data?.replies || []).length < 13 && (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        const replies = [...(newItem.template_data?.replies || []), { title: '', payload: '', content_type: 'text' }];
-                                                                        setNewItem({ ...newItem, template_data: { ...newItem.template_data, replies } });
-                                                                    }}
-                                                                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-blue-500/20"
-                                                                >
-                                                                    <Plus className="w-3 h-3" /> Add Button
-                                                                </button>
-                                                            )}
-                                                        </div>
-
-                                                        <div className="grid gap-4">
-                                                            {(newItem.template_data?.replies || []).map((reply: any, idx: number) => (
-                                                                <div key={idx} className="bg-white dark:bg-gray-950 p-5 rounded-2xl border border-content shadow-sm">
-                                                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-                                                                        <div className="md:col-span-5 space-y-2">
-                                                                            <div className="flex justify-between items-center">
-                                                                                <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Text</label>
-                                                                                <span className={`text-[7px] font-bold ${getByteLength(reply.title || '') > 20 ? 'text-red-500' : 'text-gray-400'}`}>
-                                                                                    {getByteLength(reply.title || '')}/20 bytes
-                                                                                </span>
-                                                                            </div>
-                                                                            <input
-                                                                                type="text"
-                                                                                id={`field_reply_${idx}`}
-                                                                                value={reply.title || ''}
-                                                                                onChange={(e) => {
-                                                                                    const replies = [...(newItem.template_data?.replies || [])];
-                                                                                    replies[idx] = { ...replies[idx], title: e.target.value };
-                                                                                    setNewItem({ ...newItem, template_data: { ...newItem.template_data, replies } });
-                                                                                    if (validationErrors[`reply_${idx}`]) {
-                                                                                        const newErr = { ...validationErrors };
-                                                                                        delete newErr[`reply_${idx}`];
-                                                                                        setValidationErrors(newErr);
-                                                                                    }
-                                                                                }}
-                                                                                placeholder="e.g. Yes please!"
-                                                                                className={`w-full bg-gray-50 dark:bg-gray-900/50 border-2 ${validationErrors[`reply_${idx}`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-3 text-[11px] font-semibold text-gray-900 dark:text-gray-100 focus:border-blue-500/50 shadow-inner transition-all`}
-                                                                            />
-                                                                        </div>
-                                                                        <div className="md:col-span-6 space-y-2">
-                                                                            <div className="flex justify-between items-center">
-                                                                                <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Reply</label>
-                                                                                <span className={`text-[7px] font-bold ${getByteLength(reply.payload || '') > 950 ? 'text-red-500' : 'text-gray-400'}`}>
-                                                                                    {getByteLength(reply.payload || '')}/950 bytes
-                                                                                </span>
-                                                                            </div>
-                                                                            <textarea
-                                                                                id={`field_reply_${idx}_payload`}
-                                                                                value={reply.payload || ''}
-                                                                                onChange={(e) => {
-                                                                                    const replies = [...(newItem.template_data?.replies || [])];
-                                                                                    replies[idx] = { ...replies[idx], payload: e.target.value };
-                                                                                    setNewItem({ ...newItem, template_data: { ...newItem.template_data, replies } });
-                                                                                    if (validationErrors[`reply_${idx}_payload`]) {
-                                                                                        const newErr = { ...validationErrors };
-                                                                                        delete newErr[`reply_${idx}_payload`];
-                                                                                        setValidationErrors(newErr);
-                                                                                    }
-                                                                                }}
-                                                                                placeholder="Message to send when clicked..."
-                                                                                className={`w-full bg-gray-50 dark:bg-gray-900/50 border-2 ${validationErrors[`reply_${idx}_payload`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-3 text-[11px] font-medium text-gray-900 dark:text-gray-100 focus:border-blue-500/50 h-[64px] resize-none shadow-inner transition-all`}
-                                                                            />
-                                                                        </div>
-                                                                        <div className="md:col-span-1 pt-4 md:pt-6 flex justify-end">
-                                                                            {(newItem.template_data?.replies || []).length > 1 && (
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        const replies = (newItem.template_data?.replies || []).filter((_: any, i: number) => i !== idx);
-                                                                                        setNewItem({ ...newItem, template_data: { ...newItem.template_data, replies } });
-                                                                                    }}
-                                                                                    className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all"
-                                                                                >
-                                                                                    <Trash2 className="w-4 h-4" />
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
+                                            {/* Reply templates are selected only; no inline editing in Inbox Menu */}
 
                                             {/* Task 11: Share Post Template - Design match with DMAutomationView */}
                                             {newItem.template_type === 'template_share_post' && (
@@ -2498,12 +1871,15 @@ const InboxMenu: React.FC = () => {
 
                             {/* Real-time Preview Section - Desktop only, sticky on xl */}
                             <div className="hidden lg:block xl:shrink-0 xl:self-start xl:sticky xl:top-24 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto">
-                                <MobilePreview
-                                    menuItems={isEditing ? editingMenu : currentDisplayMenu}
+                                <SharedMobilePreview
+                                    mode="menu"
+                                    items={(isEditing ? editingMenu : currentDisplayMenu) as any}
                                     automations={dmAutomations}
                                     fetchedAutomations={fetchedAutomations}
                                     isEditing={isEditing}
-                                    newItem={isCreatingItem ? newItem : null}
+                                    newItem={(isCreatingItem ? newItem : null) as any}
+                                    displayName={activeAccount?.username || 'Username'}
+                                    profilePic={activeAccount?.profile_picture_url || undefined}
                                 />
                             </div>
                         </div>
@@ -2519,7 +1895,7 @@ const InboxMenu: React.FC = () => {
                     <div className="lg:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
                         <button
                             onClick={() => setShowMobilePreview(true)}
-                            className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-instagram-violet via-instagram-pink to-instagram-orange text-white rounded-full shadow-xl hover:shadow-2xl transition-all hover:scale-105 active:scale-95"
+                            className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-instagram-violet via-instagram-pink to-instagram-orange text-white rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-105 active:scale-95"
                         >
                             <Eye className="w-5 h-5" />
                             <span className="font-bold text-sm">Live Preview</span>
@@ -2551,12 +1927,15 @@ const InboxMenu: React.FC = () => {
 
                             {/* Preview Content */}
                             <div onClick={(e) => e.stopPropagation()}>
-                                <MobilePreview
-                                    menuItems={isEditing ? editingMenu : currentDisplayMenu}
+                                <SharedMobilePreview
+                                    mode="menu"
+                                    items={(isEditing ? editingMenu : currentDisplayMenu) as any}
                                     automations={dmAutomations}
                                     fetchedAutomations={fetchedAutomations}
                                     isEditing={isEditing}
-                                    newItem={isCreatingItem ? newItem : null}
+                                    newItem={(isCreatingItem ? newItem : null) as any}
+                                    displayName={activeAccount?.username || 'Username'}
+                                    profilePic={activeAccount?.profile_picture_url || undefined}
                                 />
                             </div>
                         </div>

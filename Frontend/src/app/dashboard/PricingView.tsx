@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Check, Zap, Loader2, Globe, Sparkles } from 'lucide-react';
-import { Card } from '../../components/Card';
-import { authenticatedFetch } from '../../utils/api';
-import PageLoader from '../../components/PageLoader';
+import Card from '../../components/ui/card';
+import { useAuth } from '../../contexts/AuthContext';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
 
 interface Plan {
     id: string;
@@ -18,6 +18,7 @@ interface Plan {
 }
 
 const PricingView: React.FC = () => {
+    const { authenticatedFetch } = useAuth();
     const [plans, setPlans] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(true);
     const [paymentLoading, setPaymentLoading] = useState<string | null>(null);
@@ -37,7 +38,7 @@ const PricingView: React.FC = () => {
                 }
 
                 // Fetch Plans
-                const plansRes = await authenticatedFetch('/api/pricing-plans');
+                const plansRes = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/pricing`);
                 if (plansRes.ok) {
                     const plansData = await plansRes.json();
                     setPlans(plansData);
@@ -125,45 +126,45 @@ const PricingView: React.FC = () => {
         }
     };
 
-    if (loading) return <PageLoader />;
+    if (loading) return <LoadingOverlay variant="fullscreen" message="Loading Pricing" subMessage="Fetching your plans..." />;
 
     return (
-        <div className="p-6 max-w-7xl mx-auto mb-20 animate-in fade-in duration-500">
+        <div className="p-3 sm:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto mb-20 animate-in fade-in duration-500">
             <div className="text-center mb-12">
-                <h1 className="text-4xl font-black mb-4 dark:text-white flex items-center justify-center gap-3">
+                <h1 className="text-4xl font-black mb-4 text-foreground flex items-center justify-center gap-3">
                     Upgrade Your Growth <Sparkles className="text-yellow-500" />
                 </h1>
-                <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
+                <p className="text-muted-foreground max-w-2xl mx-auto">
                     Scale your Instagram presence with powerful automation limits and advanced features.
                 </p>
 
                 <div className="flex flex-col items-center mt-10 space-y-6">
-                    <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-2xl inline-flex relative border border-gray-200 dark:border-gray-700">
+                    <div className="bg-muted p-1 rounded-2xl inline-flex relative border border-border">
                         <button
                             onClick={() => setIsYearly(false)}
-                            className={`relative z-10 px-8 py-2 rounded-xl text-sm font-bold transition-all ${!isYearly ? 'bg-white dark:bg-gray-700 shadow-md text-black dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                            className={`relative z-10 px-8 py-2 rounded-xl text-sm font-bold transition-all ${!isYearly ? 'bg-card shadow-md text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             Monthly
                         </button>
                         <button
                             onClick={() => setIsYearly(true)}
-                            className={`relative z-10 px-8 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${isYearly ? 'bg-white dark:bg-gray-700 shadow-md text-black dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                            className={`relative z-10 px-8 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${isYearly ? 'bg-card shadow-md text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             Yearly
-                            <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-[10px] px-2 py-0.5 rounded-full">Save 20%</span>
+                            <span className="bg-success-muted/60 text-success text-[10px] px-2 py-0.5 rounded-full">Save 20%</span>
                         </button>
                     </div>
 
                     {isIndianUser && (
-                        <div className="flex items-center gap-3 text-sm font-medium text-gray-400">
-                            <span className={currency === 'INR' ? 'text-black dark:text-white' : ''}>INR</span>
+                        <div className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
+                            <span className={currency === 'INR' ? 'text-foreground' : ''}>INR</span>
                             <button
                                 onClick={() => setCurrency(currency === 'INR' ? 'USD' : 'INR')}
-                                className="w-10 h-5 bg-gray-200 dark:bg-gray-700 rounded-full relative"
+                                className="w-10 h-5 bg-muted rounded-full relative"
                             >
-                                <div className={`absolute top-1 w-3 h-3 bg-white dark:bg-gray-300 rounded-full transition-all ${currency === 'INR' ? 'left-1' : 'left-6'}`} />
+                                <div className={`absolute top-1 w-3 h-3 bg-card rounded-full transition-all ${currency === 'INR' ? 'left-1' : 'left-6'}`} />
                             </button>
-                            <span className={currency === 'USD' ? 'text-black dark:text-white' : ''}>USD</span>
+                            <span className={currency === 'USD' ? 'text-foreground' : ''}>USD</span>
                         </div>
                     )}
                 </div>
@@ -174,26 +175,26 @@ const PricingView: React.FC = () => {
                     <Card
                         key={plan.id}
                         className={`relative flex flex-col p-8 transition-all duration-300 ${plan.is_popular
-                                ? 'border-2 border-blue-500 shadow-2xl scale-105 z-10 dark:bg-gray-800/50'
-                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                                ? 'border-2 border-primary shadow-2xl scale-105 z-10'
+                                : 'border-border hover:border-border/70'
                             }`}
                     >
                         {plan.is_popular && (
-                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">
+                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">
                                 MOST POPULAR
                             </div>
                         )}
 
                         <div className="mb-8">
-                            <h3 className="text-xl font-bold dark:text-white mb-2">{plan.name}</h3>
+                            <h3 className="text-xl font-bold text-foreground mb-2">{plan.name}</h3>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-4xl font-black dark:text-white">
-                                    {currency === 'INR' ? '₹' : '$'}
+                                <span className="text-4xl font-black text-foreground">
+                                    {currency === 'INR' ? 'â‚¹' : '$'}
                                     {currency === 'INR'
                                         ? (isYearly ? plan.price_yearly_inr : plan.price_monthly_inr)
                                         : (isYearly ? plan.price_yearly_usd : plan.price_monthly_usd)}
                                 </span>
-                                <span className="text-gray-500 text-sm">/month</span>
+                                <span className="text-muted-foreground text-sm">/month</span>
                             </div>
                             {isYearly && plan.yearly_bonus && (
                                 <p className="text-green-500 text-xs font-bold mt-2">{plan.yearly_bonus}</p>
@@ -206,7 +207,7 @@ const PricingView: React.FC = () => {
                                     <div className="text-green-500 mt-0.5 flex-shrink-0">
                                         <Check size={16} strokeWidth={3} />
                                     </div>
-                                    <span className="text-gray-600 dark:text-gray-300">{feature}</span>
+                                    <span className="text-muted-foreground">{feature}</span>
                                 </div>
                             ))}
                         </div>
@@ -215,10 +216,10 @@ const PricingView: React.FC = () => {
                             onClick={() => handlePayment(plan)}
                             disabled={plan.name === 'Free' || !!paymentLoading}
                             className={`w-full py-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${plan.name === 'Free'
-                                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-default'
+                                    ? 'bg-muted text-muted-foreground cursor-default'
                                     : plan.is_popular
-                                        ? 'bg-blue-500 text-white hover:bg-blue-600'
-                                        : 'bg-black dark:bg-white text-white dark:text-black hover:opacity-90 shadow-lg'
+                                        ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                                        : 'bg-foreground text-background hover:opacity-90 shadow-lg'
                                 }`}
                         >
                             {paymentLoading === plan.id ? (
@@ -237,3 +238,4 @@ const PricingView: React.FC = () => {
 };
 
 export default PricingView;
+

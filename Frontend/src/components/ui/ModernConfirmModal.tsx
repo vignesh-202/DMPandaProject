@@ -8,7 +8,7 @@ interface ModernConfirmModalProps {
   onConfirm: () => void;
   onSecondary?: () => void;
   title: string;
-  description: string;
+  description: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   secondaryLabel?: string;
@@ -66,17 +66,17 @@ const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
   };
 
   const iconColors = {
-    danger: 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20',
-    warning: 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20',
-    success: 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20',
-    info: 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20',
+    danger: 'text-destructive bg-destructive/10',
+    warning: 'text-warning bg-warning-muted/70',
+    success: 'text-success bg-success-muted/70',
+    info: 'text-primary bg-primary/10',
   };
 
   const buttonColors = {
     danger: 'bg-destructive hover:bg-destructive/90 text-destructive-foreground',
     warning: 'bg-warning hover:bg-warning/90 text-warning-foreground',
     success: 'bg-success hover:bg-success/90 text-success-foreground',
-    info: 'bg-primary hover:bg-primary-hover text-primary-foreground',
+    info: 'bg-ig-gradient text-white shadow-ig-glow hover:shadow-instagram',
   };
 
   return (
@@ -88,12 +88,12 @@ const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
       />
 
       {/* Modal */}
-      <div className="relative bg-card w-full max-w-md rounded-2xl shadow-lg border border-border overflow-hidden animate-fadeInScale">
+      <div className="ig-topline relative bg-card w-full max-w-md rounded-2xl shadow-lg border border-border overflow-hidden animate-fadeInScale">
         {/* Close Button */}
         <button
           onClick={onClose}
           disabled={isLoading}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors z-10"
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors z-10"
         >
           <X className="w-4 h-4" />
         </button>
@@ -114,9 +114,15 @@ const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
               <h3 className="text-xl font-semibold text-foreground tracking-tight">
                 {title}
               </h3>
-              <p className="text-muted-foreground text-sm leading-relaxed max-w-[280px] mx-auto">
-                {description}
-              </p>
+              {typeof description === 'string' ? (
+                <p className="text-muted-foreground text-sm leading-relaxed max-w-[280px] mx-auto">
+                  {description}
+                </p>
+              ) : (
+                <div className="text-muted-foreground text-sm leading-relaxed max-w-[320px] mx-auto">
+                  {description}
+                </div>
+              )}
             </div>
           </div>
 

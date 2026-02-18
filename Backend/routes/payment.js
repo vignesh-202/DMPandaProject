@@ -67,6 +67,33 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
     }
 });
 
+// Get My Plan
+router.get('/my-plan', loginRequired, async (req, res) => {
+    try {
+        // In a real app, we'd fetch the user's subscription from DB
+        // For now, return a default Free plan or mock data
+        // User ID is in req.user.$id
+
+        // TODO: Fetch user's actual plan from database
+        const plan = {
+            plan_id: 'free',
+            status: 'active',
+            expires: null,
+            details: {
+                name: 'Free Plan',
+                features: ['1 Instagram Account', 'Basic Automation', '100 Actions/day'],
+                price_monthly_inr: 0,
+                price_monthly_usd: 0
+            }
+        };
+
+        res.json(plan);
+    } catch (err) {
+        console.error(`Get My Plan Error: ${err.message}`);
+        res.status(500).json({ error: 'Failed to fetch plan details' });
+    }
+});
+
 // Get Pricing Plans (Public)
 router.get('/pricing', async (req, res) => {
     try {

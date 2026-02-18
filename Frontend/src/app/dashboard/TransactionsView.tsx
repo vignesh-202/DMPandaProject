@@ -7,7 +7,7 @@ const TransactionsView: React.FC = () => {
     <PlaceholderView
       title="Transactions"
       description="View and manage your subscription history and professional automation invoices."
-      icon={<Landmark className="w-12 h-12 text-blue-500" />}
+      icon={<Landmark className="w-12 h-12 text-primary" />}
     />
   );
 };

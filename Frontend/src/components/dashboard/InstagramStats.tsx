@@ -41,12 +41,12 @@ const StatItem = ({
 }) => (
   <button
     onClick={onToggle}
-    className="flex-1 text-center group/stat cursor-pointer min-w-0 py-1 rounded-lg hover:bg-muted/50 transition-colors"
+    className="flex-1 text-center group/stat cursor-pointer min-w-0 py-1.5 rounded-full hover:bg-secondary transition-colors"
   >
     <span className="block font-semibold text-foreground text-sm sm:text-base leading-tight transition-all duration-200">
       {showExact ? value.toLocaleString() : formatNumber(value)}
     </span>
-    <span className="text-2xs uppercase font-medium tracking-wider text-muted-foreground group-hover/stat:text-primary transition-colors">
+    <span className="text-2xs uppercase font-medium tracking-wider text-muted-foreground group-hover/stat:text-foreground transition-colors">
       {label}
     </span>
   </button>
@@ -86,7 +86,7 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
   const hasStories = stats?.stories_count && stats.stories_count > 0;
 
   return (
-    <Card className="relative h-full group">
+    <Card className="relative h-full group ig-card">
       {/* Background Decoration */}
       <div className="absolute -right-8 -top-8 opacity-[0.03] dark:opacity-[0.05] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
         <Instagram className="w-48 h-48 -rotate-12" />
@@ -98,7 +98,7 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
         disabled={loading || isRefreshing}
         className={cn(
           "absolute top-3 right-3 p-2 rounded-lg transition-all duration-200 z-10",
-          "text-muted-foreground hover:text-primary hover:bg-muted",
+          "text-muted-foreground hover:text-primary hover:bg-secondary",
           "active:scale-95 disabled:opacity-50",
           (loading || isRefreshing) && "animate-spin text-primary"
         )}
@@ -145,7 +145,7 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
                 {stats?.username || activeAccount?.username || "username"}
               </h2>
               {stats?.is_verified && (
-                <div className="flex-shrink-0 w-4 h-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold">
+                <div className="flex-shrink-0 w-4 h-4 rounded-full bg-ig-blue-message text-white flex items-center justify-center text-[10px] font-bold">
                   ✓
                 </div>
               )}
@@ -225,7 +225,7 @@ export const LiveStatusCard: React.FC<{ stats: InstagramStatsData | null; loadin
     <Card
       variant="interactive"
       padding="none"
-      className="relative h-full min-h-[120px] lg:min-h-[92px] flex items-center justify-center"
+      className="relative h-full min-h-[120px] lg:min-h-[92px] flex items-center justify-center ig-card"
       onClick={() => setCurrentView('Live Automation')}
     >
       <div className="flex flex-col items-center justify-center gap-3 lg:gap-2 p-4 lg:py-3 lg:px-4">
@@ -258,7 +258,7 @@ export const LiveStatusCard: React.FC<{ stats: InstagramStatsData | null; loadin
               ? "bg-primary shadow-lg shadow-primary/30" 
               : isLive 
                 ? "bg-destructive shadow-lg shadow-destructive/30 animate-pulse" 
-                : "bg-muted group-hover:scale-110"
+                : "bg-secondary group-hover:scale-110"
           )}>
             <Radio className={cn(
               "w-6 h-6",
@@ -293,7 +293,7 @@ export const InstagramStoriesCard: React.FC<{ stats: InstagramStatsData | null; 
     <Card
       variant="interactive"
       padding="none"
-      className="relative h-full min-h-[120px] lg:min-h-[92px] flex items-center justify-center"
+      className="relative h-full min-h-[120px] lg:min-h-[92px] flex items-center justify-center ig-card"
       onClick={() => setCurrentView('Story Automation')}
     >
       <div className="flex flex-col items-center justify-center gap-3 lg:gap-2 p-4 lg:py-3 lg:px-4">
@@ -355,14 +355,14 @@ const InstagramStats: React.FC = () => {
   const { activeAccountStats, isLoadingStats } = useDashboard();
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-5 lg:gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-5 lg:gap-4">
       {/* Bio Card */}
-      <div className="md:col-span-6 lg:col-span-8">
+      <div className="md:col-span-7 lg:col-span-8">
         <InstagramBioCard stats={activeAccountStats} loading={isLoadingStats} />
       </div>
 
       {/* Status Cards */}
-      <div className="md:col-span-6 lg:col-span-4 grid grid-cols-2 gap-4 sm:gap-5">
+      <div className="md:col-span-5 lg:col-span-4 grid grid-cols-2 gap-4 sm:gap-5">
         <LiveStatusCard stats={activeAccountStats} loading={isLoadingStats} />
         <InstagramStoriesCard stats={activeAccountStats} loading={isLoadingStats} />
       </div>

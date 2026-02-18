@@ -8,7 +8,18 @@ const DISPOSABLE_DOMAINS = new Set([
     "mailnesia.com", "maildrop.cc", "mailsac.com",
     "mohmal.com", "fakeinbox.com", "tempinbox.com",
     "trashmail.com", "trashmail.net", "trashmail.org",
-    // ... add more if needed
+    "mailcatch.com", "mytrashmail.com", "safetymail.info",
+    "spamgourmet.com", "spamex.com", "spam4.me",
+    "emailondeck.com", "tempmailaddress.com", "throwaway.email",
+    "tempail.com", "crazymailing.com", "tempmails.org",
+    "fakemailgenerator.com", "emailfake.com", "tempemails.io",
+    "burnermail.io", "minutemail.com", "getairmail.com",
+    "dropmail.me", "harakirimail.com", "mailslurp.com",
+    "inboxkitten.com", "email-generator.com", "guerrillamailblock.com",
+    "mintemail.com", "spaml.com", "spaml.de",
+    "fakemail.fr", "jetable.org", "nwytg.net",
+    "emkei.cz", "anonymbox.com", "33mail.com",
+    "anonaddy.com", "simplelogin.io",
 ]);
 
 const isValidEmail = (email) => {

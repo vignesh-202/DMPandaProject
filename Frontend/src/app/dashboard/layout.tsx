@@ -11,7 +11,7 @@ import { useLoading } from '../../contexts/LoadingContext';
 import { cn } from '../../lib/utils';
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
   const { currentView, setCurrentView, isLoadingAccounts, isInitialLoadComplete } = useDashboard();
@@ -31,7 +31,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setIsProfileMenuOpen(false);
       }
-      if (window.innerWidth < 768 && sidebarRef.current && !sidebarRef.current.contains(event.target as Node) && isSidebarOpen) {
+      if (window.innerWidth < 1024 && sidebarRef.current && !sidebarRef.current.contains(event.target as Node) && isSidebarOpen) {
         const target = event.target as HTMLElement;
         if (!target.closest('[data-sidebar-toggle]')) {
           setIsSidebarOpen(false);
@@ -46,7 +46,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   // Handle responsive sidebar
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 768) {
+      if (window.innerWidth < 1024) {
         setIsSidebarOpen(false);
       } else {
         setIsSidebarOpen(true);
@@ -61,51 +61,72 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     return <DashboardLoading />;
   }
 
+  const userInitials = user?.name
+    ? user.name
+        .trim()
+        .split(/\s+/)
+        .map((part: string) => part[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : 'DM';
+
   return (
     <div className="flex h-[100dvh] bg-background overflow-hidden">
       {/* Mobile Backdrop */}
       <div
         className={cn(
-          "fixed inset-0 bg-foreground/20 backdrop-blur-sm z-20 md:hidden transition-opacity duration-200",
-          isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        onClick={() => setIsSidebarOpen(false)}
-      />
+        "fixed inset-0 bg-foreground/20 backdrop-blur-sm z-20 lg:hidden transition-opacity duration-200",
+        isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+      )}
+      onClick={() => setIsSidebarOpen(false)}
+    />
 
       {/* Sidebar */}
       <aside
         ref={sidebarRef}
         className={cn(
-          "fixed top-0 left-0 h-full flex flex-col transition-all duration-300 ease-out md:relative z-30",
-          "bg-sidebar border-r border-sidebar-border",
+          "fixed top-0 left-0 h-full flex flex-col transition-all duration-300 ease-out lg:relative z-30",
+          "bg-sidebar border-r border-sidebar-border shadow-sm",
           isSidebarOpen 
             ? "w-64 translate-x-0" 
-            : "w-64 -translate-x-full md:w-[72px] md:translate-x-0"
+            : "w-64 -translate-x-full lg:w-[72px] lg:translate-x-0"
         )}
       >
         {/* Sidebar Header */}
-        <div className={cn(
-          "flex items-center h-16 px-4 border-b border-sidebar-border",
-          isSidebarOpen ? "justify-between" : "justify-center"
-        )}>
-          {isSidebarOpen && (
-            <Link to="/" className="transition-opacity hover:opacity-80">
-              <img src="/images/logo.png" alt="DM Panda" className="h-[52px] sm:h-[62px] md:h-[62px] w-auto max-h-[62px] object-contain" />
-            </Link>
+        <div className="border-b border-sidebar-border px-4 sm:px-6 py-3.5">
+          {isSidebarOpen ? (
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full">
+              <div aria-hidden />
+              <Link to="/" className="justify-self-center transition-opacity hover:opacity-80">
+                <span className="brand-mark text-[26px] sm:text-[28px] font-semibold text-foreground -translate-x-1 inline-block">
+                  DM Panda
+                </span>
+              </Link>
+              <button
+                onClick={toggleSidebar}
+                className="absolute top-2 right-2 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <button
+                onClick={toggleSidebar}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+              >
+                <Menu size={18} />
+              </button>
+            </div>
           )}
-          <button
-            onClick={toggleSidebar}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
-          >
-            {isSidebarOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
         </div>
 
         {/* Sidebar Content */}
         <Sidebar
           isCollapsed={!isSidebarOpen}
           onItemClick={() => {
-            if (window.innerWidth < 768) {
+            if (window.innerWidth < 1024) {
               setIsSidebarOpen(false);
             }
           }}
@@ -115,13 +136,13 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="sticky top-0 z-20 flex items-center justify-between h-16 px-4 sm:px-6 bg-card border-b border-border">
+        <header className="ig-topline sticky top-0 z-20 flex items-center justify-between h-16 px-4 sm:px-6 bg-card border-b border-border shadow-sm">
           {/* Left Side - Mobile Menu + Breadcrumb */}
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={toggleSidebar}
               data-sidebar-toggle
-              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted md:hidden transition-colors"
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted lg:hidden transition-colors"
             >
               <Menu size={20} />
             </button>
@@ -133,7 +154,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 className={cn(
                   "transition-colors duration-200 hover:text-primary",
                   currentView === 'Dashboard' 
-                    ? "text-primary font-semibold" 
+                    ? "ig-gradient-text font-semibold" 
                     : "text-muted-foreground"
                 )}
               >
@@ -142,7 +163,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               {currentView !== 'Dashboard' && (
                 <>
                   <ChevronRight className="w-4 h-4 text-muted-foreground mx-2 flex-shrink-0" />
-                  <span className="text-primary font-semibold truncate">
+                  <span className="ig-gradient-text font-semibold truncate">
                     {currentView}
                   </span>
                 </>
@@ -154,7 +175,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           <div ref={profileMenuRef} className="relative flex items-center">
             <button
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="relative p-[2px] rounded-full transition-all duration-300 bg-border hover:bg-muted-foreground/20 group"
+              className="relative p-[2px] rounded-full transition-all duration-200 bg-border hover:bg-border-hover shadow-sm group"
             >
               {user ? (
                 <img
@@ -163,15 +184,17 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   className="w-[30px] h-[30px] sm:w-[36px] sm:h-[36px] rounded-full object-cover border-2 border-card transition-transform duration-200 group-hover:scale-105"
                 />
               ) : (
-                <div className="w-[30px] h-[30px] sm:w-[36px] sm:h-[36px] rounded-full bg-muted flex items-center justify-center border-2 border-card">
-                  <User className="w-[18px] h-[18px] text-muted-foreground" />
+                <div className="w-[30px] h-[30px] sm:w-[36px] sm:h-[36px] rounded-full bg-card flex items-center justify-center border-2 border-card transition-transform duration-200 group-hover:scale-105">
+                  <span className="text-xs sm:text-sm font-semibold text-foreground">
+                    {userInitials}
+                  </span>
                 </div>
               )}
             </button>
 
             {/* Profile Dropdown - Instagram themed */}
             <div className={cn(
-              "absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-2xl shadow-lg overflow-hidden z-50 transition-all duration-200 origin-top-right",
+              "ig-topline absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-2xl shadow-lg overflow-hidden z-50 transition-all duration-200 origin-top-right",
               isProfileMenuOpen 
                 ? "opacity-100 scale-100 translate-y-0 visible" 
                 : "opacity-0 scale-95 -translate-y-2 invisible"
@@ -237,7 +260,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-4">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 lg:p-5">
           <div className="animate-fadeIn relative min-h-full">
             {children}
           </div>

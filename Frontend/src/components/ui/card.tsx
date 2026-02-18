@@ -18,10 +18,10 @@ const Card = React.memo(({
   const baseStyles = "rounded-2xl transition-all duration-200 relative overflow-hidden";
   
   const variants = {
-    default: "bg-card border border-content shadow-sm hover:shadow-md",
-    elevated: "bg-card border border-content shadow-md hover:shadow-lg",
+    default: "ig-card hover:shadow-md",
+    elevated: "ig-card shadow-md hover:shadow-lg",
     ghost: "bg-transparent border border-transparent",
-    interactive: "bg-card border border-content shadow-sm hover:shadow-lg hover:border-ig-purple/20 cursor-pointer active:scale-[0.99] hover:-translate-y-0.5",
+    interactive: "ig-card hover:shadow-lg hover:border-ig-purple/20 cursor-pointer active:scale-[0.99] hover:-translate-y-0.5",
     // New Instagram-themed variants
     instagram: "bg-card border-2 border-transparent shadow-md hover:shadow-instagram relative before:absolute before:inset-0 before:rounded-2xl before:p-[2px] before:bg-ig-gradient before:-z-10 before:opacity-0 hover:before:opacity-100 before:transition-opacity",
     'instagram-solid': "bg-ig-gradient text-white shadow-lg hover:shadow-ig-glow",

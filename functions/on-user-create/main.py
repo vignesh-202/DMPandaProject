@@ -10,34 +10,24 @@ from appwrite.role import Role
 # It creates a corresponding document in both 'users' and 'profiles' collections.
 def main(context):
     try:
-        # Appwrite may send JSON or a plain string like: "New user created: <user_id>"
+        # Appwrite sends the event payload as JSON in the request body.
+        # In most runtimes this is a string, so normalize to a dict.
         raw_body = getattr(context.req, "body", None)
-        user = {}
-        user_id = None
-        user_name = ""
-        user_email = ""
-
-        if isinstance(raw_body, str):
-            stripped = raw_body.strip()
-            prefix = "New user created:"
-            if stripped.startswith(prefix):
-                user_id = stripped.split(prefix, 1)[1].strip()
-            else:
-                try:
-                    user = json.loads(stripped or "{}")
-                except Exception:
-                    context.error(f"on-user-create: Failed to parse request body: {raw_body!r}")
-                    return context.res.json(
-                        {"status": "error", "message": "Invalid event payload received."},
-                        400,
-                    )
-        elif isinstance(raw_body, dict):
+        if isinstance(raw_body, dict):
             user = raw_body
+        else:
+            try:
+                user = json.loads(raw_body or "{}")
+            except Exception:
+                context.error(f"on-user-create: Failed to parse request body: {raw_body!r}")
+                return context.res.json(
+                    {"status": "error", "message": "Invalid event payload received."},
+                    400,
+                )
 
-        if user and not user_id:
-            user_id = user.get("$id") or user.get("user_id")
-            user_name = user.get("name", "")
-            user_email = user.get("email", "")
+        user_id = user.get("$id")
+        user_name = user.get("name", "")
+        user_email = user.get("email", "")
 
         if not user_id:
             context.error(f"on-user-create: Missing user id in payload: {user}")
@@ -49,8 +39,8 @@ def main(context):
         context.log(f"New user created event received for userId: {user_id}")
 
         client = Client()
-        client.set_endpoint(os.environ["APPWRITE_ENDPOINT"])
-        client.set_project(os.environ["APPWRITE_PROJECT_ID"])
+        client.set_endpoint(os.environ["APPWRITE_FUNCTION_ENDPOINT"])
+        client.set_project(os.environ["APPWRITE_FUNCTION_PROJECT_ID"])
         client.set_key(os.environ["APPWRITE_API_KEY"])
 
         databases = Databases(client)

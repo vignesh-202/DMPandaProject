@@ -156,7 +156,7 @@ const Gauge: React.FC<GaugeProps> = ({
   const colorInfo = { main: mainColor, label: activityLabel };
 
   return (
-    <div className={cn(`flex flex-col items-center justify-center mx-auto select-none ${s.container}`, className)}>
+    <div className={cn(`gauge-legacy flex flex-col items-center justify-center mx-auto select-none ${s.container}`, className)}>
       <div className="relative w-full aspect-square">
         <svg viewBox="0 0 200 180" className="w-full h-full overflow-visible">
           <defs>

@@ -68,7 +68,7 @@ class DMWorker {
             console.log(`Matched automation: ${matchedAutomation.title || matchedAutomation.$id}`);
 
             // 4. Get the template for the automation
-            const template = await this.appwrite.getTemplate(matchedAutomation.template_id);
+            const template = await this.appwrite.getTemplate(matchedAutomation.template_id, matchedAutomation.account_id);
             if (!template) {
                 console.error(`Template ${matchedAutomation.template_id} not found.`);
                 return false;

@@ -5,14 +5,14 @@ const DashboardLoading: React.FC = () => {
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-background/80 backdrop-blur-md">
       {/* Background Gradient */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-tr from-primary/10 to-success/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] bg-primary/10 rounded-full blur-3xl animate-pulse" />
       </div>
 
       {/* Loading Content */}
       <div className="relative z-10 flex flex-col items-center">
         {/* Panda Animation */}
         <div className="relative group">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-success/20 rounded-full blur-2xl scale-110 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="absolute inset-0 bg-primary/15 rounded-full blur-2xl scale-110 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           <img 
             src="/images/loading_panda.gif" 
             alt="Loading..." 

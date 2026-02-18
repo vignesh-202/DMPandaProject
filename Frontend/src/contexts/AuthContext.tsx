@@ -40,6 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [hasPassword, setHasPassword] = useState<boolean | undefined>(undefined);
   const [hasLinkedInstagram, setHasLinkedInstagram] = useState<boolean | undefined>(undefined);
   const hasPasswordRef = React.useRef(hasPassword);
+  const inFlightGetRef = React.useRef<Map<string, Promise<{ status: number; statusText: string; headers: Headers; body: ArrayBuffer }>>>(new Map());
 
   useEffect(() => {
     hasPasswordRef.current = hasPassword;
@@ -171,7 +172,59 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       headers.set('Authorization', `Bearer ${token}`);
     }
 
+    const method = (init?.method || 'GET').toUpperCase();
+    const url = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : String(input));
+    const shouldCoalesce = method === 'GET' && !init?.body && !init?.signal;
+
+    const performFetch = async () => {
+      const response = await fetch(input, { ...init, headers });
+      const body = await response.arrayBuffer();
+      const clonedHeaders = new Headers();
+      response.headers.forEach((value, key) => clonedHeaders.set(key, value));
+      return { status: response.status, statusText: response.statusText, headers: clonedHeaders, body };
+    };
+
     try {
+      if (shouldCoalesce) {
+        let payload: { status: number; statusText: string; headers: Headers; body: ArrayBuffer };
+        const existing = inFlightGetRef.current.get(url);
+        if (existing) {
+          payload = await existing;
+        } else {
+          const promise = performFetch().finally(() => {
+            inFlightGetRef.current.delete(url);
+          });
+          inFlightGetRef.current.set(url, promise);
+          payload = await promise;
+        }
+        const response = new Response(payload.body.slice(0), {
+          status: payload.status,
+          statusText: payload.statusText,
+          headers: payload.headers
+        });
+
+        // Handle 401 statuses
+        if (response.status === 401) {
+          const checkClone = response.clone();
+          try {
+            const errorData = await checkClone.json();
+            const isPasswordError = errorData.error && (
+              errorData.error.toLowerCase().includes('password') ||
+              errorData.error.toLowerCase().includes('invalid password')
+            );
+            if (!isPasswordError) {
+              console.warn('[AuthContext] 401 Unauthorized detected. Logging out.');
+              logout();
+            }
+          } catch {
+            console.warn('[AuthContext] 401 Unauthorized detected. Logging out.');
+            logout();
+          }
+        }
+
+        return response;
+      }
+
       const response = await fetch(input, { ...init, headers });
 
       // Handle 401 statuses

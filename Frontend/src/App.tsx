@@ -19,6 +19,7 @@ const RefundPolicyPageLazy = React.lazy(() => import('./app/refund-policy/page')
 const NotFoundPageLazy = React.lazy(() => import('./app/not-found'));
 const VerifyEmailPageLazy = React.lazy(() => import('./app/auth/verify/page'));
 const AffiliatePageLazy = React.lazy(() => import('./app/affiliate/page'));
+const SuperProfilePublicPageLazy = React.lazy(() => import('./app/superprofile/page'));
 
 const DeleteAccountGuidePageLazy = React.lazy(() => import('./app/delete-account-guide/page'));
 const PasswordRecoveryPageLazy = React.lazy(() => import('./app/auth/recovery/page'));
@@ -32,6 +33,7 @@ const AppContent: React.FC = () => {
   const location = useLocation();
   const { setForceLightMode } = React.useContext(ThemeContext);
   const isPublicPage = !location.pathname?.startsWith('/dashboard');
+  const isSuperProfilePage = location.pathname?.startsWith('/superprofile');
 
   // Enforce light mode on public pages
   useEffect(() => {
@@ -40,7 +42,7 @@ const AppContent: React.FC = () => {
 
   return (
     <ThemeProvider>
-      {isPublicPage && <Navbar />}
+      {isPublicPage && !isSuperProfilePage && <Navbar />}
       <div className="page-transition">
         <Suspense fallback={isPublicPage ? null : <DashboardLoading />}>
           <Routes>
@@ -58,6 +60,7 @@ const AppContent: React.FC = () => {
             <Route path="/privacy" element={<PrivacyPageLazy />} />
             <Route path="/terms" element={<TermsPageLazy />} />
             <Route path="/affiliate" element={<AffiliatePageLazy />} />
+            <Route path="/superprofile/:slug" element={<SuperProfilePublicPageLazy />} />
             <Route path="/login" element={<PublicRoute><LoginPageLazy /></PublicRoute>} />
             <Route path="/refund-policy" element={<RefundPolicyPageLazy />} />
             <Route path="/delete-account-guide" element={<DeleteAccountGuidePageLazy />} />
@@ -65,7 +68,7 @@ const AppContent: React.FC = () => {
           </Routes>
         </Suspense>
       </div>
-      {isPublicPage && <Footer />}
+      {isPublicPage && !isSuperProfilePage && <Footer />}
     </ThemeProvider>
   );
 };

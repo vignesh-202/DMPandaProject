@@ -9,7 +9,7 @@ import { useDashboard } from '../../contexts/DashboardContext';
 import ModernConfirmModal from '../ui/ModernConfirmModal';
 import ToggleSwitch from '../ui/ToggleSwitch';
 import TemplateSelector, { ReplyTemplate } from './TemplateSelector';
-import MobilePreview from './MobilePreview';
+import SharedMobilePreview from './SharedMobilePreview';
 import { useNavigate } from 'react-router-dom';
 
 function _mergeReplyTemplate(templateType: string, templateData: Record<string, unknown>): Record<string, unknown> {
@@ -24,6 +24,20 @@ function _mergeReplyTemplate(templateType: string, templateData: Record<string, 
         default: return { template_type: 'template_text', template_content: String(d.text || '') };
     }
 }
+
+const suggestUniqueTitle = (base: string, existing: string[]) => {
+    const trimmed = (base || '').trim();
+    if (!trimmed) return trimmed;
+    const existingSet = new Set(existing.map(t => (t || '').trim().toLowerCase()));
+    if (!existingSet.has(trimmed.toLowerCase())) return trimmed;
+    let i = 2;
+    while (i < 1000) {
+        const candidate = `${trimmed} (${i})`;
+        if (!existingSet.has(candidate.toLowerCase())) return candidate;
+        i += 1;
+    }
+    return `${trimmed} (${Date.now()})`;
+};
 
 interface AutomationEditorProps {
     type: 'dm' | 'comment' | 'share' | 'mention' | 'global' | 'posts' | 'reel' | 'story' | 'live';
@@ -41,13 +55,14 @@ interface AutomationEditorProps {
     onTemplatesLoaded?: (templates: ReplyTemplate[]) => void;
     /** When true, global type renders only form + footer; parent provides header, grid, and preview (DM-like layout). */
     useParentLayout?: boolean;
+    variant?: 'modal' | 'card' | 'embedded';
+    existingTitles?: Array<{ id?: string; title?: string }>;
 }
 
 const AutomationEditor: React.FC<AutomationEditorProps> = ({
-    type, onClose, onSave, authenticatedFetch, activeAccountID, onDelete, automationId, mediaId, isStandalone, titleOverride, onChange, onTemplateSelect, onTemplatesLoaded, useParentLayout
+    type, onClose, onSave, authenticatedFetch, activeAccountID, onDelete, automationId, mediaId, isStandalone, titleOverride, onChange, onTemplateSelect, onTemplatesLoaded, useParentLayout, variant = 'modal', existingTitles
 }) => {
     const { activeAccount, setCurrentView } = useDashboard();
-    const navigate = useNavigate();
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -68,7 +83,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         replies: [],
         comment_reply_text: ''
     });
-    
+
     // Check if Suggest More is set up for this account
     const suggestMoreSetup = activeAccount?.suggest_more_setup || false;
     const [keywordInput, setKeywordInput] = useState('');
@@ -120,17 +135,21 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             const fetchDetails = async () => {
                 try {
                     // Map frontend type to backend type for API call
-                    const backendType = (type === 'posts' || type === 'reel' || type === 'story' || type === 'live') ? 'comment' : type;
+                    const backendType = type === 'posts' ? 'post'
+                        : type === 'reel' ? 'reel'
+                            : type === 'story' ? 'story'
+                                : type === 'live' ? 'live'
+                                    : type;
                     const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${automationId}?account_id=${activeAccountID}&type=${backendType}`);
                     if (res.ok) {
                         const data = await res.json();
-                        
+
                         // Convert backend data to frontend format
                         let templateElements: any[] = [];
                         if (data.template_type === 'template_carousel' && data.template_content) {
                             try {
-                                templateElements = typeof data.template_content === 'string' 
-                                    ? JSON.parse(data.template_content) 
+                                templateElements = typeof data.template_content === 'string'
+                                    ? JSON.parse(data.template_content)
                                     : data.template_content;
                                 if (!Array.isArray(templateElements)) templateElements = [];
                             } catch (e) {
@@ -138,18 +157,18 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                 templateElements = [];
                             }
                         }
-                        
+
                         // Parse buttons/replies if they're strings
                         let buttons: any[] = [];
                         if (data.buttons) {
                             buttons = typeof data.buttons === 'string' ? JSON.parse(data.buttons) : data.buttons;
                         }
-                        
+
                         let replies: any[] = [];
                         if (data.replies) {
                             replies = Array.isArray(data.replies) ? data.replies : (typeof data.replies === 'string' ? JSON.parse(data.replies) : []);
                         }
-                        
+
                         // Convert backend 'keyword' array to frontend format
                         const keywordArray = Array.isArray(data.keyword) ? data.keyword : (data.keyword ? data.keyword.split(',').map((k: string) => k.trim()) : []);
                         const automationData = {
@@ -166,12 +185,12 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         }
                         if (data.template_id) {
                             try {
-                                const rr = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${data.template_id}`);
+                                const rr = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${data.template_id}?account_id=${activeAccountID}`);
                                 if (rr.ok) {
                                     const templateData = await rr.json();
                                     setSelectedTemplate(templateData);
                                 }
-                            } catch (_) {}
+                            } catch (_) { }
                         } else setSelectedTemplate(null);
                         setIsInitialLoad(false);
                     } else {
@@ -209,12 +228,12 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         if (automation.template_id && !selectedTemplate) {
             (async () => {
                 try {
-                    const r = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${automation.template_id}`);
+                    const r = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${automation.template_id}?account_id=${activeAccountID}`);
                     if (r.ok) {
                         const d = await r.json();
                         setSelectedTemplate(d);
                     }
-                } catch (_) {}
+                } catch (_) { }
             })();
         }
     }, [automation.template_id, authenticatedFetch, selectedTemplate]);
@@ -307,6 +326,19 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         const errors: { [key: string]: string } = {};
         if (!isTitleHidden && !currentTitle.trim()) errors.title = "Identification title is required";
 
+        if (!isTitleHidden && currentTitle.trim() && Array.isArray(existingTitles) && existingTitles.length > 0) {
+            const normalizedTitle = currentTitle.trim().toLowerCase();
+            const otherTitles = existingTitles.filter((t) => !automation.$id || t.id !== automation.$id).map((t) => t.title || '');
+            const duplicate = otherTitles.some((t) => (t || '').trim().toLowerCase() === normalizedTitle);
+            if (duplicate) {
+                const suggested = suggestUniqueTitle(currentTitle, otherTitles);
+                if (suggested && suggested !== currentTitle) {
+                    setAutomation((prev: any) => ({ ...prev, title: suggested }));
+                }
+                errors.title = `Title already exists. Suggested: ${suggested}`;
+            }
+        }
+
         if (type === 'global') {
             // For global, check single keyword
             if (!automation.keyword || !automation.keyword.trim()) {
@@ -342,8 +374,12 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             // Uniqueness checks could be added here if needed
 
             // Map frontend type to backend type
-            const backendType = (type === 'posts' || type === 'reel' || type === 'story' || type === 'live') ? 'comment' : type;
-            
+            const backendType = type === 'posts' ? 'post'
+                : type === 'reel' ? 'reel'
+                    : type === 'story' ? 'story'
+                        : type === 'live' ? 'live'
+                            : type;
+
             // Prepare payload: backend expects 'keyword' (array), not 'keywords'
             let keywordArray: string[] = [];
             if (type === 'global') {
@@ -352,7 +388,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             } else {
                 keywordArray = automation.keywords || automation.keyword || [];
             }
-            
+            keywordArray = (keywordArray || []).map((k: string) => String(k || '').trim().toUpperCase()).filter(Boolean);
+
             const payload: any = {
                 ...automation,
                 title: currentTitle,
@@ -368,7 +405,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             delete payload.keywords;
             delete payload.trigger_type; // Backend doesn't store trigger_type
             delete payload.template_elements; // Backend uses template_content instead
-            
+
             const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations${automation.$id ? `/${automation.$id}` : ''}?account_id=${activeAccountID}${automation.$id ? '' : `&type=${backendType}`}`, {
                 method: automation.$id ? 'PATCH' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -529,49 +566,45 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
                 {/* 2.5. Suggest More Toggle (hidden for global useParentLayout to match DM) */}
                 {!(type === 'global' && useParentLayout) && (
-                <div className={`flex items-center justify-between p-5 rounded-[28px] border transition-all ${
-                    suggestMoreSetup 
+                    <div className={`flex items-center justify-between p-5 rounded-[28px] border transition-all ${suggestMoreSetup
                         ? 'bg-yellow-50/50 dark:bg-yellow-500/5 border-yellow-100 dark:border-yellow-500/10 hover:bg-yellow-50 dark:hover:bg-yellow-500/10'
                         : 'bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800'
-                }`}>
-                    <div className="flex items-center gap-4">
-                        <div className={`p-3 rounded-2xl shadow-sm border ${
-                            suggestMoreSetup 
+                        }`}>
+                        <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-2xl shadow-sm border ${suggestMoreSetup
                                 ? 'bg-white dark:bg-gray-900 border-yellow-50 dark:border-yellow-500/10'
                                 : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                        }`}>
-                            <Lightbulb className={`w-5 h-5 transition-colors ${
-                                automation.suggest_more_enabled && suggestMoreSetup ? 'text-yellow-500' : 'text-gray-400'
-                            }`} />
+                                }`}>
+                                <Lightbulb className={`w-5 h-5 transition-colors ${automation.suggest_more_enabled && suggestMoreSetup ? 'text-yellow-500' : 'text-gray-400'
+                                    }`} />
+                            </div>
+                            <div>
+                                <p className={`text-[11px] font-black uppercase tracking-[0.15em] mb-0.5 ${suggestMoreSetup ? 'text-gray-900 dark:text-white' : 'text-gray-500'
+                                    }`}>Include Suggest More</p>
+                                <p className="text-[10px] font-medium text-gray-400">
+                                    {suggestMoreSetup
+                                        ? 'Add "Suggest More" button after this automation reply.'
+                                        : 'Setup Suggest More first to enable this feature.'
+                                    }
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <p className={`text-[11px] font-black uppercase tracking-[0.15em] mb-0.5 ${
-                                suggestMoreSetup ? 'text-gray-900 dark:text-white' : 'text-gray-500'
-                            }`}>Include Suggest More</p>
-                            <p className="text-[10px] font-medium text-gray-400">
-                                {suggestMoreSetup 
-                                    ? 'Add "Suggest More" button after this automation reply.'
-                                    : 'Setup Suggest More first to enable this feature.'
-                                }
-                            </p>
-                        </div>
+                        {suggestMoreSetup ? (
+                            <ToggleSwitch
+                                isChecked={automation.suggest_more_enabled || false}
+                                onChange={() => setAutomation({ ...automation, suggest_more_enabled: !automation.suggest_more_enabled })}
+                                variant="plain"
+                            />
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => { onClose(); setCurrentView('Suggest More'); }}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-yellow-500/20 transition-all"
+                            >
+                                Setup <ExternalLink className="w-3 h-3" />
+                            </button>
+                        )}
                     </div>
-                    {suggestMoreSetup ? (
-                        <ToggleSwitch
-                            isChecked={automation.suggest_more_enabled || false}
-                            onChange={() => setAutomation({ ...automation, suggest_more_enabled: !automation.suggest_more_enabled })}
-                            variant="plain"
-                        />
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => { onClose(); setCurrentView('Suggest More'); }}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-yellow-500/20 transition-all"
-                        >
-                            Setup <ExternalLink className="w-3 h-3" />
-                        </button>
-                    )}
-                </div>
                 )}
 
                 {/* 3. Trigger Selection - Hidden for Global Type */}
@@ -669,37 +702,37 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     </div>
                 )}
 
-                    {automation.trigger_type === 'all_comments' && (
-                        <div className="p-4 bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
-                            <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold">Global Mode: This automation will trigger for EVERY comment on this {type}.</p>
-                        </div>
-                    )}
+                {automation.trigger_type === 'all_comments' && (
+                    <div className="p-4 bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                        <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold">Global Mode: This automation will trigger for EVERY comment on this {type}.</p>
+                    </div>
+                )}
 
-                    {automation.trigger_type === 'share_to_admin' && (
-                        <div className="p-4 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
-                            <p className="text-[10px] text-green-600 dark:text-green-400 font-bold">Share Mode: Triggered when someone shares this {type} to your DMs.</p>
-                        </div>
-                    )}
+                {automation.trigger_type === 'share_to_admin' && (
+                    <div className="p-4 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                        <p className="text-[10px] text-green-600 dark:text-green-400 font-bold">Share Mode: Triggered when someone shares this {type} to your DMs.</p>
+                    </div>
+                )}
 
-                    {/* Comment Reply Field - Only for Post/Reel automations in Keywords or All Comments mode */}
-                    {(type === 'posts' || type === 'reel') && (automation.trigger_type === 'keywords' || automation.trigger_type === 'all_comments') && automation.trigger_type !== 'share_to_admin' && (
-                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 pt-6 border-t border-slate-100 dark:border-slate-800">
-                            <div className="space-y-2">
-                                <div className="flex justify-between items-center px-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Public Comment Reply (Optional)</label>
-                                </div>
-                                <textarea
-                                    id="field_comment_reply_text"
-                                    value={automation.comment_reply_text || ''}
-                                    onChange={e => setAutomation({ ...automation, comment_reply_text: e.target.value })}
-                                    className={`w-full bg-gray-50 dark:bg-gray-900 border-2 ${fieldErrors['comment_reply_text'] ? 'border-red-500' : 'border-transparent'} focus:border-blue-500 outline-none rounded-2xl p-4 text-xs font-bold min-h-[100px] shadow-inner`}
-                                    placeholder="Enter the public comment reply text (this will be posted as a comment on Instagram)..."
-                                />
-                                <p className="text-[9px] text-gray-400 font-medium px-2">Optional: A public comment reply that will be posted on Instagram when this automation triggers.</p>
-                                {fieldErrors['comment_reply_text'] && <p className="text-[10px] text-red-500 font-bold px-2">{fieldErrors['comment_reply_text']}</p>}
+                {/* Comment Reply Field - Only for Post/Reel automations in Keywords or All Comments mode */}
+                {(type === 'posts' || type === 'reel') && (automation.trigger_type === 'keywords' || automation.trigger_type === 'all_comments') && automation.trigger_type !== 'share_to_admin' && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2 pt-6 border-t border-slate-100 dark:border-slate-800">
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center px-1">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Public Comment Reply (Optional)</label>
                             </div>
+                            <textarea
+                                id="field_comment_reply_text"
+                                value={automation.comment_reply_text || ''}
+                                onChange={e => setAutomation({ ...automation, comment_reply_text: e.target.value })}
+                                className={`w-full bg-gray-50 dark:bg-gray-900 border-2 ${fieldErrors['comment_reply_text'] ? 'border-red-500' : 'border-transparent'} focus:border-blue-500 outline-none rounded-2xl p-4 text-xs font-bold min-h-[100px] shadow-inner`}
+                                placeholder="Enter the public comment reply text (this will be posted as a comment on Instagram)..."
+                            />
+                            <p className="text-[9px] text-gray-400 font-medium px-2">Optional: A public comment reply that will be posted on Instagram when this automation triggers.</p>
+                            {fieldErrors['comment_reply_text'] && <p className="text-[10px] text-red-500 font-bold px-2">{fieldErrors['comment_reply_text']}</p>}
                         </div>
-                    )}
+                    </div>
+                )}
 
                 {/* 4. Response Settings */}
                 <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-slate-800">
@@ -728,7 +761,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                             }
                         }}
                         onCreateNew={() => {
-                            navigate('/dashboard?view=Reply Templates');
+                            setCurrentView('Reply Templates');
                         }}
                         onTemplatesLoaded={onTemplatesLoaded}
                         className="mb-4"
@@ -774,12 +807,16 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 media_url: selectedTemplate.template_type === 'template_share_post' ? selectedTemplate.template_data?.media_url : undefined,
                 use_latest_post: selectedTemplate.template_type === 'template_share_post' ? selectedTemplate.template_data?.use_latest_post : undefined,
                 latest_post_type: selectedTemplate.template_type === 'template_share_post' ? selectedTemplate.template_data?.latest_post_type : undefined,
+                template_data: selectedTemplate.template_data
             };
 
             return (
-                <div className="bg-gray-50 dark:bg-black p-8 flex flex-col items-center justify-center overflow-hidden">
-                    <MobilePreview automation={previewAutomation} displayName={displayName} profilePic={profilePic} />
-                </div>
+                <SharedMobilePreview
+                    mode="automation"
+                    automation={previewAutomation as any}
+                    displayName={displayName}
+                    profilePic={profilePic}
+                />
             );
         }
 
@@ -788,82 +825,24 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         // live preview still shows the reply template content.
         if (automation.template_type) {
             return (
-                <div className="bg-gray-50 dark:bg-black p-8 flex flex-col items-center justify-center overflow-hidden">
-                    <MobilePreview automation={automation} displayName={displayName} profilePic={profilePic} />
-                </div>
+                <SharedMobilePreview
+                    mode="automation"
+                    automation={automation}
+                    displayName={displayName}
+                    profilePic={profilePic}
+                />
             );
         }
 
         // Default empty state when nothing is configured yet - show empty chat screen
         return (
             <div className="bg-gray-50 dark:bg-black p-4 flex flex-col items-center justify-center overflow-hidden">
-                <div className="relative w-[300px] h-[500px] mx-auto bg-white dark:bg-black rounded-[40px] border-[8px] border-gray-900 shadow-[0_0_60px_rgba(0,0,0,0.15)] overflow-hidden scale-90 origin-top flex flex-col">
-                    {/* Camera/Notch */}
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-gray-900 rounded-b-2xl z-40 flex items-center justify-center">
-                        <div className="w-8 h-1 bg-gray-800 rounded-full" />
-                    </div>
-
-                    {/* Status Bar */}
-                    <div className="h-8 flex justify-between items-center px-6 pt-4 z-30 text-[10px] font-bold dark:text-white text-gray-900">
-                        <span>9:41</span>
-                        <div className="flex gap-1 items-center">
-                            <div className="w-3 h-3 border-2 border-current rounded-[2px]" />
-                            <div className="w-1 h-1 bg-current rounded-full" />
-                        </div>
-                    </div>
-
-                    {/* Instagram Header */}
-                    <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-black">
-                        <div className="flex items-center gap-2">
-                            <ChevronRight className="w-4 h-4 rotate-180" />
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-yellow-400 to-purple-600 p-[1px]">
-                                <div className="w-full h-full rounded-full bg-white dark:bg-black p-[0.5px]">
-                                    <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                                        {profilePic ? (
-                                            <img src={profilePic} className="w-full h-full object-cover" alt="" />
-                                        ) : (
-                                            <Instagram className="w-3 h-3 text-gray-400" />
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
-                                <div className="text-[10px] font-bold dark:text-white truncate max-w-[80px]">@{displayName}</div>
-                                <div className="text-[8px] text-gray-400">Instagram</div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3 text-gray-900 dark:text-white">
-                            <Smartphone className="w-3 h-3" />
-                        </div>
-                    </div>
-
-                    {/* Empty Chat Area */}
-                    <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-white dark:bg-black flex flex-col items-center justify-center">
-                        <div className="text-center space-y-2 max-w-[200px]">
-                            <LayoutTemplate className="w-10 h-10 text-gray-300 mx-auto" />
-                            <p className="text-xs font-medium text-gray-400">Select a reply template</p>
-                            <p className="text-[10px] text-gray-300">Choose from Reply Templates to see preview</p>
-                        </div>
-                    </div>
-
-                    {/* Bottom Input */}
-                    <div className="bg-white dark:bg-black p-2 pb-4 border-t border-gray-100 dark:border-gray-800">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-400 to-purple-600 p-[1px] flex items-center justify-center">
-                                <div className="w-full h-full rounded-full bg-white dark:bg-black flex items-center justify-center">
-                                    <Plus className="w-4 h-4 text-gray-900 dark:text-white" />
-                                </div>
-                            </div>
-                            <div className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-full px-3 py-2 flex items-center justify-between">
-                                <span className="text-[12px] text-gray-400 font-medium">Message...</span>
-                                <div className="flex items-center gap-2 text-gray-400">
-                                    <Film className="w-2.5 h-2.5" />
-                                    <ImageIcon className="w-2.5 h-2.5" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <SharedMobilePreview
+                    mode="automation"
+                    automation={automation}
+                    displayName={displayName}
+                    profilePic={profilePic}
+                />
             </div>
         );
     };
@@ -917,7 +896,9 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         </div>
     );
 
-    if (isStandalone) {
+    const effectiveVariant = isStandalone ? 'card' : (useParentLayout && type === 'global' ? 'embedded' : variant);
+
+    if (effectiveVariant === 'card') {
         return (
             <div className="bg-white dark:bg-gray-950 w-full overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl">
                 <div className="flex items-center justify-between p-8 border-b border-slate-100 dark:border-slate-900">
@@ -942,47 +923,11 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         );
     }
 
-    // For global type: use parent layout (DM-like) when useParentLayout, else legacy full layout
-    if (type === 'global' && useParentLayout) {
+    if (effectiveVariant === 'embedded') {
         return (
-            <>
+            <div className="w-full">
                 {renderForm()}
                 {renderFooter()}
-                <ModernConfirmModal
-                    isOpen={modalConfig.isOpen}
-                    onClose={closeModal}
-                    onConfirm={modalConfig.onConfirm}
-                    title={modalConfig.title}
-                    description={modalConfig.description}
-                    type={modalConfig.type}
-                    confirmLabel={modalConfig.confirmLabel}
-                    cancelLabel={modalConfig.cancelLabel}
-                />
-            </>
-        );
-    }
-    if (type === 'global') {
-        return (
-            <div className="w-full space-y-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-2xl font-black text-black dark:text-white uppercase tracking-tight">{titleOverride || "Configure Global Trigger"}</h2>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Type: Global Trigger</p>
-                    </div>
-                    <button onClick={onClose} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-2xl text-gray-400 hover:text-black dark:hover:text-white transition-all">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white dark:bg-gray-950 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-                    <div className="overflow-y-auto max-h-[calc(100vh-300px)]">
-                        {renderForm()}
-                    </div>
-                    <div className="overflow-y-auto max-h-[calc(100vh-300px)]">
-                        {renderPreview()}
-                    </div>
-                </div>
-                {renderFooter()}
-
                 <ModernConfirmModal
                     isOpen={modalConfig.isOpen}
                     onClose={closeModal}
@@ -997,6 +942,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         );
     }
 
+    // Default 'modal' variant
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-white dark:bg-gray-950 w-full max-w-4xl rounded-[40px] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-300">

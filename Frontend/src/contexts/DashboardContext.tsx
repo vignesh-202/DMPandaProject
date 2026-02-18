@@ -126,6 +126,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     const [convoStarterData, setConvoStarterData] = useState<any | null>(null);
     const [convoStarterLoading, setConvoStarterLoading] = useState(false);
     const isFetchingConvoStarters = useRef(false);
+    const convoStartersFetchPromise = useRef<Promise<void> | null>(null);
     const [inboxMenuData, setInboxMenuData] = useState<any | null>(null);
     const [inboxMenuLoading, setInboxMenuLoading] = useState(false);
     const [automationInitialLoaded, setAutomationInitialLoaded] = useState<Record<string, boolean>>({});
@@ -437,39 +438,49 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         if (!activeAccountID) return;
         if (convoStarterData && !force) return;
         if (isFetchingConvoStarters.current && !force) return;
+        if (convoStartersFetchPromise.current && !force) {
+            await convoStartersFetchPromise.current;
+            return;
+        }
 
         isFetchingConvoStarters.current = true;
         setConvoStarterLoading(true);
-        try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/convo-starters?account_id=${activeAccountID}`);
-            if (response.ok) {
-                const data = await response.json();
-                setConvoStarterData(data);
-                // Store convo starters in frontend for future edits
-                if (data.db_starters && data.db_starters.length > 0) {
-                    localStorage.setItem(`convo_starters_${activeAccountID}`, JSON.stringify(data.db_starters));
-                    setConvoStarters(data.db_starters);
-                } else if (data.ig_starters && data.ig_starters.length > 0) {
-                    localStorage.setItem(`convo_starters_${activeAccountID}`, JSON.stringify(data.ig_starters));
-                    setConvoStarters(data.ig_starters);
+        const fetchPromise = (async () => {
+            try {
+                const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/convo-starters?account_id=${activeAccountID}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setConvoStarterData(data);
+                    // Store convo starters in frontend for future edits
+                    if (data.db_starters && data.db_starters.length > 0) {
+                        localStorage.setItem(`convo_starters_${activeAccountID}`, JSON.stringify(data.db_starters));
+                        setConvoStarters(data.db_starters);
+                    } else if (data.ig_starters && data.ig_starters.length > 0) {
+                        localStorage.setItem(`convo_starters_${activeAccountID}`, JSON.stringify(data.ig_starters));
+                        setConvoStarters(data.ig_starters);
+                    } else {
+                        setConvoStarters([]);
+                    }
                 } else {
+                    console.error('Failed to fetch convo starters:', response.status, response.statusText);
+                    // Set empty data to prevent infinite loading
+                    setConvoStarterData({ ig_starters: [], db_starters: [], is_synced: false, status: 'none', issue: 'API Error', account_id: activeAccountID });
                     setConvoStarters([]);
                 }
-            } else {
-                console.error('Failed to fetch convo starters:', response.status, response.statusText);
+            } catch (error) {
+                console.error('Error fetching convo starters:', error);
                 // Set empty data to prevent infinite loading
-                setConvoStarterData({ ig_starters: [], db_starters: [], is_synced: false, status: 'none', issue: 'API Error', account_id: activeAccountID });
+                setConvoStarterData({ ig_starters: [], db_starters: [], is_synced: false, status: 'none', issue: 'Network Error', account_id: activeAccountID });
                 setConvoStarters([]);
+            } finally {
+                isFetchingConvoStarters.current = false;
+                convoStartersFetchPromise.current = null;
+                setConvoStarterLoading(false);
             }
-        } catch (error) {
-            console.error('Error fetching convo starters:', error);
-            // Set empty data to prevent infinite loading
-            setConvoStarterData({ ig_starters: [], db_starters: [], is_synced: false, status: 'none', issue: 'Network Error', account_id: activeAccountID });
-            setConvoStarters([]);
-        } finally {
-            isFetchingConvoStarters.current = false;
-            setConvoStarterLoading(false);
-        }
+        })();
+
+        convoStartersFetchPromise.current = fetchPromise;
+        await fetchPromise;
     }, [activeAccountID, authenticatedFetch, convoStarterData]);
 
     const updateMediaCache = (type: string, items: any[]) => {

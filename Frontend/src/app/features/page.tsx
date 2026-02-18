@@ -218,7 +218,7 @@ const FeaturesPage: React.FC = () => {
 
         <div className="mt-40 text-center">
           <h2 className="text-4xl font-bold mb-8">Ready to automate your growth?</h2>
-          <a href="/login" className="inline-block bg-black text-white px-12 py-5 rounded-full font-bold text-xl hover:bg-gray-800 transition-all shadow-xl hover:-translate-y-1">
+          <a href="/login" className="inline-block bg-black text-white px-12 py-5 rounded-2xl font-bold text-xl hover:bg-gray-800 transition-all shadow-xl hover:-translate-y-1">
             Get Started for Free
           </a>
         </div>

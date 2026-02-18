@@ -57,10 +57,10 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
         "relative rounded-full transition-all duration-300 ease-out",
         variant === 'theme'
           ? isChecked 
-            ? "bg-gradient-to-r from-[#833AB4] to-[#405DE6]" 
-            : "bg-gradient-to-r from-[#FCAF45] to-[#F56040]"
+            ? "bg-gradient-to-r from-ig-purple to-ig-blue" 
+            : "bg-gradient-to-r from-ig-yellow to-ig-orange"
           : isChecked 
-            ? "bg-gradient-to-r from-[#833AB4] to-[#405DE6]" 
+            ? "bg-gradient-to-r from-ig-purple to-ig-blue" 
             : "bg-muted"
       )}>
         <div className={cn(
@@ -70,8 +70,8 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
         )}>
           {variant === 'theme' && (
             isChecked 
-              ? <Moon size={s.icon} className="text-[#833AB4]" /> 
-              : <Sun size={s.icon} className="text-[#FCAF45]" />
+              ? <Moon size={s.icon} className="text-ig-purple" /> 
+              : <Sun size={s.icon} className="text-ig-yellow" />
           )}
         </div>
       </div>

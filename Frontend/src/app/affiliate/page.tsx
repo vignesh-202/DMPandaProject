@@ -80,7 +80,7 @@ const AffiliatePage: React.FC = () => {
                     <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-12 leading-relaxed font-light">
                         Earn money by sharing DM Panda with your audience. Get lifetime commissions and exclusive benefits.
                     </p>
-                    <AuthRedirectButton className="bg-white text-black px-10 py-4 rounded-full font-bold text-lg hover:bg-gray-200 transition-all transform hover:scale-105 shadow-lg">
+                    <AuthRedirectButton className="bg-white text-black px-10 py-4 rounded-2xl font-bold text-lg hover:bg-gray-200 transition-all transform hover:scale-105 shadow-lg">
                         Join Affiliate Program
                     </AuthRedirectButton>
                 </div>
@@ -201,12 +201,12 @@ const AffiliatePage: React.FC = () => {
                         Join thousands of affiliates earning passive income with DM Panda.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-6 justify-center">
-                        <AuthRedirectButton className="bg-black text-white px-10 py-4 rounded-full font-bold text-lg hover:bg-gray-800 transition-all shadow-xl">
+                        <AuthRedirectButton className="bg-black text-white px-10 py-4 rounded-2xl font-bold text-lg hover:bg-gray-800 transition-all shadow-xl">
                             Get Started Now
                         </AuthRedirectButton>
                         <Link
                             to="/contact"
-                            className="border-2 border-black text-black px-10 py-4 rounded-full font-bold text-lg hover:bg-black hover:text-white transition-all"
+                            className="border-2 border-black text-black px-10 py-4 rounded-2xl font-bold text-lg hover:bg-black hover:text-white transition-all"
                         >
                             Contact Us
                         </Link>

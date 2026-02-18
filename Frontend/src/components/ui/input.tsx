@@ -25,7 +25,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
         <div className="relative group">
           {leftIcon && (
-            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none transition-colors group-focus-within:text-ig-purple dark:group-focus-within:text-purple-400">
+            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none transition-colors group-focus-within:text-primary">
               {leftIcon}
             </div>
           )}
@@ -37,9 +37,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               "bg-input text-foreground placeholder:text-muted-foreground",
               "border border-border rounded-xl",
               "transition-all duration-200",
-              "hover:border-gray-400 dark:hover:border-gray-500",
-              "focus:outline-none focus:border-ig-purple dark:focus:border-purple-400 focus:ring-3 focus:ring-ig-purple/15 dark:focus:ring-purple-400/20",
-              "focus:bg-white dark:focus:bg-card",
+              "hover:border-border-hover",
+              "focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15",
+              "focus:bg-input-focus",
               "disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted",
               error && "border-destructive focus:border-destructive focus:ring-destructive/20",
               leftIcon && "pl-11",
@@ -50,7 +50,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {rightIcon && (
-            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
               {rightIcon}
             </div>
           )}
@@ -97,7 +97,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             "border border-border rounded-xl",
             "transition-all duration-200",
             "hover:border-border-hover",
-            "focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/15",
+            "focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15",
             "focus:bg-input-focus",
             "disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted",
             error && "border-destructive focus:border-destructive focus:ring-destructive/20",

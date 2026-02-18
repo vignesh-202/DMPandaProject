@@ -11,15 +11,23 @@ class AutomationMatcher {
             return null;
         }
 
-        const normalizedText = text.toLowerCase().trim();
+        const normalizedText = text.toUpperCase().trim();
 
         for (const automation of automations) {
-            const keywords = automation.trigger_keyword || [];
+            let keywords = automation.trigger_keyword || automation.keywords || automation.keyword || [];
+            if (typeof keywords === 'string') {
+                try {
+                    keywords = JSON.parse(keywords);
+                } catch (_) {
+                    keywords = keywords.split(',');
+                }
+            }
+            if (!Array.isArray(keywords)) keywords = [keywords];
 
             for (const keyword of keywords) {
                 if (!keyword) continue;
 
-                const normalizedKeyword = keyword.toLowerCase().trim();
+                const normalizedKeyword = String(keyword).toUpperCase().trim();
 
                 // Exact match
                 if (normalizedText === normalizedKeyword) {

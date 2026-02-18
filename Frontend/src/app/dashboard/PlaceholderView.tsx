@@ -21,7 +21,7 @@ const PlaceholderView: React.FC<PlaceholderViewProps> = ({
     <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 min-h-[600px] relative overflow-hidden animate-fadeIn">
       {/* Background Glows */}
       <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 blur-[120px] rounded-full animate-pulse pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-500/10 blur-[120px] rounded-full animate-pulse pointer-events-none" style={{ animationDelay: '2s' }} />
+      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary/10 blur-[120px] rounded-full animate-pulse pointer-events-none" style={{ animationDelay: '2s' }} />
 
       <Card 
         className="w-full max-w-2xl overflow-hidden border border-content shadow-lg rounded-3xl bg-card/80 backdrop-blur-xl relative z-10"

@@ -8,17 +8,17 @@ const StatsRow = () => {
     const { activeAccountStats: stats, isLoadingStats: loading } = useDashboard();
 
     const metrics = [
-        { label: 'Followers', value: stats?.followers, icon: Users, color: 'text-blue-500' },
-        { label: 'Following', value: stats?.following, icon: UserPlus, color: 'text-purple-500' },
-        { label: 'Total Posts', value: stats?.media_count, icon: Image, color: 'text-pink-500' },
-        { label: 'Reels', value: stats?.reels_count || 0, icon: PlaySquare, color: 'text-orange-500' },
+        { label: 'Followers', value: stats?.followers, icon: Users, color: 'text-ig-blue' },
+        { label: 'Following', value: stats?.following, icon: UserPlus, color: 'text-ig-purple' },
+        { label: 'Total Posts', value: stats?.media_count, icon: Image, color: 'text-ig-pink' },
+        { label: 'Reels', value: stats?.reels_count || 0, icon: PlaySquare, color: 'text-ig-orange' },
     ];
 
     if (loading) {
         return (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
                 {[...Array(4)].map((_, i) => (
-                    <Card key={i} variant="elevated" className="p-3 sm:p-4 flex items-center space-x-4 border border-border shadow-sm">
+                    <Card key={i} variant="elevated" className="p-3 sm:p-4 flex items-center space-x-4 ig-card ig-topline">
                         <Skeleton className="w-10 h-10 rounded-full" />
                         <div className="space-y-2">
                             <Skeleton className="h-5 w-20" />
@@ -33,9 +33,11 @@ const StatsRow = () => {
     return (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
             {metrics.map((metric, i) => (
-                <Card key={i} variant="elevated" className="relative overflow-hidden p-3 sm:p-4 flex items-center border border-border shadow-sm hover:shadow-md dark:shadow-md transition-all group">
-                    <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-gray-50 dark:bg-gray-900 ${metric.color} bg-opacity-10 group-hover:scale-110 transition-transform duration-300`}>
-                        <metric.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${metric.color}`} />
+                <Card key={i} variant="elevated" className="relative overflow-hidden p-3 sm:p-4 flex items-center ig-card ig-topline transition-all group">
+                    <div className="p-[2px] rounded-full bg-gradient-to-tr from-ig-yellow via-ig-pink to-ig-purple group-hover:shadow-instagram transition-shadow">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-card flex items-center justify-center">
+                            <metric.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${metric.color}`} />
+                        </div>
                     </div>
                     <div className="ml-2 sm:ml-4">
                         <h4 className="text-base sm:text-lg md:text-xl font-black text-foreground tracking-tight">

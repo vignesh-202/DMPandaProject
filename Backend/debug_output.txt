@@ -1,2 +1,0 @@
-Client: constructor, setProject, setKey, setJWT, setLocale, setSelfSigned, setEndpoint, addHeader, call
-Account: constructor, get, updateEmail, listIdentities, deleteIdentity, listLogs, updateName, updatePassword, updatePhone, getPrefs, updatePrefs, createRecovery, updateRecovery, listSessions, deleteSessions, getSession, updateSession, deleteSession, updateStatus, createVerification, updateVerification, createPhoneVerification, updatePhoneVerification

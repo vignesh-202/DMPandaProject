@@ -6,7 +6,7 @@ interface ModernLoaderProps {
   className?: string;
   text?: string;
   size?: 'sm' | 'md' | 'lg';
-  variant?: 'default' | 'primary' | 'muted';
+  variant?: 'default' | 'primary' | 'muted' | 'black' | 'white';
 }
 
 const ModernLoader: React.FC<ModernLoaderProps> = ({ 
@@ -24,7 +24,9 @@ const ModernLoader: React.FC<ModernLoaderProps> = ({
   const variants = {
     default: "text-foreground",
     primary: "text-primary",
-    muted: "text-muted-foreground"
+    muted: "text-muted-foreground",
+    black: "text-foreground",
+    white: "text-primary-foreground"
   };
 
   return (

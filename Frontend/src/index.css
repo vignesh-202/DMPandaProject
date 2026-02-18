@@ -12,15 +12,111 @@
     --ig-orange: 245 96 64;       /* #F56040 */
     --ig-yellow: 252 175 69;      /* #FCAF45 */
     --ig-blue: 64 93 230;         /* #405DE6 */
-    --ig-blue-light: 0 149 246;   /* #0095F6 - Instagram message blue */
-    --ig-blue-message: 55 151 240; /* #3797f0 - Instagram DM blue */
-    --ig-gray-light: 229 231 235; /* #E5E7EB - Light gray */
-    --ig-gray-medium: 107 114 128; /* #6B7280 - Medium gray */
-    --ig-gray-dark: 55 65 81;     /* #374151 - Dark gray */
+    --ig-blue-light: 0 149 246;   /* #0095F6 */
+    --ig-blue-message: 55 151 240; /* #3797F0 */
+    --ig-gray-light: 229 231 235; /* #E5E7EB */
+    --ig-gray-medium: 107 114 128; /* #6B7280 */
+    --ig-gray-dark: 55 65 81;     /* #374151 */
 
-    /* Core Backgrounds - Instagram Style */
-    --background: 250 250 250;    /* #fafafa - Instagram's background */
-    --foreground: 38 38 38;       /* #262626 - Instagram's text color */
+    /* Neutral Scale (Instagram-inspired) */
+    --neutral-50: 250 250 250;  /* #FAFAFA */
+    --neutral-100: 245 245 245; /* #F5F5F5 */
+    --neutral-200: 235 235 235; /* #EBEBEB */
+    --neutral-300: 219 219 219; /* #DBDBDB */
+    --neutral-400: 168 168 168; /* #A8A8A8 */
+    --neutral-500: 142 142 142; /* #8E8E8E */
+    --neutral-600: 100 100 100; /* #646464 */
+    --neutral-700: 64 64 64;    /* #404040 */
+    --neutral-800: 38 38 38;    /* #262626 */
+    --neutral-900: 24 24 24;    /* #181818 */
+
+    /* Blue Scale */
+    --blue-50: 239 242 255;
+    --blue-100: 219 228 255;
+    --blue-200: 183 201 255;
+    --blue-300: 141 166 255;
+    --blue-400: 102 127 247;
+    --blue-500: 64 93 230;  /* #405DE6 */
+    --blue-600: 52 79 209;
+    --blue-700: 43 65 179;
+    --blue-800: 35 53 146;
+    --blue-900: 27 40 112;
+
+    /* Purple Scale */
+    --purple-50: 245 236 250;
+    --purple-100: 232 214 245;
+    --purple-200: 208 174 238;
+    --purple-300: 181 131 230;
+    --purple-400: 156 96 210;
+    --purple-500: 131 58 180; /* #833AB4 */
+    --purple-600: 111 47 159;
+    --purple-700: 90 38 131;
+    --purple-800: 71 30 103;
+    --purple-900: 52 22 75;
+
+    /* Pink Scale */
+    --pink-50: 255 242 242;
+    --pink-100: 254 228 228;
+    --pink-200: 254 201 201;
+    --pink-300: 253 162 162;
+    --pink-400: 253 108 108;
+    --pink-500: 253 29 29; /* #FD1D1D */
+    --pink-600: 219 24 24;
+    --pink-700: 181 19 19;
+    --pink-800: 145 15 15;
+    --pink-900: 110 11 11;
+
+    /* Orange Scale */
+    --orange-50: 255 244 235;
+    --orange-100: 255 230 214;
+    --orange-200: 254 204 175;
+    --orange-300: 253 174 132;
+    --orange-400: 249 137 89;
+    --orange-500: 245 96 64; /* #F56040 */
+    --orange-600: 216 80 55;
+    --orange-700: 178 64 46;
+    --orange-800: 142 51 38;
+    --orange-900: 107 38 29;
+
+    /* Yellow Scale */
+    --yellow-50: 255 251 235;
+    --yellow-100: 254 243 199;
+    --yellow-200: 253 230 138;
+    --yellow-300: 252 211 77;
+    --yellow-400: 251 191 36;
+    --yellow-500: 252 175 69; /* #FCAF45 */
+    --yellow-600: 217 142 48;
+    --yellow-700: 180 111 39;
+    --yellow-800: 142 86 30;
+    --yellow-900: 107 64 22;
+
+    /* Green Scale */
+    --green-50: 236 253 245;
+    --green-100: 209 250 229;
+    --green-200: 167 243 208;
+    --green-300: 110 231 183;
+    --green-400: 52 211 153;
+    --green-500: 34 197 94; /* #22C55E */
+    --green-600: 22 163 74;
+    --green-700: 21 128 61;
+    --green-800: 22 101 52;
+    --green-900: 20 83 45;
+
+    /* Red Scale */
+    --red-50: 255 241 242;
+    --red-100: 254 226 226;
+    --red-200: 254 202 202;
+    --red-300: 252 165 165;
+    --red-400: 248 113 113;
+    --red-500: 237 73 86; /* #ED4956 */
+    --red-600: 220 38 38;
+    --red-700: 185 28 28;
+    --red-800: 153 27 27;
+    --red-900: 127 29 29;
+
+    /* Core Backgrounds */
+    --background: 250 250 250;    /* #FAFAFA */
+    --foreground: 38 38 38;       /* #262626 */
     
     /* Card & Surface Colors */
     --card: 255 255 255;
@@ -31,46 +127,46 @@
     --popover: 255 255 255;
     --popover-foreground: 38 38 38;
     
-    /* Primary - Instagram Purple */
-    --primary: 131 58 180;        /* #833AB4 - Instagram Purple */
-    --primary-hover: 113 47 159;  /* Darker purple */
+    /* Primary */
+    --primary: 131 58 180;        /* #833AB4 */
+    --primary-hover: 113 47 159;  /* #712F9F */
     --primary-foreground: 255 255 255;
     
     /* Secondary */
-    --secondary: 239 239 239;     /* #efefef - Instagram's secondary bg */
+    --secondary: 245 245 245;     /* #F5F5F5 */
     --secondary-foreground: 38 38 38;
     
     /* Muted */
     --muted: 250 250 250;
-    --muted-foreground: 142 142 142; /* #8e8e8e - Instagram's muted text */
+    --muted-foreground: 142 142 142; /* #8E8E8E */
     
-    /* Accent - Instagram Pink/Red */
-    --accent: 253 239 239;        /* Light pink background */
-    --accent-foreground: 237 73 86; /* #ED4956 - Instagram's like color */
+    /* Accent */
+    --accent: 253 239 239;        /* #FDEFEF */
+    --accent-foreground: 237 73 86; /* #ED4956 */
     
     /* Success */
-    --success: 34 197 94;
+    --success: 34 197 94;         /* #22C55E */
     --success-foreground: 255 255 255;
-    --success-muted: 220 252 231;
+    --success-muted: 209 250 229;
     
     /* Warning */
-    --warning: 252 175 69;        /* Instagram Yellow */
+    --warning: 252 175 69;        /* #FCAF45 */
     --warning-foreground: 38 38 38;
-    --warning-muted: 254 243 199;
+    --warning-muted: 254 243 199; /* #FEF3C7 */
     
     /* Destructive */
-    --destructive: 237 73 86;     /* #ED4956 - Instagram's red */
+    --destructive: 237 73 86;     /* #ED4956 */
     --destructive-foreground: 255 255 255;
     --destructive-muted: 254 226 226;
     
-    /* Border & Input - Instagram Style */
-    --border: 219 219 219;        /* #dbdbdb - Instagram's border */
-    --border-hover: 168 168 168;  /* #a8a8a8 */
-    --border-strong: 142 142 142;
+    /* Border & Input */
+    --border: 219 219 219;        /* #DBDBDB */
+    --border-hover: 168 168 168;  /* #A8A8A8 */
+    --border-strong: 142 142 142; /* #8E8E8E */
     --input: 250 250 250;
     --input-focus: 255 255 255;
     
-    /* Ring - Instagram Purple */
+    /* Ring */
     --ring: 131 58 180;
     --ring-offset: 255 255 255;
     
@@ -96,28 +192,31 @@
     --shadow-glow: 0 0 20px rgb(131 58 180 / 0.2);
     --shadow-instagram: 0 0 20px rgb(131 58 180 / 0.15), 0 0 40px rgb(253 29 29 / 0.1);
 
-    /* Chart Colors - Instagram themed */
+    /* Chart Colors */
     --chart-1: 131 58 180;        /* Purple */
     --chart-2: 245 96 64;         /* Orange */
     --chart-3: 252 175 69;        /* Yellow */
     --chart-4: 253 29 29;         /* Pink/Red */
     --chart-5: 64 93 230;         /* Blue */
 
-    /* Instagram Gradient Semantic Tokens */
+    /* Gradient Tokens */
     --gradient-primary: linear-gradient(135deg, rgb(var(--ig-blue)), rgb(var(--ig-purple)));
     --gradient-full: linear-gradient(45deg, rgb(var(--ig-blue)), rgb(var(--ig-purple)), rgb(var(--ig-pink)), rgb(var(--ig-orange)), rgb(var(--ig-yellow)));
     --gradient-story: linear-gradient(135deg, rgb(var(--ig-yellow)), rgb(var(--ig-pink)), rgb(var(--ig-purple)));
+
+    /* Typography */
+    --font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-display: "Sora", "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
 
   .dark {
     /* Instagram Dark Mode Additional Colors */
-    --ig-gray-light: 55 65 81;    /* #374151 - Dark gray for dark mode */
-    --ig-gray-medium: 107 114 128; /* #6B7280 - Medium gray */
-    --ig-gray-dark: 17 24 39;     /* #111827 - Very dark gray */
+    --ig-gray-light: 55 65 81;    /* #374151 */
+    --ig-gray-medium: 107 114 128; /* #6B7280 */
+    --ig-gray-dark: 17 24 39;     /* #111827 */
 
-    /* Core Backgrounds - Instagram Dark Mode */
-    --background: 0 0 0;          /* Pure black - Instagram dark */
-    --foreground: 245 245 245;    /* #f5f5f5 */
+    --background: 0 0 0;          /* #000000 */
+    --foreground: 245 245 245;    /* #F5F5F5 */
     
     /* Card & Surface Colors */
     --card: 18 18 18;             /* #121212 */
@@ -128,9 +227,9 @@
     --popover: 18 18 18;
     --popover-foreground: 245 245 245;
     
-    /* Primary - Lighter purple for dark mode contrast */
-    --primary: 168 85 247;        /* #A855F7 - Lighter purple */
-    --primary-hover: 192 132 252; /* Even lighter on hover */
+    /* Primary */
+    --primary: 168 85 247;        /* #A855F7 */
+    --primary-hover: 192 132 252; /* #C084FC */
     --primary-foreground: 0 0 0;
     
     /* Secondary */
@@ -139,19 +238,19 @@
     
     /* Muted */
     --muted: 18 18 18;
-    --muted-foreground: 168 168 168; /* #a8a8a8 */
+    --muted-foreground: 168 168 168; /* #A8A8A8 */
     
     /* Accent */
-    --accent: 38 18 38;           /* Dark purple tint */
-    --accent-foreground: 216 180 254; /* Light purple */
+    --accent: 38 18 38;           /* #261226 */
+    --accent-foreground: 216 180 254; /* #D8B4FE */
     
     /* Success */
-    --success: 74 222 128;
+    --success: 74 222 128;        /* #4ADE80 */
     --success-foreground: 0 0 0;
     --success-muted: 20 83 45;
     
     /* Warning */
-    --warning: 252 191 73;        /* Lighter yellow */
+    --warning: 252 191 73;        /* #FCD34D */
     --warning-foreground: 0 0 0;
     --warning-muted: 120 53 15;
     
@@ -203,10 +302,23 @@
   body {
     background-color: rgb(var(--background));
     color: rgb(var(--foreground));
+    font-family: var(--font-sans);
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    background-image:
+      radial-gradient(1200px 800px at 15% -10%, rgb(var(--ig-purple) / 0.06), transparent 60%),
+      radial-gradient(900px 600px at 90% -5%, rgb(var(--ig-pink) / 0.04), transparent 55%),
+      radial-gradient(1200px 800px at 50% 120%, rgb(var(--ig-yellow) / 0.05), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(1000px 700px at 15% -10%, rgb(var(--ig-purple) / 0.08), transparent 60%),
+      radial-gradient(900px 600px at 90% -5%, rgb(var(--ig-pink) / 0.06), transparent 55%),
+      radial-gradient(1200px 800px at 50% 120%, rgb(var(--ig-blue) / 0.06), transparent 60%);
   }
 
   /* Selection styling */
@@ -232,8 +344,33 @@
 
   /* Typography improvements */
   h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
     letter-spacing: -0.025em;
     font-weight: 600;
+  }
+
+  /* Brand mark (logo-like text) */
+  .brand-mark {
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  /* Instagram inspired top accent line */
+  .ig-topline {
+    position: relative;
+  }
+
+  .ig-topline::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    background: var(--gradient-full);
+    opacity: 0.85;
+    pointer-events: none;
   }
 
   /* Improved focus states */
@@ -310,8 +447,13 @@
    TRANSITIONS & ANIMATIONS
    ============================================ */
 
-/* Base transition for interactive elements */
-* {
+/* Base transition for interactive elements (avoid global perf hit) */
+button,
+a,
+input,
+textarea,
+select,
+[role="button"] {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
@@ -659,6 +801,25 @@
   .dark .surface-inset {
     box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.2);
   }
+
+  /* Instagram-style surface */
+  .ig-card {
+    background-color: rgb(var(--card));
+    border: 1px solid rgb(var(--border));
+    box-shadow: var(--shadow-sm);
+  }
+
+  .ig-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: rgb(var(--border-hover));
+  }
+
+  /* Instagram pill */
+  .ig-pill {
+    background-color: rgb(var(--secondary));
+    border: 1px solid rgb(var(--border));
+    border-radius: 9999px;
+  }
 }
 
 /* ============================================
@@ -831,31 +992,50 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: rgb(var(--muted-foreground));
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sidebar-section-title::before {
+  content: '';
+  width: 10px;
+  height: 2px;
+  background: var(--gradient-full);
+  border-radius: 9999px;
+  opacity: 0.9;
 }
 
 /* ============================================
    RESPONSIVE GRID
    ============================================ */
 
-.dashboard-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: 1fr;
-}
-
-@media (min-width: 640px) {
   .dashboard-grid {
-    gap: 1.25rem;
-    grid-template-columns: repeat(2, 1fr);
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
   }
-}
 
-@media (min-width: 1024px) {
-  .dashboard-grid {
-    gap: 1.5rem;
-    grid-template-columns: repeat(3, 1fr);
+  @media (min-width: 640px) {
+    .dashboard-grid {
+      gap: 1.25rem;
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
-}
+
+  @media (min-width: 768px) {
+    .dashboard-grid {
+      gap: 1.25rem;
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .dashboard-grid {
+      gap: 1.5rem;
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
 
 @media (min-width: 1280px) {
   .dashboard-grid {
@@ -1039,16 +1219,34 @@
    STICKY PREVIEW UTILITY
    ============================================ */
 
-.sticky-preview {
-  position: sticky;
-  top: 6rem; /* 96px - header + padding */
-  max-height: calc(100vh - 8rem);
+  .sticky-preview {
+    position: sticky;
+    top: 6rem; /* 96px - header + padding */
+    max-height: calc(100vh - 8rem);
+  }
+
+  @media (max-width: 1279px) {
+    .sticky-preview {
+      position: relative;
+      top: 0;
+      max-height: none;
+    }
+  }
+
+/* ============================================
+   GAUGE COLOR SAFETY (LEGACY PALETTE)
+   ============================================ */
+
+.gauge-legacy {
+  --muted: 250 250 250;
+  --muted-foreground: 142 142 142;
+  --card: 255 255 255;
+  --card-foreground: 38 38 38;
 }
 
-@media (max-width: 1279px) {
-  .sticky-preview {
-    position: relative;
-    top: 0;
-    max-height: none;
-  }
+.dark .gauge-legacy {
+  --muted: 18 18 18;
+  --muted-foreground: 168 168 168;
+  --card: 18 18 18;
+  --card-foreground: 245 245 245;
 }

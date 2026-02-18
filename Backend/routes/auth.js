@@ -7,7 +7,13 @@ const { isValidEmail, normalizeEmail, isDisposableEmail } = require('../utils/he
 
 const processedOAuthSecrets = new Map(); // Cache for duplicate prevention
 
+// Helper: get session secret (handles both object and dict-like responses)
+const getSessionSecret = (session) => {
+    return session.secret || session['secret'] || '';
+};
+
 // Helper function: Manage user document on login
+// Matches Python's manage_user_on_login() exactly
 const manageUserOnLogin = async (user) => {
     try {
         const serverClient = getAppwriteClient({ useApiKey: true });
@@ -51,7 +57,10 @@ const manageUserOnLogin = async (user) => {
     }
 };
 
-// Register Route
+// ==============================================================================
+// REGISTER
+// Matches Python: @app.route('/api/register', methods=['POST'])
+// ==============================================================================
 router.post('/api/register', async (req, res) => {
     const { email, password, name } = req.body;
 
@@ -67,17 +76,29 @@ router.post('/api/register', async (req, res) => {
 
         // Create user
         const newUser = await users.create(ID.unique(), normalizedEmail, null, password, name);
-        await users.updateLabels(newUser.$id, ['user']);
 
-        // Send Verification Email
+        // Assign 'user' label for RLS
+        try {
+            await users.updateLabels(newUser.$id, ['user']);
+        } catch (labelError) {
+            console.error(`Failed to assign 'user' label: ${labelError.message}`);
+        }
+
+        // Send Verification Email:
+        // 1. Create a temporary session for the new user
+        // 2. Use that session to create a client and send the verification
+        // 3. Delete the temporary session immediately
         const tempSession = await users.createSession(newUser.$id);
         const userClient = getAppwriteClient({ sessionToken: tempSession.secret });
         const userAccount = new Account(userClient);
 
+        // Send verification email from user's perspective
         await userAccount.createVerification(`${process.env.FRONTEND_ORIGIN}/auth/verify`);
 
-        await users.deleteSession(newUser.$id, tempSession.$id);
+        // IMPORTANT: Immediately delete the temporary session
+        await userAccount.deleteSession('current');
 
+        // Create user document in our 'users' collection
         await manageUserOnLogin(newUser);
 
         res.status(201).json({ message: 'Registration successful. Please check your email to verify your account.' });
@@ -89,77 +110,89 @@ router.post('/api/register', async (req, res) => {
     }
 });
 
-// Login Route
+// ==============================================================================
+// LOGIN
+// Matches Python: @app.route('/api/login', methods=['POST'])
+// ==============================================================================
 router.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
 
     const normalizedEmail = normalizeEmail(email);
 
+    // Debug: Check user status via Admin API (matches Python)
+    let user;
     try {
-        // Step 1: Verify credentials by attempting to create a session manually
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const users = new Users(serverClient);
+        const userDocs = await users.list([Query.equal('email', normalizedEmail)]);
+
+        if (!userDocs.users || userDocs.users.length === 0) {
+            console.warn(`Login failed: User ${normalizedEmail} not found in Appwrite.`);
+            return res.status(401).json({ error: 'Invalid email or password.' });
+        }
+
+        user = userDocs.users[0];
+        console.log(`User found: ${user.$id}, Status: ${user.status}, EmailVerification: ${user.emailVerification}`);
+
+        if (!user.status) {
+            return res.status(403).json({ error: 'Account is disabled.' });
+        }
+    } catch (e) {
+        console.error(`Admin check failed: ${e.message}`);
+    }
+
+    // Attempt Login
+    try {
+        // Step 1: Verify credentials by attempting to create a session
         const tempClient = getAppwriteClient();
+        const tempAccount = new Account(tempClient);
+        const validationSession = await tempAccount.createEmailPasswordSession(normalizedEmail, password);
 
-        const validationSession = await tempClient.call(
-            'post',
-            new URL('account/sessions/email', process.env.APPWRITE_ENDPOINT),
-            { 'content-type': 'application/json' },
-            { email: normalizedEmail, password: password }
-        );
+        // If we reach here, the password is valid.
+        // Immediately delete the temporary session via Admin API (session secret is not returned)
+        try {
+            const adminClient = getAppwriteClient({ useApiKey: true });
+            const adminUsers = new Users(adminClient);
+            await adminUsers.deleteSession(user.$id, validationSession.$id);
+        } catch (delErr) {
+            console.warn(`Could not delete temporary validation session: ${delErr.message}`);
+        }
 
-        const userId = validationSession.userId;
-        const sessionId = validationSession.$id;
-
+        // Step 2: Use ADMIN client to create a new, clean session
+        const userId = user.$id;
         const serverClient = getAppwriteClient({ useApiKey: true });
         const users = new Users(serverClient);
 
-        await users.deleteSession(userId, sessionId);
+        const newSession = await users.createSession(userId);
+        const token = getSessionSecret(newSession);
 
-        // Check user status (disabled?)
-        const user = await users.get(userId);
-        if (!user.status) return res.status(403).json({ error: 'Account is disabled.' });
-
-        // Step 2: Create a secure Admin-generated session
-        const session = await users.createSession(userId);
-        const token = session.secret;
-
+        // Step 3: Manage user document
         await manageUserOnLogin(user);
 
         res.cookie('session_token', token, {
             httpOnly: true,
             secure: true,
             sameSite: 'Lax',
-            maxAge: 1000 * 60 * 60 * 24 * 30 // 30 days
+            maxAge: 86400 * 30 * 1000 // 30 days in ms
         });
 
         res.json({ token });
 
     } catch (err) {
-        console.error(`Login failed: ${err.message}`);
-        if (err.code === 401 || err.code === 400) return res.status(401).json({ error: 'Invalid email or password.' });
+        console.error(`Login failed: ${err.message}, Code: ${err.code}`);
+
         if (err.code === 429) return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
+        if (err.code === 401) return res.status(401).json({ error: 'Invalid email or password.' });
+
         res.status(500).json({ error: 'An unexpected error occurred during login.' });
     }
 });
 
-// Logout Route
-router.get('/logout', async (req, res) => {
-    let sessionToken = req.cookies.session_token || req.headers.authorization?.split(' ')[1];
-
-    if (sessionToken) {
-        try {
-            const client = getAppwriteClient({ sessionToken });
-            await client.call('delete', new URL('account/sessions/current', process.env.APPWRITE_ENDPOINT));
-        } catch (e) {
-            // Ignore errors
-        }
-    }
-
-    res.clearCookie('session_token');
-    res.json({ message: 'Logged out' });
-});
-
-// Get Current User (Me)
+// ==============================================================================
+// GET CURRENT USER (/api/me)
+// Matches Python: @app.route('/api/me', methods=['GET'])
+// ==============================================================================
 router.get('/api/me', loginRequired, async (req, res) => {
     try {
         const user = { ...req.user };
@@ -172,6 +205,7 @@ router.get('/api/me', loginRequired, async (req, res) => {
 
         user.hasPassword = hasPassword;
 
+        // Check for linked Instagram accounts
         const { IG_ACCOUNTS_COLLECTION_ID } = require('../utils/appwrite');
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
@@ -202,80 +236,129 @@ router.get('/api/me', loginRequired, async (req, res) => {
     }
 });
 
-// Google Auth URL
+// ==============================================================================
+// LOGOUT
+// Matches Python: @app.route('/logout')
+// ==============================================================================
+router.get('/logout', async (req, res) => {
+    let sessionToken = req.cookies.session_token;
+    if (!sessionToken) {
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            sessionToken = authHeader.split(' ')[1];
+        }
+    }
+
+    if (sessionToken) {
+        try {
+            const client = getAppwriteClient({ sessionToken });
+            const account = new Account(client);
+            await account.deleteSession('current');
+        } catch (e) {
+            // Ignore errors (matches Python: except AppwriteException: pass)
+        }
+    }
+
+    res.clearCookie('session_token');
+    res.json({ message: 'Logged out' });
+});
+
+// ==============================================================================
+// GOOGLE AUTH URL
+// Matches Python: @app.route('/auth/google')
+// Uses account.createOAuth2Token() — the EXACT same SDK method as Python's
+// account.create_o_auth2_token()
+// ==============================================================================
 router.get('/auth/google', async (req, res) => {
     try {
-        const endpoint = process.env.APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1';
-        const project = process.env.APPWRITE_PROJECT_ID;
-        const success = `${process.env.FRONTEND_ORIGIN}/auth/callback`;
-        const failure = `${process.env.FRONTEND_ORIGIN}/login?error=oauth_failed`;
+        const client = getAppwriteClient();
+        const account = new Account(client);
 
-        const url = `${endpoint}/account/sessions/oauth2/google?project=${project}&success=${encodeURIComponent(success)}&failure=${encodeURIComponent(failure)}`;
+        const redirectUrl = await account.createOAuth2Token(
+            'google',
+            `${process.env.FRONTEND_ORIGIN}/auth/callback`,
+            `${process.env.FRONTEND_ORIGIN}/login?error=oauth_failed`
+        );
 
-        res.json({ url });
+        res.json({ url: redirectUrl });
     } catch (err) {
         console.error(`Google Auth Error: ${err.message}`);
         res.status(500).json({ error: err.message });
     }
 });
 
-// Google OAuth Callback
+// ==============================================================================
+// GOOGLE OAUTH CALLBACK
+// Matches Python: @app.route('/api/auth/google-callback', methods=['GET'])
+// Uses account.createSession(userId, secret) with SERVER (API key) client
+// ==============================================================================
 router.get('/api/auth/google-callback', async (req, res) => {
-    const { userId, secret } = req.query;
+    const userId = req.query.userId;
+    const secret = req.query.secret;
 
-    if (!userId || !secret) return res.status(400).json({ error: 'Missing userId or secret' });
+    if (!process.env.APPWRITE_API_KEY) {
+        console.error("CRITICAL: APPWRITE_API_KEY is not set!");
+        return res.status(500).json({ error: 'Server configuration error.' });
+    }
 
-    // Duplicate Check
+    if (!secret || !userId) {
+        return res.status(400).json({ error: 'Missing userId or secret' });
+    }
+
+    // Duplicate request protection
     const cacheKey = `${userId}:${secret.substring(0, 16)}`;
     if (processedOAuthSecrets.has(cacheKey)) {
-        const cached = processedOAuthSecrets.get(cacheKey);
-        if (cached) {
-            console.log(`Returning cached token for user ${userId}`);
-            return res.json({ token: cached });
+        const cachedToken = processedOAuthSecrets.get(cacheKey);
+        if (cachedToken) {
+            console.log(`Returning cached token for duplicate OAuth callback: ${userId}`);
+            return res.json({ token: cachedToken });
         } else {
+            console.log(`Ignoring duplicate OAuth callback (already failed): ${userId}`);
             return res.status(400).json({ error: 'This OAuth session has already been processed.' });
         }
     }
 
     try {
-        // Exchange secret for session
-        const guestClient = getAppwriteClient();
-
-        // POST /account/sessions (exchanges secret for session)
-        const session = await guestClient.call(
-            'post',
-            new URL('account/sessions', process.env.APPWRITE_ENDPOINT),
-            { 'content-type': 'application/json' },
-            { userId, secret }
-        );
-
-        const sessionToken = session.secret;
-
-        // Verify User details
-        const userClient = getAppwriteClient({ sessionToken });
-        const userAccount = new Account(userClient);
-        const user = await userAccount.get();
-
+        // Use a server-side client with API key to create the session
+        // This EXACTLY matches Python: server_client = get_appwrite_client(use_api_key=True)
         const serverClient = getAppwriteClient({ useApiKey: true });
+        const account = new Account(serverClient);
         const users = new Users(serverClient);
 
+        // Create a session for the user using the secret from the OAuth flow
+        // Matches Python: session = account.create_session(user_id, secret)
+        const session = await account.createSession(userId, secret);
+        const sessionToken = getSessionSecret(session);
+
+        // Get the user details using the new session
+        const userClient = getAppwriteClient({ sessionToken });
+        const user = await new Account(userClient).get();
+
         const email = user.email;
+        const currentUserId = user.$id;
+
         if (email) {
+            // 1. Strict Check: Disposable Email
             if (isDisposableEmail(email)) {
-                console.warn(`Blocking disposable email: ${email}`);
-                await users.delete(userId);
+                console.warn(`Blocking disposable email login: ${email}`);
+                await users.delete(currentUserId);
                 processedOAuthSecrets.set(cacheKey, null);
                 return res.status(400).json({ error: 'Disposable email addresses are not allowed.' });
             }
 
-            const userList = await users.list([Query.equal('email', email)]);
-            if (userList.total > 1) {
-                const sorted = userList.users.sort((a, b) => new Date(a.registration) - new Date(b.registration));
-                const original = sorted[0];
+            // 2. Strict Check: Duplicate Account Prevention
+            const userDocs = await users.list([Query.equal('email', email)]);
 
-                if (original.$id !== userId) {
-                    console.warn(`Duplicate account for ${email}. Deleting new user ${userId}`);
-                    await users.delete(userId);
+            if (userDocs.total > 1) {
+                console.log(`Duplicate accounts found for email ${email}. Total: ${userDocs.total}`);
+
+                // Sort by registration date to find the oldest (original) account
+                const sortedUsers = userDocs.users.sort((a, b) => a.registration.localeCompare(b.registration));
+                const originalUser = sortedUsers[0];
+
+                if (originalUser.$id !== currentUserId) {
+                    console.warn(`User ${currentUserId} is a duplicate of ${originalUser.$id}. Deleting new user.`);
+                    await users.delete(currentUserId);
                     processedOAuthSecrets.set(cacheKey, null);
                     return res.status(409).json({ error: 'An account with this email already exists. Please log in with your password.' });
                 }
@@ -284,44 +367,41 @@ router.get('/api/auth/google-callback', async (req, res) => {
 
         await manageUserOnLogin(user);
 
+        // Cache the token for duplicate request protection
         processedOAuthSecrets.set(cacheKey, sessionToken);
 
-        res.cookie('session_token', sessionToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'Lax',
-            maxAge: 1000 * 60 * 60 * 24 * 30
-        });
-
+        console.log(`Appwrite session created for user ${userId}`);
         res.json({ token: sessionToken });
 
     } catch (err) {
         processedOAuthSecrets.set(cacheKey, null);
-        console.error(`Google Callback Error: ${err.message}`);
+        console.error(`Google callback API error: ${err.message}, Code: ${err.code}`);
         res.status(500).json({ error: 'Failed to create session from Google OAuth.' });
     }
 });
 
-// Verification Callback
+// ==============================================================================
+// EMAIL VERIFICATION CALLBACK
+// Matches Python: @app.route('/api/auth/verify-callback', methods=['POST'])
+// ==============================================================================
 router.post('/api/auth/verify-callback', async (req, res) => {
     const { userId, secret } = req.body;
-    if (!userId || !secret) return res.status(400).json({ error: 'Missing userId or secret' });
+    if (!userId || !secret) return res.status(400).json({ error: 'Missing user ID or secret' });
 
     try {
-        const guestClient = getAppwriteClient();
-        await guestClient.call(
-            'put',
-            new URL('account/verification', process.env.APPWRITE_ENDPOINT),
-            { 'content-type': 'application/json' },
-            { userId, secret }
-        );
-
-        // Create Session
+        // Use the Admin API Key to securely validate the secret
         const serverClient = getAppwriteClient({ useApiKey: true });
+        const account = new Account(serverClient);
         const users = new Users(serverClient);
-        const session = await users.createSession(userId);
 
-        res.json({ token: session.secret });
+        // Validate the verification secret
+        await account.updateVerification(userId, secret);
+
+        // Create a new session for the user
+        const session = await users.createSession(userId);
+        const token = getSessionSecret(session);
+
+        res.json({ token });
 
     } catch (err) {
         console.error(`Verification Callback Error: ${err.message}`);
@@ -329,7 +409,10 @@ router.post('/api/auth/verify-callback', async (req, res) => {
     }
 });
 
-// Forgot Password
+// ==============================================================================
+// FORGOT PASSWORD
+// Matches Python: @app.route('/api/forgot-password', methods=['POST'])
+// ==============================================================================
 router.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required.' });
@@ -345,23 +428,23 @@ router.post('/api/forgot-password', async (req, res) => {
             return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
         }
 
-        const guestClient = getAppwriteClient();
-        await guestClient.call(
-            'post',
-            new URL('account/recovery', process.env.APPWRITE_ENDPOINT),
-            { 'content-type': 'application/json' },
-            { email: normalizedEmail, url: `${process.env.FRONTEND_ORIGIN}/auth/recovery` }
-        );
+        // Use Account with API key to create recovery
+        const account = new Account(serverClient);
+        await account.createRecovery(normalizedEmail, `${process.env.FRONTEND_ORIGIN}/auth/recovery`);
 
         res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
 
     } catch (err) {
         console.error(`Forgot Password Error: ${err.message}`);
+        // Always return success message to prevent email enumeration
         res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
     }
 });
 
-// Password Recovery Callback
+// ==============================================================================
+// PASSWORD RECOVERY CALLBACK
+// Matches Python: @app.route('/api/auth/recovery', methods=['POST'])
+// ==============================================================================
 router.post('/api/auth/recovery', async (req, res) => {
     const { userId, secret, newPassword, confirmPassword } = req.body;
 
@@ -370,13 +453,10 @@ router.post('/api/auth/recovery', async (req, res) => {
     if (newPassword !== confirmPassword) return res.status(400).json({ error: 'Passwords do not match' });
 
     try {
-        const guestClient = getAppwriteClient();
-        await guestClient.call(
-            'put',
-            new URL('account/recovery', process.env.APPWRITE_ENDPOINT),
-            { 'content-type': 'application/json' },
-            { userId, secret, password: newPassword, passwordAgain: confirmPassword }
-        );
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const account = new Account(serverClient);
+
+        await account.updateRecovery(userId, secret, newPassword);
 
         res.json({ message: 'Password reset successful. You can now log in with your new password.' });
 
