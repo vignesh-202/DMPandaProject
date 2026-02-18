@@ -1,0 +1,3524 @@
+{
+    "settings": {
+        "name": "Settings",
+        "attributes": [
+            {
+                "key": "dark_mode",
+                "type": "boolean",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-09-23T18:36:51.369+00:00",
+                "$updatedAt": "2025-09-23T18:36:51.597+00:00",
+                "default": null
+            },
+            {
+                "key": "notification_preference",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-09-23T18:36:51.870+00:00",
+                "$updatedAt": "2025-09-23T18:36:52.075+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-27T18:19:24.497+00:00",
+                "$updatedAt": "2025-12-27T18:19:24.822+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "timezone",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:20.654+00:00",
+                "$updatedAt": "2026-01-25T13:54:20.958+00:00",
+                "size": 100,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "language",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:21.610+00:00",
+                "$updatedAt": "2026-01-25T13:54:21.890+00:00",
+                "size": 10,
+                "default": "en",
+                "encrypt": false
+            }
+        ],
+        "indexes": [],
+        "permissions": [
+            "read(\"users\")",
+            "read(\"label:admin\")",
+            "create(\"label:admin\")",
+            "update(\"label:admin\")",
+            "delete(\"label:admin\")"
+        ]
+    },
+    "transactions": {
+        "name": "Transactions",
+        "attributes": [
+            {
+                "key": "transactionId",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-11-06T08:12:40.734+00:00",
+                "$updatedAt": "2025-11-06T08:12:41.113+00:00",
+                "size": 64,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "amount",
+                "type": "double",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-11-06T08:12:41.708+00:00",
+                "$updatedAt": "2025-11-06T08:12:42.522+00:00",
+                "min": 0,
+                "max": 1.7976931348623157e+308,
+                "default": null
+            },
+            {
+                "key": "currency",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-11-06T08:12:41.938+00:00",
+                "$updatedAt": "2025-11-06T08:12:43.079+00:00",
+                "size": 3,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "transactionDate",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-11-06T08:12:42.354+00:00",
+                "$updatedAt": "2025-11-06T08:12:43.512+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "status",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-11-06T08:12:42.568+00:00",
+                "$updatedAt": "2025-11-06T08:12:43.948+00:00",
+                "size": 32,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "userId",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-23T18:58:24.286+00:00",
+                "$updatedAt": "2025-12-23T18:58:24.576+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "campaignId",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-23T18:58:59.014+00:00",
+                "$updatedAt": "2025-12-23T18:58:59.284+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            }
+        ],
+        "indexes": [],
+        "permissions": []
+    },
+    "users": {
+        "name": "Users",
+        "attributes": [
+            {
+                "key": "name",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-04T05:30:56.829+00:00",
+                "$updatedAt": "2025-12-04T05:30:57.037+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "email",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-04T05:30:57.583+00:00",
+                "$updatedAt": "2025-12-04T05:30:57.831+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "first_login",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-04T05:30:58.042+00:00",
+                "$updatedAt": "2025-12-04T05:30:58.287+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "last_login",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-04T05:30:58.527+00:00",
+                "$updatedAt": "2025-12-04T05:30:58.733+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "subscription_plan_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-04T05:30:58.979+00:00",
+                "$updatedAt": "2025-12-04T05:30:59.207+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "status",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-27T18:19:15.699+00:00",
+                "$updatedAt": "2025-12-27T18:19:15.900+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "avatar_url",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:13.646+00:00",
+                "$updatedAt": "2026-01-25T13:54:13.829+00:00",
+                "size": 2048,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "subscription_status",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:14.191+00:00",
+                "$updatedAt": "2026-01-25T13:54:14.344+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "subscription_expires",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:14.741+00:00",
+                "$updatedAt": "2026-01-25T13:54:14.850+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "referred_by",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:15.310+00:00",
+                "$updatedAt": "2026-01-25T13:54:15.453+00:00",
+                "size": 36,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "referral_code",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:15.855+00:00",
+                "$updatedAt": "2026-01-25T13:54:15.983+00:00",
+                "size": 20,
+                "default": null,
+                "encrypt": false
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_13_idx_email",
+                "$createdAt": "2026-01-25T13:54:18.593+00:00",
+                "$updatedAt": "2026-01-25T13:54:18.839+00:00",
+                "key": "idx_email",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "email"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_13_idx_referral_code",
+                "$createdAt": "2026-01-25T13:54:19.208+00:00",
+                "$updatedAt": "2026-01-25T13:54:19.360+00:00",
+                "key": "idx_referral_code",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "referral_code"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")",
+            "read(\"label:admin\")",
+            "create(\"label:admin\")",
+            "update(\"label:admin\")",
+            "delete(\"label:admin\")"
+        ]
+    },
+    "pricing": {
+        "name": "Pricing Plans",
+        "attributes": [
+            {
+                "key": "name",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-06T07:51:45.899+00:00",
+                "$updatedAt": "2025-12-06T07:51:46.121+00:00",
+                "size": 100,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "price_monthly_inr",
+                "type": "integer",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-06T07:51:46.894+00:00",
+                "$updatedAt": "2025-12-06T07:51:47.104+00:00",
+                "min": -9223372036854775808,
+                "max": 9223372036854775807,
+                "default": null
+            },
+            {
+                "key": "price_yearly_inr",
+                "type": "integer",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-06T07:51:47.686+00:00",
+                "$updatedAt": "2025-12-06T07:51:47.935+00:00",
+                "min": -9223372036854775808,
+                "max": 9223372036854775807,
+                "default": null
+            },
+            {
+                "key": "price_monthly_usd",
+                "type": "integer",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-06T07:51:48.669+00:00",
+                "$updatedAt": "2025-12-06T07:51:48.955+00:00",
+                "min": -9223372036854775808,
+                "max": 9223372036854775807,
+                "default": null
+            },
+            {
+                "key": "price_yearly_usd",
+                "type": "integer",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-06T07:51:49.607+00:00",
+                "$updatedAt": "2025-12-06T07:51:49.815+00:00",
+                "min": -9223372036854775808,
+                "max": 9223372036854775807,
+                "default": null
+            },
+            {
+                "key": "is_custom",
+                "type": "boolean",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-06T07:51:50.620+00:00",
+                "$updatedAt": "2025-12-06T07:51:50.938+00:00",
+                "default": null
+            },
+            {
+                "key": "is_popular",
+                "type": "boolean",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-06T07:51:51.649+00:00",
+                "$updatedAt": "2025-12-06T07:51:51.851+00:00",
+                "default": null
+            },
+            {
+                "key": "features",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-06T07:51:52.543+00:00",
+                "$updatedAt": "2025-12-06T07:51:52.764+00:00",
+                "size": 10000,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "display_order",
+                "type": "integer",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-06T07:51:53.499+00:00",
+                "$updatedAt": "2025-12-06T07:51:53.710+00:00",
+                "min": -9223372036854775808,
+                "max": 9223372036854775807,
+                "default": null
+            },
+            {
+                "key": "button_text",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-06T07:51:54.592+00:00",
+                "$updatedAt": "2025-12-06T07:51:54.827+00:00",
+                "size": 100,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "yearly_bonus",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-06T07:51:55.580+00:00",
+                "$updatedAt": "2025-12-06T07:51:55.829+00:00",
+                "size": 100,
+                "default": null,
+                "encrypt": false
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_28_display_order_index",
+                "$createdAt": "2025-12-06T07:51:56.569+00:00",
+                "$updatedAt": "2025-12-06T07:51:56.696+00:00",
+                "key": "display_order_index",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "display_order"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            }
+        ],
+        "permissions": [
+            "read(\"any\")",
+            "read(\"label:admin\")",
+            "create(\"label:admin\")",
+            "update(\"label:admin\")",
+            "delete(\"label:admin\")"
+        ]
+    },
+    "affiliate_profiles": {
+        "name": "Affiliate Profiles",
+        "attributes": [
+            {
+                "key": "user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:32.365+00:00",
+                "$updatedAt": "2025-12-08T07:38:32.602+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "status",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:33.627+00:00",
+                "$updatedAt": "2025-12-08T07:38:33.874+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "type",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:35.012+00:00",
+                "$updatedAt": "2025-12-08T07:38:35.207+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "instagram_url",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:36.135+00:00",
+                "$updatedAt": "2025-12-08T07:38:36.342+00:00",
+                "size": 500,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "youtube_url",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:37.368+00:00",
+                "$updatedAt": "2025-12-08T07:38:37.559+00:00",
+                "size": 500,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "referral_code",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:38.361+00:00",
+                "$updatedAt": "2025-12-08T07:38:38.591+00:00",
+                "size": 20,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "earnings_total",
+                "type": "double",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:39.479+00:00",
+                "$updatedAt": "2025-12-08T07:38:39.696+00:00",
+                "min": -1.7976931348623157e+308,
+                "max": 1.7976931348623157e+308,
+                "default": null
+            },
+            {
+                "key": "earnings_pending",
+                "type": "double",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:40.588+00:00",
+                "$updatedAt": "2025-12-08T07:38:40.843+00:00",
+                "min": -1.7976931348623157e+308,
+                "max": 1.7976931348623157e+308,
+                "default": null
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_34_user_id_index",
+                "$createdAt": "2025-12-08T07:38:41.584+00:00",
+                "$updatedAt": "2025-12-08T07:38:41.726+00:00",
+                "key": "user_id_index",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_34_referral_code_index",
+                "$createdAt": "2025-12-08T07:38:42.575+00:00",
+                "$updatedAt": "2025-12-08T07:38:42.693+00:00",
+                "key": "referral_code_index",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "referral_code"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_34_user_code_idx",
+                "$createdAt": "2025-12-27T18:21:12.183+00:00",
+                "$updatedAt": "2025-12-27T18:21:12.378+00:00",
+                "key": "user_code_idx",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "referral_code"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_34_user_id_idx",
+                "$createdAt": "2025-12-27T18:21:12.721+00:00",
+                "$updatedAt": "2025-12-27T18:21:12.906+00:00",
+                "key": "user_id_idx",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_34_idx_user_id",
+                "$createdAt": "2026-01-25T13:54:40.025+00:00",
+                "$updatedAt": "2026-01-25T13:54:40.199+00:00",
+                "key": "idx_user_id",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_34_idx_referral_code",
+                "$createdAt": "2026-01-25T13:54:40.921+00:00",
+                "$updatedAt": "2026-01-25T13:54:41.076+00:00",
+                "key": "idx_referral_code",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "referral_code"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")",
+            "create(\"users\")",
+            "update(\"users\")",
+            "delete(\"users\")",
+            "read(\"label:admin\")",
+            "create(\"label:admin\")",
+            "update(\"label:admin\")",
+            "delete(\"label:admin\")"
+        ]
+    },
+    "referrals": {
+        "name": "Referrals",
+        "attributes": [
+            {
+                "key": "referrer_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:44.862+00:00",
+                "$updatedAt": "2025-12-08T07:38:45.088+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "referred_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:45.802+00:00",
+                "$updatedAt": "2025-12-08T07:38:46.012+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "status",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:46.612+00:00",
+                "$updatedAt": "2025-12-08T07:38:46.832+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "commission_amount",
+                "type": "double",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:47.454+00:00",
+                "$updatedAt": "2025-12-08T07:38:47.648+00:00",
+                "min": -1.7976931348623157e+308,
+                "max": 1.7976931348623157e+308,
+                "default": null
+            },
+            {
+                "key": "created_at",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:48.278+00:00",
+                "$updatedAt": "2025-12-08T07:38:48.481+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "qualified_at",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:42.284+00:00",
+                "$updatedAt": "2026-01-25T13:54:42.584+00:00",
+                "format": "",
+                "default": null
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_35_referrer_id_index",
+                "$createdAt": "2025-12-08T07:38:49.152+00:00",
+                "$updatedAt": "2025-12-08T07:38:49.256+00:00",
+                "key": "referrer_id_index",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "referrer_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_35_idx_referrer_id",
+                "$createdAt": "2026-01-25T13:54:46.323+00:00",
+                "$updatedAt": "2026-01-25T13:54:46.576+00:00",
+                "key": "idx_referrer_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "referrer_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_35_idx_referred_id",
+                "$createdAt": "2026-01-25T13:54:46.798+00:00",
+                "$updatedAt": "2026-01-25T13:54:46.937+00:00",
+                "key": "idx_referred_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "referred_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_35_idx_status",
+                "$createdAt": "2026-01-25T13:54:47.332+00:00",
+                "$updatedAt": "2026-01-25T13:54:47.492+00:00",
+                "key": "idx_status",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "status"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")",
+            "create(\"users\")",
+            "update(\"users\")",
+            "read(\"label:admin\")",
+            "create(\"label:admin\")",
+            "update(\"label:admin\")",
+            "delete(\"label:admin\")"
+        ]
+    },
+    "payouts": {
+        "name": "Payouts",
+        "attributes": [
+            {
+                "key": "affiliate_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:51.146+00:00",
+                "$updatedAt": "2025-12-08T07:38:51.348+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "amount",
+                "type": "double",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:52.148+00:00",
+                "$updatedAt": "2025-12-08T07:38:52.337+00:00",
+                "min": -1.7976931348623157e+308,
+                "max": 1.7976931348623157e+308,
+                "default": null
+            },
+            {
+                "key": "status",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:53.145+00:00",
+                "$updatedAt": "2025-12-08T07:38:53.345+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "requested_at",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:54.158+00:00",
+                "$updatedAt": "2025-12-08T07:38:54.351+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "paid_at",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-08T07:38:55.372+00:00",
+                "$updatedAt": "2025-12-08T07:38:55.569+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "processed_at",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:48.657+00:00",
+                "$updatedAt": "2026-01-25T13:54:49.019+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "transaction_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:49.191+00:00",
+                "$updatedAt": "2026-01-25T13:54:49.602+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_36_affiliate_id_index",
+                "$createdAt": "2025-12-08T07:38:56.408+00:00",
+                "$updatedAt": "2025-12-08T07:38:56.520+00:00",
+                "key": "affiliate_id_index",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "affiliate_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_36_idx_affiliate_id",
+                "$createdAt": "2026-01-25T13:54:51.122+00:00",
+                "$updatedAt": "2026-01-25T13:54:51.410+00:00",
+                "key": "idx_affiliate_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "affiliate_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_36_idx_status",
+                "$createdAt": "2026-01-25T13:54:51.658+00:00",
+                "$updatedAt": "2026-01-25T13:54:51.854+00:00",
+                "key": "idx_status",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "status"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")",
+            "create(\"users\")",
+            "read(\"label:admin\")",
+            "create(\"label:admin\")",
+            "update(\"label:admin\")",
+            "delete(\"label:admin\")"
+        ]
+    },
+    "ig_accounts": {
+        "name": "Instagram Accounts",
+        "attributes": [
+            {
+                "key": "user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-27T17:46:18.909+00:00",
+                "$updatedAt": "2025-12-27T17:46:19.605+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "ig_user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-27T17:46:19.473+00:00",
+                "$updatedAt": "2025-12-27T17:46:20.015+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "username",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-27T17:46:20.011+00:00",
+                "$updatedAt": "2025-12-27T17:46:20.443+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "profile_picture_url",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-27T17:46:20.571+00:00",
+                "$updatedAt": "2025-12-27T17:46:20.931+00:00",
+                "size": 2048,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "access_token",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-27T17:46:21.130+00:00",
+                "$updatedAt": "2025-12-27T17:46:21.481+00:00",
+                "size": 1024,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "token_expires_at",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2025-12-27T17:46:22.136+00:00",
+                "$updatedAt": "2025-12-27T17:46:22.723+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "permissions",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-27T17:46:22.699+00:00",
+                "$updatedAt": "2025-12-27T17:46:23.115+00:00",
+                "size": 1024,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "linked_at",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-27T17:46:23.289+00:00",
+                "$updatedAt": "2025-12-27T17:46:23.810+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "scoped_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-27T18:19:17.777+00:00",
+                "$updatedAt": "2025-12-27T18:19:18.061+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "name",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-27T18:19:18.866+00:00",
+                "$updatedAt": "2025-12-27T18:19:19.135+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "status",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2025-12-27T18:19:21.097+00:00",
+                "$updatedAt": "2025-12-27T18:19:21.379+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "account_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:15.537+00:00",
+                "$updatedAt": "2026-01-21T18:49:15.926+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "is_active",
+                "type": "boolean",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:16.234+00:00",
+                "$updatedAt": "2026-01-21T18:49:16.374+00:00",
+                "default": true
+            },
+            {
+                "key": "token_expires",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:31.850+00:00",
+                "$updatedAt": "2026-01-25T13:54:31.997+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "is_primary",
+                "type": "boolean",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:32.382+00:00",
+                "$updatedAt": "2026-01-25T13:54:32.519+00:00",
+                "default": false
+            },
+            {
+                "key": "followers_count",
+                "type": "integer",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:33.330+00:00",
+                "$updatedAt": "2026-01-25T13:54:33.477+00:00",
+                "min": -9223372036854775808,
+                "max": 9223372036854775807,
+                "default": null
+            },
+            {
+                "key": "account_type",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:33.822+00:00",
+                "$updatedAt": "2026-01-25T13:54:33.950+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "last_synced",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:34.326+00:00",
+                "$updatedAt": "2026-01-25T13:54:34.486+00:00",
+                "format": "",
+                "default": null
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_139_ig_user_id_index",
+                "$createdAt": "2025-12-27T17:46:23.842+00:00",
+                "$updatedAt": "2025-12-27T17:46:24.078+00:00",
+                "key": "ig_user_id_index",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "ig_user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_139_user_id_index",
+                "$createdAt": "2025-12-27T17:46:24.391+00:00",
+                "$updatedAt": "2025-12-27T17:46:24.581+00:00",
+                "key": "user_id_index",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_139_account_id_index",
+                "$createdAt": "2026-01-21T18:49:17.342+00:00",
+                "$updatedAt": "2026-01-21T18:49:17.513+00:00",
+                "key": "account_id_index",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_139_idx_user_id",
+                "$createdAt": "2026-01-25T13:54:36.252+00:00",
+                "$updatedAt": "2026-01-25T13:54:36.420+00:00",
+                "key": "idx_user_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_139_idx_ig_user_id",
+                "$createdAt": "2026-01-25T13:54:36.736+00:00",
+                "$updatedAt": "2026-01-25T13:54:36.892+00:00",
+                "key": "idx_ig_user_id",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "ig_user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_139_idx_username",
+                "$createdAt": "2026-01-25T13:54:37.237+00:00",
+                "$updatedAt": "2026-01-25T13:54:37.465+00:00",
+                "key": "idx_username",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "username"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")"
+        ]
+    },
+    "inbox_menus": {
+        "name": "Inbox Menus",
+        "attributes": [
+            {
+                "key": "user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-07T17:12:15.276+00:00",
+                "$updatedAt": "2026-01-07T17:12:15.565+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "account_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-07T17:12:15.978+00:00",
+                "$updatedAt": "2026-01-07T17:12:16.252+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "menu_items",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-07T17:12:16.643+00:00",
+                "$updatedAt": "2026-01-07T17:12:16.921+00:00",
+                "size": 10000,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "last_synced",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-08T16:52:57.322+00:00",
+                "$updatedAt": "2026-01-08T16:52:57.594+00:00",
+                "format": "",
+                "default": null
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_737_user_id_index",
+                "$createdAt": "2026-01-07T17:12:17.335+00:00",
+                "$updatedAt": "2026-01-07T17:12:17.459+00:00",
+                "key": "user_id_index",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_737_account_id_index",
+                "$createdAt": "2026-01-07T17:12:18.032+00:00",
+                "$updatedAt": "2026-01-07T17:12:18.171+00:00",
+                "key": "account_id_index",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_737_user_id_idx",
+                "$createdAt": "2026-01-08T16:52:58.304+00:00",
+                "$updatedAt": "2026-01-08T16:52:58.451+00:00",
+                "key": "user_id_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_737_account_id_idx",
+                "$createdAt": "2026-01-08T16:52:59.364+00:00",
+                "$updatedAt": "2026-01-08T16:52:59.501+00:00",
+                "key": "account_id_idx",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_737_idx_user_id",
+                "$createdAt": "2026-01-25T13:55:16.337+00:00",
+                "$updatedAt": "2026-01-25T13:55:16.533+00:00",
+                "key": "idx_user_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_737_idx_account_id",
+                "$createdAt": "2026-01-25T13:55:16.896+00:00",
+                "$updatedAt": "2026-01-25T13:55:17.063+00:00",
+                "key": "idx_account_id",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")"
+        ]
+    },
+    "convo_starters": {
+        "name": "Convo Starters",
+        "attributes": [
+            {
+                "key": "user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-18T08:43:39.866+00:00",
+                "$updatedAt": "2026-01-18T08:43:40.176+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "account_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-18T08:43:40.553+00:00",
+                "$updatedAt": "2026-01-18T08:43:40.859+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "starters_json",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-18T08:43:41.003+00:00",
+                "$updatedAt": "2026-01-18T08:43:41.258+00:00",
+                "size": 10000,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "last_synced",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-18T08:43:41.385+00:00",
+                "$updatedAt": "2026-01-18T08:43:41.659+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "created_at",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-18T08:43:41.744+00:00",
+                "$updatedAt": "2026-01-18T08:43:41.995+00:00",
+                "format": "",
+                "default": null
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_876_user_id_idx",
+                "$createdAt": "2026-01-18T08:43:42.176+00:00",
+                "$updatedAt": "2026-01-18T08:43:42.318+00:00",
+                "key": "user_id_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_876_account_id_idx",
+                "$createdAt": "2026-01-18T08:43:42.515+00:00",
+                "$updatedAt": "2026-01-18T08:43:42.650+00:00",
+                "key": "account_id_idx",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_876_idx_user_id",
+                "$createdAt": "2026-01-25T13:55:20.375+00:00",
+                "$updatedAt": "2026-01-25T13:55:20.582+00:00",
+                "key": "idx_user_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_876_idx_account_id",
+                "$createdAt": "2026-01-25T13:55:20.948+00:00",
+                "$updatedAt": "2026-01-25T13:55:21.145+00:00",
+                "key": "idx_account_id",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")",
+            "create(\"users\")",
+            "update(\"users\")",
+            "delete(\"users\")"
+        ]
+    },
+    "templates": {
+        "name": "Templates",
+        "attributes": [
+            {
+                "key": "user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:42.875+00:00",
+                "$updatedAt": "2026-01-21T06:07:43.153+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "name",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:43.499+00:00",
+                "$updatedAt": "2026-01-21T06:07:43.812+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "type",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:43.987+00:00",
+                "$updatedAt": "2026-01-21T06:07:44.246+00:00",
+                "elements": [
+                    "text",
+                    "button",
+                    "carousel",
+                    "quick_replies",
+                    "share_post",
+                    "media"
+                ],
+                "format": "enum",
+                "default": null
+            },
+            {
+                "key": "content",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:44.441+00:00",
+                "$updatedAt": "2026-01-21T06:07:44.735+00:00",
+                "size": 2048,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "data",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:45.122+00:00",
+                "$updatedAt": "2026-01-21T06:07:45.515+00:00",
+                "size": 65535,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "media_url",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:46.460+00:00",
+                "$updatedAt": "2026-01-21T06:07:46.754+00:00",
+                "size": 2048,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "media_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:47.525+00:00",
+                "$updatedAt": "2026-01-21T06:07:47.815+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "is_reply_template",
+                "type": "boolean",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T17:48:25.762+00:00",
+                "$updatedAt": "2026-01-21T17:48:26.190+00:00",
+                "default": false
+            },
+            {
+                "key": "account_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:48:53.111+00:00",
+                "$updatedAt": "2026-01-21T18:48:53.521+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "template_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:48:53.752+00:00",
+                "$updatedAt": "2026-01-21T18:48:54.229+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "automation_count",
+                "type": "integer",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-24T18:27:10.553+00:00",
+                "$updatedAt": "2026-01-24T18:27:10.734+00:00",
+                "min": 0,
+                "max": 9223372036854775807,
+                "default": 0
+            },
+            {
+                "key": "followers_only",
+                "type": "boolean",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:52.951+00:00",
+                "$updatedAt": "2026-01-25T13:54:53.113+00:00",
+                "default": false
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_951_user_id_idx",
+                "$createdAt": "2026-01-21T06:07:48.922+00:00",
+                "$updatedAt": "2026-01-21T06:07:49.051+00:00",
+                "key": "user_id_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_951_type_idx",
+                "$createdAt": "2026-01-21T06:07:49.435+00:00",
+                "$updatedAt": "2026-01-21T06:07:49.586+00:00",
+                "key": "type_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "type"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_951_is_reply_template_idx",
+                "$createdAt": "2026-01-21T17:58:29.683+00:00",
+                "$updatedAt": "2026-01-21T17:58:29.924+00:00",
+                "key": "is_reply_template_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "is_reply_template"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_951_account_id_idx",
+                "$createdAt": "2026-01-21T18:48:55.135+00:00",
+                "$updatedAt": "2026-01-21T18:48:55.289+00:00",
+                "key": "account_id_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_951_idx_user_id",
+                "$createdAt": "2026-01-25T13:54:55.259+00:00",
+                "$updatedAt": "2026-01-25T13:54:55.458+00:00",
+                "key": "idx_user_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_951_idx_type",
+                "$createdAt": "2026-01-25T13:54:55.787+00:00",
+                "$updatedAt": "2026-01-25T13:54:55.980+00:00",
+                "key": "idx_type",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "type"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_951_idx_is_reply_template",
+                "$createdAt": "2026-01-25T13:54:56.308+00:00",
+                "$updatedAt": "2026-01-25T13:54:56.471+00:00",
+                "key": "idx_is_reply_template",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "is_reply_template"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")"
+        ]
+    },
+    "automations": {
+        "name": "Automations",
+        "attributes": [
+            {
+                "key": "user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:50.858+00:00",
+                "$updatedAt": "2026-01-21T06:07:51.111+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "account_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:51.307+00:00",
+                "$updatedAt": "2026-01-21T06:07:51.574+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "automation_type",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:51.741+00:00",
+                "$updatedAt": "2026-01-21T06:07:52.043+00:00",
+                "elements": [
+                    "dm",
+                    "story",
+                    "live",
+                    "mention",
+                    "reel",
+                    "post"
+                ],
+                "format": "enum",
+                "default": null
+            },
+            {
+                "key": "trigger_keyword",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": true,
+                "$createdAt": "2026-01-21T06:07:52.627+00:00",
+                "$updatedAt": "2026-01-21T06:07:52.893+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "template_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:53.050+00:00",
+                "$updatedAt": "2026-01-21T06:07:53.358+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "active",
+                "type": "boolean",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:53.702+00:00",
+                "$updatedAt": "2026-01-21T06:07:54.033+00:00",
+                "default": true
+            },
+            {
+                "key": "title",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:54.316+00:00",
+                "$updatedAt": "2026-01-21T06:07:54.620+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "data",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T06:07:57.501+00:00",
+                "$updatedAt": "2026-01-21T06:07:57.747+00:00",
+                "size": 65535,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "template_type",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T06:29:28.570+00:00",
+                "$updatedAt": "2026-01-21T06:29:28.857+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "automation_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:48:58.605+00:00",
+                "$updatedAt": "2026-01-21T18:48:58.975+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "type",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:48:59.292+00:00",
+                "$updatedAt": "2026-01-21T18:48:59.599+00:00",
+                "elements": [
+                    "dm",
+                    "story",
+                    "live",
+                    "mention",
+                    "reel",
+                    "post",
+                    "suggest_more",
+                    "comment_moderation",
+                    "global"
+                ],
+                "format": "enum",
+                "default": null
+            },
+            {
+                "key": "followers_only",
+                "type": "boolean",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:00.050+00:00",
+                "$updatedAt": "2026-01-21T18:49:00.434+00:00",
+                "default": false
+            },
+            {
+                "key": "config",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:00.712+00:00",
+                "$updatedAt": "2026-01-21T18:49:01.166+00:00",
+                "size": 65535,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "is_active",
+                "type": "boolean",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:01.372+00:00",
+                "$updatedAt": "2026-01-21T18:49:01.695+00:00",
+                "default": true
+            },
+            {
+                "key": "media_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:57.649+00:00",
+                "$updatedAt": "2026-01-25T13:54:58.253+00:00",
+                "size": 100,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "updated_at",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:58.221+00:00",
+                "$updatedAt": "2026-01-25T13:54:58.848+00:00",
+                "format": "",
+                "default": null
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_952_user_id_idx",
+                "$createdAt": "2026-01-21T06:07:57.990+00:00",
+                "$updatedAt": "2026-01-21T06:07:58.130+00:00",
+                "key": "user_id_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_952_account_id_idx",
+                "$createdAt": "2026-01-21T06:07:58.489+00:00",
+                "$updatedAt": "2026-01-21T06:07:58.621+00:00",
+                "key": "account_id_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_952_type_idx",
+                "$createdAt": "2026-01-21T06:07:59.390+00:00",
+                "$updatedAt": "2026-01-21T06:07:59.512+00:00",
+                "key": "type_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "automation_type"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_952_account_id_is_active_idx",
+                "$createdAt": "2026-01-21T18:49:02.656+00:00",
+                "$updatedAt": "2026-01-21T18:49:02.808+00:00",
+                "key": "account_id_is_active_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id",
+                    "is_active"
+                ],
+                "lengths": [
+                    0,
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_952_account_id_active_idx",
+                "$createdAt": "2026-01-21T18:49:03.316+00:00",
+                "$updatedAt": "2026-01-21T18:49:03.483+00:00",
+                "key": "account_id_active_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id",
+                    "active"
+                ],
+                "lengths": [
+                    0,
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_952_automation_type_idx",
+                "$createdAt": "2026-01-21T18:49:04.581+00:00",
+                "$updatedAt": "2026-01-21T18:49:04.752+00:00",
+                "key": "automation_type_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "automation_type"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_952_idx_user_id",
+                "$createdAt": "2026-01-25T13:55:00.620+00:00",
+                "$updatedAt": "2026-01-25T13:55:00.819+00:00",
+                "key": "idx_user_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_952_idx_account_id",
+                "$createdAt": "2026-01-25T13:55:01.151+00:00",
+                "$updatedAt": "2026-01-25T13:55:01.388+00:00",
+                "key": "idx_account_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_952_idx_automation_type",
+                "$createdAt": "2026-01-25T13:55:01.663+00:00",
+                "$updatedAt": "2026-01-25T13:55:01.947+00:00",
+                "key": "idx_automation_type",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "automation_type"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_952_idx_template_id",
+                "$createdAt": "2026-01-25T13:55:02.185+00:00",
+                "$updatedAt": "2026-01-25T13:55:02.478+00:00",
+                "key": "idx_template_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "template_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_952_idx_active",
+                "$createdAt": "2026-01-25T13:55:02.799+00:00",
+                "$updatedAt": "2026-01-25T13:55:03.158+00:00",
+                "key": "idx_active",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "active"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_952_idx_account_type",
+                "$createdAt": "2026-01-25T13:55:03.419+00:00",
+                "$updatedAt": "2026-01-25T13:55:03.658+00:00",
+                "key": "idx_account_type",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id",
+                    "automation_type"
+                ],
+                "lengths": [
+                    0,
+                    0
+                ],
+                "orders": [
+                    "ASC",
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")"
+        ]
+    },
+    "keyword_index": {
+        "name": "Keyword Index",
+        "attributes": [
+            {
+                "key": "keyword",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T06:08:01.234+00:00",
+                "$updatedAt": "2026-01-21T06:08:01.583+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "account_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T06:08:01.653+00:00",
+                "$updatedAt": "2026-01-21T06:08:01.908+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "automation_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T06:08:02.083+00:00",
+                "$updatedAt": "2026-01-21T06:08:02.368+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "type",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T06:08:02.481+00:00",
+                "$updatedAt": "2026-01-21T06:08:02.747+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_953_keyword_account_idx",
+                "$createdAt": "2026-01-21T06:08:02.915+00:00",
+                "$updatedAt": "2026-01-21T06:08:03.060+00:00",
+                "key": "keyword_account_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "keyword",
+                    "account_id"
+                ],
+                "lengths": [
+                    0,
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_953_automation_id_idx",
+                "$createdAt": "2026-01-21T06:08:03.343+00:00",
+                "$updatedAt": "2026-01-21T06:08:03.508+00:00",
+                "key": "automation_id_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "automation_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_953_idx_keyword",
+                "$createdAt": "2026-01-25T13:55:11.969+00:00",
+                "$updatedAt": "2026-01-25T13:55:12.244+00:00",
+                "key": "idx_keyword",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "keyword"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_953_idx_account_id",
+                "$createdAt": "2026-01-25T13:55:12.647+00:00",
+                "$updatedAt": "2026-01-25T13:55:12.825+00:00",
+                "key": "idx_account_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_953_idx_automation_id",
+                "$createdAt": "2026-01-25T13:55:13.196+00:00",
+                "$updatedAt": "2026-01-25T13:55:13.364+00:00",
+                "key": "idx_automation_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "automation_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")"
+        ]
+    },
+    "profiles": {
+        "name": "Profiles",
+        "attributes": [
+            {
+                "key": "user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:48:35.646+00:00",
+                "$updatedAt": "2026-01-21T18:48:35.935+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "credits",
+                "type": "integer",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:48:36.336+00:00",
+                "$updatedAt": "2026-01-21T18:48:36.631+00:00",
+                "min": -9223372036854775808,
+                "max": 9223372036854775807,
+                "default": null
+            },
+            {
+                "key": "tier",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:48:37.104+00:00",
+                "$updatedAt": "2026-01-21T18:48:37.419+00:00",
+                "elements": [
+                    "free",
+                    "pro",
+                    "enterprise"
+                ],
+                "format": "enum",
+                "default": null
+            },
+            {
+                "key": "tier_expires_at",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:08.429+00:00",
+                "$updatedAt": "2026-01-25T13:54:08.875+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "subscription_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:08.966+00:00",
+                "$updatedAt": "2026-01-25T13:54:09.337+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "payment_provider",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:09.564+00:00",
+                "$updatedAt": "2026-01-25T13:54:09.870+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_1022_user_id_idx",
+                "$createdAt": "2026-01-21T18:48:37.800+00:00",
+                "$updatedAt": "2026-01-21T18:48:37.936+00:00",
+                "key": "user_id_idx",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_1022_idx_user_id",
+                "$createdAt": "2026-01-25T13:54:11.946+00:00",
+                "$updatedAt": "2026-01-25T13:54:12.098+00:00",
+                "key": "idx_user_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")",
+            "update(\"users\")",
+            "create(\"users\")"
+        ]
+    },
+    "keywords": {
+        "name": "Keywords",
+        "attributes": [
+            {
+                "key": "keyword",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:06.734+00:00",
+                "$updatedAt": "2026-01-21T18:49:07.317+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "account_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:07.386+00:00",
+                "$updatedAt": "2026-01-21T18:49:07.655+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "automation_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:08.039+00:00",
+                "$updatedAt": "2026-01-21T18:49:08.383+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "type",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:08.698+00:00",
+                "$updatedAt": "2026-01-21T18:49:09.027+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_1032_keyword_account_idx",
+                "$createdAt": "2026-01-21T18:49:10.372+00:00",
+                "$updatedAt": "2026-01-21T18:49:10.524+00:00",
+                "key": "keyword_account_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "keyword",
+                    "account_id"
+                ],
+                "lengths": [
+                    0,
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_1032_automation_id_idx",
+                "$createdAt": "2026-01-21T18:49:11.027+00:00",
+                "$updatedAt": "2026-01-21T18:49:11.185+00:00",
+                "key": "automation_id_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "automation_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_1032_idx_keyword",
+                "$createdAt": "2026-01-25T13:55:06.798+00:00",
+                "$updatedAt": "2026-01-25T13:55:06.999+00:00",
+                "key": "idx_keyword",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "keyword"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_1032_idx_account_id",
+                "$createdAt": "2026-01-25T13:55:07.362+00:00",
+                "$updatedAt": "2026-01-25T13:55:07.652+00:00",
+                "key": "idx_account_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_1032_idx_automation_id",
+                "$createdAt": "2026-01-25T13:55:07.936+00:00",
+                "$updatedAt": "2026-01-25T13:55:08.108+00:00",
+                "key": "idx_automation_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "automation_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_1032_idx_account_keyword",
+                "$createdAt": "2026-01-25T13:55:08.458+00:00",
+                "$updatedAt": "2026-01-25T13:55:08.646+00:00",
+                "key": "idx_account_keyword",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id",
+                    "keyword"
+                ],
+                "lengths": [
+                    0,
+                    0
+                ],
+                "orders": [
+                    "ASC",
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")"
+        ]
+    },
+    "super_profiles": {
+        "name": "Super Profiles",
+        "attributes": [
+            {
+                "key": "profile_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:26.480+00:00",
+                "$updatedAt": "2026-01-21T18:49:26.770+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "slug",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:27.180+00:00",
+                "$updatedAt": "2026-01-21T18:49:27.457+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "buttons_json",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:27.828+00:00",
+                "$updatedAt": "2026-01-21T18:49:28.090+00:00",
+                "size": 65535,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "theme",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:28.475+00:00",
+                "$updatedAt": "2026-01-21T18:49:28.766+00:00",
+                "size": 65535,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "is_active",
+                "type": "boolean",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:29.125+00:00",
+                "$updatedAt": "2026-01-21T18:49:29.409+00:00",
+                "default": true
+            },
+            {
+                "key": "user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:29.799+00:00",
+                "$updatedAt": "2026-01-21T18:49:30.111+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "account_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:30.914+00:00",
+                "$updatedAt": "2026-01-21T18:49:31.200+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "template_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-22T16:25:55.058+00:00",
+                "$updatedAt": "2026-01-22T16:25:55.525+00:00",
+                "size": 10,
+                "default": null,
+                "encrypt": false
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_1037_slug_index",
+                "$createdAt": "2026-01-21T18:49:31.598+00:00",
+                "$updatedAt": "2026-01-21T18:49:31.835+00:00",
+                "key": "slug_index",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "slug"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_1037_user_id_idx",
+                "$createdAt": "2026-01-21T18:49:32.255+00:00",
+                "$updatedAt": "2026-01-21T18:49:32.402+00:00",
+                "key": "user_id_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_1037_idx_user_id",
+                "$createdAt": "2026-01-25T13:55:23.642+00:00",
+                "$updatedAt": "2026-01-25T13:55:23.807+00:00",
+                "key": "idx_user_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_1037_idx_account_id",
+                "$createdAt": "2026-01-25T13:55:24.180+00:00",
+                "$updatedAt": "2026-01-25T13:55:24.393+00:00",
+                "key": "idx_account_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_1037_idx_slug",
+                "$createdAt": "2026-01-25T13:55:24.732+00:00",
+                "$updatedAt": "2026-01-25T13:55:24.882+00:00",
+                "key": "idx_slug",
+                "type": "unique",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "slug"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_1037_idx_is_active",
+                "$createdAt": "2026-01-25T13:55:25.258+00:00",
+                "$updatedAt": "2026-01-25T13:55:25.431+00:00",
+                "key": "idx_is_active",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "is_active"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"any\")",
+            "read(\"users\")",
+            "create(\"users\")",
+            "update(\"users\")",
+            "delete(\"users\")"
+        ]
+    },
+    "analytics": {
+        "name": "Analytics",
+        "attributes": [
+            {
+                "key": "user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:34.530+00:00",
+                "$updatedAt": "2026-01-21T18:49:34.831+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "entity_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:35.225+00:00",
+                "$updatedAt": "2026-01-21T18:49:35.496+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "type",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:35.872+00:00",
+                "$updatedAt": "2026-01-21T18:49:36.134+00:00",
+                "elements": [
+                    "profile_visit",
+                    "dm_sent",
+                    "reel_reply",
+                    "post_reply",
+                    "story_reply",
+                    "live_reply",
+                    "mention_reply",
+                    "automation_triggered"
+                ],
+                "format": "enum",
+                "default": null
+            },
+            {
+                "key": "timestamp",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:36.566+00:00",
+                "$updatedAt": "2026-01-21T18:49:36.838+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "metadata",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-21T18:49:37.743+00:00",
+                "$updatedAt": "2026-01-21T18:49:38.040+00:00",
+                "size": 65535,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "account_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-25T13:55:27.118+00:00",
+                "$updatedAt": "2026-01-25T13:55:27.523+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "metric_type",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-25T13:55:28.067+00:00",
+                "$updatedAt": "2026-01-25T13:55:28.628+00:00",
+                "size": 100,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "period",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:55:28.574+00:00",
+                "$updatedAt": "2026-01-25T13:55:29.120+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "data",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:55:29.101+00:00",
+                "$updatedAt": "2026-01-25T13:55:29.591+00:00",
+                "size": 32000,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "fetched_at",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:55:29.627+00:00",
+                "$updatedAt": "2026-01-25T13:55:29.981+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "start_date",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:55:30.127+00:00",
+                "$updatedAt": "2026-01-25T13:55:30.519+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "end_date",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:55:30.715+00:00",
+                "$updatedAt": "2026-01-25T13:55:31.100+00:00",
+                "format": "",
+                "default": null
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_1038_entity_type_timestamp_idx",
+                "$createdAt": "2026-01-21T18:49:38.450+00:00",
+                "$updatedAt": "2026-01-21T18:49:38.627+00:00",
+                "key": "entity_type_timestamp_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "entity_id",
+                    "type",
+                    "timestamp"
+                ],
+                "lengths": [
+                    0,
+                    0,
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_1038_user_id_idx",
+                "$createdAt": "2026-01-21T18:49:39.150+00:00",
+                "$updatedAt": "2026-01-21T18:49:39.304+00:00",
+                "key": "user_id_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_1038_timestamp_idx",
+                "$createdAt": "2026-01-21T18:49:39.829+00:00",
+                "$updatedAt": "2026-01-21T18:49:39.987+00:00",
+                "key": "timestamp_idx",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "timestamp"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": []
+            },
+            {
+                "$id": "78027_1038_idx_account_id",
+                "$createdAt": "2026-01-25T13:55:32.658+00:00",
+                "$updatedAt": "2026-01-25T13:55:32.809+00:00",
+                "key": "idx_account_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_1038_idx_metric_type",
+                "$createdAt": "2026-01-25T13:55:33.183+00:00",
+                "$updatedAt": "2026-01-25T13:55:33.382+00:00",
+                "key": "idx_metric_type",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "metric_type"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_1038_idx_account_metric",
+                "$createdAt": "2026-01-25T13:55:34.150+00:00",
+                "$updatedAt": "2026-01-25T13:55:34.351+00:00",
+                "key": "idx_account_metric",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "account_id",
+                    "metric_type"
+                ],
+                "lengths": [
+                    0,
+                    0
+                ],
+                "orders": [
+                    "ASC",
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": [
+            "read(\"users\")",
+            "create(\"users\")",
+            "update(\"users\")"
+        ]
+    },
+    "campaigns": {
+        "name": "Campaigns",
+        "attributes": [
+            {
+                "key": "user_id",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:24.786+00:00",
+                "$updatedAt": "2026-01-25T13:54:25.089+00:00",
+                "size": 36,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "name",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": true,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:25.336+00:00",
+                "$updatedAt": "2026-01-25T13:54:25.635+00:00",
+                "size": 255,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "status",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:25.886+00:00",
+                "$updatedAt": "2026-01-25T13:54:26.148+00:00",
+                "size": 50,
+                "default": "draft",
+                "encrypt": false
+            },
+            {
+                "key": "type",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:26.457+00:00",
+                "$updatedAt": "2026-01-25T13:54:26.728+00:00",
+                "size": 50,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "description",
+                "type": "string",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:26.972+00:00",
+                "$updatedAt": "2026-01-25T13:54:27.291+00:00",
+                "size": 1000,
+                "default": null,
+                "encrypt": false
+            },
+            {
+                "key": "start_date",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:27.519+00:00",
+                "$updatedAt": "2026-01-25T13:54:27.834+00:00",
+                "format": "",
+                "default": null
+            },
+            {
+                "key": "end_date",
+                "type": "datetime",
+                "status": "available",
+                "error": "",
+                "required": false,
+                "array": false,
+                "$createdAt": "2026-01-25T13:54:28.059+00:00",
+                "$updatedAt": "2026-01-25T13:54:28.357+00:00",
+                "format": "",
+                "default": null
+            }
+        ],
+        "indexes": [
+            {
+                "$id": "78027_1184_idx_user_id",
+                "$createdAt": "2026-01-25T13:54:30.038+00:00",
+                "$updatedAt": "2026-01-25T13:54:30.213+00:00",
+                "key": "idx_user_id",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "user_id"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            },
+            {
+                "$id": "78027_1184_idx_status",
+                "$createdAt": "2026-01-25T13:54:30.521+00:00",
+                "$updatedAt": "2026-01-25T13:54:30.671+00:00",
+                "key": "idx_status",
+                "type": "key",
+                "status": "available",
+                "error": "",
+                "attributes": [
+                    "status"
+                ],
+                "lengths": [
+                    0
+                ],
+                "orders": [
+                    "ASC"
+                ]
+            }
+        ],
+        "permissions": []
+    }
+}

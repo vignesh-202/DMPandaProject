@@ -17,8 +17,8 @@ def main(context):
         old_template_id = payload.get('old_template_id')
         
         client = Client()
-        client.set_endpoint(os.environ['APPWRITE_FUNCTION_ENDPOINT'])
-        client.set_project(os.environ['APPWRITE_FUNCTION_PROJECT_ID'])
+        client.set_endpoint(os.environ['APPWRITE_ENDPOINT'])
+        client.set_project(os.environ['APPWRITE_PROJECT_ID'])
         client.set_key(os.environ['APPWRITE_API_KEY'])
 
         databases = Databases(client)

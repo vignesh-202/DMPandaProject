@@ -20,21 +20,21 @@ const SupportView = () => {
                 <h3 className="text-xl font-semibold text-black dark:text-white mb-4">Getting Started with DM Panda</h3>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">Follow these simple steps to begin automating your Instagram DMs:</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Card>
+                    <Card className="border border-content shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600">
                         <div className="p-4 text-center">
                             <div className="text-3xl font-bold text-black dark:text-white mb-2">1</div>
                             <h4 className="text-lg font-bold text-black dark:text-white mb-2">Connect Account</h4>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Securely link your Instagram account to DM Panda through your dashboard.</p>
                         </div>
                     </Card>
-                    <Card>
+                    <Card className="border border-content shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600">
                         <div className="p-4 text-center">
                             <div className="text-3xl font-bold text-black dark:text-white mb-2">2</div>
                             <h4 className="text-lg font-bold text-black dark:text-white mb-2">Set Up Campaigns</h4>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Define your target audience and create your automated message sequences.</p>
                         </div>
                     </Card>
-                    <Card>
+                    <Card className="border border-content shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600">
                         <div className="p-4 text-center">
                             <div className="text-3xl font-bold text-black dark:text-white mb-2">3</div>
                             <h4 className="text-lg font-bold text-black dark:text-white mb-2">Launch & Monitor</h4>
@@ -47,7 +47,7 @@ const SupportView = () => {
             <section>
                 <h3 className="text-xl font-semibold text-black dark:text-white mb-4">Frequently Asked Questions (FAQ)</h3>
                 <div className="space-y-4">
-                    <Card className="!p-0 overflow-hidden">
+                    <Card className="!p-0 overflow-hidden border border-content shadow-sm transition-all">
                         <button
                             onClick={() => toggleAccordion('faq1')}
                             className="w-full flex justify-between items-center p-4 text-left bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -58,14 +58,14 @@ const SupportView = () => {
                         <div
                             className={`overflow-hidden transition-all duration-300 ease-in-out ${openAccordion === 'faq1' ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}
                         >
-                            <div className="p-4 border-t border-gray-100 dark:border-gray-700 text-gray-600 dark:text-gray-400">
+                            <div className="p-4 border-t border-slate-100 dark:border-slate-700 text-gray-600 dark:text-gray-400">
                                 Follow the step-by-step guide in the "Get Started" section after logging into your DM Panda dashboard.
                                 Ensure you have admin access to the linked Facebook Page.
                             </div>
                         </div>
                     </Card>
 
-                    <Card className="!p-0 overflow-hidden">
+                    <Card className="!p-0 overflow-hidden border border-content shadow-sm transition-all">
                         <button
                             onClick={() => toggleAccordion('faq2')}
                             className="w-full flex justify-between items-center p-4 text-left bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -76,7 +76,7 @@ const SupportView = () => {
                         <div
                             className={`overflow-hidden transition-all duration-300 ease-in-out ${openAccordion === 'faq2' ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}
                         >
-                            <div className="p-4 border-t border-gray-100 dark:border-gray-700 text-gray-600 dark:text-gray-400">
+                            <div className="p-4 border-t border-slate-100 dark:border-slate-700 text-gray-600 dark:text-gray-400">
                                 Yes, DM Panda utilizes the official Meta API for Instagram messaging, ensuring compliance with their
                                 terms of service. We recommend using automation responsibly.
                             </div>

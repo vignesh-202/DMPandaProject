@@ -1,15 +1,17 @@
-import React, { createContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useMemo, useCallback, useContext } from 'react';
 
 interface ThemeContextProps {
   isDarkMode: boolean;
   toggleTheme: () => void;
   setForceLightMode: (force: boolean) => void;
+  theme: 'light' | 'dark'; // Add this to match usage in Navbar
 }
 
 export const ThemeContext = createContext<ThemeContextProps>({
   isDarkMode: false,
   toggleTheme: () => { },
   setForceLightMode: () => { },
+  theme: 'light',
 });
 
 const getInitialTheme = (): boolean => {
@@ -43,7 +45,12 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     });
   }, [forceLightMode]);
 
-  const value = useMemo(() => ({ isDarkMode, toggleTheme, setForceLightMode }), [isDarkMode, toggleTheme, forceLightMode]);
+  const value = useMemo(() => ({
+    isDarkMode,
+    toggleTheme,
+    setForceLightMode,
+    theme: isDarkMode ? 'dark' : 'light' as 'dark' | 'light'
+  }), [isDarkMode, toggleTheme, forceLightMode]);
 
   return (
     <ThemeContext.Provider value={value}>
@@ -51,3 +58,5 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     </ThemeContext.Provider>
   );
 };
+
+export const useTheme = () => useContext(ThemeContext);

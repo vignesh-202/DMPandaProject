@@ -1,233 +1,245 @@
-import { useState, useEffect } from 'react';
-import DashboardLayout from './layout';
-import Card from '../../components/ui/card';
-import Chart from '../../components/ui/chart';
-import AnalyticsChart from '../../components/ui/analytics-chart';
-import Gauge from '../../components/ui/gauge';
-import { TrendingUp, ArrowRight } from 'lucide-react';
-import DashboardLoading from '../../components/ui/DashboardLoading';
-import InstagramStats from '../../components/dashboard/InstagramStats';
-import { useLoading } from '../../contexts/LoadingContext';
-
-import DMAutomationView from './DMAutomationView';
-import GlobalTriggersView from './GlobalTriggersView';
-import ReelAutomationView from './ReelAutomationView';
-import PostAutomationView from './PostAutomationView';
-import StoryAutomationView from './StoryAutomationView';
-import LiveAutomationView from './LiveAutomationView';
-import MentionsView from './MentionsView';
-import MyPlanView from './MyPlanView';
-import TransactionsView from './TransactionsView';
-import AccountSettingsView from './AccountSettingsView';
-import PlaceholderView from './PlaceholderView';
-import SupportView from './SupportView';
-import AffiliateView from './AffiliateView';
-import PricingView from './PricingView';
-
-import { useAuth } from '../../contexts/AuthContext';
+"use client";
+import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { DashboardProvider, useDashboard } from '../../contexts/DashboardContext';
+import { useAuth } from '../../contexts/AuthContext';
+import InstagramStats from '../../components/dashboard/InstagramStats';
+import Gauge from '../../components/ui/gauge';
+import Card from '../../components/ui/card';
+import { Loader2, Lightbulb, FileStack, AtSign, Lightbulb as SuggestIcon, MailPlus, ChevronRight } from 'lucide-react';
+import DashboardLayout from './layout';
+import { cn } from '../../lib/utils';
 
-const DashboardContent = () => {
-  const { isLoading: isAuthLoading, hasPassword } = useAuth();
-  const { isLoading } = useLoading();
-  const { currentView, setCurrentView } = useDashboard();
-  const [isAnimationVisible, setIsAnimationVisible] = useState(false);
+type CountsKey = 'reply_templates' | 'mention' | 'suggest_more' | 'email_collector';
+const COUNT_CARDS: { key: CountsKey; label: string; view: import('../../contexts/DashboardContext').ViewType; icon: React.ElementType }[] = [
+  { key: 'reply_templates', label: 'Reply Templates', view: 'Reply Templates', icon: FileStack },
+  { key: 'mention', label: 'Mention', view: 'Mentions', icon: AtSign },
+  { key: 'suggest_more', label: 'Suggest More', view: 'Suggest More', icon: SuggestIcon },
+  { key: 'email_collector', label: 'Email Collector', view: 'Email Collector', icon: MailPlus },
+];
 
-  useEffect(() => {
-    // Set the default view to 'Dashboard' when the component mounts
-    setCurrentView('Dashboard');
-  }, [setCurrentView]);
+// Lazy Loaded Views
+const DMAutomationView = lazy(() => import('./DMAutomationView'));
+const StoryAutomationView = lazy(() => import('./StoryAutomationView'));
+const PostAutomationView = lazy(() => import('./PostAutomationView'));
+const ReelAutomationView = lazy(() => import('./ReelAutomationView'));
+const LiveAutomationView = lazy(() => import('./LiveAutomationView'));
+const MentionsView = lazy(() => import('./MentionsView'));
+const EmailCollectorView = lazy(() => import('./EmailCollectorView'));
+const SuggestMoreView = lazy(() => import('./SuggestMoreView'));
+const CommentModerationView = lazy(() => import('./CommentModerationView'));
+const AccountSettingsView = lazy(() => import('./AccountSettingsView'));
+const AffiliateView = lazy(() => import('./AffiliateView'));
+const PricingView = lazy(() => import('./PricingView'));
+const MyPlanView = lazy(() => import('./MyPlanView'));
+const TransactionsView = lazy(() => import('./TransactionsView'));
+const ConvoStarterView = lazy(() => import('./ConvoStarterView'));
+const AnalyticsView = lazy(() => import('./AnalyticsView'));
+const ReplyTemplatesView = lazy(() => import('./ReplyTemplatesView'));
+const InboxMenu = lazy(() => import('./InboxMenu'));
+const StatsRow = lazy(() => import('../../components/dashboard/StatsRow'));
+const PlaceholderView = lazy(() => import('./PlaceholderView'));
+const SupportView = lazy(() => import('./SupportView'));
+const GlobalTriggersView = lazy(() => import('./GlobalTriggersView'));
+const SuperProfileView = lazy(() => import('./SuperProfileView'));
 
-  useEffect(() => {
-    if (!isLoading && !isAuthLoading && hasPassword) {
-      setTimeout(() => {
-        setIsAnimationVisible(true);
-      }, 500); // Start animation shortly after access is granted
-    }
-  }, [isLoading, isAuthLoading, hasPassword]);
+import AccountBarrier from '../../components/dashboard/AccountBarrier';
 
-  // Placeholder data
-  const smartScore = 82;
-  const followersNumber = 24;
-  const reelsNumber = 2986;
-  const dmRate = 85;
-  const actionsPerMonth = 100;
-  const reelCommentReplies = 500;
-  const postCommentReplies = 700;
+// Page Loader Component
+const PageLoader = () => (
+  <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)]">
+    <div className="relative">
+      <div className="w-12 h-12 rounded-full border-2 border-muted border-t-primary animate-spin" />
+    </div>
+    <p className="mt-4 text-2xs font-semibold text-muted-foreground uppercase tracking-widest">
+      Loading View...
+    </p>
+  </div>
+);
 
-  const totalSalesData = [
-    { name: '1', value: 1.1 },
-    { name: '5', value: 1.2 },
-    { name: '10', value: 1.15 },
-    { name: '15', value: 1.3 },
-    { name: '20', value: 1.25 },
-    { name: '25', value: 1.4 },
-    { name: '30', value: 1.35 },
-  ];
-
-  const numberOfSalesData = [
-    { name: 'Oct', sales: 1.2 },
-    { name: 'Sep', sales: 1.5 },
-    { name: 'Aug', sales: 1.3 },
-    { name: 'Jul', sales: 1.6 },
-    { name: 'Jun', sales: 1.4 },
-    { name: 'May', sales: 1.7 },
-  ];
-
-  const interactionsData = [
-    { time: '00:00', interactions: 10 },
-    { time: '01:00', interactions: 15 },
-    { time: '02:00', interactions: 12 },
-    { time: '03:00', interactions: 20 },
-    { time: '04:00', interactions: 25 },
-    { time: '05:00', interactions: 22 },
-    { time: '06:00', interactions: 30 },
-    { time: '07:00', interactions: 28 },
-    { time: '08:00', interactions: 35 },
-    { time: '09:00', interactions: 40 },
-    { time: '10:00', interactions: 38 },
-    { time: '11:00', interactions: 42 },
-    { time: '12:00', interactions: 45 },
-    { time: '13:00', interactions: 43 },
-    { time: '14:00', interactions: 50 },
-    { time: '15:00', interactions: 48 },
-    { time: '16:00', interactions: 55 },
-    { time: '17:00', interactions: 52 },
-    { time: '18:00', interactions: 60 },
-    { time: '19:00', interactions: 58 },
-    { time: '20:00', interactions: 65 },
-    { time: '21:00', interactions: 62 },
-    { time: '22:00', interactions: 70 },
-    { time: '23:00', interactions: 68 },
-  ];
+// Gauge Card Component
+const GaugeCard = ({ label, value, max }: { label: string; value: number; max: number }) => {
+  const { setCurrentView } = useDashboard();
 
   return (
-    <DashboardLayout>
-      {isLoading && <DashboardLoading />}
-      {currentView === 'Dashboard' && (
-        <>
-          <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4 ${isLoading ? 'blur-sm' : ''}`}>
-            <Card>
-              <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text)' }}>Smart score</h3>
-              <div className="flex items-center justify-center">
-                <Gauge value={smartScore} startAnimation={isAnimationVisible} />
-              </div>
-              <p className="text-green-500 text-sm mt-2 flex items-center">
-                <TrendingUp className="w-4 h-4 mr-1" /> 18 Last week
-              </p>
-              <a href="#" className="text-blue-500 text-sm mt-1 block flex items-center">Show more <ArrowRight className="w-3 h-3 ml-1" /></a>
-            </Card>
+    <Card
+      variant="elevated"
+      className="relative flex flex-col aspect-[4/5] sm:aspect-square group hover:shadow-lg transition-shadow cursor-pointer"
+      onClick={() => setCurrentView('Analytics')}
+    >
+      {/* Title */}
+      <div className="absolute top-4 left-4 sm:top-5 sm:left-5 z-10">
+        <h3 className="text-2xs font-semibold uppercase tracking-widest text-muted-foreground group-hover:text-primary transition-colors">
+          {label}
+        </h3>
+      </div>
 
-            <InstagramStats />
+      {/* Gauge - Centered */}
+      <div className="flex-1 flex items-center justify-center pt-4">
+        <Gauge
+          value={value}
+          max={max}
+          size="lg"
+          syncId="dashboard-gauges"
+        />
+      </div>
 
-            <Card>
-              <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text)' }}>Reels</h3>
-              <div className="text-4xl font-bold mb-2" style={{ color: 'var(--text)' }}>{reelsNumber}</div>
-              <p className="text-green-500 text-sm flex items-center">
-                <TrendingUp className="w-4 h-4 mr-1" /> 12% Last week
-              </p>
-              <a href="#" className="text-blue-500 text-sm mt-1 block flex items-center">Show more <ArrowRight className="w-3 h-3 ml-1" /></a>
-            </Card>
-
-            <Card>
-              <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text)' }}>DM Rate</h3>
-              <div className="flex items-center justify-center">
-                <Gauge value={dmRate} max={100} startAnimation={isAnimationVisible} invertColor={true} />
-              </div>
-              <p className="text-lg font-bold text-center mt-2" style={{ color: 'var(--text)' }}>{dmRate} DMs/hr</p>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-            <Card>
-              <h3 className="text-lg font-semibold mb-2 text-center" style={{ color: 'var(--text)' }}>Action's per month</h3>
-              <div className="flex justify-center">
-                <Gauge value={actionsPerMonth} max={2000} startAnimation={isAnimationVisible} invertColor={true} />
-              </div>
-              <p className="text-lg font-bold text-center mt-2" style={{ color: 'var(--text)' }}>{actionsPerMonth}</p>
-            </Card>
-            <Card>
-              <h3 className="text-lg font-semibold mb-2 text-center" style={{ color: 'var(--text)' }}>Reel comment replies</h3>
-              <div className="flex justify-center">
-                <Gauge value={reelCommentReplies} max={1000} startAnimation={isAnimationVisible} invertColor={true} />
-              </div>
-              <p className="text-lg font-bold text-center mt-2" style={{ color: 'var(--text)' }}>{reelCommentReplies}</p>
-            </Card>
-            <Card>
-              <h3 className="text-lg font-semibold mb-2 text-center" style={{ color: 'var(--text)' }}>Post comment replies</h3>
-              <div className="flex justify-center">
-                <Gauge value={postCommentReplies} max={1000} startAnimation={isAnimationVisible} invertColor={true} />
-              </div>
-              <p className="text-lg font-bold text-center mt-2" style={{ color: 'var(--text)' }}>{postCommentReplies}</p>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
-              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>Total Sales</h3>
-              <div className="flex justify-between items-center mb-4">
-                <p className="text-3xl font-bold" style={{ color: 'var(--text)' }}>$1,652,850</p>
-                <select className="border rounded-md p-2 bg-white dark:bg-gray-800 text-black dark:text-white dark:border-gray-700 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors">
-                  <option>Month</option>
-                  <option>Quarter</option>
-                  <option>Year</option>
-                </select>
-              </div>
-              <Chart data={totalSalesData} type="line" dataKey="value" xAxisKey="name" lineColor="black" hideYAxis hideLegend />
-            </Card>
-            <Card>
-              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>Followers</h3>
-              <p className="text-3xl font-bold mb-4" style={{ color: 'var(--text)' }}>{followersNumber}</p>
-              <Chart data={numberOfSalesData} type="bar" dataKey="sales" xAxisKey="name" barColor="black" />
-            </Card>
-          </div>
-
-          <div className="mt-4">
-            <Card>
-              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>No of interactions with time in last 24 hours</h3>
-              <Chart data={interactionsData} type="line" dataKey="interactions" xAxisKey="time" lineColor="black" />
-            </Card>
-          </div>
-
-          <div className="mt-4">
-            <Card>
-              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>Analytics Overview</h3>
-              <AnalyticsChart
-                data={totalSalesData}
-                type="bar"
-                dataKey="value"
-                xAxisKey="name"
-                barColor="black"
-              />
-            </Card>
-          </div>
-        </>
-      )}
-      {currentView === 'DM Automation' && <DMAutomationView />}
-      {currentView === 'Global Triggers' && <GlobalTriggersView />}
-      {currentView === 'Reel Automation' && <ReelAutomationView />}
-      {currentView === 'Post Automation' && <PostAutomationView />}
-      {currentView === 'Story Automation' && <StoryAutomationView />}
-      {currentView === 'Live Automation' && <LiveAutomationView />}
-      {currentView === 'Mentions' && <MentionsView />}
-      {currentView === 'My Plan' && <MyPlanView />}
-      {currentView === 'Transactions' && <TransactionsView />}
-      {currentView === 'Account Settings' && <AccountSettingsView />}
-      {currentView === 'Pricing' && <PricingView />}
-      {currentView === 'Affiliate & Referral' && <AffiliateView />}
-      {currentView === 'Watch Video' && <PlaceholderView title="Watch Video" />}
-      {currentView === 'Support' && <SupportView />}
-      {currentView === 'Contact' && <PlaceholderView title="Contact" />}
-      {currentView === 'Have feedback?' && <PlaceholderView title="Have feedback?" />}
-      {currentView === 'Automation Not working?' && <PlaceholderView title="Automation Not working?" />}
-    </DashboardLayout>
+      {/* Right Arrow */}
+      <div className="absolute top-4 right-4 sm:top-5 sm:right-5 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+        <ChevronRight className="w-4 h-4 text-primary" />
+      </div>
+    </Card>
   );
 };
 
-const DashboardPage = () => (
-  <DashboardProvider>
-    <DashboardContent />
-  </DashboardProvider>
-);
+// Dashboard Content
+const DashboardContent: React.FC = () => {
+  const { currentView, activeAccount, activeAccountID, isGlobalLoading, setCurrentView } = useDashboard();
+  const { authenticatedFetch } = useAuth();
+  const [counts, setCounts] = useState<Record<CountsKey, number>>({
+    reply_templates: 0, mention: 0, suggest_more: 0, email_collector: 0,
+  });
+  const countsInFlight = useRef(false);
+
+  useEffect(() => {
+    if (currentView !== 'Dashboard') return;
+    if (countsInFlight.current) return;
+    countsInFlight.current = true;
+    const url = `${import.meta.env.VITE_API_BASE_URL}/api/dashboard/counts${activeAccountID ? `?account_id=${activeAccountID}` : ''}`;
+    authenticatedFetch(url)
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((d) => {
+        setCounts({
+          reply_templates: d.reply_templates ?? 0,
+          mention: d.mention ?? 0,
+          suggest_more: d.suggest_more ?? 0,
+          email_collector: d.email_collector ?? 0,
+        });
+      })
+      .catch(() => { })
+      .finally(() => { countsInFlight.current = false; });
+  }, [currentView, activeAccountID, authenticatedFetch]);
+
+  if (isGlobalLoading) {
+    return <PageLoader />;
+  }
+
+  // Protected views requiring Instagram account
+  const protectedViews = [
+    'Dashboard', 'DM Automation', 'Story Automation', 'Post Automation',
+    'Reel Automation', 'Live Automation', 'Mentions', 'Email Collector',
+    'Suggest More', 'Convo Starter', 'Global Trigger', 'Analytics', 'Reply Templates', 'Inbox Menu', 'Super Profile'
+  ];
+
+  const needsAccount = protectedViews.includes(currentView);
+  const isAccountActive = activeAccount && activeAccount.status === 'active';
+
+  if (needsAccount && (!activeAccountID || !isAccountActive)) {
+    return <AccountBarrier />;
+  }
+
+  // Dashboard View
+  if (currentView === 'Dashboard') {
+    const gaugeData = [
+      { label: 'DM Rate', value: 15, max: 100 },
+      { label: 'Actions/Mo', value: 4500, max: 10000 },
+      { label: 'Reel Replies', value: 72, max: 100 },
+      { label: 'Post Replies', value: 85, max: 100 },
+    ];
+
+    return (
+      <div className="flex flex-col gap-2 lg:gap-2.5 max-w-7xl mx-auto pb-4 lg:pb-2">
+        {/* Instagram Stats Section */}
+        <section>
+          <InstagramStats />
+        </section>
+
+        {/* Count cards - above gauges, compact top/bottom on desktop */}
+        <section>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+            {COUNT_CARDS.map(({ key, label, view, icon: Icon }) => {
+              const n = counts[key];
+              const disabled = n === 0;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setCurrentView(view)}
+                  className={cn(
+                    'flex flex-col items-start gap-1.5 py-2.5 px-4 lg:py-2 lg:px-4 rounded-xl border text-left transition-all min-h-[72px] aspect-[2/1] sm:min-h-[76px] lg:aspect-auto lg:min-h-[70px]',
+                    disabled
+                      ? 'opacity-55 cursor-pointer border-border bg-muted/40 text-muted-foreground'
+                      : 'border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 text-foreground'
+                  )}
+                >
+                  <Icon className={cn('w-5 h-5 shrink-0', disabled ? 'text-muted-foreground' : 'text-primary')} />
+                  <span className="text-sm font-semibold truncate w-full">{label}</span>
+                  <span className={cn('text-base font-bold tabular-nums', disabled ? 'text-muted-foreground' : 'text-primary')}>{n}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Gauges Section */}
+        <section>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-3">
+            {gaugeData.map((gauge, i) => (
+              <GaugeCard
+                key={i}
+                label={gauge.label}
+                value={gauge.value}
+                max={gauge.max}
+              />
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  // Other Views
+  return (
+    <Suspense fallback={<PageLoader />}>
+      {currentView === 'Analytics' && <AnalyticsView />}
+      {currentView === 'Reply Templates' && <ReplyTemplatesView />}
+      {currentView === 'Inbox Menu' && <InboxMenu />}
+      {currentView === 'Super Profile' && <SuperProfileView />}
+      {currentView === 'Convo Starter' && <ConvoStarterView />}
+      {currentView === 'Global Trigger' && <GlobalTriggersView />}
+      {currentView === 'DM Automation' && <DMAutomationView />}
+      {currentView === 'Post Automation' && <PostAutomationView />}
+      {currentView === 'Reel Automation' && <ReelAutomationView />}
+      {currentView === 'Story Automation' && <StoryAutomationView />}
+      {currentView === 'Live Automation' && <LiveAutomationView />}
+      {currentView === 'Mentions' && <MentionsView />}
+      {currentView === 'Email Collector' && <EmailCollectorView />}
+      {currentView === 'Suggest More' && <SuggestMoreView />}
+      {currentView === 'Comment Moderation' && <CommentModerationView />}
+      {currentView === 'My Plan' && <MyPlanView />}
+      {currentView === 'Transactions' && <TransactionsView />}
+      {currentView === 'Affiliate & Referral' && <AffiliateView />}
+      {currentView === 'Account Settings' && <AccountSettingsView />}
+      {currentView === 'Support' && <SupportView />}
+      {currentView === 'Contact' && (
+        <PlaceholderView
+          title="Contact Support"
+          description="Our high-priority support channel is being integrated directly into your command center. For urgent inquiries, please use the public contact form or email support@dmpanda.com."
+          icon={<Loader2 className="w-12 h-12 text-primary animate-spin" />}
+        />
+      )}
+    </Suspense>
+  );
+};
+
+// Main Dashboard Page
+const DashboardPage = () => {
+  return (
+    <DashboardProvider>
+      <DashboardLayout>
+        <DashboardContent />
+      </DashboardLayout>
+    </DashboardProvider>
+  );
+};
 
 export default DashboardPage;

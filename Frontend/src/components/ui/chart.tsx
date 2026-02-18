@@ -67,6 +67,8 @@ const Chart = React.memo(({
             dot={{ r: 4, fill: 'var(--background)', strokeWidth: 2 }}
             activeDot={{ r: 6, strokeWidth: 0 }}
             filter="url(#glow)"
+            animationDuration={1500}
+            animationEasing="ease-out"
           />
         </LineChart>
       ) : (
@@ -80,7 +82,7 @@ const Chart = React.memo(({
             cursor={{ fill: 'var(--muted)', opacity: 0.2 }}
           />
           {!hideLegend && <Legend />}
-          <Bar dataKey={dataKey} radius={[4, 4, 0, 0]}>
+          <Bar dataKey={dataKey} radius={[4, 4, 0, 0]} animationDuration={1500} animationEasing="ease-out">
             {data.map((entry, index) => {
               // Dynamic color based on value relative to max in data
               // Or just use the same logic as gauge?

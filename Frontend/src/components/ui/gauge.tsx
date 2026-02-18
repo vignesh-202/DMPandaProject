@@ -1,148 +1,344 @@
-import React, { Suspense, lazy, useRef, useEffect, useState } from 'react';
-
-const GaugeChart = lazy(() => import('react-gauge-chart'));
+import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
+import { cn } from '../../lib/utils';
 
 interface GaugeProps {
   value: number;
   max?: number;
-  startAnimation?: boolean;
-  invertColor?: boolean;
+  label?: string;
+  size?: 'sm' | 'md' | 'lg';
+  showNeedle?: boolean;
+  syncId?: string;
+  updatedText?: string;
+  className?: string;
 }
 
-const Gauge = ({ value, max = 100, startAnimation = false, invertColor = false }: GaugeProps) => {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+// Global sync state for coordinated animations
+const syncState: { [key: string]: { startTime: number; animating: boolean } } = {};
+
+const Gauge: React.FC<GaugeProps> = ({
+  value,
+  max = 100,
+  label,
+  size = 'md',
+  showNeedle = true,
+  syncId,
+  updatedText = 'Updated 1 day ago',
+  className
+}) => {
   const [animatedPercent, setAnimatedPercent] = useState(0);
+  const requestRef = useRef<number>();
+  const mountedRef = useRef(true);
 
-  useEffect(() => {
-    if (!chartRef.current) return;
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        if (entry.contentRect.width > 0) {
-          setWidth(entry.contentRect.width);
-        }
-      }
-    });
-    resizeObserver.observe(chartRef.current);
-    return () => resizeObserver.disconnect();
-  }, []);
+  // Normalize target value
+  const targetValue = Math.min(Math.max(value, 0), max);
+  const targetPercent = max > 0 ? (targetValue / max) * 100 : 0;
 
-  useEffect(() => {
-    if (startAnimation) {
-      const targetPercent = value ? Math.max(0, Math.min(value, max)) / max : 0;
-      const duration = 2000; // 2 seconds for full effect
+  useLayoutEffect(() => {
+    mountedRef.current = true;
+    const duration = 1500;
+    const syncKey = syncId || 'default';
 
-      let startTime: number;
-      let animationFrameId: number;
-
-      const animate = (time: number) => {
-        if (!startTime) startTime = time;
-        const progress = Math.min((time - startTime) / duration, 1);
-
-        // Custom easing: easeOutQuart
-        // const ease = 1 - Math.pow(1 - progress, 4);
-
-        // Logic: Sweep to 100% then settle at target
-        // We want the needle to go up to 1 (or near it) then back to target.
-        // Let's model it as a damped spring or just a simple keyframe interpolation.
-        // Simple approach: 
-        // 0% -> 50% of time: go 0 -> 1
-        // 50% -> 100% of time: go 1 -> target
-
-        let currentVal;
-        if (progress < 0.5) {
-          // First half: 0 -> 1
-          const p = progress * 2; // 0 to 1
-          const e = 1 - Math.pow(1 - p, 3); // cubic ease out
-          currentVal = e;
-        } else {
-          // Second half: 1 -> target
-          const p = (progress - 0.5) * 2; // 0 to 1
-          const e = 1 - Math.pow(1 - p, 3);
-          currentVal = 1 - (1 - targetPercent) * e;
-        }
-
-        setAnimatedPercent(currentVal);
-
-        if (progress < 1) {
-          animationFrameId = requestAnimationFrame(animate);
-        }
-      };
-
-      animationFrameId = requestAnimationFrame(animate);
-
-      return () => cancelAnimationFrame(animationFrameId);
-    } else {
-      setAnimatedPercent(0);
+    if (!syncState[syncKey] || !syncState[syncKey].animating) {
+      syncState[syncKey] = { startTime: performance.now(), animating: true };
     }
-  }, [startAnimation, value, max]);
+    const startTime = syncState[syncKey].startTime;
 
-  const percent = Math.max(0, Math.min(animatedPercent, 1));
+    const animate = (now: number) => {
+      if (!mountedRef.current) return;
+      const elapsed = now - startTime;
 
-  const interpolateColor = (color1: string, color2: string, factor: number) => {
-    const r1 = parseInt(color1.substring(1, 3), 16);
-    const g1 = parseInt(color1.substring(3, 5), 16);
-    const b1 = parseInt(color1.substring(5, 7), 16);
-    const r2 = parseInt(color2.substring(1, 3), 16);
-    const g2 = parseInt(color2.substring(3, 5), 16);
-    const b2 = parseInt(color2.substring(5, 7), 16);
-    const r = Math.round(r1 + factor * (r2 - r1));
-    const g = Math.round(g1 + factor * (g2 - g1));
-    const b = Math.round(b1 + factor * (b2 - b1));
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-  };
-
-  const getColor = () => {
-    // Standard: Red (0) -> Yellow (0.5) -> Green (1)
-    // Inverted: Green (0) -> Yellow (0.5) -> Red (1)
-
-    if (invertColor) {
-      if (percent <= 0.5) {
-        // Green to Yellow
-        return interpolateColor('#86efac', '#fde047', percent * 2);
+      if (elapsed < duration) {
+        const progress = elapsed / duration;
+        // Cubic ease out
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const newPercent = eased * targetPercent;
+        // Update state on every frame - useLayoutEffect ensures synchronous updates
+        setAnimatedPercent(newPercent);
+        requestRef.current = requestAnimationFrame(animate);
       } else {
-        // Yellow to Red
-        return interpolateColor('#fde047', '#f87171', (percent - 0.5) * 2);
+        setAnimatedPercent(targetPercent);
+        if (syncState[syncKey]) syncState[syncKey].animating = false;
       }
-    } else {
-      if (percent <= 0.5) {
-        // Red to Yellow
-        return interpolateColor('#f87171', '#fde047', percent * 2);
-      } else {
-        // Yellow to Green
-        return interpolateColor('#fde047', '#86efac', (percent - 0.5) * 2);
-      }
-    }
-  };
-
-  const color = getColor();
-
-  const getGlowStyle = () => {
-    const style: React.CSSProperties = {
-      filter: `drop-shadow(0 0 5px ${color})`,
-      transition: 'filter 0.3s ease',
     };
-    return style;
+
+    requestRef.current = requestAnimationFrame(animate);
+    return () => {
+      mountedRef.current = false;
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, [targetPercent, syncId]);
+
+  // Size configurations
+  const sizes = {
+    sm: { container: 'w-full max-w-[160px]', valueSize: 'text-xl sm:text-2xl', labelSize: 'text-2xs' },
+    md: { container: 'w-full max-w-[220px]', valueSize: 'text-2xl sm:text-3xl', labelSize: 'text-2xs sm:text-xs' },
+    lg: { container: 'w-full max-w-[280px]', valueSize: 'text-3xl sm:text-4xl', labelSize: 'text-xs' }
   };
+  const s = sizes[size];
+
+  // SVG Geometry
+  const center = 100;
+  const radius = 80;
+  const strokeWidth = 14;
+
+  // Arc angles: 210 degrees from 7 o'clock to 5 o'clock
+  const startAngle = -210;
+  const endAngle = 30;
+  const totalAngle = endAngle - startAngle;
+
+  const getPos = (angle: number, r: number) => {
+    const rad = (angle * Math.PI) / 180;
+    return {
+      x: center + r * Math.cos(rad),
+      y: center + r * Math.sin(rad)
+    };
+  };
+
+  const createArcPath = (start: number, end: number, r: number) => {
+    const p1 = getPos(start, r);
+    const p2 = getPos(end, r);
+    const largeArc = end - start <= 180 ? 0 : 1;
+    return `M ${p1.x} ${p1.y} A ${r} ${r} 0 ${largeArc} 1 ${p2.x} ${p2.y}`;
+  };
+
+  // Calculate angle and position based on current animated percent
+  const currentAngle = startAngle + (animatedPercent / 100) * totalAngle;
+  const needlePos = getPos(currentAngle, radius - 10);
+
+  // Activity-based color system: Green → Yellow → Orange → Red
+  const percent = animatedPercent;
+  
+  // Get color based on activity level with smooth transitions
+  const getActivityColor = (p: number): string => {
+    // Color stops: Green (QUIET) → Yellow (ACTIVE) → Orange (BUSY) → Red (PEAK)
+    const stops = [
+      { pos: 0, color: [34, 197, 94] },     // Green #22c55e - QUIET start
+      { pos: 25, color: [34, 197, 94] },    // Green #22c55e - QUIET end
+      { pos: 25.01, color: [234, 179, 8] }, // Yellow #eab308 - ACTIVE start
+      { pos: 50, color: [234, 179, 8] },    // Yellow #eab308 - ACTIVE end
+      { pos: 50.01, color: [249, 115, 22] },// Orange #f97316 - BUSY start
+      { pos: 75, color: [249, 115, 22] },   // Orange #f97316 - BUSY end
+      { pos: 75.01, color: [239, 68, 68] }, // Red #ef4444 - PEAK start
+      { pos: 100, color: [239, 68, 68] }    // Red #ef4444 - PEAK end
+    ];
+    
+    // Find the two stops to interpolate between
+    let lower = stops[0];
+    let upper = stops[stops.length - 1];
+    
+    for (let i = 0; i < stops.length - 1; i++) {
+      if (p >= stops[i].pos && p <= stops[i + 1].pos) {
+        lower = stops[i];
+        upper = stops[i + 1];
+        break;
+      }
+    }
+    
+    // Interpolate for smooth transition
+    const range = upper.pos - lower.pos;
+    const factor = range === 0 ? 0 : (p - lower.pos) / range;
+    
+    const r = Math.round(lower.color[0] + (upper.color[0] - lower.color[0]) * factor);
+    const g = Math.round(lower.color[1] + (upper.color[1] - lower.color[1]) * factor);
+    const b = Math.round(lower.color[2] + (upper.color[2] - lower.color[2]) * factor);
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+  
+  const mainColor = getActivityColor(percent);
+  
+  // Activity-based labels
+  let activityLabel = 'QUIET';
+  if (percent >= 25 && percent < 50) activityLabel = 'ACTIVE';
+  else if (percent >= 50 && percent < 75) activityLabel = 'BUSY';
+  else if (percent >= 75) activityLabel = 'PEAK';
+  
+  const colorInfo = { main: mainColor, label: activityLabel };
 
   return (
-    <div ref={chartRef} style={getGlowStyle()} className="w-full flex justify-center items-center">
-      <Suspense fallback={<div className="h-40 w-full animate-pulse bg-gray-200 dark:bg-gray-800 rounded-lg"></div>}>
-        {width > 0 && (
-          <GaugeChart
-            id={`gauge-chart-${Math.random()}`}
-            nrOfLevels={20}
-            colors={[color, '#e0e0e0']}
-            arcWidth={0.3}
-            percent={percent}
-            needleColor="#000000"
-            needleBaseColor="#000000"
-            textColor={color}
-            style={{ width: '100%', height: 'auto' }}
-            animate={false} // We handle animation manually
+    <div className={cn(`flex flex-col items-center justify-center mx-auto select-none ${s.container}`, className)}>
+      <div className="relative w-full aspect-square">
+        <svg viewBox="0 0 200 180" className="w-full h-full overflow-visible">
+          <defs>
+            {/* Curved paths for text labels */}
+            <path id="pathQuiet" d={createArcPath(-210, -165, radius + 15)} fill="none" />
+            <path id="pathActive" d={createArcPath(-155, -100, radius + 15)} fill="none" />
+            <path id="pathBusy" d={createArcPath(-80, -25, radius + 15)} fill="none" />
+            <path id="pathPeak" d={createArcPath(-15, 35, radius + 15)} fill="none" />
+
+            <filter id="needleGlow">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+
+            {/* Instagram Gradient for progress */}
+            <linearGradient id="igGaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#405DE6" />
+              <stop offset="25%" stopColor="#833AB4" />
+              <stop offset="50%" stopColor="#FD1D1D" />
+              <stop offset="75%" stopColor="#F56040" />
+              <stop offset="100%" stopColor="#FCAF45" />
+            </linearGradient>
+            
+            {/* Glow filter for Instagram effect */}
+            <filter id="igGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+
+          </defs>
+
+          {/* Outer Boundary Arcs - Activity Colors */}
+          <path 
+            d={createArcPath(-210, -160, radius + 15)} 
+            fill="none" 
+            stroke="#22c55e" 
+            strokeWidth="1.5" 
+            strokeLinecap="round" 
+            strokeOpacity="0.4"
           />
-        )}
-      </Suspense>
+          <path 
+            d={createArcPath(-160, -90, radius + 15)} 
+            fill="none" 
+            stroke="#eab308" 
+            strokeWidth="1.5" 
+            strokeLinecap="round" 
+            strokeOpacity="0.4"
+          />
+          <path 
+            d={createArcPath(-90, -20, radius + 15)} 
+            fill="none" 
+            stroke="#f97316" 
+            strokeWidth="1.5" 
+            strokeLinecap="round" 
+            strokeOpacity="0.4"
+          />
+          <path 
+            d={createArcPath(-20, 30, radius + 15)} 
+            fill="none" 
+            stroke="#ef4444" 
+            strokeWidth="1.5" 
+            strokeLinecap="round" 
+            strokeOpacity="0.4"
+          />
+
+          {/* Tick marks - Activity colors */}
+          {[-160, -90, -20, 30].map((tickAngle, i) => {
+            const p1 = getPos(tickAngle, radius + 13);
+            const p2 = getPos(tickAngle, radius + 17);
+            const tickColors = ['#eab308', '#f97316', '#ef4444', '#ef4444'];
+            return (
+              <line
+                key={tickAngle}
+                x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y}
+                stroke={tickColors[i]}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeOpacity="0.6"
+              />
+            );
+          })}
+
+          {/* Labels - Activity colors, hidden on small viewports to prevent overlap with value number */}
+          <text fill="#22c55e" fontSize="6" fontWeight="700" letterSpacing="0.02em" className="opacity-80 [@media(max-width:360px)]:hidden">
+            <textPath href="#pathQuiet" startOffset="50%" textAnchor="middle">QUIET</textPath>
+          </text>
+          <text fill="#eab308" fontSize="6" fontWeight="700" letterSpacing="0.05em" className="opacity-80 [@media(max-width:360px)]:hidden">
+            <textPath href="#pathActive" startOffset="50%" textAnchor="middle">ACTIVE</textPath>
+          </text>
+          <text fill="#f97316" fontSize="6" fontWeight="700" letterSpacing="0.05em" className="opacity-80 [@media(max-width:360px)]:hidden">
+            <textPath href="#pathBusy" startOffset="50%" textAnchor="middle">BUSY</textPath>
+          </text>
+          <text fill="#ef4444" fontSize="6" fontWeight="700" letterSpacing="0.02em" className="opacity-80 [@media(max-width:360px)]:hidden">
+            <textPath href="#pathPeak" startOffset="50%" textAnchor="middle">PEAK</textPath>
+          </text>
+
+          {/* Main Gray Background Arc */}
+          <path
+            d={createArcPath(startAngle, endAngle, radius)}
+            fill="none"
+            className="stroke-muted"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+          />
+
+          {/* Progress Arc Background Glow */}
+          {animatedPercent > 0 && (
+            <path
+              d={createArcPath(startAngle, currentAngle, radius)}
+              fill="none"
+              stroke={mainColor}
+              strokeWidth={strokeWidth + 4}
+              strokeOpacity="0.15"
+              strokeLinecap="round"
+            />
+          )}
+
+          {/* Main Progress Arc - with glow effect using gauge level color */}
+          <path
+            d={createArcPath(startAngle, currentAngle, radius)}
+            fill="none"
+            stroke={mainColor}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            style={{
+              filter: `drop-shadow(0 0 6px ${mainColor}) drop-shadow(0 0 10px ${mainColor}CC) drop-shadow(0 0 14px ${mainColor}99)`,
+              transition: 'filter 0.3s ease, stroke 0.3s ease',
+            }}
+          />
+
+          {/* Needle - Enhanced with Instagram glow */}
+          {showNeedle && (
+            <g filter="url(#igGlow)">
+              <line
+                x1={center} y1={center}
+                x2={needlePos.x} y2={needlePos.y}
+                stroke={mainColor}
+                strokeWidth="3.5"
+                strokeLinecap="round"
+              />
+              <circle
+                cx={center} cy={center}
+                r="7" 
+                fill={mainColor}
+                className="stroke-card"
+                strokeWidth="2.5"
+              />
+              {/* Inner highlight */}
+              <circle
+                cx={center} cy={center}
+                r="3"
+                fill="white"
+                fillOpacity="0.3"
+              />
+            </g>
+          )}
+        </svg>
+
+        {/* Value Overlay - Enhanced typography, extra bottom padding on mobile to avoid overlap with arc labels */}
+        <div className="absolute inset-0 flex flex-col items-center justify-end pb-6 sm:pb-4 md:pb-3">
+          <div 
+            className={cn("font-black leading-tight tracking-tight drop-shadow-sm", s.valueSize)}
+            style={{ 
+              color: mainColor,
+              textShadow: `0 0 20px ${mainColor}40`
+            }}
+          >
+            {((animatedPercent / 100) * max).toFixed(2)}
+          </div>
+          <div className="text-muted-foreground font-semibold text-2xs sm:text-xs mt-1.5 sm:mt-1 uppercase tracking-wide">
+            {updatedText}
+          </div>
+          {label && (
+            <div className="absolute top-0 text-2xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
+              {label}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

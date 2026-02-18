@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import AuthVerifyingScreen from '../../components/ui/AuthVerifyingScreen';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Loader2, Check, X, Eye, EyeOff } from 'lucide-react';
@@ -134,11 +134,7 @@ const LoginPage: React.FC = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <LoadingSpinner />
-      </div>
-    );
+    return <AuthVerifyingScreen text="Verifying session..." />;
   }
 
   return (

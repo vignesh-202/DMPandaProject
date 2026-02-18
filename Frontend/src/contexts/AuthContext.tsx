@@ -171,42 +171,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       headers.set('Authorization', `Bearer ${token}`);
     }
 
-    const response = await fetch(input, { ...init, headers });
+    try {
+      const response = await fetch(input, { ...init, headers });
 
-    // Only logout on 401 if it's a session/auth issue, not a password validation error
-    if (response.status === 401) {
-      const clonedResponse = response.clone();
-      try {
-        const errorData = await clonedResponse.json();
-        // Don't logout for password validation errors - these are expected 401s
-        const isPasswordError = errorData.error && (
-          errorData.error.toLowerCase().includes('password') ||
-          errorData.error.toLowerCase().includes('invalid password')
-        );
-        if (!isPasswordError) {
-          console.warn('[AuthContext] 401 Unauthorized detected in authenticatedFetch. Logging out.');
+      // Handle 401 statuses
+      if (response.status === 401) {
+        const checkClone = response.clone();
+        try {
+          const errorData = await checkClone.json();
+          const isPasswordError = errorData.error && (
+            errorData.error.toLowerCase().includes('password') ||
+            errorData.error.toLowerCase().includes('invalid password')
+          );
+          if (!isPasswordError) {
+            console.warn('[AuthContext] 401 Unauthorized detected. Logging out.');
+            logout();
+          }
+        } catch {
+          console.warn('[AuthContext] 401 Unauthorized detected. Logging out.');
           logout();
         }
-      } catch {
-        // If we can't parse the response, assume it's a real auth error
-        console.warn('[AuthContext] 401 Unauthorized detected in authenticatedFetch. Logging out.');
-        logout();
       }
-    }
 
-    return response;
+      return response;
+    } catch (error) {
+      throw error;
+    }
   }, [logout]);
 
-  // Session Polling
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const intervalId = setInterval(() => {
-      checkAuth();
-    }, 120000); // 120 seconds
-
-    return () => clearInterval(intervalId);
-  }, [isAuthenticated, checkAuth]);
+  // Session Polling - Disabled to prevent auto-refreshing
+  // useEffect(() => {
+  //   if (!isAuthenticated) return;
+  //
+  //   const intervalId = setInterval(() => {
+  //     checkAuth();
+  //   }, 600000); // 600 seconds (10 minutes)
+  //
+  //   return () => clearInterval(intervalId);
+  // }, [isAuthenticated, checkAuth]);
 
   useEffect(() => {
     checkAuth(); // Initial check on component mount

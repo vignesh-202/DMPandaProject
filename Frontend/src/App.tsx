@@ -20,13 +20,6 @@ const NotFoundPageLazy = React.lazy(() => import('./app/not-found'));
 const VerifyEmailPageLazy = React.lazy(() => import('./app/auth/verify/page'));
 const AffiliatePageLazy = React.lazy(() => import('./app/affiliate/page'));
 
-const GlobalTriggersPageLazy = React.lazy(() => import('./app/global-triggers/page'));
-const ReelAutomationPageLazy = React.lazy(() => import('./app/reel-automation/page'));
-const PostAutomationPageLazy = React.lazy(() => import('./app/post-automation/page'));
-const StoryMentionsPageLazy = React.lazy(() => import('./app/story-mentions/page'));
-const LiveAutomationPageLazy = React.lazy(() => import('./app/live-automation/page'));
-const MentionsPageLazy = React.lazy(() => import('./app/mentions/page'));
-const TransactionsPageLazy = React.lazy(() => import('./app/transactions/page'));
 const DeleteAccountGuidePageLazy = React.lazy(() => import('./app/delete-account-guide/page'));
 const PasswordRecoveryPageLazy = React.lazy(() => import('./app/auth/recovery/page'));
 const InstagramCallbackPageLazy = React.lazy(() => import('./app/auth/InstagramCallback'));
@@ -37,13 +30,8 @@ import DashboardLoading from './components/ui/DashboardLoading';
 import ScrollToTop from './components/ui/ScrollToTop';
 const AppContent: React.FC = () => {
   const location = useLocation();
-  const { checkAuth } = useAuth();
   const { setForceLightMode } = React.useContext(ThemeContext);
   const isPublicPage = !location.pathname?.startsWith('/dashboard');
-
-  useEffect(() => {
-    checkAuth();
-  }, [location.pathname]);
 
   // Enforce light mode on public pages
   useEffect(() => {
@@ -72,13 +60,6 @@ const AppContent: React.FC = () => {
             <Route path="/affiliate" element={<AffiliatePageLazy />} />
             <Route path="/login" element={<PublicRoute><LoginPageLazy /></PublicRoute>} />
             <Route path="/refund-policy" element={<RefundPolicyPageLazy />} />
-            <Route path="/global-triggers" element={<GlobalTriggersPageLazy />} />
-            <Route path="/reel-automation" element={<ReelAutomationPageLazy />} />
-            <Route path="/post-automation" element={<PostAutomationPageLazy />} />
-            <Route path="/story-automation" element={<StoryMentionsPageLazy />} />
-            <Route path="/live-automation" element={<LiveAutomationPageLazy />} />
-            <Route path="/mentions" element={<MentionsPageLazy />} />
-            <Route path="/transactions" element={<TransactionsPageLazy />} />
             <Route path="/delete-account-guide" element={<DeleteAccountGuidePageLazy />} />
             <Route path="*" element={<NotFoundPageLazy />} />
           </Routes>

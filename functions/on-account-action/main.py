@@ -18,8 +18,8 @@ def main(context):
             return context.res.json({"error": "Missing account_doc_id"}, 400)
 
         client = Client()
-        client.set_endpoint(os.environ['APPWRITE_FUNCTION_ENDPOINT'])
-        client.set_project(os.environ['APPWRITE_FUNCTION_PROJECT_ID'])
+        client.set_endpoint(os.environ['APPWRITE_ENDPOINT'])
+        client.set_project(os.environ['APPWRITE_PROJECT_ID'])
         client.set_key(os.environ['APPWRITE_API_KEY'])
 
         databases = Databases(client)

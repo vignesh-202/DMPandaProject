@@ -74,14 +74,9 @@ const AffiliateView: React.FC = () => {
     ];
 
     useEffect(() => {
-        // Simulate initial data fetch
-        const timer = setTimeout(() => {
-            // For demo purposes, we keep it 'inactive' so user can see onboarding
-            // In real app, this would be based on backend response
-            setAffiliateStatus('inactive');
-            setIsLoading(false);
-        }, 1000);
-        return () => clearTimeout(timer);
+        // In real app this would be based on backend response; no artificial delay
+        setAffiliateStatus('inactive');
+        setIsLoading(false);
     }, []);
 
     const handleInfluencerSubmit = async (e: React.FormEvent) => {
@@ -92,21 +87,17 @@ const AffiliateView: React.FC = () => {
         }
         setIsSubmitting(true);
         setError(null);
-        setTimeout(() => {
-            setIsSubmitting(false);
-            setSuccessMessage('Application submitted successfully! Review takes ~48h.');
-            setAffiliateStatus('pending');
-        }, 1500);
+        setIsSubmitting(false);
+        setSuccessMessage('Application submitted successfully! Review takes ~48h.');
+        setAffiliateStatus('pending');
     };
 
     const handleSubscriberActivation = async () => {
         setIsSubmitting(true);
         setError(null);
-        setTimeout(() => {
-            setIsSubmitting(false);
-            setAffiliateStatus('active');
-            setSuccessMessage('Affiliate account activated successfully!');
-        }, 1500);
+        setIsSubmitting(false);
+        setAffiliateStatus('active');
+        setSuccessMessage('Affiliate account activated successfully!');
     };
 
     const copyToClipboard = () => {

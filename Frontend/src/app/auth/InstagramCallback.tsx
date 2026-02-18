@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ModernLoader from '../../components/ui/ModernLoader';
+import { useAuth } from '../../contexts/AuthContext';
 
 const InstagramCallback: React.FC = () => {
+    const { authenticatedFetch, isAuthenticated } = useAuth();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const processedRef = useRef(false);
@@ -11,7 +13,17 @@ const InstagramCallback: React.FC = () => {
         const code = searchParams.get('code');
         const error = searchParams.get('error');
 
-        if (processedRef.current) return;
+        if (processedRef.current || isAuthenticated === false) {
+            if (isAuthenticated === false) {
+                console.error('Not authenticated, cannot link Instagram');
+                navigate('/login');
+            }
+            return;
+        }
+
+        // Wait for auth to initialize
+        if (isAuthenticated === null) return;
+
         processedRef.current = true;
 
         if (error) {
@@ -23,14 +35,12 @@ const InstagramCallback: React.FC = () => {
         if (code) {
             const linkInstagram = async () => {
                 try {
-                    const response = await fetch('http://localhost:5000/api/auth/instagram-callback', {
+                    const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/instagram-callback`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({ code }),
-                        mode: 'cors',
-                        credentials: 'include'
                     });
 
                     if (response.ok) {
@@ -50,7 +60,7 @@ const InstagramCallback: React.FC = () => {
             console.error('No code received from Instagram');
             navigate('/dashboard');
         }
-    }, [searchParams, navigate]);
+    }, [searchParams, navigate, authenticatedFetch, isAuthenticated]);
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-white">

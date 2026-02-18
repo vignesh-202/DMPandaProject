@@ -54,7 +54,7 @@ const AnalyticsChart = React.memo(({
           <XAxis dataKey={xAxisKey} axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
           {!hideYAxis && <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />}
           <Tooltip
-            contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}
+            contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px', color: '#fff', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
             itemStyle={{ color: '#fff' }}
           />
           {!hideLegend && <Legend />}
@@ -66,6 +66,8 @@ const AnalyticsChart = React.memo(({
             dot={false}
             activeDot={{ r: 6, strokeWidth: 0 }}
             style={{ filter: 'url(#line-glow)' }}
+            animationDuration={1500}
+            animationEasing="ease-out"
           />
         </LineChart>
       ) : (
@@ -73,9 +75,12 @@ const AnalyticsChart = React.memo(({
           {!hideGrid && <CartesianGrid strokeDasharray="3 3" stroke={finalGridStroke} />}
           <XAxis dataKey={xAxisKey} />
           {!hideYAxis && <YAxis />}
-          <Tooltip />
+          <Tooltip
+            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+            contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px', color: '#fff' }}
+          />
           {!hideLegend && <Legend />}
-          <Bar dataKey={dataKey} fill={finalBarColor} />
+          <Bar dataKey={dataKey} fill={finalBarColor} animationDuration={1500} animationEasing="ease-out" />
         </BarChart>
       )}
     </ResponsiveContainer>

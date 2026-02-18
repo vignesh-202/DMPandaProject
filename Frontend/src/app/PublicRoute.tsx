@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import AuthVerifyingScreen from '../components/ui/AuthVerifyingScreen';
 
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -14,11 +14,11 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   }, [isAuthenticated, isLoading, navigate]);
 
   if (isLoading) {
-    return null; // Render nothing while checking auth status
+    return <AuthVerifyingScreen text="Verifying session..." />;
   }
 
   if (isAuthenticated) {
-    return <LoadingSpinner />;
+    return <AuthVerifyingScreen text="Redirecting to dashboard..." />;
   }
 
   return <>{children}</>;

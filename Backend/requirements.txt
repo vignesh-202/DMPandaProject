@@ -1,7 +1,0 @@
-flask
-appwrite
-python-dotenv
-requests
-werkzeug
-flask-cors
-razorpay

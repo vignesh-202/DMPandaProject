@@ -2,39 +2,261 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #f3f4f6;
-  --text: #1f2937;
-  --card-background: #ffffff;
-  --chart-grid: #ccc;
-  --chart-line: #000;
-  --chart-bar: #000;
+@layer base {
+  :root {
+    /* ============================================
+       INSTAGRAM CORE COLORS
+       ============================================ */
+    --ig-purple: 131 58 180;      /* #833AB4 */
+    --ig-pink: 253 29 29;         /* #FD1D1D */
+    --ig-orange: 245 96 64;       /* #F56040 */
+    --ig-yellow: 252 175 69;      /* #FCAF45 */
+    --ig-blue: 64 93 230;         /* #405DE6 */
+    --ig-blue-light: 0 149 246;   /* #0095F6 - Instagram message blue */
+    --ig-blue-message: 55 151 240; /* #3797f0 - Instagram DM blue */
+    --ig-gray-light: 229 231 235; /* #E5E7EB - Light gray */
+    --ig-gray-medium: 107 114 128; /* #6B7280 - Medium gray */
+    --ig-gray-dark: 55 65 81;     /* #374151 - Dark gray */
+
+    /* Core Backgrounds - Instagram Style */
+    --background: 250 250 250;    /* #fafafa - Instagram's background */
+    --foreground: 38 38 38;       /* #262626 - Instagram's text color */
+    
+    /* Card & Surface Colors */
+    --card: 255 255 255;
+    --card-foreground: 38 38 38;
+    --card-elevated: 255 255 255;
+    
+    /* Popover */
+    --popover: 255 255 255;
+    --popover-foreground: 38 38 38;
+    
+    /* Primary - Instagram Purple */
+    --primary: 131 58 180;        /* #833AB4 - Instagram Purple */
+    --primary-hover: 113 47 159;  /* Darker purple */
+    --primary-foreground: 255 255 255;
+    
+    /* Secondary */
+    --secondary: 239 239 239;     /* #efefef - Instagram's secondary bg */
+    --secondary-foreground: 38 38 38;
+    
+    /* Muted */
+    --muted: 250 250 250;
+    --muted-foreground: 142 142 142; /* #8e8e8e - Instagram's muted text */
+    
+    /* Accent - Instagram Pink/Red */
+    --accent: 253 239 239;        /* Light pink background */
+    --accent-foreground: 237 73 86; /* #ED4956 - Instagram's like color */
+    
+    /* Success */
+    --success: 34 197 94;
+    --success-foreground: 255 255 255;
+    --success-muted: 220 252 231;
+    
+    /* Warning */
+    --warning: 252 175 69;        /* Instagram Yellow */
+    --warning-foreground: 38 38 38;
+    --warning-muted: 254 243 199;
+    
+    /* Destructive */
+    --destructive: 237 73 86;     /* #ED4956 - Instagram's red */
+    --destructive-foreground: 255 255 255;
+    --destructive-muted: 254 226 226;
+    
+    /* Border & Input - Instagram Style */
+    --border: 219 219 219;        /* #dbdbdb - Instagram's border */
+    --border-hover: 168 168 168;  /* #a8a8a8 */
+    --border-strong: 142 142 142;
+    --input: 250 250 250;
+    --input-focus: 255 255 255;
+    
+    /* Ring - Instagram Purple */
+    --ring: 131 58 180;
+    --ring-offset: 255 255 255;
+    
+    /* Sidebar */
+    --sidebar: 255 255 255;
+    --sidebar-foreground: 38 38 38;
+    --sidebar-border: 239 239 239;
+    --sidebar-accent: 250 250 250;
+    --sidebar-accent-foreground: 38 38 38;
+    
+    /* Radius - Modern rounded corners */
+    --radius: 0.75rem;
+    --radius-sm: 0.5rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --radius-2xl: 1.5rem;
+
+    /* Shadows - Instagram-style subtle shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+    --shadow-glow: 0 0 20px rgb(131 58 180 / 0.2);
+    --shadow-instagram: 0 0 20px rgb(131 58 180 / 0.15), 0 0 40px rgb(253 29 29 / 0.1);
+
+    /* Chart Colors - Instagram themed */
+    --chart-1: 131 58 180;        /* Purple */
+    --chart-2: 245 96 64;         /* Orange */
+    --chart-3: 252 175 69;        /* Yellow */
+    --chart-4: 253 29 29;         /* Pink/Red */
+    --chart-5: 64 93 230;         /* Blue */
+
+    /* Instagram Gradient Semantic Tokens */
+    --gradient-primary: linear-gradient(135deg, rgb(var(--ig-blue)), rgb(var(--ig-purple)));
+    --gradient-full: linear-gradient(45deg, rgb(var(--ig-blue)), rgb(var(--ig-purple)), rgb(var(--ig-pink)), rgb(var(--ig-orange)), rgb(var(--ig-yellow)));
+    --gradient-story: linear-gradient(135deg, rgb(var(--ig-yellow)), rgb(var(--ig-pink)), rgb(var(--ig-purple)));
+  }
+
+  .dark {
+    /* Instagram Dark Mode Additional Colors */
+    --ig-gray-light: 55 65 81;    /* #374151 - Dark gray for dark mode */
+    --ig-gray-medium: 107 114 128; /* #6B7280 - Medium gray */
+    --ig-gray-dark: 17 24 39;     /* #111827 - Very dark gray */
+
+    /* Core Backgrounds - Instagram Dark Mode */
+    --background: 0 0 0;          /* Pure black - Instagram dark */
+    --foreground: 245 245 245;    /* #f5f5f5 */
+    
+    /* Card & Surface Colors */
+    --card: 18 18 18;             /* #121212 */
+    --card-foreground: 245 245 245;
+    --card-elevated: 38 38 38;    /* #262626 */
+    
+    /* Popover */
+    --popover: 18 18 18;
+    --popover-foreground: 245 245 245;
+    
+    /* Primary - Lighter purple for dark mode contrast */
+    --primary: 168 85 247;        /* #A855F7 - Lighter purple */
+    --primary-hover: 192 132 252; /* Even lighter on hover */
+    --primary-foreground: 0 0 0;
+    
+    /* Secondary */
+    --secondary: 38 38 38;        /* #262626 */
+    --secondary-foreground: 237 237 237;
+    
+    /* Muted */
+    --muted: 18 18 18;
+    --muted-foreground: 168 168 168; /* #a8a8a8 */
+    
+    /* Accent */
+    --accent: 38 18 38;           /* Dark purple tint */
+    --accent-foreground: 216 180 254; /* Light purple */
+    
+    /* Success */
+    --success: 74 222 128;
+    --success-foreground: 0 0 0;
+    --success-muted: 20 83 45;
+    
+    /* Warning */
+    --warning: 252 191 73;        /* Lighter yellow */
+    --warning-foreground: 0 0 0;
+    --warning-muted: 120 53 15;
+    
+    /* Destructive */
+    --destructive: 248 113 113;
+    --destructive-foreground: 0 0 0;
+    --destructive-muted: 127 29 29;
+    
+    /* Border & Input */
+    --border: 38 38 38;           /* #262626 */
+    --border-hover: 54 54 54;     /* #363636 */
+    --input: 38 38 38;
+    --input-focus: 18 18 18;
+    
+    /* Ring */
+    --ring: 168 85 247;
+    --ring-offset: 0 0 0;
+    
+    /* Sidebar */
+    --sidebar: 0 0 0;
+    --sidebar-foreground: 237 237 237;
+    --sidebar-border: 38 38 38;
+    --sidebar-accent: 38 38 38;
+    --sidebar-accent-foreground: 245 245 245;
+    
+    /* Shadows - Enhanced for dark mode */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+    --shadow-glow: 0 0 25px rgb(168 85 247 / 0.25);
+    --shadow-instagram: 0 0 25px rgb(168 85 247 / 0.2), 0 0 50px rgb(253 29 29 / 0.1);
+  }
+
+  /* Apply border color globally */
+  * {
+    border-color: rgb(var(--border));
+  }
+
+  /* Page content: thin black border in light mode, thin white in dark (for visibility on low-contrast surfaces). Not for menus. */
+  .border-content {
+    border-color: rgb(0 0 0 / 0.12);
+  }
+  .dark .border-content {
+    border-color: rgb(255 255 255 / 0.12);
+  }
+
+  /* Base body styles */
+  body {
+    background-color: rgb(var(--background));
+    color: rgb(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Selection styling */
+  ::selection {
+    background-color: rgb(var(--primary) / 0.2);
+    color: rgb(var(--foreground));
+  }
+
+  /* User select behavior */
+  input,
+  textarea,
+  [contenteditable="true"] {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+
+  button,
+  a,
+  .select-none {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Typography improvements */
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.025em;
+    font-weight: 600;
+  }
+
+  /* Improved focus states */
+  *:focus-visible {
+    outline: 2px solid rgb(var(--ring));
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Remove focus outline on mouse click */
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
 }
 
-html.dark {
-  --background: #1f2937;
-  --text: #f3f4f6;
-  --card-background: #374151;
-  --chart-grid: #555;
-  --chart-line: #8884d8;
-  --chart-bar: #8884d8;
-}
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
 
-/* Smooth scroll behavior */
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  background-color: var(--background);
-  color: var(--text);
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-
-/* For Webkit-based browsers (Chrome, Safari, etc.) */
+/* Modern scrollbar - Light Mode */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -42,201 +264,791 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
-  transition: background 0.2s ease;
+  background-color: rgb(var(--muted-foreground) / 0.15);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background-color: rgb(var(--muted-foreground) / 0.25);
 }
 
-/* For Firefox */
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--muted-foreground) / 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--muted-foreground) / 0.35);
+}
+
+/* Custom scrollbar utility class */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--muted-foreground) / 0.1);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--muted-foreground) / 0.2);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ============================================
+   TRANSITIONS & ANIMATIONS
+   ============================================ */
+
+/* Base transition for interactive elements */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: #888 transparent;
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
 }
 
-/* Page transition animations */
+/* Transition utilities */
+.transition-fast {
+  transition-duration: 100ms;
+}
+
+.transition-medium {
+  transition-duration: 200ms;
+}
+
+.transition-slow {
+  transition-duration: 300ms;
+}
+
+/* Disable transitions utility */
+.no-transition,
+.no-transition * {
+  transition: none !important;
+}
+
+/* Keyframe Animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-@keyframes fadeOut {
+@keyframes fadeInUp {
   from {
-    opacity: 1;
-  }
-
-  to {
     opacity: 0;
+    transform: translateY(16px);
   }
-}
-
-.page-transition {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes float-up-down {
-
-  0%,
-  100% {
+  to {
+    opacity: 1;
     transform: translateY(0);
   }
-
-  50% {
-    transform: translateY(-20px);
-  }
 }
 
-.animate-float-up-down {
-  animation: float-up-down 3s ease-in-out infinite;
-}
-
-@keyframes glow {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.5;
-  }
-}
-
-@keyframes color-change {
-  0% {
-    background-color: #4ade80;
-    /* green-400 */
-  }
-
-  33% {
-    background-color: #facc15;
-    /* yellow-400 */
-  }
-
-  66% {
-    background-color: #f87171;
-    /* red-400 */
-  }
-
-  100% {
-    background-color: #4ade80;
-    /* green-400 */
-  }
-}
-
-/* Smooth transitions for all interactive elements */
-button,
-a,
-input,
-select,
-textarea {
-  transition: all 0.2s ease-in-out;
-}
-
-/* Card hover effects */
-.card-hover {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.card-hover:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-}
-
-/* Bounce in animation for success states */
-@keyframes bounceIn {
-  0% {
-    transform: scale(0);
+@keyframes fadeInDown {
+  from {
     opacity: 0;
+    transform: translateY(-16px);
   }
-
-  50% {
-    transform: scale(1.2);
-  }
-
-  100% {
-    transform: scale(1);
+  to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* Shake animation for errors */
-@keyframes shake {
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 
-  0%,
-  100% {
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
     transform: translateX(0);
   }
-
-  25% {
-    transform: translateX(-5px);
-  }
-
-  75% {
-    transform: translateX(5px);
-  }
 }
 
-/* Smooth step transition */
-@keyframes slideUp {
+@keyframes slideInLeft {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateX(-16px);
   }
-
   to {
     opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-slide-up {
-  animation: slideUp 0.4s ease-out;
-}
-
-/* Water flow animation for completed steps */
-@keyframes waterFlow {
-  0% {
-    background-position: -200% center;
-  }
-
-  100% {
-    background-position: 200% center;
+    transform: translateX(0);
   }
 }
 
 @keyframes shimmer {
   0% {
-    transform: translateX(-100%);
+    background-position: -200% 0;
   }
-
   100% {
-    transform: translateX(100%);
+    background-position: 200% 0;
   }
 }
 
-.animate-water-flow {
-  background-size: 200% 100%;
-  animation: waterFlow 3s ease-in-out infinite;
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+}
+
+@keyframes gradient-pulse {
+  0% {
+    background-position: 0% 50%;
+    opacity: 0.7;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 1;
+  }
+  100% {
+    background-position: 0% 50%;
+    opacity: 0.7;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Instagram Gradient Shift Animation */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Instagram Pulse Glow Animation */
+@keyframes ig-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(131, 58, 180, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(131, 58, 180, 0);
+  }
+}
+
+/* Instagram Shimmer Effect */
+@keyframes ig-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Instagram Button Press Effect */
+@keyframes ig-press {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Animation utility classes */
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.animate-fadeInDown {
+  animation: fadeInDown 0.4s ease-out forwards;
+}
+
+.animate-fadeInScale {
+  animation: fadeInScale 0.25s ease-out forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.3s ease-out forwards;
 }
 
 .animate-shimmer {
-  animation: shimmer 2s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent 0%, rgb(var(--muted-foreground) / 0.05) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
-/* Responsive utilities */
-@media (max-width: 640px) {
-  .page-transition {
-    animation: fadeIn 0.2s ease-in-out;
+.animate-gradient-pulse {
+  background: linear-gradient(-45deg, #FCAF45, #F56040, #FD1D1D, #833AB4, #405DE6);
+  background-size: 400% 400%;
+  animation: gradient-pulse 4s ease infinite;
+}
+
+/* Instagram Gradient Background */
+.ig-gradient {
+  background: linear-gradient(45deg, #405DE6, #833AB4, #FD1D1D, #F56040, #FCAF45);
+}
+
+.ig-gradient-hover {
+  background: linear-gradient(45deg, #405DE6, #833AB4, #FD1D1D, #F56040, #FCAF45);
+  background-size: 200% 200%;
+  transition: background-position 0.3s ease;
+}
+
+.ig-gradient-hover:hover {
+  background-position: 100% 0;
+}
+
+/* Instagram Gradient Text */
+.ig-gradient-text {
+  background: linear-gradient(45deg, #405DE6, #833AB4, #FD1D1D, #F56040, #FCAF45);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Instagram Gradient Border */
+.ig-gradient-border {
+  position: relative;
+  border: none !important;
+}
+
+.ig-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  background: linear-gradient(45deg, #405DE6, #833AB4, #FD1D1D, #F56040, #FCAF45);
+  border-radius: inherit;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Instagram Story Ring */
+.ig-story-ring {
+  background: linear-gradient(45deg, #FCAF45, #F56040, #FD1D1D, #833AB4, #405DE6);
+  padding: 2px;
+  border-radius: 50%;
+}
+
+.ig-story-ring-animated {
+  background: linear-gradient(45deg, #FCAF45, #F56040, #FD1D1D, #833AB4, #405DE6);
+  background-size: 400% 400%;
+  animation: gradient-shift 3s ease infinite;
+  padding: 2px;
+  border-radius: 50%;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 2s linear infinite;
+}
+
+/* ============================================
+   GLASSMORPHISM & SURFACE STYLES
+   ============================================ */
+
+@layer components {
+  /* Glass effect - Light */
+  .glass {
+    background-color: rgb(255 255 255 / 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgb(var(--border) / 0.5);
+  }
+
+  /* Glass effect - Dark */
+  .dark .glass {
+    background-color: rgb(24 24 27 / 0.8);
+    border: 1px solid rgb(var(--border) / 0.3);
+  }
+
+  /* Glass card variant */
+  .glass-card {
+    background-color: rgb(var(--card));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgb(var(--border));
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  }
+
+  .glass-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: rgb(var(--border-hover));
+  }
+
+  /* Elevated surface */
+  .surface-elevated {
+    background-color: rgb(var(--card-elevated));
+    border: 1px solid rgb(var(--border));
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Inset surface */
+  .surface-inset {
+    background-color: rgb(var(--muted));
+    border: 1px solid rgb(var(--border));
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.05);
+  }
+
+  .dark .surface-inset {
+    box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.2);
+  }
+}
+
+/* ============================================
+   HOVER & INTERACTION EFFECTS
+   ============================================ */
+
+/* Lift on hover */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Scale on hover */
+.hover-scale {
+  transition: transform 0.15s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Glow on hover */
+.hover-glow {
+  transition: box-shadow 0.2s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: var(--shadow-glow);
+}
+
+/* Press effect */
+.press-effect:active {
+  transform: scale(0.98);
+}
+
+/* Interactive card */
+.interactive-card {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: rgb(var(--ig-purple) / 0.3);
+}
+
+.interactive-card:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* ============================================
+   BUTTON UTILITIES
+   ============================================ */
+
+/* Base button reset */
+.btn-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  border-radius: var(--radius);
+  transition: all 0.15s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-base:active {
+  transform: scale(0.98);
+}
+
+.btn-base:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Icon button utility */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  color: rgb(var(--muted-foreground));
+  background: transparent;
+  transition: all 0.15s ease;
+}
+
+.btn-icon:hover {
+  background: rgb(var(--muted));
+  color: rgb(var(--foreground));
+}
+
+.btn-icon:active {
+  transform: scale(0.95);
+}
+
+/* ============================================
+   FORM ELEMENTS
+   ============================================ */
+
+/* Input base */
+.input-base {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  background: rgb(var(--input));
+  border: 1px solid rgb(var(--border));
+  border-radius: var(--radius);
+  color: rgb(var(--foreground));
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+}
+
+.input-base::placeholder {
+  color: rgb(var(--muted-foreground));
+}
+
+.input-base:hover {
+  border-color: rgb(var(--border-hover));
+}
+
+.input-base:focus {
+  background: rgb(var(--input-focus));
+  border-color: rgb(var(--ig-purple));
+  box-shadow: 0 0 0 3px rgb(var(--ig-purple) / 0.15);
+  outline: none;
+}
+
+.dark .input-base:focus {
+  border-color: rgb(168 85 247);
+  box-shadow: 0 0 0 3px rgb(168 85 247 / 0.2);
+}
+
+/* ============================================
+   SIDEBAR SPECIFIC STYLES
+   ============================================ */
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(var(--sidebar-foreground));
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.sidebar-nav-item:hover {
+  background: rgb(var(--sidebar-accent));
+  color: rgb(var(--sidebar-accent-foreground));
+}
+
+.sidebar-nav-item.active {
+  background: linear-gradient(135deg, rgb(var(--ig-purple)), rgb(var(--ig-blue)));
+  color: rgb(var(--primary-foreground));
+  box-shadow: 0 4px 12px rgb(var(--ig-purple) / 0.35);
+}
+
+.sidebar-section-title {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgb(var(--muted-foreground));
+}
+
+/* ============================================
+   RESPONSIVE GRID
+   ============================================ */
+
+.dashboard-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .dashboard-grid {
+    gap: 1.25rem;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-grid {
+    gap: 1.5rem;
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ============================================
+   BADGE STYLES
+   ============================================ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 9999px;
+}
+
+.badge-primary {
+  background: rgb(var(--primary) / 0.1);
+  color: rgb(var(--primary));
+}
+
+.badge-success {
+  background: rgb(var(--success-muted));
+  color: rgb(var(--success));
+}
+
+.badge-warning {
+  background: rgb(var(--warning-muted));
+  color: rgb(var(--warning));
+}
+
+.badge-destructive {
+  background: rgb(var(--destructive-muted));
+  color: rgb(var(--destructive));
+}
+
+/* ============================================
+   STATUS INDICATOR
+   ============================================ */
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.status-dot-active {
+  background: rgb(var(--success));
+  box-shadow: 0 0 8px rgb(var(--success) / 0.4);
+}
+
+.status-dot-inactive {
+  background: rgb(var(--muted-foreground) / 0.3);
+}
+
+.status-dot-warning {
+  background: rgb(var(--warning));
+  box-shadow: 0 0 8px rgb(var(--warning) / 0.4);
+}
+
+/* ============================================
+   MESSAGE BUBBLE
+   ============================================ */
+
+.message-bubble {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ============================================
+   SKELETON LOADING
+   ============================================ */
+
+.skeleton {
+  background: linear-gradient(90deg, 
+    rgb(var(--muted)) 0%, 
+    rgb(var(--muted-foreground) / 0.08) 50%, 
+    rgb(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  width: 4rem;
+  height: 4rem;
+  margin-bottom: 1rem;
+  color: rgb(var(--muted-foreground) / 0.5);
+}
+
+.empty-state-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgb(var(--foreground));
+  margin-bottom: 0.5rem;
+}
+
+.empty-state-description {
+  font-size: 0.875rem;
+  color: rgb(var(--muted-foreground));
+  max-width: 24rem;
+}
+
+/* ============================================
+   LOADING OVERLAY
+   ============================================ */
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(var(--background) / 0.8);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  border-radius: inherit;
+}
+
+/* ============================================
+   DIVIDER
+   ============================================ */
+
+.divider {
+  height: 1px;
+  background: rgb(var(--border));
+  margin: 0.75rem 0;
+}
+
+.divider-vertical {
+  width: 1px;
+  height: 100%;
+  background: rgb(var(--border));
+  margin: 0 0.75rem;
+}
+
+/* ============================================
+   ENHANCED BORDER VISIBILITY
+   ============================================ */
+
+/* Enhanced border visibility for light mode */
+.border-visible {
+  border-color: rgb(var(--border));
+  box-shadow: 0 0 0 1px rgb(var(--border) / 0.5);
+}
+
+/* Card with enhanced border separation */
+.card-bordered {
+  border: 1px solid rgb(var(--border));
+  box-shadow: var(--shadow-sm), 0 0 0 1px rgb(var(--border) / 0.3);
+}
+
+/* Light mode specific enhancements for glass and elevated surfaces */
+:root .glass-card,
+:root .surface-elevated {
+  border-color: rgb(203 213 225); /* slate-300 */
+}
+
+/* ============================================
+   STICKY PREVIEW UTILITY
+   ============================================ */
+
+.sticky-preview {
+  position: sticky;
+  top: 6rem; /* 96px - header + padding */
+  max-height: calc(100vh - 8rem);
+}
+
+@media (max-width: 1279px) {
+  .sticky-preview {
+    position: relative;
+    top: 0;
+    max-height: none;
   }
 }

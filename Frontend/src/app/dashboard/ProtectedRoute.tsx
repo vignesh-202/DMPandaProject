@@ -23,11 +23,11 @@ const ProtectedRouteContent = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" />;
   }
 
-  // User must complete ALL of these before accessing dashboard:
+  // User must complete these before accessing dashboard:
   // 1. Set password (for Google OAuth users)
   // 2. Verify email (for email signup users)
-  // 3. Link at least one Instagram account
-  const needsOnboarding = hasPassword === false || !isVerified || hasLinkedInstagram === false;
+  // Instagram linking is now optional for dashboard access but locks some features.
+  const needsOnboarding = hasPassword === false || !isVerified;
 
   if (needsOnboarding) {
     return <OnboardingFlow />;

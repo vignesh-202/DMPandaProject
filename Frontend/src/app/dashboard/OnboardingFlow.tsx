@@ -78,13 +78,10 @@ const OnboardingFlow: React.FC = () => {
         }
     }, []);
 
-    // Handle initial loading - keep loading until we have user data
+    // Handle initial loading - hide as soon as we have user data
     useEffect(() => {
         if (!isAuthLoading && user) {
-            const timer = setTimeout(() => {
-                setIsInitialLoading(false);
-            }, 600);
-            return () => clearTimeout(timer);
+            setIsInitialLoading(false);
         }
     }, [isAuthLoading, user]);
 
@@ -100,9 +97,7 @@ const OnboardingFlow: React.FC = () => {
     // Redirect to dashboard when all steps complete
     useEffect(() => {
         if (hasPassword !== false && isVerified && hasLinkedInstagram) {
-            setTimeout(() => {
-                navigate('/dashboard');
-            }, 1000);
+            navigate('/dashboard');
         }
     }, [hasPassword, isVerified, hasLinkedInstagram, navigate]);
 
@@ -230,7 +225,10 @@ const OnboardingFlow: React.FC = () => {
         setError(null);
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/instagram`);
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/instagram/url`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const data = await response.json();
 
             if (data.url) {
@@ -520,6 +518,20 @@ const OnboardingFlow: React.FC = () => {
                         </>
                     )}
                 </Button>
+
+                <div className="flex flex-col items-center gap-3">
+                    <button
+                        onClick={() => navigate('/dashboard')}
+                        className="text-sm font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors py-1 underline underline-offset-4"
+                    >
+                        Skip for now
+                    </button>
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3 w-full">
+                        <p className="text-[10px] sm:text-xs text-amber-700 dark:text-amber-400 text-center leading-relaxed">
+                            <strong>Note:</strong> Automation features will be locked until you connect an Instagram account.
+                        </p>
+                    </div>
+                </div>
 
                 <p className="text-[10px] sm:text-xs text-center text-gray-500 dark:text-gray-400">
                     We'll only access permissions needed for DM automation.

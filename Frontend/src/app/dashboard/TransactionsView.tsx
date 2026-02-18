@@ -1,11 +1,14 @@
 import React from 'react';
+import PlaceholderView from './PlaceholderView';
+import { Landmark } from 'lucide-react';
 
 const TransactionsView: React.FC = () => {
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Transactions</h1>
-      <p>This is the Transactions view. Data and API will be integrated later.</p>
-    </div>
+    <PlaceholderView
+      title="Transactions"
+      description="View and manage your subscription history and professional automation invoices."
+      icon={<Landmark className="w-12 h-12 text-blue-500" />}
+    />
   );
 };
 
