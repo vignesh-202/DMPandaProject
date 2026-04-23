@@ -11,9 +11,14 @@ import ModernCalendar from '../../components/ui/ModernCalendar';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
-import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
+import TemplateSelector, { ReplyTemplate, prefetchReplyTemplates } from '../../components/dashboard/TemplateSelector';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
 import AutomationEditor from '../../components/dashboard/AutomationEditor';
+import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
+import AutomationToast from '../../components/ui/AutomationToast';
+import { takeTransientState } from '../../lib/transientState';
+import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
+import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 import {
     getByteLength,
     AUTOMATION_TITLE_MAX,
@@ -37,10 +42,22 @@ const GlobalTriggersView: React.FC = () => {
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
     const [replyTemplatesList, setReplyTemplatesList] = useState<ReplyTemplate[]>([]);
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+    const [prefetchedTemplate, setPrefetchedTemplate] = useState<ReplyTemplate | null>(null);
     const [previewTemplate, setPreviewTemplate] = useState<ReplyTemplate | null>(null);
     const templateCacheRef = useRef<Record<string, ReplyTemplate>>({});
     const [refreshing, setRefreshing] = useState(false);
+    const [isPreparingEditor, setIsPreparingEditor] = useState(false);
+    const [editorLoadingMessage, setEditorLoadingMessage] = useState('Preparing global trigger editor');
     const fetchingRef = useRef(false);
+    const [editorDirty, setEditorDirty] = useState(false);
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
+    const saveHandlerRef = useRef<() => Promise<boolean>>(async () => true);
+    useDashboardMainScrollLock(Boolean(editingTrigger || isPreparingEditor));
+
+    const primeEditorResources = useCallback(async () => {
+        if (!activeAccountID) return;
+        await prefetchReplyTemplates(activeAccountID, authenticatedFetch);
+    }, [activeAccountID, authenticatedFetch]);
 
     const fetchTriggers = useCallback(async (isManual = false) => {
         if (!activeAccountID) return;
@@ -50,11 +67,16 @@ const GlobalTriggersView: React.FC = () => {
         setError(null);
         try {
             const res = await authenticatedFetch(
-                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations?account_id=${activeAccountID}&type=global`
+                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations?account_id=${activeAccountID}&type=global&summary=1`
             );
             const data = await res.json();
             if (res.ok) {
-                setGlobalTriggers(data.documents || []);
+                const normalized = (data.automations || data.documents || []).map((doc: any) => ({
+                    ...doc,
+                    active: doc?.is_active !== false,
+                    is_active: doc?.is_active !== false,
+                }));
+                setGlobalTriggers(normalized);
             } else {
                 setError(data.error || 'Failed to load global triggers.');
             }
@@ -67,7 +89,19 @@ const GlobalTriggersView: React.FC = () => {
     }, [activeAccountID, authenticatedFetch, setGlobalTriggers]);
 
     const handleTemplatesLoaded = useCallback((templates: ReplyTemplate[]) => {
-        setReplyTemplatesList(templates);
+        setReplyTemplatesList((current) => {
+            const merged = new Map(current.map((template) => [template.id, template]));
+            templates.forEach((template) => {
+                merged.set(template.id, {
+                    ...(merged.get(template.id) || {}),
+                    ...template,
+                    template_data: template.template_data && Object.keys(template.template_data || {}).length > 0
+                        ? template.template_data
+                        : merged.get(template.id)?.template_data
+                });
+            });
+            return Array.from(merged.values());
+        });
     }, []);
 
     useEffect(() => {
@@ -117,56 +151,85 @@ const GlobalTriggersView: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [selectedTemplateId, replyTemplatesList, authenticatedFetch]);
+    }, [activeAccountID, authenticatedFetch, replyTemplatesList, selectedTemplateId]);
 
-    const handleCreateNew = () => {
-        setEditingTrigger({
-            title: '',
-            keyword: [],
-            template_type: 'template_text',
-            template_content: '',
-            followers_only: false
-        });
-        setSelectedTemplateId('');
-        setHasUnsavedChanges(true);
-        setSaveUnsavedChanges(() => async () => {
-            // Will be handled by AutomationEditor
-            return true;
-        });
-        setDiscardUnsavedChanges(() => () => {
-            setEditingTrigger(null);
+    const handleCreateNew = useCallback(async () => {
+        setEditorLoadingMessage('Opening global trigger editor');
+        setIsPreparingEditor(true);
+        try {
+            await primeEditorResources();
+            setEditingTrigger({
+                title: '',
+                keyword: [],
+                template_type: 'template_text',
+                template_content: '',
+                followers_only: false
+            });
+            setPrefetchedTemplate(null);
+            setPreviewTemplate(null);
+            setEditorDirty(false);
+            setShowLeaveModal(false);
             setSelectedTemplateId('');
             setHasUnsavedChanges(false);
-        });
-    };
+        } finally {
+            setIsPreparingEditor(false);
+        }
+    }, [primeEditorResources, setHasUnsavedChanges]);
 
-    const handleEdit = (trigger: any) => {
-        setEditingTrigger(trigger);
-        setSelectedTemplateId(trigger.template_id || '');
-        setHasUnsavedChanges(true);
-        setSaveUnsavedChanges(() => async () => {
-            // Will be handled by AutomationEditor
-            return true;
-        });
-        setDiscardUnsavedChanges(() => () => {
-            setEditingTrigger(null);
-            setSelectedTemplateId('');
+    const handleEdit = useCallback(async (trigger: any) => {
+        setEditorLoadingMessage('Loading global trigger');
+        setIsPreparingEditor(true);
+        try {
+            await primeEditorResources();
+            let resolvedTrigger = trigger;
+            let resolvedTemplate: ReplyTemplate | null = null;
+
+            if (trigger?.$id) {
+                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${trigger.$id}?account_id=${activeAccountID}`);
+                if (res.ok) {
+                    resolvedTrigger = await res.json();
+                }
+            }
+
+            if (resolvedTrigger?.template_id) {
+                const templateRes = await authenticatedFetch(
+                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${resolvedTrigger.template_id}?account_id=${activeAccountID}`
+                );
+                if (templateRes.ok) {
+                    resolvedTemplate = await templateRes.json();
+                }
+            }
+
+            setEditingTrigger(resolvedTrigger);
+            setPrefetchedTemplate(resolvedTemplate);
+            setPreviewTemplate(resolvedTemplate);
+            if (resolvedTemplate?.id) {
+                templateCacheRef.current[resolvedTemplate.id] = resolvedTemplate;
+            }
+            setEditorDirty(false);
+            setShowLeaveModal(false);
+            setSelectedTemplateId(resolvedTrigger.template_id || resolvedTemplate?.id || '');
             setHasUnsavedChanges(false);
-        });
-    };
+        } finally {
+            setIsPreparingEditor(false);
+        }
+    }, [activeAccountID, authenticatedFetch, primeEditorResources, setHasUnsavedChanges]);
+
+    useEffect(() => {
+        if (editingTrigger) {
+            document.querySelector('main')?.scrollTo({ top: 0, behavior: 'auto' });
+        }
+    }, [editingTrigger]);
 
     useEffect(() => {
         if (!activeAccountID) return;
-        const targetId = sessionStorage.getItem('openAutomationId');
-        const targetType = sessionStorage.getItem('openAutomationType');
+        const targetId = takeTransientState<string>('openAutomationId');
+        const targetType = takeTransientState<string>('openAutomationType');
         if (!targetId || (targetType !== 'global' && targetType !== 'global_trigger')) return;
-
-        sessionStorage.removeItem('openAutomationId');
-        sessionStorage.removeItem('openAutomationType');
 
         const existing = (globalTriggers || []).find((t: any) => t.$id === targetId);
         if (existing) {
-            handleEdit(existing);
+            void handleEdit(existing);
             return;
         }
 
@@ -175,17 +238,29 @@ const GlobalTriggersView: React.FC = () => {
                 const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}`);
                 if (res.ok) {
                     const data = await res.json();
-                    handleEdit(data);
+                    void handleEdit(data);
                 }
             } catch (_) { }
         })();
-    }, [activeAccountID, authenticatedFetch, globalTriggers]);
+    }, [activeAccountID, authenticatedFetch, globalTriggers, handleEdit]);
 
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         setEditingTrigger(null);
+        setEditorDirty(false);
+        setShowLeaveModal(false);
+        setPrefetchedTemplate(null);
+        setPreviewTemplate(null);
         setSelectedTemplateId('');
         setHasUnsavedChanges(false);
-    };
+    }, [setHasUnsavedChanges]);
+
+    const requestClose = useCallback(() => {
+        if (editorDirty) {
+            setShowLeaveModal(true);
+            return;
+        }
+        handleClose();
+    }, [editorDirty, handleClose]);
 
     const handleSave = useCallback(async () => {
         // AutomationEditor performs the actual save.
@@ -197,16 +272,16 @@ const GlobalTriggersView: React.FC = () => {
     const handleToggleActive = async (trigger: any) => {
         setTogglingIds((s) => new Set(s).add(trigger.$id));
         const next = !trigger.active;
-        setGlobalTriggers((prev: any) => prev.map((x: any) => (x.$id === trigger.$id ? { ...x, active: next } : x)));
+        setGlobalTriggers((prev: any) => prev.map((x: any) => (x.$id === trigger.$id ? { ...x, active: next, is_active: next } : x)));
 
         try {
             await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${trigger.$id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ active: next })
+                body: JSON.stringify({ is_active: next })
             });
         } catch {
-            setGlobalTriggers((prev: any) => prev.map((x: any) => (x.$id === trigger.$id ? { ...x, active: !!trigger.active } : x)));
+            setGlobalTriggers((prev: any) => prev.map((x: any) => (x.$id === trigger.$id ? { ...x, active: !!trigger.active, is_active: !!trigger.is_active } : x)));
         } finally {
             setTogglingIds((s) => { const n = new Set(s); n.delete(trigger.$id); return n; });
         }
@@ -234,9 +309,25 @@ const GlobalTriggersView: React.FC = () => {
         });
     };
 
-    const handleEditorChange = useCallback(() => {
-        setHasUnsavedChanges(true);
+    const handleEditorChange = useCallback((dirty: boolean) => {
+        setEditorDirty(dirty);
+        setHasUnsavedChanges(dirty);
     }, [setHasUnsavedChanges]);
+
+    useEffect(() => {
+        if (editingTrigger) {
+            setSaveUnsavedChanges(() => async () => saveHandlerRef.current());
+            setDiscardUnsavedChanges(() => () => {
+                handleClose();
+            });
+        } else {
+            setEditorDirty(false);
+            setShowLeaveModal(false);
+            setHasUnsavedChanges(false);
+            setSaveUnsavedChanges(() => async () => true);
+            setDiscardUnsavedChanges(() => () => { });
+        }
+    }, [editingTrigger, handleClose, setDiscardUnsavedChanges, setHasUnsavedChanges, setSaveUnsavedChanges]);
 
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
@@ -275,32 +366,26 @@ const GlobalTriggersView: React.FC = () => {
         return <LoadingOverlay variant="fullscreen" message="Loading Global Triggers" subMessage="Fetching your rulesâ€¦" />;
     }
 
+    if (isPreparingEditor) {
+        return (
+            <LoadingOverlay
+                variant="fullscreen"
+                message={editorLoadingMessage}
+                subMessage="Preparing the trigger editor and linked reply templates..."
+            />
+        );
+    }
+
     return (
-        <div className="max-w-[1400px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
+        <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
+            <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
+            <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
             {/* Editor Mode */}
             {editingTrigger ? (
                 <>
-                    <div className="flex items-center justify-between border-b border-content pb-6">
-                        <button onClick={handleClose} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
-                            <ChevronRight className="w-4 h-4 rotate-180" /> Back to Dashboard
-                        </button>
-                        <div className="flex items-center gap-3">
-                            {error && (
-                                <div className="flex items-center gap-2 px-3 py-1 bg-destructive-muted/40 text-destructive rounded-lg text-[10px] font-black border border-destructive/30 animate-in fade-in slide-in-from-right-2">
-                                    <AlertCircle className="w-3 h-3" /> {error}
-                                </div>
-                            )}
-                            {success && (
-                                <div className="flex items-center gap-2 px-3 py-1 bg-success-muted/60 text-success rounded-lg text-[10px] font-black border border-success/30 animate-in fade-in slide-in-from-right-2">
-                                    <CheckCircle2 className="w-3 h-3" /> {success}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 xl:h-[calc(100vh-11rem)] xl:min-h-0">
-                        {/* Left: Editor - scrollable on xl */}
-                        <div className="xl:col-span-8 space-y-8 order-2 xl:order-1 xl:overflow-y-auto xl:overscroll-behavior-contain xl:min-h-0 xl:pr-2">
-                            <section className="bg-card p-8 rounded-[40px] border border-content shadow-sm space-y-8">
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
+                        <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2">
+                            <section className="bg-card p-8 rounded-[40px] border border-content shadow-sm space-y-8 xl:min-h-0">
                                     <AutomationEditor
                                         type="global"
                                         isStandalone={false}
@@ -308,92 +393,87 @@ const GlobalTriggersView: React.FC = () => {
                                         activeAccountID={activeAccountID}
                                         authenticatedFetch={authenticatedFetch}
                                         automationId={editingTrigger.$id || undefined}
+                                        initialAutomationData={editingTrigger}
+                                        initialSelectedTemplate={prefetchedTemplate}
                                         existingTitles={(globalTriggers || []).map((t: any) => ({ id: t.$id, title: t.title }))}
                                         onSave={handleSave}
-                                        onClose={handleClose}
+                                        onClose={requestClose}
+                                        registerSaveHandler={(handler) => {
+                                            saveHandlerRef.current = handler;
+                                        }}
                                         onDelete={editingTrigger.$id ? async (id) => {
                                         await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${id}`, { method: 'DELETE' });
                                         handleSave();
                                     } : undefined}
                                     onChange={handleEditorChange}
-                                    onTemplateSelect={(templateId) => setSelectedTemplateId(templateId || '')}
+                                    onTemplateSelect={(templateId) => {
+                                        setSelectedTemplateId(templateId || '');
+                                        if (!templateId) {
+                                            setPreviewTemplate(null);
+                                        }
+                                    }}
                                     onTemplatesLoaded={handleTemplatesLoaded}
                                     titleOverride=""
+                                    actionBarLeft={
+                                        <button
+                                            type="button"
+                                            onClick={requestClose}
+                                            className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
+                                        >
+                                            <ArrowLeft className="w-5 h-5" />
+                                        </button>
+                                    }
                                 />
                             </section>
                         </div>
 
                         {/* Right: Live Preview */}
-                        <div className="xl:col-span-4 order-1 xl:order-2">
-                            <div className="xl:sticky xl:top-24 h-fit max-h-[calc(100vh-8rem)] overflow-y-auto">
-                                <div className="fixed top-4 right-4 z-[200] space-y-2 pointer-events-none">
-                                    {success && (
-                                        <div className="bg-success text-success-foreground px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-right fade-in duration-300 pointer-events-auto">
-                                            <CheckCircle2 className="w-5 h-5" />
-                                            <span className="font-bold text-sm">{success}</span>
-                                        </div>
-                                    )}
-                                    {error && (
-                                        <div className="bg-destructive text-destructive-foreground px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-right fade-in duration-300 pointer-events-auto">
-                                            <AlertCircle className="w-5 h-5" />
-                                            <span className="font-bold text-sm">{error}</span>
-                                        </div>
-                                    )}
-                                </div>
+                        <AutomationPreviewPanel>
+                            {(() => {
+                                const displayName = activeAccount?.username || 'your_account';
+                                const profilePic = activeAccount?.profile_picture_url ?? undefined;
+                                const template = selectedTemplateId ? (previewTemplate || replyTemplatesList.find(t => t.id === selectedTemplateId)) : null;
 
-                                {/* Live Preview */}
-                                <div className="space-y-4">
-                                    {(() => {
-                                        const displayName = activeAccount?.username || 'your_account';
-                                        const profilePic = activeAccount?.profile_picture_url ?? undefined;
-                                        const template = selectedTemplateId ? (previewTemplate || replyTemplatesList.find(t => t.id === selectedTemplateId)) : null;
+                                if (template) {
+                                    const previewAutomation = {
+                                        ...editingTrigger,
+                                        ...(buildPreviewAutomationFromTemplate(template) || {}),
+                                        keyword: editingTrigger.keyword?.[0] || editingTrigger.title || 'Trigger message'
+                                    };
 
-                                        if (template) {
-                                            const previewAutomation = {
-                                                template_type: template.template_type as any,
-                                                template_content: template.template_type === 'template_text' ? template.template_data?.text :
-                                                    template.template_type === 'template_media' ? template.template_data?.media_url :
-                                                        template.template_type === 'template_quick_replies' ? template.template_data?.text : undefined,
-                                                template_elements: template.template_type === 'template_carousel' ? template.template_data?.elements : undefined,
-                                                replies: template.template_type === 'template_quick_replies' ? template.template_data?.replies : undefined,
-                                                buttons: template.template_type === 'template_buttons' ? template.template_data?.buttons : undefined,
-                                                media_id: template.template_type === 'template_share_post' ? template.template_data?.media_id : undefined,
-                                                media_url: template.template_type === 'template_share_post' ? template.template_data?.media_url : undefined,
-                                                use_latest_post: template.template_type === 'template_share_post' ? template.template_data?.use_latest_post : undefined,
-                                                latest_post_type: template.template_type === 'template_share_post' ? template.template_data?.latest_post_type : undefined,
-                                                keyword: editingTrigger.keyword?.[0] || editingTrigger.title || 'Trigger message',
-                                                template_data: template.template_data
-                                            };
+                                    return (
+                                        <SharedMobilePreview
+                                            mode="automation"
+                                            automation={previewAutomation}
+                                            activeAccountID={activeAccountID}
+                                            authenticatedFetch={authenticatedFetch}
+                                            displayName={displayName}
+                                            profilePic={profilePic}
+                                            lockScroll
+                                            hideAutomationPrompt
+                                        />
+                                    );
+                                }
 
-                                            return (
-                                                <SharedMobilePreview
-                                                    mode="automation"
-                                                    automation={previewAutomation}
-                                                    displayName={displayName}
-                                                    profilePic={profilePic}
-                                                />
-                                            );
-                                        }
+                                const fallbackAutomation = {
+                                    ...editingTrigger,
+                                    keyword: editingTrigger.keyword?.[0] || editingTrigger.title || 'Trigger message'
+                                };
 
-                                        const fallbackAutomation = {
-                                            ...editingTrigger,
-                                            keyword: editingTrigger.keyword?.[0] || editingTrigger.title || 'Trigger message'
-                                        };
-
-                                        return (
-                                            <div className="bg-muted/40 p-4 flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-border">
-                                                <SharedMobilePreview
-                                                    mode="automation"
-                                                    automation={fallbackAutomation}
-                                                    displayName={displayName}
-                                                    profilePic={profilePic}
-                                                />
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-                        </div>
+                                return (
+                                    <SharedMobilePreview
+                                        mode="automation"
+                                        automation={fallbackAutomation}
+                                        activeAccountID={activeAccountID}
+                                        authenticatedFetch={authenticatedFetch}
+                                        displayName={displayName}
+                                        profilePic={profilePic}
+                                        lockScroll
+                                        hideAutomationPrompt
+                                    />
+                                );
+                            })()}
+                        </AutomationPreviewPanel>
                     </div>
                 </>
             ) : (
@@ -420,7 +500,7 @@ const GlobalTriggersView: React.FC = () => {
                                 <RefreshCcw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
                             </button>
                             <button
-                                onClick={handleCreateNew}
+                                onClick={() => void handleCreateNew()}
                                 className="px-8 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-primary/20 flex items-center gap-2"
                             >
                                 <Plus className="w-3 h-3" /> Create New Rule
@@ -434,7 +514,7 @@ const GlobalTriggersView: React.FC = () => {
                             <h4 className="text-foreground font-black text-xl mb-2">No global triggers yet</h4>
                             <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-8">Create your first global trigger to automatically respond to keywords across all your Instagram content.</p>
                             <button
-                                onClick={handleCreateNew}
+                                onClick={() => void handleCreateNew()}
                                 className="mx-auto px-8 py-4 bg-card text-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl flex items-center gap-3 hover:scale-105"
                             >
                                 <Plus className="w-4 h-4" />
@@ -504,7 +584,7 @@ const GlobalTriggersView: React.FC = () => {
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <button
-                                                    onClick={() => handleEdit(trigger)}
+                                                    onClick={() => void handleEdit(trigger)}
                                                     className="p-3 bg-muted/40 text-muted-foreground hover:text-primary rounded-xl transition-all"
                                                 >
                                                     <Pencil className="w-5 h-5" />
@@ -537,23 +617,6 @@ const GlobalTriggersView: React.FC = () => {
                     )}
                 </>
             )}
-
-            {/* Success/Error Notifications */}
-            <div className="fixed top-4 right-4 z-[200] space-y-2 pointer-events-none">
-                {success && (
-                    <div className="bg-success text-success-foreground px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-right fade-in duration-300 pointer-events-auto">
-                        <CheckCircle2 className="w-5 h-5" />
-                        <span className="font-bold text-sm">{success}</span>
-                    </div>
-                )}
-                {error && (
-                    <div className="bg-destructive text-destructive-foreground px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-right fade-in duration-300 pointer-events-auto">
-                        <AlertCircle className="w-5 h-5" />
-                        <span className="font-bold text-sm">{error}</span>
-                    </div>
-                )}
-            </div>
-
             <ModernConfirmModal
                 isOpen={modalConfig.isOpen}
                 title={modalConfig.title}
@@ -563,6 +626,26 @@ const GlobalTriggersView: React.FC = () => {
                 cancelLabel={modalConfig.cancelLabel}
                 onConfirm={modalConfig.onConfirm}
                 onClose={closeModal}
+            />
+            <ModernConfirmModal
+                isOpen={showLeaveModal}
+                onClose={() => setShowLeaveModal(false)}
+                onConfirm={async () => {
+                    const ok = await saveHandlerRef.current();
+                    if (ok) {
+                        setShowLeaveModal(false);
+                    }
+                }}
+                onSecondary={() => {
+                    setShowLeaveModal(false);
+                    handleClose();
+                }}
+                title="Unsaved changes"
+                description="Do you want to save before leaving?"
+                type="warning"
+                confirmLabel="Save"
+                secondaryLabel="Leave without saving"
+                cancelLabel="Cancel"
             />
         </div>
     );

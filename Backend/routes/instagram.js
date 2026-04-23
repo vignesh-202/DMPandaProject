@@ -3,8 +3,40 @@ const router = express.Router();
 const axios = require('axios');
 const crypto = require('crypto');
 const { loginRequired } = require('../middleware/auth');
-const { getAppwriteClient, Functions, IG_ACCOUNTS_COLLECTION_ID, AUTOMATIONS_COLLECTION_ID, REPLY_TEMPLATES_COLLECTION_ID, INBOX_MENUS_COLLECTION_ID, CONVO_STARTERS_COLLECTION_ID, MENTIONS_COLLECTION_ID, SUPER_PROFILES_COLLECTION_ID, SUGGEST_MORE_COLLECTION_ID, COMMENT_MODERATION_COLLECTION_ID, KEYWORDS_COLLECTION_ID, KEYWORD_INDEX_COLLECTION_ID, FUNCTION_REMOVE_INSTAGRAM } = require('../utils/appwrite');
+const {
+    getAppwriteClient,
+    Functions,
+    IG_ACCOUNTS_COLLECTION_ID,
+    AUTOMATIONS_COLLECTION_ID,
+    REPLY_TEMPLATES_COLLECTION_ID,
+    INBOX_MENUS_COLLECTION_ID,
+    CONVO_STARTERS_COLLECTION_ID,
+    SUPER_PROFILES_COLLECTION_ID,
+    COMMENT_MODERATION_COLLECTION_ID,
+    KEYWORDS_COLLECTION_ID,
+    KEYWORD_INDEX_COLLECTION_ID,
+    LOGS_COLLECTION_ID,
+    CHAT_STATES_COLLECTION_ID,
+    PROFILES_COLLECTION_ID,
+    AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
+    FUNCTION_REMOVE_INSTAGRAM
+} = require('../utils/appwrite');
+const {
+    getGoogleServiceAccount,
+    loadSpreadsheetMetadata,
+    sendWebhookPayload
+} = require('../utils/emailCollectors');
+const {
+    resolveUserPlanContext,
+    normalizeFeatureKey
+} = require('../utils/planConfig');
 const { Databases, Query, ID, Permission, Role, ExecutionMethod } = require('node-appwrite');
+const { buildAccessDeniedPayload } = require('../utils/accessControl');
+const {
+    isLinkedAccountActive,
+    normalizeAccountAccess,
+    recomputeAccountAccessForUser
+} = require('../utils/accountAccess');
 
 // Environment variables
 const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID;
@@ -35,6 +67,13 @@ const CAROUSEL_BUTTON_TITLE_MAX = 20;
 const BUTTONS_MAX = 3;
 const QUICK_REPLIES_MAX = 13;
 const MEDIA_URL_MAX = 500;
+const FOLLOWERS_ONLY_MESSAGE_DEFAULT = 'Please follow this account first, then send your message again.';
+const FOLLOWERS_ONLY_MESSAGE_MAX = 300;
+const FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT = '👤 Follow Account';
+const FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT = "✅ I've Followed";
+const COLLECT_EMAIL_PROMPT_DEFAULT = '📧 Could you share your best email so we can send the details and updates ✨';
+const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '⚠️ That email looks invalid. Please send a valid email like name@example.com.';
+const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ✅';
 
 const VALID_TEMPLATE_TYPES = new Set([
     'template_text',
@@ -60,8 +99,142 @@ const normalizeTitle = (value) => String(value || '').trim().toLowerCase();
 
 const KEYWORD_MAX_PER_AUTOMATION = 5;
 const KEYWORD_TYPES = new Set(['dm', 'global', 'post', 'reel', 'story', 'live', 'comment']);
+const GATED_AUTOMATION_FEATURES = {
+    suggest_more_enabled: 'suggest_more',
+    collect_email_enabled: 'collect_email',
+    seen_typing_enabled: 'seen_typing'
+};
 
 const normalizeKeywordToken = (value) => String(value || '').trim().toUpperCase();
+const parseJsonArray = (value) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return value.split(',').map((item) => item.trim()).filter(Boolean);
+        }
+    }
+    return [];
+};
+
+const PLAN_FEATURE_ALIASES = {
+    suggest_more: ['suggest_more'],
+    collect_email: ['collect_email', 'email_collector', 'webhook_integrations'],
+    seen_typing: ['seen_typing']
+};
+
+const loadUserPlanAccess = async (databases, userId) => {
+    const planContext = await resolveUserPlanContext(databases, userId);
+    return {
+        entitlements: planContext.entitlements || {},
+        limits: planContext.limits || {},
+        plan: planContext.plan || null
+    };
+};
+
+const hasPlanEntitlement = (entitlements, featureKey) => {
+    const aliases = PLAN_FEATURE_ALIASES[featureKey] || [featureKey];
+    return aliases.some((candidate) => entitlements?.[normalizeFeatureKey(candidate)] === true);
+};
+
+const collectLockedAutomationFeatures = (payload) => {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    return Object.entries(GATED_AUTOMATION_FEATURES)
+        .filter(([field]) => source[field] === true)
+        .map(([, featureKey]) => featureKey);
+};
+
+const enforceAutomationFeatureAccess = async (databases, userId, payload, options = {}) => {
+    const requestedFeatures = new Set(collectLockedAutomationFeatures(payload));
+    if (options.requireFeature) {
+        requestedFeatures.add(String(options.requireFeature).trim());
+    }
+
+    if (requestedFeatures.size === 0) return null;
+
+    const { entitlements } = await loadUserPlanAccess(databases, userId);
+    const lockedFeatures = Array.from(requestedFeatures).filter((featureKey) => !hasPlanEntitlement(entitlements, featureKey));
+    if (lockedFeatures.length === 0) return null;
+
+    const featureLabels = {
+        suggest_more: 'Suggest More',
+        collect_email: 'Collect Email',
+        seen_typing: 'Seen + Typing Reaction'
+    };
+
+    return {
+        error: `${lockedFeatures.map((feature) => featureLabels[feature] || feature).join(', ')} is not included in your current plan.`,
+        field: 'subscription',
+        locked_features: lockedFeatures
+    };
+};
+
+const enforceInstagramConnectionLimit = async (databases, userId, nextAccountId = '') => {
+    const { limits } = await loadUserPlanAccess(databases, userId);
+    const connectionLimit = Number(limits?.instagram_link_limit || limits?.instagram_connections_limit || 0);
+    if (connectionLimit <= 0) {
+        return {
+            error: 'Your current plan does not include Instagram connections.',
+            field: 'subscription',
+            limit: 0,
+            current_count: 0
+        };
+    }
+
+    const accounts = await listOwnedIgAccounts(databases, userId);
+    const normalizedNextAccountId = String(nextAccountId || '').trim();
+    const alreadyConnected = accounts.documents.some((account) => matchesIgAccountIdentifier(account, normalizedNextAccountId));
+    const currentCount = accounts.documents.length;
+
+    if (!alreadyConnected && currentCount >= connectionLimit) {
+        return {
+            error: `Your current plan allows ${connectionLimit} Instagram connection${connectionLimit === 1 ? '' : 's'} only.`,
+            field: 'subscription',
+            limit: connectionLimit,
+            current_count: currentCount
+        };
+    }
+
+    return null;
+};
+
+const buildInstagramAccountAccessError = (account) => {
+    const normalized = normalizeAccountAccess(account);
+    return {
+        error: 'This Instagram account is not accessible in your current plan.',
+        code: normalized.access_reason || 'account_access_blocked',
+        access_state: normalized
+    };
+};
+
+const AUTOMATION_LOCKED_PREFIXES = [
+    '/instagram/automations',
+    '/instagram/reply-templates',
+    '/instagram/inbox-menu',
+    '/instagram/convo-starters',
+    '/instagram/mentions-config',
+    '/instagram/suggest-more',
+    '/instagram/comment-moderation'
+];
+
+const requiresAutomationAccess = (path) => AUTOMATION_LOCKED_PREFIXES.some((prefix) => String(path || '').startsWith(prefix));
+
+router.use(async (req, res, next) => {
+    if (!req.user || !requiresAutomationAccess(req.path)) {
+        return next();
+    }
+
+    if (req.accessState?.automation_locked) {
+        return res.status(403).json(buildAccessDeniedPayload(
+            req.accessState,
+            req.accessState.ban_message || 'Automation access is restricted for this account.'
+        ));
+    }
+
+    return next();
+});
 
 const getKeywordInfo = (automation) => {
     const rawKeywords = parseMaybeJson(automation.keywords, []);
@@ -88,6 +261,344 @@ const normalizeKeywordArray = (automation) => getKeywordInfo(automation).keyword
 
 const computeKeywordHash = (keywordNormalized) =>
     crypto.createHash('sha256').update(keywordNormalized).digest('hex');
+
+const collectionAttributeCache = new Map();
+const transientWarningTimestamps = new Map();
+const COMMENT_MODERATION_AUTOMATION_TYPES = {
+    hide: 'moderation_hide',
+    delete: 'moderation_delete'
+};
+
+const isMissingCollectionError = (error) => {
+    const message = String(error?.message || '');
+    return message.includes('Collection with the requested ID could not be found.') || Number(error?.code) === 404;
+};
+
+const isTransientFetchError = (error) => {
+    const message = String(error?.message || '').trim().toLowerCase();
+    return message.includes('fetch failed')
+        || message.includes('socket hang up')
+        || message.includes('etimedout')
+        || message.includes('econnreset')
+        || message.includes('enotfound')
+        || message.includes('eai_again');
+};
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const retryAppwriteOperation = async (operation, {
+    retries = 2,
+    retryDelayMs = 250
+} = {}) => {
+    let attempt = 0;
+    let lastError;
+    while (attempt <= retries) {
+        try {
+            return await operation();
+        } catch (error) {
+            lastError = error;
+            if (!isTransientFetchError(error) || attempt === retries) {
+                throw error;
+            }
+            await delay(retryDelayMs * (attempt + 1));
+            attempt += 1;
+        }
+    }
+    throw lastError;
+};
+
+const logWarnWithThrottle = (key, message, throttleMs = 60_000) => {
+    const now = Date.now();
+    const lastSeenAt = transientWarningTimestamps.get(key) || 0;
+    if ((now - lastSeenAt) < throttleMs) return;
+    transientWarningTimestamps.set(key, now);
+    console.warn(message);
+};
+
+const listConfigAutomationDocuments = async (databases, {
+    userId,
+    accountIds,
+    automationType,
+    limit = 10
+}) => {
+    const uniqueAccountIds = Array.from(new Set(
+        (Array.isArray(accountIds) ? accountIds : [accountIds])
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+    ));
+    const queries = [
+        Query.equal('user_id', String(userId)),
+        Query.equal('automation_type', String(automationType)),
+        Query.limit(limit),
+        Query.orderDesc('$updatedAt')
+    ];
+
+    if (uniqueAccountIds.length === 1) {
+        queries.splice(2, 0, Query.equal('account_id', uniqueAccountIds[0]));
+    } else if (uniqueAccountIds.length > 1) {
+        queries.splice(2, 0, Query.equal('account_id', uniqueAccountIds));
+    }
+
+    const result = await databases.listDocuments(
+        process.env.APPWRITE_DATABASE_ID,
+        AUTOMATIONS_COLLECTION_ID,
+        queries
+    );
+
+    return {
+        ...result,
+        _collectionId: AUTOMATIONS_COLLECTION_ID
+    };
+};
+
+const listMentionsDocuments = async (databases, {
+    userId,
+    accountIds,
+    limit = 10
+}) => listConfigAutomationDocuments(databases, {
+    userId,
+    accountIds,
+    automationType: 'mentions',
+    limit
+});
+
+const listSuggestMoreDocuments = async (databases, {
+    userId,
+    accountIds,
+    limit = 10
+}) => listConfigAutomationDocuments(databases, {
+    userId,
+    accountIds,
+    automationType: 'suggest_more',
+    limit
+});
+
+const COLLECTOR_DESTINATION_TYPES = new Set(['sheet', 'webhook']);
+
+const normalizeCollectorDestinationType = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return COLLECTOR_DESTINATION_TYPES.has(normalized) ? normalized : '';
+};
+
+const parseDestinationJson = (value) => {
+    const parsed = parseMaybeJson(value, {});
+    return parsed && typeof parsed === 'object' ? parsed : {};
+};
+
+const getCollectorDestinationDefaults = () => {
+    const serviceAccount = getGoogleServiceAccount();
+    return {
+        destination_type: '',
+        sheet_link: '',
+        webhook_url: '',
+        destination_id: '',
+        destination_json: {},
+        verified: false,
+        verified_at: null,
+        service_account_email: serviceAccount?.client_email || ''
+    };
+};
+
+const normalizeCollectorDestinationResponse = (document) => {
+    if (!document) return getCollectorDestinationDefaults();
+    const destinationJson = parseDestinationJson(document.destination_json);
+    return {
+        $id: document.$id,
+        automation_id: String(document.automation_id || '').trim(),
+        destination_type: normalizeCollectorDestinationType(document.destination_type),
+        sheet_link: String(document.sheet_link || '').trim(),
+        webhook_url: String(document.webhook_url || '').trim(),
+        destination_id: String(document.destination_id || '').trim(),
+        destination_json: destinationJson,
+        verified: destinationJson.verified === true,
+        verified_at: destinationJson.verified_at || null,
+        service_account_email: String(
+            destinationJson.service_account_email || getCollectorDestinationDefaults().service_account_email || ''
+        ).trim()
+    };
+};
+
+const loadCollectorDestinationDocument = async (databases, automation) => {
+    try {
+        const collectionInfo = await getCollectionAttributeInfo(databases, AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID);
+        const queries = [Query.limit(1)];
+        if (collectionInfo.keys.has('automation_id')) {
+            queries.unshift(Query.equal('automation_id', String(automation?.$id || '').trim()));
+        }
+        if (collectionInfo.keys.has('account_id')) {
+            queries.unshift(Query.equal('account_id', String(automation?.account_id || '').trim()));
+        }
+        if (collectionInfo.keys.has('user_id')) {
+            queries.unshift(Query.equal('user_id', String(automation?.user_id || '').trim()));
+        }
+
+        const result = await retryAppwriteOperation(() => databases.listDocuments(
+            process.env.APPWRITE_DATABASE_ID,
+            AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
+            queries
+        ));
+        return result.documents?.[0] || null;
+    } catch (error) {
+        if (isMissingCollectionError(error)) {
+            return null;
+        }
+        throw error;
+    }
+};
+
+const getOwnedAutomationDocument = async (databases, userId, automationId) => {
+    const automation = await databases.getDocument(
+        process.env.APPWRITE_DATABASE_ID,
+        AUTOMATIONS_COLLECTION_ID,
+        automationId
+    );
+    if (automation.user_id !== userId) {
+        const error = new Error('Unauthorized');
+        error.statusCode = 403;
+        throw error;
+    }
+    return automation;
+};
+
+const buildCollectorVerifySamplePayload = (automation) => ({
+    event: 'automation_email_collector.verify',
+    sample: true,
+    automation_id: String(automation?.$id || '').trim(),
+    automation_title: String(automation?.title || '').trim(),
+    automation_type: String(automation?.automation_type || 'dm').trim() || 'dm',
+    account_id: String(automation?.account_id || '').trim(),
+    sender_id: 'sample_sender',
+    sender_profile_url: 'https://www.instagram.com/sample_sender/',
+    receiver_name: String(automation?.receiver_name || '').trim(),
+    email: 'sample@gmail.com',
+    normalized_email: 'sample@gmail.com',
+    received_at: new Date().toISOString()
+});
+
+const persistCollectorDestinationDocument = async (databases, automation, payload, existingDocument = null) => {
+    const collectionInfo = await getCollectionAttributeInfo(databases, AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID);
+    const sanitizedPayload = sanitizePayloadForCollection(payload, collectionInfo);
+
+    if (existingDocument?.$id) {
+        return databases.updateDocument(
+            process.env.APPWRITE_DATABASE_ID,
+            AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
+            existingDocument.$id,
+            sanitizedPayload
+        );
+    }
+
+    return databases.createDocument(
+        process.env.APPWRITE_DATABASE_ID,
+        AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
+        ID.unique(),
+        sanitizedPayload,
+        [Permission.read(Role.user(String(automation?.user_id || '').trim()))]
+    );
+};
+
+const ensureLiveAutomationCapacity = async (databases, {
+    userId,
+    accountId,
+    automationType,
+    triggerType,
+    excludeId = null
+}) => {
+    if (String(automationType || '').trim().toLowerCase() !== 'live') {
+        return null;
+    }
+
+    const result = await databases.listDocuments(
+        process.env.APPWRITE_DATABASE_ID,
+        AUTOMATIONS_COLLECTION_ID,
+        [
+            Query.equal('user_id', String(userId)),
+            Query.equal('account_id', String(accountId)),
+            Query.equal('automation_type', 'live'),
+            Query.limit(100)
+        ]
+    );
+
+    const documents = (result.documents || []).filter((doc) => doc.$id !== excludeId);
+    const normalizedTriggerType = String(triggerType || 'keywords').trim().toLowerCase();
+    const allCommentsCount = documents.filter((doc) => String(doc?.trigger_type || 'keywords').trim().toLowerCase() === 'all_comments').length;
+    const keywordCount = documents.filter((doc) => String(doc?.trigger_type || 'keywords').trim().toLowerCase() !== 'all_comments').length;
+
+    if (normalizedTriggerType === 'all_comments' && allCommentsCount >= 1) {
+        return 'Only one live all-comments automation can be active per account.';
+    }
+
+    if (normalizedTriggerType !== 'all_comments' && keywordCount >= 5) {
+        return 'Only five live keyword automations are allowed per account.';
+    }
+
+    return null;
+};
+
+const getCollectionAttributeInfo = async (databases, collectionId) => {
+    if (collectionAttributeCache.has(collectionId)) return collectionAttributeCache.get(collectionId);
+    const res = await databases.listAttributes(
+        process.env.APPWRITE_DATABASE_ID,
+        collectionId,
+        [Query.limit(100)]
+    );
+    const attributes = Array.isArray(res?.attributes) ? res.attributes : [];
+    const keys = new Set(attributes.map((attr) => attr.key));
+    const required = new Set(
+        attributes
+            .filter((attr) => attr.required)
+            .map((attr) => attr.key)
+    );
+    const info = { keys, required };
+    collectionAttributeCache.set(collectionId, info);
+    return info;
+};
+
+const sanitizePayloadForCollection = (payload, info) => {
+    const out = {};
+    for (const [key, value] of Object.entries(payload || {})) {
+        if (info.keys.has(key) && value !== undefined) out[key] = value;
+    }
+    return out;
+};
+
+const extractUnknownAttributeName = (error) => {
+    const message = String(error?.message || '');
+    const match = message.match(/Unknown attribute:\s*"([^"]+)"/i);
+    return match?.[1] ? String(match[1]).trim() : '';
+};
+
+const createDocumentWithUnknownAttributeRetry = async ({
+    databases,
+    databaseId,
+    collectionId,
+    documentId,
+    payload,
+    permissions
+}) => {
+    const nextPayload = { ...(payload || {}) };
+    const removedAttributes = new Set();
+
+    while (true) {
+        try {
+            return await databases.createDocument(
+                databaseId,
+                collectionId,
+                documentId,
+                nextPayload,
+                permissions
+            );
+        } catch (error) {
+            const unknownAttribute = extractUnknownAttributeName(error);
+            if (!unknownAttribute || removedAttributes.has(unknownAttribute) || !(unknownAttribute in nextPayload)) {
+                throw error;
+            }
+            delete nextPayload[unknownAttribute];
+            removedAttributes.add(unknownAttribute);
+            console.warn(`Retrying create without unsupported attribute "${unknownAttribute}" on ${collectionId}`);
+        }
+    }
+};
 
 const listAllDocuments = async (databases, collectionId, queries) => {
     const docs = [];
@@ -120,11 +631,337 @@ const matchesIgAccountIdentifier = (account, identifier) => {
 
 const listOwnedIgAccounts = async (databases, appUserId, extraQueries = []) => {
     const databaseId = process.env.APPWRITE_DATABASE_ID;
-    return databases.listDocuments(
+    return retryAppwriteOperation(() => databases.listDocuments(
         databaseId,
         IG_ACCOUNTS_COLLECTION_ID,
         [Query.equal('user_id', appUserId), ...extraQueries]
-    );
+    ));
+};
+
+const serializeIgAccount = (account) => {
+    const access = normalizeAccountAccess(account);
+    return {
+        id: account.$id,
+        ig_user_id: getIgProfessionalAccountId(account),
+        username: account.username,
+        name: account.name || '',
+        profile_picture_url: account.profile_picture_url,
+        status: account.status || 'active',
+        linked_at: account.linked_at,
+        token_expires_at: account.token_expires_at,
+        admin_disabled: access.admin_disabled,
+        plan_locked: access.plan_locked,
+        access_override_enabled: access.access_override_enabled,
+        effective_access: access.effective_access,
+        access_state: access.access_state,
+        access_reason: access.access_reason
+    };
+};
+
+const fetchInstagramProfileSnapshot = async (accessToken) => {
+    const response = await axios.get('https://graph.instagram.com/v24.0/me', {
+        params: {
+            fields: 'user_id,username,name,profile_picture_url,followers_count,follows_count,media_count,biography,website',
+            access_token: accessToken
+        }
+    });
+    return response.data || {};
+};
+
+const ACCOUNT_INSIGHT_DEFINITIONS = [
+    { key: 'reach', label: 'Reach', supportsPeriod: true },
+    { key: 'views', label: 'Views', supportsPeriod: true },
+    { key: 'accounts_engaged', label: 'Accounts Engaged', supportsPeriod: true },
+    { key: 'profile_links_taps', label: 'Profile Link Taps', supportsPeriod: true },
+    { key: 'follower_count', label: 'Followers', supportsPeriod: false },
+    { key: 'online_followers', label: 'Online Followers', supportsPeriod: false, audience: true }
+];
+
+const MEDIA_INSIGHT_DEFINITIONS = [
+    { key: 'likes', label: 'Likes' },
+    { key: 'comments', label: 'Comments' },
+    { key: 'saved', label: 'Saved' },
+    { key: 'shares', label: 'Shares' },
+    { key: 'reach', label: 'Reach' },
+    { key: 'views', label: 'Views' },
+    { key: 'total_interactions', label: 'Total Interactions' },
+    { key: 'replies', label: 'Replies' },
+    { key: 'follows', label: 'Follows' },
+    { key: 'profile_visits', label: 'Profile Visits' },
+    { key: 'navigation', label: 'Navigation' }
+];
+
+const SUPPORTED_ACCOUNT_PERIODS = new Set(['day', 'week', 'days_28']);
+
+const normalizeInsightsPeriod = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return SUPPORTED_ACCOUNT_PERIODS.has(normalized) ? normalized : 'days_28';
+};
+
+const coerceNumericInsightValue = (value) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) return Number(value);
+    return null;
+};
+
+const buildInsightSeries = (values) => {
+    const entries = Array.isArray(values) ? values : [];
+    return entries
+        .map((entry) => ({
+            end_time: entry?.end_time || null,
+            value: coerceNumericInsightValue(entry?.value)
+        }))
+        .filter((entry) => entry.value != null);
+};
+
+const fetchInstagramInsightMetric = async ({
+    path = '/me',
+    metric,
+    accessToken,
+    period = null
+}) => {
+    const response = await axios.get(`https://graph.instagram.com/v24.0${path}/insights`, {
+        params: {
+            metric,
+            ...(period ? { period } : {}),
+            access_token: accessToken
+        }
+    });
+    return response.data?.data?.[0] || null;
+};
+
+const fetchRecentInstagramMedia = async (accessToken, limit = 8) => {
+    const response = await axios.get('https://graph.instagram.com/v24.0/me/media', {
+        params: {
+            fields: 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp',
+            access_token: accessToken,
+            limit: Math.max(1, Math.min(limit, 12))
+        }
+    });
+    return Array.isArray(response.data?.data) ? response.data.data : [];
+};
+
+const fetchRichInstagramInsights = async ({
+    accessToken,
+    period = 'days_28'
+}) => {
+    const normalizedPeriod = normalizeInsightsPeriod(period);
+    const profileSnapshot = await fetchInstagramProfileSnapshot(accessToken);
+    const unsupported_metrics = [];
+    const account_metrics = {};
+    const account_timeseries = {};
+    const audience = {};
+
+    for (const definition of ACCOUNT_INSIGHT_DEFINITIONS) {
+        try {
+            const rawMetric = await fetchInstagramInsightMetric({
+                metric: definition.key,
+                period: definition.supportsPeriod ? normalizedPeriod : 'day',
+                accessToken
+            });
+            if (!rawMetric) {
+                unsupported_metrics.push(definition.key);
+                continue;
+            }
+            const rawValues = Array.isArray(rawMetric.values) ? rawMetric.values : [];
+            const numericSeries = buildInsightSeries(rawValues);
+            const rawLatest = rawValues[0]?.value;
+            const latestValue = coerceNumericInsightValue(rawLatest);
+
+            if (definition.audience && rawLatest && typeof rawLatest === 'object') {
+                audience[definition.key] = rawLatest;
+            } else if (latestValue != null) {
+                account_metrics[definition.key] = {
+                    label: definition.label,
+                    value: latestValue,
+                    period: definition.supportsPeriod ? normalizedPeriod : 'day'
+                };
+            }
+
+            if (numericSeries.length > 0) {
+                account_timeseries[definition.key] = {
+                    label: definition.label,
+                    series: numericSeries,
+                    period: definition.supportsPeriod ? normalizedPeriod : 'day'
+                };
+            }
+        } catch (_) {
+            unsupported_metrics.push(definition.key);
+        }
+    }
+
+    const recentMedia = await fetchRecentInstagramMedia(accessToken, 8).catch(() => []);
+    const media_items = await Promise.all(recentMedia.slice(0, 6).map(async (item) => {
+        const metrics = {};
+        const mediaUnsupportedMetrics = [];
+
+        if (String(item?.media_type || '').toUpperCase() === 'CAROUSEL_ALBUM') {
+            return {
+                ...item,
+                metrics,
+                unsupported_metrics: MEDIA_INSIGHT_DEFINITIONS.map((entry) => entry.key),
+                score: 0
+            };
+        }
+
+        for (const definition of MEDIA_INSIGHT_DEFINITIONS) {
+            try {
+                const rawMetric = await fetchInstagramInsightMetric({
+                    path: `/${item.id}`,
+                    metric: definition.key,
+                    accessToken
+                });
+                const rawValue = rawMetric?.values?.[0]?.value;
+                const value = coerceNumericInsightValue(rawValue);
+                if (value == null) {
+                    mediaUnsupportedMetrics.push(definition.key);
+                    continue;
+                }
+                metrics[definition.key] = {
+                    label: definition.label,
+                    value
+                };
+            } catch (_) {
+                mediaUnsupportedMetrics.push(definition.key);
+            }
+        }
+
+        const score = Number(
+            metrics.total_interactions?.value
+            || metrics.views?.value
+            || metrics.reach?.value
+            || 0
+        );
+
+        return {
+            ...item,
+            metrics,
+            unsupported_metrics: mediaUnsupportedMetrics,
+            score
+        };
+    }));
+
+    media_items.sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+
+    return {
+        period: normalizedPeriod,
+        summary: {
+            followers: Number(profileSnapshot.followers_count || 0),
+            following: Number(profileSnapshot.follows_count || 0),
+            media_count: Number(profileSnapshot.media_count || 0),
+            username: profileSnapshot.username || '',
+            name: profileSnapshot.name || '',
+            biography: profileSnapshot.biography || '',
+            website: profileSnapshot.website || '',
+            profile_picture_url: profileSnapshot.profile_picture_url || ''
+        },
+        account_metrics,
+        account_timeseries,
+        audience,
+        media_items,
+        unsupported_metrics
+    };
+};
+
+const fetchInstagramAccountInsights = async ({ accessToken, period = 'day' }) => {
+    const candidateMetrics = ['reach', 'views', 'accounts_engaged', 'profile_links_taps', 'follower_count'];
+    const insights = {};
+
+    for (const metric of candidateMetrics) {
+        try {
+            const response = await axios.get('https://graph.instagram.com/v24.0/me/insights', {
+                params: {
+                    metric,
+                    period: normalizeInsightsPeriod(period),
+                    access_token: accessToken
+                }
+            });
+            insights[metric] = response.data?.data?.[0] || null;
+        } catch (_) {
+            insights[metric] = null;
+        }
+    }
+
+    return insights;
+};
+
+const migrateLegacyReplyTemplatesForAccount = (databases, userId, targetAccountId) => {
+    setImmediate(async () => {
+        try {
+            const legacyTemplates = await databases.listDocuments(
+                process.env.APPWRITE_DATABASE_ID,
+                REPLY_TEMPLATES_COLLECTION_ID,
+                [Query.equal('user_id', String(userId)), Query.limit(100)]
+            );
+
+            const legacyWithoutAccount = legacyTemplates.documents.filter((doc) => !doc.account_id);
+            if (legacyWithoutAccount.length === 0) return;
+
+            await Promise.allSettled(
+                legacyWithoutAccount.map((doc) => databases.updateDocument(
+                    process.env.APPWRITE_DATABASE_ID,
+                    REPLY_TEMPLATES_COLLECTION_ID,
+                    doc.$id,
+                    { account_id: String(targetAccountId) }
+                ))
+            );
+        } catch (error) {
+            console.warn(`Reply template legacy migration skipped: ${error.message}`);
+        }
+    });
+};
+
+const resolveReplyTemplateAccount = async (databases, userId, templateDoc, requestedAccountId) => {
+    const accounts = await listOwnedIgAccounts(databases, userId);
+    const requestedAccount = requestedAccountId
+        ? accounts.documents.find((account) => matchesIgAccountIdentifier(account, requestedAccountId))
+        : null;
+
+    if (requestedAccountId && !requestedAccount) {
+        return { status: 404, error: 'Account not found' };
+    }
+
+    let resolvedAccountId = String(templateDoc.account_id || '').trim();
+    const storedAccount = resolvedAccountId
+        ? accounts.documents.find((account) => matchesIgAccountIdentifier(account, resolvedAccountId))
+        : null;
+
+    let shouldPersist = false;
+    if (!resolvedAccountId) {
+        const fallbackAccount = requestedAccount || accounts.documents[0];
+        if (!fallbackAccount) {
+            return { status: 400, error: 'account_id is required' };
+        }
+        resolvedAccountId = getIgProfessionalAccountId(fallbackAccount);
+        shouldPersist = true;
+    } else if (!storedAccount) {
+        const fallbackAccount = requestedAccount || accounts.documents[0];
+        if (!fallbackAccount) {
+            return { status: 403, error: 'Unauthorized' };
+        }
+        resolvedAccountId = getIgProfessionalAccountId(fallbackAccount);
+        shouldPersist = true;
+    }
+
+    if (requestedAccount && getIgProfessionalAccountId(requestedAccount) !== resolvedAccountId) {
+        return { status: 403, error: 'Unauthorized' };
+    }
+
+    if (shouldPersist && templateDoc.$id) {
+        try {
+            await databases.updateDocument(
+                process.env.APPWRITE_DATABASE_ID,
+                REPLY_TEMPLATES_COLLECTION_ID,
+                templateDoc.$id,
+                { account_id: resolvedAccountId }
+            );
+        } catch (error) {
+            console.warn(`Reply template account sync skipped for ${templateDoc.$id}: ${error.message}`);
+        }
+    }
+
+    templateDoc.account_id = resolvedAccountId;
+    return { accountId: resolvedAccountId, accounts };
 };
 
 const ensureKeywordConstraints = async (databases, { accountId, automationId, automationType, keywords }) => {
@@ -177,51 +1014,226 @@ const ensureKeywordConstraints = async (databases, { accountId, automationId, au
     return null;
 };
 
-const findKeywordConflicts = async (databases, { accountId, automationId, automationType, keywords }) => {
+const findKeywordConflicts = async (databases, { accountId, automationId, keywords }) => {
     const conflicts = [];
-    for (const keywordNormalized of keywords) {
-        if (automationType === 'global') {
-            const matches = await databases.listDocuments(
+    const normalizedAccountId = String(accountId || '').trim();
+    if (!normalizedAccountId) return conflicts;
+
+    for (const keywordNormalized of (Array.isArray(keywords) ? keywords : []).map((value) => normalizeKeywordToken(value)).filter(Boolean)) {
+        const matches = await databases.listDocuments(
+            process.env.APPWRITE_DATABASE_ID,
+            KEYWORDS_COLLECTION_ID,
+            [
+                Query.equal('account_id', normalizedAccountId),
+                Query.equal('keyword_normalized', keywordNormalized),
+                Query.limit(25)
+            ]
+        );
+
+        const conflict = (matches.documents || []).find((doc) => {
+            const docAutomationType = String(doc?.automation_type || '').trim().toLowerCase();
+            if (!KEYWORD_TYPES.has(docAutomationType)) return false;
+            return String(doc?.automation_id || '').trim() !== String(automationId || '').trim();
+        });
+
+        if (conflict) conflicts.push(keywordNormalized);
+    }
+
+    return Array.from(new Set(conflicts));
+};
+
+const extractModerationKeywordsFromRules = (rules) => {
+    const keywords = new Set();
+    (Array.isArray(rules) ? rules : []).forEach((rule) => {
+        const list = Array.isArray(rule?.keywords) ? rule.keywords : [];
+        list.forEach((keyword) => {
+            const normalized = normalizeKeywordToken(keyword);
+            if (normalized) keywords.add(normalized);
+        });
+    });
+    return Array.from(keywords);
+};
+
+const listCommentModerationDocuments = async (databases, { userId, accountIds }) => {
+    const docs = [];
+    const uniqueAccountIds = Array.from(new Set((accountIds || []).map((value) => String(value || '').trim()).filter(Boolean)));
+
+    for (const accountId of uniqueAccountIds) {
+        const result = await databases.listDocuments(
+            process.env.APPWRITE_DATABASE_ID,
+            COMMENT_MODERATION_COLLECTION_ID,
+            [Query.equal('user_id', userId), Query.equal('account_id', accountId), Query.limit(10)]
+        );
+        docs.push(...(result.documents || []));
+    }
+
+    return docs;
+};
+
+const buildCommentModerationRulesFromKeywordDocuments = (documents) => {
+    const rulesByAction = {
+        hide: new Set(),
+        delete: new Set()
+    };
+
+    (Array.isArray(documents) ? documents : []).forEach((doc) => {
+        const automationType = String(doc?.automation_type || '').trim().toLowerCase();
+        const action = automationType === COMMENT_MODERATION_AUTOMATION_TYPES.delete
+            ? 'delete'
+            : automationType === COMMENT_MODERATION_AUTOMATION_TYPES.hide
+                ? 'hide'
+                : null;
+        if (!action) return;
+
+        const keyword = normalizeKeywordToken(doc?.keyword_normalized || doc?.keyword);
+        if (keyword) {
+            rulesByAction[action].add(keyword);
+        }
+    });
+
+    return ['hide', 'delete']
+        .map((action) => ({
+            action,
+            keywords: Array.from(rulesByAction[action])
+        }))
+        .filter((rule) => rule.keywords.length > 0);
+};
+
+const listCommentModerationKeywordDocuments = async (databases, { accountId }) => (
+    listAllDocuments(databases, KEYWORDS_COLLECTION_ID, [
+        Query.equal('account_id', String(accountId)),
+        Query.equal('automation_type', Object.values(COMMENT_MODERATION_AUTOMATION_TYPES))
+    ])
+);
+
+const findModerationKeywordConflicts = async (databases, { userId, accountIds, keywords }) => {
+    const moderationDocs = await listCommentModerationDocuments(databases, { userId, accountIds });
+    const moderationKeywords = new Set();
+    const uniqueAccountIds = Array.from(new Set((accountIds || []).map((value) => String(value || '').trim()).filter(Boolean)));
+
+    moderationDocs.forEach((doc) => {
+        const rules = parseMaybeJson(doc.rules, []);
+        extractModerationKeywordsFromRules(rules).forEach((keyword) => moderationKeywords.add(keyword));
+    });
+
+    for (const accountId of uniqueAccountIds) {
+        const keywordDocs = await listCommentModerationKeywordDocuments(databases, { accountId });
+        buildCommentModerationRulesFromKeywordDocuments(keywordDocs)
+            .forEach((rule) => rule.keywords.forEach((keyword) => moderationKeywords.add(keyword)));
+    }
+
+    return Array.from(new Set(
+        (keywords || [])
+            .map((keyword) => normalizeKeywordToken(keyword))
+            .filter((keyword) => moderationKeywords.has(keyword))
+    ));
+};
+
+const findAutomationKeywordConflictsForModeration = async (databases, { accountId, keywords }) => {
+    const conflicts = [];
+
+    for (const keyword of (keywords || []).map((value) => normalizeKeywordToken(value)).filter(Boolean)) {
+        const result = await databases.listDocuments(
+            process.env.APPWRITE_DATABASE_ID,
+            KEYWORDS_COLLECTION_ID,
+            [
+                Query.equal('account_id', String(accountId)),
+                Query.equal('keyword_normalized', keyword),
+                Query.limit(5)
+            ]
+        );
+        const conflict = (result.documents || []).find((doc) => !Object.values(COMMENT_MODERATION_AUTOMATION_TYPES)
+            .includes(String(doc?.automation_type || '').trim().toLowerCase()));
+        if (conflict) conflicts.push(keyword);
+    }
+
+    return Array.from(new Set(conflicts));
+};
+
+const syncCommentModerationKeywordRecords = async (databases, { accountId, rules }) => {
+    const normalizedRules = (Array.isArray(rules) ? rules : [])
+        .map((rule) => ({
+            action: rule?.action === 'delete' ? 'delete' : 'hide',
+            keywords: Array.from(new Set(
+                (Array.isArray(rule?.keywords) ? rule.keywords : [])
+                    .map((keyword) => normalizeKeywordToken(keyword))
+                    .filter(Boolean)
+            ))
+        }))
+        .filter((rule) => rule.keywords.length > 0);
+
+    const deleteExisting = async (collectionId) => {
+        const existing = await listAllDocuments(databases, collectionId, [
+            Query.equal('account_id', String(accountId)),
+            Query.equal('automation_type', Object.values(COMMENT_MODERATION_AUTOMATION_TYPES))
+        ]);
+
+        for (const doc of existing) {
+            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, collectionId, doc.$id);
+        }
+    };
+
+    await deleteExisting(KEYWORDS_COLLECTION_ID);
+    await deleteExisting(KEYWORD_INDEX_COLLECTION_ID);
+
+    if (normalizedRules.length === 0) return;
+
+    const keywordCollectionInfo = await getCollectionAttributeInfo(databases, KEYWORDS_COLLECTION_ID);
+    const keywordIndexCollectionInfo = await getCollectionAttributeInfo(databases, KEYWORD_INDEX_COLLECTION_ID);
+
+    for (const rule of normalizedRules) {
+        const automationType = COMMENT_MODERATION_AUTOMATION_TYPES[rule.action];
+        const automationId = `comment_moderation_${rule.action}:${accountId}`;
+
+        for (const keywordNormalized of rule.keywords) {
+            const keywordSafe = String(keywordNormalized || '').slice(0, 255);
+            const keywordHash = computeKeywordHash(keywordNormalized);
+
+            const keywordPayload = {
+                automation_id: automationId,
+                account_id: String(accountId),
+                automation_type: automationType,
+                type: automationType,
+                keyword: keywordSafe,
+                keyword_normalized: keywordSafe,
+                keyword_hash: keywordHash,
+                match_type: 'exact',
+                is_active: true
+            };
+            if (keywordCollectionInfo.required.has('keywords')) {
+                keywordPayload.keywords = JSON.stringify([keywordSafe]);
+            }
+
+            await databases.createDocument(
                 process.env.APPWRITE_DATABASE_ID,
                 KEYWORDS_COLLECTION_ID,
-                [
-                    Query.equal('account_id', accountId),
-                    Query.equal('keyword_normalized', keywordNormalized),
-                    Query.limit(5)
-                ]
+                ID.unique(),
+                sanitizePayloadForCollection(keywordPayload, keywordCollectionInfo)
             );
-            const conflict = matches.documents.find(doc => doc.automation_id !== automationId);
-            if (conflict) conflicts.push(keywordNormalized);
-        } else {
-            const [typeMatches, globalMatches] = await Promise.all([
-                databases.listDocuments(
-                    process.env.APPWRITE_DATABASE_ID,
-                    KEYWORDS_COLLECTION_ID,
-                    [
-                        Query.equal('account_id', accountId),
-                        Query.equal('automation_type', automationType),
-                        Query.equal('keyword_normalized', keywordNormalized),
-                        Query.limit(5)
-                    ]
-                ),
-                databases.listDocuments(
-                    process.env.APPWRITE_DATABASE_ID,
-                    KEYWORDS_COLLECTION_ID,
-                    [
-                        Query.equal('account_id', accountId),
-                        Query.equal('automation_type', 'global'),
-                        Query.equal('keyword_normalized', keywordNormalized),
-                        Query.limit(5)
-                    ]
-                )
-            ]);
 
-            const combined = [...typeMatches.documents, ...globalMatches.documents];
-            const conflict = combined.find(doc => doc.automation_id !== automationId);
-            if (conflict) conflicts.push(keywordNormalized);
+            const keywordIndexPayload = {
+                account_id: String(accountId),
+                automation_id: automationId,
+                automation_type: automationType,
+                keyword_hash: keywordHash,
+                keyword: keywordSafe,
+                keyword_normalized: keywordSafe,
+                type: automationType,
+                match_type: 'exact',
+                is_active: true
+            };
+            if (keywordIndexCollectionInfo.required.has('keywords')) {
+                keywordIndexPayload.keywords = JSON.stringify([keywordSafe]);
+            }
+
+            await databases.createDocument(
+                process.env.APPWRITE_DATABASE_ID,
+                KEYWORD_INDEX_COLLECTION_ID,
+                ID.unique(),
+                sanitizePayloadForCollection(keywordIndexPayload, keywordIndexCollectionInfo)
+            );
         }
     }
-    return Array.from(new Set(conflicts));
 };
 
 const syncKeywordRecords = async (databases, { accountId, automationId, automationType, keywords, matchType }) => {
@@ -249,50 +1261,72 @@ const syncKeywordRecords = async (databases, { accountId, automationId, automati
 
         if (!normalizedKeywords || normalizedKeywords.length === 0) return;
 
+        const keywordCollectionInfo = await getCollectionAttributeInfo(databases, KEYWORDS_COLLECTION_ID);
+        const keywordIndexCollectionInfo = await getCollectionAttributeInfo(databases, KEYWORD_INDEX_COLLECTION_ID);
+
         for (const keywordNormalized of normalizedKeywords) {
             const keywordValue = String(keywordNormalized || '').trim();
             if (!keywordValue) continue;
             const keywordSafe = keywordValue.slice(0, 255);
             const keywordHash = computeKeywordHash(keywordNormalized);
-            try {
-                await databases.createDocument(
-                    process.env.APPWRITE_DATABASE_ID,
-                    KEYWORDS_COLLECTION_ID,
-                    ID.unique(),
-                    {
-                        automation_id: automationId,
-                        account_id: accountId,
-                        automation_type: automationType,
-                        type: automationType,
-                        keyword: keywordSafe,
-                        keyword_normalized: keywordSafe,
-                        keyword_hash: keywordHash,
-                        match_type: matchType || 'exact',
-                        is_active: true
-                    }
-                );
-            } catch (err) {
-                if (!isDuplicateDocError(err)) throw err;
-                // Duplicate keyword across automations; skip to keep save successful
-                continue;
+
+            const keywordPayload = {
+                automation_id: automationId,
+                account_id: accountId,
+                automation_type: automationType,
+                type: automationType,
+                keyword: keywordSafe,
+                keyword_normalized: keywordSafe,
+                keyword_hash: keywordHash,
+                match_type: matchType || 'exact',
+                is_active: true,
+            };
+            // Backward compatibility for legacy schemas that may still require "keywords".
+            if (keywordCollectionInfo.required.has('keywords')) {
+                keywordPayload.keywords = JSON.stringify([keywordSafe]);
             }
 
             try {
                 await databases.createDocument(
                     process.env.APPWRITE_DATABASE_ID,
-                    KEYWORD_INDEX_COLLECTION_ID,
+                    KEYWORDS_COLLECTION_ID,
                     ID.unique(),
-                    {
-                        account_id: accountId,
-                        keyword_hash: keywordHash,
-                        automation_id: automationId,
-                        automation_type: automationType
-                    }
+                    sanitizePayloadForCollection(keywordPayload, keywordCollectionInfo)
                 );
             } catch (err) {
-                if (!isDuplicateDocError(err)) throw err;
-                // Duplicate index entry; skip
-                continue;
+                if (isDuplicateDocError(err)) {
+                    throw new Error(`Keyword "${keywordSafe}" is already used in another automation.`);
+                }
+                throw err;
+            }
+
+            const keywordIndexPayload = {
+                account_id: accountId,
+                keyword_hash: keywordHash,
+                automation_id: automationId,
+                automation_type: automationType,
+                // Backward compatibility in case keyword_index carries legacy keyword fields.
+                keyword: keywordSafe,
+                keyword_normalized: keywordSafe,
+                type: automationType,
+                match_type: matchType || 'exact',
+                is_active: true,
+            };
+            if (keywordIndexCollectionInfo.required.has('keywords')) {
+                keywordIndexPayload.keywords = JSON.stringify([keywordSafe]);
+            }
+            try {
+                await databases.createDocument(
+                    process.env.APPWRITE_DATABASE_ID,
+                    KEYWORD_INDEX_COLLECTION_ID,
+                    ID.unique(),
+                    sanitizePayloadForCollection(keywordIndexPayload, keywordIndexCollectionInfo)
+                );
+            } catch (err) {
+                if (isDuplicateDocError(err)) {
+                    throw new Error(`Keyword "${keywordSafe}" is already indexed for another automation.`);
+                }
+                throw err;
             }
         }
     } catch (err) {
@@ -310,6 +1344,10 @@ const validateAutomationPayload = (automation) => {
     const templateType = automation.template_type;
     if (!templateType || !VALID_TEMPLATE_TYPES.has(templateType)) {
         errors.push('template_type is invalid or missing');
+        return errors;
+    }
+    const hasTemplateReference = !!String(automation.template_id || '').trim();
+    if (hasTemplateReference) {
         return errors;
     }
 
@@ -428,6 +1466,37 @@ const validateAutomationPayload = (automation) => {
         }
     }
 
+    const followersOnly = automation.followers_only === true;
+    const followersOnlyMessage = String(automation.followers_only_message || '').trim();
+    if (followersOnly && !followersOnlyMessage) {
+        errors.push('followers_only_message is required when followers_only is enabled');
+    }
+    if (followersOnlyMessage && byteLen(followersOnlyMessage) > FOLLOWERS_ONLY_MESSAGE_MAX) {
+        errors.push(`followers_only_message must be <= ${FOLLOWERS_ONLY_MESSAGE_MAX} UTF-8 bytes`);
+    }
+
+    const followersPrimaryButtonText = String(automation.followers_only_primary_button_text || '').trim();
+    const followersSecondaryButtonText = String(automation.followers_only_secondary_button_text || '').trim();
+    if (followersPrimaryButtonText && byteLen(followersPrimaryButtonText) > BUTTON_TITLE_MAX) {
+        errors.push(`followers_only_primary_button_text must be <= ${BUTTON_TITLE_MAX} UTF-8 bytes`);
+    }
+    if (followersSecondaryButtonText && byteLen(followersSecondaryButtonText) > BUTTON_TITLE_MAX) {
+        errors.push(`followers_only_secondary_button_text must be <= ${BUTTON_TITLE_MAX} UTF-8 bytes`);
+    }
+
+    const collectEmailPromptMessage = String(automation.collect_email_prompt_message || '').trim();
+    const collectEmailFailRetryMessage = String(automation.collect_email_fail_retry_message || '').trim();
+    const collectEmailSuccessReplyMessage = String(automation.collect_email_success_reply_message || '').trim();
+    if (collectEmailPromptMessage && byteLen(collectEmailPromptMessage) > TEXT_MAX) {
+        errors.push(`collect_email_prompt_message must be <= ${TEXT_MAX} UTF-8 bytes`);
+    }
+    if (collectEmailFailRetryMessage && byteLen(collectEmailFailRetryMessage) > TEXT_MAX) {
+        errors.push(`collect_email_fail_retry_message must be <= ${TEXT_MAX} UTF-8 bytes`);
+    }
+    if (collectEmailSuccessReplyMessage && byteLen(collectEmailSuccessReplyMessage) > TEXT_MAX) {
+        errors.push(`collect_email_success_reply_message must be <= ${TEXT_MAX} UTF-8 bytes`);
+    }
+
     return errors;
 };
 
@@ -457,13 +1526,120 @@ const listAllAutomations = async (databases, queries) => {
     return docs;
 };
 
+const toSafeString = (value, maxLen = null) => {
+    if (value === null || value === undefined) return '';
+    const out = typeof value === 'string' ? value : String(value);
+    if (typeof maxLen === 'number' && maxLen >= 0) return out.slice(0, maxLen);
+    return out;
+};
+
+const serializeStoredJsonField = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    return typeof value === 'string' ? value : JSON.stringify(value);
+};
+
+const buildAutomationDocumentData = ({
+    userId,
+    accountId,
+    automationType,
+    payload,
+    existingDocument = null
+}) => {
+    const source = existingDocument ? { ...existingDocument, ...payload } : { ...payload };
+    const keywordInfo = getKeywordInfo({
+        keyword: source.keyword,
+        keywords: source.keywords
+    });
+    const keywordArray = KEYWORD_TYPES.has(automationType) ? keywordInfo.keywords : [];
+    const title = toSafeString(source.title, 255);
+    const titleNormalized = normalizeTitle(title);
+    const followersOnly = source.followers_only === true;
+
+    return {
+        keywordArray,
+        titleNormalized,
+        docData: {
+            user_id: existingDocument?.user_id || userId,
+            account_id: existingDocument?.account_id || accountId,
+            automation_type: automationType,
+            title,
+            title_normalized: titleNormalized,
+            is_active: source.is_active !== undefined ? source.is_active : true,
+            keyword: keywordArray.join(','),
+            keywords: JSON.stringify(keywordArray),
+            keyword_match_type: toSafeString(source.keyword_match_type || 'exact', 50),
+            trigger_type: toSafeString(source.trigger_type || 'keywords', 50),
+            template_type: toSafeString(source.template_type || 'template_text', 50),
+            template_content: toSafeString(source.template_content, 3000),
+            template_id: source.template_id ? toSafeString(source.template_id, 255) : null,
+            buttons: serializeStoredJsonField(source.buttons),
+            template_elements: serializeStoredJsonField(source.template_elements),
+            replies: serializeStoredJsonField(source.replies),
+            media_url: toSafeString(source.media_url, MEDIA_URL_MAX),
+            media_id: source.media_id ? toSafeString(source.media_id, 100) : null,
+            use_latest_post: source.use_latest_post === true,
+            latest_post_type: toSafeString(source.latest_post_type || 'post', 50),
+            followers_only: followersOnly,
+            followers_only_message: toSafeString(
+                followersOnly
+                    ? (source.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
+                    : (source.followers_only_message || ''),
+                FOLLOWERS_ONLY_MESSAGE_MAX
+            ),
+            suggest_more_enabled: source.suggest_more_enabled === true,
+            private_reply_enabled: source.private_reply_enabled !== false,
+            share_to_admin_enabled: ['post', 'reel'].includes(String(automationType || '').trim().toLowerCase())
+                ? source.share_to_admin_enabled === true
+                : false,
+            once_per_user_24h: source.once_per_user_24h === true,
+            story_scope: automationType === 'story' ? 'shown' : toSafeString(source.story_scope || 'shown', 50),
+            collect_email_enabled: source.collect_email_enabled === true,
+            collect_email_only_gmail: source.collect_email_only_gmail === true,
+            followers_only_primary_button_text: toSafeString(
+                source.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
+                BUTTON_TITLE_MAX
+            ),
+            followers_only_secondary_button_text: toSafeString(
+                source.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
+                BUTTON_TITLE_MAX
+            ),
+            collect_email_prompt_message: toSafeString(
+                source.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT,
+                TEXT_MAX
+            ),
+            collect_email_fail_retry_message: toSafeString(
+                source.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
+                TEXT_MAX
+            ),
+            collect_email_success_reply_message: toSafeString(
+                source.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT,
+                TEXT_MAX
+            ),
+            seen_typing_enabled: source.seen_typing_enabled === true,
+            exclude_existing_customers: source.exclude_existing_customers === true,
+            send_to: toSafeString(source.send_to || 'everyone', 50),
+            delay_seconds: Number(source.delay_seconds || 0),
+            comment_reply: toSafeString(source.comment_reply ?? source.comment_reply_text, 1000),
+            linked_media_id: source.linked_media_id ? toSafeString(source.linked_media_id, 255) : null,
+            linked_media_url: toSafeString(source.linked_media_url, MEDIA_URL_MAX),
+        }
+    };
+};
+
+const getTitleScopedAutomationTypes = (automationType) => {
+    const normalized = String(automationType || '').toLowerCase();
+    if (normalized === 'dm' || normalized === 'global') return ['dm', 'global'];
+    return [normalized || 'dm'];
+};
+
 const hasDuplicateAutomationTitle = async (databases, { userId, accountId, automationType, titleNormalized, excludeId }) => {
     if (!titleNormalized) return false;
+    const scopedTypes = getTitleScopedAutomationTypes(automationType);
     try {
         const queries = [
             Query.equal('user_id', userId),
             Query.equal('account_id', accountId),
-            Query.equal('automation_type', automationType),
+            Query.equal('automation_type', scopedTypes),
             Query.equal('title_normalized', titleNormalized),
             Query.limit(5)
         ];
@@ -477,7 +1653,7 @@ const hasDuplicateAutomationTitle = async (databases, { userId, accountId, autom
         const fallback = await databases.listDocuments(
             process.env.APPWRITE_DATABASE_ID,
             AUTOMATIONS_COLLECTION_ID,
-            [Query.equal('user_id', userId), Query.equal('account_id', accountId), Query.equal('automation_type', automationType), Query.limit(200)]
+            [Query.equal('user_id', userId), Query.equal('account_id', accountId), Query.equal('automation_type', scopedTypes), Query.limit(200)]
         );
         return fallback.documents.some(d => d.$id !== excludeId && normalizeTitle(d.title) === titleNormalized);
     } catch (_) {
@@ -527,6 +1703,16 @@ const groupAutomationsByTemplate = (automations) => {
     return map;
 };
 
+const getAutomationsByTemplateSafe = async (databases, queries, contextLabel = 'template lookup') => {
+    try {
+        const automations = await listAllAutomations(databases, queries);
+        return groupAutomationsByTemplate(automations);
+    } catch (error) {
+        console.warn(`Automation lookup skipped during ${contextLabel}: ${error.message}`);
+        return new Map();
+    }
+};
+
 
 
 // ==============================================================================
@@ -539,7 +1725,7 @@ router.get('/auth/instagram', (req, res) => {
         return res.status(500).json({ error: 'Instagram integration is not configured.' });
     }
 
-    const scopes = 'instagram_business_basic,instagram_business_manage_messages';
+    const scopes = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_insights';
     const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${INSTAGRAM_APP_ID}&redirect_uri=${INSTAGRAM_REDIRECT_URI}&response_type=code&scope=${scopes}`;
 
     res.json({ url: authUrl });
@@ -588,6 +1774,23 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
             return res.status(400).json({ error: 'Failed to retrieve access token.' });
         }
 
+        const permissionsText = (() => {
+            if (Array.isArray(permissions)) {
+                return permissions.map((p) => String(p || '').trim()).filter(Boolean).join(',').slice(0, 1024);
+            }
+            if (typeof permissions === 'string') {
+                return permissions.slice(0, 1024);
+            }
+            if (permissions && typeof permissions === 'object') {
+                try {
+                    return JSON.stringify(permissions).slice(0, 1024);
+                } catch (_) {
+                    return '';
+                }
+            }
+            return '';
+        })();
+
         // Step 2: Exchange short-lived for long-lived
         const longLivedResponse = await axios.get('https://graph.instagram.com/access_token', {
             params: {
@@ -606,15 +1809,23 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
         // Step 3: Fetch Instagram user profile
         const profileResponse = await axios.get('https://graph.instagram.com/me', {
             params: {
-                fields: 'id,username,profile_picture_url',
+                fields: 'id,user_id,username,profile_picture_url',
                 access_token: longLivedToken
             }
         });
 
         const profileData = profileResponse.data;
-        const igProfessionalAccountId = profileData.id?.toString() || igUserId;
+        // Strict mapping from /me response:
+        // - user_id -> ig_user_id/account_id
+        // - id -> ig_scoped_id
+        const igProfessionalAccountId = (profileData.user_id?.toString() || igUserId || '').toString();
         const igUsername = profileData.username || 'Unknown';
         const profilePicUrl = profileData.profile_picture_url || '';
+        const resolvedScopedId = (profileData.id?.toString() || appScopedId || '').toString();
+
+        if (!igProfessionalAccountId) {
+            return res.status(400).json({ error: 'Failed to resolve Instagram user_id from Meta response.' });
+        }
 
         // Step 4: Check for duplicates and Save
         const serverClient = getAppwriteClient({ useApiKey: true });
@@ -639,21 +1850,35 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                     {
                         // user_id = app user id (owner)
                         user_id: user.$id,
-                        // ig_user_id = IG professional account id (webhook entry.id)
+                        // ig_user_id = Meta token response "user_id"
                         ig_user_id: igProfessionalAccountId,
                         account_id: igProfessionalAccountId,
-                        // ig_scoped_id = app-scoped id from Meta token response field "id"
-                        ig_scoped_id: appScopedId,
+                        // ig_scoped_id = Meta token response "id" (app-scoped id)
+                        ig_scoped_id: resolvedScopedId || existingAccount.ig_scoped_id || '',
                         username: igUsername,
                         profile_picture_url: profilePicUrl,
                         access_token: longLivedToken,
                         token_expires_at: tokenExpiresAt,
-                        permissions,
+                        permissions: permissionsText,
+                        status: 'active',
+                        is_active: true,
+                        linked_at: new Date().toISOString(),
                     }
                 );
+                const refreshedProfileContext = await resolveUserPlanContext(databases, user.$id);
+                await recomputeAccountAccessForUser(databases, user.$id, refreshedProfileContext.profile);
                 return res.json({ message: `Instagram account @${igUsername} updated successfully.` });
             }
         } else {
+            const connectionLimitError = await enforceInstagramConnectionLimit(
+                databases,
+                user.$id,
+                igProfessionalAccountId
+            );
+            if (connectionLimitError) {
+                return res.status(403).json(connectionLimitError);
+            }
+
             // Create
             await databases.createDocument(
                 process.env.APPWRITE_DATABASE_ID,
@@ -662,22 +1887,30 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                 {
                     // user_id = app user id (owner)
                     user_id: user.$id,
-                    // ig_user_id = IG professional account id (webhook entry.id)
+                    // ig_user_id = Meta token response "user_id"
                     ig_user_id: igProfessionalAccountId,
                     account_id: igProfessionalAccountId,
-                    // ig_scoped_id = app-scoped id from Meta token response field "id"
-                    ig_scoped_id: appScopedId,
+                    // ig_scoped_id = Meta token response "id" (app-scoped id)
+                    ig_scoped_id: resolvedScopedId,
                     username: igUsername,
                     profile_picture_url: profilePicUrl,
                     access_token: longLivedToken,
                     token_expires_at: tokenExpiresAt,
-                    permissions,
-                    linked_at: new Date().toISOString()
+                    permissions: permissionsText,
+                    linked_at: new Date().toISOString(),
+                    admin_disabled: false,
+                    plan_locked: false,
+                    access_override_enabled: false,
+                    effective_access: true,
+                    access_state: 'active',
+                    access_reason: null
                 },
                 [
                     Permission.read(Role.user(user.$id))
                 ]
             );
+            const refreshedProfileContext = await resolveUserPlanContext(databases, user.$id);
+            await recomputeAccountAccessForUser(databases, user.$id, refreshedProfileContext.profile);
             return res.json({ message: `Instagram account @${igUsername} linked successfully.` });
         }
 
@@ -693,19 +1926,16 @@ router.get('/account/ig-accounts', loginRequired, async (req, res) => {
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
 
+        const profileContext = await resolveUserPlanContext(databases, req.user.$id);
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const recomputedAccounts = await recomputeAccountAccessForUser(
+            databases,
+            req.user.$id,
+            profileContext.profile,
+            accounts.documents || []
+        );
 
-        // Sanitize
-        const safeAccounts = accounts.documents.map(acc => ({
-            id: acc.$id,
-            ig_user_id: getIgProfessionalAccountId(acc),
-            username: acc.username,
-            name: acc.name || '',
-            profile_picture_url: acc.profile_picture_url,
-            status: acc.status || 'active',
-            linked_at: acc.linked_at,
-            token_expires_at: acc.token_expires_at
-        }));
+        const safeAccounts = recomputedAccounts.map(serializeIgAccount);
 
         res.json({ ig_accounts: safeAccounts });
     } catch (err) {
@@ -786,9 +2016,12 @@ router.post('/account/ig-accounts/relink/:accountId', loginRequired, async (req,
             accountId,
             {
                 status: 'active',
-                is_active: true
+                is_active: true,
+                linked_at: new Date().toISOString()
             }
         );
+        const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        await recomputeAccountAccessForUser(databases, req.user.$id, profileContext.profile);
 
         return res.json({ message: 'Instagram account relinked successfully.' });
     } catch (err) {
@@ -806,24 +2039,29 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
         const databases = new Databases(serverClient);
 
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        const recomputedAccounts = await recomputeAccountAccessForUser(
+            databases,
+            req.user.$id,
+            profileContext.profile,
+            accounts.documents || []
+        );
 
-        if (accounts.total === 0) return res.status(404).json({ error: 'No Instagram account linked.' });
+        if (recomputedAccounts.length === 0) return res.status(404).json({ error: 'No Instagram account linked.' });
 
         const account = account_id
-            ? accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id))
-            : accounts.documents[0];
+            ? recomputedAccounts.find((doc) => matchesIgAccountIdentifier(doc, account_id))
+            : recomputedAccounts.find((doc) => doc.effective_access === true) || recomputedAccounts[0];
         if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
+        if (account.effective_access !== true) {
+            return res.status(403).json(buildInstagramAccountAccessError(account));
+        }
         const accessToken = account.access_token;
 
         // Fetch profile info, stories, live status, and media (for reel count) in parallel
         const [profileResult, storiesResult, liveResult, reelsCountResult] = await Promise.allSettled([
             // 1. Profile info from /me
-            axios.get('https://graph.instagram.com/v24.0/me', {
-                params: {
-                    fields: 'user_id,username,name,profile_picture_url,followers_count,follows_count,media_count,biography,website',
-                    access_token: accessToken
-                }
-            }),
+            fetchInstagramProfileSnapshot(accessToken).then((data) => ({ data })),
             // 2. Stories count
             axios.get('https://graph.instagram.com/v24.0/me/stories', {
                 params: {
@@ -926,10 +2164,94 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
     }
 });
 
+router.get('/instagram/insights', loginRequired, async (req, res) => {
+    try {
+        const { account_id, period = 'days_28' } = req.query;
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+        const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const recomputedAccounts = await recomputeAccountAccessForUser(
+            databases,
+            req.user.$id,
+            profileContext.profile,
+            accounts.documents || []
+        );
+
+        const account = account_id
+            ? recomputedAccounts.find((doc) => matchesIgAccountIdentifier(doc, account_id))
+            : recomputedAccounts.find((doc) => doc.effective_access === true) || recomputedAccounts[0];
+        if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
+        if (account.effective_access !== true) {
+            return res.status(403).json(buildInstagramAccountAccessError(account));
+        }
+
+        const insights = await fetchRichInstagramInsights({
+            accessToken: account.access_token,
+            period: String(period || 'days_28')
+        });
+
+        return res.json({
+            account: serializeIgAccount(account),
+            ...insights,
+            insights_available: Object.keys(insights.account_metrics || {}).length > 0
+                || Object.keys(insights.account_timeseries || {}).length > 0
+                || (insights.media_items || []).some((item) => Object.keys(item.metrics || {}).length > 0)
+        });
+    } catch (err) {
+        console.error(`IG Insights Error: ${err.message}`);
+        return res.status(500).json({ error: 'Failed to fetch Instagram insights.' });
+    }
+});
+
+router.get('/instagram/insights-summary', loginRequired, async (req, res) => {
+    try {
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+        const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const recomputedAccounts = await recomputeAccountAccessForUser(
+            databases,
+            req.user.$id,
+            profileContext.profile,
+            accounts.documents || []
+        );
+
+        const account = req.query?.account_id
+            ? recomputedAccounts.find((doc) => matchesIgAccountIdentifier(doc, req.query.account_id))
+            : recomputedAccounts.find((doc) => doc.effective_access === true) || recomputedAccounts[0];
+        if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
+        if (account.effective_access !== true) {
+            return res.status(403).json(buildInstagramAccountAccessError(account));
+        }
+
+        const richInsights = await fetchRichInstagramInsights({
+            accessToken: account.access_token,
+            period: String(req.query?.period || 'days_28')
+        });
+
+        const legacyInsights = await fetchInstagramAccountInsights({
+            accessToken: account.access_token,
+            period: String(req.query?.period || 'days_28')
+        });
+
+        return res.json({
+            account: serializeIgAccount(account),
+            period: richInsights.period,
+            summary: richInsights.summary,
+            insights: legacyInsights,
+            insights_available: Object.keys(richInsights.account_metrics || {}).length > 0
+        });
+    } catch (err) {
+        console.error(`IG Insights Summary Error: ${err.message}`);
+        return res.status(500).json({ error: 'Failed to fetch Instagram insights.' });
+    }
+});
+
 // Get Media
 router.get('/instagram/media', loginRequired, async (req, res) => {
     try {
-        const { type, after } = req.query;
+        const { account_id, type, after } = req.query;
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
@@ -938,13 +2260,19 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
 
         if (accounts.total === 0) return res.status(404).json({ error: 'No Instagram account linked.' });
 
-        const account = accounts.documents[0];
+        const account = account_id
+            ? accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id))
+            : accounts.documents[0];
+        if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
+        const normalizedAccountId = getIgProfessionalAccountId(account);
         const accessToken = account.access_token;
 
-        const apiEdge = type === 'story' ? 'stories' : 'media';
+        const apiEdge = type === 'story' ? 'stories' : type === 'live' ? 'live_media' : 'media';
 
         const params = {
-            fields: 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,shortcode',
+            fields: type === 'live'
+                ? 'id,status'
+                : 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,shortcode',
             access_token: accessToken,
             limit: 25
         };
@@ -956,15 +2284,63 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
         const mediaItems = data.data || [];
 
         // Filter logic similar to Python
-        const filteredItems = mediaItems.filter(item => {
-            if (!type) return true;
-            if (type === 'reel') return item.media_type === 'VIDEO';
-            if (type === 'post') return ['IMAGE', 'CAROUSEL_ALBUM'].includes(item.media_type);
-            return true;
-        });
+        const filteredItems = type === 'live'
+            ? mediaItems.map((item) => ({
+                id: item.id,
+                caption: item.status === 'LIVE' ? 'Live session active' : 'Live session',
+                media_type: 'VIDEO',
+                media_url: '',
+                thumbnail_url: '',
+                permalink: '',
+                timestamp: new Date().toISOString(),
+                status: item.status || 'LIVE'
+            }))
+            : mediaItems.filter(item => {
+                if (!type) return true;
+                if (type === 'reel') return item.media_type === 'VIDEO';
+                if (type === 'post') return ['IMAGE', 'CAROUSEL_ALBUM'].includes(item.media_type);
+                return true;
+            });
 
-        // Add has_automation
-        filteredItems.forEach(item => item.has_automation = false);
+        const automationTypes = (() => {
+            if (type === 'post') return ['post', 'comment'];
+            if (type === 'reel') return ['reel'];
+            if (type === 'story') return ['story'];
+            if (type === 'live') return ['live'];
+            return ['post', 'comment', 'reel', 'story', 'live'];
+        })();
+
+        let automationByMediaId = new Map();
+        try {
+            const automationDocs = await databases.listDocuments(
+                process.env.APPWRITE_DATABASE_ID,
+                AUTOMATIONS_COLLECTION_ID,
+                [
+                    Query.equal('user_id', req.user.$id),
+                    Query.equal('account_id', normalizedAccountId),
+                    Query.equal('automation_type', automationTypes),
+                    Query.limit(200)
+                ]
+            );
+
+            for (const doc of (automationDocs.documents || [])) {
+                const mediaId = String(doc.media_id || '').trim();
+                if (!mediaId || automationByMediaId.has(mediaId)) continue;
+                automationByMediaId.set(mediaId, {
+                    automation_id: doc.$id,
+                    automation_type: doc.automation_type || null
+                });
+            }
+        } catch (_) { }
+
+        filteredItems.forEach(item => {
+            const match = automationByMediaId.get(String(item.id || '').trim());
+            item.has_automation = Boolean(match);
+            if (match) {
+                item.automation_id = match.automation_id;
+                item.automation_type = match.automation_type;
+            }
+        });
 
         res.json({
             data: filteredItems,
@@ -984,7 +2360,7 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
 // AUTH: Instagram URL (sidebar connect button)
 // ============================================================================
 router.get('/auth/instagram/url', loginRequired, async (req, res) => {
-    const scopes = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish';
+    const scopes = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights';
     const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${INSTAGRAM_APP_ID}&redirect_uri=${INSTAGRAM_REDIRECT_URI}&response_type=code&scope=${scopes}`;
     res.json({ url: authUrl });
 });
@@ -992,34 +2368,6 @@ router.get('/auth/instagram/url', loginRequired, async (req, res) => {
 // ============================================================================
 // SYNC PROFILE (update IG account profile data in Appwrite)
 // ============================================================================
-router.post('/account/ig-accounts/sync-profile', loginRequired, async (req, res) => {
-    try {
-        const { account_id, profile_picture_url, username, name } = req.body;
-        if (!account_id) return res.status(400).json({ error: 'account_id is required' });
-
-        const serverClient = getAppwriteClient({ useApiKey: true });
-        const databases = new Databases(serverClient);
-
-        // Verify ownership
-        const doc = await databases.getDocument(process.env.APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, account_id);
-        if (!isOwnedIgAccount(doc, req.user.$id)) return res.status(403).json({ error: 'Unauthorized' });
-
-        const updateData = {};
-        if (profile_picture_url !== undefined) updateData.profile_picture_url = profile_picture_url;
-        if (username !== undefined) updateData.username = username;
-        if (name !== undefined) updateData.name = name;
-
-        if (Object.keys(updateData).length === 0) return res.status(400).json({ error: 'No fields to update' });
-
-        await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, account_id, updateData);
-        res.json({ message: 'Profile synced successfully' });
-    } catch (err) {
-        console.error(`Sync Profile Error: ${err.message}`);
-        if (err.code === 404) return res.status(404).json({ error: 'Account not found' });
-        res.status(500).json({ error: 'Failed to sync profile' });
-    }
-});
-
 // ============================================================================
 // DASHBOARD COUNTS
 // ============================================================================
@@ -1028,34 +2376,336 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
         const { account_id } = req.query;
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        const recomputedAccounts = await recomputeAccountAccessForUser(
+            databases,
+            req.user.$id,
+            profileContext.profile,
+            accounts.documents || []
+        );
+        const igAccount = recomputedAccounts.find(a => matchesIgAccountIdentifier(a, account_id));
+        if (!igAccount) return res.status(404).json({ error: 'Account not found' });
+        if (igAccount.effective_access !== true) {
+            return res.status(403).json(buildInstagramAccountAccessError(igAccount));
+        }
+        const normalizedAccountId = getIgProfessionalAccountId(igAccount);
         const userId = req.user.$id;
+        const ownedAccounts = { documents: recomputedAccounts };
 
         const queries = [Query.equal('user_id', userId)];
         let templateQueries = [Query.equal('user_id', userId)];
+        let targetAccountId = null;
         if (account_id) {
-            const accounts = await listOwnedIgAccounts(databases, userId);
-            const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
+            const account = ownedAccounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
             if (!account) return res.status(404).json({ error: 'Account not found' });
-            const targetAccountId = getIgProfessionalAccountId(account);
+            targetAccountId = getIgProfessionalAccountId(account);
             queries.push(Query.equal('account_id', targetAccountId));
             templateQueries.push(Query.equal('account_id', targetAccountId));
         }
+        const allOwnedAccountIds = ownedAccounts.documents
+            .map((doc) => getIgProfessionalAccountId(doc))
+            .filter(Boolean);
+        const accountScopedQueries = targetAccountId
+            ? [Query.equal('account_id', targetAccountId)]
+            : (allOwnedAccountIds.length > 0 ? [Query.equal('account_id', allOwnedAccountIds)] : []);
 
-        const [templatesResult, mentionsResult, suggestMoreResult] = await Promise.allSettled([
+        const [templatesResult, mentionsResult, welcomeMessageResult, suggestMoreResult, emailCollectorsResult, profileResult, logsResult] = await Promise.allSettled([
             databases.listDocuments(process.env.APPWRITE_DATABASE_ID, REPLY_TEMPLATES_COLLECTION_ID, templateQueries.concat([Query.limit(1)])),
-            databases.listDocuments(process.env.APPWRITE_DATABASE_ID, MENTIONS_COLLECTION_ID, queries.concat([Query.limit(1)])),
-            databases.listDocuments(process.env.APPWRITE_DATABASE_ID, SUGGEST_MORE_COLLECTION_ID, queries.concat([Query.limit(1)])),
+            listMentionsDocuments(databases, { userId, accountIds: targetAccountId || allOwnedAccountIds, limit: 1 }),
+            databases.listDocuments(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, queries.concat([Query.equal('automation_type', 'welcome_message'), Query.limit(1)])),
+            listSuggestMoreDocuments(databases, { userId, accountIds: targetAccountId || allOwnedAccountIds, limit: 1 }),
+            databases.listDocuments(process.env.APPWRITE_DATABASE_ID, AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID, accountScopedQueries.concat([Query.limit(1)])),
+            databases.listDocuments(process.env.APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [Query.equal('user_id', userId), Query.limit(1)]),
+            databases.listDocuments(process.env.APPWRITE_DATABASE_ID, LOGS_COLLECTION_ID, accountScopedQueries.concat([
+                Query.greaterThanEqual('sent_at', new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString()),
+                Query.limit(5000)
+            ]))
         ]);
+
+        const profile = profileResult.status === 'fulfilled' ? profileResult.value.documents[0] || null : null;
+        const logs = logsResult.status === 'fulfilled' ? logsResult.value.documents || [] : [];
+        const successfulLogs = logs.filter((entry) => String(entry.status || '').toLowerCase() === 'success').length;
+        const replyRate = logs.length > 0 ? Math.round((successfulLogs / logs.length) * 100) : 0;
+        const reelReplies = logs.filter((entry) => String(entry.automation_type || '').toLowerCase() === 'reel').length;
+        const postReplies = logs.filter((entry) => ['comment', 'post'].includes(String(entry.automation_type || '').toLowerCase())).length;
+        const hourlyLimit = Number(profile?.hourly_action_limit || 0);
+        const dailyLimit = Number(profile?.daily_action_limit || 0);
+        const monthlyLimit = Number(profile?.monthly_action_limit || 0);
+        const now = Date.now();
+        const countInWindow = (windowMs) => logs.reduce((count, entry) => {
+            const raw = entry.sent_at || entry.created_at;
+            if (!raw) return count;
+            const ts = new Date(raw).getTime();
+            if (Number.isNaN(ts)) return count;
+            return ts >= now - windowMs ? count + 1 : count;
+        }, 0);
+        const hourlyUsage = countInWindow(60 * 60 * 1000);
+        const dailyUsage = countInWindow(24 * 60 * 60 * 1000);
+        const monthlyUsage = countInWindow(30 * 24 * 60 * 60 * 1000);
 
         res.json({
             reply_templates: templatesResult.status === 'fulfilled' ? templatesResult.value.total : 0,
             mention: mentionsResult.status === 'fulfilled' ? mentionsResult.value.total : 0,
+            welcome_message: welcomeMessageResult.status === 'fulfilled' ? welcomeMessageResult.value.total : 0,
             suggest_more: suggestMoreResult.status === 'fulfilled' ? suggestMoreResult.value.total : 0,
-            email_collector: 0
+            email_collector: emailCollectorsResult.status === 'fulfilled' ? emailCollectorsResult.value.total : 0,
+            gauge_metrics: {
+                dm_rate: replyRate,
+                actions_month: monthlyUsage,
+                actions_month_limit: Number(profile?.monthly_action_limit || 0),
+                reel_replies: reelReplies,
+                post_replies: postReplies,
+                hourly_actions_used: hourlyUsage,
+                hourly_action_limit: hourlyLimit,
+                daily_actions_used: dailyUsage,
+                daily_action_limit: dailyLimit,
+                monthly_actions_used: monthlyUsage,
+                monthly_action_limit: monthlyLimit
+            },
+            action_window_metrics: {
+                hourly_actions_used: hourlyUsage,
+                hourly_action_limit: hourlyLimit,
+                daily_actions_used: dailyUsage,
+                daily_action_limit: dailyLimit,
+                monthly_actions_used: monthlyUsage,
+                monthly_action_limit: monthlyLimit
+            }
         });
     } catch (err) {
         console.error(`Dashboard Counts Error: ${err.message}`);
-        res.json({ reply_templates: 0, mention: 0, suggest_more: 0, email_collector: 0 });
+        res.json({
+            reply_templates: 0,
+            mention: 0,
+            welcome_message: 0,
+            suggest_more: 0,
+            email_collector: 0,
+            gauge_metrics: {
+                dm_rate: 0,
+                actions_month: 0,
+                actions_month_limit: 0,
+                reel_replies: 0,
+                post_replies: 0,
+                hourly_actions_used: 0,
+                hourly_action_limit: 0,
+                daily_actions_used: 0,
+                daily_action_limit: 0,
+                monthly_actions_used: 0,
+                monthly_action_limit: 0
+            }
+        });
+    }
+});
+
+router.post('/account/ig-accounts/refresh-profiles', loginRequired, async (req, res) => {
+    try {
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+        const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const recomputedAccounts = await recomputeAccountAccessForUser(
+            databases,
+            req.user.$id,
+            profileContext.profile,
+            accounts.documents || []
+        );
+
+        const candidates = recomputedAccounts.filter((account) => isLinkedAccountActive(account) && account.access_token);
+        const results = await Promise.allSettled(candidates.map(async (account) => {
+            const snapshot = await fetchInstagramProfileSnapshot(account.access_token);
+            const patch = {};
+            if (snapshot.profile_picture_url !== undefined && snapshot.profile_picture_url !== account.profile_picture_url) {
+                patch.profile_picture_url = snapshot.profile_picture_url || '';
+            }
+            if (snapshot.username !== undefined && snapshot.username !== account.username) {
+                patch.username = snapshot.username || '';
+            }
+            if (snapshot.name !== undefined && snapshot.name !== account.name) {
+                patch.name = snapshot.name || '';
+            }
+            const nextAccount = Object.keys(patch).length > 0
+                ? await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, account.$id, patch)
+                : account;
+
+            return {
+                account_id: account.$id,
+                username: snapshot.username || account.username || '',
+                updated: Object.keys(patch).length > 0,
+                account: serializeIgAccount({
+                    ...nextAccount,
+                    ...normalizeAccountAccess(nextAccount)
+                })
+            };
+        }));
+
+        const refreshedAccounts = await recomputeAccountAccessForUser(databases, req.user.$id, profileContext.profile);
+        return res.json({
+            refreshed: results
+                .filter((item) => item.status === 'fulfilled')
+                .map((item) => item.value),
+            failed: results
+                .filter((item) => item.status === 'rejected')
+                .map((item) => ({ error: item.reason?.message || 'Failed to refresh profile' })),
+            ig_accounts: refreshedAccounts.map(serializeIgAccount)
+        });
+    } catch (err) {
+        console.error(`Refresh Profiles Error: ${err.message}`);
+        return res.status(500).json({ error: 'Failed to refresh Instagram profiles.' });
+    }
+});
+
+router.get('/instagram/media-proxy', loginRequired, async (req, res) => {
+    const mediaUrl = String(req.query.url || '').trim();
+    if (!mediaUrl) {
+        return res.status(400).json({ error: 'url is required' });
+    }
+
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(mediaUrl);
+    } catch (_) {
+        return res.status(400).json({ error: 'Invalid media URL.' });
+    }
+
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const isAllowedHost =
+        hostname === 'lookaside.fbsbx.com' ||
+        hostname.endsWith('.lookaside.fbsbx.com') ||
+        hostname === 'scontent.cdninstagram.com' ||
+        hostname.endsWith('.cdninstagram.com') ||
+        hostname === 'fbcdn.net' ||
+        hostname.endsWith('.fbcdn.net');
+
+    if (!isAllowedHost) {
+        return res.status(400).json({ error: 'Unsupported media host.' });
+    }
+
+    try {
+        const response = await axios.get(mediaUrl, {
+            responseType: 'arraybuffer',
+            timeout: 15000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+            }
+        });
+
+        res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+        res.setHeader('Cache-Control', 'private, max-age=300');
+        return res.status(200).send(Buffer.from(response.data));
+    } catch (err) {
+        const status = Number(err?.response?.status || 502);
+        if (status === 403 || status === 404) {
+            logWarnWithThrottle(`ig-media-proxy:${status}`, `IG Media Proxy returning empty response for status ${status}`);
+            return res.status(204).end();
+        }
+        logWarnWithThrottle(`ig-media-proxy:error:${status}`, `IG Media Proxy Error: ${err.message}`, 15_000);
+        return res.status(status).json({ error: 'Failed to proxy Instagram media.' });
+    }
+});
+
+const getLogWindowQueries = ({ accountId, startDate, endDate, limit = 200 }) => {
+    const queries = [Query.equal('account_id', String(accountId)), Query.orderDesc('sent_at'), Query.limit(limit)];
+    if (startDate) queries.push(Query.greaterThanEqual('sent_at', `${startDate}T00:00:00.000Z`));
+    if (endDate) queries.push(Query.lessThanEqual('sent_at', `${endDate}T23:59:59.999Z`));
+    return queries;
+};
+
+const escapeCsvValue = (value) => {
+    const stringValue = value === null || value === undefined ? '' : String(value);
+    if (/[",\n]/.test(stringValue)) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+};
+
+router.get('/instagram/automation-activity-log', loginRequired, async (req, res) => {
+    try {
+        const { account_id, start_date, end_date } = req.query;
+        const limit = Number(req.query.limit || 200);
+        if (!account_id) return res.status(400).json({ error: 'account_id is required' });
+
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
+        if (!account) return res.status(404).json({ error: 'Account not found' });
+        const targetAccountId = getIgProfessionalAccountId(account);
+
+        const result = await retryAppwriteOperation(() => databases.listDocuments(
+            process.env.APPWRITE_DATABASE_ID,
+            LOGS_COLLECTION_ID,
+            getLogWindowQueries({
+                accountId: targetAccountId,
+                startDate: start_date,
+                endDate: end_date,
+                limit: Math.min(Math.max(limit, 1), 5000)
+            })
+        ));
+
+        const logs = (result.documents || []).map((entry) => ({
+            id: entry.$id,
+            account_id: entry.account_id,
+            recipient_id: entry.recipient_id,
+            sender_name: entry.sender_name,
+            automation_id: entry.automation_id,
+            automation_type: entry.automation_type,
+            event_type: entry.event_type,
+            source: entry.source,
+            status: entry.status,
+            message: entry.message,
+            error_reason: entry.error_reason,
+            payload: parseMaybeJson(entry.payload, entry.payload),
+            sent_at: entry.sent_at,
+            created_at: entry.$createdAt
+        }));
+
+        return res.json({ logs, total: result.total || logs.length });
+    } catch (err) {
+        console.error(`Automation Activity Log Error: ${err.message}`);
+        return res.status(500).json({ error: 'Failed to fetch automation activity log.' });
+    }
+});
+
+router.get('/instagram/automation-activity-log/csv', loginRequired, async (req, res) => {
+    try {
+        const { account_id, start_date, end_date } = req.query;
+        if (!account_id) return res.status(400).json({ error: 'account_id is required' });
+
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
+        if (!account) return res.status(404).json({ error: 'Account not found' });
+        const targetAccountId = getIgProfessionalAccountId(account);
+
+        const result = await retryAppwriteOperation(() => databases.listDocuments(
+            process.env.APPWRITE_DATABASE_ID,
+            LOGS_COLLECTION_ID,
+            getLogWindowQueries({ accountId: targetAccountId, startDate: start_date, endDate: end_date, limit: 5000 })
+        ));
+
+        const rows = [
+            ['sent_at', 'status', 'automation_type', 'event_type', 'sender_name', 'recipient_id', 'message', 'source'],
+            ...(result.documents || []).map((entry) => ([
+                entry.sent_at,
+                entry.status,
+                entry.automation_type,
+                entry.event_type,
+                entry.sender_name,
+                entry.recipient_id,
+                entry.message,
+                entry.source
+            ]))
+        ];
+
+        const csv = rows.map((row) => row.map(escapeCsvValue).join(',')).join('\n');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="automation-activity-${targetAccountId}.csv"`);
+        return res.send(csv);
+    } catch (err) {
+        console.error(`Automation Activity CSV Error: ${err.message}`);
+        return res.status(500).json({ error: 'Failed to export automation activity log.' });
     }
 });
 
@@ -1065,8 +2715,8 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
 // Keyword availability (fast validation)
 router.post('/instagram/keywords/availability', loginRequired, async (req, res) => {
     try {
-        const accountId = req.query.account_id || req.body.account_id;
-        if (!accountId) return res.status(400).json({ error: 'account_id is required' });
+        const accountIdInput = req.query.account_id || req.body.account_id;
+        if (!accountIdInput) return res.status(400).json({ error: 'account_id is required' });
 
         const automationType = req.body.type || req.query.type || req.body.automation_type || 'dm';
         const automationId = req.body.automation_id || null;
@@ -1079,9 +2729,13 @@ router.post('/instagram/keywords/availability', loginRequired, async (req, res) 
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, accountIdInput));
+        if (!account) return res.status(404).json({ error: 'Account not found' });
+        const targetAccountId = getIgProfessionalAccountId(account);
 
         const conflicts = await findKeywordConflicts(databases, {
-            accountId,
+            accountId: targetAccountId,
             automationId,
             automationType,
             keywords: keywordArray
@@ -1097,7 +2751,7 @@ router.post('/instagram/keywords/availability', loginRequired, async (req, res) 
 // GET all automations for account
 router.get('/instagram/automations', loginRequired, async (req, res) => {
     try {
-        const { account_id, type } = req.query;
+        const { account_id, type, summary } = req.query;
         if (!account_id) return res.status(400).json({ error: 'account_id is required' });
 
         const serverClient = getAppwriteClient({ useApiKey: true });
@@ -1109,15 +2763,61 @@ router.get('/instagram/automations', loginRequired, async (req, res) => {
         queries.push(Query.limit(100));
 
         const result = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, queries);
+        const documents = result.documents.filter((doc) => {
+            if (String(doc?.automation_type || '').toLowerCase() !== 'story') {
+                return true;
+            }
+            return String(doc?.story_scope || 'shown').toLowerCase() === 'shown';
+        });
 
-        // Parse JSON string fields
-        const automations = result.documents.map(doc => {
+        const summaryMode = summary === '1' || summary === 'true';
+
+        const automations = documents.map(doc => {
             const parsed = { ...doc };
             try { if (typeof parsed.keywords === 'string') parsed.keywords = JSON.parse(parsed.keywords); } catch (e) { parsed.keywords = []; }
-            try { if (typeof parsed.buttons === 'string') parsed.buttons = JSON.parse(parsed.buttons); } catch (e) { }
-            try { if (typeof parsed.template_elements === 'string') parsed.template_elements = JSON.parse(parsed.template_elements); } catch (e) { }
-            try { if (typeof parsed.replies === 'string') parsed.replies = JSON.parse(parsed.replies); } catch (e) { }
-            return parsed;
+            if (!summaryMode) {
+                try { if (typeof parsed.buttons === 'string') parsed.buttons = JSON.parse(parsed.buttons); } catch (e) { }
+                try { if (typeof parsed.template_elements === 'string') parsed.template_elements = JSON.parse(parsed.template_elements); } catch (e) { }
+                try { if (typeof parsed.replies === 'string') parsed.replies = JSON.parse(parsed.replies); } catch (e) { }
+                return parsed;
+            }
+
+            const keywordList = Array.isArray(parsed.keywords)
+                ? parsed.keywords
+                : (typeof parsed.keyword === 'string'
+                    ? parsed.keyword.split(',').map((item) => String(item || '').trim()).filter(Boolean)
+                    : []);
+
+            return {
+                $id: parsed.$id,
+                $createdAt: parsed.$createdAt,
+                $updatedAt: parsed.$updatedAt,
+                account_id: parsed.account_id,
+                automation_type: parsed.automation_type,
+                title: parsed.title,
+                title_normalized: parsed.title_normalized,
+                trigger_type: parsed.trigger_type,
+                template_type: parsed.template_type,
+                template_id: parsed.template_id,
+                media_id: parsed.media_id,
+                media_url: parsed.media_url,
+                is_active: parsed.is_active !== false,
+                active: parsed.is_active !== false,
+                followers_only: parsed.followers_only === true,
+                followers_only_message: parsed.followers_only_message || '',
+                suggest_more_enabled: parsed.suggest_more_enabled === true,
+                private_reply_enabled: parsed.private_reply_enabled !== false,
+                share_to_admin_enabled: parsed.share_to_admin_enabled === true,
+                once_per_user_24h: parsed.once_per_user_24h === true,
+                collect_email_enabled: parsed.collect_email_enabled === true,
+                collect_email_only_gmail: parsed.collect_email_only_gmail === true,
+                seen_typing_enabled: parsed.seen_typing_enabled === true,
+                story_scope: parsed.automation_type === 'story' ? 'shown' : (parsed.story_scope || 'shown'),
+                keyword_match_type: parsed.keyword_match_type || 'exact',
+                keyword: keywordList,
+                keywords: keywordList,
+                comment_reply: parsed.comment_reply || ''
+            };
         });
 
         res.json({ automations });
@@ -1134,7 +2834,7 @@ router.get('/instagram/automations/:id', loginRequired, async (req, res) => {
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
 
-        const doc = await databases.getDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, req.params.id);
+        const doc = await retryAppwriteOperation(() => databases.getDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, req.params.id));
         if (doc.user_id !== req.user.$id) return res.status(403).json({ error: 'Unauthorized' });
 
         const parsed = { ...doc };
@@ -1142,11 +2842,17 @@ router.get('/instagram/automations/:id', loginRequired, async (req, res) => {
         try { if (typeof parsed.buttons === 'string') parsed.buttons = JSON.parse(parsed.buttons); } catch (e) { }
         try { if (typeof parsed.template_elements === 'string') parsed.template_elements = JSON.parse(parsed.template_elements); } catch (e) { }
         try { if (typeof parsed.replies === 'string') parsed.replies = JSON.parse(parsed.replies); } catch (e) { }
+        if (String(parsed.automation_type || '').toLowerCase() === 'story') {
+            parsed.story_scope = 'shown';
+        }
 
         res.json(parsed);
     } catch (err) {
+        if (Number(err?.code) === 404) {
+            console.warn(`Get Automation Warning: ${err.message}`);
+            return res.status(404).json({ error: 'Automation not found' });
+        }
         console.error(`Get Automation Error: ${err.message}`);
-        if (err.code === 404) return res.status(404).json({ error: 'Automation not found' });
         res.status(500).json({ error: 'Failed to fetch automation' });
     }
 });
@@ -1159,9 +2865,17 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
+        if (!account) return res.status(404).json({ error: 'Account not found' });
+        const targetAccountId = getIgProfessionalAccountId(account);
 
         const body = req.body;
         const automationType = type || body.automation_type || 'dm';
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, body);
+        if (featureAccessError) {
+            return res.status(403).json(featureAccessError);
+        }
         const keywordInfo = getKeywordInfo(body);
         const keywordArray = KEYWORD_TYPES.has(automationType) ? keywordInfo.keywords : [];
         const keywordString = keywordArray.join(',');
@@ -1173,11 +2887,30 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
             return res.status(400).json({ error: 'Validation failed', details: validationErrors });
         }
 
-        const titleNormalized = normalizeTitle(body.title);
+        const liveCapacityError = await ensureLiveAutomationCapacity(databases, {
+            userId: req.user.$id,
+            accountId: targetAccountId,
+            automationType,
+            triggerType: body.trigger_type || 'keywords'
+        });
+        if (liveCapacityError) {
+            return res.status(400).json({ error: liveCapacityError, field: 'trigger_type' });
+        }
+
+        const {
+            titleNormalized,
+            docData: fullCreateData
+        } = buildAutomationDocumentData({
+            userId: req.user.$id,
+            accountId: targetAccountId,
+            automationType,
+            payload: body
+        });
+
         if ((automationType === 'dm' || automationType === 'global') && titleNormalized) {
             const duplicate = await hasDuplicateAutomationTitle(databases, {
                 userId: req.user.$id,
-                accountId: account_id,
+                accountId: targetAccountId,
                 automationType,
                 titleNormalized
             });
@@ -1185,49 +2918,51 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
                 return res.status(400).json({ error: 'Duplicate title', field: 'title' });
             }
         }
+        if (KEYWORD_TYPES.has(automationType) && keywordArray.length > 0) {
+            const conflicts = await findKeywordConflicts(databases, {
+                accountId: targetAccountId,
+                automationId: null,
+                automationType,
+                keywords: keywordArray
+            });
+            if (conflicts.length > 0) {
+                return res.status(400).json({
+                    error: 'Duplicate keywords',
+                    field: 'keywords',
+                    duplicate_keywords: conflicts
+                });
+            }
+            const moderationConflicts = await findModerationKeywordConflicts(databases, {
+                userId: req.user.$id,
+                accountIds: [targetAccountId, account_id],
+                keywords: keywordArray
+            });
+            if (moderationConflicts.length > 0) {
+                return res.status(400).json({
+                    error: `Moderation keywords cannot be reused in automations: ${moderationConflicts.join(', ')}`,
+                    field: 'keywords',
+                    duplicate_keywords: moderationConflicts
+                });
+            }
+        }
 
-        const docData = {
-            user_id: req.user.$id,
-            account_id: account_id,
-            automation_type: automationType,
-            title: body.title,
-            title_normalized: titleNormalized,
-            is_active: body.is_active !== undefined ? body.is_active : true,
-            keyword: keywordString,
-            keywords: JSON.stringify(keywordArray),
-            keyword_match_type: body.keyword_match_type || 'exact',
-            template_type: body.template_type || 'template_text',
-            template_content: body.template_content || '',
-            template_id: body.template_id || null,
-            buttons: body.buttons ? JSON.stringify(body.buttons) : null,
-            template_elements: body.template_elements ? JSON.stringify(body.template_elements) : null,
-            replies: body.replies ? JSON.stringify(body.replies) : null,
-            media_url: body.media_url ? String(body.media_url).slice(0, MEDIA_URL_MAX) : '',
-            media_id: body.media_id || null,
-            use_latest_post: body.use_latest_post || false,
-            latest_post_type: body.latest_post_type || 'post',
-            followers_only: body.followers_only || false,
-            exclude_existing_customers: body.exclude_existing_customers || false,
-            send_to: body.send_to || 'everyone',
-            delay_seconds: body.delay_seconds || 0,
-            comment_reply: body.comment_reply || '',
-            linked_media_id: body.linked_media_id || null,
-            linked_media_url: body.linked_media_url ? String(body.linked_media_url).slice(0, MEDIA_URL_MAX) : '',
-        };
+        const automationCollectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
+        const docData = sanitizePayloadForCollection(fullCreateData, automationCollectionInfo);
 
         // Create automation directly (replacing functions)
-        const doc = await databases.createDocument(
-            process.env.APPWRITE_DATABASE_ID,
-            AUTOMATIONS_COLLECTION_ID,
-            ID.unique(),
-            docData,
-            [Permission.read(Role.user(req.user.$id))]
-        );
+        const doc = await createDocumentWithUnknownAttributeRetry({
+            databases,
+            databaseId: process.env.APPWRITE_DATABASE_ID,
+            collectionId: AUTOMATIONS_COLLECTION_ID,
+            documentId: ID.unique(),
+            payload: docData,
+            permissions: [Permission.read(Role.user(req.user.$id))]
+        });
 
         if (KEYWORD_TYPES.has(automationType)) {
             try {
                 await syncKeywordRecords(databases, {
-                    accountId: account_id,
+                    accountId: targetAccountId,
                     automationId: doc.$id,
                     automationType,
                     keywords: keywordArray,
@@ -1242,7 +2977,7 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
         }
         res.status(201).json({ status: "success", automation_id: doc.$id });
     } catch (err) {
-        console.error(`Create Automation Error: ${err.message}`);
+        console.error(`Create Automation Error: ${err.message}`, err?.response?.message || err?.response || '');
         res.status(500).json({ error: 'Failed to create automation' });
     }
 });
@@ -1257,73 +2992,98 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
         if (existing.user_id !== req.user.$id) return res.status(403).json({ error: 'Unauthorized' });
 
         const body = req.body;
-        const updateData = {};
-
-        const stringFields = ['title', 'keyword', 'keyword_match_type', 'template_type', 'template_content',
-            'template_id', 'media_id', 'latest_post_type', 'send_to', 'comment_reply',
-            'linked_media_id', 'automation_type'];
-        stringFields.forEach(f => { if (body[f] !== undefined) updateData[f] = body[f]; });
-        if (body.media_url !== undefined) updateData.media_url = body.media_url ? String(body.media_url).slice(0, MEDIA_URL_MAX) : '';
-        if (body.linked_media_url !== undefined) updateData.linked_media_url = body.linked_media_url ? String(body.linked_media_url).slice(0, MEDIA_URL_MAX) : '';
-
-        const boolFields = ['is_active', 'use_latest_post', 'followers_only', 'exclude_existing_customers'];
-        boolFields.forEach(f => { if (body[f] !== undefined) updateData[f] = body[f]; });
-
-        if (body.delay_seconds !== undefined) updateData.delay_seconds = body.delay_seconds;
-
         const nextAutomationType = body.automation_type || existing.automation_type || 'dm';
         const keywordUpdateProvided = body.keyword !== undefined || body.keywords !== undefined || body.automation_type !== undefined;
-        let nextKeywords = null;
-        if (keywordUpdateProvided) {
-            const keywordInfo = getKeywordInfo({
-                keyword: body.keyword !== undefined ? body.keyword : existing.keyword,
-                keywords: body.keywords !== undefined ? body.keywords : existing.keywords
-            });
-            nextKeywords = KEYWORD_TYPES.has(nextAutomationType) ? keywordInfo.keywords : [];
-
-            updateData.keyword = nextKeywords.join(',');
-            updateData.keywords = JSON.stringify(nextKeywords);
-        }
-        if (body.buttons !== undefined) updateData.buttons = body.buttons ? JSON.stringify(body.buttons) : null;
-        if (body.template_elements !== undefined) updateData.template_elements = body.template_elements ? JSON.stringify(body.template_elements) : null;
-        if (body.replies !== undefined) updateData.replies = body.replies ? JSON.stringify(body.replies) : null;
+        const {
+            keywordArray: nextKeywords,
+            titleNormalized,
+            docData: fullUpdateData
+        } = buildAutomationDocumentData({
+            userId: req.user.$id,
+            accountId: existing.account_id,
+            automationType: nextAutomationType,
+            payload: body,
+            existingDocument: existing
+        });
 
         const candidate = {
             ...existing,
             ...body,
-            keywords: body.keywords !== undefined ? body.keywords : existing.keywords,
-            buttons: body.buttons !== undefined ? body.buttons : existing.buttons,
-            template_elements: body.template_elements !== undefined ? body.template_elements : existing.template_elements,
-            replies: body.replies !== undefined ? body.replies : existing.replies,
+            ...fullUpdateData,
+            automation_type: nextAutomationType,
+            keyword: nextKeywords.join(','),
+            keywords: nextKeywords
         };
         const validationErrors = validateAutomationPayload(candidate);
         if (validationErrors.length > 0) {
             return res.status(400).json({ error: 'Validation failed', details: validationErrors });
         }
 
-        if (body.title !== undefined) {
-            const titleNormalized = normalizeTitle(body.title);
-            const automationType = nextAutomationType;
-            if ((automationType === 'dm' || automationType === 'global') && titleNormalized) {
-                const duplicate = await hasDuplicateAutomationTitle(databases, {
-                    userId: req.user.$id,
-                    accountId: existing.account_id,
-                    automationType,
-                    titleNormalized,
-                    excludeId: existing.$id
-                });
-                if (duplicate) {
-                    return res.status(400).json({ error: 'Duplicate title', field: 'title' });
-                }
-            }
-            updateData.title_normalized = titleNormalized;
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, candidate);
+        if (featureAccessError) {
+            return res.status(403).json(featureAccessError);
         }
+
+        const liveCapacityError = await ensureLiveAutomationCapacity(databases, {
+            userId: req.user.$id,
+            accountId: existing.account_id,
+            automationType: nextAutomationType,
+            triggerType: fullUpdateData.trigger_type || body.trigger_type || existing.trigger_type || 'keywords',
+            excludeId: existing.$id
+        });
+        if (liveCapacityError) {
+            return res.status(400).json({ error: liveCapacityError, field: 'trigger_type' });
+        }
+
+        if ((body.title !== undefined || body.automation_type !== undefined) && (nextAutomationType === 'dm' || nextAutomationType === 'global') && titleNormalized) {
+            const duplicate = await hasDuplicateAutomationTitle(databases, {
+                userId: req.user.$id,
+                accountId: existing.account_id,
+                automationType: nextAutomationType,
+                titleNormalized,
+                excludeId: existing.$id
+            });
+            if (duplicate) {
+                return res.status(400).json({ error: 'Duplicate title', field: 'title' });
+            }
+        }
+
+        if (keywordUpdateProvided && KEYWORD_TYPES.has(nextAutomationType)) {
+            const conflicts = await findKeywordConflicts(databases, {
+                accountId: existing.account_id,
+                automationId: existing.$id,
+                automationType: nextAutomationType,
+                keywords: nextKeywords || []
+            });
+            if (conflicts.length > 0) {
+                return res.status(400).json({
+                    error: 'Duplicate keywords',
+                    field: 'keywords',
+                    duplicate_keywords: conflicts
+                });
+            }
+            const moderationConflicts = await findModerationKeywordConflicts(databases, {
+                userId: req.user.$id,
+                accountIds: [existing.account_id, req.query.account_id, req.body.account_id],
+                keywords: nextKeywords || []
+            });
+            if (moderationConflicts.length > 0) {
+                return res.status(400).json({
+                    error: `Moderation keywords cannot be reused in automations: ${moderationConflicts.join(', ')}`,
+                    field: 'keywords',
+                    duplicate_keywords: moderationConflicts
+                });
+            }
+        }
+
+        const automationCollectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
+        const sanitizedUpdateData = sanitizePayloadForCollection(fullUpdateData, automationCollectionInfo);
 
         await databases.updateDocument(
             process.env.APPWRITE_DATABASE_ID,
             AUTOMATIONS_COLLECTION_ID,
             req.params.id,
-            updateData
+            sanitizedUpdateData
         );
 
         if (keywordUpdateProvided) {
@@ -1333,23 +3093,180 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
                     automationId: existing.$id,
                     automationType: nextAutomationType,
                     keywords: nextKeywords || [],
-                    matchType: body.keyword_match_type || existing.keyword_match_type || 'exact'
+                    matchType: fullUpdateData.keyword_match_type || 'exact'
                 });
             } catch (e) {
                 return res.status(400).json({ error: e.message || 'Keyword sync failed', field: 'keywords' });
             }
         }
 
-        // Fetch updated doc to return
         const doc = await databases.getDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, req.params.id);
-
-
 
         res.json(doc);
     } catch (err) {
         console.error(`Update Automation Error: ${err.message}`);
         if (err.code === 404) return res.status(404).json({ error: 'Automation not found' });
         res.status(500).json({ error: 'Failed to update automation' });
+    }
+});
+
+router.get('/instagram/automations/:id/email-collector-destination', loginRequired, async (req, res) => {
+    try {
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+        const automation = await getOwnedAutomationDocument(databases, req.user.$id, req.params.id);
+        const destinationDoc = await loadCollectorDestinationDocument(databases, automation);
+
+        res.json({
+            destination: normalizeCollectorDestinationResponse(destinationDoc)
+        });
+    } catch (error) {
+        console.error(`Get Email Collector Destination Error: ${error.message}`);
+        if (error.statusCode === 403) return res.status(403).json({ error: 'Unauthorized' });
+        if (error.code === 404) return res.status(404).json({ error: 'Automation not found' });
+        return res.json({
+            destination: getCollectorDestinationDefaults(),
+            warning: 'Collector destination storage is unavailable'
+        });
+    }
+});
+
+router.put('/instagram/automations/:id/email-collector-destination', loginRequired, async (req, res) => {
+    try {
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+        const automation = await getOwnedAutomationDocument(databases, req.user.$id, req.params.id);
+        const existingDocument = await loadCollectorDestinationDocument(databases, automation);
+
+        const destinationType = normalizeCollectorDestinationType(req.body?.destination_type);
+        if (!destinationType) {
+            return res.status(400).json({ error: 'destination_type must be "sheet" or "webhook"' });
+        }
+
+        const sheetLink = destinationType === 'sheet' ? String(req.body?.sheet_link || '').trim() : '';
+        const webhookUrl = destinationType === 'webhook' ? String(req.body?.webhook_url || '').trim() : '';
+
+        if (destinationType === 'sheet' && !sheetLink) {
+            return res.status(400).json({ error: 'sheet_link is required for Google Sheets destinations' });
+        }
+        if (destinationType === 'webhook' && !webhookUrl) {
+            return res.status(400).json({ error: 'webhook_url is required for webhook destinations' });
+        }
+
+        const existingResponse = normalizeCollectorDestinationResponse(existingDocument);
+        const destinationChanged = existingResponse.destination_type !== destinationType
+            || existingResponse.sheet_link !== sheetLink
+            || existingResponse.webhook_url !== webhookUrl;
+        const serviceAccountEmail = getCollectorDestinationDefaults().service_account_email;
+        const nextDestinationJson = destinationChanged
+            ? {
+                verified: false,
+                verified_at: null,
+                verification_error: null,
+                service_account_email: serviceAccountEmail
+            }
+            : {
+                ...existingResponse.destination_json,
+                service_account_email: serviceAccountEmail
+            };
+
+        const savedDoc = await persistCollectorDestinationDocument(databases, automation, {
+            user_id: String(automation.user_id || '').trim(),
+            account_id: String(automation.account_id || '').trim(),
+            automation_id: String(automation.$id || '').trim(),
+            destination_type: destinationType,
+            sheet_link: sheetLink || null,
+            webhook_url: webhookUrl || null,
+            destination_id: destinationChanged ? null : (existingResponse.destination_id || null),
+            destination_json: JSON.stringify(nextDestinationJson),
+            updated_at: new Date().toISOString()
+        }, existingDocument);
+
+        res.json({
+            destination: normalizeCollectorDestinationResponse(savedDoc)
+        });
+    } catch (error) {
+        console.error(`Save Email Collector Destination Error: ${error.message}`);
+        if (error.statusCode === 403) return res.status(403).json({ error: 'Unauthorized' });
+        if (error.code === 404) return res.status(404).json({ error: 'Automation not found' });
+        if (isMissingCollectionError(error)) {
+            return res.status(500).json({ error: 'automation_collect_destinations collection is not available' });
+        }
+        res.status(500).json({ error: 'Failed to save email collector destination' });
+    }
+});
+
+router.post('/instagram/automations/:id/email-collector-destination/verify', loginRequired, async (req, res) => {
+    try {
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+        const automation = await getOwnedAutomationDocument(databases, req.user.$id, req.params.id);
+        const existingDocument = await loadCollectorDestinationDocument(databases, automation);
+        if (!existingDocument) {
+            return res.status(400).json({ error: 'Save the destination before verifying it' });
+        }
+
+        const normalizedDestination = normalizeCollectorDestinationResponse(existingDocument);
+        const now = new Date().toISOString();
+        const destinationJson = {
+            ...normalizedDestination.destination_json,
+            verified: false,
+            verified_at: null,
+            verification_error: null,
+            service_account_email: getCollectorDestinationDefaults().service_account_email
+        };
+        let destinationId = normalizedDestination.destination_id || null;
+
+        if (normalizedDestination.destination_type === 'sheet') {
+            if (!normalizedDestination.sheet_link) {
+                return res.status(400).json({ error: 'sheet_link is required before verification' });
+            }
+            const metadata = await loadSpreadsheetMetadata(normalizedDestination.sheet_link);
+            destinationId = `${metadata.spreadsheetId}::${metadata.sheetGid}`;
+            Object.assign(destinationJson, {
+                verified: true,
+                verified_at: now,
+                spreadsheet_id: metadata.spreadsheetId,
+                spreadsheet_title: metadata.spreadsheetTitle,
+                sheet_gid: metadata.sheetGid,
+                sheet_title: metadata.sheetTitle
+            });
+        } else if (normalizedDestination.destination_type === 'webhook') {
+            if (!normalizedDestination.webhook_url) {
+                return res.status(400).json({ error: 'webhook_url is required before verification' });
+            }
+            const samplePayload = buildCollectorVerifySamplePayload(automation);
+            const webhookResponse = await sendWebhookPayload(normalizedDestination.webhook_url, samplePayload);
+            Object.assign(destinationJson, {
+                verified: true,
+                verified_at: now,
+                last_verify_status: webhookResponse?.status || null,
+                last_verify_sample: samplePayload
+            });
+        } else {
+            return res.status(400).json({ error: 'destination_type must be "sheet" or "webhook"' });
+        }
+
+        const savedDoc = await persistCollectorDestinationDocument(databases, automation, {
+            destination_type: normalizedDestination.destination_type,
+            sheet_link: normalizedDestination.sheet_link || null,
+            webhook_url: normalizedDestination.webhook_url || null,
+            destination_id: destinationId,
+            destination_json: JSON.stringify(destinationJson),
+            updated_at: now
+        }, existingDocument);
+
+        res.json({
+            destination: normalizeCollectorDestinationResponse(savedDoc)
+        });
+    } catch (error) {
+        console.error(`Verify Email Collector Destination Error: ${error.message}`);
+        if (error.statusCode === 403) return res.status(403).json({ error: 'Unauthorized' });
+        if (error.code === 404) return res.status(404).json({ error: 'Automation not found' });
+        if (isMissingCollectionError(error)) {
+            return res.status(500).json({ error: 'automation_collect_destinations collection is not available' });
+        }
+        res.status(400).json({ error: error.message || 'Failed to verify email collector destination' });
     }
 });
 
@@ -1404,27 +3321,16 @@ router.get('/instagram/reply-templates', loginRequired, async (req, res) => {
         if (!account) return res.status(404).json({ error: 'Account not found' });
         const targetAccountId = getIgProfessionalAccountId(account);
 
-        // One-time legacy migration: attach account_id for old user-scoped templates.
-        const legacyTemplates = await databases.listDocuments(
-            process.env.APPWRITE_DATABASE_ID,
-            REPLY_TEMPLATES_COLLECTION_ID,
-            [Query.equal('user_id', req.user.$id), Query.limit(200)]
-        );
-        const legacyWithoutAccount = legacyTemplates.documents.filter((doc) => !doc.account_id);
-        if (legacyWithoutAccount.length > 0) {
-            await Promise.allSettled(legacyWithoutAccount.map((doc) => databases.updateDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                REPLY_TEMPLATES_COLLECTION_ID,
-                doc.$id,
-                { account_id: targetAccountId }
-            )));
-        }
+        migrateLegacyReplyTemplatesForAccount(databases, req.user.$id, targetAccountId);
 
         const queries = [Query.equal('user_id', req.user.$id), Query.equal('account_id', targetAccountId), Query.orderDesc('$createdAt'), Query.limit(100)];
 
         const result = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, REPLY_TEMPLATES_COLLECTION_ID, queries);
-        const automations = await listAllAutomations(databases, [Query.equal('user_id', req.user.$id), Query.equal('account_id', targetAccountId)]);
-        const automationsByTemplate = groupAutomationsByTemplate(automations);
+        const automationsByTemplate = await getAutomationsByTemplateSafe(
+            databases,
+            [Query.equal('user_id', req.user.$id), Query.equal('account_id', targetAccountId)],
+            'reply templates list'
+        );
 
         const templates = result.documents.map(doc => {
             const linkedAutomations = automationsByTemplate.get(doc.$id) || [];
@@ -1458,37 +3364,19 @@ router.get('/instagram/reply-templates/:id', loginRequired, async (req, res) => 
 
         const doc = await databases.getDocument(process.env.APPWRITE_DATABASE_ID, REPLY_TEMPLATES_COLLECTION_ID, req.params.id);
         if (doc.user_id !== req.user.$id) return res.status(403).json({ error: 'Unauthorized' });
-
-        if (!doc.account_id) {
-            const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-            const requestedAccount = req.query.account_id
-                ? accounts.documents.find((account) => matchesIgAccountIdentifier(account, req.query.account_id))
-                : accounts.documents[0];
-            if (!requestedAccount) return res.status(400).json({ error: 'account_id is required' });
-            doc.account_id = getIgProfessionalAccountId(requestedAccount);
-            await databases.updateDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                REPLY_TEMPLATES_COLLECTION_ID,
-                doc.$id,
-                { account_id: doc.account_id }
-            );
-        }
-
-        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-        const ownedAccount = accounts.documents.find((account) => matchesIgAccountIdentifier(account, doc.account_id));
-        if (!ownedAccount) return res.status(403).json({ error: 'Unauthorized' });
-
-        if (req.query.account_id) {
-            const requestedAccount = accounts.documents.find((account) => matchesIgAccountIdentifier(account, req.query.account_id));
-            if (!requestedAccount || getIgProfessionalAccountId(requestedAccount) !== doc.account_id) {
-                return res.status(403).json({ error: 'Unauthorized' });
-            }
+        const resolvedAccount = await resolveReplyTemplateAccount(databases, req.user.$id, doc, req.query.account_id);
+        if (resolvedAccount.error) {
+            return res.status(resolvedAccount.status).json({ error: resolvedAccount.error });
         }
 
         let templateData = {};
         try { templateData = typeof doc.template_data === 'string' ? JSON.parse(doc.template_data) : (doc.template_data || {}); } catch (e) { }
-        const linkedAutomations = groupAutomationsByTemplate(
-            await listAllAutomations(databases, [Query.equal('user_id', req.user.$id), Query.equal('account_id', doc.account_id), Query.equal('template_id', doc.$id)])
+        const linkedAutomations = (
+            await getAutomationsByTemplateSafe(
+                databases,
+                [Query.equal('user_id', req.user.$id), Query.equal('account_id', resolvedAccount.accountId), Query.equal('template_id', doc.$id)],
+                'reply template detail'
+            )
         ).get(doc.$id) || [];
 
         res.json({
@@ -1566,23 +3454,10 @@ router.patch('/instagram/reply-templates/:id', loginRequired, async (req, res) =
 
         const existing = await databases.getDocument(process.env.APPWRITE_DATABASE_ID, REPLY_TEMPLATES_COLLECTION_ID, req.params.id);
         if (existing.user_id !== req.user.$id) return res.status(403).json({ error: 'Unauthorized' });
-        if (!existing.account_id) {
-            const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-            const requestedAccount = req.query.account_id
-                ? accounts.documents.find((account) => matchesIgAccountIdentifier(account, req.query.account_id))
-                : accounts.documents[0];
-            if (!requestedAccount) return res.status(400).json({ error: 'account_id is required' });
-            existing.account_id = getIgProfessionalAccountId(requestedAccount);
-            await databases.updateDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                REPLY_TEMPLATES_COLLECTION_ID,
-                existing.$id,
-                { account_id: existing.account_id }
-            );
+        const resolvedAccount = await resolveReplyTemplateAccount(databases, req.user.$id, existing, req.query.account_id);
+        if (resolvedAccount.error) {
+            return res.status(resolvedAccount.status).json({ error: resolvedAccount.error });
         }
-        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-        const ownedAccount = accounts.documents.find((account) => matchesIgAccountIdentifier(account, existing.account_id));
-        if (!ownedAccount) return res.status(403).json({ error: 'Unauthorized' });
         if (req.body.account_id && req.body.account_id !== existing.account_id) {
             return res.status(400).json({ error: 'account_id cannot be changed' });
         }
@@ -1604,8 +3479,12 @@ router.patch('/instagram/reply-templates/:id', loginRequired, async (req, res) =
 
         let templateData = {};
         try { templateData = typeof doc.template_data === 'string' ? JSON.parse(doc.template_data) : (doc.template_data || {}); } catch (e) { }
-        const linkedAutomations = groupAutomationsByTemplate(
-            await listAllAutomations(databases, [Query.equal('user_id', req.user.$id), Query.equal('account_id', existing.account_id), Query.equal('template_id', doc.$id)])
+        const linkedAutomations = (
+            await getAutomationsByTemplateSafe(
+                databases,
+                [Query.equal('user_id', req.user.$id), Query.equal('account_id', resolvedAccount.accountId), Query.equal('template_id', doc.$id)],
+                'reply template update'
+            )
         ).get(doc.$id) || [];
 
         res.json({
@@ -1632,26 +3511,17 @@ router.delete('/instagram/reply-templates/:id', loginRequired, async (req, res) 
 
         const existing = await databases.getDocument(process.env.APPWRITE_DATABASE_ID, REPLY_TEMPLATES_COLLECTION_ID, req.params.id);
         if (existing.user_id !== req.user.$id) return res.status(403).json({ error: 'Unauthorized' });
-        if (!existing.account_id) {
-            const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-            const requestedAccount = req.query.account_id
-                ? accounts.documents.find((account) => matchesIgAccountIdentifier(account, req.query.account_id))
-                : accounts.documents[0];
-            if (!requestedAccount) return res.status(400).json({ error: 'account_id is required' });
-            existing.account_id = getIgProfessionalAccountId(requestedAccount);
-            await databases.updateDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                REPLY_TEMPLATES_COLLECTION_ID,
-                existing.$id,
-                { account_id: existing.account_id }
-            );
+        const resolvedAccount = await resolveReplyTemplateAccount(databases, req.user.$id, existing, req.query.account_id);
+        if (resolvedAccount.error) {
+            return res.status(resolvedAccount.status).json({ error: resolvedAccount.error });
         }
-        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-        const ownedAccount = accounts.documents.find((account) => matchesIgAccountIdentifier(account, existing.account_id));
-        if (!ownedAccount) return res.status(403).json({ error: 'Unauthorized' });
 
-        const linked = groupAutomationsByTemplate(
-            await listAllAutomations(databases, [Query.equal('user_id', req.user.$id), Query.equal('account_id', existing.account_id), Query.equal('template_id', existing.$id)])
+        const linked = (
+            await getAutomationsByTemplateSafe(
+                databases,
+                [Query.equal('user_id', req.user.$id), Query.equal('account_id', resolvedAccount.accountId), Query.equal('template_id', existing.$id)],
+                'reply template delete'
+            )
         ).get(existing.$id) || [];
 
         if (linked.length > 0) {
@@ -1673,6 +3543,235 @@ router.delete('/instagram/reply-templates/:id', loginRequired, async (req, res) 
 // ============================================================================
 // INBOX MENU
 // ============================================================================
+const INBOX_MENU_FOLLOWERS_ONLY_DEFAULT = 'Thanks for your message 🙂 Please follow this account first, then tap "I\'ve Followed" to continue.';
+const INBOX_MENU_PRIMARY_BUTTON_DEFAULT = '👤 Follow Account';
+const INBOX_MENU_SECONDARY_BUTTON_DEFAULT = "✅ I've Followed";
+
+const listInboxMenuDocuments = async (databases, { userId, accountIds, limit = 50 }) => {
+    const uniqueAccountIds = Array.from(new Set(
+        (Array.isArray(accountIds) ? accountIds : [accountIds])
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+    ));
+
+    const queries = [
+        Query.equal('user_id', String(userId)),
+        Query.equal('automation_type', 'inbox_menu'),
+        Query.equal('trigger_type', 'menu_config'),
+        Query.orderAsc('menu_item_order'),
+        Query.orderAsc('$createdAt'),
+        Query.limit(limit)
+    ];
+
+    if (uniqueAccountIds.length === 1) {
+        queries.splice(1, 0, Query.equal('account_id', uniqueAccountIds[0]));
+    } else if (uniqueAccountIds.length > 1) {
+        queries.splice(1, 0, Query.equal('account_id', uniqueAccountIds));
+    }
+
+    const result = await databases.listDocuments(
+        process.env.APPWRITE_DATABASE_ID,
+        AUTOMATIONS_COLLECTION_ID,
+        queries
+    );
+
+    return {
+        ...result,
+        _collectionId: AUTOMATIONS_COLLECTION_ID
+    };
+};
+
+const buildReplyTemplateMap = async (databases, { userId, accountIds }) => {
+    const uniqueAccountIds = Array.from(new Set(
+        (Array.isArray(accountIds) ? accountIds : [accountIds])
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+    ));
+
+    const queries = [
+        Query.equal('user_id', String(userId)),
+        Query.limit(100)
+    ];
+
+    if (uniqueAccountIds.length === 1) {
+        queries.splice(1, 0, Query.equal('account_id', uniqueAccountIds[0]));
+    } else if (uniqueAccountIds.length > 1) {
+        queries.splice(1, 0, Query.equal('account_id', uniqueAccountIds));
+    }
+
+    const result = await databases.listDocuments(
+        process.env.APPWRITE_DATABASE_ID,
+        REPLY_TEMPLATES_COLLECTION_ID,
+        queries
+    ).catch(() => ({ documents: [] }));
+
+    const templateMap = new Map();
+    (result.documents || []).forEach((doc) => {
+        templateMap.set(String(doc.$id), {
+            ...doc,
+            parsedTemplateData: parseMaybeJson(doc.template_data, {})
+        });
+    });
+    return templateMap;
+};
+
+const hydrateInboxMenuItem = (item, templateMap) => {
+    if (!item || typeof item !== 'object') return null;
+
+    const hydrated = {
+        ...item,
+        title: String(item.title || '').trim(),
+        type: item.type === 'web_url' ? 'web_url' : 'postback',
+        followers_only: Boolean(item.followers_only)
+    };
+
+    if (hydrated.type === 'web_url') {
+        hydrated.url = String(item.url || '').trim();
+        hydrated.webview_height_ratio = String(item.webview_height_ratio || 'full').trim() || 'full';
+        return hydrated;
+    }
+
+    const templateId = String(item.template_id || item.payload || '').trim();
+    const template = templateId ? templateMap.get(templateId) : null;
+    hydrated.payload = templateId;
+    hydrated.template_id = templateId || undefined;
+    hydrated.template_name = template?.name || undefined;
+    hydrated.template_type = item.template_type || template?.template_type || undefined;
+    hydrated.template_data = item.template_data || template?.parsedTemplateData || undefined;
+    return hydrated;
+};
+
+const buildInboxMenuFromAutomationDocuments = (documents, templateMap) => (
+    (Array.isArray(documents) ? documents : [])
+        .slice()
+        .sort((a, b) => {
+            const orderA = Number(a?.menu_item_order ?? 0);
+            const orderB = Number(b?.menu_item_order ?? 0);
+            if (orderA !== orderB) return orderA - orderB;
+            return String(a?.$createdAt || '').localeCompare(String(b?.$createdAt || ''));
+        })
+        .map((doc) => {
+            const type = String(doc?.menu_item_type || '').trim().toLowerCase() === 'web_url' ? 'web_url' : 'postback';
+            const baseItem = {
+                automation_id: String(doc?.$id || '').trim(),
+                title: String(doc?.title || '').trim(),
+                type,
+                followers_only: Boolean(doc?.followers_only),
+                followers_only_message: String(doc?.followers_only_message || INBOX_MENU_FOLLOWERS_ONLY_DEFAULT).trim(),
+                followers_only_primary_button_text: String(doc?.followers_only_primary_button_text || INBOX_MENU_PRIMARY_BUTTON_DEFAULT).trim(),
+                followers_only_secondary_button_text: String(doc?.followers_only_secondary_button_text || INBOX_MENU_SECONDARY_BUTTON_DEFAULT).trim(),
+                once_per_user_24h: Boolean(doc?.once_per_user_24h),
+                collect_email_enabled: Boolean(doc?.collect_email_enabled),
+                collect_email_only_gmail: Boolean(doc?.collect_email_only_gmail),
+                collect_email_prompt_message: String(doc?.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT).trim(),
+                collect_email_fail_retry_message: String(doc?.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT).trim(),
+                collect_email_success_reply_message: String(doc?.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT).trim(),
+                seen_typing_enabled: Boolean(doc?.seen_typing_enabled)
+            };
+
+            if (type === 'web_url') {
+                return hydrateInboxMenuItem({
+                    ...baseItem,
+                    url: String(doc?.media_url || '').trim(),
+                    webview_height_ratio: String(doc?.comment_reply || 'full').trim() || 'full'
+                }, templateMap);
+            }
+
+            return hydrateInboxMenuItem({
+                ...baseItem,
+                payload: String(doc?.template_id || '').trim(),
+                template_id: String(doc?.template_id || '').trim(),
+                template_type: doc?.template_type || undefined
+            }, templateMap);
+        })
+        .filter(Boolean)
+);
+
+const listConvoStarterDocuments = async (databases, { userId, accountIds, limit = 10 }) => {
+    const normalizedAccountIds = Array.from(new Set(
+        (Array.isArray(accountIds) ? accountIds : [accountIds])
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+    ));
+
+    const queries = [
+        Query.equal('user_id', String(userId)),
+        Query.equal('automation_type', 'convo_starter'),
+        Query.limit(limit)
+    ];
+
+    if (normalizedAccountIds.length === 1) {
+        queries.splice(1, 0, Query.equal('account_id', normalizedAccountIds[0]));
+    } else if (normalizedAccountIds.length > 1) {
+        queries.splice(1, 0, Query.equal('account_id', normalizedAccountIds));
+    }
+
+    const result = await databases.listDocuments(
+        process.env.APPWRITE_DATABASE_ID,
+        AUTOMATIONS_COLLECTION_ID,
+        queries
+    ).catch(() => ({ documents: [] }));
+
+    return {
+        ...result,
+        _collectionId: AUTOMATIONS_COLLECTION_ID
+    };
+};
+
+const buildConvoStartersFromAutomationDocuments = (documents, templateMap) => (
+    (Array.isArray(documents) ? documents : [])
+        .slice()
+        .sort((a, b) => String(a?.$createdAt || '').localeCompare(String(b?.$createdAt || '')))
+        .map((doc) => {
+            const templateId = String(doc?.template_id || '').trim();
+            const template = templateId ? templateMap.get(templateId) : null;
+
+            return {
+                question: String(doc?.title || '').trim(),
+                payload: templateId || String(doc?.template_content || '').trim(),
+                template_id: templateId || undefined,
+                template_name: template?.name || undefined,
+                template_type: doc?.template_type || template?.template_type || undefined,
+                template_data: template?.parsedTemplateData || undefined,
+                followers_only: Boolean(doc?.followers_only),
+                followers_only_message: String(doc?.followers_only_message || ''),
+                followers_only_primary_button_text: String(doc?.followers_only_primary_button_text || ''),
+                followers_only_secondary_button_text: String(doc?.followers_only_secondary_button_text || ''),
+                suggest_more_enabled: Boolean(doc?.suggest_more_enabled),
+                once_per_user_24h: Boolean(doc?.once_per_user_24h),
+                collect_email_enabled: Boolean(doc?.collect_email_enabled),
+                collect_email_only_gmail: Boolean(doc?.collect_email_only_gmail),
+                collect_email_prompt_message: String(doc?.collect_email_prompt_message || ''),
+                collect_email_fail_retry_message: String(doc?.collect_email_fail_retry_message || ''),
+                collect_email_success_reply_message: String(doc?.collect_email_success_reply_message || ''),
+                seen_typing_enabled: Boolean(doc?.seen_typing_enabled)
+            };
+        })
+        .filter((item) => item.question)
+);
+
+const normalizeInboxMenuForComparison = (menuItems) => (
+    (Array.isArray(menuItems) ? menuItems : [])
+        .map((item) => {
+            if (!item || typeof item !== 'object') return null;
+            const type = item.type === 'web_url' ? 'web_url' : 'postback';
+            const normalized = {
+                type,
+                title: String(item.title || '').trim()
+            };
+
+            if (type === 'web_url') {
+                normalized.url = String(item.url || '').trim();
+                normalized.webview_height_ratio = String(item.webview_height_ratio || 'full').trim() || 'full';
+            } else {
+                normalized.payload = String(item.payload || item.template_id || '').trim();
+            }
+
+            return normalized;
+        })
+        .filter(Boolean)
+);
+
 router.get('/instagram/inbox-menu', loginRequired, async (req, res) => {
     try {
         const { account_id } = req.query;
@@ -1685,16 +3784,42 @@ router.get('/instagram/inbox-menu', loginRequired, async (req, res) => {
         const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
 
         if (!igAccount) return res.status(404).json({ error: 'Account not found' });
+        const normalizedAccountId = getIgProfessionalAccountId(igAccount);
+        const templateMap = await buildReplyTemplateMap(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id]
+        });
 
         // Get DB menu
         let dbMenu = [];
         try {
-            const menuDocs = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, INBOX_MENUS_COLLECTION_ID,
-                [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
-            if (menuDocs.total > 0) {
-                try { dbMenu = typeof menuDocs.documents[0].menu_items === 'string' ? JSON.parse(menuDocs.documents[0].menu_items) : (menuDocs.documents[0].menu_items || []); } catch (e) { dbMenu = []; }
+            const automationDocs = await listInboxMenuDocuments(databases, {
+                userId: req.user.$id,
+                accountIds: [normalizedAccountId, account_id],
+                limit: 50
+            });
+            dbMenu = buildInboxMenuFromAutomationDocuments(automationDocs.documents, templateMap);
+        } catch (e) {
+            dbMenu = [];
+        }
+
+        // Fallback for older environments that still store inbox menu in a separate collection.
+        if (dbMenu.length === 0) {
+            try {
+                const menuDocs = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, INBOX_MENUS_COLLECTION_ID,
+                    [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
+                if (menuDocs.total > 0) {
+                    const rawMenu = typeof menuDocs.documents[0].menu_items === 'string'
+                        ? JSON.parse(menuDocs.documents[0].menu_items)
+                        : (menuDocs.documents[0].menu_items || []);
+                    dbMenu = (Array.isArray(rawMenu) ? rawMenu : [])
+                        .map((item) => hydrateInboxMenuItem(item, templateMap))
+                        .filter(Boolean);
+                }
+            } catch (e) {
+                dbMenu = [];
             }
-        } catch (e) { /* Collection may not exist yet */ }
+        }
 
         // Try fetching IG menu from Instagram API
         let igMenu = [];
@@ -1711,12 +3836,14 @@ router.get('/instagram/inbox-menu', loginRequired, async (req, res) => {
         } catch (e) { /* IG menu fetch may fail - not all accounts support it */ }
 
         // Determine status
+        const comparableDbMenu = normalizeInboxMenuForComparison(dbMenu);
+        const comparableIgMenu = normalizeInboxMenuForComparison(igMenu);
         let status = 'none';
-        if (dbMenu.length > 0 && igMenu.length > 0) {
-            status = JSON.stringify(dbMenu) === JSON.stringify(igMenu) ? 'match' : 'mismatch';
-        } else if (dbMenu.length > 0) {
+        if (comparableDbMenu.length > 0 && comparableIgMenu.length > 0) {
+            status = JSON.stringify(comparableDbMenu) === JSON.stringify(comparableIgMenu) ? 'match' : 'mismatch';
+        } else if (comparableDbMenu.length > 0) {
             status = 'db_only';
-        } else if (igMenu.length > 0) {
+        } else if (comparableIgMenu.length > 0) {
             status = 'ig_only';
         }
 
@@ -1742,6 +3869,10 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
+        if (!igAccount) return res.status(404).json({ error: 'Account not found' });
+        const normalizedAccountId = getIgProfessionalAccountId(igAccount);
 
         // Duplicate title validation (case-insensitive)
         if (Array.isArray(menu_items)) {
@@ -1756,31 +3887,124 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
             }
         }
 
-        // Save to DB
-        const queries = [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)];
-        const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, INBOX_MENUS_COLLECTION_ID, queries);
+        const menuItems = Array.isArray(menu_items) ? menu_items : [];
+        const existingDocs = await listInboxMenuDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id],
+            limit: 50
+        }).catch(() => ({ documents: [] }));
 
-        const docData = {
-            user_id: req.user.$id,
-            account_id,
-            menu_items: JSON.stringify(menu_items || [])
-        };
+        for (const doc of (existingDocs.documents || [])) {
+            await databases.deleteDocument(
+                process.env.APPWRITE_DATABASE_ID,
+                AUTOMATIONS_COLLECTION_ID,
+                doc.$id
+            );
+        }
 
-        if (existing.total > 0) {
-            await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, INBOX_MENUS_COLLECTION_ID, existing.documents[0].$id, docData);
-        } else {
-            await databases.createDocument(process.env.APPWRITE_DATABASE_ID, INBOX_MENUS_COLLECTION_ID, ID.unique(), docData,
-                [Permission.read(Role.user(req.user.$id))]);
+        if (menuItems.length > 0) {
+            const automationCollectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
+
+            for (let index = 0; index < menuItems.length; index += 1) {
+                const item = menuItems[index] || {};
+                const isWebUrl = String(item.type || '').trim().toLowerCase() === 'web_url';
+                const templateId = isWebUrl ? '' : String(item.payload || item.template_id || '').trim();
+                const title = toSafeString(item.title, 255).trim();
+                const normalizedAutoReplyItem = isWebUrl
+                    ? {}
+                    : {
+                        followers_only: item.followers_only === true,
+                        followers_only_message: String(item.followers_only_message || INBOX_MENU_FOLLOWERS_ONLY_DEFAULT).trim(),
+                        followers_only_primary_button_text: String(item.followers_only_primary_button_text || INBOX_MENU_PRIMARY_BUTTON_DEFAULT).trim(),
+                        followers_only_secondary_button_text: String(item.followers_only_secondary_button_text || INBOX_MENU_SECONDARY_BUTTON_DEFAULT).trim(),
+                        suggest_more_enabled: item.suggest_more_enabled === true,
+                        once_per_user_24h: item.once_per_user_24h === true,
+                        collect_email_enabled: item.collect_email_enabled === true,
+                        collect_email_only_gmail: item.collect_email_only_gmail === true,
+                        collect_email_prompt_message: String(item.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT).trim(),
+                        collect_email_fail_retry_message: String(item.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT).trim(),
+                        collect_email_success_reply_message: String(item.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT).trim(),
+                        seen_typing_enabled: item.seen_typing_enabled === true
+                    };
+
+                if (!isWebUrl) {
+                    const featureAccessError = await enforceAutomationFeatureAccess(
+                        databases,
+                        req.user.$id,
+                        normalizedAutoReplyItem
+                    );
+                    if (featureAccessError) {
+                        return res.status(403).json(featureAccessError);
+                    }
+                }
+
+                const docData = sanitizePayloadForCollection({
+                    user_id: req.user.$id,
+                    account_id: normalizedAccountId,
+                    automation_type: 'inbox_menu',
+                    title,
+                    title_normalized: normalizeTitle(title),
+                    trigger_type: 'menu_config',
+                    template_id: templateId || null,
+                    template_type: isWebUrl ? null : (item.template_type ? toSafeString(item.template_type, 50) : null),
+                    template_content: isWebUrl ? null : (templateId || null),
+                    buttons: '[]',
+                    replies: '[]',
+                    template_elements: null,
+                    media_url: isWebUrl ? toSafeString(item.url, MEDIA_URL_MAX) : null,
+                    media_id: String(index),
+                    menu_item_type: isWebUrl ? 'web_url' : 'postback',
+                    menu_item_order: index,
+                    followers_only: isWebUrl ? false : normalizedAutoReplyItem.followers_only === true,
+                    followers_only_message: isWebUrl
+                        ? ''
+                        : (normalizedAutoReplyItem.followers_only
+                            ? normalizedAutoReplyItem.followers_only_message
+                            : ''),
+                    followers_only_primary_button_text: isWebUrl
+                        ? ''
+                        : (normalizedAutoReplyItem.followers_only
+                            ? normalizedAutoReplyItem.followers_only_primary_button_text
+                            : ''),
+                    followers_only_secondary_button_text: isWebUrl
+                        ? ''
+                        : (normalizedAutoReplyItem.followers_only
+                            ? normalizedAutoReplyItem.followers_only_secondary_button_text
+                            : ''),
+                    keyword_match_type: 'exact',
+                    is_active: true,
+                    private_reply_enabled: true,
+                    suggest_more_enabled: isWebUrl ? false : normalizedAutoReplyItem.suggest_more_enabled === true,
+                    share_to_admin_enabled: false,
+                    once_per_user_24h: isWebUrl ? false : normalizedAutoReplyItem.once_per_user_24h === true,
+                    story_scope: 'shown',
+                    collect_email_enabled: isWebUrl ? false : normalizedAutoReplyItem.collect_email_enabled === true,
+                    collect_email_only_gmail: isWebUrl ? false : normalizedAutoReplyItem.collect_email_only_gmail === true,
+                    collect_email_prompt_message: isWebUrl ? '' : normalizedAutoReplyItem.collect_email_prompt_message,
+                    collect_email_fail_retry_message: isWebUrl ? '' : normalizedAutoReplyItem.collect_email_fail_retry_message,
+                    collect_email_success_reply_message: isWebUrl ? '' : normalizedAutoReplyItem.collect_email_success_reply_message,
+                    seen_typing_enabled: isWebUrl ? false : normalizedAutoReplyItem.seen_typing_enabled === true,
+                    comment_reply: isWebUrl
+                        ? toSafeString(item.webview_height_ratio || 'full', 1000)
+                        : '__special_meta__:{"menu_item_type":"auto_reply"}'
+                }, automationCollectionInfo);
+
+                await databases.createDocument(
+                    process.env.APPWRITE_DATABASE_ID,
+                    AUTOMATIONS_COLLECTION_ID,
+                    ID.unique(),
+                    docData,
+                    [Permission.read(Role.user(req.user.$id))]
+                );
+            }
         }
 
         // Publish to Instagram (action=save means publish)
-        if (action === 'save' && menu_items && menu_items.length > 0) {
+        if (action === 'save' && menuItems.length > 0) {
             try {
-                const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-                const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
                 if (igAccount) {
                     // Format for IG persistent menu API
-                    const igMenuItems = menu_items.map(m => {
+                    const igMenuItems = menuItems.map(m => {
                         const item = { type: m.type, title: m.title };
                         if (m.type === 'web_url') {
                             item.url = m.url;
@@ -1803,7 +4027,7 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
             } catch (e) { console.error('Failed to publish menu to IG:', e.message); }
         }
 
-        res.json({ message: 'Menu saved successfully', menu_items: menu_items || [] });
+        res.json({ message: 'Menu saved successfully', menu_items: menuItems });
     } catch (err) {
         console.error(`Save Inbox Menu Error: ${err.message}`);
         res.status(500).json({ error: 'Failed to save inbox menu' });
@@ -1818,18 +4042,23 @@ router.delete('/instagram/inbox-menu', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
+        if (!igAccount) return res.status(404).json({ error: 'Account not found' });
+        const normalizedAccountId = getIgProfessionalAccountId(igAccount);
 
-        const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, INBOX_MENUS_COLLECTION_ID,
-            [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
+        const existing = await listInboxMenuDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id],
+            limit: 50
+        }).catch(() => ({ documents: [] }));
 
-        if (existing.total > 0) {
-            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, INBOX_MENUS_COLLECTION_ID, existing.documents[0].$id);
+        for (const doc of (existing.documents || [])) {
+            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, doc.$id);
         }
 
         // Also delete from Instagram
         try {
-            const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-            const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
             if (igAccount) {
                 await axios.delete(`https://graph.instagram.com/v24.0/me/messenger_profile`, {
                     params: { access_token: igAccount.access_token },
@@ -1861,15 +4090,39 @@ router.get('/instagram/convo-starters', loginRequired, async (req, res) => {
         const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
         if (!igAccount) return res.status(404).json({ error: 'Account not found' });
 
-        // Get DB starters
+        const normalizedAccountId = getIgProfessionalAccountId(igAccount);
+        const templateMap = await buildReplyTemplateMap(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id]
+        });
+
         let dbStarters = [];
         try {
-            const starterDocs = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID,
-                [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
-            if (starterDocs.total > 0) {
-                try { dbStarters = typeof starterDocs.documents[0].starters === 'string' ? JSON.parse(starterDocs.documents[0].starters) : (starterDocs.documents[0].starters || []); } catch (e) { dbStarters = []; }
-            }
-        } catch (e) { }
+            const starterAutomationDocs = await listConvoStarterDocuments(databases, {
+                userId: req.user.$id,
+                accountIds: [normalizedAccountId, account_id],
+                limit: 20
+            });
+            dbStarters = buildConvoStartersFromAutomationDocuments(starterAutomationDocs.documents, templateMap);
+        } catch (e) {
+            dbStarters = [];
+        }
+
+        if (dbStarters.length === 0) {
+            try {
+                const starterDocs = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID,
+                    [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
+                if (starterDocs.total > 0) {
+                    try {
+                        dbStarters = typeof starterDocs.documents[0].starters === 'string'
+                            ? JSON.parse(starterDocs.documents[0].starters)
+                            : (starterDocs.documents[0].starters || []);
+                    } catch (e) {
+                        dbStarters = [];
+                    }
+                }
+            } catch (e) { }
+        }
 
         // Try fetching from IG
         let igStarters = [];
@@ -1883,9 +4136,18 @@ router.get('/instagram/convo-starters', loginRequired, async (req, res) => {
             }
         } catch (e) { }
 
+        const comparableDbStarters = dbStarters.map((starter) => ({
+            question: String(starter?.question || '').trim(),
+            payload: String(starter?.payload || '').trim()
+        }));
+        const comparableIgStarters = igStarters.map((starter) => ({
+            question: String(starter?.question || '').trim(),
+            payload: String(starter?.payload || '').trim()
+        }));
+
         let status = 'none';
         if (dbStarters.length > 0 && igStarters.length > 0) {
-            status = JSON.stringify(dbStarters) === JSON.stringify(igStarters) ? 'match' : 'mismatch';
+            status = JSON.stringify(comparableDbStarters) === JSON.stringify(comparableIgStarters) ? 'match' : 'mismatch';
         } else if (dbStarters.length > 0) {
             status = 'db_only';
         } else if (igStarters.length > 0) {
@@ -1914,6 +4176,10 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
+        if (!igAccount) return res.status(404).json({ error: 'Account not found' });
+        const normalizedAccountId = getIgProfessionalAccountId(igAccount);
 
         // Duplicate question validation (case-insensitive)
         if (Array.isArray(starters)) {
@@ -1928,30 +4194,125 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
             }
         }
 
-        const queries = [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)];
-        const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, queries);
+        const normalizedStarters = (Array.isArray(starters) ? starters : []).map((starter) => {
+            const templateId = String(starter?.template_id || starter?.payload || '').trim();
+            const followersOnly = starter?.followers_only === true;
+            const collectEmailEnabled = starter?.collect_email_enabled === true;
+            return {
+                question: String(starter?.question || '').trim(),
+                payload: templateId,
+                template_id: templateId || undefined,
+                template_type: starter?.template_type || undefined,
+                followers_only: followersOnly,
+                followers_only_message: followersOnly
+                    ? String(starter?.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT).trim()
+                    : '',
+                followers_only_primary_button_text: String(starter?.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT).trim(),
+                followers_only_secondary_button_text: String(starter?.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT).trim(),
+                suggest_more_enabled: starter?.suggest_more_enabled === true,
+                once_per_user_24h: starter?.once_per_user_24h === true,
+                collect_email_enabled: collectEmailEnabled,
+                collect_email_only_gmail: starter?.collect_email_only_gmail === true,
+                collect_email_prompt_message: String(starter?.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT).trim(),
+                collect_email_fail_retry_message: String(starter?.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT).trim(),
+                collect_email_success_reply_message: String(starter?.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT).trim(),
+                seen_typing_enabled: starter?.seen_typing_enabled === true
+            };
+        }).filter((starter) => starter.question);
 
-        const docData = {
-            user_id: req.user.$id,
-            account_id,
-            starters: JSON.stringify(starters || [])
-        };
-
-        if (existing.total > 0) {
-            await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, existing.documents[0].$id, docData);
-        } else {
-            await databases.createDocument(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, ID.unique(), docData,
-                [Permission.read(Role.user(req.user.$id))]);
+        for (const starter of normalizedStarters) {
+            const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, starter);
+            if (featureAccessError) {
+                return res.status(403).json(featureAccessError);
+            }
         }
+
+        const existingAutomationDocs = await listConvoStarterDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id],
+            limit: 20
+        }).catch(() => ({ documents: [] }));
+
+        for (const doc of (existingAutomationDocs.documents || [])) {
+            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, doc.$id);
+        }
+
+        const automationCollectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
+        for (const starter of normalizedStarters) {
+            const docData = sanitizePayloadForCollection({
+                user_id: req.user.$id,
+                account_id: normalizedAccountId,
+                automation_type: 'convo_starter',
+                title: toSafeString(starter.question, 255),
+                title_normalized: normalizeTitle(starter.question),
+                trigger_type: 'conversation_starter',
+                template_id: starter.template_id ? toSafeString(starter.template_id, 255) : null,
+                template_type: starter.template_type ? toSafeString(starter.template_type, 50) : null,
+                template_content: starter.template_id ? toSafeString(starter.template_id, 255) : null,
+                buttons: '[]',
+                replies: '[]',
+                template_elements: null,
+                media_url: null,
+                media_id: null,
+                keyword: '',
+                keywords: '[]',
+                keyword_match_type: 'exact',
+                is_active: true,
+                followers_only: starter.followers_only === true,
+                followers_only_message: starter.followers_only_message || '',
+                followers_only_primary_button_text: starter.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
+                followers_only_secondary_button_text: starter.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
+                suggest_more_enabled: starter.suggest_more_enabled === true,
+                private_reply_enabled: true,
+                share_to_admin_enabled: false,
+                once_per_user_24h: starter.once_per_user_24h === true,
+                story_scope: 'shown',
+                collect_email_enabled: starter.collect_email_enabled === true,
+                collect_email_only_gmail: starter.collect_email_only_gmail === true,
+                collect_email_prompt_message: starter.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT,
+                collect_email_fail_retry_message: starter.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
+                collect_email_success_reply_message: starter.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT,
+                seen_typing_enabled: starter.seen_typing_enabled === true,
+                comment_reply: '',
+                linked_media_id: null,
+                linked_media_url: null
+            }, automationCollectionInfo);
+
+            await databases.createDocument(
+                process.env.APPWRITE_DATABASE_ID,
+                AUTOMATIONS_COLLECTION_ID,
+                ID.unique(),
+                docData,
+                [Permission.read(Role.user(req.user.$id))]
+            );
+        }
+
+        try {
+            const queries = [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)];
+            const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, queries);
+            const docData = {
+                user_id: req.user.$id,
+                account_id,
+                starters: JSON.stringify(normalizedStarters)
+            };
+
+            if (existing.total > 0) {
+                await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, existing.documents[0].$id, docData);
+            } else {
+                await databases.createDocument(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, ID.unique(), docData,
+                    [Permission.read(Role.user(req.user.$id))]);
+            }
+        } catch (_) { }
 
         // Optionally publish to Instagram
         if (publish) {
             try {
-                const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-                const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
                 if (igAccount) {
                     await axios.post(`https://graph.instagram.com/v24.0/me/messenger_profile`, {
-                        ice_breakers: starters
+                        ice_breakers: normalizedStarters.map((starter) => ({
+                            question: starter.question,
+                            payload: starter.payload || starter.question
+                        }))
                     }, {
                         params: { access_token: igAccount.access_token }
                     });
@@ -1974,13 +4335,29 @@ router.delete('/instagram/convo-starters', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
+        if (!igAccount) return res.status(404).json({ error: 'Account not found' });
+        const normalizedAccountId = getIgProfessionalAccountId(igAccount);
 
-        const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID,
-            [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
+        const existingAutomationDocs = await listConvoStarterDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id],
+            limit: 20
+        }).catch(() => ({ documents: [] }));
 
-        if (existing.total > 0) {
-            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, existing.documents[0].$id);
+        for (const doc of (existingAutomationDocs.documents || [])) {
+            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, doc.$id);
         }
+
+        try {
+            const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID,
+                [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
+
+            if (existing.total > 0) {
+                await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, existing.documents[0].$id);
+            }
+        } catch (_) { }
 
         res.json({ message: 'Convo starters deleted' });
     } catch (err) {
@@ -1999,23 +4376,44 @@ router.get('/instagram/mentions-config', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
+        if (!account) return res.status(404).json({ error: 'Account not found or unauthorized' });
+        const normalizedAccountId = getIgProfessionalAccountId(account);
 
-        const result = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, MENTIONS_COLLECTION_ID,
-            [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
+        const result = await listMentionsDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id],
+            limit: 1
+        });
 
         if (result.total > 0) {
             const doc = result.documents[0];
             res.json({
                 is_setup: true,
-                is_active: doc.is_active || false,
+                is_active: doc.is_active !== false,
                 template_id: doc.template_id || null,
-                doc_id: doc.$id
+                doc_id: doc.$id,
+                followers_only: Boolean(doc.followers_only),
+                followers_only_message: String(doc.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT).trim(),
+                followers_only_primary_button_text: String(doc.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT).trim(),
+                followers_only_secondary_button_text: String(doc.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT).trim(),
+                suggest_more_enabled: Boolean(doc.suggest_more_enabled),
+                once_per_user_24h: Boolean(doc.once_per_user_24h),
+                collect_email_enabled: Boolean(doc.collect_email_enabled),
+                collect_email_only_gmail: Boolean(doc.collect_email_only_gmail),
+                collect_email_prompt_message: String(doc.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT).trim(),
+                collect_email_fail_retry_message: String(doc.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT).trim(),
+                collect_email_success_reply_message: String(doc.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT).trim(),
+                seen_typing_enabled: Boolean(doc.seen_typing_enabled)
             });
         } else {
             res.json({ is_setup: false, is_active: false });
         }
     } catch (err) {
-        console.error(`Mentions Config Error: ${err.message}`);
+        if (!isMissingCollectionError(err)) {
+            console.error(`Mentions Config Error: ${err.message}`);
+        }
         res.json({ is_setup: false, is_active: false });
     }
 });
@@ -2027,21 +4425,93 @@ router.post('/instagram/mentions-config', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
+        if (!account) return res.status(404).json({ error: 'Account not found or unauthorized' });
+        const normalizedAccountId = getIgProfessionalAccountId(account);
 
-        const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, MENTIONS_COLLECTION_ID,
-            [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
+        const existing = await listMentionsDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id],
+            limit: 1
+        });
 
-        const docData = {
-            user_id: req.user.$id,
-            account_id,
+        const payload = {
+            ...req.body,
+            title: 'Mentions',
+            automation_type: 'mentions',
+            trigger_type: 'config',
             template_id: template_id || null,
-            is_active: is_active !== undefined ? is_active : true
+            is_active: is_active !== undefined ? is_active : true,
+            followers_only: req.body.followers_only === true,
+            followers_only_message: req.body.followers_only
+                ? (req.body.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
+                : '',
+            followers_only_primary_button_text: req.body.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
+            followers_only_secondary_button_text: req.body.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
+            suggest_more_enabled: req.body.suggest_more_enabled === true,
+            once_per_user_24h: req.body.once_per_user_24h === true,
+            collect_email_enabled: req.body.collect_email_enabled === true,
+            collect_email_only_gmail: req.body.collect_email_only_gmail === true,
+            collect_email_prompt_message: req.body.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT,
+            collect_email_fail_retry_message: req.body.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
+            collect_email_success_reply_message: req.body.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT,
+            seen_typing_enabled: req.body.seen_typing_enabled === true
         };
+        const validationErrors = validateAutomationPayload(payload);
+        if (validationErrors.length > 0) {
+            return res.status(400).json({ error: 'Validation failed', details: validationErrors });
+        }
+
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, payload);
+        if (featureAccessError) {
+            return res.status(403).json(featureAccessError);
+        }
+
+        const automationCollectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
+        const docData = sanitizePayloadForCollection({
+            user_id: req.user.$id,
+            account_id: normalizedAccountId,
+            automation_type: 'mentions',
+            title: 'Mentions',
+            title_normalized: 'mentions',
+            trigger_type: 'config',
+            template_id: template_id || null,
+            template_type: req.body.template_type ? toSafeString(req.body.template_type, 50) : null,
+            template_content: template_id ? toSafeString(template_id, 255) : null,
+            buttons: '[]',
+            replies: '[]',
+            template_elements: null,
+            media_url: null,
+            media_id: null,
+            keyword: '',
+            keywords: '[]',
+            keyword_match_type: 'exact',
+            is_active: payload.is_active !== false,
+            followers_only: payload.followers_only === true,
+            followers_only_message: payload.followers_only_message,
+            followers_only_primary_button_text: payload.followers_only_primary_button_text,
+            followers_only_secondary_button_text: payload.followers_only_secondary_button_text,
+            suggest_more_enabled: payload.suggest_more_enabled === true,
+            private_reply_enabled: true,
+            share_to_admin_enabled: false,
+            once_per_user_24h: payload.once_per_user_24h === true,
+            story_scope: 'shown',
+            collect_email_enabled: payload.collect_email_enabled === true,
+            collect_email_only_gmail: payload.collect_email_only_gmail === true,
+            collect_email_prompt_message: payload.collect_email_prompt_message,
+            collect_email_fail_retry_message: payload.collect_email_fail_retry_message,
+            collect_email_success_reply_message: payload.collect_email_success_reply_message,
+            seen_typing_enabled: payload.seen_typing_enabled === true,
+            comment_reply: '',
+            linked_media_id: null,
+            linked_media_url: null
+        }, automationCollectionInfo);
 
         if (existing.total > 0) {
-            await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, MENTIONS_COLLECTION_ID, existing.documents[0].$id, docData);
+            await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, existing.documents[0].$id, docData);
         } else {
-            await databases.createDocument(process.env.APPWRITE_DATABASE_ID, MENTIONS_COLLECTION_ID, ID.unique(), docData,
+            await databases.createDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, ID.unique(), docData,
                 [Permission.read(Role.user(req.user.$id))]);
         }
 
@@ -2059,12 +4529,19 @@ router.delete('/instagram/mentions-config', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
+        if (!account) return res.status(404).json({ error: 'Account not found or unauthorized' });
+        const normalizedAccountId = getIgProfessionalAccountId(account);
 
-        const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, MENTIONS_COLLECTION_ID,
-            [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
+        const existing = await listMentionsDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id],
+            limit: 1
+        });
 
         if (existing.total > 0) {
-            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, MENTIONS_COLLECTION_ID, existing.documents[0].$id);
+            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, existing.documents[0].$id);
         }
 
         res.json({ message: 'Mentions config deleted' });
@@ -2287,9 +4764,16 @@ router.get('/instagram/suggest-more', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
+        if (!account) return res.status(404).json({ error: 'Account not found or unauthorized' });
+        const normalizedAccountId = getIgProfessionalAccountId(account);
 
-        const result = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, SUGGEST_MORE_COLLECTION_ID,
-            [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
+        const result = await listSuggestMoreDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id],
+            limit: 1
+        });
 
         if (result.total > 0) {
             const doc = result.documents[0];
@@ -2315,21 +4799,42 @@ router.post('/instagram/suggest-more', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
+        if (!account) return res.status(404).json({ error: 'Account not found or unauthorized' });
+        const normalizedAccountId = getIgProfessionalAccountId(account);
 
-        const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, SUGGEST_MORE_COLLECTION_ID,
-            [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
+        const existing = await listSuggestMoreDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id],
+            limit: 1
+        });
+
+        const featureAccessError = await enforceAutomationFeatureAccess(
+            databases,
+            req.user.$id,
+            {},
+            { requireFeature: 'suggest_more' }
+        );
+        if (featureAccessError) {
+            return res.status(403).json(featureAccessError);
+        }
 
         const docData = {
             user_id: req.user.$id,
-            account_id,
+            account_id: normalizedAccountId,
+            automation_type: 'suggest_more',
+            title: 'Suggest More',
+            title_normalized: 'suggest more',
+            trigger_type: 'config',
             template_id: template_id || null,
             is_active: is_active !== undefined ? is_active : true
         };
 
         if (existing.total > 0) {
-            await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, SUGGEST_MORE_COLLECTION_ID, existing.documents[0].$id, docData);
+            await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, existing.documents[0].$id, docData);
         } else {
-            await databases.createDocument(process.env.APPWRITE_DATABASE_ID, SUGGEST_MORE_COLLECTION_ID, ID.unique(), docData,
+            await databases.createDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, ID.unique(), docData,
                 [Permission.read(Role.user(req.user.$id))]);
         }
 
@@ -2347,12 +4852,19 @@ router.delete('/instagram/suggest-more', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
+        if (!account) return res.status(404).json({ error: 'Account not found or unauthorized' });
+        const normalizedAccountId = getIgProfessionalAccountId(account);
 
-        const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, SUGGEST_MORE_COLLECTION_ID,
-            [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
+        const existing = await listSuggestMoreDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, account_id],
+            limit: 1
+        });
 
         if (existing.total > 0) {
-            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, SUGGEST_MORE_COLLECTION_ID, existing.documents[0].$id);
+            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, existing.documents[0].$id);
         }
 
         res.json({ message: 'Suggest more config deleted' });
@@ -2379,21 +4891,29 @@ router.get('/instagram/comment-moderation', loginRequired, async (req, res) => {
         if (!account) {
             return res.status(404).json({ error: 'Account not found or unauthorized' });
         }
+        const targetAccountId = getIgProfessionalAccountId(account);
 
-        const queries = [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)];
-        const result = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, COMMENT_MODERATION_COLLECTION_ID, queries);
+        const result = await listCommentModerationDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [targetAccountId, account_id]
+        });
+        const keywordRules = buildCommentModerationRulesFromKeywordDocuments(
+            await listCommentModerationKeywordDocuments(databases, { accountId: targetAccountId })
+        );
 
-        if (result.total > 0) {
-            const doc = result.documents[0];
-            let rules = [];
-            try {
-                rules = typeof doc.rules === 'string' ? JSON.parse(doc.rules) : (doc.rules || []);
-            } catch (e) { rules = []; }
+        if (result.length > 0 || keywordRules.length > 0) {
+            const doc = result[0] || null;
+            let rules = keywordRules;
+            if (rules.length === 0 && doc) {
+                try {
+                    rules = typeof doc.rules === 'string' ? JSON.parse(doc.rules) : (doc.rules || []);
+                } catch (e) { rules = []; }
+            }
 
             res.json({
                 rules: rules,
-                is_active: doc.is_active !== undefined ? doc.is_active : true,
-                doc_id: doc.$id
+                is_active: doc?.is_active !== undefined ? doc.is_active : true,
+                doc_id: doc?.$id || null
             });
         } else {
             res.json({ rules: [], is_active: true });
@@ -2416,20 +4936,66 @@ router.post('/instagram/comment-moderation', loginRequired, async (req, res) => 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
 
-        const queries = [Query.equal('user_id', req.user.$id), Query.equal('account_id', targetAccountId), Query.limit(1)];
-        const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, COMMENT_MODERATION_COLLECTION_ID, queries);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, targetAccountId));
+        if (!account) {
+            return res.status(404).json({ error: 'Account not found or unauthorized' });
+        }
+        const normalizedAccountId = getIgProfessionalAccountId(account);
+
+        const normalizedRules = (Array.isArray(rules) ? rules : [])
+            .filter((rule) => ['hide', 'delete'].includes(String(rule?.action || '')))
+            .map((rule) => ({
+                action: rule.action,
+                keywords: Array.from(new Set(
+                    (Array.isArray(rule?.keywords) ? rule.keywords : [])
+                        .map((keyword) => String(keyword || '').trim().toLowerCase())
+                        .filter(Boolean)
+                ))
+            }))
+            .filter((rule) => rule.keywords.length > 0);
+
+        const totalKeywordCount = normalizedRules.reduce((count, rule) => count + rule.keywords.length, 0);
+        const moderationKeywords = extractModerationKeywordsFromRules(normalizedRules);
+        if (moderationKeywords.length !== totalKeywordCount) {
+            return res.status(400).json({ error: 'Each moderation keyword can only belong to one action list.' });
+        }
+
+        const automationConflicts = await findAutomationKeywordConflictsForModeration(databases, {
+            accountId: normalizedAccountId,
+            keywords: moderationKeywords
+        });
+        if (automationConflicts.length > 0) {
+            return res.status(400).json({
+                error: `These moderation keywords are already used in automations or global triggers: ${automationConflicts.join(', ')}`,
+                field: 'keywords',
+                duplicate_keywords: automationConflicts
+            });
+        }
+
+        const existing = await listCommentModerationDocuments(databases, {
+            userId: req.user.$id,
+            accountIds: [normalizedAccountId, targetAccountId]
+        });
+
+        await syncCommentModerationKeywordRecords(databases, {
+            accountId: normalizedAccountId,
+            rules: normalizedRules
+        });
 
         const docData = {
             user_id: req.user.$id,
-            account_id: targetAccountId,
-            rules: JSON.stringify(rules || []),
+            account_id: normalizedAccountId,
+            rules: JSON.stringify(normalizedRules),
             is_active: is_active !== undefined ? is_active : true
         };
+        const moderationCollectionInfo = await getCollectionAttributeInfo(databases, COMMENT_MODERATION_COLLECTION_ID);
+        const sanitizedDocData = sanitizePayloadForCollection(docData, moderationCollectionInfo);
 
-        if (existing.total > 0) {
-            await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, COMMENT_MODERATION_COLLECTION_ID, existing.documents[0].$id, docData);
+        if (existing.length > 0) {
+            await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, COMMENT_MODERATION_COLLECTION_ID, existing[0].$id, sanitizedDocData);
         } else {
-            await databases.createDocument(process.env.APPWRITE_DATABASE_ID, COMMENT_MODERATION_COLLECTION_ID, ID.unique(), docData,
+            await databases.createDocument(process.env.APPWRITE_DATABASE_ID, COMMENT_MODERATION_COLLECTION_ID, ID.unique(), sanitizedDocData,
                 [Permission.read(Role.user(req.user.$id))]);
         }
 

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, AlertCircle, HelpCircle, Trash2, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -58,6 +59,11 @@ const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
 
   if (!isOpen) return null;
 
+  const overlayRoot = typeof document !== 'undefined'
+    ? document.querySelector('[data-dashboard-section-overlay-root]') as HTMLElement | null
+    : null;
+  const useSectionOverlay = Boolean(overlayRoot);
+
   const icons = {
     danger: <Trash2 className="w-6 h-6" />,
     warning: <AlertCircle className="w-6 h-6" />,
@@ -79,8 +85,12 @@ const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
     info: 'bg-ig-gradient text-white shadow-ig-glow hover:shadow-instagram',
   };
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+  const modalContent = (
+    <div className={cn(
+      useSectionOverlay
+        ? 'pointer-events-auto absolute inset-0 z-[220] flex items-center justify-center p-4'
+        : 'pointer-events-auto fixed inset-0 z-[9999] flex items-center justify-center p-4'
+    )}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-foreground/20 backdrop-blur-sm transition-opacity duration-200"
@@ -170,6 +180,12 @@ const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, overlayRoot || document.body);
 };
 
 export default ModernConfirmModal;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     FileText, Smartphone, Image as ImageIcon, Reply, MousePointerClick, Share2,
     Plus, Trash2, AlertCircle, Calendar, ChevronDown, Check, RefreshCw, Film, Globe, Loader2, X, CheckCircle2, Info
@@ -18,6 +18,7 @@ import {
     QUICK_REPLY_PAYLOAD_MAX,
     QUICK_REPLIES_TEXT_MAX,
 } from '../../lib/templateLimits';
+import { toBrowserPreviewUrl } from '../../lib/templatePreview';
 
 export type TemplateType = 'template_text' | 'template_carousel' | 'template_buttons' | 'template_media' | 'template_share_post' | 'template_quick_replies';
 
@@ -32,9 +33,13 @@ export interface TemplateData {
     buttons?: Array<{ title: string; url: string; type: string }>;
     media_url?: string;
     thumbnail_url?: string;
+    preview_media_url?: string;
     media_id?: string;
     replies?: Array<{ title: string; payload: string; content_type?: string }>;
     caption?: string;
+    linked_media_url?: string;
+    media_type?: string;
+    permalink?: string;
     use_latest_post?: boolean;
     latest_post_type?: 'post' | 'reel';
 }
@@ -106,6 +111,9 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
     const [isFetchingMedia, setIsFetchingMedia] = useState(false);
     const [mediaDateDropdownOpen, setMediaDateDropdownOpen] = useState(false);
     const [mediaSortDropdownOpen, setMediaSortDropdownOpen] = useState(false);
+    const mediaDateDropdownRef = useRef<HTMLDivElement | null>(null);
+    const mediaSortDropdownRef = useRef<HTMLDivElement | null>(null);
+    const mediaGridRef = useRef<HTMLDivElement | null>(null);
 
     // Fetch media for share post template
     const fetchSharePostMedia = useCallback(async (force = false) => {
@@ -173,11 +181,96 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
         }
     }, [templateType, activeAccountID, sharePostDateRange, sharePostCustomRange, fetchSharePostMedia]);
 
+    useEffect(() => {
+        const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+            const target = event.target as Node | null;
+
+            if (mediaDateDropdownRef.current && !mediaDateDropdownRef.current.contains(target)) {
+                setMediaDateDropdownOpen(false);
+            }
+
+            if (mediaSortDropdownRef.current && !mediaSortDropdownRef.current.contains(target)) {
+                setMediaSortDropdownOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handlePointerDown);
+        document.addEventListener('touchstart', handlePointerDown);
+
+        return () => {
+            document.removeEventListener('mousedown', handlePointerDown);
+            document.removeEventListener('touchstart', handlePointerDown);
+        };
+    }, []);
+
+    const forwardPopupWheelToMediaGrid = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+        if (!mediaGridRef.current) return;
+        event.preventDefault();
+        mediaGridRef.current.scrollTop += event.deltaY;
+    }, []);
+
     const filteredSharePostMedia = sharePostContentType === 'all' ? sharePostMedia :
         sharePostMedia.filter(m => sharePostContentType === 'posts' ?
             (m.media_product_type === 'FEED' || m.media_type === 'IMAGE' || m.media_type === 'CAROUSEL_ALBUM') :
             (m.media_product_type === 'REELS' || (m.media_type === 'VIDEO' && m.media_product_type !== 'FEED'))
         );
+
+    const latestSharePostPreviewMedia = useMemo(() => {
+        const targetType = templateData.latest_post_type === 'reel' ? 'reel' : 'post';
+        return [...sharePostMedia]
+            .filter((media) => (
+                targetType === 'reel'
+                    ? media.media_type === 'VIDEO'
+                    : media.media_type !== 'VIDEO'
+            ))
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0] || null;
+    }, [sharePostMedia, templateData.latest_post_type]);
+
+    useEffect(() => {
+        if (templateType !== 'template_share_post' || !templateData.use_latest_post) return;
+
+        const previewUrl = latestSharePostPreviewMedia?.thumbnail_url || latestSharePostPreviewMedia?.media_url || '';
+        const mediaUrl = latestSharePostPreviewMedia?.media_url || previewUrl;
+        const linkedMediaUrl = latestSharePostPreviewMedia?.media_url || '';
+        const nextLatestType = templateData.latest_post_type || 'post';
+
+        const hasChanged =
+            (templateData.media_url || '') !== mediaUrl ||
+            (templateData.thumbnail_url || '') !== previewUrl ||
+            (templateData.preview_media_url || '') !== previewUrl ||
+            (templateData.linked_media_url || '') !== linkedMediaUrl ||
+            (templateData.caption || '') !== String(latestSharePostPreviewMedia?.caption || '') ||
+            (templateData.media_type || '') !== String(latestSharePostPreviewMedia?.media_type || '') ||
+            (templateData.permalink || '') !== String(latestSharePostPreviewMedia?.permalink || '') ||
+            (templateData.latest_post_type || 'post') !== nextLatestType;
+
+        if (!hasChanged) return;
+
+        onUpdate({
+            ...templateData,
+            media_url: mediaUrl,
+            thumbnail_url: previewUrl || undefined,
+            preview_media_url: previewUrl || undefined,
+            linked_media_url: linkedMediaUrl || undefined,
+            caption: latestSharePostPreviewMedia?.caption || '',
+            media_type: latestSharePostPreviewMedia?.media_type || '',
+            permalink: latestSharePostPreviewMedia?.permalink || '',
+            latest_post_type: nextLatestType
+        });
+    }, [
+        latestSharePostPreviewMedia,
+        onUpdate,
+        templateData.caption,
+        templateData.latest_post_type,
+        templateData.linked_media_url,
+        templateData.media_type,
+        templateData.media_url,
+        templateData.permalink,
+        templateData.preview_media_url,
+        templateData.thumbnail_url,
+        templateData.use_latest_post,
+        templateType
+    ]);
 
     const clearValidationError = (key: string) => {
         if (onValidationErrorChange && validationErrors[key]) {
@@ -598,7 +691,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                 {/* Preview - Exact match with InboxMenu */}
                 {templateData.media_url && (
                     <div className="aspect-video relative rounded-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-                        <img src={templateData.media_url} className="w-full h-full object-cover" alt="" onError={(e) => { (e.target as HTMLImageElement).src = ''; }} />
+                        <img src={toBrowserPreviewUrl(templateData.media_url || '')} className="w-full h-full object-cover" alt="" onError={(e) => { (e.target as HTMLImageElement).src = ''; }} />
                     </div>
                 )}
             </div>
@@ -654,7 +747,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                     </div>
 
                     {/* Latest Post/Reel Option */}
-                    <div className="flex items-center justify-between bg-blue-50/50 dark:bg-blue-500/5 p-5 rounded-[28px] border border-blue-100 dark:border-blue-500/10">
+                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 ${templateData.use_latest_post ? 'ring-1 ring-primary/15' : ''}`}>
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-blue-50 dark:border-blue-500/10">
                                 <Share2 className={`w-5 h-5 transition-colors ${templateData.use_latest_post ? 'text-blue-500' : 'text-gray-400'}`} />
@@ -668,13 +761,14 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                             <input
                                 type="checkbox"
                                 checked={templateData.use_latest_post || false}
-                                onChange={(e) => {
-                                    onUpdate({
-                                        ...templateData,
-                                        use_latest_post: e.target.checked,
-                                        latest_post_type: e.target.checked ? (templateData.latest_post_type || 'post') : undefined
-                                    });
-                                }}
+                                    onChange={(e) => {
+                                        onUpdate({
+                                            ...templateData,
+                                            use_latest_post: e.target.checked,
+                                            media_id: e.target.checked ? '' : templateData.media_id,
+                                            latest_post_type: e.target.checked ? (templateData.latest_post_type || 'post') : undefined
+                                        });
+                                    }}
                                 className="sr-only peer"
                             />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
@@ -710,34 +804,37 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                             <div className="space-y-6">
                                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white dark:bg-slate-900/50 rounded-3xl border border-content shadow-sm relative z-50">
                                     <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                                        <div className="relative w-full sm:w-64">
+                                        <div ref={mediaDateDropdownRef} className="relative w-full sm:w-64">
                                             <button
                                                 onClick={(e) => { e.preventDefault(); setMediaDateDropdownOpen(!mediaDateDropdownOpen); setMediaSortDropdownOpen(false); }}
-                                                className="w-full flex items-center justify-between px-5 py-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all border border-content group shadow-sm"
+                                                className="group flex w-full items-center justify-between rounded-2xl border border-border/80 bg-background/90 px-5 py-3 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.7)] transition-all hover:border-primary/35 hover:bg-card"
                                             >
                                                 <div className="flex items-center gap-3 overflow-hidden">
-                                                    <Calendar className={`w-4 h-4 shrink-0 ${sharePostDateRange !== 'all' ? 'text-blue-500' : 'text-slate-400'}`} />
+                                                    <Calendar className={`w-4 h-4 shrink-0 ${sharePostDateRange !== 'all' ? 'text-primary' : 'text-muted-foreground/60'} transition-colors group-hover:text-primary`} />
                                                     <div className="flex flex-col items-start overflow-hidden">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 truncate">
+                                                        <span className="truncate text-[10px] font-black uppercase tracking-widest text-foreground">
                                                             {sharePostDateRange === 'all' ? 'All Time' :
                                                                 sharePostDateRange === '7days' ? 'Last 7 Days' :
                                                                     sharePostDateRange === '30days' ? 'Last 30 Days' :
                                                                         sharePostDateRange === '90days' ? 'Last 90 Days' : 'Custom Range'}
                                                         </span>
                                                         {sharePostDateRange === 'custom' && sharePostCustomRange.from && (
-                                                            <span className="text-[8px] font-bold text-blue-500 uppercase tracking-tighter truncate">
+                                                            <span className="truncate text-[8px] font-bold uppercase tracking-tighter text-primary">
                                                                 {sharePostCustomRange.from.toLocaleDateString()} {sharePostCustomRange.to ? `to ${sharePostCustomRange.to.toLocaleDateString()}` : ''}
                                                             </span>
                                                         )}
                                                     </div>
                                                 </div>
-                                                <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-300 ${mediaDateDropdownOpen ? 'rotate-180' : ''}`} />
+                                                <span className="ml-3 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-card/80 transition-colors group-hover:border-primary/35">
+                                                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${mediaDateDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
+                                                </span>
                                             </button>
 
                                             {mediaDateDropdownOpen && (
-                                                <>
-                                                    <div className="fixed inset-0 z-10" onClick={() => setMediaDateDropdownOpen(false)} />
-                                                    <div className="absolute top-full left-0 right-0 mt-2 p-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[28px] shadow-2xl z-20 animate-in zoom-in-95 duration-200">
+                                                    <div
+                                                        onWheel={forwardPopupWheelToMediaGrid}
+                                                        className="absolute top-full left-0 right-0 z-20 mt-2 overflow-hidden rounded-[28px] border border-border/80 bg-card/98 p-2 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.72)] backdrop-blur-xl animate-in zoom-in-95 duration-200"
+                                                    >
                                                         {[
                                                             { id: 'all', label: 'All Time', icon: <Calendar className="w-3.5 h-3.5" /> },
                                                             { id: '7days', label: 'Last 7 Days', icon: <RefreshCw className="w-3.5 h-3.5" /> },
@@ -752,9 +849,9 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                                                     setSharePostDateRange(filter.id as any);
                                                                     if (filter.id !== 'custom') setMediaDateDropdownOpen(false);
                                                                 }}
-                                                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all ${sharePostDateRange === filter.id
-                                                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                                                                    : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                                                className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-wider transition-all ${sharePostDateRange === filter.id
+                                                                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                                                                    : 'text-foreground hover:bg-background/80 hover:text-primary'}`}
                                                             >
                                                                 {filter.icon}
                                                                 {filter.label}
@@ -762,7 +859,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                                         ))}
 
                                                         {sharePostDateRange === 'custom' && (
-                                                            <div className="mt-2 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-content animate-in slide-in-from-top-2">
+                                                            <div className="mt-2 rounded-2xl border border-border/70 bg-background/80 p-4 animate-in slide-in-from-top-2">
                                                                 <div className="grid grid-cols-2 gap-3">
                                                                     <div className="space-y-2">
                                                                         <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">From</label>
@@ -773,7 +870,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                                                                 const newRange = { ...sharePostCustomRange, from: e.target.value ? new Date(e.target.value) : null };
                                                                                 setSharePostCustomRange(newRange);
                                                                             }}
-                                                                            className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-blue-500 rounded-xl p-2.5 text-xs font-bold"
+                                                                            className="w-full rounded-xl border border-border bg-input p-2.5 text-xs font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                                                         />
                                                                     </div>
                                                                     <div className="space-y-2">
@@ -785,41 +882,43 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                                                                 const newRange = { ...sharePostCustomRange, to: e.target.value ? new Date(e.target.value) : null };
                                                                                 setSharePostCustomRange(newRange);
                                                                             }}
-                                                                            className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-blue-500 rounded-xl p-2.5 text-xs font-bold"
+                                                                            className="w-full rounded-xl border border-border bg-input p-2.5 text-xs font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                                                         />
                                                                     </div>
                                                                 </div>
                                                                 <button
                                                                     onClick={() => setMediaDateDropdownOpen(false)}
-                                                                    className="w-full mt-3 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase"
+                                                                    className="mt-3 w-full rounded-xl bg-primary py-2 text-[10px] font-black uppercase text-primary-foreground shadow-lg shadow-primary/20 transition hover:bg-primary/90"
                                                                 >
                                                                     Apply
                                                                 </button>
                                                             </div>
                                                         )}
                                                     </div>
-                                                </>
                                             )}
                                         </div>
 
-                                        <div className="relative w-full sm:w-48">
+                                        <div ref={mediaSortDropdownRef} className="relative w-full sm:w-48">
                                             <button
                                                 onClick={(e) => { e.preventDefault(); setMediaSortDropdownOpen(!mediaSortDropdownOpen); setMediaDateDropdownOpen(false); }}
-                                                className="w-full flex items-center justify-between px-5 py-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all border border-content group shadow-sm"
+                                                className="group flex w-full items-center justify-between rounded-2xl border border-border/80 bg-background/90 px-5 py-3 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.7)] transition-all hover:border-primary/35 hover:bg-card"
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <RefreshCw className="w-4 h-4 text-slate-400 group-hover:rotate-180 transition-transform duration-500" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                                                    <RefreshCw className="w-4 h-4 text-muted-foreground/60 transition-transform duration-500 group-hover:rotate-180 group-hover:text-primary" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-foreground">
                                                         {sharePostSortBy === 'recent' ? 'Most Recent' : 'Oldest First'}
                                                     </span>
                                                 </div>
-                                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${mediaSortDropdownOpen ? 'rotate-180' : ''}`} />
+                                                <span className="ml-3 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-card/80 transition-colors group-hover:border-primary/35">
+                                                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${mediaSortDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
+                                                </span>
                                             </button>
 
                                             {mediaSortDropdownOpen && (
-                                                <>
-                                                    <div className="fixed inset-0 z-10" onClick={() => setMediaSortDropdownOpen(false)} />
-                                                    <div className="absolute top-full left-0 right-0 mt-2 p-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[28px] shadow-2xl z-20 animate-in zoom-in-95 duration-200">
+                                                    <div
+                                                        onWheel={forwardPopupWheelToMediaGrid}
+                                                        className="absolute top-full left-0 right-0 z-20 mt-2 overflow-hidden rounded-[28px] border border-border/80 bg-card/98 p-2 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.72)] backdrop-blur-xl animate-in zoom-in-95 duration-200"
+                                                    >
                                                         {[
                                                             { id: 'recent', label: 'Most Recent' },
                                                             { id: 'oldest', label: 'Oldest First' }
@@ -831,16 +930,15 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                                                     setSharePostSortBy(option.id as any);
                                                                     setMediaSortDropdownOpen(false);
                                                                 }}
-                                                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all ${sharePostSortBy === option.id
-                                                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                                                                    : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                                                className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-wider transition-all ${sharePostSortBy === option.id
+                                                                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                                                                    : 'text-foreground hover:bg-background/80 hover:text-primary'}`}
                                                             >
                                                                 {option.id === 'recent' ? <RefreshCw className="w-3.5 h-3.5 rotate-180" /> : <RefreshCw className="w-3.5 h-3.5" />}
                                                                 {option.label}
                                                             </button>
                                                         ))}
                                                     </div>
-                                                </>
                                             )}
                                         </div>
                                     </div>
@@ -877,27 +975,34 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 scrollbar-thin overflow-y-auto max-h-[600px] pr-2">
+                                        <div
+                                            ref={mediaGridRef}
+                                            className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 scrollbar-thin overflow-y-auto max-h-[600px] pr-2"
+                                        >
                                             {sortedMedia.map((media: any) => (
                                                 <button
                                                     key={media.id}
                                                     onClick={(e) => {
                                                         e.preventDefault();
-                                                        onUpdate({
-                                                            ...templateData,
-                                                            media_id: media.id,
-                                                            media_url: media.thumbnail_url || media.media_url,
-                                                            thumbnail_url: media.thumbnail_url || undefined,
-                                                            caption: media.caption || ''
-                                                        });
-                                                    }}
+                                                    onUpdate({
+                                                        ...templateData,
+                                                        media_id: media.id,
+                                                        media_url: media.media_url || '',
+                                                        thumbnail_url: media.thumbnail_url || media.media_url || undefined,
+                                                        preview_media_url: media.thumbnail_url || media.media_url || undefined,
+                                                        linked_media_url: media.media_url || '',
+                                                        caption: media.caption || '',
+                                                        media_type: media.media_type || '',
+                                                        permalink: media.permalink || ''
+                                                    });
+                                                }}
                                                     className={`group relative aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all duration-300 ${templateData.media_id === media.id
                                                         ? 'border-blue-500 ring-4 ring-blue-500/20 shadow-xl'
                                                         : 'border-transparent hover:border-slate-200 dark:hover:border-slate-800 shadow-md hover:shadow-lg'
                                                         }`}
                                                 >
                                                     <img
-                                                        src={media.thumbnail_url || media.media_url}
+                                                        src={toBrowserPreviewUrl(media.thumbnail_url || media.media_url || '')}
                                                         className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${templateData.media_id === media.id ? 'brightness-75' : ''}`}
                                                         alt={media.caption || ''}
                                                         loading="lazy"
@@ -944,7 +1049,17 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                 <button
                                     onClick={(e) => {
                                         e.preventDefault();
-                                        onUpdate({ ...templateData, media_id: '', media_url: '' });
+                                        onUpdate({
+                                            ...templateData,
+                                            media_id: '',
+                                            media_url: '',
+                                            thumbnail_url: '',
+                                            preview_media_url: '',
+                                            linked_media_url: '',
+                                            caption: '',
+                                            media_type: '',
+                                            permalink: ''
+                                        });
                                     }}
                                     className="text-[9px] font-black uppercase tracking-widest text-red-500 hover:text-red-600 transition-colors"
                                 >
@@ -972,7 +1087,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                 <div className="flex items-start gap-3 p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10">
                                     <AlertCircle className="w-3.5 h-3.5 text-blue-500 mt-0.5" />
                                     <p className="text-[9px] font-bold text-blue-500/80 uppercase tracking-widest leading-relaxed">
-                                        Note: Instagram allows fetching up to 10,000 recently created posts and reels via DM Panda.
+                                        Note: Instagram allows fetching up to 10,000 recently created posts and reels through the workspace.
                                     </p>
                                 </div>
                             </div>

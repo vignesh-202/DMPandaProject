@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
-import { Mail, MessageSquare, Plus, RefreshCw, AlertCircle, Trash2, CheckCircle2, LayoutGrid, List, Power, ExternalLink, ChevronRight, Smartphone, RefreshCcw, Instagram, Globe, MessageCircle, ChevronDown, Share2, Image as ImageIcon, Video, Music, FileText, Reply, Film, Calendar, Loader2, MousePointerClick, GripVertical, ArrowUp, ArrowDown, Settings, Pencil, HelpCircle, Info, Clock, Camera, Mic, PlusSquare, Eye, X, Menu } from 'lucide-react';
+import { Mail, MessageSquare, Plus, RefreshCw, AlertCircle, Trash2, CheckCircle2, LayoutGrid, List, Power, ExternalLink, ArrowLeft, Smartphone, RefreshCcw, Instagram, Globe, MessageCircle, ChevronDown, Share2, Image as ImageIcon, Video, Music, FileText, Reply, Film, Calendar, Loader2, MousePointerClick, GripVertical, ArrowUp, ArrowDown, Settings, Pencil, HelpCircle, Info, Clock, Camera, Mic, PlusSquare, Eye, X, Menu } from 'lucide-react';
 import Card from '../../components/ui/card';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
@@ -10,17 +10,26 @@ import ToggleSwitch from '../../components/ui/ToggleSwitch';
 
 import { useDashboard } from '../../contexts/DashboardContext';
 import { useAuth } from '../../contexts/AuthContext';
-import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
+import TemplateSelector, { ReplyTemplate, prefetchReplyTemplates } from '../../components/dashboard/TemplateSelector';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
+import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
+import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
+import AutomationToast from '../../components/ui/AutomationToast';
 import { useNavigate } from 'react-router-dom';
+import { takeTransientState } from '../../lib/transientState';
+import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
+import { toBrowserPreviewUrl } from '../../lib/templatePreview';
 
 interface MenuItem {
     title: string;
     type: 'web_url' | 'postback';
+    automation_id?: string;
     payload?: string;
     url?: string;
     webview_height_ratio?: 'full';
     followers_only?: boolean;
+    seen_typing_enabled?: boolean;
+    template_name?: string;
     template_type?: 'template_text' | 'template_carousel' | 'template_buttons' | 'template_media' | 'template_share_post' | 'template_quick_replies';
     template_data?: any; // Store template content for inline creation
     template_id?: string; // Template ID reference
@@ -102,11 +111,13 @@ const InboxMenu: React.FC = () => {
         title: '',
         type: 'postback',
         followers_only: false,
+        seen_typing_enabled: false,
         webview_height_ratio: 'full',
         template_type: 'template_text',
         template_data: {}
     });
     const [selectedTemplate, setSelectedTemplate] = useState<ReplyTemplate | null>(null);
+    const [showTemplateSelector, setShowTemplateSelector] = useState(true);
     const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
     const [fetchedAutomations, setFetchedAutomations] = useState<Record<string, any>>({});
     const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
@@ -129,6 +140,30 @@ const InboxMenu: React.FC = () => {
     const [initialFetchDone, setInitialFetchDone] = useState(false);
     const lastFetchRef = useRef<string>("");
     const [showMobilePreview, setShowMobilePreview] = useState(false);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [toastVariant, setToastVariant] = useState<'success' | 'error'>('success');
+    const [isPreparingEditor, setIsPreparingEditor] = useState(false);
+    useDashboardMainScrollLock(Boolean(editingItemIndex !== null || isPreparingEditor));
+    const [editorLoadingMessage, setEditorLoadingMessage] = useState('Preparing inbox menu editor');
+    const pendingLinkedTemplateIdRef = useRef<string | null>(takeTransientState<string>('openLinkedTemplateId'));
+    const saveActionRef = useRef<() => Promise<boolean>>(async () => true);
+    const discardActionRef = useRef<() => void>(() => { });
+
+    const showToast = useCallback((message: string, variant: 'success' | 'error') => {
+        setToastVariant(variant);
+        setToastMessage(message);
+    }, []);
+
+    const waitForEditorPaint = useCallback(async () => {
+        if (typeof window === 'undefined') return;
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    }, []);
+
+    const primeEditorResources = useCallback(async () => {
+        if (!activeAccountID) return;
+        await prefetchReplyTemplates(activeAccountID, authenticatedFetch);
+    }, [activeAccountID, authenticatedFetch]);
 
     // Task 11: Share post template - automatic media fetching (Fetches 'all' and filters locally)
     const fetchSharePostMedia = useCallback(async (force = false) => {
@@ -286,6 +321,7 @@ const InboxMenu: React.FC = () => {
             title: '',
             type: 'postback',
             followers_only: false,
+            seen_typing_enabled: false,
             webview_height_ratio: 'full',
             template_type: 'template_text',
             template_data: {}
@@ -309,14 +345,14 @@ const InboxMenu: React.FC = () => {
     // Browser-level protection (refresh, close tab, navigate away via address bar)
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (hasAnyLocalChanges || isCreatingItem) {
+            if (hasAnyLocalChanges) {
                 e.preventDefault();
                 e.returnValue = '';
             }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [hasAnyLocalChanges, isCreatingItem]);
+    }, [hasAnyLocalChanges]);
 
 
     // Modal State
@@ -365,11 +401,7 @@ const InboxMenu: React.FC = () => {
 
     useEffect(() => {
         if (activeAccountID && inboxMenuData && !initialFetchDone) {
-            const storedMenuKey = `inbox_menu_${activeAccountID}`;
             const currentMenu = inboxMenuData.db_menu || inboxMenuData.ig_menu || [];
-
-            // Task 1: On fresh refresh, always sync localStorage with server to avoid showing stale/unpublished data
-            localStorage.setItem(storedMenuKey, JSON.stringify(currentMenu));
 
             setInitialFetchDone(true);
 
@@ -379,24 +411,19 @@ const InboxMenu: React.FC = () => {
         }
     }, [activeAccountID, inboxMenuData, initialFetchDone, isEditing, isCreatingItem]);
 
+    useEffect(() => {
+        if (isCreatingItem) {
+            document.querySelector('main')?.scrollTo({ top: 0, behavior: 'auto' });
+        }
+    }, [isCreatingItem]);
+
     const handleStartEditing = (autoAdd = false, forcedData?: MenuItem[]) => {
-        const storedMenuKey = `inbox_menu_${activeAccountID}`;
         let menuToEdit: MenuItem[] = [];
 
         if (forcedData) {
             menuToEdit = [...forcedData];
         } else {
-            const storedMenu = localStorage.getItem(storedMenuKey);
-            if (storedMenu) {
-                try {
-                    menuToEdit = JSON.parse(storedMenu);
-                } catch (e) {
-                    console.error('Failed to parse stored menu:', e);
-                    menuToEdit = inboxMenuData?.db_menu || inboxMenuData?.ig_menu || [];
-                }
-            } else {
-                menuToEdit = inboxMenuData?.db_menu || inboxMenuData?.ig_menu || [];
-            }
+            menuToEdit = inboxMenuData?.db_menu || inboxMenuData?.ig_menu || [];
         }
 
         // Fix: Remove any ghost "URL test" items
@@ -407,17 +434,18 @@ const InboxMenu: React.FC = () => {
         setIsEditing(true);
         if (autoAdd) {
             setIsCreatingItem(true);
+            setShowTemplateSelector(true);
         }
     };
 
-    const handleCancelEditing = () => {
+    const handleCancelEditing = useCallback(() => {
         setIsEditing(false);
         setIsCreatingItem(false);
         setEditingItemIndex(null);
         setEditingMenu([]);
-    };
+    }, []);
 
-    const handleSaveMenuItem = async () => {
+    const handleSaveMenuItem = useCallback(async () => {
         // Task 13: Validate with red borders and error messages
         const errors = validateItem(newItem);
         if (Object.keys(errors).length > 0) {
@@ -543,6 +571,7 @@ const InboxMenu: React.FC = () => {
             title: '',
             type: 'postback',
             followers_only: false,
+            seen_typing_enabled: false,
             webview_height_ratio: 'full',
             template_type: 'template_text',
             template_data: {}
@@ -553,13 +582,11 @@ const InboxMenu: React.FC = () => {
         setValidationErrors({});
         setIsActionLoading(false);
 
-        // Sync local storage immediately
-        localStorage.setItem(`inbox_menu_${activeAccountID}`, JSON.stringify(updatedMenu));
-        showAlert('Updated', 'Menu item updated locally. Click Publish to save changes to Instagram.', 'success');
+        showToast('Menu item updated locally. Click Publish to save changes to Instagram.', 'success');
         return true;
-    };
+    }, [editingItemIndex, editingMenu, newItem, selectedTemplate, showAlert, showToast, validationErrors]);
 
-    const handleSaveMenuInternal = async (menuToSave: MenuItem[] | any[]): Promise<boolean> => {
+    const handleSaveMenuInternal = useCallback(async (menuToSave: MenuItem[] | any[]): Promise<boolean> => {
         console.log('handleSaveMenuInternal called with:', menuToSave);
 
         if (!activeAccountID) {
@@ -639,10 +666,12 @@ const InboxMenu: React.FC = () => {
                         item.webview_height_ratio = 'full'; // Always set to "full" as per Instagram API
                     } else if (m.type === 'postback') {
                         // Postback format: { "type": "postback", "title": "...", "payload": "<template_id>" }
-                        item.payload = m.payload; // payload is the template_id from Appwrite database
+                        item.payload = m.payload || m.template_id; // payload is the template_id from Appwrite database
+                        item.template_id = m.template_id || m.payload;
                         // Task 4: Include template data for backend to create/update
                         item.template_type = m.template_type;
                         item.template_data = m.template_data;
+                        item.seen_typing_enabled = m.seen_typing_enabled === true;
                     }
 
                     return item;
@@ -657,10 +686,10 @@ const InboxMenu: React.FC = () => {
                     const confirmed = await new Promise<boolean>((resolve) => {
                         setModalConfig({
                             isOpen: true,
-                            title: 'Delete Menu?',
+                            title: 'Delete?',
                             description: 'Saving an empty menu will remove it from Instagram. Continue?',
                             type: 'danger',
-                            confirmLabel: 'Delete Menu',
+                            confirmLabel: 'Delete',
                             onConfirm: () => { closeModal(); resolve(true); },
                             onClose: () => { closeModal(); resolve(false); }
                         });
@@ -689,63 +718,58 @@ const InboxMenu: React.FC = () => {
 
             if (response.ok) {
                 const responseData = await response.json();
-                // Task 2: Backend sends success response and new menu to frontend
-                if (responseData.menu_items) {
-                    // Update stored menu with the new menu from backend
-                    const storedMenuKey = `inbox_menu_${activeAccountID}`;
-                    localStorage.setItem(storedMenuKey, JSON.stringify(responseData.menu_items));
-                }
-
                 // Refresh the menu data
                 await fetchInboxMenu(true);
                 // Task 2: Reset initialMenu to match the saved state so Publish button disappears
                 setInitialMenu(JSON.parse(JSON.stringify(menuItems)));
+                showToast('Inbox menu published successfully.', 'success');
                 return true;
             } else {
                 const err = await response.json();
-                showAlert('Save Failed', err.error || 'Failed to save menu.', 'danger');
+                showToast(err.error || 'Failed to save menu.', 'error');
                 return false;
             }
         } catch (error) {
-            showAlert('Error', 'Network error during save.', 'danger');
+            showToast('Network error during save.', 'error');
             return false;
         } finally {
             setIsActionLoading(false);
             setIsPublishing(false);
         }
-    };
+    }, [activeAccountID, authenticatedFetch, fetchInboxMenu, inboxMenuData?.ig_menu, showAlert, showToast]);
 
     // Manual Trigger Wrapper
-    const handleSaveMenu = async () => {
+    const handleSaveMenu = useCallback(async () => {
         if (isCreatingItem) {
             // If we are currently creating an item, try to save it first
             await handleSaveMenuItem();
         } else {
             handleSaveMenuInternal(editingMenu);
         }
-    };
+    }, [editingMenu, handleSaveMenuInternal, handleSaveMenuItem, isCreatingItem]);
 
     // Define Save/Discard actions for Sidebar Modal (Navigation Protection)
     useEffect(() => {
-        setSaveUnsavedChanges(() => async () => {
+        saveActionRef.current = async () => {
             if (isCreatingItem) {
-                // Task 3: If user hits Save in popup, we attempt to save item + menu
                 const success = await handleSaveMenuItem();
                 if (!success) return false;
             }
             return await handleSaveMenuInternal(editingMenu);
-        });
-
-        setDiscardUnsavedChanges(() => () => {
+        };
+        discardActionRef.current = () => {
             handleCancelEditing();
             setHasUnsavedChanges(false);
-        });
-        // Do not clear hasUnsavedChanges in cleanup: that ran on every effect re-run (handlers change each render)
-        // and overwrote the sync effect, so the "unsaved" popup never showed when leaving with a new item.
-    }, [isCreatingItem, editingMenu, handleSaveMenuItem, handleSaveMenuInternal, setSaveUnsavedChanges, setDiscardUnsavedChanges, setHasUnsavedChanges]);
+        };
+    }, [editingMenu, handleCancelEditing, handleSaveMenuInternal, handleSaveMenuItem, isCreatingItem, setHasUnsavedChanges]);
+
+    useEffect(() => {
+        setSaveUnsavedChanges(() => () => saveActionRef.current());
+        setDiscardUnsavedChanges(() => () => discardActionRef.current());
+    }, [setDiscardUnsavedChanges, setSaveUnsavedChanges]);
 
 
-    const handleRemoveItem = (idx: number) => {
+    const handleRemoveItem = useCallback((idx: number) => {
         const wouldBeEmpty = editingMenu.length <= 1;
         if (wouldBeEmpty) {
             setModalConfig({
@@ -753,7 +777,7 @@ const InboxMenu: React.FC = () => {
                 title: 'Delete Last Menu Item?',
                 description: 'This is the last menu item. Removing it will delete the entire Inbox Menu from Instagram and the database.',
                 type: 'danger',
-                confirmLabel: 'Delete Menu',
+                confirmLabel: 'Delete',
                 onConfirm: async () => {
                     closeModal();
                     await executeDelete();
@@ -763,22 +787,109 @@ const InboxMenu: React.FC = () => {
         }
         const updated = editingMenu.filter((_, i) => i !== idx);
         setEditingMenu(updated);
+    }, [activeAccountID, authenticatedFetch, fetchInboxMenu, inboxMenuData?.ig_menu, setInboxMenuData, showAlert, showToast]);
+
+    const handleCloseItemEditor = () => {
+        setIsCreatingItem(false);
+        setEditingItemIndex(null);
+        setValidationErrors({});
+        setSelectedTemplate(null);
+        setShowTemplateSelector(true);
+        setItemBeforeEdit(null);
+        setNewItem({
+            title: '',
+            type: 'postback',
+            followers_only: false,
+            seen_typing_enabled: false,
+            webview_height_ratio: 'full',
+            template_type: 'template_text',
+            template_data: {}
+        });
     };
 
-    const handleEditItem = (idx: number) => {
+    const handleDeleteEditingItem = async () => {
+        if (editingItemIndex === null) return;
+        handleRemoveItem(editingItemIndex);
+        handleCloseItemEditor();
+        showToast('Menu item removed from the draft.', 'success');
+    };
+
+    const handleEditItem = useCallback(async (idx: number) => {
         const item = editingMenu[idx];
-        setEditingItemIndex(idx);
-        setIsCreatingItem(true);
+        setEditorLoadingMessage('Loading inbox menu item');
+        setIsPreparingEditor(true);
+        try {
+            await waitForEditorPaint();
+            await primeEditorResources();
 
-        // Use stored template_data from db_menu/localStorage (no API fetch needed)
-        const normalizedItem = {
-            ...item,
-            template_type: item.template_type || 'template_text',
-            template_data: item.template_data || {}
-        };
-        setNewItem(normalizedItem);
-        setItemBeforeEdit({ ...normalizedItem });
-    };
+            let resolvedTemplate: ReplyTemplate | null = null;
+            if (item?.template_id && activeAccountID) {
+                const templateResponse = await authenticatedFetch(
+                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${item.template_id}?account_id=${activeAccountID}`
+                );
+                if (templateResponse.ok) {
+                    resolvedTemplate = await templateResponse.json();
+                }
+            }
+
+            setEditingItemIndex(idx);
+            setIsCreatingItem(true);
+
+            const normalizedItem = {
+                ...item,
+                template_type: item.template_type || 'template_text',
+                template_data: item.template_data || {}
+            };
+            setNewItem(normalizedItem);
+            setItemBeforeEdit({ ...normalizedItem });
+            if (normalizedItem.template_id) {
+                setSelectedTemplate(
+                    resolvedTemplate || ({
+                        id: normalizedItem.template_id,
+                        name: normalizedItem.template_name || 'Selected Reply Template',
+                        type: 'saved',
+                        template_type: (normalizedItem.template_type || 'template_text') as any,
+                        template_data: normalizedItem.template_data || {}
+                    } as any)
+                );
+                setShowTemplateSelector(false);
+            } else {
+                setSelectedTemplate(null);
+                setShowTemplateSelector(true);
+            }
+        } finally {
+            setIsPreparingEditor(false);
+        }
+    }, [activeAccountID, authenticatedFetch, editingMenu, primeEditorResources, waitForEditorPaint]);
+
+    const handleCreateItem = useCallback(async (forcedMenu?: MenuItem[]) => {
+        setEditorLoadingMessage('Opening inbox menu editor');
+        setIsPreparingEditor(true);
+        try {
+            await waitForEditorPaint();
+            if (!isEditing) {
+                handleStartEditing(false, forcedMenu);
+            }
+            await primeEditorResources();
+            setEditingItemIndex(null);
+            setIsCreatingItem(true);
+            setShowTemplateSelector(true);
+            setSelectedTemplate(null);
+            setValidationErrors({});
+            setItemBeforeEdit(null);
+            setNewItem({
+                title: '',
+                type: 'postback',
+                followers_only: false,
+                seen_typing_enabled: false,
+                webview_height_ratio: 'full',
+                template_type: 'template_text',
+                template_data: {}
+            });
+        } finally {
+            setIsPreparingEditor(false);
+        }
+    }, [handleStartEditing, isEditing, primeEditorResources, waitForEditorPaint]);
 
     // Task 15: Drag and drop handlers for reordering
     const handleDragStart = (idx: number) => {
@@ -822,14 +933,14 @@ const InboxMenu: React.FC = () => {
                 body: JSON.stringify({ account_id: activeAccountID, action: 'sync' })
             });
             if (response.ok) {
-                showAlert('Sync Successful', 'Your Instagram menu has been updated with the database configuration.', 'success');
+                showToast('Your Instagram menu has been updated with the database configuration.', 'success');
                 await fetchInboxMenu(true);
             } else {
                 const err = await response.json();
-                showAlert('Sync Failed', err.error || 'Failed to update Instagram menu.', 'danger');
+                showToast(err.error || 'Failed to update Instagram menu.', 'error');
             }
         } catch (error) {
-            showAlert('Error', 'A network error occurred while syncing.', 'danger');
+            showToast('A network error occurred while syncing.', 'error');
         } finally {
             setIsActionLoading(false);
         }
@@ -844,9 +955,8 @@ const InboxMenu: React.FC = () => {
                 method: 'DELETE'
             });
             if (response.ok) {
-                showAlert('Menu Deleted', 'The persistent menu has been removed from Instagram.', 'success');
+                showToast('The persistent menu has been removed from Instagram.', 'success');
                 // Clear all local states
-                localStorage.removeItem(`inbox_menu_${activeAccountID}`);
                 setEditingMenu([]);
                 setInitialMenu([]);
                 setInboxMenuData((prev: any) => prev ? { ...prev, ig_menu: null, db_menu: null, status: 'none' } : null);
@@ -855,11 +965,11 @@ const InboxMenu: React.FC = () => {
                 return true;
             } else {
                 const err = await response.json();
-                showAlert('Delete Failed', err.error || 'Failed to delete Instagram menu.', 'danger');
+                showToast(err.error || 'Failed to delete Instagram menu.', 'error');
                 return false;
             }
         } catch (error) {
-            showAlert('Error', 'A network error occurred while deleting.', 'danger');
+            showToast('A network error occurred while deleting.', 'error');
             return false;
         } finally {
             setIsActionLoading(false);
@@ -872,10 +982,10 @@ const InboxMenu: React.FC = () => {
 
         setModalConfig({
             isOpen: true,
-            title: 'Delete Menu?',
+            title: 'Delete?',
             description: 'This will permanently remove the persistent menu from your Instagram account. You can always create it again later.',
             type: 'danger',
-            confirmLabel: 'Delete Menu',
+            confirmLabel: 'Delete',
             onConfirm: async () => {
                 closeModal();
                 await executeDelete();
@@ -896,7 +1006,7 @@ const InboxMenu: React.FC = () => {
                 closeModal();
                 const deleted = await executeDelete();
                 if (deleted) {
-                    handleStartEditing(true, []);
+                    void handleCreateItem([]);
                 }
             }
         });
@@ -907,7 +1017,7 @@ const InboxMenu: React.FC = () => {
         if (!activeAccountID) return;
         setModalConfig({
             isOpen: true,
-            title: 'Delete Menu?',
+            title: 'Delete?',
             description: 'This will remove the menu from Instagram and our database. You can create a new one after.',
             type: 'danger',
             confirmLabel: 'Delete',
@@ -943,15 +1053,6 @@ const InboxMenu: React.FC = () => {
         }
     };
 
-    if (!activeAccountID) {
-        return (
-            <div className="flex flex-col items-center justify-center py-20 bg-secondary rounded-3xl border-2 border-dashed border-border">
-                <Mail className="w-12 h-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground font-semibold">Please select an Instagram account to manage its Inbox Menu.</p>
-            </div>
-        );
-    }
-
     const currentDisplayMenu = (() => {
         if (isEditing) return editingMenu;
         // Always prefer db_menu when available (has template_data for preview)
@@ -961,98 +1062,133 @@ const InboxMenu: React.FC = () => {
         return [];
     })() || [];
 
+    useEffect(() => {
+        const templateId = pendingLinkedTemplateIdRef.current;
+        if (!templateId || isCreatingItem) return;
+
+        const sourceMenu = isEditing ? editingMenu : currentDisplayMenu;
+        if (!sourceMenu.length) return;
+
+        const targetIndex = sourceMenu.findIndex((item: MenuItem) => item.template_id === templateId);
+        if (targetIndex === -1) return;
+
+        if (!isEditing) {
+            handleStartEditing(false, currentDisplayMenu);
+            return;
+        }
+
+        void handleEditItem(targetIndex);
+        pendingLinkedTemplateIdRef.current = null;
+    }, [currentDisplayMenu, editingMenu, handleEditItem, isCreatingItem, isEditing]);
+
+    if (!activeAccountID) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 bg-secondary rounded-3xl border-2 border-dashed border-border">
+                <Mail className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground font-semibold">Please select an Instagram account to manage its Inbox Menu.</p>
+            </div>
+        );
+    }
+
+    if (isPreparingEditor) {
+        return (
+            <LoadingOverlay
+                variant="fullscreen"
+                message={editorLoadingMessage}
+                subMessage="Preparing the inbox menu editor and linked reply templates..."
+            />
+        );
+    }
+
     const status = inboxMenuData?.status || 'none';
     const canShowMainWorkspace = status === 'match' || isEditing || isCreatingItem;
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-500 px-3 sm:px-4 md:px-6">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 pb-6 md:pb-8 border-b border-border">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-primary mb-2">
-                        <Mail className="w-4 h-4" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Smart Inbox Control</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <h1 className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">Inbox Menu</h1>
-                        {inboxMenuData?.status === 'match' && (
-                            <span className="flex items-center gap-1.5 px-3 py-1 bg-success-muted text-success text-[10px] font-black uppercase tracking-widest rounded-full">
-                                <CheckCircle2 className="w-3 h-3" /> Synced
-                            </span>
-                        )}
-                    </div>
-                    <p className="text-muted-foreground font-medium max-w-xl text-sm">
-                        Manage your Instagram Persistent Menu. Ensure your customers have quick access to support and key features.
-                    </p>
-                </div>
+            <AutomationToast
+                message={toastMessage}
+                variant={toastVariant}
+                onClose={() => setToastMessage(null)}
+            />
 
-                <div className="flex flex-wrap items-center gap-3">
-                    {/* View Controls & Refresh */}
-                    <button
-                        onClick={handleRefreshClick}
-                        className="p-3 bg-secondary text-muted-foreground rounded-xl hover:bg-secondary/80 transition-all"
-                        disabled={inboxMenuLoading || isActionLoading}
-                    >
-                        <RefreshCw className={`w-4 h-4 ${inboxMenuLoading ? 'animate-spin' : ''}`} />
-                    </button>
-                    <div className="flex bg-secondary p-1 rounded-xl border border-border">
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <LayoutGrid className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <List className="w-4 h-4" />
-                        </button>
-                    </div>
+            {!isCreatingItem && (
+                <>
+                    <div className="flex flex-col gap-4 pb-6 md:pb-8 border-b border-border md:flex-row md:items-end md:justify-between">
+                        <div className="space-y-2">
+                            <h1 className="text-3xl font-black text-foreground tracking-tight">Smart Inbox Control</h1>
+                            <p className="text-sm font-medium text-muted-foreground">Set your Instagram menu for quick support, links, and replies.</p>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-end gap-3">
+                            <button
+                                onClick={handleRefreshClick}
+                                className="p-3 bg-secondary text-muted-foreground rounded-xl hover:bg-secondary/80 transition-all"
+                                disabled={inboxMenuLoading || isActionLoading}
+                            >
+                                <RefreshCw className={`w-4 h-4 ${inboxMenuLoading ? 'animate-spin' : ''}`} />
+                            </button>
+                            <div className="flex bg-secondary p-1 rounded-xl border border-border">
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                >
+                                    <LayoutGrid className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                >
+                                    <List className="w-4 h-4" />
+                                </button>
+                            </div>
 
-                    {/* Action Buttons - only when synced (match) */}
-                    {!isCreatingItem && status === 'match' && !inboxMenuLoading && (
-                        <button
-                            onClick={() => {
-                                if (!isEditing) handleStartEditing(true);
-                                else setIsCreatingItem(true);
-                            }}
-                            disabled={isActionLoading || ((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS)}
-                            title={((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS) ? `Maximum ${MAX_INBOX_MENU_ITEMS} menu items allowed.` : undefined}
-                            className="px-8 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-black/10 flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
-                        >
-                            <Plus className="w-4 h-4" />
-                            {(editingMenu.length > 0 || currentDisplayMenu.length > 0) ? 'Add Menu Item' : 'Create New Menu'}
-                        </button>
-                    )}
-
-                    {!inboxMenuLoading && (isEditing || isCreatingItem) && !hasIssue && hasAnyLocalChanges && !isCreatingItem && editingItemIndex === null && (
-                        <button
-                            onClick={handleSaveMenu}
-                            disabled={isActionLoading}
-                            className="px-6 md:px-8 py-3 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
-                        >
-                            {isPublishing ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <CheckCircle2 className="w-4 h-4" />
+                            {status === 'match' && !inboxMenuLoading && (
+                                <button
+                                    onClick={() => {
+                                        void handleCreateItem(currentDisplayMenu);
+                                    }}
+                                    disabled={isActionLoading || ((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS)}
+                                    title={((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS) ? `Maximum ${MAX_INBOX_MENU_ITEMS} menu items allowed.` : undefined}
+                                    className="px-8 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-black/10 flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    {(editingMenu.length > 0 || currentDisplayMenu.length > 0) ? 'Add Menu Item' : 'Create New Menu'}
+                                </button>
                             )}
-                            {isPublishing ? 'Publishing...' : 'Publish'}
-                        </button>
-                    )}
 
-                    {!inboxMenuLoading && !isCreatingItem && status === 'match' && (isEditing ? editingMenu : currentDisplayMenu).length > 0 && (
-                        <button
-                            onClick={handleDelete}
-                            disabled={inboxMenuLoading || isActionLoading}
-                            className="px-6 py-3 bg-red-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
-                        >
-                            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            Delete Menu
-                        </button>
-                    )}
-                </div>
-            </div>
+                            {!inboxMenuLoading && (isEditing || isCreatingItem) && !hasIssue && hasAnyLocalChanges && editingItemIndex === null && (
+                                <button
+                                    onClick={handleSaveMenu}
+                                    disabled={isActionLoading}
+                                    className="px-6 md:px-8 py-3 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                >
+                                    {isPublishing ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <CheckCircle2 className="w-4 h-4" />
+                                    )}
+                                    {isPublishing ? 'Publishing...' : 'Publish'}
+                                </button>
+                            )}
+
+                            {!inboxMenuLoading && status === 'match' && (isEditing ? editingMenu : currentDisplayMenu).length > 0 && (
+                                <button
+                                    onClick={handleDelete}
+                                    disabled={inboxMenuLoading || isActionLoading}
+                                    className="px-6 py-3 bg-red-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                >
+                                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                    Delete
+                                </button>
+                            )}
+                            {inboxMenuData?.status === 'match' && (
+                                <span className="flex items-center gap-1.5 px-3 py-1 bg-success-muted text-success text-[10px] font-black uppercase tracking-widest rounded-full">
+                                    <CheckCircle2 className="w-3 h-3" /> Synced
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Content Section */}
             {inboxMenuLoading ? (
@@ -1162,7 +1298,7 @@ const InboxMenu: React.FC = () => {
                                 {/* Case 4: none - Show Create button */}
                                 {inboxMenuData.status === 'none' && (
                                     <button
-                                        onClick={() => handleStartEditing(true, [])}
+                                            onClick={() => void handleCreateItem([])}
                                         disabled={isActionLoading}
                                         className="px-10 py-4 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
                                     >
@@ -1176,18 +1312,32 @@ const InboxMenu: React.FC = () => {
 
                     {/* Main Workspace Layout - only when synced (match) or in create/edit flow */}
                     {canShowMainWorkspace && (
-                        <div className="flex flex-col xl:flex-row gap-8 xl:gap-12 xl:h-[calc(100vh-11rem)] xl:min-h-0">
-                            {/* Editor/List Section - scrollable on xl */}
-                            <div className="flex-1 w-full min-w-0 space-y-8 xl:space-y-12 xl:overflow-y-auto xl:overscroll-behavior-contain xl:min-h-0 xl:pr-2">
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
+                            {/* Editor/List Section */}
+                            <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:space-y-10 xl:overflow-y-auto xl:pr-2">
                                 {isCreatingItem ? (
                                     <div className="bg-white dark:bg-gray-950 border border-content rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-10 space-y-8 md:space-y-10 animate-in slide-in-from-left duration-500">
-                                        <div className="space-y-3">
-                                            <div className="flex items-center gap-2 text-blue-600">
-                                                <Plus className="w-5 h-5" />
-                                                <span className="text-[10px] font-black uppercase tracking-[0.3em]">New Menu Element</span>
+                                        <div className="-mx-2 rounded-[2rem] bg-white/95 px-2 py-2 dark:bg-gray-950/95">
+                                            <div className="flex flex-col gap-4 rounded-[2rem] border border-content bg-white px-5 py-4 shadow-lg dark:bg-gray-950 md:flex-row md:items-start md:justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={handleCloseItemEditor}
+                                                        className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
+                                                    >
+                                                        <ArrowLeft className="w-5 h-5" />
+                                                    </button>
+                                                    <div className="flex items-center gap-2 text-blue-600">
+                                                        <Plus className="w-5 h-5" />
+                                                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">{editingItemIndex !== null ? 'Edit Menu Element' : 'New Menu Element'}</span>
+                                                    </div>
+                                                </div>
+                                                <AutomationActionBar
+                                                    hasExisting={editingItemIndex !== null}
+                                                    isSaving={isActionLoading}
+                                                    onSave={handleSaveMenuItem}
+                                                    onDelete={handleDeleteEditingItem}
+                                                />
                                             </div>
-                                            <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Configure Menu</h2>
-                                            <p className="text-gray-500 text-sm font-medium">Define what happens when users interact with this menu point.</p>
                                         </div>
 
                                         <div className="space-y-8">
@@ -1222,24 +1372,6 @@ const InboxMenu: React.FC = () => {
                                                 />
                                                 <p className="text-[9px] text-gray-400 font-medium px-2">Required. Max 25 UTF-8 bytes. This title is visible to your customers in the Instagram menu.</p>
                                                 {validationErrors.title && <p className="text-[10px] text-red-500 font-bold px-2">{validationErrors.title}</p>}
-                                            </div>
-
-                                            {/* Task 4: Followers Only Toggle - Moved here below title */}
-                                            <div className="flex items-center justify-between bg-blue-50/50 dark:bg-blue-500/5 p-5 rounded-[28px] border border-blue-100 dark:border-blue-500/10 transition-all hover:bg-blue-50 dark:hover:bg-blue-500/10">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-blue-50 dark:border-blue-500/10">
-                                                        <Power className={`w-5 h-5 transition-colors ${newItem.followers_only ? 'text-blue-500' : 'text-gray-400'}`} />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-0.5">Followers Only Mode</p>
-                                                        <p className="text-[10px] font-medium text-gray-400">Only followers can see and use this menu item.</p>
-                                                    </div>
-                                                </div>
-                                                <ToggleSwitch
-                                                    isChecked={newItem.followers_only || false}
-                                                    onChange={() => setNewItem({ ...newItem, followers_only: !newItem.followers_only })}
-                                                    variant="plain"
-                                                />
                                             </div>
 
                                             {/* 2. Action Type Toggle */}
@@ -1300,59 +1432,156 @@ const InboxMenu: React.FC = () => {
                                                 </div>
                                             ) : (
                                                 <div className="space-y-8 animate-in fade-in slide-in-from-top-2">
+                                                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${newItem.followers_only ? 'ring-1 ring-primary/15' : ''}`}>
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-blue-50 dark:border-blue-500/10">
+                                                                <Power className={`w-5 h-5 transition-colors ${newItem.followers_only ? 'text-blue-500' : 'text-gray-400'}`} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-0.5">Followers Only Mode</p>
+                                                                <p className="text-[10px] font-medium text-gray-400">Only followers can trigger this auto reply menu item.</p>
+                                                            </div>
+                                                        </div>
+                                                        <ToggleSwitch
+                                                            isChecked={newItem.followers_only || false}
+                                                            onChange={() => setNewItem({ ...newItem, followers_only: !newItem.followers_only })}
+                                                            variant="plain"
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="p-3 rounded-2xl shadow-sm border bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                                                                <Calendar className="w-5 h-5 text-gray-400" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-0.5">Once Per User (24h)</p>
+                                                                <p className="text-[10px] font-medium text-gray-400">This control is staged in the UI, but saving the 24-hour cooldown still needs the deferred Appwrite schema pass.</p>
+                                                            </div>
+                                                        </div>
+                                                        <ToggleSwitch isChecked={false} onChange={() => { }} variant="plain" disabled />
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="p-3 rounded-2xl shadow-sm border bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                                                                <Mail className="w-5 h-5 text-gray-400" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-0.5">Collect Email</p>
+                                                                <p className="text-[10px] font-medium text-gray-400">Collector prompts and destination routing still need the deferred Appwrite schema pass before they can be saved safely.</p>
+                                                            </div>
+                                                        </div>
+                                                        <ToggleSwitch isChecked={false} onChange={() => { }} variant="plain" disabled />
+                                                    </div>
+
+                                                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${newItem.seen_typing_enabled ? 'ring-1 ring-primary/15' : ''}`}>
+                                                        <div className="flex items-center gap-4">
+                                                            <div className={`p-3 rounded-2xl shadow-sm border ${newItem.seen_typing_enabled
+                                                                ? 'bg-white dark:bg-gray-900 border-violet-100 dark:border-violet-500/10'
+                                                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                                                                }`}>
+                                                                <MessageSquare className={`w-5 h-5 ${newItem.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-0.5">Seen + Typing</p>
+                                                                <p className="text-[10px] font-medium text-gray-400">Store the seen and typing reaction with this inbox menu reply item.</p>
+                                                            </div>
+                                                        </div>
+                                                        <ToggleSwitch
+                                                            isChecked={newItem.seen_typing_enabled === true}
+                                                            onChange={() => setNewItem({ ...newItem, seen_typing_enabled: !(newItem.seen_typing_enabled === true) })}
+                                                            variant="plain"
+                                                        />
+                                                    </div>
+
                                                     {/* Template Selector */}
                                                     <div className="space-y-3">
-                                                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1 mb-3">
-                                                            Select Reply Template
-                                                        </label>
-                                                        <TemplateSelector
-                                                            selectedTemplateId={selectedTemplate?.id}
-                                                            onSelect={(template) => {
-                                                                setSelectedTemplate(template);
-                                                                if (template) {
-                                                                    setNewItem({
-                                                                        ...newItem,
-                                                                        template_type: template.template_type as any,
-                                                                        template_id: template.id,
-                                                                        payload: template.id,
-                                                                        template_data: template.template_data
-                                                                    });
-                                                                    // Clear template-related validation errors
-                                                                    const newErrors = { ...validationErrors };
-                                                                    Object.keys(newErrors).forEach(key => {
-                                                                        if (key.startsWith('template_') || key.startsWith('element_') || key.startsWith('btn_') || key.startsWith('reply_') || key.startsWith('media_') || key.startsWith('share_')) delete newErrors[key];
-                                                                    });
-                                                                    setValidationErrors(newErrors);
-                                                                } else {
-                                                                    setNewItem({
-                                                                        ...newItem,
-                                                                        template_id: undefined,
-                                                                        payload: undefined
-                                                                    });
-                                                                }
-                                                            }}
-                                                            onCreateNew={() => {
-                                                                setCurrentView('Reply Templates');
-                                                            }}
-                                                        />
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">
+                                                                Select Reply Action
+                                                            </label>
+                                                            {selectedTemplate && !showTemplateSelector && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowTemplateSelector(true)}
+                                                                    className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
+                                                                >
+                                                                    Change Template
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        {(!selectedTemplate || showTemplateSelector) && (
+                                                            <TemplateSelector
+                                                                selectedTemplateId={selectedTemplate?.id}
+                                                                onSelect={(template) => {
+                                                                    setSelectedTemplate(template);
+                                                                    setShowTemplateSelector(!template);
+                                                                    if (template) {
+                                                                        setNewItem({
+                                                                            ...newItem,
+                                                                            template_name: template.name,
+                                                                            template_type: template.template_type as any,
+                                                                            template_id: template.id,
+                                                                            payload: template.id,
+                                                                            template_data: template.template_data
+                                                                        });
+                                                                        const newErrors = { ...validationErrors };
+                                                                        Object.keys(newErrors).forEach(key => {
+                                                                            if (key.startsWith('template_') || key.startsWith('element_') || key.startsWith('btn_') || key.startsWith('reply_') || key.startsWith('media_') || key.startsWith('share_')) delete newErrors[key];
+                                                                        });
+                                                                        setValidationErrors(newErrors);
+                                                                    } else {
+                                                                        setNewItem({
+                                                                            ...newItem,
+                                                                            template_name: undefined,
+                                                                            template_type: undefined,
+                                                                            template_data: {},
+                                                                            template_id: undefined,
+                                                                            payload: undefined
+                                                                        });
+                                                                    }
+                                                                }}
+                                                                onCreateNew={() => {
+                                                                    setCurrentView('Reply Templates');
+                                                                }}
+                                                            />
+                                                        )}
                                                         {validationErrors['template'] && (
                                                             <p id="err_template" className="text-[10px] text-red-500 font-bold px-2 flex items-center gap-1 mt-2">
                                                                 <AlertCircle className="w-3 h-3" />
                                                                 {validationErrors['template']}
                                                             </p>
                                                         )}
-                                                        {!selectedTemplate && (
+                                                        {!selectedTemplate && showTemplateSelector && (
                                                             <p className="text-xs text-gray-400 font-medium mt-2">
                                                                 Choose an existing template or create a new one to use for this menu item.
                                                             </p>
                                                         )}
                                                     </div>
 
-                                                    {/* Template Info Display (when selected) */}
-                                                    {selectedTemplate && (
+                                                    {selectedTemplate && !showTemplateSelector && (
+                                                        <div className="p-6 bg-primary/10 border-2 border-primary/20 rounded-3xl flex items-center justify-between">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="p-3 bg-primary text-primary-foreground rounded-2xl shadow-lg shadow-primary/20">
+                                                                    <Reply className="w-5 h-5" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-black text-foreground uppercase tracking-tight">{selectedTemplate.name}</p>
+                                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                                                        {selectedTemplate.template_type.replace('template_', '')}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="px-3 py-1.5 bg-success-muted/60 text-success text-[9px] font-black uppercase tracking-widest rounded-lg">
+                                                                Selected
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {selectedTemplate && false && (
                                                         <div className="p-4 bg-blue-50 dark:bg-blue-500/10 rounded-xl border-2 border-blue-200 dark:border-blue-500/20">
                                                             <p className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                                                                ✓ Using template: <span className="font-black">{selectedTemplate.name}</span>
+                                                                ✓ Using template: <span className="font-black">{selectedTemplate?.name}</span>
                                                             </p>
                                                             <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-1">
                                                                 Edit this template in Reply Templates to update it across all menu items.
@@ -1367,7 +1596,7 @@ const InboxMenu: React.FC = () => {
                                             {/* Reply templates are selected only; no inline editing in Inbox Menu */}
 
                                             {/* Task 11: Share Post Template - Design match with DMAutomationView */}
-                                            {newItem.template_type === 'template_share_post' && (
+                                            {newItem.template_type === 'template_share_post' && !selectedTemplate && (
                                                 <div className="space-y-6 animate-in zoom-in-95">
                                                     <div id="field_media_id" className="bg-gray-50 dark:bg-black/40 p-8 rounded-[32px] border border-content space-y-8">
                                                         <div className="flex items-center justify-between">
@@ -1415,31 +1644,33 @@ const InboxMenu: React.FC = () => {
                                                                     <div className="relative w-full sm:w-64">
                                                                         <button
                                                                             onClick={(e) => { e.preventDefault(); setMediaDateDropdownOpen(!mediaDateDropdownOpen); setMediaSortDropdownOpen(false); }}
-                                                                            className="w-full flex items-center justify-between px-5 py-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all border border-content group shadow-sm"
+                                                                            className="group flex w-full items-center justify-between rounded-2xl border border-border/80 bg-background/90 px-5 py-3 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.7)] transition-all hover:border-primary/35 hover:bg-card"
                                                                         >
                                                                             <div className="flex items-center gap-3 overflow-hidden">
-                                                                                <Calendar className={`w-4 h-4 shrink-0 ${sharePostDateRange !== 'all' ? 'text-blue-500' : 'text-slate-400'}`} />
+                                                                                <Calendar className={`w-4 h-4 shrink-0 ${sharePostDateRange !== 'all' ? 'text-primary' : 'text-muted-foreground/60'} transition-colors group-hover:text-primary`} />
                                                                                 <div className="flex flex-col items-start overflow-hidden">
-                                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 truncate">
+                                                                                    <span className="truncate text-[10px] font-black uppercase tracking-widest text-foreground">
                                                                                         {sharePostDateRange === 'all' ? 'All Time' :
                                                                                             sharePostDateRange === '7days' ? 'Last 7 Days' :
                                                                                                 sharePostDateRange === '30days' ? 'Last 30 Days' :
                                                                                                     sharePostDateRange === '90days' ? 'Last 90 Days' : 'Custom Range'}
                                                                                     </span>
                                                                                     {sharePostDateRange === 'custom' && sharePostCustomRange.from && (
-                                                                                        <span className="text-[8px] font-bold text-blue-500 uppercase tracking-tighter truncate">
+                                                                                        <span className="truncate text-[8px] font-bold uppercase tracking-tighter text-primary">
                                                                                             {sharePostCustomRange.from.toLocaleDateString()} {sharePostCustomRange.to ? `to ${sharePostCustomRange.to.toLocaleDateString()}` : ''}
                                                                                         </span>
                                                                                     )}
                                                                                 </div>
                                                                             </div>
-                                                                            <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-300 ${mediaDateDropdownOpen ? 'rotate-180' : ''}`} />
+                                                                            <span className="ml-3 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-card/80 transition-colors group-hover:border-primary/35">
+                                                                                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${mediaDateDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
+                                                                            </span>
                                                                         </button>
 
                                                                         {mediaDateDropdownOpen && (
                                                                             <>
                                                                                 <div className="fixed inset-0 z-10" onClick={() => setMediaDateDropdownOpen(false)} />
-                                                                                <div className="absolute top-full left-0 right-0 mt-2 p-2 bg-white dark:bg-slate-900 border border-content rounded-[28px] shadow-2xl z-20 animate-in zoom-in-95 duration-200">
+                                                                                <div className="absolute top-full left-0 right-0 z-20 mt-2 overflow-hidden rounded-[28px] border border-border/80 bg-card/98 p-2 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.72)] backdrop-blur-xl animate-in zoom-in-95 duration-200">
                                                                                     {[
                                                                                         { id: 'all', label: 'All Time', icon: <Calendar className="w-3.5 h-3.5" /> },
                                                                                         { id: '7days', label: 'Last 7 Days', icon: <RefreshCcw className="w-3.5 h-3.5" /> },
@@ -1454,9 +1685,9 @@ const InboxMenu: React.FC = () => {
                                                                                                 setSharePostDateRange(filter.id as any);
                                                                                                 if (filter.id !== 'custom') setMediaDateDropdownOpen(false);
                                                                                             }}
-                                                                                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all ${sharePostDateRange === filter.id
-                                                                                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                                                                                                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                                                                            className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-wider transition-all ${sharePostDateRange === filter.id
+                                                                                                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                                                                                                : 'text-foreground hover:bg-background/80 hover:text-primary'}`}
                                                                                         >
                                                                                             {filter.icon}
                                                                                             {filter.label}
@@ -1464,7 +1695,7 @@ const InboxMenu: React.FC = () => {
                                                                                     ))}
 
                                                                                     {sharePostDateRange === 'custom' && (
-                                                                                        <div className="mt-2 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-content animate-in slide-in-from-top-2">
+                                                                                        <div className="mt-2 rounded-2xl border border-border/70 bg-background/80 p-4 animate-in slide-in-from-top-2">
                                                                                             <div className="grid grid-cols-2 gap-3">
                                                                                                 <div className="space-y-2">
                                                                                                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">From</label>
@@ -1472,7 +1703,7 @@ const InboxMenu: React.FC = () => {
                                                                                                         type="date"
                                                                                                         value={sharePostCustomRange.from ? sharePostCustomRange.from.toISOString().split('T')[0] : ''}
                                                                                                         onChange={(e) => setSharePostCustomRange({ ...sharePostCustomRange, from: e.target.value ? new Date(e.target.value) : null })}
-                                                                                                        className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-blue-500 rounded-xl p-2.5 text-xs font-bold text-gray-900 dark:text-gray-100"
+                                                                                                        className="w-full rounded-xl border border-border bg-input p-2.5 text-xs font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                                                                                     />
                                                                                                 </div>
                                                                                                 <div className="space-y-2">
@@ -1481,13 +1712,13 @@ const InboxMenu: React.FC = () => {
                                                                                                         type="date"
                                                                                                         value={sharePostCustomRange.to ? sharePostCustomRange.to.toISOString().split('T')[0] : ''}
                                                                                                         onChange={(e) => setSharePostCustomRange({ ...sharePostCustomRange, to: e.target.value ? new Date(e.target.value) : null })}
-                                                                                                        className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-blue-500 rounded-xl p-2.5 text-xs font-bold text-gray-900 dark:text-gray-100"
+                                                                                                        className="w-full rounded-xl border border-border bg-input p-2.5 text-xs font-bold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                                                                                     />
                                                                                                 </div>
                                                                                             </div>
                                                                                             <button
                                                                                                 onClick={() => setMediaDateDropdownOpen(false)}
-                                                                                                className="w-full mt-3 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase"
+                                                                                                className="mt-3 w-full rounded-xl bg-primary py-2 text-[10px] font-black uppercase text-primary-foreground shadow-lg shadow-primary/20 transition hover:bg-primary/90"
                                                                                             >
                                                                                                 Apply
                                                                                             </button>
@@ -1502,21 +1733,23 @@ const InboxMenu: React.FC = () => {
                                                                     <div className="relative w-full sm:w-48">
                                                                         <button
                                                                             onClick={(e) => { e.preventDefault(); setMediaSortDropdownOpen(!mediaSortDropdownOpen); setMediaDateDropdownOpen(false); }}
-                                                                            className="w-full flex items-center justify-between px-5 py-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all border border-content group shadow-sm"
+                                                                            className="group flex w-full items-center justify-between rounded-2xl border border-border/80 bg-background/90 px-5 py-3 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.7)] transition-all hover:border-primary/35 hover:bg-card"
                                                                         >
                                                                             <div className="flex items-center gap-3">
-                                                                                <RefreshCcw className="w-4 h-4 text-slate-400 group-hover:rotate-180 transition-transform duration-500" />
-                                                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                                                                                <RefreshCcw className="w-4 h-4 text-muted-foreground/60 transition-transform duration-500 group-hover:rotate-180 group-hover:text-primary" />
+                                                                                <span className="text-[10px] font-black uppercase tracking-widest text-foreground">
                                                                                     {sharePostSortBy === 'recent' ? 'Most Recent' : 'Oldest First'}
                                                                                 </span>
                                                                             </div>
-                                                                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${mediaSortDropdownOpen ? 'rotate-180' : ''}`} />
+                                                                            <span className="ml-3 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-card/80 transition-colors group-hover:border-primary/35">
+                                                                                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${mediaSortDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
+                                                                            </span>
                                                                         </button>
 
                                                                         {mediaSortDropdownOpen && (
                                                                             <>
                                                                                 <div className="fixed inset-0 z-10" onClick={() => setMediaSortDropdownOpen(false)} />
-                                                                                <div className="absolute top-full left-0 right-0 mt-2 p-2 bg-white dark:bg-slate-900 border border-content rounded-[28px] shadow-2xl z-20 animate-in zoom-in-95 duration-200">
+                                                                                <div className="absolute top-full left-0 right-0 z-20 mt-2 overflow-hidden rounded-[28px] border border-border/80 bg-card/98 p-2 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.72)] backdrop-blur-xl animate-in zoom-in-95 duration-200">
                                                                                     {[
                                                                                         { id: 'recent', label: 'Most Recent' },
                                                                                         { id: 'oldest', label: 'Oldest First' }
@@ -1528,9 +1761,9 @@ const InboxMenu: React.FC = () => {
                                                                                                 setSharePostSortBy(option.id as any);
                                                                                                 setMediaSortDropdownOpen(false);
                                                                                             }}
-                                                                                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all ${sharePostSortBy === option.id
-                                                                                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                                                                                                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                                                                            className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-wider transition-all ${sharePostSortBy === option.id
+                                                                                                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                                                                                                : 'text-foreground hover:bg-background/80 hover:text-primary'}`}
                                                                                         >
                                                                                             {option.id === 'recent' ? <RefreshCcw className="w-3.5 h-3.5 rotate-180" /> : <RefreshCcw className="w-3.5 h-3.5" />}
                                                                                             {option.label}
@@ -1603,7 +1836,7 @@ const InboxMenu: React.FC = () => {
                                                                                         }`}
                                                                                 >
                                                                                     <img
-                                                                                        src={media.thumbnail_url || media.media_url}
+                                                                                        src={toBrowserPreviewUrl(media.thumbnail_url || media.media_url || '')}
                                                                                         className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${sharePostSelectedMediaId === media.id ? 'brightness-75' : ''}`}
                                                                                         alt={media.caption || ''}
                                                                                         loading="lazy"
@@ -1674,7 +1907,7 @@ const InboxMenu: React.FC = () => {
                                                                     <div className="flex items-start gap-3 p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10">
                                                                         <AlertCircle className="w-3.5 h-3.5 text-blue-500 mt-0.5" />
                                                                         <p className="text-[9px] font-bold text-blue-500/80 uppercase tracking-widest leading-relaxed">
-                                                                            Note: Instagram allows fetching up to 10,000 recently created posts and reels via DM Panda.
+                                                                            Note: Instagram allows fetching up to 10,000 recently created posts and reels through the workspace.
                                                                         </p>
                                                                     </div>
                                                                 </div>
@@ -1689,78 +1922,6 @@ const InboxMenu: React.FC = () => {
                                                     {validationErrors['share_post']}
                                                 </div>
                                             )}
-                                        </div>
-
-
-                                        <div className="flex gap-4 pt-4">
-                                            <button
-                                                onClick={() => {
-                                                    // Check for unsaved changes in the form
-                                                    // Since newItem is modified, we should check if it's different from the initial state or the item being edited
-                                                    const defaultNewItem = {
-                                                        title: '',
-                                                        type: 'postback',
-                                                        followers_only: false,
-                                                        webview_height_ratio: 'full',
-                                                        template_type: 'template_text',
-                                                        template_data: {}
-                                                    };
-
-                                                    // Task 1: Check for actual changes
-                                                    const hasChanges = editingItemIndex !== null
-                                                        ? JSON.stringify(newItem) !== JSON.stringify(itemBeforeEdit)
-                                                        : JSON.stringify(newItem) !== JSON.stringify(defaultNewItem);
-
-                                                    if (hasChanges) {
-                                                        setModalConfig({
-                                                            isOpen: true,
-                                                            title: 'Unsaved Changes',
-                                                            description: 'You have unsaved changes. Do you want to save them before leaving?',
-                                                            type: 'warning',
-                                                            confirmLabel: 'Save',
-                                                            secondaryLabel: 'Leave without saving',
-                                                            onConfirm: async () => {
-                                                                await handleSaveMenuItem();
-                                                                closeModal();
-                                                            },
-                                                            onSecondary: () => {
-                                                                setIsCreatingItem(false);
-                                                                setEditingItemIndex(null);
-                                                                setNewItem({
-                                                                    title: '',
-                                                                    type: 'postback',
-                                                                    followers_only: false,
-                                                                    webview_height_ratio: 'full',
-                                                                    template_type: 'template_text',
-                                                                    template_data: {}
-                                                                });
-                                                                setValidationErrors({});
-                                                                closeModal();
-                                                            },
-                                                            oneButton: false
-                                                        });
-                                                    } else {
-                                                        setIsCreatingItem(false);
-                                                        setEditingItemIndex(null);
-                                                        setValidationErrors({});
-                                                    }
-                                                }}
-                                                className="flex-1 py-5 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-[2rem] text-[11px] font-black uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-700 transition-all font-bold"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                onClick={handleSaveMenuItem}
-                                                disabled={isActionLoading}
-                                                className="flex-1 py-5 bg-blue-600 text-white rounded-[2rem] text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all shadow-2xl shadow-blue-500/30 font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
-                                            >
-                                                {isActionLoading ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                ) : (
-                                                    <CheckCircle2 className="w-4 h-4" />
-                                                )}
-                                                {isActionLoading ? 'Saving...' : (editingItemIndex !== null ? 'Update Menu Item' : 'Save Menu Item')}
-                                            </button>
                                         </div>
                                     </div>
 
@@ -1807,7 +1968,7 @@ const InboxMenu: React.FC = () => {
                                                             )}
                                                             <div className="flex items-center gap-2">
                                                                 <button
-                                                                    onClick={() => handleEditItem(idx)}
+                                                                    onClick={() => void handleEditItem(idx)}
                                                                     disabled={isActionLoading}
                                                                     className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all shadow-sm disabled:opacity-50 disabled:pointer-events-none"
                                                                     title="Edit Menu Item"
@@ -1830,7 +1991,7 @@ const InboxMenu: React.FC = () => {
                                                         <h3 className="text-xl font-black text-gray-900 dark:text-white line-clamp-1">{item.title}</h3>
                                                         <div className="p-4 bg-gray-50/50 dark:bg-gray-900/50 rounded-2xl border border-content/50">
                                                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">
-                                                                {item.type === 'web_url' ? 'External Redirect' : 'Connected Automation'}
+                                                                {item.type === 'web_url' ? 'External Redirect' : 'Connected Reply Template'}
                                                             </p>
                                                             <div className="flex items-center gap-2">
                                                                 {item.type === 'web_url' ? (
@@ -1839,7 +2000,7 @@ const InboxMenu: React.FC = () => {
                                                                     <MessageSquare className="w-3 h-3 text-blue-400" />
                                                                 )}
                                                                 <p className="text-xs font-bold text-gray-600 dark:text-gray-400 truncate">
-                                                                    {item.type === 'web_url' ? (item.url || 'No URL set') : (dmAutomations.find(a => a.$id === item.payload)?.title || 'No automation selected')}
+                                                                    {item.type === 'web_url' ? (item.url || 'No URL set') : (item.template_name || 'No reply template selected')}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -1860,7 +2021,7 @@ const InboxMenu: React.FC = () => {
                                             Create your first persistent menu to guide your users and provide quick access to key features.
                                         </p>
                                         <button
-                                            onClick={() => handleStartEditing(true)}
+                                            onClick={() => void handleCreateItem(currentDisplayMenu)}
                                             className="mt-8 px-10 py-4 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2"
                                         >
                                             <Plus className="w-4 h-4" /> Create New Menu
@@ -1870,7 +2031,7 @@ const InboxMenu: React.FC = () => {
                             </div>
 
                             {/* Real-time Preview Section - Desktop only, sticky on xl */}
-                            <div className="hidden lg:block xl:shrink-0 xl:self-start xl:sticky xl:top-24 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto">
+                            <AutomationPreviewPanel>
                                 <SharedMobilePreview
                                     mode="menu"
                                     items={(isEditing ? editingMenu : currentDisplayMenu) as any}
@@ -1878,10 +2039,13 @@ const InboxMenu: React.FC = () => {
                                     fetchedAutomations={fetchedAutomations}
                                     isEditing={isEditing}
                                     newItem={(isCreatingItem ? newItem : null) as any}
+                                    activeAccountID={activeAccountID}
+                                    authenticatedFetch={authenticatedFetch}
                                     displayName={activeAccount?.username || 'Username'}
                                     profilePic={activeAccount?.profile_picture_url || undefined}
+                                    lockScroll
                                 />
-                            </div>
+                            </AutomationPreviewPanel>
                         </div>
                     )
                     }
@@ -1934,6 +2098,9 @@ const InboxMenu: React.FC = () => {
                                     fetchedAutomations={fetchedAutomations}
                                     isEditing={isEditing}
                                     newItem={(isCreatingItem ? newItem : null) as any}
+                                    activeAccountID={activeAccountID}
+                                    authenticatedFetch={authenticatedFetch}
+                                    lockScroll
                                     displayName={activeAccount?.username || 'Username'}
                                     profilePic={activeAccount?.profile_picture_url || undefined}
                                 />

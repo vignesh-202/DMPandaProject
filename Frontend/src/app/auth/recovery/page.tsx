@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
-import { Loader2, Check, X, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Check, X } from 'lucide-react';
 import PasswordStrengthIndicator from '../../../components/ui/PasswordStrength';
 
 const PasswordRecoveryPage: React.FC = () => {
@@ -15,8 +15,6 @@ const PasswordRecoveryPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -73,72 +71,56 @@ const PasswordRecoveryPage: React.FC = () => {
 
     if (success) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-neutral-950 transition-colors duration-500">
+                <div className="bg-white dark:bg-neutral-900 p-8 rounded-2xl shadow-xl dark:shadow-black/40 max-w-md w-full text-center border border-gray-100 dark:border-white/[0.06]">
                     <div className="text-green-500 text-5xl mb-4">✓</div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Password Reset Successful!</h2>
-                    <p className="text-gray-600">Redirecting you to login...</p>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Password Reset Successful!</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Redirecting you to login...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-            <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-neutral-950 p-4 transition-colors duration-500">
+            <div className="bg-white dark:bg-neutral-900 p-8 rounded-2xl shadow-xl dark:shadow-black/40 max-w-md w-full border border-gray-100 dark:border-white/[0.06]">
                 <div className="text-center mb-8">
                     <img src="/images/logo.png" alt="DM Panda Logo" className="mx-auto mb-4" style={{ maxHeight: '70px' }} />
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Reset Your Password</h2>
-                    <p className="text-gray-600">Enter your new password below.</p>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Reset Your Password</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Enter your new password below.</p>
                 </div>
 
                 {error && (
-                    <div className="bg-red-100 text-red-700 p-3 rounded-md mb-4 text-sm">
+                    <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-3 rounded-md mb-4 text-sm">
                         {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <div className="relative">
-                            <Input
-                                type={showPassword ? "text" : "password"}
-                                placeholder="New Password"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                required
-                                className="w-full pr-10 text-black"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                            >
-                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                        </div>
+                        <Input
+                            type="password"
+                            placeholder="New Password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            required
+                            className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500"
+                        />
                         <PasswordStrengthIndicator password={newPassword} />
                     </div>
 
                     <div className="space-y-2">
                         <div className="relative">
                             <Input
-                                type={showConfirmPassword ? "text" : "password"}
+                                type="password"
                                 placeholder="Confirm New Password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 required
-                                className="w-full pr-10 text-black"
+                                className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500"
                             />
-                            <button
-                                type="button"
-                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                            >
-                                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
                             {confirmPassword && (
-                                <div className="absolute right-10 top-1/2 -translate-y-1/2 mr-1">
+                                <div className="absolute right-12 top-1/2 -translate-y-1/2">
                                     {newPassword === confirmPassword ? (
                                         <Check size={18} className="text-green-500" />
                                     ) : (
@@ -151,7 +133,7 @@ const PasswordRecoveryPage: React.FC = () => {
 
                     <Button
                         type="submit"
-                        className="w-full bg-black text-white hover:bg-gray-800"
+                        className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
                         disabled={isSubmitting}
                     >
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -160,7 +142,7 @@ const PasswordRecoveryPage: React.FC = () => {
                 </form>
 
                 <div className="text-center mt-6">
-                    <a href="/login" className="text-sm text-blue-600 hover:underline">
+                    <a href="/login" className="text-sm text-blue-600 dark:text-blue-400 hover:underline transition-colors">
                         Back to Login
                     </a>
                 </div>

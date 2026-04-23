@@ -1,32 +1,70 @@
 ﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AtSign, Loader2, Save, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
+import { AtSign, ArrowLeft, Lock, Sparkles, Mail, MessageSquare, Calendar } from 'lucide-react';
+import { useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
+import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
+import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
-import { useNavigate } from 'react-router-dom';
+import AutomationToast from '../../components/ui/AutomationToast';
+import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
+import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 
 interface MentionsConfig {
     is_setup: boolean;
     is_active: boolean;
     template_id?: string;
     doc_id?: string;
+    followers_only?: boolean;
+    followers_only_message?: string;
+    followers_only_primary_button_text?: string;
+    followers_only_secondary_button_text?: string;
+    suggest_more_enabled?: boolean;
+    once_per_user_24h?: boolean;
+    collect_email_enabled?: boolean;
+    collect_email_only_gmail?: boolean;
+    collect_email_prompt_message?: string;
+    collect_email_fail_retry_message?: string;
+    collect_email_success_reply_message?: string;
+    seen_typing_enabled?: boolean;
 }
+
+const FOLLOWERS_ONLY_MESSAGE_DEFAULT = 'Please follow this account first, then send your message again.';
+const FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT = '👤 Follow Account';
+const FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT = "✅ I've Followed";
+const COLLECT_EMAIL_PROMPT_DEFAULT = '📧 Could you share your best email so we can send the details and updates ✨';
+const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '⚠️ That email looks invalid. Please send a valid email like name@example.com.';
+const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ✅';
 
 const MentionsView: React.FC = () => {
     const { authenticatedFetch } = useAuth();
-    const { activeAccountID, activeAccount, setCurrentView } = useDashboard();
+    const { activeAccountID, activeAccount, setCurrentView, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, hasPlanFeature } = useDashboard();
 
     const [config, setConfig] = useState<MentionsConfig>({ is_setup: false, is_active: false });
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState<ReplyTemplate | null>(null);
+    const [showTemplateSelector, setShowTemplateSelector] = useState(true);
     const [isActive, setIsActive] = useState(true);
+    const [followersOnly, setFollowersOnly] = useState(false);
+    const [followersOnlyMessage, setFollowersOnlyMessage] = useState(FOLLOWERS_ONLY_MESSAGE_DEFAULT);
+    const [followersOnlyPrimaryButtonText, setFollowersOnlyPrimaryButtonText] = useState(FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT);
+    const [followersOnlySecondaryButtonText, setFollowersOnlySecondaryButtonText] = useState(FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT);
+    const [suggestMoreEnabled, setSuggestMoreEnabled] = useState(false);
+    const [oncePerUser, setOncePerUser] = useState(false);
+    const [collectEmailEnabled, setCollectEmailEnabled] = useState(false);
+    const [collectEmailOnlyGmail, setCollectEmailOnlyGmail] = useState(false);
+    const [collectEmailPromptMessage, setCollectEmailPromptMessage] = useState(COLLECT_EMAIL_PROMPT_DEFAULT);
+    const [collectEmailFailRetryMessage, setCollectEmailFailRetryMessage] = useState(COLLECT_EMAIL_FAIL_RETRY_DEFAULT);
+    const [collectEmailSuccessReplyMessage, setCollectEmailSuccessReplyMessage] = useState(COLLECT_EMAIL_SUCCESS_DEFAULT);
+    const [seenTypingEnabled, setSeenTypingEnabled] = useState(false);
     const [success, setSuccess] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    useDashboardMainScrollLock(true);
 
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
@@ -38,6 +76,7 @@ const MentionsView: React.FC = () => {
     const fetchingRef = useRef(false);
     const lastFetchedAccountIdRef = useRef<string | null>(null);
     const templateCacheRef = useRef<Record<string, ReplyTemplate>>({});
+    const [initialState, setInitialState] = useState('');
 
     const fetchConfig = useCallback(async () => {
         if (!activeAccountID) return;
@@ -61,6 +100,18 @@ const MentionsView: React.FC = () => {
                 const data = await res.json();
                 setConfig(data);
                 setIsActive(data.is_active || false);
+                setFollowersOnly(Boolean(data.followers_only));
+                setFollowersOnlyMessage(String(data.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT));
+                setFollowersOnlyPrimaryButtonText(String(data.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT));
+                setFollowersOnlySecondaryButtonText(String(data.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT));
+                setSuggestMoreEnabled(Boolean(data.suggest_more_enabled));
+                setOncePerUser(Boolean(data.once_per_user_24h));
+                setCollectEmailEnabled(Boolean(data.collect_email_enabled));
+                setCollectEmailOnlyGmail(Boolean(data.collect_email_only_gmail));
+                setCollectEmailPromptMessage(String(data.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT));
+                setCollectEmailFailRetryMessage(String(data.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT));
+                setCollectEmailSuccessReplyMessage(String(data.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT));
+                setSeenTypingEnabled(Boolean(data.seen_typing_enabled));
                 lastFetchedAccountIdRef.current = activeAccountID;
 
                 // If template_id exists, fetch the template
@@ -68,6 +119,7 @@ const MentionsView: React.FC = () => {
                     try {
                         if (templateCacheRef.current[data.template_id]) {
                             setSelectedTemplate(templateCacheRef.current[data.template_id]);
+                            setShowTemplateSelector(false);
                         } else {
                             const templateRes = await authenticatedFetch(
                                 `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${data.template_id}?account_id=${activeAccountID}`
@@ -76,11 +128,15 @@ const MentionsView: React.FC = () => {
                                 const templateData = await templateRes.json();
                                 templateCacheRef.current[data.template_id] = templateData;
                                 setSelectedTemplate(templateData);
+                                setShowTemplateSelector(false);
                             }
                         }
                     } catch (err) {
                         console.error('Error fetching template:', err);
                     }
+                } else {
+                    setSelectedTemplate(null);
+                    setShowTemplateSelector(true);
                 }
             }
         } catch (err) {
@@ -99,12 +155,50 @@ const MentionsView: React.FC = () => {
         fetchConfig();
     }, [activeAccountID, fetchConfig]);
 
-    const handleSave = async () => {
-        if (!activeAccountID) return;
+    const currentState = useMemo(() => JSON.stringify({
+        template_id: selectedTemplate?.id || null,
+        is_active: isActive,
+        followers_only: followersOnly,
+        followers_only_message: followersOnly ? followersOnlyMessage : '',
+        followers_only_primary_button_text: followersOnlyPrimaryButtonText,
+        followers_only_secondary_button_text: followersOnlySecondaryButtonText,
+        suggest_more_enabled: suggestMoreEnabled,
+        once_per_user_24h: oncePerUser,
+        collect_email_enabled: collectEmailEnabled,
+        collect_email_only_gmail: collectEmailOnlyGmail,
+        collect_email_prompt_message: collectEmailPromptMessage,
+        collect_email_fail_retry_message: collectEmailFailRetryMessage,
+        collect_email_success_reply_message: collectEmailSuccessReplyMessage,
+        seen_typing_enabled: seenTypingEnabled
+    }), [collectEmailEnabled, collectEmailFailRetryMessage, collectEmailOnlyGmail, collectEmailPromptMessage, collectEmailSuccessReplyMessage, followersOnly, followersOnlyMessage, followersOnlyPrimaryButtonText, followersOnlySecondaryButtonText, isActive, oncePerUser, seenTypingEnabled, selectedTemplate?.id, suggestMoreEnabled]);
+
+    const isDirty = !!initialState && initialState !== currentState;
+
+    useEffect(() => {
+        setInitialState(JSON.stringify({
+            template_id: config.template_id || null,
+            is_active: Boolean(config.is_active),
+            followers_only: Boolean(config.followers_only),
+            followers_only_message: String(config.followers_only_message || ''),
+            followers_only_primary_button_text: String(config.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT),
+            followers_only_secondary_button_text: String(config.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT),
+            suggest_more_enabled: Boolean(config.suggest_more_enabled),
+            once_per_user_24h: Boolean(config.once_per_user_24h),
+            collect_email_enabled: Boolean(config.collect_email_enabled),
+            collect_email_only_gmail: Boolean(config.collect_email_only_gmail),
+            collect_email_prompt_message: String(config.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT),
+            collect_email_fail_retry_message: String(config.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT),
+            collect_email_success_reply_message: String(config.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT),
+            seen_typing_enabled: Boolean(config.seen_typing_enabled)
+        }));
+    }, [config]);
+
+    const handleSave = useCallback(async (): Promise<boolean> => {
+        if (!activeAccountID) return false;
 
         if (!selectedTemplate) {
             setError('Please select a reply template');
-            return;
+            return false;
         }
 
         setIsSaving(true);
@@ -116,24 +210,64 @@ const MentionsView: React.FC = () => {
                 body: JSON.stringify({
                     account_id: activeAccountID,
                     template_id: selectedTemplate.id,
-                    is_active: isActive
+                    template_type: selectedTemplate.template_type,
+                    is_active: isActive,
+                    followers_only: followersOnly,
+                    followers_only_message: followersOnly ? followersOnlyMessage : '',
+                    followers_only_primary_button_text: followersOnlyPrimaryButtonText,
+                    followers_only_secondary_button_text: followersOnlySecondaryButtonText,
+                    suggest_more_enabled: suggestMoreEnabled,
+                    once_per_user_24h: oncePerUser,
+                    collect_email_enabled: collectEmailEnabled,
+                    collect_email_only_gmail: collectEmailOnlyGmail,
+                    collect_email_prompt_message: collectEmailPromptMessage,
+                    collect_email_fail_retry_message: collectEmailFailRetryMessage,
+                    collect_email_success_reply_message: collectEmailSuccessReplyMessage,
+                    seen_typing_enabled: seenTypingEnabled
                 })
             });
 
             if (res.ok) {
                 setSuccess('Mentions template saved successfully!');
-                setTimeout(() => setSuccess(null), 3000);
+                setInitialState(currentState);
+                setHasUnsavedChanges(false);
                 fetchConfig();
+                return true;
             } else {
                 const data = await res.json();
                 setError(data.error || 'Failed to save');
+                return false;
             }
         } catch (err) {
             setError('Network error');
+            return false;
         } finally {
             setIsSaving(false);
         }
-    };
+    }, [activeAccountID, authenticatedFetch, collectEmailEnabled, collectEmailFailRetryMessage, collectEmailOnlyGmail, collectEmailPromptMessage, collectEmailSuccessReplyMessage, currentState, fetchConfig, followersOnly, followersOnlyMessage, followersOnlyPrimaryButtonText, followersOnlySecondaryButtonText, isActive, oncePerUser, seenTypingEnabled, selectedTemplate, setHasUnsavedChanges, suggestMoreEnabled]);
+
+    useEffect(() => {
+        setHasUnsavedChanges(isDirty);
+        setSaveUnsavedChanges(() => handleSave);
+        setDiscardUnsavedChanges(() => () => {
+            setIsActive(Boolean(config.is_active));
+            setFollowersOnly(Boolean(config.followers_only));
+            setFollowersOnlyMessage(String(config.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT));
+            setFollowersOnlyPrimaryButtonText(String(config.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT));
+            setFollowersOnlySecondaryButtonText(String(config.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT));
+            setSuggestMoreEnabled(Boolean(config.suggest_more_enabled));
+            setOncePerUser(Boolean(config.once_per_user_24h));
+            setCollectEmailEnabled(Boolean(config.collect_email_enabled));
+            setCollectEmailOnlyGmail(Boolean(config.collect_email_only_gmail));
+            setCollectEmailPromptMessage(String(config.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT));
+            setCollectEmailFailRetryMessage(String(config.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT));
+            setCollectEmailSuccessReplyMessage(String(config.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT));
+            setSeenTypingEnabled(Boolean(config.seen_typing_enabled));
+            const restoredTemplate = config.template_id ? (templateCacheRef.current[config.template_id] || null) : null;
+            setSelectedTemplate(restoredTemplate);
+            setShowTemplateSelector(!restoredTemplate);
+        });
+    }, [config, handleSave, isDirty, setDiscardUnsavedChanges, setHasUnsavedChanges, setSaveUnsavedChanges]);
 
     const handleDelete = () => {
         setModalConfig({
@@ -150,6 +284,20 @@ const MentionsView: React.FC = () => {
                     });
                     setConfig({ is_setup: false, is_active: false });
                     setSelectedTemplate(null);
+                    setFollowersOnly(false);
+                    setFollowersOnlyMessage(FOLLOWERS_ONLY_MESSAGE_DEFAULT);
+                    setFollowersOnlyPrimaryButtonText(FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT);
+                    setFollowersOnlySecondaryButtonText(FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT);
+                    setSuggestMoreEnabled(false);
+                    setOncePerUser(false);
+                    setCollectEmailEnabled(false);
+                    setCollectEmailOnlyGmail(false);
+                    setCollectEmailPromptMessage(COLLECT_EMAIL_PROMPT_DEFAULT);
+                    setCollectEmailFailRetryMessage(COLLECT_EMAIL_FAIL_RETRY_DEFAULT);
+                    setCollectEmailSuccessReplyMessage(COLLECT_EMAIL_SUCCESS_DEFAULT);
+                    setSeenTypingEnabled(false);
+                    setInitialState(JSON.stringify({ template_id: null, is_active: false }));
+                    setHasUnsavedChanges(false);
                 } catch (err) {
                     console.error('Error deleting:', err);
                 } finally {
@@ -170,76 +318,45 @@ const MentionsView: React.FC = () => {
     }
 
     // Preview data for SharedMobilePreview
-    const previewItem = selectedTemplate ? {
-        template_type: selectedTemplate.template_type as any,
-        template_content: selectedTemplate.template_type === 'template_text' ? selectedTemplate.template_data?.text :
-            selectedTemplate.template_type === 'template_media' ? selectedTemplate.template_data?.media_url :
-                selectedTemplate.template_type === 'template_quick_replies' ? selectedTemplate.template_data?.text : undefined,
-        template_elements: selectedTemplate.template_type === 'template_carousel' ? selectedTemplate.template_data?.elements : undefined,
-        replies: selectedTemplate.template_type === 'template_quick_replies' ? selectedTemplate.template_data?.replies : undefined,
-        buttons: selectedTemplate.template_type === 'template_buttons' ? selectedTemplate.template_data?.buttons : undefined,
-        media_id: selectedTemplate.template_type === 'template_share_post' ? selectedTemplate.template_data?.media_id : undefined,
-        media_url: selectedTemplate.template_type === 'template_share_post' ? selectedTemplate.template_data?.media_url : undefined,
-        template_data: selectedTemplate.template_data
-    } : null;
+    const previewItem = buildPreviewAutomationFromTemplate(selectedTemplate);
 
     return (
         <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-8">
-                <div>
-                    <div className="flex items-center gap-2 text-primary mb-2">
-                        <AtSign className="w-4 h-4" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Mentions</span>
-                    </div>
-                    <h1 className="text-3xl font-black text-foreground">Mentions Response Template</h1>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                        Configure the automatic response when someone mentions you in their story or post
-                    </p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    {config.is_setup && (
-                        <button
-                            onClick={handleDelete}
-                            disabled={isSaving}
-                            className="px-6 py-3 bg-destructive text-destructive-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-destructive/90 transition-all shadow-xl shadow-destructive/20 flex items-center gap-2 disabled:opacity-70"
-                        >
-                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            Delete
-                        </button>
-                    )}
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="px-6 py-3 bg-primary text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 flex items-center gap-2 disabled:opacity-70"
-                    >
-                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        Save Template
-                    </button>
-                </div>
-            </div>
-
-            {/* Success/Error Messages */}
-            {success && (
-                <div className="flex items-center gap-2 p-4 bg-success-muted/60 border border-success/30 rounded-xl text-success">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span className="text-sm font-bold">{success}</span>
-                </div>
-            )}
-            {error && (
-                <div className="flex items-center gap-2 p-4 bg-destructive-muted/40 border border-destructive/30 rounded-xl text-destructive">
-                    <AlertCircle className="w-5 h-5" />
-                    <span className="text-sm font-bold">{error}</span>
-                </div>
-            )}
-
+            <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
+            <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
             {/* Main Content */}
-            <div className="flex flex-col xl:flex-row gap-8">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                 {/* Editor Section */}
-                <div className="flex-1 space-y-6">
+                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2">
+                    <div className="pb-2">
+                        <AutomationActionBar
+                            hasExisting={Boolean(config.is_setup)}
+                            isSaving={isSaving}
+                            onSave={handleSave}
+                            onDelete={config.is_setup ? handleDelete : undefined}
+                            leftContent={
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentView('Overview')}
+                                    className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
+                                >
+                                    <ArrowLeft className="w-5 h-5" />
+                                </button>
+                            }
+                            centerContent={
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2 text-primary mb-1">
+                                        <AtSign className="w-4 h-4" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Mentions</span>
+                                    </div>
+                                    <h1 className="text-xl font-black text-foreground">Mentions</h1>
+                                    <p className="text-muted-foreground text-sm">Auto-reply when someone mentions you.</p>
+                                </div>
+                            }
+                        />
+                    </div>
                     {/* Active Toggle */}
-                    <div className="flex items-center justify-between bg-primary/10 p-5 rounded-2xl border border-primary/20">
+                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-card rounded-2xl shadow-sm">
                                 <AtSign className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -256,51 +373,182 @@ const MentionsView: React.FC = () => {
                         />
                     </div>
 
+                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-card rounded-2xl shadow-sm">
+                                <Lock className={`w-5 h-5 ${followersOnly ? 'text-primary' : 'text-muted-foreground'}`} />
+                            </div>
+                            <div>
+                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Followers Only</p>
+                                <p className="text-[10px] font-medium text-muted-foreground">Reply only to followers and send a follow CTA to everyone else.</p>
+                            </div>
+                        </div>
+                        <ToggleSwitch isChecked={followersOnly} onChange={() => setFollowersOnly(!followersOnly)} variant="plain" />
+                    </div>
+
+                    {followersOnly && (
+                        <div className="bg-card border border-content rounded-2xl p-6 space-y-3">
+                            <textarea
+                                value={followersOnlyMessage}
+                                onChange={(e) => setFollowersOnlyMessage(e.target.value)}
+                                className="input-base min-h-[96px] text-sm"
+                                placeholder={FOLLOWERS_ONLY_MESSAGE_DEFAULT}
+                            />
+                            <div className="grid gap-3 md:grid-cols-2">
+                                <input
+                                    value={followersOnlyPrimaryButtonText}
+                                    onChange={(e) => setFollowersOnlyPrimaryButtonText(e.target.value)}
+                                    className="input-base text-sm"
+                                    placeholder={FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT}
+                                />
+                                <input
+                                    value={followersOnlySecondaryButtonText}
+                                    onChange={(e) => setFollowersOnlySecondaryButtonText(e.target.value)}
+                                    className="input-base text-sm"
+                                    placeholder={FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-card rounded-2xl shadow-sm">
+                                <Sparkles className={`w-5 h-5 ${suggestMoreEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
+                            </div>
+                            <div>
+                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Suggest More</p>
+                                <p className="text-[10px] font-medium text-muted-foreground">{hasPlanFeature('suggest_more') ? 'Show extra reply suggestions after the main mentions reply.' : 'Upgrade your plan to enable Suggest More.'}</p>
+                            </div>
+                        </div>
+                        <ToggleSwitch isChecked={suggestMoreEnabled} onChange={() => hasPlanFeature('suggest_more') ? setSuggestMoreEnabled(!suggestMoreEnabled) : setCurrentView('My Plan')} variant="plain" disabled={!hasPlanFeature('suggest_more')} />
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-card rounded-2xl shadow-sm">
+                                <Calendar className={`w-5 h-5 ${oncePerUser ? 'text-primary' : 'text-muted-foreground'}`} />
+                            </div>
+                            <div>
+                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Once Per User (24h)</p>
+                                <p className="text-[10px] font-medium text-muted-foreground">Send the mentions reply only once per user within 24 hours.</p>
+                            </div>
+                        </div>
+                        <ToggleSwitch isChecked={oncePerUser} onChange={() => setOncePerUser(!oncePerUser)} variant="plain" />
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-card rounded-2xl shadow-sm">
+                                <Mail className={`w-5 h-5 ${collectEmailEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
+                            </div>
+                            <div>
+                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Collect Email</p>
+                                <p className="text-[10px] font-medium text-muted-foreground">{hasPlanFeature('collect_email') ? 'Capture an email before finishing the mentions flow.' : 'Upgrade your plan to enable email collection.'}</p>
+                            </div>
+                        </div>
+                        <ToggleSwitch isChecked={collectEmailEnabled} onChange={() => hasPlanFeature('collect_email') ? setCollectEmailEnabled(!collectEmailEnabled) : setCurrentView('My Plan')} variant="plain" disabled={!hasPlanFeature('collect_email')} />
+                    </div>
+
+                    {collectEmailEnabled && hasPlanFeature('collect_email') && (
+                        <div className="bg-card border border-content rounded-2xl p-6 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-black uppercase tracking-[0.15em] text-foreground">Gmail Only</span>
+                                <ToggleSwitch isChecked={collectEmailOnlyGmail} onChange={() => setCollectEmailOnlyGmail(!collectEmailOnlyGmail)} variant="plain" />
+                            </div>
+                            <textarea value={collectEmailPromptMessage} onChange={(e) => setCollectEmailPromptMessage(e.target.value)} className="input-base min-h-[80px] text-sm" placeholder={COLLECT_EMAIL_PROMPT_DEFAULT} />
+                            <textarea value={collectEmailFailRetryMessage} onChange={(e) => setCollectEmailFailRetryMessage(e.target.value)} className="input-base min-h-[80px] text-sm" placeholder={COLLECT_EMAIL_FAIL_RETRY_DEFAULT} />
+                            <textarea value={collectEmailSuccessReplyMessage} onChange={(e) => setCollectEmailSuccessReplyMessage(e.target.value)} className="input-base min-h-[80px] text-sm" placeholder={COLLECT_EMAIL_SUCCESS_DEFAULT} />
+                        </div>
+                    )}
+
+                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-card rounded-2xl shadow-sm">
+                                <MessageSquare className={`w-5 h-5 ${seenTypingEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
+                            </div>
+                            <div>
+                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Seen + Typing Reaction</p>
+                                <p className="text-[10px] font-medium text-muted-foreground">{hasPlanFeature('seen_typing') ? 'Simulate seen and typing before the mentions reply.' : 'Upgrade your plan to enable seen and typing reactions.'}</p>
+                            </div>
+                        </div>
+                        <ToggleSwitch isChecked={seenTypingEnabled} onChange={() => hasPlanFeature('seen_typing') ? setSeenTypingEnabled(!seenTypingEnabled) : setCurrentView('My Plan')} variant="plain" disabled={!hasPlanFeature('seen_typing')} />
+                    </div>
+
                     {/* Template Selector */}
                     <div className="bg-card border border-content rounded-2xl p-6 space-y-4">
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">
-                            Select Reply Template
-                        </label>
-                        <TemplateSelector
-                            selectedTemplateId={selectedTemplate?.id}
-                            onSelect={setSelectedTemplate}
-                            onCreateNew={() => {
-                                setCurrentView('Reply Templates');
-                            }}
-                        />
+                        <div className="flex items-center justify-between">
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                Select Reply Action
+                            </label>
+                            {selectedTemplate && !showTemplateSelector && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTemplateSelector(true)}
+                                    className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
+                                >
+                                    Change Template
+                                </button>
+                            )}
+                        </div>
+                        {(!selectedTemplate || showTemplateSelector) && (
+                            <TemplateSelector
+                                selectedTemplateId={selectedTemplate?.id}
+                                onSelect={(template) => {
+                                    setSelectedTemplate(template);
+                                    setShowTemplateSelector(!template);
+                                }}
+                                onCreateNew={() => {
+                                    setCurrentView('Reply Templates');
+                                }}
+                            />
+                        )}
                         {!selectedTemplate && (
                             <p className="text-xs text-muted-foreground font-medium mt-2">
                                 Choose an existing template or create a new one to use for Mentions responses.
                             </p>
                         )}
+                        {selectedTemplate && !showTemplateSelector && (
+                            <div className="p-6 bg-primary/10 border-2 border-primary/20 rounded-3xl flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-black text-foreground uppercase tracking-tight">{selectedTemplate.name}</p>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{selectedTemplate.template_type.replace('template_', '')}</p>
+                                </div>
+                                <div className="px-3 py-1.5 bg-success-muted/60 text-success text-[9px] font-black uppercase tracking-widest rounded-lg">Selected</div>
+                            </div>
+                        )}
+                        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+                            <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                                Reply templates sent from automations include the workspace watermark unless the account is on a premium plan with watermark removal.
+                            </p>
+                        </div>
                     </div>
                 </div>
 
                 {/* Preview Section */}
-                <div className="xl:w-[380px]">
-                    <div className="sticky top-24">
-                        <div className="text-center mb-4">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Live Preview</span>
-                        </div>
-                        {previewItem ? (
-                            <SharedMobilePreview
-                                mode="automation"
-                                automation={previewItem}
-                                profilePic={activeAccount?.profile_picture_url}
-                                displayName={activeAccount?.username || 'username'}
-                            />
-                        ) : (
-                            <div className="bg-muted/40 p-4 flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-border">
-                                <SharedMobilePreview
-                                    mode="automation"
-                                    automation={{ keyword: 'Mentioned you' }}
-                                    profilePic={activeAccount?.profile_picture_url || undefined}
-                                    displayName={activeAccount?.username || 'username'}
-                                />
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <AutomationPreviewPanel title="Live Preview">
+                    {previewItem ? (
+                        <SharedMobilePreview
+                            mode="automation"
+                            automation={previewItem}
+                            activeAccountID={activeAccountID}
+                            authenticatedFetch={authenticatedFetch}
+                            profilePic={activeAccount?.profile_picture_url}
+                            displayName={activeAccount?.username || 'username'}
+                            lockScroll
+                        />
+                    ) : (
+                        <SharedMobilePreview
+                            mode="automation"
+                            automation={{ keyword: 'Mentioned you' }}
+                            activeAccountID={activeAccountID}
+                            authenticatedFetch={authenticatedFetch}
+                            profilePic={activeAccount?.profile_picture_url || undefined}
+                            displayName={activeAccount?.username || 'username'}
+                            lockScroll
+                        />
+                    )}
+                </AutomationPreviewPanel>
             </div>
 
             <ModernConfirmModal

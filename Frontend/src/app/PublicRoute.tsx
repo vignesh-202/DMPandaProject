@@ -1,24 +1,17 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AuthVerifyingScreen from '../components/ui/AuthVerifyingScreen';
 
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-  const navigate = useNavigate();
+  const { isAuthenticated, authHint, isLoading } = useAuth();
 
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate('/dashboard');
-    }
-  }, [isAuthenticated, isLoading, navigate]);
+  if (isAuthenticated || authHint) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (isLoading) {
     return <AuthVerifyingScreen text="Verifying session..." />;
-  }
-
-  if (isAuthenticated) {
-    return <AuthVerifyingScreen text="Redirecting to dashboard..." />;
   }
 
   return <>{children}</>;

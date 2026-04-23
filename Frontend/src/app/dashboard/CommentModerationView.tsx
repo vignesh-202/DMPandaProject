@@ -1,24 +1,72 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
-import { Shield, Plus, Trash2, Eye, X, Save, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Shield, Trash2, Eye, X, Save, Loader2, AlertCircle, CheckCircle2, Plus } from 'lucide-react';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
+
+type ModerationAction = 'hide' | 'delete';
 
 interface ModerationRule {
     keywords: string[];
-    action: 'hide' | 'delete';
+    action: ModerationAction;
 }
+
+const ACTION_META: Record<ModerationAction, {
+    title: string;
+    description: string;
+    icon: typeof Eye;
+    accentClasses: string;
+    chipClasses: string;
+}> = {
+    hide: {
+        title: 'Hide Comments',
+        description: 'Comments with these keywords stay out of sight without removing them permanently.',
+        icon: Eye,
+        accentClasses: 'border-blue-500/20 bg-blue-500/5',
+        chipClasses: 'border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-300'
+    },
+    delete: {
+        title: 'Delete Comments',
+        description: 'Comments with these keywords are removed completely from the thread.',
+        icon: Trash2,
+        accentClasses: 'border-red-500/20 bg-red-500/5',
+        chipClasses: 'border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-300'
+    }
+};
+
+const normalizeRulesToLists = (rules: ModerationRule[]) => {
+    const lists: Record<ModerationAction, string[]> = { hide: [], delete: [] };
+
+    (Array.isArray(rules) ? rules : []).forEach((rule) => {
+        const action = rule?.action === 'delete' ? 'delete' : 'hide';
+        const keywords = Array.isArray(rule?.keywords)
+            ? rule.keywords.map((keyword) => String(keyword || '').trim().toLowerCase()).filter(Boolean)
+            : [];
+        lists[action] = Array.from(new Set([...(lists[action] || []), ...keywords]));
+    });
+
+    return lists;
+};
+
+const moderationRulesFromLists = (lists: Record<ModerationAction, string[]>): ModerationRule[] => (
+    (['hide', 'delete'] as ModerationAction[])
+        .map((action) => ({
+            action,
+            keywords: Array.from(new Set((lists[action] || []).map((keyword) => String(keyword || '').trim().toLowerCase()).filter(Boolean)))
+        }))
+        .filter((rule) => rule.keywords.length > 0)
+);
 
 const CommentModerationView: React.FC = () => {
     const { authenticatedFetch } = useAuth();
     const { activeAccountID, activeAccount } = useDashboard();
-    const [rules, setRules] = useState<ModerationRule[]>([]);
+    const [keywordLists, setKeywordLists] = useState<Record<ModerationAction, string[]>>({ hide: [], delete: [] });
+    const [keywordInputs, setKeywordInputs] = useState<Record<ModerationAction, string>>({ hide: '', delete: '' });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-    const [newKeyword, setNewKeyword] = useState('');
-    const [editingRuleIndex, setEditingRuleIndex] = useState<number | null>(null);
+
     const fetchRules = useCallback(async (signal?: AbortSignal) => {
         if (!activeAccountID) return;
         setLoading(true);
@@ -27,11 +75,10 @@ const CommentModerationView: React.FC = () => {
             const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/comment-moderation?account_id=${activeAccountID}`, {
                 signal
             });
+            const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                const data = await res.json();
-                setRules(data.rules || []);
+                setKeywordLists(normalizeRulesToLists(data.rules || []));
             } else {
-                const data = await res.json();
                 setError(data.error || 'Failed to load rules');
             }
         } catch (err: any) {
@@ -53,7 +100,7 @@ const CommentModerationView: React.FC = () => {
             } else {
                 setLoading(false);
             }
-        }, 50); // Small debounce to prevent double-fetch in Strict Mode
+        }, 50);
 
         return () => {
             clearTimeout(timer);
@@ -61,22 +108,51 @@ const CommentModerationView: React.FC = () => {
         };
     }, [activeAccountID, fetchRules]);
 
+    const addKeyword = (action: ModerationAction) => {
+        const normalized = String(keywordInputs[action] || '').trim().toLowerCase();
+        if (!normalized) return;
+
+        const keywordTakenElsewhere = Object.entries(keywordLists).some(([listAction, keywords]) => (
+            listAction !== action && keywords.includes(normalized)
+        ));
+
+        if (keywordTakenElsewhere) {
+            setError(`"${normalized}" is already assigned to the other moderation action.`);
+            return;
+        }
+
+        setKeywordLists((prev) => ({
+            ...prev,
+            [action]: prev[action].includes(normalized) ? prev[action] : [...prev[action], normalized]
+        }));
+        setKeywordInputs((prev) => ({ ...prev, [action]: '' }));
+        setError(null);
+    };
+
+    const removeKeyword = (action: ModerationAction, keyword: string) => {
+        setKeywordLists((prev) => ({
+            ...prev,
+            [action]: prev[action].filter((item) => item !== keyword)
+        }));
+    };
+
     const handleSave = async () => {
         if (!activeAccountID) return;
         setSaving(true);
         setError(null);
         setSuccess(null);
+
         try {
             const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/comment-moderation?account_id=${activeAccountID}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rules })
+                body: JSON.stringify({ rules: moderationRulesFromLists(keywordLists) })
             });
+            const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                setSuccess('Comment moderation rules saved successfully!');
+                setSuccess('Comment moderation rules saved successfully.');
                 setTimeout(() => setSuccess(null), 3000);
             } else {
-                const data = await res.json();
                 setError(data.error || 'Failed to save rules');
             }
         } catch (err) {
@@ -87,46 +163,12 @@ const CommentModerationView: React.FC = () => {
         }
     };
 
-    const addRule = () => {
-        setRules([...rules, { keywords: [], action: 'hide' }]);
-        setEditingRuleIndex(rules.length);
-    };
-
-    const removeRule = (index: number) => {
-        setRules(rules.filter((_, i) => i !== index));
-        if (editingRuleIndex === index) setEditingRuleIndex(null);
-        else if (editingRuleIndex !== null && editingRuleIndex > index) setEditingRuleIndex(editingRuleIndex - 1);
-    };
-
-    const addKeywordToRule = (ruleIndex: number) => {
-        if (!newKeyword.trim()) return;
-        const updatedRules = [...rules];
-        if (!updatedRules[ruleIndex].keywords) updatedRules[ruleIndex].keywords = [];
-        if (!updatedRules[ruleIndex].keywords.includes(newKeyword.trim().toLowerCase())) {
-            updatedRules[ruleIndex].keywords.push(newKeyword.trim().toLowerCase());
-        }
-        setRules(updatedRules);
-        setNewKeyword('');
-    };
-
-    const removeKeywordFromRule = (ruleIndex: number, keywordIndex: number) => {
-        const updatedRules = [...rules];
-        updatedRules[ruleIndex].keywords.splice(keywordIndex, 1);
-        setRules(updatedRules);
-    };
-
-    const updateRuleAction = (ruleIndex: number, action: 'hide' | 'delete') => {
-        const updatedRules = [...rules];
-        updatedRules[ruleIndex].action = action;
-        setRules(updatedRules);
-    };
-
     if (loading) {
         return (
             <LoadingOverlay
                 variant="fullscreen"
                 message="Loading Comment Moderation"
-                subMessage="Fetching your moderation rules..."
+                subMessage="Fetching your moderation keyword lists..."
             />
         );
     }
@@ -142,7 +184,7 @@ const CommentModerationView: React.FC = () => {
     }
 
     return (
-        <div className="p-3 sm:p-4 md:p-6 lg:p-8 max-w-5xl mx-auto">
+        <div className="p-3 sm:p-4 md:p-6 lg:p-8 max-w-6xl mx-auto">
             <div className="mb-8 flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-black text-foreground flex items-center gap-3">
@@ -150,7 +192,7 @@ const CommentModerationView: React.FC = () => {
                         Comment Moderation
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1 font-medium">
-                        Automatically hide or delete comments containing specific keywords on your posts and reels.
+                        Manage separate hide and delete keyword lists for comments on your posts and reels.
                     </p>
                 </div>
             </div>
@@ -169,150 +211,107 @@ const CommentModerationView: React.FC = () => {
                 </div>
             )}
 
-            <div className="bg-card rounded-[2rem] border border-content shadow-xl overflow-hidden">
-                <div className="p-6 sm:p-8 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h2 className="text-lg font-black text-foreground">Moderation Rules</h2>
-                            <p className="text-xs text-muted-foreground mt-1 font-medium">
-                                Create rules to automatically hide or delete comments containing specific keywords
-                            </p>
-                        </div>
-                        <button
-                            onClick={addRule}
-                            className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Add Rule
-                        </button>
-                    </div>
+            <div className="mb-6 rounded-[2rem] border border-content bg-card/80 p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">Keyword Protection</p>
+                <p className="mt-2 text-sm font-medium text-muted-foreground">
+                    Moderation keywords are kept exclusive. If a word is used here, it cannot be reused in automations or global triggers, and vice versa.
+                </p>
+            </div>
 
-                    {rules.length === 0 ? (
-                        <div className="text-center py-12 border-2 border-dashed border-border rounded-2xl">
-                            <Shield className="w-12 h-12 text-muted-foreground/60 mx-auto mb-4" />
-                            <p className="text-sm text-muted-foreground font-medium mb-2">No moderation rules yet</p>
-                            <p className="text-xs text-muted-foreground">Click "Add Rule" to create your first moderation rule</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {rules.map((rule, ruleIndex) => (
-                                <div key={ruleIndex} className="p-6 bg-muted/40 rounded-2xl border border-border space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm">
-                                                {ruleIndex + 1}
-                                            </div>
-                                            <h3 className="text-sm font-black text-foreground">Rule {ruleIndex + 1}</h3>
-                                        </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+                {(['hide', 'delete'] as ModerationAction[]).map((action) => {
+                    const meta = ACTION_META[action];
+                    const Icon = meta.icon;
+                    const keywords = keywordLists[action];
+
+                    return (
+                        <div key={action} className={`rounded-[2rem] border shadow-xl overflow-hidden ${meta.accentClasses}`}>
+                            <div className="p-6 sm:p-8 space-y-6">
+                                <div className="flex items-start gap-4">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-card border border-content shadow-sm">
+                                        <Icon className="w-5 h-5 text-foreground" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-black text-foreground">{meta.title}</h2>
+                                        <p className="text-xs text-muted-foreground mt-1 font-medium">{meta.description}</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Keywords</label>
+                                    <div className="flex gap-2 mb-3">
+                                        <input
+                                            type="text"
+                                            value={keywordInputs[action]}
+                                            onChange={(e) => setKeywordInputs((prev) => ({ ...prev, [action]: e.target.value.toLowerCase() }))}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    addKeyword(action);
+                                                }
+                                            }}
+                                            placeholder={`Add a ${action} keyword...`}
+                                            className="input-base flex-1 text-xs font-bold"
+                                        />
                                         <button
-                                            onClick={() => removeRule(ruleIndex)}
-                                            className="p-2 text-destructive hover:bg-destructive-muted/60 rounded-xl transition-all"
+                                            onClick={() => addKeyword(action)}
+                                            className="btn-primary px-4 py-3 text-[9px] inline-flex items-center gap-2"
                                         >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Plus className="w-3.5 h-3.5" />
+                                            Add
                                         </button>
                                     </div>
 
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Action</label>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <button
-                                                    onClick={() => updateRuleAction(ruleIndex, 'hide')}
-                                                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${rule.action === 'hide'
-                                                        ? 'border-primary bg-primary/10 text-primary'
-                                                        : 'border-transparent bg-muted text-muted-foreground hover:bg-muted/60'
-                                                        }`}
-                                                >
-                                                    <Eye className="w-5 h-5" />
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Hide</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => updateRuleAction(ruleIndex, 'delete')}
-                                                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${rule.action === 'delete'
-                                                        ? 'border-destructive bg-destructive-muted/40 text-destructive'
-                                                        : 'border-transparent bg-muted text-muted-foreground hover:bg-muted/60'
-                                                        }`}
-                                                >
-                                                    <Trash2 className="w-5 h-5" />
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Delete</span>
-                                                </button>
-                                            </div>
+                                    {keywords.length === 0 ? (
+                                        <div className="rounded-2xl border border-dashed border-content/70 bg-card/60 px-4 py-6 text-center">
+                                            <p className="text-xs font-medium text-muted-foreground">No keywords added yet.</p>
                                         </div>
-
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Keywords</label>
-                                            <div className="flex gap-2 mb-3">
-                                                <input
-                                                    type="text"
-                                                    value={newKeyword}
-                                                    onChange={(e) => setNewKeyword(e.target.value.toLowerCase())}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            e.preventDefault();
-                                                            addKeywordToRule(ruleIndex);
-                                                        }
-                                                    }}
-                                                    placeholder="Type keyword and press Enter..."
-                                                    className="flex-1 bg-card border-2 border-transparent focus:border-primary outline-none rounded-xl py-2.5 px-4 text-xs font-bold"
-                                                />
-                                                <button
-                                                    onClick={() => addKeywordToRule(ruleIndex)}
-                                                    className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all"
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2">
+                                            {keywords.map((keyword) => (
+                                                <div
+                                                    key={`${action}-${keyword}`}
+                                                    className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${meta.chipClasses}`}
                                                 >
-                                                    Add
-                                                </button>
-                                            </div>
-                                            {rule.keywords.length === 0 ? (
-                                                <p className="text-xs text-muted-foreground italic">No keywords added yet</p>
-                                            ) : (
-                                                <div className="flex flex-wrap gap-2">
-                                                    {rule.keywords.map((keyword, keywordIndex) => (
-                                                        <div
-                                                            key={keywordIndex}
-                                                            className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-xl text-[10px] font-black uppercase tracking-widest"
-                                                        >
-                                                            {keyword}
-                                                            <button
-                                                                onClick={() => removeKeywordFromRule(ruleIndex, keywordIndex)}
-                                                                className="hover:bg-primary/90 rounded p-0.5 transition-colors"
-                                                            >
-                                                                <X className="w-3 h-3" />
-                                                            </button>
-                                                        </div>
-                                                    ))}
+                                                    {keyword}
+                                                    <button
+                                                        onClick={() => removeKeyword(action, keyword)}
+                                                        className="rounded p-0.5 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
                                                 </div>
-                                            )}
+                                            ))}
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
-                            ))}
+                            </div>
                         </div>
-                    )}
+                    );
+                })}
+            </div>
 
-                    <div className="flex justify-end pt-4 border-t border-border">
-                        <button
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="px-8 py-3 bg-primary text-primary-foreground rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {saving ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Saving...
-                                </>
-                            ) : (
-                                <>
-                                    <Save className="w-4 h-4" />
-                                    Save Rules
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </div>
+            <div className="mt-8 flex justify-end">
+                <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="btn-primary px-8 py-3 text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {saving ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Saving...
+                        </>
+                    ) : (
+                        <>
+                            <Save className="w-4 h-4" />
+                            Save Rules
+                        </>
+                    )}
+                </button>
             </div>
         </div>
     );
 };
 
 export default CommentModerationView;
-

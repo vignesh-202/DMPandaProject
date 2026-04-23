@@ -1,275 +1,228 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
+import { cn } from '../../lib/utils';
 
 interface GaugeProps {
-    value: number;
-    max?: number;
-    startAnimation?: boolean;
-    invertColor?: boolean;
-    showValue?: boolean;
-    size?: 'sm' | 'md' | 'lg';
-    className?: string;
+  value: number;
+  max?: number;
+  label?: string;
+  size?: 'sm' | 'md' | 'lg';
+  showNeedle?: boolean;
+  syncId?: string;
+  updatedText?: string;
+  className?: string;
 }
 
+const syncState: Record<string, { startTime: number; animating: boolean }> = {};
+
 const Gauge: React.FC<GaugeProps> = ({
-    value,
-    max = 100,
-    startAnimation = false,
-    invertColor = false,
-    showValue = false,
-    size = 'md',
-    className = ""
+  value,
+  max = 100,
+  label,
+  size = 'md',
+  showNeedle = true,
+  syncId,
+  updatedText = 'Updated 1 day ago',
+  className
 }) => {
-    const [animatedValue, setAnimatedValue] = useState(0);
+  const [animatedPercent, setAnimatedPercent] = useState(0);
+  const requestRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+  const targetValue = Math.min(Math.max(value, 0), max);
+  const targetPercent = max > 0 ? (targetValue / max) * 100 : 0;
 
-    // Normalize value between 0 and 1
-    const normalizedValue = Math.min(Math.max(value / max, 0), 1);
+  useLayoutEffect(() => {
+    mountedRef.current = true;
+    const duration = 1500;
+    const syncKey = syncId || 'default';
 
-    // Determine color based on value - Instagram gradient inspired
-    const getColor = useMemo(() => {
-        const percent = invertColor ? 1 - animatedValue : animatedValue;
-        if (percent >= 0.7) return { color: '#22c55e', glow: 'rgba(34, 197, 94, 0.4)' }; // Green
-        if (percent >= 0.4) return { color: '#eab308', glow: 'rgba(234, 179, 8, 0.4)' }; // Yellow
-        return { color: '#ef4444', glow: 'rgba(239, 68, 68, 0.4)' }; // Red
-    }, [animatedValue, invertColor]);
+    if (!syncState[syncKey] || !syncState[syncKey].animating) {
+      syncState[syncKey] = { startTime: performance.now(), animating: true };
+    }
+    const startTime = syncState[syncKey].startTime;
 
-    useEffect(() => {
-        if (startAnimation) {
-            let start: number;
-            const duration = 1500;
-            const finalValue = normalizedValue;
-
-            const animate = (timestamp: number) => {
-                if (!start) start = timestamp;
-                const progress = timestamp - start;
-                const easeOutQuart = (x: number): number => 1 - Math.pow(1 - x, 4);
-
-                const currentProgress = Math.min(progress / duration, 1);
-                const easedProgress = easeOutQuart(currentProgress);
-
-                setAnimatedValue(easedProgress * finalValue);
-
-                if (progress < duration) {
-                    requestAnimationFrame(animate);
-                }
-            };
-
-            requestAnimationFrame(animate);
-        } else {
-            setAnimatedValue(0);
-        }
-    }, [value, max, startAnimation, normalizedValue]);
-
-    // SVG Configuration
-    const radius = 80;
-    const strokeWidth = 14;
-    const circumference = Math.PI * radius;
-    const arcLength = circumference * animatedValue;
-    
-    // Needle angle calculation (0 = left, 180 = right)
-    const needleAngle = animatedValue * 180;
-
-    // Tick marks for the gauge
-    const tickMarks = useMemo(() => {
-        const ticks = [];
-        for (let i = 0; i <= 10; i++) {
-            const angle = (i / 10) * 180;
-            const isMainTick = i % 2 === 0;
-            const innerRadius = isMainTick ? 58 : 62;
-            const outerRadius = 68;
-            const rad = (angle * Math.PI) / 180;
-            
-            // Calculate positions (mirror because arc goes from left to right)
-            const x1 = 100 + innerRadius * Math.cos(Math.PI - rad);
-            const y1 = 100 - innerRadius * Math.sin(Math.PI - rad);
-            const x2 = 100 + outerRadius * Math.cos(Math.PI - rad);
-            const y2 = 100 - outerRadius * Math.sin(Math.PI - rad);
-            
-            ticks.push({ x1, y1, x2, y2, isMainTick, value: i * 10 });
-        }
-        return ticks;
-    }, []);
-
-    const sizeClasses = {
-        sm: 'w-28',
-        md: 'w-40',
-        lg: 'w-56'
+    const animate = (now: number) => {
+      if (!mountedRef.current) return;
+      const elapsed = now - startTime;
+      if (elapsed < duration) {
+        const progress = elapsed / duration;
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setAnimatedPercent(eased * targetPercent);
+        requestRef.current = requestAnimationFrame(animate);
+      } else {
+        setAnimatedPercent(targetPercent);
+        if (syncState[syncKey]) syncState[syncKey].animating = false;
+      }
     };
 
-    return (
-        <div className={`relative flex flex-col items-center justify-center ${sizeClasses[size]} ${className}`}>
-            <svg
-                viewBox="0 0 200 120"
-                className="w-full h-auto overflow-visible gauge-container"
-            >
-                <defs>
-                    {/* Instagram-inspired gradient */}
-                    <linearGradient id={`gaugeGradient-${invertColor ? 'inv' : 'norm'}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor={invertColor ? "#22c55e" : "#ef4444"} />
-                        <stop offset="35%" stopColor="#eab308" />
-                        <stop offset="100%" stopColor={invertColor ? "#ef4444" : "#22c55e"} />
-                    </linearGradient>
+    requestRef.current = requestAnimationFrame(animate);
+    return () => {
+      mountedRef.current = false;
+      if (requestRef.current != null) cancelAnimationFrame(requestRef.current);
+    };
+  }, [targetPercent, syncId]);
 
-                    {/* Glow Filter - Enhanced */}
-                    <filter id="gaugeGlow" x="-50%" y="-50%" width="200%" height="200%">
-                        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                        <feMerge>
-                            <feMergeNode in="coloredBlur" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
+  const sizes = {
+    sm: { container: 'w-full max-w-[160px]', valueSize: 'text-xl sm:text-2xl', labelSize: 'text-2xs' },
+    md: { container: 'w-full max-w-[220px]', valueSize: 'text-2xl sm:text-3xl', labelSize: 'text-2xs sm:text-xs' },
+    lg: { container: 'w-full max-w-[280px]', valueSize: 'text-3xl sm:text-4xl', labelSize: 'text-xs' }
+  };
+  const s = sizes[size];
 
-                    {/* Needle Shadow */}
-                    <filter id="needleShadow" x="-50%" y="-50%" width="200%" height="200%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.3"/>
-                    </filter>
+  const center = 100;
+  const radius = 80;
+  const startAngle = -210;
+  const endAngle = 30;
+  const totalAngle = endAngle - startAngle;
 
-                    {/* Center Glow */}
-                    <radialGradient id="centerGlow">
-                        <stop offset="0%" stopColor={getColor.color} stopOpacity="0.3" />
-                        <stop offset="100%" stopColor={getColor.color} stopOpacity="0" />
-                    </radialGradient>
-                </defs>
+  const getPos = (angle: number, r: number) => {
+    const rad = (angle * Math.PI) / 180;
+    return {
+      x: center + r * Math.cos(rad),
+      y: center + r * Math.sin(rad)
+    };
+  };
 
-                {/* Background glow circle */}
-                <circle 
-                    cx="100" 
-                    cy="100" 
-                    r="45" 
-                    fill="url(#centerGlow)"
-                    style={{ transition: 'fill 0.5s ease' }}
-                />
+  const createArcPath = (start: number, end: number, r: number) => {
+    const p1 = getPos(start, r);
+    const p2 = getPos(end, r);
+    const largeArc = end - start <= 180 ? 0 : 1;
+    return `M ${p1.x} ${p1.y} A ${r} ${r} 0 ${largeArc} 1 ${p2.x} ${p2.y}`;
+  };
 
-                {/* Tick Marks */}
-                {tickMarks.map((tick, idx) => (
-                    <line
-                        key={idx}
-                        x1={tick.x1}
-                        y1={tick.y1}
-                        x2={tick.x2}
-                        y2={tick.y2}
-                        stroke="currentColor"
-                        strokeWidth={tick.isMainTick ? 2 : 1}
-                        strokeLinecap="round"
-                        className="text-gray-300 dark:text-gray-600"
-                        style={{ opacity: tick.isMainTick ? 0.8 : 0.4 }}
-                    />
-                ))}
+  const currentAngle = startAngle + ((animatedPercent / 100) * totalAngle);
+  const needlePos = getPos(currentAngle, radius - 10);
 
-                {/* Background Track */}
-                <path
-                    d="M 20 100 A 80 80 0 0 1 180 100"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="round"
-                    className="text-gray-200 dark:text-gray-700"
-                />
+  const getActivityColor = (percent: number) => {
+    const stops = [
+      { pos: 0, color: [34, 197, 94] },
+      { pos: 25, color: [34, 197, 94] },
+      { pos: 25.01, color: [234, 179, 8] },
+      { pos: 50, color: [234, 179, 8] },
+      { pos: 50.01, color: [249, 115, 22] },
+      { pos: 75, color: [249, 115, 22] },
+      { pos: 75.01, color: [239, 68, 68] },
+      { pos: 100, color: [239, 68, 68] }
+    ];
 
-                {/* Colored Arc with Gradient */}
-                <path
-                    d="M 20 100 A 80 80 0 0 1 180 100"
-                    fill="none"
-                    stroke={`url(#gaugeGradient-${invertColor ? 'inv' : 'norm'})`}
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="round"
-                    strokeDasharray={`${circumference} ${circumference}`}
-                    strokeDashoffset={circumference - arcLength}
-                    filter="url(#gaugeGlow)"
-                    style={{
-                        opacity: animatedValue > 0 ? 1 : 0,
-                        transition: 'stroke-dashoffset 0.1s ease-out'
-                    }}
-                />
+    let lower = stops[0];
+    let upper = stops[stops.length - 1];
+    for (let i = 0; i < stops.length - 1; i += 1) {
+      if (percent >= stops[i].pos && percent <= stops[i + 1].pos) {
+        lower = stops[i];
+        upper = stops[i + 1];
+        break;
+      }
+    }
 
-                {/* Needle Group */}
-                <g
-                    style={{
-                        transform: `rotate(${needleAngle}deg)`,
-                        transformOrigin: "100px 100px",
-                        transition: 'transform 0.1s ease-out'
-                    }}
-                    filter="url(#needleShadow)"
-                >
-                    {/* Needle Shape - More elegant design */}
-                    <path
-                        d="M 100 100 L 30 100 L 35 97 L 100 94 Z"
-                        fill="currentColor"
-                        className="text-gray-800 dark:text-white"
-                    />
-                    <path
-                        d="M 100 100 L 30 100 L 35 103 L 100 106 Z"
-                        fill="currentColor"
-                        className="text-gray-700 dark:text-gray-200"
-                    />
-                    
-                    {/* Needle Tip Highlight */}
-                    <circle 
-                        cx="32" 
-                        cy="100" 
-                        r="2" 
-                        fill={getColor.color}
-                        style={{ transition: 'fill 0.3s ease' }}
-                    />
-                </g>
+    const range = upper.pos - lower.pos;
+    const factor = range === 0 ? 0 : (percent - lower.pos) / range;
+    const r = Math.round(lower.color[0] + ((upper.color[0] - lower.color[0]) * factor));
+    const g = Math.round(lower.color[1] + ((upper.color[1] - lower.color[1]) * factor));
+    const b = Math.round(lower.color[2] + ((upper.color[2] - lower.color[2]) * factor));
+    return `rgb(${r}, ${g}, ${b})`;
+  };
 
-                {/* Center Pivot - Enhanced */}
-                <circle 
-                    cx="100" 
-                    cy="100" 
-                    r="12" 
-                    fill="currentColor" 
-                    className="text-gray-800 dark:text-white"
-                />
-                <circle 
-                    cx="100" 
-                    cy="100" 
-                    r="9" 
-                    fill="var(--card-background)"
-                />
-                <circle 
-                    cx="100" 
-                    cy="100" 
-                    r="5" 
-                    fill={getColor.color}
-                    style={{ 
-                        transition: 'fill 0.3s ease',
-                        filter: `drop-shadow(0 0 4px ${getColor.glow})`
-                    }}
-                />
-                <circle 
-                    cx="100" 
-                    cy="100" 
-                    r="2" 
-                    fill="white"
-                    opacity="0.8"
-                />
+  const percent = animatedPercent;
+  const mainColor = getActivityColor(percent);
+  let activityLabel = 'QUIET';
+  if (percent >= 25 && percent < 50) activityLabel = 'ACTIVE';
+  else if (percent >= 50 && percent < 75) activityLabel = 'BUSY';
+  else if (percent >= 75) activityLabel = 'PEAK';
 
-                {/* Level Labels */}
-                <text x="20" y="115" className="text-[9px] font-medium fill-gray-400 dark:fill-gray-500">0</text>
-                <text x="95" y="25" className="text-[9px] font-medium fill-gray-400 dark:fill-gray-500">50</text>
-                <text x="175" y="115" className="text-[9px] font-medium fill-gray-400 dark:fill-gray-500">100</text>
-            </svg>
+  const displayValue = Number(targetValue || 0).toLocaleString('en-IN');
+  const displayMax = Number(max || 0).toLocaleString('en-IN');
 
-            {/* Value Display */}
-            {showValue && (
-                <div className="absolute bottom-0 flex flex-col items-center">
-                    <span 
-                        className="text-2xl font-bold tracking-tight"
-                        style={{ 
-                            color: getColor.color,
-                            transition: 'color 0.3s ease',
-                            textShadow: `0 0 20px ${getColor.glow}`
-                        }}
-                    >
-                        {Math.round(animatedValue * max)}
-                    </span>
-                    <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                        / {max}
-                    </span>
-                </div>
-            )}
-        </div>
-    );
+  return (
+    <div className={cn(`gauge-legacy mx-auto flex select-none flex-col items-center justify-center ${s.container}`, className)}>
+      <div className="relative w-full aspect-square">
+        <svg viewBox="0 0 200 180" className="h-full w-full overflow-visible">
+          <defs>
+            <path id="pathQuiet" d={createArcPath(-210, -165, radius + 15)} fill="none" />
+            <path id="pathActive" d={createArcPath(-155, -100, radius + 15)} fill="none" />
+            <path id="pathBusy" d={createArcPath(-80, -25, radius + 15)} fill="none" />
+            <path id="pathPeak" d={createArcPath(-15, 35, radius + 15)} fill="none" />
+            <filter id="needleGlow">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+            <linearGradient id="igGaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#405DE6" />
+              <stop offset="25%" stopColor="#833AB4" />
+              <stop offset="50%" stopColor="#FD1D1D" />
+              <stop offset="75%" stopColor="#F56040" />
+              <stop offset="100%" stopColor="#FCAF45" />
+            </linearGradient>
+            <filter id="igGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <path d={createArcPath(-210, -160, radius + 15)} fill="none" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.4" />
+          <path d={createArcPath(-160, -90, radius + 15)} fill="none" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.4" />
+          <path d={createArcPath(-90, -20, radius + 15)} fill="none" stroke="#f97316" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.4" />
+          <path d={createArcPath(-20, 30, radius + 15)} fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.4" />
+
+          <text className="fill-[#22c55e] text-[7px] font-bold tracking-[2px] uppercase">
+            <textPath href="#pathQuiet" startOffset="50%" textAnchor="middle">QUIET</textPath>
+          </text>
+          <text className="fill-[#eab308] text-[7px] font-bold tracking-[2px] uppercase">
+            <textPath href="#pathActive" startOffset="50%" textAnchor="middle">ACTIVE</textPath>
+          </text>
+          <text className="fill-[#f97316] text-[7px] font-bold tracking-[2px] uppercase">
+            <textPath href="#pathBusy" startOffset="50%" textAnchor="middle">BUSY</textPath>
+          </text>
+          <text className="fill-[#ef4444] text-[7px] font-bold tracking-[2px] uppercase">
+            <textPath href="#pathPeak" startOffset="50%" textAnchor="middle">PEAK</textPath>
+          </text>
+
+          <path d={createArcPath(startAngle, endAngle, radius)} fill="none" stroke="currentColor" strokeWidth="10" strokeLinecap="round" className="text-muted/30" />
+          <path
+            d={createArcPath(startAngle, currentAngle, radius)}
+            fill="none"
+            stroke="url(#igGaugeGradient)"
+            strokeWidth="10"
+            strokeLinecap="round"
+            filter="url(#igGlow)"
+          />
+
+          {showNeedle && (
+            <g filter="url(#needleGlow)">
+              <line
+                x1={center}
+                y1={center}
+                x2={needlePos.x}
+                y2={needlePos.y}
+                stroke={mainColor}
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+              <circle cx={center} cy={center} r="6" fill={mainColor} />
+            </g>
+          )}
+
+          {label ? (
+            <text x="100" y="70" textAnchor="middle" className="fill-muted-foreground text-[8px] font-bold uppercase tracking-[2px]">
+              {label}
+            </text>
+          ) : null}
+          <text x="100" y="103" textAnchor="middle" className={cn('fill-foreground font-[900]', s.valueSize)}>
+            {displayValue}
+          </text>
+          <text x="100" y="122" textAnchor="middle" className="fill-muted-foreground text-[9px] font-semibold">
+            of {displayMax}
+          </text>
+          <text x="100" y="142" textAnchor="middle" className={cn('font-bold tracking-[2px] uppercase', s.labelSize)} fill={mainColor}>
+            {activityLabel}
+          </text>
+        </svg>
+      </div>
+      <p className="mt-2 text-center text-xs font-medium text-muted-foreground">{updatedText}</p>
+    </div>
+  );
 };
 
 export default Gauge;

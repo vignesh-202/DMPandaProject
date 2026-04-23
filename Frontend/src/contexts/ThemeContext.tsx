@@ -4,7 +4,7 @@ interface ThemeContextProps {
   isDarkMode: boolean;
   toggleTheme: () => void;
   setForceLightMode: (force: boolean) => void;
-  theme: 'light' | 'dark'; // Add this to match usage in Navbar
+  theme: 'light' | 'dark';
 }
 
 export const ThemeContext = createContext<ThemeContextProps>({
@@ -27,6 +27,18 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [forceLightMode, setForceLightMode] = useState(false);
 
   useEffect(() => {
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (!sessionStorage.getItem('theme')) {
+        setIsDarkMode(e.matches);
+      }
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
     if (forceLightMode) {
       document.documentElement.classList.remove('dark');
     } else if (isDarkMode) {
@@ -38,7 +50,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   const toggleTheme = useCallback(() => {
     if (forceLightMode) return;
-    setIsDarkMode(prev => {
+    setIsDarkMode((prev) => {
       const newMode = !prev;
       sessionStorage.setItem('theme', newMode ? 'dark' : 'light');
       return newMode;

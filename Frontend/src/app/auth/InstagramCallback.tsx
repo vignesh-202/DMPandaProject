@@ -4,7 +4,7 @@ import ModernLoader from '../../components/ui/ModernLoader';
 import { useAuth } from '../../contexts/AuthContext';
 
 const InstagramCallback: React.FC = () => {
-    const { authenticatedFetch, isAuthenticated } = useAuth();
+    const { authenticatedFetch, isAuthenticated, checkAuth } = useAuth();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const processedRef = useRef(false);
@@ -44,6 +44,7 @@ const InstagramCallback: React.FC = () => {
                     });
 
                     if (response.ok) {
+                        await checkAuth();
                         navigate('/dashboard?success=instagram_linked');
                     } else {
                         const data = await response.json();
@@ -60,7 +61,7 @@ const InstagramCallback: React.FC = () => {
             console.error('No code received from Instagram');
             navigate('/dashboard');
         }
-    }, [searchParams, navigate, authenticatedFetch, isAuthenticated]);
+    }, [searchParams, navigate, authenticatedFetch, isAuthenticated, checkAuth]);
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-white">

@@ -4,6 +4,7 @@ import { Skeleton } from '../ui/skeleton';
 import { Instagram, Radio, RefreshCw, Link as LinkIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { toBrowserPreviewUrl } from '../../lib/templatePreview';
 
 export interface InstagramStatsData {
   followers: number;
@@ -54,7 +55,7 @@ const StatItem = ({
 
 // Bio Card Component
 export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; loading: boolean }> = ({ stats, loading }) => {
-  const { activeAccount, refreshStats } = useDashboard();
+  const { activeAccount, refreshStats, refreshLinkedProfiles } = useDashboard();
   const [showExact, setShowExact] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -79,10 +80,11 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
 
     setIsRefreshing(true);
     refreshStats();
+    void refreshLinkedProfiles();
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
-  const profileUrl = stats?.profile_picture_url || activeAccount?.profile_picture_url;
+  const profileUrl = toBrowserPreviewUrl(stats?.profile_picture_url || activeAccount?.profile_picture_url || '');
   const hasStories = stats?.stories_count && stats.stories_count > 0;
 
   return (
@@ -107,9 +109,9 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
         <RefreshCw className="w-4 h-4" />
       </button>
 
-      <div className="flex flex-col gap-4 lg:gap-3 relative z-0">
+      <div className="relative z-0 flex flex-col gap-3 lg:gap-2.5">
         {/* Top Section: Profile + Info */}
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           {/* Profile Picture - Instagram Story Ring */}
           <div className="flex-shrink-0">
             <div className={cn(
@@ -123,13 +125,13 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
                   <img
                     src={profileUrl}
                     alt="Profile"
-                    className="w-14 h-14 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
+                  className="h-14 w-14 rounded-full object-cover lg:h-12 lg:w-12"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted lg:h-12 lg:w-12">
                     <Instagram className="w-7 h-7 text-primary" />
                   </div>
                 )}
@@ -141,7 +143,7 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
           <div className="flex-1 min-w-0 flex flex-col">
             {/* Username & Verified */}
             <div className="flex items-center gap-2 mb-0.5">
-              <h2 className="text-lg font-semibold text-foreground truncate tracking-tight">
+              <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
                 {stats?.username || activeAccount?.username || "username"}
               </h2>
               {stats?.is_verified && (
@@ -159,8 +161,8 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
             )}
 
             {/* Bio */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 max-h-16">
-              <p className="text-sm text-secondary-foreground leading-relaxed whitespace-pre-wrap break-words">
+            <div className="custom-scrollbar min-h-0 max-h-14 flex-1 overflow-y-auto lg:max-h-12">
+              <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-secondary-foreground lg:text-[13px]">
                 {stats?.biography || "No biography available."}
               </p>
             </div>
@@ -183,7 +185,7 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
         </div>
 
         {/* Stats Row */}
-        <div className="pt-3 lg:pt-2 mt-auto border-t border-border">
+        <div className="mt-auto border-t border-border pt-2.5 lg:pt-2">
           <div className="grid grid-cols-4 gap-1">
             <StatItem 
               label="Posts" 
@@ -225,10 +227,10 @@ export const LiveStatusCard: React.FC<{ stats: InstagramStatsData | null; loadin
     <Card
       variant="interactive"
       padding="none"
-      className="relative h-full min-h-[120px] lg:min-h-[92px] flex items-center justify-center ig-card"
+      className="relative flex h-full min-h-[104px] items-center justify-center ig-card lg:min-h-[84px]"
       onClick={() => setCurrentView('Live Automation')}
     >
-      <div className="flex flex-col items-center justify-center gap-3 lg:gap-2 p-4 lg:py-3 lg:px-4">
+      <div className="flex flex-col items-center justify-center gap-2.5 p-3.5 lg:gap-2 lg:px-4 lg:py-3">
         {/* Icon with Animation */}
         <div className="relative w-14 h-14 flex items-center justify-center">
           {/* Radio Wave Animations */}
@@ -287,16 +289,16 @@ export const LiveStatusCard: React.FC<{ stats: InstagramStatsData | null; loadin
 export const InstagramStoriesCard: React.FC<{ stats: InstagramStatsData | null; loading: boolean }> = ({ stats, loading }) => {
   const { activeAccount, setCurrentView } = useDashboard();
   const storyCount = stats?.stories_count || 0;
-  const profileUrl = stats?.profile_picture_url || activeAccount?.profile_picture_url;
+  const profileUrl = toBrowserPreviewUrl(stats?.profile_picture_url || activeAccount?.profile_picture_url || '');
 
   return (
     <Card
       variant="interactive"
       padding="none"
-      className="relative h-full min-h-[120px] lg:min-h-[92px] flex items-center justify-center ig-card"
+      className="relative flex h-full min-h-[104px] items-center justify-center ig-card lg:min-h-[84px]"
       onClick={() => setCurrentView('Story Automation')}
     >
-      <div className="flex flex-col items-center justify-center gap-3 lg:gap-2 p-4 lg:py-3 lg:px-4">
+      <div className="flex flex-col items-center justify-center gap-2.5 p-3.5 lg:gap-2 lg:px-4 lg:py-3">
         {/* Profile with Story Ring */}
         <div className="relative w-14 h-14 flex items-center justify-center">
           {/* Gradient Animation for Loading */}
@@ -355,14 +357,14 @@ const InstagramStats: React.FC = () => {
   const { activeAccountStats, isLoadingStats } = useDashboard();
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-5 lg:gap-4">
+    <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-12 lg:gap-3">
       {/* Bio Card */}
       <div className="md:col-span-7 lg:col-span-8">
         <InstagramBioCard stats={activeAccountStats} loading={isLoadingStats} />
       </div>
 
       {/* Status Cards */}
-      <div className="md:col-span-5 lg:col-span-4 grid grid-cols-2 gap-4 sm:gap-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:col-span-5 lg:col-span-4 lg:gap-3">
         <LiveStatusCard stats={activeAccountStats} loading={isLoadingStats} />
         <InstagramStoriesCard stats={activeAccountStats} loading={isLoadingStats} />
       </div>

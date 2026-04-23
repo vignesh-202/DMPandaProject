@@ -7,6 +7,19 @@ const AccountBarrier: React.FC = () => {
   const { activeAccount, setCurrentView } = useDashboard();
 
   const isUnlinked = activeAccount && activeAccount.status !== 'active';
+  const isAccessLocked = activeAccount && activeAccount.status === 'active' && activeAccount.effective_access === false;
+  const title = isUnlinked
+    ? 'Account Re-authorization Required'
+    : isAccessLocked
+      ? 'Account Access Restricted'
+      : 'No Instagram Account Linked';
+  const description = isUnlinked
+    ? `Your link with @${activeAccount.username} has expired or been disconnected. Re-authorize now to continue using our automation suite.`
+    : isAccessLocked
+      ? (activeAccount.access_state === 'plan_locked'
+        ? `@${activeAccount.username} is still linked, but your current plan does not cover this account right now. You can manage or unlink it in Account Settings.`
+        : `@${activeAccount.username} is linked, but automation access is disabled for this account. You can review the status in Account Settings.`)
+      : 'To access our powerful automation tools and analytics, you need to link your Instagram professional account first.';
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center animate-fadeIn">
@@ -24,14 +37,12 @@ const AccountBarrier: React.FC = () => {
 
       {/* Title */}
       <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4 tracking-tight">
-        {isUnlinked ? 'Account Re-authorization Required' : 'No Instagram Account Linked'}
+        {title}
       </h2>
 
       {/* Description */}
       <p className="max-w-md text-muted-foreground mb-10 leading-relaxed">
-        {isUnlinked
-          ? `Your link with @${activeAccount.username} has expired or been disconnected. Re-authorize now to continue using our automation suite.`
-          : 'To access our powerful automation tools and analytics, you need to link your Instagram professional account first.'}
+        {description}
       </p>
 
       {/* Action Button */}

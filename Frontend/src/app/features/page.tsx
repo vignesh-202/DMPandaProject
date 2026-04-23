@@ -1,6 +1,5 @@
 "use client";
-import React, { useEffect } from 'react';
-import { useInView } from 'react-intersection-observer';
+import React, { useEffect, useRef, useState } from 'react';
 
 const features = [
   {
@@ -112,12 +111,6 @@ const features = [
     image: '/images/comment_auto_reply.png',
   },
   {
-    name: 'High-Traffic DM Queue',
-    description: 'When your posts get a flood of comments, our system securely queues every interaction and sends DMs in an orderly fashion.',
-    useCase: 'Benefit: Protect your account and ensure reliable delivery during high-traffic moments, without any data loss or delays.',
-    image: '/images/dm_queue.png',
-  },
-  {
     name: 'Abusive Comment Moderation',
     description: 'Keep your comments section clean and professional. Automatically hide or delete offensive comments based on your custom keywords.',
     useCase: 'Benefit: Maintain a positive brand image and protect your community from spam and hate speech without manual monitoring.',
@@ -131,61 +124,64 @@ const features = [
   },
   {
     name: 'Suggest More',
-    description: 'The “Suggest More” feature lets you auto-send predefined templates, offering users extra product recommendations or information with a simple tap.',
+    description: 'The "Suggest More" feature lets you auto-send predefined templates, offering users extra product recommendations or information with a simple tap.',
     useCase: 'Benefit: Increase average order value and user satisfaction by proactively offering relevant alternatives or complementary products.',
     image: '/images/suggest_more.png',
   },
 ];
 
-const FeatureSection = ({ feature, index }: { feature: (typeof features)[0], index: number }) => {
-  const { ref, inView } = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-  });
+/* Scroll reveal hook */
+const useReveal = (threshold = 0.1) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
+      { threshold }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+  return { ref, visible };
+};
 
+const FeatureSection = ({ feature, index }: { feature: (typeof features)[0], index: number }) => {
+  const { ref, visible } = useReveal();
   const isEven = index % 2 === 0;
 
   return (
-    <div ref={ref} className="group grid md:grid-cols-2 gap-12 md:gap-32 items-center mb-40 last:mb-0">
-      {/* Text Content */}
+    <div ref={ref} className="group grid md:grid-cols-2 gap-8 sm:gap-12 md:gap-20 lg:gap-32 items-center mb-20 sm:mb-32 lg:mb-40 last:mb-0">
       <div
-        className={`transition-all duration-1000 transform ${inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'} ${isEven ? 'md:order-1' : 'md:order-2'}`}
+        className={`transition-all duration-700 ease-out ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${isEven ? 'md:order-1' : 'md:order-2'}`}
       >
-        <div className="inline-block px-5 py-2 mb-6 rounded-2xl bg-blue-50 text-blue-600 text-[10px] font-black tracking-[0.2em] uppercase">
-          Intelligence Vector {index + 1}
+        <div className="inline-block px-4 py-1.5 mb-4 sm:mb-6 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-bold tracking-[0.15em] uppercase">
+          Feature {index + 1}
         </div>
-        <h2 className="text-4xl md:text-5xl font-black mb-8 text-black leading-tight tracking-tighter">{feature.name}</h2>
-        <p className="text-xl text-gray-500 mb-10 leading-relaxed font-light">{feature.description}</p>
+        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 text-gray-900 dark:text-white leading-tight tracking-tight">{feature.name}</h2>
+        <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400 mb-6 sm:mb-8 leading-relaxed">{feature.description}</p>
 
-        <div className="relative p-8 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[2.5rem] shadow-xl overflow-hidden group/card shadow-blue-500/5">
-          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-          <p className="text-[13px] text-gray-800 dark:text-gray-200 font-bold leading-relaxed italic relative z-10">"{feature.useCase}"</p>
-          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/5 blur-2xl group-hover/card:bg-blue-500/10 transition-colors"></div>
+        <div className="relative p-5 sm:p-6 bg-gray-50 dark:bg-white/[0.04] border border-gray-100 dark:border-white/[0.06] rounded-2xl overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 dark:bg-blue-400 rounded-r" />
+          <p className="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed italic pl-3">"{feature.useCase}"</p>
         </div>
       </div>
 
-      {/* Image Content - FIXED: Redesigned for balance and variety */}
       <div
-        className={`transition-all duration-1000 delay-200 transform ${inView ? 'opacity-100 scale-100 animate-in fade-in zoom-in-95' : 'opacity-0 scale-95'} ${isEven ? 'md:order-2' : 'md:order-1'}`}
+        className={`transition-all duration-700 ease-out delay-200 ${visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'} ${isEven ? 'md:order-2' : 'md:order-1'}`}
       >
-        <div className="relative aspect-[4/3] md:aspect-square flex items-center justify-center rounded-[3.5rem] overflow-hidden bg-gray-50/50 dark:bg-gray-800/20 border border-gray-100 dark:border-gray-800 group-hover:border-blue-500/20 transition-all duration-500 p-8 md:p-12 overflow-hidden shadow-2xl group-hover:shadow-blue-500/10">
-          {/* Background Glow */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 via-transparent to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
-
-          {/* Main Visual - No more double rendering */}
+        <div className="relative aspect-[4/3] md:aspect-square flex items-center justify-center rounded-2xl sm:rounded-3xl overflow-hidden bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.06] group-hover:border-blue-500/20 dark:group-hover:border-blue-400/20 transition-all duration-500 p-6 sm:p-8 md:p-12 shadow-lg group-hover:shadow-xl dark:shadow-black/20">
+          <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/[0.03] via-transparent to-purple-500/[0.03] opacity-0 group-hover:opacity-100 transition-opacity duration-700 dark:from-blue-500/[0.05] dark:to-purple-500/[0.05]" />
           <div className="relative z-10 w-full h-full flex items-center justify-center">
             <img
               src={feature.image}
               alt={feature.name}
               loading="lazy"
               decoding="async"
-              className="max-w-full max-h-full object-contain drop-shadow-[0_35px_35px_rgba(0,0,0,0.15)] group-hover:scale-105 group-hover:-rotate-1 transition-all duration-1000 ease-out"
+              className="max-w-full max-h-full object-contain drop-shadow-lg group-hover:scale-[1.03] transition-transform duration-500 ease-out"
             />
           </div>
-
-          {/* Abstract Floating Icons/Elements */}
-          <div className="absolute top-10 right-10 w-24 h-24 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-10 left-10 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
         </div>
       </div>
     </div>
@@ -193,32 +189,27 @@ const FeatureSection = ({ feature, index }: { feature: (typeof features)[0], ind
 };
 
 const FeaturesPage: React.FC = () => {
-  useEffect(() => {
-    document.documentElement.classList.add('light');
-    document.documentElement.classList.remove('dark');
-  }, []);
-
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-24">
-        <div className="text-center mb-24 md:mb-32 max-w-4xl mx-auto px-4">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black mb-6 md:mb-8 text-black tracking-tight leading-[1.1] md:leading-none">
+    <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-16 sm:pb-24">
+        <div className="text-center mb-16 sm:mb-24 lg:mb-32 max-w-4xl mx-auto px-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 sm:mb-6 text-gray-900 dark:text-white tracking-tight leading-[1.1]">
             Your Instagram Automation Powerhouse
           </h1>
-          <p className="text-lg md:text-2xl text-gray-500 font-light max-w-3xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-lg md:text-xl text-gray-500 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">
             DMPanda is the ultimate toolkit for growing your brand, capturing leads, and providing 24/7 support—all on Instagram.
           </p>
         </div>
 
-        <div className="space-y-48">
+        <div className="space-y-0">
           {features.map((feature, index) => (
             <FeatureSection key={index} feature={feature} index={index} />
           ))}
         </div>
 
-        <div className="mt-40 text-center">
-          <h2 className="text-4xl font-bold mb-8">Ready to automate your growth?</h2>
-          <a href="/login" className="inline-block bg-black text-white px-12 py-5 rounded-2xl font-bold text-xl hover:bg-gray-800 transition-all shadow-xl hover:-translate-y-1">
+        <div className="mt-20 sm:mt-32 lg:mt-40 text-center">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-6 sm:mb-8 text-gray-900 dark:text-white">Ready to automate your growth?</h2>
+          <a href="/login" className="inline-block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 sm:px-12 py-4 sm:py-5 rounded-2xl font-bold text-base sm:text-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-all shadow-lg hover:-translate-y-0.5 active:translate-y-0">
             Get Started for Free
           </a>
         </div>

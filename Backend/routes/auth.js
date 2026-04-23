@@ -4,12 +4,116 @@ const { getAppwriteClient, USERS_COLLECTION_ID } = require('../utils/appwrite');
 const { Account, Users, ID, Query, Databases, Permission, Role } = require('node-appwrite');
 const { loginRequired } = require('../middleware/auth');
 const { isValidEmail, normalizeEmail, isDisposableEmail } = require('../utils/helpers');
+const {
+    getAppContextFromRequest,
+    normalizeAppContext,
+    getSessionTokenFromRequest,
+    setSessionCookie,
+    clearSessionCookie
+} = require('../utils/sessionContext');
+const {
+    createServerDatabases,
+    loadUserAccessState,
+    buildAccessDeniedPayload
+} = require('../utils/accessControl');
 
 const processedOAuthSecrets = new Map(); // Cache for duplicate prevention
 
 // Helper: get session secret (handles both object and dict-like responses)
 const getSessionSecret = (session) => {
     return session.secret || session['secret'] || '';
+};
+
+const normalizeOrigin = (value) => String(value || '').trim().replace(/\/+$/, '');
+
+const buildRequestOrigin = (req) => {
+    const protocolHeader = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+    const hostHeader = String(req.headers['x-forwarded-host'] || req.get('host') || '').split(',')[0].trim();
+    const protocol = protocolHeader || req.protocol || 'https';
+
+    if (!hostHeader) return '';
+    return `${protocol}://${hostHeader}`.replace(/\/+$/, '');
+};
+
+const isTrustedDynamicOAuthOrigin = (origin) => {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (!normalizedOrigin) return false;
+
+    try {
+        const parsed = new URL(normalizedOrigin);
+        const hostname = parsed.hostname.toLowerCase();
+        const protocol = parsed.protocol.toLowerCase();
+        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+        const isDevTunnel = hostname.endsWith('.devtunnels.ms');
+
+        if (isLocalhost) {
+            return protocol === 'http:' || protocol === 'https:';
+        }
+
+        return isDevTunnel && protocol === 'https:';
+    } catch (_) {
+        return false;
+    }
+};
+
+const getAllowedOAuthOrigins = () => (
+    [
+        process.env.FRONTEND_ORIGIN,
+        process.env.ADMIN_PANEL_ORIGIN,
+        ...(String(process.env.ADDITIONAL_OAUTH_ORIGINS || '')
+            .split(',')
+            .map(normalizeOrigin)
+            .filter(Boolean))
+    ]
+        .map(normalizeOrigin)
+        .filter(Boolean)
+);
+
+const resolveOAuthOrigin = (req) => {
+    const requestedOrigin = normalizeOrigin(req.query.redirect_origin);
+    const target = String(req.query.target || '').trim().toLowerCase();
+    const allowedOrigins = getAllowedOAuthOrigins();
+
+    if (requestedOrigin && (allowedOrigins.includes(requestedOrigin) || isTrustedDynamicOAuthOrigin(requestedOrigin))) {
+        return requestedOrigin;
+    }
+
+    if (target === 'admin') {
+        return normalizeOrigin(process.env.ADMIN_PANEL_ORIGIN) || normalizeOrigin(process.env.FRONTEND_ORIGIN);
+    }
+
+    return normalizeOrigin(process.env.FRONTEND_ORIGIN) || normalizeOrigin(process.env.ADMIN_PANEL_ORIGIN);
+};
+
+const resolveOAuthClientOrigin = (req) => {
+    const requestedOrigin = normalizeOrigin(req.query.redirect_origin);
+    const target = normalizeAppContext(req.query.target || getAppContextFromRequest(req));
+    const configuredOrigin = target === 'admin'
+        ? normalizeOrigin(process.env.ADMIN_PANEL_ORIGIN)
+        : normalizeOrigin(process.env.FRONTEND_ORIGIN);
+
+    if (configuredOrigin) {
+        return configuredOrigin;
+    }
+
+    if (requestedOrigin) {
+        const allowedOrigins = getAllowedOAuthOrigins();
+        if (allowedOrigins.includes(requestedOrigin) || isTrustedDynamicOAuthOrigin(requestedOrigin)) {
+            return requestedOrigin;
+        }
+    }
+
+    return resolveOAuthOrigin(req);
+};
+
+const buildOAuthReturnUrl = (origin, pathname, query = {}) => {
+    const targetUrl = new URL(`${normalizeOrigin(origin)}${pathname}`);
+    Object.entries(query).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && String(value) !== '') {
+            targetUrl.searchParams.set(key, String(value));
+        }
+    });
+    return targetUrl.toString();
 };
 
 // Helper function: Manage user document on login
@@ -57,6 +161,58 @@ const manageUserOnLogin = async (user) => {
     }
 };
 
+const hasFrontendUserDocument = async (databases, userId) => {
+    const existingDocs = await databases.listDocuments(
+        process.env.APPWRITE_DATABASE_ID,
+        USERS_COLLECTION_ID,
+        [Query.equal('$id', String(userId)), Query.limit(1)]
+    );
+
+    return existingDocs.total > 0;
+};
+
+const enforceLoginAccess = async (userId, options = {}) => {
+    const databases = createServerDatabases();
+    const { accessState } = await loadUserAccessState(databases, userId);
+    const appContext = normalizeAppContext(options.appContext || 'frontend');
+    const labels = Array.isArray(options.labels) ? options.labels : [];
+    const adminOverrideAllowed = appContext === 'admin' && labels.includes('admin');
+
+    if (accessState.is_hard_banned && !adminOverrideAllowed) {
+        const error = new Error(accessState.ban_message || 'Your account has been blocked.');
+        error.statusCode = 403;
+        error.payload = buildAccessDeniedPayload(accessState, accessState.ban_message || 'Your account has been blocked.');
+        throw error;
+    }
+    return accessState;
+};
+
+const findUsersByNormalizedEmail = async (users, email, options = {}) => {
+    const normalizedTarget = normalizeEmail(email);
+    const excludeUserId = String(options.excludeUserId || '').trim();
+    const matches = [];
+    const limit = 100;
+    let offset = 0;
+
+    while (offset < 5000) {
+        const response = await users.list([Query.limit(limit), Query.offset(offset)]);
+        const pageUsers = Array.isArray(response?.users) ? response.users : [];
+
+        for (const candidate of pageUsers) {
+            const candidateId = String(candidate?.$id || '').trim();
+            const candidateEmail = normalizeEmail(candidate?.email || '');
+            if (!candidateEmail || candidateEmail !== normalizedTarget) continue;
+            if (excludeUserId && candidateId === excludeUserId) continue;
+            matches.push(candidate);
+        }
+
+        if (pageUsers.length < limit) break;
+        offset += limit;
+    }
+
+    return matches;
+};
+
 // ==============================================================================
 // REGISTER
 // Matches Python: @app.route('/api/register', methods=['POST'])
@@ -73,6 +229,11 @@ router.post('/api/register', async (req, res) => {
     try {
         const serverClient = getAppwriteClient({ useApiKey: true });
         const users = new Users(serverClient);
+        const existingUsers = await findUsersByNormalizedEmail(users, normalizedEmail);
+
+        if (existingUsers.length > 0) {
+            return res.status(409).json({ error: 'User with this email already exists.' });
+        }
 
         // Create user
         const newUser = await users.create(ID.unique(), normalizedEmail, null, password, name);
@@ -116,6 +277,7 @@ router.post('/api/register', async (req, res) => {
 // ==============================================================================
 router.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
+    const appContext = getAppContextFromRequest(req);
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
 
     const normalizedEmail = normalizeEmail(email);
@@ -169,18 +331,30 @@ router.post('/api/login', async (req, res) => {
 
         // Step 3: Manage user document
         await manageUserOnLogin(user);
+        try {
+            await enforceLoginAccess(userId, {
+                appContext,
+                labels: Array.isArray(user?.labels) ? user.labels : []
+            });
+        } catch (accessError) {
+            try {
+                await users.deleteSession(userId, newSession.$id);
+            } catch (_) {
+                // Best effort cleanup for denied login.
+            }
+            throw accessError;
+        }
 
-        res.cookie('session_token', token, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'Lax',
-            maxAge: 86400 * 30 * 1000 // 30 days in ms
-        });
+        setSessionCookie(res, token, appContext);
 
         res.json({ token });
 
     } catch (err) {
         console.error(`Login failed: ${err.message}, Code: ${err.code}`);
+
+        if (err?.statusCode === 403 && err?.payload) {
+            return res.status(403).json(err.payload);
+        }
 
         if (err.code === 429) return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
         if (err.code === 401) return res.status(401).json({ error: 'Invalid email or password.' });
@@ -217,6 +391,7 @@ router.get('/api/me', loginRequired, async (req, res) => {
         );
 
         user.hasLinkedInstagram = igAccounts.total > 0;
+        user.access_state = req.accessState || null;
         if (igAccounts.total > 0) {
             const primaryIg = igAccounts.documents[0];
             user.instagram_username = primaryIg.username;
@@ -241,7 +416,8 @@ router.get('/api/me', loginRequired, async (req, res) => {
 // Matches Python: @app.route('/logout')
 // ==============================================================================
 router.get('/logout', async (req, res) => {
-    let sessionToken = req.cookies.session_token;
+    const appContext = getAppContextFromRequest(req);
+    let sessionToken = getSessionTokenFromRequest(req);
     if (!sessionToken) {
         const authHeader = req.headers.authorization;
         if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -259,7 +435,7 @@ router.get('/logout', async (req, res) => {
         }
     }
 
-    res.clearCookie('session_token');
+    clearSessionCookie(res, appContext);
     res.json({ message: 'Logged out' });
 });
 
@@ -273,11 +449,26 @@ router.get('/auth/google', async (req, res) => {
     try {
         const client = getAppwriteClient();
         const account = new Account(client);
+        const origin = resolveOAuthClientOrigin(req);
+        const appContext = normalizeAppContext(req.query.target || getAppContextFromRequest(req));
+        const frontendBridgeOrigin = normalizeOrigin(process.env.FRONTEND_ORIGIN) || origin;
+        const callbackOrigin = appContext === 'admin' ? frontendBridgeOrigin : origin;
+
+        if (!origin || !callbackOrigin) {
+            return res.status(500).json({ error: 'OAuth origin is not configured.' });
+        }
 
         const redirectUrl = await account.createOAuth2Token(
             'google',
-            `${process.env.FRONTEND_ORIGIN}/auth/callback`,
-            `${process.env.FRONTEND_ORIGIN}/login?error=oauth_failed`
+            buildOAuthReturnUrl(callbackOrigin, '/auth/callback', {
+                target: appContext,
+                redirect_origin: origin
+            }),
+            buildOAuthReturnUrl(callbackOrigin, '/auth/callback', {
+                target: appContext,
+                redirect_origin: origin,
+                error: 'oauth_failed'
+            })
         );
 
         res.json({ url: redirectUrl });
@@ -285,6 +476,34 @@ router.get('/auth/google', async (req, res) => {
         console.error(`Google Auth Error: ${err.message}`);
         res.status(500).json({ error: err.message });
     }
+});
+
+router.get('/api/auth/google-redirect', async (req, res) => {
+    const origin = resolveOAuthOrigin(req);
+    const userId = String(req.query.userId || '');
+    const secret = String(req.query.secret || '');
+
+    if (!origin || !userId || !secret) {
+        return res.redirect(buildOAuthReturnUrl(
+            normalizeOrigin(process.env.FRONTEND_ORIGIN) || normalizeOrigin(process.env.ADMIN_PANEL_ORIGIN) || '',
+            '/login',
+            { error: 'oauth_failed' }
+        ));
+    }
+
+    return res.redirect(buildOAuthReturnUrl(origin, '/auth/callback', { userId, secret }));
+});
+
+router.get('/api/auth/google-failure', async (req, res) => {
+    const origin = resolveOAuthOrigin(req)
+        || normalizeOrigin(process.env.FRONTEND_ORIGIN)
+        || normalizeOrigin(process.env.ADMIN_PANEL_ORIGIN);
+
+    if (!origin) {
+        return res.status(500).json({ error: 'OAuth origin is not configured.' });
+    }
+
+    return res.redirect(buildOAuthReturnUrl(origin, '/login', { error: 'oauth_failed' }));
 });
 
 // ==============================================================================
@@ -295,6 +514,7 @@ router.get('/auth/google', async (req, res) => {
 router.get('/api/auth/google-callback', async (req, res) => {
     const userId = req.query.userId;
     const secret = req.query.secret;
+    const appContext = normalizeAppContext(req.query.target || getAppContextFromRequest(req));
 
     if (!process.env.APPWRITE_API_KEY) {
         console.error("CRITICAL: APPWRITE_API_KEY is not set!");
@@ -310,10 +530,9 @@ router.get('/api/auth/google-callback', async (req, res) => {
     if (processedOAuthSecrets.has(cacheKey)) {
         const cachedToken = processedOAuthSecrets.get(cacheKey);
         if (cachedToken) {
-            console.log(`Returning cached token for duplicate OAuth callback: ${userId}`);
+            setSessionCookie(res, cachedToken, appContext);
             return res.json({ token: cachedToken });
         } else {
-            console.log(`Ignoring duplicate OAuth callback (already failed): ${userId}`);
             return res.status(400).json({ error: 'This OAuth session has already been processed.' });
         }
     }
@@ -335,7 +554,10 @@ router.get('/api/auth/google-callback', async (req, res) => {
         const user = await new Account(userClient).get();
 
         const email = user.email;
+        const normalizedOAuthEmail = normalizeEmail(email || '');
         const currentUserId = user.$id;
+        const labels = Array.isArray(user.labels) ? user.labels : [];
+        const databases = new Databases(serverClient);
 
         if (email) {
             // 1. Strict Check: Disposable Email
@@ -347,35 +569,66 @@ router.get('/api/auth/google-callback', async (req, res) => {
             }
 
             // 2. Strict Check: Duplicate Account Prevention
-            const userDocs = await users.list([Query.equal('email', email)]);
+            const duplicateUsers = await findUsersByNormalizedEmail(users, normalizedOAuthEmail, { excludeUserId: currentUserId });
 
-            if (userDocs.total > 1) {
-                console.log(`Duplicate accounts found for email ${email}. Total: ${userDocs.total}`);
+            if (duplicateUsers.length > 0) {
+                const originalUser = duplicateUsers
+                    .sort((a, b) => String(a.registration || '').localeCompare(String(b.registration || '')))[0];
 
-                // Sort by registration date to find the oldest (original) account
-                const sortedUsers = userDocs.users.sort((a, b) => a.registration.localeCompare(b.registration));
-                const originalUser = sortedUsers[0];
-
-                if (originalUser.$id !== currentUserId) {
-                    console.warn(`User ${currentUserId} is a duplicate of ${originalUser.$id}. Deleting new user.`);
-                    await users.delete(currentUserId);
-                    processedOAuthSecrets.set(cacheKey, null);
-                    return res.status(409).json({ error: 'An account with this email already exists. Please log in with your password.' });
-                }
+                console.warn(`User ${currentUserId} is a duplicate of ${originalUser.$id}. Deleting new user.`);
+                await users.delete(currentUserId);
+                processedOAuthSecrets.set(cacheKey, null);
+                return res.status(409).json({ error: 'An account with this email already exists. Please log in with your password.' });
             }
         }
 
+        if (appContext === 'admin' && !labels.includes('admin')) {
+            const existsOnFrontend = await hasFrontendUserDocument(databases, currentUserId);
+
+            try {
+                await users.deleteSession(currentUserId, session.$id);
+            } catch (cleanupErr) {
+                console.warn(`Failed to remove denied admin OAuth session for ${currentUserId}: ${cleanupErr.message}`);
+            }
+
+            if (!existsOnFrontend) {
+                console.warn(`Deleting non-frontend Google auth user ${currentUserId} after denied admin access.`);
+                await users.delete(currentUserId);
+                processedOAuthSecrets.set(cacheKey, null);
+                return res.status(403).json({ error: 'This Google account is not registered for DM Panda. Please sign up on the frontend first.' });
+            }
+
+            processedOAuthSecrets.set(cacheKey, null);
+            return res.status(403).json({ error: 'Only users with the admin label can access this dashboard.' });
+        }
+
         await manageUserOnLogin(user);
+        try {
+            await enforceLoginAccess(currentUserId, {
+                appContext,
+                labels
+            });
+        } catch (accessError) {
+            try {
+                await users.deleteSession(currentUserId, session.$id);
+            } catch (_) {
+                // Best effort cleanup for denied OAuth login.
+            }
+            throw accessError;
+        }
 
         // Cache the token for duplicate request protection
         processedOAuthSecrets.set(cacheKey, sessionToken);
 
-        console.log(`Appwrite session created for user ${userId}`);
+        setSessionCookie(res, sessionToken, appContext);
         res.json({ token: sessionToken });
 
     } catch (err) {
         processedOAuthSecrets.set(cacheKey, null);
         console.error(`Google callback API error: ${err.message}, Code: ${err.code}`);
+        if (err?.statusCode === 403 && err?.payload) {
+            return res.status(403).json(err.payload);
+        }
         res.status(500).json({ error: 'Failed to create session from Google OAuth.' });
     }
 });
@@ -401,6 +654,7 @@ router.post('/api/auth/verify-callback', async (req, res) => {
         const session = await users.createSession(userId);
         const token = getSessionSecret(session);
 
+        setSessionCookie(res, token, 'frontend');
         res.json({ token });
 
     } catch (err) {

@@ -1,9 +1,36 @@
 const express = require('express');
 const router = express.Router();
 const { loginRequired } = require('../middleware/auth');
-const { getAppwriteClient, USERS_COLLECTION_ID } = require('../utils/appwrite');
-const { Account, Users, Databases, ID, Query } = require('node-appwrite');
+const {
+    getAppwriteClient,
+    USERS_COLLECTION_ID
+} = require('../utils/appwrite');
+const { Account, Users, Databases } = require('node-appwrite');
 const { isValidEmail, normalizeEmail, isDisposableEmail } = require('../utils/helpers');
+const { cleanupUserOwnedData } = require('../utils/userCleanup');
+const {
+    getAppContextFromRequest,
+    setSessionCookie,
+    clearSessionCookie
+} = require('../utils/sessionContext');
+
+const getSessionSecret = (session) => session?.secret || session?.['secret'] || '';
+const isInvalidPasswordError = (error) => {
+    const message = String(error?.message || '').toLowerCase();
+    return error?.code === 401
+        || message.includes('invalid credentials')
+        || message.includes('invalid password')
+        || (message.includes('password') && message.includes('invalid'));
+};
+
+const rotateSessionCookie = async (res, userId, req) => {
+    const serverClient = getAppwriteClient({ useApiKey: true });
+    const users = new Users(serverClient);
+    const nextSession = await users.createSession(userId);
+    const token = getSessionSecret(nextSession);
+    setSessionCookie(res, token, getAppContextFromRequest(req));
+    return token;
+};
 
 // Update Account (Name, Email, Password verification)
 router.post('/update', loginRequired, async (req, res) => {
@@ -110,6 +137,7 @@ router.post('/change-password', loginRequired, async (req, res) => {
         const users = new Users(serverClient);
 
         await users.updatePassword(req.user.$id, newPassword);
+        await rotateSessionCookie(res, req.user.$id, req);
 
         res.json({ message: 'Password updated successfully.' });
     } catch (err) {
@@ -124,36 +152,31 @@ router.delete('/delete', loginRequired, async (req, res) => {
     if (!password) return res.status(400).json({ error: 'Password is required to delete account.' });
 
     try {
-        // Verify password manually via temporary login check
-        // Account service doesn't have createEmailPasswordSession. Use Guest Client Call.
+        const userId = String(req.user.$id);
+        const userEmail = normalizeEmail(req.user.email);
         const tempClient = getAppwriteClient();
-        const userEmail = req.user.email;
+        const tempAccount = new Account(tempClient);
+        const validationSession = await tempAccount.createEmailPasswordSession(userEmail, password);
 
-        const tempSession = await tempClient.call(
-            'post',
-            new URL('account/sessions/email', process.env.APPWRITE_ENDPOINT),
-            { 'content-type': 'application/json' },
-            { email: userEmail, password: password }
-        );
-
-        // If successful, delete the temp session
-        await tempClient.call(
-            'delete',
-            new URL(`account/sessions/${tempSession.$id}`, process.env.APPWRITE_ENDPOINT),
-            { 'x-appwrite-session': tempSession.secret }
-        );
-
-        // Now delete the user
         const serverClient = getAppwriteClient({ useApiKey: true });
         const users = new Users(serverClient);
+        const databases = new Databases(serverClient);
 
-        await users.delete(req.user.$id);
+        try {
+            await users.deleteSession(userId, validationSession.$id);
+        } catch (cleanupErr) {
+            console.warn(`Temporary delete-account session cleanup failed: ${cleanupErr.message}`);
+        }
+
+        await cleanupUserOwnedData(databases, userId);
+        await users.delete(userId);
+        clearSessionCookie(res, getAppContextFromRequest(req));
 
         res.json({ message: 'Account deleted successfully' });
 
     } catch (err) {
         console.error(`Delete Account Error: ${err.message}`);
-        if (err.code === 401 || err.code === 400) return res.status(401).json({ error: 'Invalid password.' });
+        if (isInvalidPasswordError(err)) return res.status(401).json({ error: 'Invalid password.' });
         res.status(500).json({ error: 'Failed to delete account.' });
     }
 });
@@ -211,6 +234,7 @@ router.post('/set-password', loginRequired, async (req, res) => {
         const serverClient = getAppwriteClient({ useApiKey: true });
         const users = new Users(serverClient);
         await users.updatePassword(req.user.$id, password);
+        await rotateSessionCookie(res, req.user.$id, req);
         res.json({ message: 'Password set successfully' });
     } catch (err) {
         console.error(`Set Password Error: ${err.message}`);

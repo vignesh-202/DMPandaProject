@@ -1,0 +1,5440 @@
+[
+  {
+    "id": "admin_audit_logs",
+    "name": "Admin Audit Logs",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"label:admin\")",
+      "create(\"label:admin\")",
+      "update(\"label:admin\")",
+      "delete(\"label:admin\")"
+    ],
+    "attributes": [
+      {
+        "key": "admin_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:53.869+00:00",
+        "$updatedAt": "2026-03-02T09:22:53.905+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "action",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:56.634+00:00",
+        "$updatedAt": "2026-03-02T09:22:56.659+00:00",
+        "size": 100,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "target_user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:59.749+00:00",
+        "$updatedAt": "2026-03-02T09:22:59.777+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "payload",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:23:03.093+00:00",
+        "$updatedAt": "2026-03-02T09:23:03.127+00:00",
+        "size": 20000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "created_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-02T09:23:06.037+00:00",
+        "$updatedAt": "2026-03-02T09:23:06.069+00:00",
+        "format": "",
+        "default": null
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_123_idx_admin_created",
+        "$createdAt": "2026-03-02T09:23:08.928+00:00",
+        "$updatedAt": "2026-03-02T09:23:08.960+00:00",
+        "key": "idx_admin_created",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "admin_id",
+          "created_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_123_idx_action_created",
+        "$createdAt": "2026-03-02T09:23:10.007+00:00",
+        "$updatedAt": "2026-03-02T09:23:10.037+00:00",
+        "key": "idx_action_created",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "action",
+          "created_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_123_idx_target_user_created",
+        "$createdAt": "2026-04-20T08:17:52.917+00:00",
+        "$updatedAt": "2026-04-20T08:17:52.947+00:00",
+        "key": "idx_target_user_created",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "target_user_id",
+          "created_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "admin_settings",
+    "name": "Admin Settings",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "create(\"users\")",
+      "update(\"users\")",
+      "delete(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "default_text",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-01T15:23:06.531+00:00",
+        "$updatedAt": "2026-04-01T15:23:06.746+00:00",
+        "size": 512,
+        "default": "Automation made by DMPanda",
+        "encrypt": false
+      },
+      {
+        "key": "enabled",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-01T15:23:20.978+00:00",
+        "$updatedAt": "2026-04-01T15:23:21.015+00:00",
+        "default": true
+      },
+      {
+        "key": "enforcement_mode",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-01T15:23:21.010+00:00",
+        "$updatedAt": "2026-04-01T15:23:21.045+00:00",
+        "size": 64,
+        "default": "fallback_secondary_message",
+        "encrypt": false
+      },
+      {
+        "key": "updated_by",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-01T15:23:21.123+00:00",
+        "$updatedAt": "2026-04-01T15:23:21.156+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "allow_user_override",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-01T15:23:21.250+00:00",
+        "$updatedAt": "2026-04-01T15:23:21.285+00:00",
+        "default": true
+      },
+      {
+        "key": "updated_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-01T15:23:35.088+00:00",
+        "$updatedAt": "2026-04-01T15:23:35.112+00:00",
+        "format": "",
+        "default": null
+      }
+    ],
+    "indexes": []
+  },
+  {
+    "id": "automation_collect_destinations",
+    "name": "Automation Collect Destinations",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "create(\"users\")",
+      "update(\"users\")",
+      "delete(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "automation_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-03T11:19:56.732+00:00",
+        "$updatedAt": "2026-03-03T11:19:56.836+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "account_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-03T11:19:57.544+00:00",
+        "$updatedAt": "2026-03-03T11:19:57.573+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "destination_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-03T11:19:58.257+00:00",
+        "$updatedAt": "2026-03-03T11:19:58.287+00:00",
+        "elements": [
+          "sheet",
+          "webhook"
+        ],
+        "format": "enum",
+        "default": null
+      },
+      {
+        "key": "destination_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-03T11:19:58.985+00:00",
+        "$updatedAt": "2026-03-03T11:19:59.027+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "sheet_link",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-03T11:19:59.801+00:00",
+        "$updatedAt": "2026-03-03T11:19:59.842+00:00",
+        "size": 2048,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "webhook_url",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-03T11:20:00.573+00:00",
+        "$updatedAt": "2026-03-03T11:20:00.625+00:00",
+        "size": 500,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "destination_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-03T11:20:01.387+00:00",
+        "$updatedAt": "2026-03-03T11:20:01.446+00:00",
+        "size": 4000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "updated_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-03T11:20:02.243+00:00",
+        "$updatedAt": "2026-03-03T11:20:02.339+00:00",
+        "format": "",
+        "default": null
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_125_idx_automation_id",
+        "$createdAt": "2026-03-03T11:20:02.991+00:00",
+        "$updatedAt": "2026-03-03T11:20:03.061+00:00",
+        "key": "idx_automation_id",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "automation_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_125_idx_account_automation",
+        "$createdAt": "2026-03-03T11:20:03.128+00:00",
+        "$updatedAt": "2026-03-03T11:20:03.172+00:00",
+        "key": "idx_account_automation",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_id"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_125_idx_account_type",
+        "$createdAt": "2026-03-03T11:20:03.259+00:00",
+        "$updatedAt": "2026-03-03T11:20:03.335+00:00",
+        "key": "idx_account_type",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "destination_type"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "automation_collected_emails",
+    "name": "Automation Collected Emails",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "create(\"users\")",
+      "update(\"users\")",
+      "delete(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:14.488+00:00",
+        "$updatedAt": "2026-04-20T09:24:14.521+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "account_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:15.730+00:00",
+        "$updatedAt": "2026-04-20T09:24:15.759+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "automation_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:16.329+00:00",
+        "$updatedAt": "2026-04-20T09:24:16.358+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "conversation_key",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:16.581+00:00",
+        "$updatedAt": "2026-04-20T09:24:16.615+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "sender_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:16.850+00:00",
+        "$updatedAt": "2026-04-20T09:24:16.879+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "recipient_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:17.120+00:00",
+        "$updatedAt": "2026-04-20T09:24:17.154+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "email",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:17.364+00:00",
+        "$updatedAt": "2026-04-20T09:24:17.393+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "normalized_email",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:17.603+00:00",
+        "$updatedAt": "2026-04-20T09:24:17.632+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "send_to",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:17.837+00:00",
+        "$updatedAt": "2026-04-20T09:24:17.868+00:00",
+        "size": 50,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "sender_profile_url",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:18.068+00:00",
+        "$updatedAt": "2026-04-20T09:24:18.110+00:00",
+        "size": 500,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "receiver_name",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:18.330+00:00",
+        "$updatedAt": "2026-04-20T09:24:18.358+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "automation_title",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:18.594+00:00",
+        "$updatedAt": "2026-04-20T09:24:18.619+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "automation_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:18.832+00:00",
+        "$updatedAt": "2026-04-20T09:24:18.864+00:00",
+        "size": 50,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "collected_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:19.076+00:00",
+        "$updatedAt": "2026-04-20T09:24:19.113+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "updated_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T09:24:19.323+00:00",
+        "$updatedAt": "2026-04-20T09:24:19.354+00:00",
+        "format": "",
+        "default": null
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_149_idx_normalized_email",
+        "$createdAt": "2026-04-20T09:24:23.165+00:00",
+        "$updatedAt": "2026-04-20T09:24:23.195+00:00",
+        "key": "idx_normalized_email",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "normalized_email"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_149_idx_account_collected_at",
+        "$createdAt": "2026-04-20T09:24:23.293+00:00",
+        "$updatedAt": "2026-04-20T09:24:23.321+00:00",
+        "key": "idx_account_collected_at",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "collected_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_149_idx_automation_collected_at",
+        "$createdAt": "2026-04-20T09:24:23.427+00:00",
+        "$updatedAt": "2026-04-20T09:24:23.458+00:00",
+        "key": "idx_automation_collected_at",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "automation_id",
+          "collected_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "automations",
+    "name": "Automations",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:27.530+00:00",
+        "$updatedAt": "2026-02-10T10:49:27.549+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "account_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:27.947+00:00",
+        "$updatedAt": "2026-02-24T17:53:57.503+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "template_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:29.246+00:00",
+        "$updatedAt": "2026-02-24T17:53:26.923+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "title",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:30.089+00:00",
+        "$updatedAt": "2026-02-24T17:53:57.631+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "followers_only",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:32.189+00:00",
+        "$updatedAt": "2026-02-10T10:49:32.213+00:00",
+        "default": false
+      },
+      {
+        "key": "is_active",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:33.057+00:00",
+        "$updatedAt": "2026-02-24T17:54:16.076+00:00",
+        "default": null
+      },
+      {
+        "key": "media_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:33.519+00:00",
+        "$updatedAt": "2026-02-10T10:49:33.545+00:00",
+        "size": 100,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "keyword",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-12T05:25:41.931+00:00",
+        "$updatedAt": "2026-02-12T05:25:42.154+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "use_latest_post",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-12T05:25:46.034+00:00",
+        "$updatedAt": "2026-02-12T05:25:46.067+00:00",
+        "default": null
+      },
+      {
+        "key": "template_content",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-12T05:35:22.758+00:00",
+        "$updatedAt": "2026-02-12T05:35:22.791+00:00",
+        "size": 3000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "buttons",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-12T05:35:23.468+00:00",
+        "$updatedAt": "2026-02-23T07:24:23.738+00:00",
+        "size": 2000,
+        "default": "[]",
+        "encrypt": false
+      },
+      {
+        "key": "template_elements",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-12T05:35:23.825+00:00",
+        "$updatedAt": "2026-02-23T07:25:25.380+00:00",
+        "size": 2000,
+        "default": "[]",
+        "encrypt": false
+      },
+      {
+        "key": "replies",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-12T05:35:24.197+00:00",
+        "$updatedAt": "2026-02-23T07:25:25.428+00:00",
+        "size": 2000,
+        "default": "[]",
+        "encrypt": false
+      },
+      {
+        "key": "media_url",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-12T05:35:24.588+00:00",
+        "$updatedAt": "2026-02-12T05:35:24.626+00:00",
+        "size": 500,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "comment_reply",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-12T05:35:27.544+00:00",
+        "$updatedAt": "2026-02-12T05:35:27.572+00:00",
+        "size": 1000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "title_normalized",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-15T18:43:17.939+00:00",
+        "$updatedAt": "2026-02-15T18:43:18.093+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "followers_only_message",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-18T18:37:23.488+00:00",
+        "$updatedAt": "2026-02-18T18:37:23.697+00:00",
+        "size": 300,
+        "default": "Please follow this account first, then send your message again.",
+        "encrypt": false
+      },
+      {
+        "key": "suggest_more_enabled",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-19T07:19:58.196+00:00",
+        "$updatedAt": "2026-02-19T07:19:58.262+00:00",
+        "default": false
+      },
+      {
+        "key": "private_reply_enabled",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-19T18:53:51.241+00:00",
+        "$updatedAt": "2026-02-19T18:53:51.273+00:00",
+        "default": true
+      },
+      {
+        "key": "automation_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-21T07:03:29.957+00:00",
+        "$updatedAt": "2026-02-27T11:51:47.913+00:00",
+        "elements": [
+          "dm",
+          "global",
+          "post",
+          "reel",
+          "story",
+          "live",
+          "comment",
+          "mentions",
+          "suggest_more",
+          "welcome_message",
+          "inbox_menu",
+          "convo_starter",
+          "email_collector",
+          "moderation_hide",
+          "moderation_delete",
+          "quick_reply"
+        ],
+        "format": "enum",
+        "default": null
+      },
+      {
+        "key": "keyword_match_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-21T07:03:33.126+00:00",
+        "$updatedAt": "2026-02-21T07:03:33.179+00:00",
+        "elements": [
+          "exact",
+          "contains",
+          "starts_with",
+          "ends_with",
+          "regex"
+        ],
+        "format": "enum",
+        "default": "exact"
+      },
+      {
+        "key": "trigger_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-21T07:03:35.236+00:00",
+        "$updatedAt": "2026-02-22T18:42:43.658+00:00",
+        "elements": [
+          "keywords",
+          "all_comments",
+          "share_to_admin",
+          "config",
+          "menu_config",
+          "ice_breakers"
+        ],
+        "format": "enum",
+        "default": "keywords"
+      },
+      {
+        "key": "template_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-21T07:03:37.408+00:00",
+        "$updatedAt": "2026-02-21T07:03:37.447+00:00",
+        "elements": [
+          "template_text",
+          "template_carousel",
+          "template_buttons",
+          "template_media",
+          "template_share_post",
+          "template_quick_replies",
+          "template_media_attachment",
+          "template_url"
+        ],
+        "format": "enum",
+        "default": null
+      },
+      {
+        "key": "menu_item_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-21T17:47:15.776+00:00",
+        "$updatedAt": "2026-02-21T17:47:15.973+00:00",
+        "elements": [
+          "postback",
+          "web_url"
+        ],
+        "format": "enum",
+        "default": null
+      },
+      {
+        "key": "menu_item_order",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-21T17:47:16.504+00:00",
+        "$updatedAt": "2026-02-21T17:47:16.540+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "share_to_admin_enabled",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-23T17:37:21.468+00:00",
+        "$updatedAt": "2026-02-23T17:37:21.679+00:00",
+        "default": false
+      },
+      {
+        "key": "once_per_user_24h",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-23T17:37:26.183+00:00",
+        "$updatedAt": "2026-02-23T17:37:26.214+00:00",
+        "default": false
+      },
+      {
+        "key": "story_scope",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-24T07:01:40.576+00:00",
+        "$updatedAt": "2026-02-24T16:20:46.322+00:00",
+        "elements": [
+          "shown"
+        ],
+        "format": "enum",
+        "default": "shown"
+      },
+      {
+        "key": "collect_email_enabled",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-28T06:56:52.844+00:00",
+        "$updatedAt": "2026-02-28T06:56:53.074+00:00",
+        "default": false
+      },
+      {
+        "key": "collect_email_only_gmail",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-28T08:39:11.289+00:00",
+        "$updatedAt": "2026-02-28T08:39:11.327+00:00",
+        "default": false
+      },
+      {
+        "key": "followers_only_primary_button_text",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-28T08:39:12.728+00:00",
+        "$updatedAt": "2026-02-28T08:39:12.760+00:00",
+        "size": 40,
+        "default": "\ud83d\udc64 Follow Account",
+        "encrypt": false
+      },
+      {
+        "key": "followers_only_secondary_button_text",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-28T08:39:13.438+00:00",
+        "$updatedAt": "2026-02-28T08:39:13.471+00:00",
+        "size": 40,
+        "default": "\u2705 I've Followed",
+        "encrypt": false
+      },
+      {
+        "key": "collect_email_prompt_message",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-28T08:41:52.407+00:00",
+        "$updatedAt": "2026-04-16T07:59:12.121+00:00",
+        "size": 640,
+        "default": "\ud83d\udce7 Could you share your best email so we can send the details and updates \u2728",
+        "encrypt": false
+      },
+      {
+        "key": "collect_email_fail_retry_message",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-28T08:41:53.165+00:00",
+        "$updatedAt": "2026-04-16T07:59:12.775+00:00",
+        "size": 640,
+        "default": "\u26a0\ufe0f That email looks invalid. Please send a valid email like name@example.com.",
+        "encrypt": false
+      },
+      {
+        "key": "collect_email_success_reply_message",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-28T08:43:36.958+00:00",
+        "$updatedAt": "2026-04-16T07:59:12.940+00:00",
+        "size": 640,
+        "default": "Perfect, thank you! Your email has been saved \u2705",
+        "encrypt": false
+      },
+      {
+        "key": "seen_typing_enabled",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-26T18:42:40.089+00:00",
+        "$updatedAt": "2026-03-26T18:42:40.134+00:00",
+        "default": false
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_12_idx_user_id",
+        "$createdAt": "2026-02-10T10:49:34.802+00:00",
+        "$updatedAt": "2026-02-10T10:49:34.824+00:00",
+        "key": "idx_user_id",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": [
+          "ASC"
+        ]
+      },
+      {
+        "$id": "1_12_idx_account_id",
+        "$createdAt": "2026-02-10T10:49:36.783+00:00",
+        "$updatedAt": "2026-02-10T10:49:36.807+00:00",
+        "key": "idx_account_id",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": [
+          "ASC"
+        ]
+      },
+      {
+        "$id": "1_12_idx_template_id",
+        "$createdAt": "2026-02-10T10:49:39.219+00:00",
+        "$updatedAt": "2026-02-10T10:49:39.244+00:00",
+        "key": "idx_template_id",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "template_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": [
+          "ASC"
+        ]
+      },
+      {
+        "$id": "1_12_idx_account_keyword",
+        "$createdAt": "2026-02-13T07:06:09.818+00:00",
+        "$updatedAt": "2026-02-13T07:06:09.843+00:00",
+        "key": "idx_account_keyword",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "keyword"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_12_idx_account_type",
+        "$createdAt": "2026-02-21T07:03:31.735+00:00",
+        "$updatedAt": "2026-02-21T07:03:31.760+00:00",
+        "key": "idx_account_type",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_type"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_12_idx_account_type_active",
+        "$createdAt": "2026-02-21T07:03:31.868+00:00",
+        "$updatedAt": "2026-02-21T07:03:31.894+00:00",
+        "key": "idx_account_type_active",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_type",
+          "is_active"
+        ],
+        "lengths": [
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_12_idx_account_type_title_norm",
+        "$createdAt": "2026-02-21T07:03:32.016+00:00",
+        "$updatedAt": "2026-02-21T07:03:32.041+00:00",
+        "key": "idx_account_type_title_norm",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_type",
+          "title_normalized"
+        ],
+        "lengths": [
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_12_idx_account_type_order",
+        "$createdAt": "2026-02-21T17:47:20.779+00:00",
+        "$updatedAt": "2026-02-21T17:47:20.813+00:00",
+        "key": "idx_account_type_order",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_type",
+          "menu_item_order"
+        ],
+        "lengths": [
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_12_idx_account_type_media_active",
+        "$createdAt": "2026-02-22T18:42:46.740+00:00",
+        "$updatedAt": "2026-02-22T18:42:46.950+00:00",
+        "key": "idx_account_type_media_active",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_type",
+          "media_id",
+          "is_active"
+        ],
+        "lengths": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_12_idx_account_type_media",
+        "$createdAt": "2026-02-22T18:42:46.834+00:00",
+        "$updatedAt": "2026-02-22T18:42:46.988+00:00",
+        "key": "idx_account_type_media",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_type",
+          "media_id"
+        ],
+        "lengths": [
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_12_idx_account_type_story_scope_active",
+        "$createdAt": "2026-02-24T18:52:35.282+00:00",
+        "$updatedAt": "2026-02-24T18:52:35.453+00:00",
+        "key": "idx_account_type_story_scope_active",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_type",
+          "story_scope",
+          "is_active"
+        ],
+        "lengths": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_12_idx_user_account_type",
+        "$createdAt": "2026-02-24T19:24:34.146+00:00",
+        "$updatedAt": "2026-02-24T19:24:34.177+00:00",
+        "key": "idx_user_account_type",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id",
+          "account_id",
+          "automation_type"
+        ],
+        "lengths": [
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "chat_states",
+    "name": "Chat States",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "create(\"users\")",
+      "update(\"users\")",
+      "delete(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "account_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-26T07:57:25.536+00:00",
+        "$updatedAt": "2026-02-26T07:57:25.709+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "recipient_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-26T07:57:26.787+00:00",
+        "$updatedAt": "2026-02-26T07:57:26.819+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "state_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-26T07:57:28.069+00:00",
+        "$updatedAt": "2026-02-26T07:57:28.096+00:00",
+        "size": 20000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "last_seen_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-26T07:57:29.458+00:00",
+        "$updatedAt": "2026-02-26T07:57:29.487+00:00",
+        "format": "",
+        "default": null
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_118_idx_account_recipient",
+        "$createdAt": "2026-02-26T07:57:30.738+00:00",
+        "$updatedAt": "2026-02-26T07:57:30.769+00:00",
+        "key": "idx_account_recipient",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "recipient_id"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_118_idx_last_seen_at",
+        "$createdAt": "2026-02-26T07:57:31.102+00:00",
+        "$updatedAt": "2026-02-26T07:57:31.132+00:00",
+        "key": "idx_last_seen_at",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "last_seen_at"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "comment_moderation",
+    "name": "Comment Moderation",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "create(\"users\")",
+      "update(\"users\")",
+      "delete(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-11T18:41:20.873+00:00",
+        "$updatedAt": "2026-02-11T18:41:20.900+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "account_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-11T18:41:22.110+00:00",
+        "$updatedAt": "2026-02-11T18:41:22.136+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "is_active",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-12T05:26:08.246+00:00",
+        "$updatedAt": "2026-02-12T05:26:08.277+00:00",
+        "default": null
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_28_idx_account_id",
+        "$createdAt": "2026-02-11T18:41:28.136+00:00",
+        "$updatedAt": "2026-02-11T18:41:28.162+00:00",
+        "key": "idx_account_id",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_28_idx_user_acc",
+        "$createdAt": "2026-02-12T06:08:19.246+00:00",
+        "$updatedAt": "2026-02-12T06:08:19.271+00:00",
+        "key": "idx_user_acc",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id",
+          "account_id"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_28_idx_account_active",
+        "$createdAt": "2026-02-22T18:42:49.273+00:00",
+        "$updatedAt": "2026-02-22T18:42:49.299+00:00",
+        "key": "idx_account_active",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "is_active"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "coupon_redemptions",
+    "name": "Coupon Redemptions",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "create(\"users\")",
+      "update(\"users\")",
+      "delete(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:11.717+00:00",
+        "$updatedAt": "2026-03-02T09:22:11.746+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "coupon_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:14.275+00:00",
+        "$updatedAt": "2026-03-02T09:22:14.302+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "coupon_code",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:16.982+00:00",
+        "$updatedAt": "2026-03-02T09:22:17.015+00:00",
+        "size": 64,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "plan_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:19.599+00:00",
+        "$updatedAt": "2026-03-02T09:22:19.626+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "billing_cycle",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:22.213+00:00",
+        "$updatedAt": "2026-03-02T09:22:22.239+00:00",
+        "elements": [
+          "monthly",
+          "yearly"
+        ],
+        "format": "enum",
+        "default": "monthly"
+      },
+      {
+        "key": "currency",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:24.979+00:00",
+        "$updatedAt": "2026-03-02T09:22:25.008+00:00",
+        "size": 3,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "base_amount",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:27.653+00:00",
+        "$updatedAt": "2026-03-02T09:22:27.686+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": 0
+      },
+      {
+        "key": "discount_amount",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:30.334+00:00",
+        "$updatedAt": "2026-03-02T09:22:30.363+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": 0
+      },
+      {
+        "key": "final_amount",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:32.984+00:00",
+        "$updatedAt": "2026-03-02T09:22:33.025+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": 0
+      },
+      {
+        "key": "razorpay_order_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:35.599+00:00",
+        "$updatedAt": "2026-03-02T09:22:35.628+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "razorpay_payment_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:38.486+00:00",
+        "$updatedAt": "2026-03-02T09:22:38.515+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "status",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:41.129+00:00",
+        "$updatedAt": "2026-03-02T09:22:41.158+00:00",
+        "size": 32,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "created_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:43.478+00:00",
+        "$updatedAt": "2026-03-02T09:22:43.503+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "payment_attempt_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:57:27.102+00:00",
+        "$updatedAt": "2026-03-16T18:57:27.131+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_122_idx_coupon",
+        "$createdAt": "2026-03-02T09:22:46.480+00:00",
+        "$updatedAt": "2026-03-02T09:22:46.505+00:00",
+        "key": "idx_coupon",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "coupon_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_122_idx_coupon_user",
+        "$createdAt": "2026-03-02T09:22:47.750+00:00",
+        "$updatedAt": "2026-03-02T09:22:47.780+00:00",
+        "key": "idx_coupon_user",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "coupon_id",
+          "user_id"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_122_idx_user_created",
+        "$createdAt": "2026-03-02T09:22:48.904+00:00",
+        "$updatedAt": "2026-03-02T09:22:48.931+00:00",
+        "key": "idx_user_created",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id",
+          "created_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_122_idx_payment_attempt",
+        "$createdAt": "2026-03-16T18:57:29.099+00:00",
+        "$updatedAt": "2026-03-16T18:57:29.130+00:00",
+        "key": "idx_payment_attempt",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "payment_attempt_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "coupons",
+    "name": "Coupons",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "create(\"users\")",
+      "update(\"users\")",
+      "delete(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "code",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-02T09:21:38.894+00:00",
+        "$updatedAt": "2026-03-02T09:21:38.922+00:00",
+        "size": 64,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-02T09:21:41.552+00:00",
+        "$updatedAt": "2026-03-02T09:21:41.580+00:00",
+        "elements": [
+          "percent",
+          "fixed"
+        ],
+        "format": "enum",
+        "default": null
+      },
+      {
+        "key": "currency",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:21:45.978+00:00",
+        "$updatedAt": "2026-03-02T09:21:46.005+00:00",
+        "size": 3,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "active",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:21:48.551+00:00",
+        "$updatedAt": "2026-03-02T09:21:48.574+00:00",
+        "default": true
+      },
+      {
+        "key": "expires_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:21:51.214+00:00",
+        "$updatedAt": "2026-03-02T09:21:51.244+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "usage_limit",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:21:53.945+00:00",
+        "$updatedAt": "2026-03-02T09:21:53.974+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "usage_per_user",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:21:56.497+00:00",
+        "$updatedAt": "2026-03-02T09:21:56.524+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 1
+      },
+      {
+        "key": "plan_ids",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": true,
+        "$createdAt": "2026-03-02T09:21:59.178+00:00",
+        "$updatedAt": "2026-03-02T09:21:59.209+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "user_ids",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": true,
+        "$createdAt": "2026-03-02T09:22:01.562+00:00",
+        "$updatedAt": "2026-03-02T09:22:01.637+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "metadata",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:22:04.180+00:00",
+        "$updatedAt": "2026-03-02T09:22:04.205+00:00",
+        "size": 2000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "value",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-02T09:43:37.185+00:00",
+        "$updatedAt": "2026-03-02T09:43:37.213+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": null
+      },
+      {
+        "key": "billing_cycle_targets",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": true,
+        "$createdAt": "2026-04-20T08:17:31.713+00:00",
+        "$updatedAt": "2026-04-20T08:17:31.746+00:00",
+        "size": 32,
+        "default": null,
+        "encrypt": false
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_121_idx_code_unique",
+        "$createdAt": "2026-03-02T09:22:06.795+00:00",
+        "$updatedAt": "2026-03-02T09:22:06.823+00:00",
+        "key": "idx_code_unique",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "code"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_121_idx_active_expiry",
+        "$createdAt": "2026-03-02T09:22:07.796+00:00",
+        "$updatedAt": "2026-03-02T09:22:07.820+00:00",
+        "key": "idx_active_expiry",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "active",
+          "expires_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_121_idx_coupons_code_search",
+        "$createdAt": "2026-04-20T08:17:52.439+00:00",
+        "$updatedAt": "2026-04-20T08:17:52.507+00:00",
+        "key": "idx_coupons_code_search",
+        "type": "fulltext",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "code"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_121_idx_coupons_active_expiry",
+        "$createdAt": "2026-04-20T08:17:52.553+00:00",
+        "$updatedAt": "2026-04-20T08:17:52.579+00:00",
+        "key": "idx_coupons_active_expiry",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "active",
+          "expires_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "email_campaigns",
+    "name": "Email Campaigns",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"label:admin\")",
+      "create(\"label:admin\")",
+      "update(\"label:admin\")",
+      "delete(\"label:admin\")"
+    ],
+    "attributes": [
+      {
+        "key": "admin_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:32.938+00:00",
+        "$updatedAt": "2026-04-20T08:17:32.969+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "appwrite_message_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:33.192+00:00",
+        "$updatedAt": "2026-04-20T08:17:33.221+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "subject",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:33.425+00:00",
+        "$updatedAt": "2026-04-20T08:17:33.456+00:00",
+        "size": 500,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "target_total",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:33.780+00:00",
+        "$updatedAt": "2026-04-20T08:17:33.811+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "queued_total",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:34.026+00:00",
+        "$updatedAt": "2026-04-20T08:17:34.057+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "delivered_total",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:34.261+00:00",
+        "$updatedAt": "2026-04-20T08:17:34.287+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "failed_total",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:34.505+00:00",
+        "$updatedAt": "2026-04-20T08:17:34.536+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "scheduled_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:34.755+00:00",
+        "$updatedAt": "2026-04-20T08:17:34.785+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "sent_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:34.998+00:00",
+        "$updatedAt": "2026-04-20T08:17:35.030+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "created_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:35.248+00:00",
+        "$updatedAt": "2026-04-20T08:17:35.282+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "updated_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:35.485+00:00",
+        "$updatedAt": "2026-04-20T08:17:35.512+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "segment_key",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:35.773+00:00",
+        "$updatedAt": "2026-04-20T08:17:35.800+00:00",
+        "size": 120,
+        "default": "all",
+        "encrypt": false
+      },
+      {
+        "key": "filters_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:36.013+00:00",
+        "$updatedAt": "2026-04-20T08:17:36.040+00:00",
+        "size": 20000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "metrics_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:36.266+00:00",
+        "$updatedAt": "2026-04-20T08:17:36.298+00:00",
+        "size": 20000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "status",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:19:44.178+00:00",
+        "$updatedAt": "2026-04-20T08:19:44.208+00:00",
+        "elements": [
+          "draft",
+          "queued",
+          "scheduled",
+          "sent",
+          "failed"
+        ],
+        "format": "enum",
+        "default": "sent"
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_129_idx_campaign_created_at",
+        "$createdAt": "2026-04-20T08:17:53.757+00:00",
+        "$updatedAt": "2026-04-20T08:17:53.785+00:00",
+        "key": "idx_campaign_created_at",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "created_at"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_129_idx_campaign_admin_created",
+        "$createdAt": "2026-04-20T08:17:53.992+00:00",
+        "$updatedAt": "2026-04-20T08:17:54.021+00:00",
+        "key": "idx_campaign_admin_created",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "admin_id",
+          "created_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_129_idx_campaign_message_id",
+        "$createdAt": "2026-04-20T08:17:54.108+00:00",
+        "$updatedAt": "2026-04-20T08:17:54.133+00:00",
+        "key": "idx_campaign_message_id",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "appwrite_message_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_129_idx_campaign_status_created",
+        "$createdAt": "2026-04-20T08:19:47.784+00:00",
+        "$updatedAt": "2026-04-20T08:19:47.808+00:00",
+        "key": "idx_campaign_status_created",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "status",
+          "created_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "ig_accounts",
+    "name": "Instagram Accounts",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:56.834+00:00",
+        "$updatedAt": "2026-02-10T10:48:56.861+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "ig_user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:57.277+00:00",
+        "$updatedAt": "2026-02-10T10:48:57.302+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "username",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:57.701+00:00",
+        "$updatedAt": "2026-02-10T10:48:57.724+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "profile_picture_url",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:58.085+00:00",
+        "$updatedAt": "2026-02-10T10:48:58.112+00:00",
+        "size": 2048,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "access_token",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:58.486+00:00",
+        "$updatedAt": "2026-02-10T10:48:58.509+00:00",
+        "size": 1024,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "token_expires_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:58.871+00:00",
+        "$updatedAt": "2026-02-10T10:48:58.897+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "permissions",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:59.252+00:00",
+        "$updatedAt": "2026-02-10T10:48:59.287+00:00",
+        "size": 1024,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "linked_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:59.660+00:00",
+        "$updatedAt": "2026-02-10T10:48:59.694+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "name",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:00.553+00:00",
+        "$updatedAt": "2026-02-10T10:49:00.590+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "account_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:01.366+00:00",
+        "$updatedAt": "2026-02-10T10:49:01.400+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "is_active",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:01.789+00:00",
+        "$updatedAt": "2026-02-10T10:49:01.822+00:00",
+        "default": true
+      },
+      {
+        "key": "ig_scoped_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-18T07:21:11.318+00:00",
+        "$updatedAt": "2026-02-18T07:21:11.351+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "status",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-21T07:03:24.714+00:00",
+        "$updatedAt": "2026-02-21T07:03:24.756+00:00",
+        "elements": [
+          "active",
+          "inactive",
+          "expired",
+          "revoked",
+          "disconnected"
+        ],
+        "format": "enum",
+        "default": "active"
+      },
+      {
+        "key": "admin_disabled",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:13.443+00:00",
+        "$updatedAt": "2026-04-21T07:58:13.665+00:00",
+        "default": false
+      },
+      {
+        "key": "plan_locked",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:14.805+00:00",
+        "$updatedAt": "2026-04-21T07:58:14.842+00:00",
+        "default": false
+      },
+      {
+        "key": "access_override_enabled",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:15.022+00:00",
+        "$updatedAt": "2026-04-21T07:58:15.052+00:00",
+        "default": false
+      },
+      {
+        "key": "effective_access",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:15.249+00:00",
+        "$updatedAt": "2026-04-21T07:58:15.281+00:00",
+        "default": true
+      },
+      {
+        "key": "access_state",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:15.464+00:00",
+        "$updatedAt": "2026-04-21T07:58:15.493+00:00",
+        "elements": [
+          "active",
+          "inactive",
+          "admin_disabled",
+          "plan_locked",
+          "override_enabled"
+        ],
+        "format": "enum",
+        "default": "active"
+      },
+      {
+        "key": "access_reason",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:15.749+00:00",
+        "$updatedAt": "2026-04-21T07:58:15.777+00:00",
+        "size": 120,
+        "default": null,
+        "encrypt": false
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_8_idx_ig_user_id",
+        "$createdAt": "2026-02-10T10:49:04.811+00:00",
+        "$updatedAt": "2026-02-10T10:49:04.834+00:00",
+        "key": "idx_ig_user_id",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "ig_user_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": [
+          "ASC"
+        ]
+      },
+      {
+        "$id": "1_8_idx_user_id",
+        "$createdAt": "2026-02-10T10:49:05.256+00:00",
+        "$updatedAt": "2026-02-10T10:49:05.281+00:00",
+        "key": "idx_user_id",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": [
+          "ASC"
+        ]
+      },
+      {
+        "$id": "1_8_idx_account_id",
+        "$createdAt": "2026-02-10T10:49:05.648+00:00",
+        "$updatedAt": "2026-02-10T10:49:05.670+00:00",
+        "key": "idx_account_id",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": [
+          "ASC"
+        ]
+      },
+      {
+        "$id": "1_8_idx_user_ig_user",
+        "$createdAt": "2026-02-16T06:23:37.129+00:00",
+        "$updatedAt": "2026-02-16T06:23:37.176+00:00",
+        "key": "idx_user_ig_user",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id",
+          "ig_user_id"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "keyword_index",
+    "name": "Keyword Index",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "account_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:47.415+00:00",
+        "$updatedAt": "2026-02-10T10:49:47.440+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "automation_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:48.285+00:00",
+        "$updatedAt": "2026-02-10T10:49:48.313+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "keyword_hash",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-13T06:00:59.882+00:00",
+        "$updatedAt": "2026-02-13T06:00:59.930+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "keyword_normalized",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-19T07:20:13.503+00:00",
+        "$updatedAt": "2026-02-19T07:20:13.535+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "automation_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-21T07:04:09.974+00:00",
+        "$updatedAt": "2026-02-27T11:52:23.415+00:00",
+        "elements": [
+          "dm",
+          "global",
+          "post",
+          "reel",
+          "story",
+          "live",
+          "comment",
+          "moderation_hide",
+          "moderation_delete",
+          "mentions",
+          "suggest_more",
+          "welcome_message",
+          "inbox_menu",
+          "convo_starter",
+          "email_collector",
+          "quick_reply"
+        ],
+        "format": "enum",
+        "default": null
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_13_automation_id_idx",
+        "$createdAt": "2026-02-10T10:49:51.981+00:00",
+        "$updatedAt": "2026-02-10T10:49:52.002+00:00",
+        "key": "automation_id_idx",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "automation_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_13_idx_account_keyword_norm",
+        "$createdAt": "2026-02-19T07:20:14.398+00:00",
+        "$updatedAt": "2026-02-19T07:20:14.429+00:00",
+        "key": "idx_account_keyword_norm",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "keyword_normalized"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_13_idx_account_type",
+        "$createdAt": "2026-02-21T07:04:12.356+00:00",
+        "$updatedAt": "2026-02-21T07:04:12.388+00:00",
+        "key": "idx_account_type",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_type"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_13_idx_lookup_type",
+        "$createdAt": "2026-02-21T07:04:12.473+00:00",
+        "$updatedAt": "2026-02-21T07:04:12.502+00:00",
+        "key": "idx_lookup_type",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_type",
+          "keyword_hash"
+        ],
+        "lengths": [
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "keywords",
+    "name": "Keywords",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "keyword",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:50:06.749+00:00",
+        "$updatedAt": "2026-02-10T10:50:06.773+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "account_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:50:08.295+00:00",
+        "$updatedAt": "2026-02-10T10:50:08.322+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "automation_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:50:09.267+00:00",
+        "$updatedAt": "2026-02-10T10:50:09.292+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "is_active",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-13T06:08:48.407+00:00",
+        "$updatedAt": "2026-02-13T06:08:48.432+00:00",
+        "default": true
+      },
+      {
+        "key": "keyword_normalized",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-16T07:04:09.140+00:00",
+        "$updatedAt": "2026-02-16T07:04:09.202+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "keyword_hash",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-16T07:04:09.877+00:00",
+        "$updatedAt": "2026-02-16T07:04:09.908+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "automation_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-21T07:03:59.162+00:00",
+        "$updatedAt": "2026-02-27T11:52:21.767+00:00",
+        "elements": [
+          "dm",
+          "global",
+          "post",
+          "reel",
+          "story",
+          "live",
+          "comment",
+          "moderation_hide",
+          "moderation_delete",
+          "mentions",
+          "suggest_more",
+          "welcome_message",
+          "inbox_menu",
+          "convo_starter",
+          "email_collector",
+          "quick_reply"
+        ],
+        "format": "enum",
+        "default": null
+      },
+      {
+        "key": "match_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-21T07:04:05.973+00:00",
+        "$updatedAt": "2026-02-21T07:04:05.999+00:00",
+        "elements": [
+          "exact",
+          "contains"
+        ],
+        "format": "enum",
+        "default": "exact"
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_15_automation_id_idx",
+        "$createdAt": "2026-02-10T10:50:14.155+00:00",
+        "$updatedAt": "2026-02-10T10:50:14.179+00:00",
+        "key": "automation_id_idx",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "automation_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_15_idx_account_active",
+        "$createdAt": "2026-02-13T07:07:16.593+00:00",
+        "$updatedAt": "2026-02-13T07:07:16.621+00:00",
+        "key": "idx_account_active",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "is_active"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_15_idx_automation_keyword_norm",
+        "$createdAt": "2026-02-16T07:04:10.968+00:00",
+        "$updatedAt": "2026-02-16T07:04:11.007+00:00",
+        "key": "idx_automation_keyword_norm",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "automation_id",
+          "keyword_normalized"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_15_idx_account_keyword_norm_all",
+        "$createdAt": "2026-02-19T06:26:14.424+00:00",
+        "$updatedAt": "2026-02-19T06:26:14.614+00:00",
+        "key": "idx_account_keyword_norm_all",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "keyword_normalized"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_15_idx_account_type_keyword_norm",
+        "$createdAt": "2026-02-21T07:04:01.756+00:00",
+        "$updatedAt": "2026-02-21T07:04:01.841+00:00",
+        "key": "idx_account_type_keyword_norm",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_type",
+          "keyword_normalized"
+        ],
+        "lengths": [
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "logs",
+    "name": "Logs",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "create(\"users\")",
+      "update(\"users\")",
+      "delete(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "account_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-20T18:31:53.653+00:00",
+        "$updatedAt": "2026-02-20T18:31:53.687+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "recipient_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-20T18:31:54.333+00:00",
+        "$updatedAt": "2026-02-20T18:31:54.363+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "automation_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-20T18:31:55.035+00:00",
+        "$updatedAt": "2026-02-20T18:31:55.060+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "automation_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-20T18:31:55.748+00:00",
+        "$updatedAt": "2026-02-20T18:31:55.775+00:00",
+        "size": 50,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "event_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-20T18:31:56.483+00:00",
+        "$updatedAt": "2026-02-20T18:31:56.511+00:00",
+        "size": 50,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "source",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-20T18:31:57.897+00:00",
+        "$updatedAt": "2026-02-20T18:31:57.922+00:00",
+        "size": 50,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "message",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-20T18:31:58.644+00:00",
+        "$updatedAt": "2026-02-20T18:31:58.667+00:00",
+        "size": 2000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "payload",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-20T18:31:59.329+00:00",
+        "$updatedAt": "2026-02-20T18:31:59.362+00:00",
+        "size": 20000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "sent_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-20T18:32:00.022+00:00",
+        "$updatedAt": "2026-02-20T18:32:00.051+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "status",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-21T07:03:48.140+00:00",
+        "$updatedAt": "2026-02-21T07:03:48.173+00:00",
+        "elements": [
+          "success",
+          "failed",
+          "skipped"
+        ],
+        "format": "enum",
+        "default": null
+      },
+      {
+        "key": "sender_name",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-28T08:39:17.704+00:00",
+        "$updatedAt": "2026-02-28T08:39:17.739+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_117_idx_account_sent_at",
+        "$createdAt": "2026-02-20T18:32:00.741+00:00",
+        "$updatedAt": "2026-02-20T18:32:00.769+00:00",
+        "key": "idx_account_sent_at",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "sent_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_117_idx_account_recipient_event_sent",
+        "$createdAt": "2026-02-20T18:32:00.836+00:00",
+        "$updatedAt": "2026-02-20T18:32:00.866+00:00",
+        "key": "idx_account_recipient_event_sent",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "recipient_id",
+          "event_type",
+          "sent_at"
+        ],
+        "lengths": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_117_idx_account_automation_sent",
+        "$createdAt": "2026-02-20T18:32:00.945+00:00",
+        "$updatedAt": "2026-02-20T18:32:00.971+00:00",
+        "key": "idx_account_automation_sent",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "automation_type",
+          "sent_at"
+        ],
+        "lengths": [
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_117_idx_account_status_sent",
+        "$createdAt": "2026-03-03T08:30:29.423+00:00",
+        "$updatedAt": "2026-03-03T08:30:29.487+00:00",
+        "key": "idx_account_status_sent",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "status",
+          "sent_at"
+        ],
+        "lengths": [
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "payment_attempts",
+    "name": "Payment Attempts",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:35.199+00:00",
+        "$updatedAt": "2026-03-16T18:56:35.225+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "plan_code",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:35.902+00:00",
+        "$updatedAt": "2026-03-16T18:56:35.928+00:00",
+        "size": 32,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "plan_name",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:36.625+00:00",
+        "$updatedAt": "2026-03-16T18:56:36.649+00:00",
+        "size": 100,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "billing_cycle",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:37.357+00:00",
+        "$updatedAt": "2026-03-16T18:56:37.381+00:00",
+        "elements": [
+          "monthly",
+          "yearly"
+        ],
+        "format": "enum",
+        "default": null
+      },
+      {
+        "key": "currency",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:38.156+00:00",
+        "$updatedAt": "2026-03-16T18:56:38.183+00:00",
+        "size": 3,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "base_amount",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:38.921+00:00",
+        "$updatedAt": "2026-03-16T18:56:38.951+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": null
+      },
+      {
+        "key": "discount_amount",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:39.644+00:00",
+        "$updatedAt": "2026-03-16T18:56:39.670+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": 0
+      },
+      {
+        "key": "final_amount",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:40.445+00:00",
+        "$updatedAt": "2026-03-16T18:56:40.468+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": null
+      },
+      {
+        "key": "coupon_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:41.249+00:00",
+        "$updatedAt": "2026-03-16T18:56:41.276+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "coupon_code",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:42.012+00:00",
+        "$updatedAt": "2026-03-16T18:56:42.044+00:00",
+        "size": 64,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "status",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:42.793+00:00",
+        "$updatedAt": "2026-03-16T18:56:42.817+00:00",
+        "elements": [
+          "created",
+          "paid",
+          "failed",
+          "cancelled",
+          "expired"
+        ],
+        "format": "enum",
+        "default": null
+      },
+      {
+        "key": "gateway_order_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:43.578+00:00",
+        "$updatedAt": "2026-03-16T18:56:43.604+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "gateway_payment_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:44.362+00:00",
+        "$updatedAt": "2026-03-16T18:56:44.388+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "gateway_receipt",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:45.078+00:00",
+        "$updatedAt": "2026-03-16T18:56:45.103+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "created_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:45.840+00:00",
+        "$updatedAt": "2026-03-16T18:56:45.866+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "verified_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:46.574+00:00",
+        "$updatedAt": "2026-03-16T18:56:46.601+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "meta_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:47.356+00:00",
+        "$updatedAt": "2026-03-16T18:56:47.397+00:00",
+        "size": 12000,
+        "default": null,
+        "encrypt": false
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_127_idx_gateway_order_unique",
+        "$createdAt": "2026-03-16T18:56:48.152+00:00",
+        "$updatedAt": "2026-03-16T18:56:48.177+00:00",
+        "key": "idx_gateway_order_unique",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "gateway_order_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_127_idx_gateway_payment",
+        "$createdAt": "2026-03-16T18:56:48.321+00:00",
+        "$updatedAt": "2026-03-16T18:56:48.345+00:00",
+        "key": "idx_gateway_payment",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "gateway_payment_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_127_idx_user_created_at",
+        "$createdAt": "2026-03-16T18:56:48.452+00:00",
+        "$updatedAt": "2026-03-16T18:56:48.477+00:00",
+        "key": "idx_user_created_at",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id",
+          "created_at"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_127_idx_user_status",
+        "$createdAt": "2026-03-16T18:56:48.572+00:00",
+        "$updatedAt": "2026-03-16T18:56:48.596+00:00",
+        "key": "idx_user_status",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id",
+          "status"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "pricing",
+    "name": "Pricing Plans",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"any\")",
+      "read(\"label:admin\")",
+      "create(\"label:admin\")",
+      "update(\"label:admin\")",
+      "delete(\"label:admin\")"
+    ],
+    "attributes": [
+      {
+        "key": "name",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:32.115+00:00",
+        "$updatedAt": "2026-02-10T10:48:32.140+00:00",
+        "size": 100,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "price_monthly_inr",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:32.519+00:00",
+        "$updatedAt": "2026-02-10T10:48:32.539+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": null
+      },
+      {
+        "key": "price_yearly_inr",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:32.953+00:00",
+        "$updatedAt": "2026-02-10T10:48:32.978+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": null
+      },
+      {
+        "key": "price_monthly_usd",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:33.402+00:00",
+        "$updatedAt": "2026-02-10T10:48:33.423+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": null
+      },
+      {
+        "key": "price_yearly_usd",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:33.864+00:00",
+        "$updatedAt": "2026-02-10T10:48:33.888+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": null
+      },
+      {
+        "key": "is_custom",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:34.305+00:00",
+        "$updatedAt": "2026-02-10T10:48:34.332+00:00",
+        "default": null
+      },
+      {
+        "key": "is_popular",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:34.694+00:00",
+        "$updatedAt": "2026-02-10T10:48:34.719+00:00",
+        "default": null
+      },
+      {
+        "key": "features",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:35.129+00:00",
+        "$updatedAt": "2026-02-10T10:48:35.153+00:00",
+        "size": 10000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "display_order",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:35.568+00:00",
+        "$updatedAt": "2026-02-10T10:48:35.591+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": null
+      },
+      {
+        "key": "button_text",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:36.020+00:00",
+        "$updatedAt": "2026-02-10T10:48:36.046+00:00",
+        "size": 100,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "yearly_bonus",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:36.418+00:00",
+        "$updatedAt": "2026-02-10T10:48:36.443+00:00",
+        "size": 100,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "plan_code",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:17.448+00:00",
+        "$updatedAt": "2026-03-16T18:56:17.650+00:00",
+        "size": 32,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "instagram_connections_limit",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:18.227+00:00",
+        "$updatedAt": "2026-03-16T18:56:18.261+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": null
+      },
+      {
+        "key": "actions_per_hour_limit",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:19.038+00:00",
+        "$updatedAt": "2026-03-16T18:56:19.065+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": null
+      },
+      {
+        "key": "actions_per_day_limit",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:19.762+00:00",
+        "$updatedAt": "2026-03-16T18:56:19.785+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": null
+      },
+      {
+        "key": "actions_per_month_limit",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:20.465+00:00",
+        "$updatedAt": "2026-03-16T18:56:20.498+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": null
+      },
+      {
+        "key": "comparison_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:21.772+00:00",
+        "$updatedAt": "2026-03-16T18:56:21.798+00:00",
+        "size": 20000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "price_yearly_monthly_inr",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-26T18:42:25.121+00:00",
+        "$updatedAt": "2026-03-26T18:42:25.344+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": 0
+      },
+      {
+        "key": "price_yearly_monthly_usd",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-26T18:42:26.150+00:00",
+        "$updatedAt": "2026-03-26T18:42:26.187+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": 0
+      },
+      {
+        "key": "monthly_duration_days",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-22T08:33:00.256+00:00",
+        "$updatedAt": "2026-04-22T08:33:00.298+00:00",
+        "min": 1,
+        "max": 366,
+        "default": 30
+      },
+      {
+        "key": "yearly_duration_days",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-22T08:33:00.496+00:00",
+        "$updatedAt": "2026-04-22T08:33:00.532+00:00",
+        "min": 1,
+        "max": 366,
+        "default": 364
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_4_display_order_idx",
+        "$createdAt": "2026-02-12T06:07:14.347+00:00",
+        "$updatedAt": "2026-02-12T06:07:14.374+00:00",
+        "key": "display_order_idx",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "display_order"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_4_plan_code_idx",
+        "$createdAt": "2026-03-16T18:56:22.916+00:00",
+        "$updatedAt": "2026-03-16T18:56:22.954+00:00",
+        "key": "plan_code_idx",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "plan_code"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "profiles",
+    "name": "Profiles",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "update(\"users\")",
+      "create(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:49:56.898+00:00",
+        "$updatedAt": "2026-02-10T10:49:56.921+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "subscription_plan_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-13T07:05:16.309+00:00",
+        "$updatedAt": "2026-02-13T07:05:16.405+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "subscription_expires",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-13T07:05:18.844+00:00",
+        "$updatedAt": "2026-02-13T07:05:18.872+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "subscription_status",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-21T07:03:21.117+00:00",
+        "$updatedAt": "2026-02-21T07:03:21.150+00:00",
+        "elements": [
+          "trial",
+          "active",
+          "inactive",
+          "cancelled",
+          "expired",
+          "past_due"
+        ],
+        "format": "enum",
+        "default": "trial"
+      },
+      {
+        "key": "hourly_action_limit",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:16.850+00:00",
+        "$updatedAt": "2026-03-02T09:18:16.883+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "daily_action_limit",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:19.645+00:00",
+        "$updatedAt": "2026-03-02T09:18:19.675+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "monthly_action_limit",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:22.706+00:00",
+        "$updatedAt": "2026-03-02T09:18:22.741+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "hourly_actions_used",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:25.596+00:00",
+        "$updatedAt": "2026-03-02T09:18:25.628+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "daily_actions_used",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:28.140+00:00",
+        "$updatedAt": "2026-03-02T09:18:28.171+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "monthly_actions_used",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:30.654+00:00",
+        "$updatedAt": "2026-03-02T09:18:30.682+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "hourly_window_started_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:33.837+00:00",
+        "$updatedAt": "2026-03-02T09:18:33.862+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "daily_window_started_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:36.618+00:00",
+        "$updatedAt": "2026-03-02T09:18:36.645+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "monthly_window_started_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:39.494+00:00",
+        "$updatedAt": "2026-03-02T09:18:39.529+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "feature_overrides_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:44.692+00:00",
+        "$updatedAt": "2026-03-02T09:18:44.720+00:00",
+        "size": 12000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "subscription_billing_cycle",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:30.615+00:00",
+        "$updatedAt": "2026-04-20T08:17:30.654+00:00",
+        "size": 32,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "plan_code",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:16.302+00:00",
+        "$updatedAt": "2026-04-21T07:58:16.338+00:00",
+        "size": 32,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "plan_name",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:16.554+00:00",
+        "$updatedAt": "2026-04-21T07:58:16.587+00:00",
+        "size": 100,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "plan_status",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:16.791+00:00",
+        "$updatedAt": "2026-04-21T07:58:16.824+00:00",
+        "elements": [
+          "trial",
+          "active",
+          "inactive",
+          "cancelled",
+          "expired",
+          "past_due"
+        ],
+        "format": "enum",
+        "default": "inactive"
+      },
+      {
+        "key": "billing_cycle",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:17.032+00:00",
+        "$updatedAt": "2026-04-21T07:58:17.068+00:00",
+        "elements": [
+          "monthly",
+          "yearly"
+        ],
+        "format": "enum",
+        "default": null
+      },
+      {
+        "key": "expires_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:17.286+00:00",
+        "$updatedAt": "2026-04-21T07:58:17.315+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "kill_switch_enabled",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T07:58:18.025+00:00",
+        "$updatedAt": "2026-04-21T07:58:18.060+00:00",
+        "default": true
+      },
+      {
+        "key": "limits_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T08:06:14.980+00:00",
+        "$updatedAt": "2026-04-21T08:06:15.014+00:00",
+        "size": 1200,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "features_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T08:08:23.172+00:00",
+        "$updatedAt": "2026-04-21T08:08:23.210+00:00",
+        "size": 600,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "paid_plan_snapshot_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T08:08:23.419+00:00",
+        "$updatedAt": "2026-04-21T08:08:23.450+00:00",
+        "size": 600,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "admin_override_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-21T08:14:47.306+00:00",
+        "$updatedAt": "2026-04-21T08:14:47.341+00:00",
+        "size": 140,
+        "default": null,
+        "encrypt": false
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_14_idx_user_id",
+        "$createdAt": "2026-02-19T07:19:50.324+00:00",
+        "$updatedAt": "2026-02-19T07:19:50.355+00:00",
+        "key": "idx_user_id",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_14_idx_profiles_subscription_expires",
+        "$createdAt": "2026-04-20T08:17:46.180+00:00",
+        "$updatedAt": "2026-04-20T08:17:46.208+00:00",
+        "key": "idx_profiles_subscription_expires",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "subscription_expires"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_14_idx_profiles_plan_cycle",
+        "$createdAt": "2026-04-20T08:17:46.315+00:00",
+        "$updatedAt": "2026-04-20T08:17:46.349+00:00",
+        "key": "idx_profiles_plan_cycle",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "subscription_plan_id",
+          "subscription_billing_cycle"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_14_idx_profiles_expires_at",
+        "$createdAt": "2026-04-22T08:33:25.057+00:00",
+        "$updatedAt": "2026-04-22T08:33:25.089+00:00",
+        "key": "idx_profiles_expires_at",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "expires_at"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "reply_templates",
+    "name": "Reply Templates",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "create(\"users\")",
+      "update(\"users\")",
+      "delete(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-11T18:35:35.479+00:00",
+        "$updatedAt": "2026-02-11T18:35:35.686+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "name",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-11T18:35:35.591+00:00",
+        "$updatedAt": "2026-02-11T18:35:35.727+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "template_data",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-12T06:07:41.175+00:00",
+        "$updatedAt": "2026-02-12T06:07:41.204+00:00",
+        "size": 12000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "automation_count",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-13T12:03:40.098+00:00",
+        "$updatedAt": "2026-02-13T12:03:40.150+00:00",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "default": 0
+      },
+      {
+        "key": "name_normalized",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-15T18:43:21.629+00:00",
+        "$updatedAt": "2026-02-15T18:43:21.665+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "account_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-18T07:21:19.542+00:00",
+        "$updatedAt": "2026-02-18T07:21:19.573+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "template_type",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-21T07:03:43.898+00:00",
+        "$updatedAt": "2026-02-21T07:03:43.924+00:00",
+        "elements": [
+          "template_text",
+          "template_carousel",
+          "template_buttons",
+          "template_media",
+          "template_share_post",
+          "template_quick_replies",
+          "template_media_attachment",
+          "template_url"
+        ],
+        "format": "enum",
+        "default": null
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_27_idx_user_id",
+        "$createdAt": "2026-02-11T18:41:19.394+00:00",
+        "$updatedAt": "2026-02-11T18:41:19.421+00:00",
+        "key": "idx_user_id",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_27_idx_account_id",
+        "$createdAt": "2026-02-18T07:21:40.956+00:00",
+        "$updatedAt": "2026-02-18T07:21:40.984+00:00",
+        "key": "idx_account_id",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_27_idx_account_name_norm",
+        "$createdAt": "2026-02-18T07:21:41.661+00:00",
+        "$updatedAt": "2026-02-18T07:21:41.688+00:00",
+        "key": "idx_account_name_norm",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "account_id",
+          "name_normalized"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_27_idx_template_type",
+        "$createdAt": "2026-02-21T07:03:44.864+00:00",
+        "$updatedAt": "2026-02-21T07:03:44.897+00:00",
+        "key": "idx_template_type",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "template_type"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "settings",
+    "name": "Settings",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "read(\"label:admin\")",
+      "create(\"label:admin\")",
+      "update(\"label:admin\")",
+      "delete(\"label:admin\")"
+    ],
+    "attributes": [
+      {
+        "key": "dark_mode",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:08.561+00:00",
+        "$updatedAt": "2026-02-10T10:48:08.636+00:00",
+        "default": null
+      },
+      {
+        "key": "notification_preference",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:08.991+00:00",
+        "$updatedAt": "2026-02-10T10:48:09.017+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:10.103+00:00",
+        "$updatedAt": "2026-02-10T10:48:10.128+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_1_idx_user_id",
+        "$createdAt": "2026-02-13T07:05:24.990+00:00",
+        "$updatedAt": "2026-02-13T07:05:25.017+00:00",
+        "key": "idx_user_id",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "super_profiles",
+    "name": "Super Profiles",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"any\")",
+      "read(\"users\")",
+      "create(\"users\")",
+      "update(\"users\")",
+      "delete(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "slug",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:50:23.850+00:00",
+        "$updatedAt": "2026-02-10T10:50:23.873+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "is_active",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:50:26.561+00:00",
+        "$updatedAt": "2026-02-10T10:50:26.584+00:00",
+        "default": true
+      },
+      {
+        "key": "user_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:50:27.444+00:00",
+        "$updatedAt": "2026-02-10T10:50:27.466+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "account_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:50:28.308+00:00",
+        "$updatedAt": "2026-02-10T10:50:28.331+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "buttons",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-12T06:08:03.891+00:00",
+        "$updatedAt": "2026-02-12T06:08:03.921+00:00",
+        "size": 6000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "template_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-13T06:08:14.743+00:00",
+        "$updatedAt": "2026-02-13T06:08:14.773+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_16_idx_user_id",
+        "$createdAt": "2026-02-10T10:50:32.164+00:00",
+        "$updatedAt": "2026-02-10T10:50:32.189+00:00",
+        "key": "idx_user_id",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": [
+          "ASC"
+        ]
+      },
+      {
+        "$id": "1_16_idx_user_acc",
+        "$createdAt": "2026-02-13T07:06:31.526+00:00",
+        "$updatedAt": "2026-02-13T07:06:31.552+00:00",
+        "key": "idx_user_acc",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id",
+          "account_id"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_16_idx_slug_unique",
+        "$createdAt": "2026-02-14T18:31:49.939+00:00",
+        "$updatedAt": "2026-02-14T18:31:50.000+00:00",
+        "key": "idx_slug_unique",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "slug"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_16_idx_slug",
+        "$createdAt": "2026-02-19T07:20:04.991+00:00",
+        "$updatedAt": "2026-02-19T07:20:05.020+00:00",
+        "key": "idx_slug",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "slug"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "transactions",
+    "name": "Transactions",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "create(\"users\")",
+      "update(\"users\")",
+      "delete(\"users\")"
+    ],
+    "attributes": [
+      {
+        "key": "transactionId",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:17.998+00:00",
+        "$updatedAt": "2026-02-10T10:48:18.024+00:00",
+        "size": 64,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "amount",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:19.161+00:00",
+        "$updatedAt": "2026-02-10T10:48:19.185+00:00",
+        "min": 0,
+        "max": 1.7976931348623157e+308,
+        "default": null
+      },
+      {
+        "key": "currency",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:20.355+00:00",
+        "$updatedAt": "2026-02-10T10:48:20.380+00:00",
+        "size": 3,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "transactionDate",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:20.757+00:00",
+        "$updatedAt": "2026-02-10T10:48:20.784+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "status",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:21.217+00:00",
+        "$updatedAt": "2026-02-10T10:48:21.239+00:00",
+        "size": 32,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "userId",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:21.715+00:00",
+        "$updatedAt": "2026-02-10T10:48:21.738+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "planCode",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:24.169+00:00",
+        "$updatedAt": "2026-03-16T18:56:24.204+00:00",
+        "size": 32,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "planName",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:24.918+00:00",
+        "$updatedAt": "2026-03-16T18:56:24.947+00:00",
+        "size": 100,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "billingCycle",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:25.706+00:00",
+        "$updatedAt": "2026-03-16T18:56:25.733+00:00",
+        "elements": [
+          "monthly",
+          "yearly"
+        ],
+        "format": "enum",
+        "default": "monthly"
+      },
+      {
+        "key": "baseAmount",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:26.439+00:00",
+        "$updatedAt": "2026-03-16T18:56:26.467+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": 0
+      },
+      {
+        "key": "discountAmount",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:27.174+00:00",
+        "$updatedAt": "2026-03-16T18:56:27.199+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": 0
+      },
+      {
+        "key": "finalAmount",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:27.955+00:00",
+        "$updatedAt": "2026-03-16T18:56:27.983+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": 0
+      },
+      {
+        "key": "paymentProvider",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:28.728+00:00",
+        "$updatedAt": "2026-03-16T18:56:28.750+00:00",
+        "elements": [
+          "razorpay"
+        ],
+        "format": "enum",
+        "default": "razorpay"
+      },
+      {
+        "key": "gatewayOrderId",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:29.447+00:00",
+        "$updatedAt": "2026-03-16T18:56:29.476+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "gatewayPaymentId",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:30.225+00:00",
+        "$updatedAt": "2026-03-16T18:56:30.251+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "couponId",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:31.015+00:00",
+        "$updatedAt": "2026-03-16T18:56:31.047+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "couponCode",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:31.816+00:00",
+        "$updatedAt": "2026-03-16T18:56:31.841+00:00",
+        "size": 64,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "paymentAttemptId",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:32.565+00:00",
+        "$updatedAt": "2026-03-16T18:56:32.594+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "notes",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-16T18:56:33.326+00:00",
+        "$updatedAt": "2026-03-16T18:56:33.356+00:00",
+        "size": 2000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "switchType",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-26T18:42:32.588+00:00",
+        "$updatedAt": "2026-03-26T18:42:32.634+00:00",
+        "size": 64,
+        "default": null,
+        "encrypt": false
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_2_idx_transaction_id_unique",
+        "$createdAt": "2026-03-16T18:56:34.100+00:00",
+        "$updatedAt": "2026-03-16T18:56:34.126+00:00",
+        "key": "idx_transaction_id_unique",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "transactionId"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_2_idx_gateway_payment_unique",
+        "$createdAt": "2026-03-16T18:56:34.207+00:00",
+        "$updatedAt": "2026-03-16T18:56:34.233+00:00",
+        "key": "idx_gateway_payment_unique",
+        "type": "unique",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "gatewayPaymentId"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_2_idx_gateway_order",
+        "$createdAt": "2026-03-16T18:56:34.330+00:00",
+        "$updatedAt": "2026-03-16T18:56:34.354+00:00",
+        "key": "idx_gateway_order",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "gatewayOrderId"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_2_idx_user_transaction_date",
+        "$createdAt": "2026-03-16T18:56:34.473+00:00",
+        "$updatedAt": "2026-03-16T18:56:34.495+00:00",
+        "key": "idx_user_transaction_date",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "userId",
+          "transactionDate"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_2_idx_user_status",
+        "$createdAt": "2026-03-16T18:56:34.647+00:00",
+        "$updatedAt": "2026-03-16T18:56:34.672+00:00",
+        "key": "idx_user_status",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "userId",
+          "status"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_2_idx_payment_attempt",
+        "$createdAt": "2026-03-17T10:07:49.088+00:00",
+        "$updatedAt": "2026-03-17T10:07:49.131+00:00",
+        "key": "idx_payment_attempt",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "paymentAttemptId"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_2_idx_user_status_transaction_date",
+        "$createdAt": "2026-03-17T10:07:58.460+00:00",
+        "$updatedAt": "2026-03-17T10:07:58.496+00:00",
+        "key": "idx_user_status_transaction_date",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "userId",
+          "status",
+          "transactionDate"
+        ],
+        "lengths": [
+          0,
+          0,
+          0
+        ],
+        "orders": []
+      }
+    ]
+  },
+  {
+    "id": "users",
+    "name": "Users",
+    "enabled": true,
+    "documentSecurity": false,
+    "permissions": [
+      "read(\"users\")",
+      "read(\"label:admin\")",
+      "create(\"label:admin\")",
+      "update(\"label:admin\")",
+      "delete(\"label:admin\")"
+    ],
+    "attributes": [
+      {
+        "key": "name",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:24.282+00:00",
+        "$updatedAt": "2026-02-10T10:48:24.313+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "email",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": true,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:24.707+00:00",
+        "$updatedAt": "2026-02-10T10:48:24.732+00:00",
+        "size": 255,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "first_login",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:25.123+00:00",
+        "$updatedAt": "2026-02-10T10:48:25.149+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "last_login",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-10T10:48:25.557+00:00",
+        "$updatedAt": "2026-02-10T10:48:25.578+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "status",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-02-21T07:03:17.060+00:00",
+        "$updatedAt": "2026-02-21T07:03:17.123+00:00",
+        "elements": [
+          "active",
+          "inactive",
+          "blocked",
+          "deleted",
+          "pending"
+        ],
+        "format": "enum",
+        "default": "active"
+      },
+      {
+        "key": "ban_mode",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:17:56.493+00:00",
+        "$updatedAt": "2026-03-02T09:17:56.715+00:00",
+        "elements": [
+          "none",
+          "soft",
+          "hard"
+        ],
+        "format": "enum",
+        "default": "none"
+      },
+      {
+        "key": "ban_reason",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:17:59.052+00:00",
+        "$updatedAt": "2026-03-02T09:17:59.086+00:00",
+        "size": 1000,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "banned_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:01.844+00:00",
+        "$updatedAt": "2026-03-02T09:18:01.899+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "banned_by",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-03-02T09:18:04.209+00:00",
+        "$updatedAt": "2026-03-02T09:18:04.235+00:00",
+        "size": 36,
+        "default": null,
+        "encrypt": false
+      },
+      {
+        "key": "kill_switch_enabled",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-20T08:17:26.994+00:00",
+        "$updatedAt": "2026-04-20T08:17:27.196+00:00",
+        "default": true
+      },
+      {
+        "key": "plan_id",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-22T08:32:58.554+00:00",
+        "$updatedAt": "2026-04-22T08:32:58.827+00:00",
+        "size": 32,
+        "default": "free",
+        "encrypt": false
+      },
+      {
+        "key": "plan_expires_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-04-22T08:32:59.906+00:00",
+        "$updatedAt": "2026-04-22T08:32:59.992+00:00",
+        "format": "",
+        "default": null
+      }
+    ],
+    "indexes": [
+      {
+        "$id": "1_3_idx_users_email_search",
+        "$createdAt": "2026-04-20T08:17:44.740+00:00",
+        "$updatedAt": "2026-04-20T08:17:44.836+00:00",
+        "key": "idx_users_email_search",
+        "type": "fulltext",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "email"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_3_idx_users_name_search",
+        "$createdAt": "2026-04-20T08:17:44.875+00:00",
+        "$updatedAt": "2026-04-20T08:17:44.912+00:00",
+        "key": "idx_users_name_search",
+        "type": "fulltext",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "name"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_3_idx_users_plan_id",
+        "$createdAt": "2026-04-22T08:33:03.357+00:00",
+        "$updatedAt": "2026-04-22T08:33:03.392+00:00",
+        "key": "idx_users_plan_id",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "plan_id"
+        ],
+        "lengths": [
+          0
+        ],
+        "orders": []
+      }
+    ]
+  }
+]

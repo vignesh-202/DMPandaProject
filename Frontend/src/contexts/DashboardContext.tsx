@@ -1,12 +1,15 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export type ViewType =
-    | 'Dashboard'
+    | 'Overview'
     | 'Analytics'
+    | 'Insights'
     | 'Reply Templates'
     | 'Super Profile'
     | 'Inbox Menu'
+    | 'Welcome Message'
     | 'Convo Starter'
     | 'Global Trigger'
     | 'DM Automation'
@@ -22,7 +25,6 @@ export type ViewType =
     | 'Account Settings'
     | 'Support'
     | 'Pricing'
-    | 'Affiliate & Referral'
     | 'Watch Video'
     | 'Contact'
     | 'Have feedback?'
@@ -92,13 +94,93 @@ interface DashboardContextProps {
     inboxMenuLoading: boolean;
     isGlobalLoading: boolean;
     fetchAutomations: (force?: boolean) => Promise<void>;
+    planFeatures: string[];
+    planEntitlements: Record<string, boolean>;
+    planLimits: {
+        instagram_connections_limit?: number | null;
+        instagram_link_limit?: number | null;
+        hourly_action_limit?: number | null;
+        daily_action_limit?: number | null;
+        monthly_action_limit?: number | null;
+    };
+    accessState: {
+        ban_mode?: string;
+        ban_message?: string | null;
+        automation_locked?: boolean;
+        automation_lock_reason?: string | null;
+        kill_switch_enabled?: boolean;
+        dashboard_allowed?: boolean;
+        is_soft_banned?: boolean;
+    } | null;
+    refreshPlanAccess: () => Promise<void>;
+    refreshLinkedProfiles: () => Promise<void>;
+    hasPlanFeature: (featureKey: 'suggest_more' | 'collect_email' | 'seen_typing') => boolean;
 }
 
 const DashboardContext = createContext<DashboardContextProps | undefined>(undefined);
 
+const DASHBOARD_BASE_PATH = '/dashboard';
+
+const VIEW_PATHS: Record<ViewType, string> = {
+    'Overview': '',
+    'Analytics': 'analytics',
+    'Insights': 'insights',
+    'Reply Templates': 'reply-templates',
+    'Super Profile': 'super-profile',
+    'Inbox Menu': 'inbox-menu',
+    'Welcome Message': 'welcome-message',
+    'Convo Starter': 'convo-starter',
+    'Global Trigger': 'global-trigger',
+    'DM Automation': 'dm-automation',
+    'Post Automation': 'post-automation',
+    'Reel Automation': 'reel-automation',
+    'Story Automation': 'story-automation',
+    'Live Automation': 'live-automation',
+    'Mentions': 'mentions',
+    'Email Collector': 'email-collector',
+    'Suggest More': 'suggest-more',
+    'Transactions': 'transactions',
+    'My Plan': 'my-plan',
+    'Account Settings': 'account-settings',
+    'Support': 'support',
+    'Pricing': 'pricing',
+    'Watch Video': 'watch-video',
+    'Contact': 'contact',
+    'Have feedback?': 'feedback',
+    'Comment Automation': 'comment-automation',
+    'Share Automation': 'share-automation',
+    'Mention Automation': 'mention-automation',
+    'Comment Moderation': 'comment-moderation',
+    'Automation Not working?': 'automation-not-working'
+};
+
+const PATH_TO_VIEW = Object.entries(VIEW_PATHS).reduce<Record<string, ViewType>>((acc, [view, path]) => {
+    acc[path] = view as ViewType;
+    return acc;
+}, {});
+
+const normalizeDashboardPathname = (pathname: string): string => {
+    const normalized = pathname.replace(/\/+$/, '');
+    return normalized || DASHBOARD_BASE_PATH;
+};
+
+const getViewFromPathname = (pathname: string): ViewType => {
+    const normalized = normalizeDashboardPathname(pathname);
+    if (!normalized.startsWith(DASHBOARD_BASE_PATH)) return 'Overview';
+    const suffix = normalized.slice(DASHBOARD_BASE_PATH.length).replace(/^\/+/, '');
+    return PATH_TO_VIEW[suffix] || 'Overview';
+};
+
+const getPathForView = (view: ViewType): string => {
+    const suffix = VIEW_PATHS[view] || '';
+    return suffix ? `${DASHBOARD_BASE_PATH}/${suffix}` : DASHBOARD_BASE_PATH;
+};
+
 export const DashboardProvider = ({ children }: { children: ReactNode }) => {
-    const { user } = useAuth();
-    const [currentView, setCurrentView] = useState<ViewType>('Dashboard');
+    const { user, accessState: authAccessState } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [currentViewState, setCurrentViewState] = useState<ViewType>(() => getViewFromPathname(location.pathname));
     const [mediaCache, setMediaCache] = useState<Record<string, any[]>>({});
     const [igAccounts, setIgAccounts] = useState<any[]>([]);
     const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
@@ -131,10 +213,109 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     const [inboxMenuLoading, setInboxMenuLoading] = useState(false);
     const [automationInitialLoaded, setAutomationInitialLoaded] = useState<Record<string, boolean>>({});
     const isFetchingInboxMenu = useRef(false);
+    const [planFeatures, setPlanFeatures] = useState<string[]>([]);
+    const [planEntitlements, setPlanEntitlements] = useState<Record<string, boolean>>({});
+    const [planLimits, setPlanLimits] = useState<DashboardContextProps['planLimits']>({});
+    const [accessState, setAccessState] = useState<DashboardContextProps['accessState']>(authAccessState || null);
 
     const [isGlobalLoading, setIsGlobalLoading] = useState(true);
+    const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
 
     const { authenticatedFetch } = useAuth();
+
+    const hasPlanFeature = useCallback((featureKey: 'suggest_more' | 'collect_email' | 'seen_typing') => {
+        const entitlementAliases: Record<string, string[]> = {
+            suggest_more: ['suggest_more'],
+            collect_email: ['collect_email', 'email_collector', 'webhook_integrations'],
+            seen_typing: ['seen_typing']
+        };
+        const normalizedEntitlements = Object.entries(planEntitlements || {}).reduce<Record<string, boolean>>((acc, [key, value]) => {
+            acc[String(key || '').toLowerCase().replace(/[+/_-]+/g, ' ').replace(/\s+/g, ' ').trim()] = value === true;
+            return acc;
+        }, {});
+        const hasEntitlement = (entitlementAliases[featureKey] || [featureKey]).some((alias) =>
+            normalizedEntitlements[String(alias || '').toLowerCase().replace(/[+/_-]+/g, ' ').replace(/\s+/g, ' ').trim()] === true
+        );
+        if (hasEntitlement) return true;
+
+        const normalizedFeatures = planFeatures
+            .map((feature) => String(feature || '').toLowerCase().replace(/[+/_-]+/g, ' ').replace(/\s+/g, ' ').trim())
+            .filter(Boolean);
+        const matchers: Record<string, string[][]> = {
+            suggest_more: [['suggest', 'more']],
+            collect_email: [['collect', 'email'], ['email', 'collector'], ['google', 'sheet'], ['webhook', 'integration']],
+            seen_typing: [['seen', 'typing'], ['seen', 'typing', 'reaction']]
+        };
+        return (matchers[featureKey] || []).some((terms) =>
+            normalizedFeatures.some((feature) => terms.every((term) => feature.includes(term)))
+        );
+    }, [planEntitlements, planFeatures]);
+
+    const setCurrentView = useCallback((view: ViewType) => {
+        const nextPath = getPathForView(view);
+        if (normalizeDashboardPathname(location.pathname) === normalizeDashboardPathname(nextPath)) {
+            return;
+        }
+        navigate(nextPath);
+    }, [location.pathname, navigate]);
+
+    useEffect(() => {
+        const routeView = getViewFromPathname(location.pathname);
+        const canonicalPath = getPathForView(routeView);
+        const normalizedPath = normalizeDashboardPathname(location.pathname);
+
+        setCurrentViewState((prev) => (prev === routeView ? prev : routeView));
+
+        if (normalizedPath.startsWith(DASHBOARD_BASE_PATH) && normalizedPath !== canonicalPath) {
+            navigate(canonicalPath, { replace: true });
+        }
+    }, [location.pathname, navigate]);
+
+    const refreshPlanAccess = useCallback(async () => {
+        const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`);
+        if (!response.ok) {
+            throw new Error('Failed to load plan access');
+        }
+        const payload = await response.json();
+        setPlanFeatures(Array.isArray(payload?.details?.features) ? payload.details.features : []);
+        setPlanEntitlements(payload?.entitlements && typeof payload.entitlements === 'object' ? payload.entitlements : {});
+        setPlanLimits(payload?.limits && typeof payload.limits === 'object' ? payload.limits : {});
+        setAccessState(payload?.access_state || authAccessState || null);
+    }, [authAccessState, authenticatedFetch]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const loadPlanFeatures = async () => {
+            try {
+                const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`);
+                if (!response.ok) {
+                    throw new Error('Failed to load plan access');
+                }
+                const payload = await response.json();
+                if (!cancelled) {
+                    setPlanFeatures(Array.isArray(payload?.details?.features) ? payload.details.features : []);
+                    setPlanEntitlements(payload?.entitlements && typeof payload.entitlements === 'object' ? payload.entitlements : {});
+                    setPlanLimits(payload?.limits && typeof payload.limits === 'object' ? payload.limits : {});
+                    setAccessState(payload?.access_state || authAccessState || null);
+                }
+            } catch (_) {
+                if (!cancelled) {
+                    setPlanFeatures([]);
+                    setPlanEntitlements({});
+                    setPlanLimits({});
+                    setAccessState(authAccessState || null);
+                }
+            }
+        };
+        loadPlanFeatures();
+        return () => {
+            cancelled = true;
+        };
+    }, [authAccessState, authenticatedFetch, user?.$id]);
+
+    useEffect(() => {
+        setAccessState((prev) => authAccessState || prev || null);
+    }, [authAccessState]);
 
     // Refs for stable dependencies in callbacks
     const igAccountsRef = React.useRef(igAccounts);
@@ -151,20 +332,38 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     // Ref to track the last account ID for which stats were fetched to prevent duplicates
     const lastFetchedStatsAccountID = React.useRef<string | null>(null);
 
-    // Ref to track the last synced values to prevent duplicate sync calls
-    const lastSyncedValues = React.useRef<{
-        accountId: string | null;
-        profile_picture_url: string;
-        username: string;
-        name: string;
-    } | null>(null);
+    const bulkProfileRefreshKeys = React.useRef<Set<string>>(new Set());
+
+    const refreshLinkedProfiles = useCallback(async () => {
+        const sourceAccounts = igAccountsRef.current || [];
+        const refreshKey = sourceAccounts
+            .map((account) => `${account.id}:${account.profile_picture_url || ''}:${account.username || ''}`)
+            .join('|');
+        if (!refreshKey) return;
+        if (bulkProfileRefreshKeys.current.has(refreshKey)) return;
+        bulkProfileRefreshKeys.current.add(refreshKey);
+        try {
+            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts/refresh-profiles`, {
+                method: 'POST'
+            });
+            if (!response.ok) return;
+            const payload = await response.json().catch(() => null);
+            if (Array.isArray(payload?.ig_accounts)) {
+                setIgAccounts(payload.ig_accounts);
+            }
+        } catch (_) {
+            // best effort
+        } finally {
+            bulkProfileRefreshKeys.current.delete(refreshKey);
+        }
+    }, [authenticatedFetch, igAccounts]);
 
     // Fetch account stats
     const fetchStats = useCallback(async (accountId: string, accountsOverride?: any[]) => {
         const sourceAccounts = accountsOverride || igAccountsRef.current;
         const account = sourceAccounts.find(a => a.ig_user_id === accountId || a.id === accountId);
 
-        if (account?.status !== 'active') {
+        if (account?.status !== 'active' || account?.effective_access === false) {
             setActiveAccountStats(null);
             lastFetchedStatsAccountID.current = null;
             return;
@@ -192,17 +391,12 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [authenticatedFetch]);
 
-    const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
-
     const isFetchingAccounts = useRef(false);
 
     // Unified accounts fetch with automatic sync
     const fetchIgAccounts = useCallback(async () => {
         if (isFetchingAccounts.current) return;
         isFetchingAccounts.current = true;
-
-        // Clear lastSyncedValues on login/refresh to ensure sync runs every time
-        lastSyncedValues.current = null;
 
         setIsLoadingAccounts(true);
         // Ensure global loading is true on start if needed, but usually it's true by default on mount
@@ -214,12 +408,15 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                 const data = await response.json();
                 const accounts = data.ig_accounts || [];
                 setIgAccounts(accounts);
+                if (accounts.length > 0) {
+                    await refreshLinkedProfiles();
+                }
 
                 if (accounts.length > 0) {
                     // Logic to determine ID for initial load
                     let initialTargetID: string | null = null;
 
-                    const firstActive = accounts.find((a: any) => a.status === 'active');
+                    const firstActive = accounts.find((a: any) => a.status === 'active' && a.effective_access !== false);
                     if (firstActive) {
                         initialTargetID = firstActive.ig_user_id;
                     } else {
@@ -239,7 +436,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                     // We also set lastFetchedStatsAccountID immediately to prevent the useEffect watcher from double-fetching.
                     if (initialTargetID) {
                         const targetAcc = accounts.find((a: any) => a.ig_user_id === initialTargetID || a.id === initialTargetID);
-                        if (targetAcc && targetAcc.status === 'active') {
+                        if (targetAcc && targetAcc.status === 'active' && targetAcc.effective_access !== false) {
                             // Pre-set the ref so the useEffect hook sees it as 'already fetched'
                             lastFetchedStatsAccountID.current = initialTargetID;
                             await fetchStats(initialTargetID, accounts);
@@ -267,6 +464,41 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [user?.id, fetchIgAccounts]);
 
+    useEffect(() => {
+        if (!user || !isInitialLoadComplete) return;
+
+        const revalidate = async () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+                return;
+            }
+            try {
+                await refreshPlanAccess();
+                const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts`);
+                if (!response.ok) return;
+                const payload = await response.json().catch(() => null);
+                if (Array.isArray(payload?.ig_accounts)) {
+                    setIgAccounts(payload.ig_accounts);
+                    setActiveAccountID((prevID) => {
+                        if (prevID && payload.ig_accounts.some((account: any) => account.ig_user_id === prevID || account.id === prevID)) {
+                            return prevID;
+                        }
+                        const firstAccessible = payload.ig_accounts.find((account: any) => account.status === 'active' && account.effective_access !== false);
+                        return firstAccessible?.ig_user_id || payload.ig_accounts[0]?.ig_user_id || null;
+                    });
+                }
+            } catch (_) {
+                // keep current session state until the next successful revalidation
+            }
+        };
+
+        const intervalId = window.setInterval(revalidate, 20000);
+        window.addEventListener('focus', revalidate);
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener('focus', revalidate);
+        };
+    }, [authenticatedFetch, isInitialLoadComplete, refreshPlanAccess, user]);
+
     // Trigger stats fetch when active ID changes AFTER initial load
     // We use a ref to skip the first run because fetchIgAccounts handles it
     const isFirstRun = React.useRef(true);
@@ -289,9 +521,6 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
     // Clear caches when switching accounts to ensure no data bleed
     useEffect(() => {
-        // Clear last synced values when account changes
-        lastSyncedValues.current = null;
-
         if (activeAccountID) {
             setDmAutomations([]);
             setGlobalTriggers([]);
@@ -305,90 +534,6 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     }, [activeAccountID]);
 
     const activeAccount = igAccounts.find(a => a.ig_user_id === activeAccountID || a.id === activeAccountID) || null;
-
-    // Sync profile data (pic, username, name) when stats are loaded and different from active account record
-    useEffect(() => {
-        const syncProfile = async () => {
-            const stats = activeAccountStats;
-            // CRITICAL: stats._accountId is the ig_user_id. activeAccount.id is the Appwrite Doc ID.
-            // We must cross-reference using the ig_user_id to ensure we are syncing the correct account.
-            if (!stats || !activeAccount || stats._accountId !== activeAccount.ig_user_id || activeAccount.status !== 'active') return;
-
-            const statsUrl = stats.profile_picture_url || '';
-            const currentUrl = activeAccount?.profile_picture_url || '';
-            const statsUsername = stats.username || '';
-            const currentUsername = activeAccount?.username || '';
-            const statsName = stats.name || '';
-            const currentName = activeAccount?.name || '';
-
-            // Check if we've already synced these exact values for this account
-            const accountId = activeAccount.id;
-            if (lastSyncedValues.current &&
-                lastSyncedValues.current.accountId === accountId &&
-                lastSyncedValues.current.profile_picture_url === statsUrl &&
-                lastSyncedValues.current.username === statsUsername &&
-                lastSyncedValues.current.name === statsName) {
-                // Already synced these exact values, skip
-                return;
-            }
-
-            // Compare data and check for differences - use strict equality check
-            const isPicDifferent = statsUrl !== currentUrl;
-            const isUsernameDifferent = statsUsername !== currentUsername;
-            const isNameDifferent = statsName !== currentName;
-
-            // Only sync if there are actual differences
-            if (isPicDifferent || isUsernameDifferent || isNameDifferent) {
-                console.log(`[Sync] Detecting changes for @${currentUsername}:`, { isPicDifferent, isUsernameDifferent, isNameDifferent });
-                try {
-                    // Send the internal Appwrite ID for direct document access
-                    const updatePayload: any = { account_id: activeAccount.id };
-                    if (isPicDifferent) updatePayload.profile_picture_url = statsUrl;
-                    if (isUsernameDifferent) updatePayload.username = statsUsername;
-                    if (isNameDifferent) updatePayload.name = statsName;
-
-                    const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts/sync-profile`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(updatePayload)
-                    });
-
-                    if (response.ok) {
-                        console.log(`[Sync] Successfully updated @${statsUsername} in database.`);
-                        // Track the synced values to prevent duplicate calls
-                        lastSyncedValues.current = {
-                            accountId: accountId,
-                            profile_picture_url: statsUrl,
-                            username: statsUsername,
-                            name: statsName
-                        };
-                        setIgAccounts(prev => prev.map(acc =>
-                            (acc.id === activeAccount.id)
-                                ? { ...acc, ...updatePayload }
-                                : acc
-                        ));
-                    } else {
-                        const errData = await response.json();
-                        console.error('[Sync] Backend failed to update profile:', errData);
-                    }
-                } catch (error) {
-                    console.error('[Sync] Error syncing profile:', error);
-                }
-            } else {
-                // Data is the same, track it to prevent future unnecessary checks
-                lastSyncedValues.current = {
-                    accountId: accountId,
-                    profile_picture_url: statsUrl,
-                    username: statsUsername,
-                    name: statsName
-                };
-            }
-        };
-
-        syncProfile();
-    }, [activeAccountStats, activeAccount, authenticatedFetch]);
 
     const fetchAutomations = useCallback(async (force = false) => {
         if (!activeAccountID) return;
@@ -419,12 +564,6 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
             if (response.ok) {
                 const data = await response.json();
                 setInboxMenuData(data);
-                // Task 1: Store inbox menu in frontend for future edits
-                if (data.db_menu && data.db_menu.length > 0) {
-                    localStorage.setItem(`inbox_menu_${activeAccountID}`, JSON.stringify(data.db_menu));
-                } else if (data.ig_menu && data.ig_menu.length > 0) {
-                    localStorage.setItem(`inbox_menu_${activeAccountID}`, JSON.stringify(data.ig_menu));
-                }
             }
         } catch (error) {
             console.error('Error fetching inbox menu:', error);
@@ -451,12 +590,9 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                 if (response.ok) {
                     const data = await response.json();
                     setConvoStarterData(data);
-                    // Store convo starters in frontend for future edits
                     if (data.db_starters && data.db_starters.length > 0) {
-                        localStorage.setItem(`convo_starters_${activeAccountID}`, JSON.stringify(data.db_starters));
                         setConvoStarters(data.db_starters);
                     } else if (data.ig_starters && data.ig_starters.length > 0) {
-                        localStorage.setItem(`convo_starters_${activeAccountID}`, JSON.stringify(data.ig_starters));
                         setConvoStarters(data.ig_starters);
                     } else {
                         setConvoStarters([]);
@@ -492,7 +628,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     const [discardUnsavedChanges, setDiscardUnsavedChanges] = useState<() => void>(() => () => { });
 
     const value = {
-        currentView,
+        currentView: currentViewState,
         setCurrentView,
         mediaCache,
         updateMediaCache,
@@ -541,7 +677,14 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         inboxMenuLoading,
         automationInitialLoaded,
         setAutomationInitialLoaded,
-        isGlobalLoading
+        isGlobalLoading,
+        planFeatures,
+        planEntitlements,
+        planLimits,
+        accessState,
+        refreshPlanAccess,
+        refreshLinkedProfiles,
+        hasPlanFeature
     };
 
     return (

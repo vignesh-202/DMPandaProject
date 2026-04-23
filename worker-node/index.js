@@ -5,6 +5,7 @@ const morgan = require('morgan');
 require('dotenv').config();
 
 const DMWorker = require('./src/worker');
+const StreamerClient = require('./src/streamer-client');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -15,6 +16,10 @@ app.use(morgan('dev'));
 app.use(bodyParser.json());
 
 const worker = new DMWorker();
+const streamerClient = new StreamerClient({ worker });
+const directWebhookProcessingEnabled =
+    String(process.env.WORKER_ACCEPT_DIRECT_WEBHOOKS || '').trim().toLowerCase() === 'true'
+    || !streamerClient.isEnabled();
 
 function redactObject(value, seen = new WeakSet()) {
     if (value === null || value === undefined) return value;
@@ -75,12 +80,25 @@ function sendLoggedText(res, statusCode, text) {
 // Health check endpoint
 app.get('/health', (req, res) => {
     logRequestDetails(req);
-    return sendLoggedJson(res, 200, { status: 'ok', service: 'worker-node' });
+    return sendLoggedJson(res, 200, {
+        status: 'ok',
+        service: 'worker-node',
+        role: streamerClient.isEnabled() ? 'slave' : 'standalone',
+        streamer_attached: streamerClient.isEnabled(),
+        direct_webhook_processing_enabled: directWebhookProcessingEnabled
+    });
 });
 
 // Meta webhook verification endpoint
 app.get('/webhook', (req, res) => {
     logRequestDetails(req);
+
+    if (!directWebhookProcessingEnabled) {
+        return sendLoggedJson(res, 409, {
+            error: 'worker_slaves_do_not_accept_webhooks',
+            message: 'Send Meta webhooks to the streamer master instead of a worker slave.'
+        });
+    }
 
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -97,6 +115,13 @@ app.get('/webhook', (req, res) => {
 app.post('/webhook', async (req, res) => {
     logRequestDetails(req);
 
+    if (!directWebhookProcessingEnabled) {
+        return sendLoggedJson(res, 409, {
+            error: 'worker_slaves_do_not_accept_webhooks',
+            message: 'Send Meta webhooks to the streamer master instead of a worker slave.'
+        });
+    }
+
     try {
         const success = await worker.processMessage(req.body);
         return sendLoggedJson(res, 200, { success });
@@ -110,6 +135,13 @@ app.post('/webhook', async (req, res) => {
 app.post('/process-webhook', async (req, res) => {
     logRequestDetails(req);
 
+    if (!directWebhookProcessingEnabled) {
+        return sendLoggedJson(res, 409, {
+            error: 'worker_slaves_do_not_accept_webhooks',
+            message: 'Send internal webhook jobs to the streamer master instead of a worker slave.'
+        });
+    }
+
     try {
         const success = await worker.processMessage(req.body);
         return sendLoggedJson(res, 200, { success });
@@ -121,4 +153,5 @@ app.post('/process-webhook', async (req, res) => {
 
 app.listen(port, () => {
     console.log(`Worker node listening at http://localhost:${port}`);
+    streamerClient.start();
 });

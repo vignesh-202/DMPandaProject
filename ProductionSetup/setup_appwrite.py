@@ -1,484 +1,760 @@
+import json
 import os
 import time
+from copy import deepcopy
 from pathlib import Path
-from appwrite.client import Client
-from appwrite.services.databases import Databases
+
+from appwrite.client import AppwriteException, Client
 from appwrite.id import ID
-from appwrite.client import AppwriteException
 from appwrite.permission import Permission
 from appwrite.role import Role
+from appwrite.services.databases import Databases
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).resolve().parent
-ENV_PATH = os.getenv("APPWRITE_ENV_PATH") or str(BASE_DIR / ".env")
+ROOT_DIR = Path(__file__).resolve().parents[1]
+SCHEMA_PATH = ROOT_DIR / "docs" / "appwrite-schema-live.json"
+ENV_PATH = Path(__file__).resolve().with_name(".env")
+
 load_dotenv(ENV_PATH)
 
 APPWRITE_ENDPOINT = os.getenv("APPWRITE_ENDPOINT")
 APPWRITE_PROJECT_ID = os.getenv("APPWRITE_PROJECT_ID")
 APPWRITE_API_KEY = os.getenv("APPWRITE_API_KEY")
-APPWRITE_DATABASE_ID = os.getenv("APPWRITE_DATABASE_ID")
+DATABASE_ID = os.getenv("DATABASE_ID") or os.getenv("APPWRITE_DATABASE_ID")
 
-missing_env = [k for k, v in {
+REQUIRED_ENV = {
     "APPWRITE_ENDPOINT": APPWRITE_ENDPOINT,
     "APPWRITE_PROJECT_ID": APPWRITE_PROJECT_ID,
     "APPWRITE_API_KEY": APPWRITE_API_KEY,
-    "APPWRITE_DATABASE_ID": APPWRITE_DATABASE_ID
-}.items() if not v]
+    "DATABASE_ID": DATABASE_ID,
+}
 
-if missing_env:
-    raise SystemExit(f"Missing required env vars: {', '.join(missing_env)}. "
-                     f"Set them in {ENV_PATH} or your environment.")
+DEFAULT_COLLECTION_PERMISSIONS = [
+    Permission.read(Role.users()),
+    Permission.create(Role.users()),
+    Permission.update(Role.users()),
+    Permission.delete(Role.users()),
+]
 
-client = Client()
-client.set_endpoint(APPWRITE_ENDPOINT)
-client.set_project(APPWRITE_PROJECT_ID)
-client.set_key(APPWRITE_API_KEY)
+EMAIL_CAMPAIGNS_COLLECTION = {
+    "id": "email_campaigns",
+    "name": "Email Campaigns",
+    "enabled": True,
+    "documentSecurity": False,
+    "permissions": [
+        "read(\"label:admin\")",
+        "create(\"label:admin\")",
+        "update(\"label:admin\")",
+        "delete(\"label:admin\")",
+    ],
+    "attributes": [
+        {"key": "admin_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
+        {"key": "appwrite_message_id", "type": "string", "size": 255, "required": False, "array": False, "default": None},
+        {"key": "subject", "type": "string", "size": 500, "required": True, "array": False, "default": None},
+        {
+            "key": "status",
+            "type": "string",
+            "required": False,
+            "array": False,
+            "default": "sent",
+            "elements": ["draft", "queued", "scheduled", "sent", "failed"],
+        },
+        {"key": "target_total", "type": "integer", "required": False, "array": False, "default": 0},
+        {"key": "queued_total", "type": "integer", "required": False, "array": False, "default": 0},
+        {"key": "delivered_total", "type": "integer", "required": False, "array": False, "default": 0},
+        {"key": "failed_total", "type": "integer", "required": False, "array": False, "default": 0},
+        {"key": "scheduled_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "sent_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "created_at", "type": "datetime", "required": True, "array": False, "default": None},
+        {"key": "updated_at", "type": "datetime", "required": True, "array": False, "default": None},
+        {"key": "segment_key", "type": "string", "size": 120, "required": False, "array": False, "default": "all"},
+        {"key": "filters_json", "type": "string", "size": 20000, "required": False, "array": False, "default": None},
+        {"key": "metrics_json", "type": "string", "size": 20000, "required": False, "array": False, "default": None},
+    ],
+    "indexes": [
+        {"key": "idx_campaign_created_at", "type": "key", "attributes": ["created_at"], "orders": []},
+        {"key": "idx_campaign_status_created", "type": "key", "attributes": ["status", "created_at"], "orders": []},
+        {"key": "idx_campaign_admin_created", "type": "key", "attributes": ["admin_id", "created_at"], "orders": []},
+        {"key": "idx_campaign_message_id", "type": "key", "attributes": ["appwrite_message_id"], "orders": []},
+    ],
+}
 
-databases = Databases(client)
+AUTOMATION_COLLECTED_EMAILS_COLLECTION = {
+    "id": "automation_collected_emails",
+    "name": "Automation Collected Emails",
+    "enabled": True,
+    "documentSecurity": False,
+    "permissions": DEFAULT_COLLECTION_PERMISSIONS,
+    "attributes": [
+        {"key": "user_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
+        {"key": "account_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
+        {"key": "automation_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
+        {"key": "conversation_key", "type": "string", "size": 255, "required": True, "array": False, "default": None},
+        {"key": "sender_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
+        {"key": "recipient_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
+        {"key": "email", "type": "string", "size": 255, "required": True, "array": False, "default": None},
+        {"key": "normalized_email", "type": "string", "size": 255, "required": True, "array": False, "default": None},
+        {"key": "send_to", "type": "string", "size": 50, "required": False, "array": False, "default": None},
+        {"key": "sender_profile_url", "type": "string", "size": 500, "required": False, "array": False, "default": None},
+        {"key": "receiver_name", "type": "string", "size": 255, "required": False, "array": False, "default": None},
+        {"key": "automation_title", "type": "string", "size": 255, "required": False, "array": False, "default": None},
+        {"key": "automation_type", "type": "string", "size": 50, "required": False, "array": False, "default": None},
+        {"key": "collected_at", "type": "datetime", "required": True, "array": False, "default": None},
+        {"key": "updated_at", "type": "datetime", "required": True, "array": False, "default": None},
+    ],
+    "indexes": [
+        {"key": "idx_normalized_email", "type": "key", "attributes": ["normalized_email"], "orders": []},
+        {"key": "idx_account_collected_at", "type": "key", "attributes": ["account_id", "collected_at"], "orders": []},
+        {"key": "idx_automation_collected_at", "type": "key", "attributes": ["automation_id", "collected_at"], "orders": []},
+    ],
+}
 
-def get_existing_attributes(collection_id):
+JOB_LOCKS_COLLECTION = {
+    "id": "job_locks",
+    "name": "Job Locks",
+    "enabled": True,
+    "documentSecurity": False,
+    "permissions": [
+        "read(\"label:admin\")",
+        "create(\"label:admin\")",
+        "update(\"label:admin\")",
+        "delete(\"label:admin\")",
+    ],
+    "attributes": [
+        {"key": "job_name", "type": "string", "size": 120, "required": True, "array": False, "default": None},
+        {"key": "run_window", "type": "string", "size": 120, "required": True, "array": False, "default": None},
+        {"key": "lock_key", "type": "string", "size": 255, "required": True, "array": False, "default": None},
+        {"key": "expires_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "created_at", "type": "datetime", "required": True, "array": False, "default": None},
+    ],
+    "indexes": [
+        {"key": "idx_job_lock_key", "type": "unique", "attributes": ["lock_key"], "orders": []},
+        {"key": "idx_job_name_window", "type": "key", "attributes": ["job_name", "run_window"], "orders": []},
+        {"key": "idx_job_lock_expiry", "type": "key", "attributes": ["expires_at"], "orders": []},
+    ],
+}
+
+ADDITIONAL_ATTRIBUTES = {
+    "users": [
+        {"key": "plan_id", "type": "string", "required": False, "array": False, "default": "free", "size": 32},
+        {"key": "plan_expires_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "kill_switch_enabled", "type": "boolean", "required": False, "array": False, "default": True},
+    ],
+    "profiles": [
+        {"key": "plan_code", "type": "string", "required": False, "array": False, "default": None, "size": 32},
+        {"key": "plan_name", "type": "string", "required": False, "array": False, "default": None, "size": 100},
+        {
+            "key": "plan_status",
+            "type": "string",
+            "required": False,
+            "array": False,
+            "default": "inactive",
+            "elements": ["trial", "active", "inactive", "cancelled", "expired", "past_due"],
+        },
+        {
+            "key": "billing_cycle",
+            "type": "string",
+            "required": False,
+            "array": False,
+            "default": None,
+            "elements": ["monthly", "yearly"],
+        },
+        {"key": "expires_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "limits_json", "type": "string", "required": False, "array": False, "default": None, "size": 1200},
+        {"key": "features_json", "type": "string", "required": False, "array": False, "default": None, "size": 600},
+        {"key": "paid_plan_snapshot_json", "type": "string", "required": False, "array": False, "default": None, "size": 600},
+        {"key": "admin_override_json", "type": "string", "required": False, "array": False, "default": None, "size": 140},
+        {"key": "kill_switch_enabled", "type": "boolean", "required": False, "array": False, "default": True},
+    ],
+    "pricing": [
+        {"key": "monthly_duration_days", "type": "integer", "required": False, "array": False, "default": 30, "min": 1, "max": 366},
+        {"key": "yearly_duration_days", "type": "integer", "required": False, "array": False, "default": 364, "min": 1, "max": 366},
+        {"key": "instagram_link_limit", "type": "integer", "required": False, "array": False, "default": 0, "min": 0, "max": 1000},
+    ],
+    "ig_accounts": [
+        {"key": "admin_disabled", "type": "boolean", "required": False, "array": False, "default": False},
+        {"key": "plan_locked", "type": "boolean", "required": False, "array": False, "default": False},
+        {"key": "access_override_enabled", "type": "boolean", "required": False, "array": False, "default": False},
+        {"key": "effective_access", "type": "boolean", "required": False, "array": False, "default": True},
+        {
+            "key": "access_state",
+            "type": "string",
+            "required": False,
+            "array": False,
+            "default": "active",
+            "elements": ["active", "inactive", "admin_disabled", "plan_locked", "override_enabled"],
+        },
+        {"key": "access_reason", "type": "string", "required": False, "array": False, "default": None, "size": 120},
+    ],
+    "coupons": [
+        {
+            "key": "billing_cycle_targets",
+            "type": "string",
+            "required": False,
+            "array": True,
+            "default": None,
+            "size": 32,
+        },
+    ],
+    "payment_attempts": [
+        {
+            "key": "status",
+            "type": "string",
+            "required": True,
+            "array": False,
+            "default": "created",
+            "elements": ["created", "paid", "expired", "cleared", "cancelled"],
+        },
+    ],
+}
+
+ADDITIONAL_INDEXES = {
+    "users": [
+        {"key": "idx_users_email_search", "type": "fulltext", "attributes": ["email"], "orders": []},
+        {"key": "idx_users_name_search", "type": "fulltext", "attributes": ["name"], "orders": []},
+        {"key": "idx_users_plan_id", "type": "key", "attributes": ["plan_id"], "orders": []},
+        {"key": "idx_users_plan_expiry", "type": "key", "attributes": ["plan_id", "plan_expires_at"], "orders": []},
+    ],
+    "profiles": [
+        {"key": "idx_profiles_expires_at", "type": "key", "attributes": ["expires_at"], "orders": []},
+        {"key": "idx_profiles_plan_cycle", "type": "key", "attributes": ["plan_code", "billing_cycle"], "orders": []},
+        {"key": "idx_profiles_plan_expiry", "type": "key", "attributes": ["plan_code", "expires_at"], "orders": []},
+    ],
+    "ig_accounts": [
+        {"key": "idx_ig_user_linked_at", "type": "key", "attributes": ["user_id", "linked_at"], "orders": []},
+        {"key": "idx_ig_user_effective_access", "type": "key", "attributes": ["user_id", "effective_access"], "orders": []},
+        {"key": "idx_ig_user_admin_plan_lock", "type": "key", "attributes": ["user_id", "admin_disabled", "plan_locked"], "orders": []},
+    ],
+    "payment_attempts": [
+        {"key": "idx_payment_attempt_status_created", "type": "key", "attributes": ["status", "created_at"], "orders": []},
+        {"key": "idx_pay_att_user_status_created", "type": "key", "attributes": ["user_id", "status", "created_at"], "orders": []},
+        {"key": "idx_pay_att_gateway_payment", "type": "key", "attributes": ["gateway_payment_id"], "orders": []},
+    ],
+    "transactions": [
+        {"key": "idx_payment_attempt", "type": "key", "attributes": ["paymentAttemptId"], "orders": []},
+        {"key": "idx_gateway_order", "type": "key", "attributes": ["gatewayOrderId"], "orders": []},
+        {"key": "idx_transaction_id_unique", "type": "unique", "attributes": ["transactionId"], "orders": []},
+    ],
+    "coupons": [
+        {"key": "idx_coupons_code_search", "type": "fulltext", "attributes": ["code"], "orders": []},
+        {"key": "idx_coupons_active_expiry", "type": "key", "attributes": ["active", "expires_at"], "orders": []},
+    ],
+    "admin_audit_logs": [
+        {"key": "idx_target_user_created", "type": "key", "attributes": ["target_user_id", "created_at"], "orders": []},
+    ],
+}
+
+COLLECTION_OVERRIDES = {
+    "admin_audit_logs": {
+        "permissions": [
+            "read(\"label:admin\")",
+            "create(\"label:admin\")",
+            "update(\"label:admin\")",
+            "delete(\"label:admin\")",
+        ],
+        "documentSecurity": False,
+        "enabled": True,
+    }
+}
+
+DEPRECATED_COLLECTIONS = {
+    "subscription_reminder_events",
+    "affiliate_profiles",
+    "referrals",
+    "payouts",
+    "notification_throttles",
+    "worker_locks",
+}
+
+DEPRECATED_ATTRIBUTES = {
+    "users": {
+        "referred_by",
+        "referral_code",
+        "subscription_plan_id",
+        "subscription_expires",
+        "subscription_status",
+    },
+    "profiles": {
+        "no_watermark_enabled",
+    },
+}
+
+DEPRECATED_INDEXES = {}
+
+
+def _filter_schema_items(collection_id, items, deprecated_items):
+    blocked = deprecated_items.get(collection_id, set())
+    if not blocked:
+        return list(items)
+    return [item for item in items if item.get("key") not in blocked]
+
+
+def require_env():
+    missing = [key for key, value in REQUIRED_ENV.items() if not value]
+    if missing:
+        raise SystemExit(f"Missing required env vars: {', '.join(missing)}")
+
+
+def build_client():
+    client = Client()
+    client.set_endpoint(APPWRITE_ENDPOINT)
+    client.set_project(APPWRITE_PROJECT_ID)
+    client.set_key(APPWRITE_API_KEY)
+    return client
+
+
+def parse_numeric(value, value_type):
+    if value is None:
+        return None
+    if value_type == "integer":
+        return int(value)
+    if value_type == "double":
+        return float(value)
+    return value
+
+
+def load_schema_definitions():
+    if not SCHEMA_PATH.exists():
+        raise SystemExit(f"Schema snapshot not found at {SCHEMA_PATH}")
+
+    with SCHEMA_PATH.open("r", encoding="utf-8") as handle:
+        base = json.load(handle)
+
+    merged = {collection["id"]: deepcopy(collection) for collection in base}
+    for extra in (EMAIL_CAMPAIGNS_COLLECTION, AUTOMATION_COLLECTED_EMAILS_COLLECTION, JOB_LOCKS_COLLECTION):
+        if extra["id"] not in merged:
+            merged[extra["id"]] = deepcopy(extra)
+        else:
+            for key in ("attributes", "indexes"):
+                current = {item["key"]: item for item in merged[extra["id"]].get(key, [])}
+                for item in extra.get(key, []):
+                    current[item["key"]] = item
+                merged[extra["id"]][key] = list(current.values())
+
+    for collection_id, attributes in ADDITIONAL_ATTRIBUTES.items():
+        if collection_id not in merged:
+            continue
+        current = {item["key"]: item for item in merged[collection_id].get("attributes", [])}
+        for item in attributes:
+            current[item["key"]] = item
+        merged[collection_id]["attributes"] = list(current.values())
+
+    for collection_id, indexes in ADDITIONAL_INDEXES.items():
+        if collection_id not in merged:
+            continue
+        current = {item["key"]: item for item in merged[collection_id].get("indexes", [])}
+        for item in indexes:
+            current[item["key"]] = item
+        merged[collection_id]["indexes"] = list(current.values())
+
+    for collection_id, override in COLLECTION_OVERRIDES.items():
+        if collection_id in merged:
+            merged[collection_id].update(deepcopy(override))
+
+    for collection_id, definition in merged.items():
+        definition["attributes"] = _filter_schema_items(
+            collection_id,
+            definition.get("attributes", []),
+            DEPRECATED_ATTRIBUTES,
+        )
+        definition["indexes"] = _filter_schema_items(
+            collection_id,
+            definition.get("indexes", []),
+            DEPRECATED_INDEXES,
+        )
+
+    return [definition for collection_id, definition in merged.items() if collection_id not in DEPRECATED_COLLECTIONS]
+
+
+def ensure_database(databases):
     try:
-        attrs = databases.list_attributes(APPWRITE_DATABASE_ID, collection_id)
-        return {a['key']: a for a in attrs['attributes']}
-    except:
+        databases.get(DATABASE_ID)
+        print(f"[OK] Database '{DATABASE_ID}' already exists.")
+    except AppwriteException as error:
+        if "404" not in str(error) and "could not be found" not in str(error).lower():
+            raise
+        print(f"[+] Creating database '{DATABASE_ID}'...")
+        databases.create(DATABASE_ID, DATABASE_ID)
+        time.sleep(2)
+
+
+def list_collections(databases):
+    response = databases.list_collections(DATABASE_ID)
+    return {collection["$id"]: collection for collection in response.get("collections", [])}
+
+
+def list_attributes(databases, collection_id):
+    try:
+        collection = databases.get_collection(DATABASE_ID, collection_id)
+        return {attribute["key"]: attribute for attribute in collection.get("attributes", [])}
+    except AppwriteException:
         return {}
 
-def ensure_attribute(collection_id, key, create_func, size=None, required=False, default=None, min_val=None, max_val=None):
-    existing = get_existing_attributes(collection_id)
-    if key in existing:
-        attr = existing[key]
-        # Check if size needs update (Appwrite doesn't support easy size update via SDK, 
-        # but we can check if it's already large enough)
-        current_size = attr.get('size', 0)
-        if size and current_size < size:
-            print(f" [!] Attribute '{key}' in '{collection_id}' size is {current_size}, target is {size}. Deleting and recreating...")
-            try:
-                databases.delete_attribute(APPWRITE_DATABASE_ID, collection_id, key)
-                time.sleep(3) # Wait for Appwrite to process deletion
-            except Exception as e:
-                print(f" [X] Error deleting '{key}': {e}")
-                return
-        else:
-            print(f" [OK] Attribute '{key}' in '{collection_id}' already exists.")
-            return
 
-    print(f" [+] Creating attribute '{key}' in '{collection_id}'...")
+def list_indexes(databases, collection_id):
     try:
-        if create_func == databases.create_string_attribute:
-            create_func(APPWRITE_DATABASE_ID, collection_id, key, size, required, default)
-        elif create_func == databases.create_integer_attribute:
-            create_func(APPWRITE_DATABASE_ID, collection_id, key, required, min_val, max_val, default)
-        elif create_func == databases.create_float_attribute:
-            create_func(APPWRITE_DATABASE_ID, collection_id, key, required, min_val, max_val, default)
-        else: # datetime, boolean, email, etc.
-            create_func(APPWRITE_DATABASE_ID, collection_id, key, required, default)
-        
-        # Give Appwrite a moment to process
-        time.sleep(0.5)
-    except AppwriteException as e:
-        msg = str(e)
-        if "already exists" in msg:
-            print(f" [OK] Attribute '{key}' in '{collection_id}' already exists.")
-            return
-        if "maximum number or size of attributes" in msg:
-            print(f" [!] Skipping '{key}' in '{collection_id}': attribute limit reached.")
-            return
-        print(f" [X] Error creating '{key}': {e}")
-
-def setup_collection(collection_id, collection_name, attributes, indexes=[], permissions=None):
-    if permissions is None:
-        permissions = [
-            Permission.read(Role.users()),
-            Permission.create(Role.users()),
-            Permission.update(Role.users()),
-            Permission.delete(Role.users()),
-        ]
-    
-    try:
-        databases.get_collection(APPWRITE_DATABASE_ID, collection_id)
-        print(f"\nCollection '{collection_id}' exists.")
+        collection = databases.get_collection(DATABASE_ID, collection_id)
+        return {index["key"]: index for index in collection.get("indexes", [])}
     except AppwriteException:
-        print(f"\nCreating collection '{collection_id}'...")
-        databases.create_collection(APPWRITE_DATABASE_ID, collection_id, collection_name, permissions=permissions)
+        return {}
 
-    for attr in attributes:
-        # attr: (key, func, size, required, default, min, max)
-        key = attr[0]
-        func = attr[1]
-        size = attr[2] if len(attr) > 2 else None
-        required = attr[3] if len(attr) > 3 else False
-        default = attr[4] if len(attr) > 4 else None
-        min_val = attr[5] if len(attr) > 5 else None
-        max_val = attr[6] if len(attr) > 6 else None
-        
-        ensure_attribute(collection_id, key, func, size, required, default, min_val, max_val)
 
-    # Check indexes
-    existing_indexes = []
+def wait_for_attribute(databases, collection_id, key, timeout_seconds=45):
+    started_at = time.time()
+    while time.time() - started_at < timeout_seconds:
+        attribute = list_attributes(databases, collection_id).get(key)
+        if attribute and attribute.get("status") == "available":
+            return True
+        time.sleep(1)
+    return False
+
+
+def wait_for_index(databases, collection_id, key, *, should_exist=True, timeout_seconds=45):
+    started_at = time.time()
+    while time.time() - started_at < timeout_seconds:
+        index = list_indexes(databases, collection_id).get(key)
+        if should_exist:
+            if index and index.get("status") == "available":
+                return True
+        elif not index:
+            return True
+        time.sleep(1)
+    return False
+
+
+def ensure_collection(databases, definition, existing_collections):
+    collection_id = definition["id"]
+    if collection_id in existing_collections:
+        print(f"\n[OK] Collection '{collection_id}' already exists.")
+        return
+
+    print(f"\n[+] Creating collection '{collection_id}'...")
     try:
-        idx_res = databases.list_indexes(APPWRITE_DATABASE_ID, collection_id)
-        existing_indexes = [i['key'] for i in idx_res['indexes']]
-    except: pass
+        databases.create_collection(
+            DATABASE_ID,
+            collection_id,
+            definition.get("name", collection_id),
+            permissions=definition.get("permissions") or DEFAULT_COLLECTION_PERMISSIONS,
+            document_security=definition.get("documentSecurity", False),
+            enabled=definition.get("enabled", True),
+        )
+    except AppwriteException as error:
+        message = str(error).lower()
+        if "already exists" not in message and "409" not in message:
+            raise
+        print(f" [OK] Collection '{collection_id}' was created by a previous run.")
+    existing_collections[collection_id] = {"$id": collection_id}
+    time.sleep(1)
 
-    for idx_key, idx_type, fields in indexes:
-        if idx_key not in existing_indexes:
-            print(f" [+] Creating index '{idx_key}' on '{collection_id}'...")
-            try:
-                databases.create_index(APPWRITE_DATABASE_ID, collection_id, idx_key, idx_type, fields)
-            except AppwriteException as e:
-                print(f" [X] Error creating index '{idx_key}': {e}")
 
-def cleanup_redundant_attributes():
-    redundant = {
-        "super_profiles": ["buttons_json", "theme", "profile_id"],
-        "convo_starters": ["starters_json"],
-        "reply_templates": ["linked_automations"]
-    }
-    for col, attrs in redundant.items():
-        existing = get_existing_attributes(col)
-        for attr_id in attrs:
-            if attr_id in existing:
-                print(f" [-] Deleting redundant attribute '{attr_id}' from '{col}'...")
+def ensure_collection_configuration(databases, definition):
+    collection_id = definition["id"]
+    try:
+        databases.update_collection(
+            DATABASE_ID,
+            collection_id,
+            definition.get("name", collection_id),
+            permissions=definition.get("permissions") or DEFAULT_COLLECTION_PERMISSIONS,
+            document_security=definition.get("documentSecurity", False),
+            enabled=definition.get("enabled", True),
+        )
+        print(f" [OK] Collection '{collection_id}' configuration aligned.")
+    except AppwriteException as error:
+        print(f" [WARN] Could not update collection config for '{collection_id}': {error}")
+
+
+def create_attribute(databases, collection_id, attribute_definition):
+    key = attribute_definition["key"]
+    attr_type = attribute_definition["type"]
+    required = bool(attribute_definition.get("required", False))
+    default = attribute_definition.get("default")
+    is_array = bool(attribute_definition.get("array", False))
+    elements = attribute_definition.get("elements") or []
+
+    if elements:
+        databases.create_enum_attribute(DATABASE_ID, collection_id, key, elements, required, default, is_array)
+        return
+
+    if attr_type == "string":
+        databases.create_string_attribute(
+            DATABASE_ID,
+            collection_id,
+            key,
+            int(attribute_definition.get("size") or 255),
+            required,
+            default,
+            is_array,
+        )
+        return
+
+    if attr_type == "boolean":
+        databases.create_boolean_attribute(DATABASE_ID, collection_id, key, required, default, is_array)
+        return
+
+    if attr_type == "datetime":
+        databases.create_datetime_attribute(DATABASE_ID, collection_id, key, required, default, is_array)
+        return
+
+    if attr_type == "integer":
+        databases.create_integer_attribute(
+            DATABASE_ID,
+            collection_id,
+            key,
+            required,
+            parse_numeric(attribute_definition.get("min"), "integer"),
+            parse_numeric(attribute_definition.get("max"), "integer"),
+            parse_numeric(default, "integer"),
+            is_array,
+        )
+        return
+
+    if attr_type == "double":
+        databases.create_float_attribute(
+            DATABASE_ID,
+            collection_id,
+            key,
+            required,
+            parse_numeric(attribute_definition.get("min"), "double"),
+            parse_numeric(attribute_definition.get("max"), "double"),
+            parse_numeric(default, "double"),
+            is_array,
+        )
+        return
+
+    raise ValueError(f"Unsupported attribute type '{attr_type}' for {collection_id}.{key}")
+
+
+def attribute_needs_update(existing_attribute, attribute_definition):
+    if not existing_attribute:
+        return False
+    if str(existing_attribute.get("type") or "").strip() != str(attribute_definition.get("type") or "").strip():
+        return False
+    if bool(existing_attribute.get("array", False)) != bool(attribute_definition.get("array", False)):
+        return False
+
+    expected_required = bool(attribute_definition.get("required", False))
+    if bool(existing_attribute.get("required", False)) != expected_required:
+        return True
+
+    expected_default = attribute_definition.get("default")
+    if existing_attribute.get("default") != expected_default:
+        return True
+
+    attr_type = attribute_definition.get("type")
+    if attribute_definition.get("elements"):
+        return list(existing_attribute.get("elements") or []) != list(attribute_definition.get("elements") or [])
+
+    if attr_type == "string":
+        return int(existing_attribute.get("size") or 0) != int(attribute_definition.get("size") or 0)
+
+    if attr_type in {"integer", "double"}:
+        return (
+            parse_numeric(existing_attribute.get("min"), attr_type) != parse_numeric(attribute_definition.get("min"), attr_type)
+            or parse_numeric(existing_attribute.get("max"), attr_type) != parse_numeric(attribute_definition.get("max"), attr_type)
+        )
+
+    return False
+
+
+def update_attribute(databases, collection_id, attribute_definition):
+    key = attribute_definition["key"]
+    attr_type = attribute_definition["type"]
+    required = bool(attribute_definition.get("required", False))
+    default = attribute_definition.get("default")
+    elements = attribute_definition.get("elements") or []
+
+    if elements:
+        databases.update_enum_attribute(DATABASE_ID, collection_id, key, elements, required, default)
+        return
+
+    if attr_type == "string":
+        databases.update_string_attribute(
+            DATABASE_ID,
+            collection_id,
+            key,
+            required,
+            default,
+            int(attribute_definition.get("size") or 255),
+        )
+        return
+
+    if attr_type == "boolean":
+        databases.update_boolean_attribute(DATABASE_ID, collection_id, key, required, default)
+        return
+
+    if attr_type == "datetime":
+        databases.update_datetime_attribute(DATABASE_ID, collection_id, key, required, default)
+        return
+
+    if attr_type == "integer":
+        databases.update_integer_attribute(
+            DATABASE_ID,
+            collection_id,
+            key,
+            required,
+            parse_numeric(default, "integer"),
+            parse_numeric(attribute_definition.get("min"), "integer"),
+            parse_numeric(attribute_definition.get("max"), "integer"),
+        )
+        return
+
+    if attr_type == "double":
+        databases.update_float_attribute(
+            DATABASE_ID,
+            collection_id,
+            key,
+            required,
+            parse_numeric(default, "double"),
+            parse_numeric(attribute_definition.get("min"), "double"),
+            parse_numeric(attribute_definition.get("max"), "double"),
+        )
+        return
+
+    raise ValueError(f"Unsupported attribute type '{attr_type}' for {collection_id}.{key}")
+
+
+def index_needs_rebuild(existing_index, index_definition):
+    if not existing_index:
+        return False
+    return (
+        str(existing_index.get("type") or "").strip() != str(index_definition.get("type") or "").strip()
+        or list(existing_index.get("attributes") or []) != list(index_definition.get("attributes") or [])
+        or list(existing_index.get("orders") or []) != list(index_definition.get("orders") or [])
+    )
+
+
+def ensure_attributes(databases, definition):
+    collection_id = definition["id"]
+    existing = list_attributes(databases, collection_id)
+
+    for attribute in definition.get("attributes", []):
+        key = attribute["key"]
+        if key in existing:
+            if attribute_needs_update(existing.get(key), attribute):
+                if bool(existing[key].get("array", False)) != bool(attribute.get("array", False)):
+                    print(f" [WARN] Attribute '{collection_id}.{key}' array mode differs. Manual migration required.")
+                    continue
+                print(f" [~] Updating attribute '{collection_id}.{key}' to match desired schema...")
                 try:
-                    databases.delete_attribute(APPWRITE_DATABASE_ID, col, attr_id)
-                except Exception as e:
-                    print(f" [X] Error deleting '{attr_id}': {e}")
+                    update_attribute(databases, collection_id, attribute)
+                    wait_for_attribute(databases, collection_id, key)
+                except AppwriteException as error:
+                    print(f" [X] Failed updating '{collection_id}.{key}': {error}")
+                continue
+            print(f" [OK] Attribute '{collection_id}.{key}' already exists.")
+            continue
 
-def cleanup_redundant_indexes():
-    redundant = {
-        "keywords": ["idx_account_keyword_norm"],
-        "keyword_index": ["idx_lookup"]
-    }
-    for col, idxs in redundant.items():
+        print(f" [+] Creating attribute '{collection_id}.{key}'...")
         try:
-            idx_res = databases.list_indexes(APPWRITE_DATABASE_ID, col)
-            existing = {i['key'] for i in idx_res.get('indexes', [])}
-        except Exception:
-            existing = set()
-        for idx_key in idxs:
-            if idx_key in existing:
-                print(f" [-] Deleting redundant index '{idx_key}' from '{col}'...")
+            create_attribute(databases, collection_id, attribute)
+            wait_for_attribute(databases, collection_id, key)
+        except AppwriteException as error:
+            if "already exists" in str(error).lower():
+                print(f" [OK] Attribute '{collection_id}.{key}' already exists.")
+                continue
+            print(f" [X] Failed creating '{collection_id}.{key}': {error}")
+
+
+def ensure_indexes(databases, definition):
+    collection_id = definition["id"]
+    existing = list_indexes(databases, collection_id)
+
+    for index in definition.get("indexes", []):
+        key = index["key"]
+        if key in existing:
+            if index_needs_rebuild(existing.get(key), index):
+                print(f" [~] Rebuilding index '{collection_id}.{key}' to match desired schema...")
                 try:
-                    databases.delete_index(APPWRITE_DATABASE_ID, col, idx_key)
-                except Exception as e:
-                    print(f" [X] Error deleting index '{idx_key}': {e}")
+                    databases.delete_index(DATABASE_ID, collection_id, key)
+                    wait_for_index(databases, collection_id, key, should_exist=False)
+                except AppwriteException as error:
+                    print(f" [X] Failed deleting index '{collection_id}.{key}': {error}")
+                    continue
+                try:
+                    databases.create_index(
+                        DATABASE_ID,
+                        collection_id,
+                        key,
+                        index["type"],
+                        index.get("attributes", []),
+                        index.get("orders") or None,
+                    )
+                    wait_for_index(databases, collection_id, key, should_exist=True)
+                except AppwriteException as error:
+                    print(f" [X] Failed recreating index '{collection_id}.{key}': {error}")
+                continue
+            print(f" [OK] Index '{collection_id}.{key}' already exists.")
+            continue
+
+        print(f" [+] Creating index '{collection_id}.{key}'...")
+        try:
+            databases.create_index(
+                DATABASE_ID,
+                collection_id,
+                key,
+                index["type"],
+                index.get("attributes", []),
+                index.get("orders") or None,
+            )
+        except AppwriteException as error:
+            if "already exists" in str(error).lower():
+                print(f" [OK] Index '{collection_id}.{key}' already exists.")
+                continue
+            print(f" [X] Failed creating index '{collection_id}.{key}': {error}")
+
+
+def ensure_admin_settings_seed(databases):
+    collection_id = "admin_settings"
+    try:
+        response = databases.list_documents(DATABASE_ID, collection_id)
+        documents = response.get("documents", [])
+        if documents:
+            print("[OK] admin_settings already has at least one document. Seed skipped.")
+            return
+        print("[+] Creating default admin_settings seed document...")
+        databases.create_document(
+            DATABASE_ID,
+            collection_id,
+            ID.unique(),
+            {
+                "default_text": "Automation made by DMPanda",
+                "enabled": True,
+                "enforcement_mode": "fallback_secondary_message",
+                "updated_by": "setup_appwrite.py",
+                "allow_user_override": True,
+                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            },
+        )
+    except AppwriteException as error:
+        print(f"[WARN] Could not seed admin_settings: {error}")
+
+
+def main():
+    require_env()
+    client = build_client()
+    databases = Databases(client)
+
+    print("Starting non-destructive Appwrite provisioning...")
+    ensure_database(databases)
+
+    definitions = load_schema_definitions()
+    existing_collections = list_collections(databases)
+
+    for definition in definitions:
+        ensure_collection(databases, definition, existing_collections)
+
+    for definition in definitions:
+        ensure_collection_configuration(databases, definition)
+
+    for definition in definitions:
+        ensure_attributes(databases, definition)
+
+    for definition in definitions:
+        ensure_indexes(databases, definition)
+
+    ensure_admin_settings_seed(databases)
+    print("\n[COMPLETE] Provisioning finished without deleting or overwriting existing data.")
+
+
 if __name__ == "__main__":
-    print("Starting Appwrite Schema Sync...")
-    
-    # Cleanup known blockers
-    cleanup_redundant_attributes()
-    cleanup_redundant_indexes()
-    
-    # Remove legacy collections
-    try:
-        databases.delete_collection(APPWRITE_DATABASE_ID, 'templates')
-        print(" [-] Deleted legacy collection 'templates'")
-    except:
-        pass
-
-    try:
-        databases.delete_collection(APPWRITE_DATABASE_ID, 'welcome_message_ads')
-        print(" [-] Deleted legacy collection 'welcome_message_ads'")
-    except:
-        pass
-
-    try:
-        databases.delete_collection(APPWRITE_DATABASE_ID, 'campaigns')
-        print(" [-] Deleted legacy collection 'campaigns'")
-    except:
-        pass
-
-    # Users
-    setup_collection("users", "Users", [
-        ('name', databases.create_string_attribute, 255, True),
-        ('email', databases.create_string_attribute, 255, True),
-        ('status', databases.create_string_attribute, 50, False, 'active'),
-        ('first_login', databases.create_datetime_attribute, None, False),
-        ('last_login', databases.create_datetime_attribute, None, False),
-        ('subscription_plan_id', databases.create_string_attribute, 255, False),
-        ('avatar_url', databases.create_string_attribute, 2048, False),
-        ('subscription_status', databases.create_string_attribute, 50, False, 'trial'),
-        ('subscription_expires', databases.create_datetime_attribute, None, False),
-        ('referred_by', databases.create_string_attribute, 36, False),
-        ('referral_code', databases.create_string_attribute, 20, False),
-    ], permissions=[Permission.read(Role.users())])
-
-    # Profiles (subscription + credits)
-    setup_collection("profiles", "Profiles", [
-        ('user_id', databases.create_string_attribute, 255, True),
-        ('credits', databases.create_integer_attribute, None, False, 0),
-        ('tier', databases.create_string_attribute, 50, False, 'free'),
-        ('subscription_plan_id', databases.create_string_attribute, 255, False),
-        ('subscription_status', databases.create_string_attribute, 50, False, 'trial'),
-        ('subscription_expires', databases.create_datetime_attribute, None, False),
-        ('referred_by', databases.create_string_attribute, 36, False),
-        ('referral_code', databases.create_string_attribute, 20, False),
-    ], indexes=[
-        ('idx_user_id', 'unique', ['user_id']),
-        ('idx_referral_code', 'unique', ['referral_code']),
-    ], permissions=[Permission.read(Role.users())])
-
-    # Settings
-    setup_collection("settings", "Settings", [
-        ('user_id', databases.create_string_attribute, 255, False),
-        ('dark_mode', databases.create_boolean_attribute, None, False, False),
-        ('notification_preference', databases.create_string_attribute, 50, False, 'email'),
-    ], indexes=[
-        ('idx_user_id', 'key', ['user_id']),
-    ], permissions=[Permission.read(Role.users())])
-
-    # IG Accounts
-    setup_collection("ig_accounts", "Instagram Accounts", [
-        ('user_id', databases.create_string_attribute, 255, True),
-        ('ig_user_id', databases.create_string_attribute, 255, True),
-        ('username', databases.create_string_attribute, 255, True),
-        ('profile_picture_url', databases.create_string_attribute, 2048, False),
-        ('access_token', databases.create_string_attribute, 1024, True),
-        ('token_expires_at', databases.create_datetime_attribute, None, True),
-        ('permissions', databases.create_string_attribute, 1024, False),
-        ('linked_at', databases.create_datetime_attribute, None, False),
-        ('ig_scoped_id', databases.create_string_attribute, 255, False),
-        ('name', databases.create_string_attribute, 255, False),
-        ('status', databases.create_string_attribute, 50, False, 'active'),
-        ('account_id', databases.create_string_attribute, 255, False),
-        ('is_active', databases.create_boolean_attribute, None, False, True),
-        ('is_primary', databases.create_boolean_attribute, None, False, False),
-        ('followers_count', databases.create_integer_attribute, None, False, 0),
-        ('account_type', databases.create_string_attribute, 50, False),
-    ], indexes=[
-        ('ig_user_id_unique', 'unique', ['ig_user_id']),
-        ('user_id_idx', 'key', ['user_id']),
-        ('idx_user_ig_user', 'key', ['user_id', 'ig_user_id']),
-    ], permissions=[Permission.read(Role.users())])
-
-    # Pricing
-    setup_collection("pricing", "Pricing Plans", [
-        ('name', databases.create_string_attribute, 100, True),
-        ('price_monthly_inr', databases.create_integer_attribute, None, False, 0),
-        ('price_yearly_inr', databases.create_integer_attribute, None, False, 0),
-        ('price_monthly_usd', databases.create_integer_attribute, None, False, 0),
-        ('price_yearly_usd', databases.create_integer_attribute, None, False, 0),
-        ('is_custom', databases.create_boolean_attribute, None, False, False),
-        ('is_popular', databases.create_boolean_attribute, None, False, False),
-        ('features', databases.create_string_attribute, 10000, False),
-        ('display_order', databases.create_integer_attribute, None, False, 0),
-        ('button_text', databases.create_string_attribute, 100, False),
-        ('yearly_bonus', databases.create_string_attribute, 100, False),
-    ], indexes=[
-        ('display_order_idx', 'key', ['display_order']),
-    ], permissions=[Permission.read(Role.any())])
-
-    # Automations
-    setup_collection("automations", "Automations", [
-        ('user_id', databases.create_string_attribute, 255, True),
-        ('account_id', databases.create_string_attribute, 255, True),
-        ('automation_type', databases.create_string_attribute, 255, True),
-        ('title', databases.create_string_attribute, 255, True),
-        ('title_normalized', databases.create_string_attribute, 255, False),
-        ('is_active', databases.create_boolean_attribute, None, True, True),
-        ('keyword', databases.create_string_attribute, 255, False),
-        ('keywords', databases.create_string_attribute, 2000, False),
-        ('keyword_match_type', databases.create_string_attribute, 50, False, 'exact'),
-        ('template_type', databases.create_string_attribute, 50, False),
-        ('template_content', databases.create_string_attribute, 3000, False),
-        ('template_id', databases.create_string_attribute, 255, False),
-        ('buttons', databases.create_string_attribute, 2000, False),
-        ('template_elements', databases.create_string_attribute, 2000, False),
-        ('replies', databases.create_string_attribute, 2000, False),
-        ('media_url', databases.create_string_attribute, 500, False),
-        ('media_id', databases.create_string_attribute, 100, False),
-        ('use_latest_post', databases.create_boolean_attribute, None, False, False),
-        ('latest_post_type', databases.create_string_attribute, 50, False),
-        ('followers_only', databases.create_boolean_attribute, None, False, False),
-        ('exclude_existing_customers', databases.create_boolean_attribute, None, False, False),
-        ('send_to', databases.create_string_attribute, 50, False),
-        ('delay_seconds', databases.create_integer_attribute, None, False, 0),
-        ('comment_reply', databases.create_string_attribute, 1000, False),
-        ('linked_media_id', databases.create_string_attribute, 255, False),
-        ('linked_media_url', databases.create_string_attribute, 500, False),
-    ], indexes=[
-        ('idx_user_id', 'key', ['user_id']),
-        ('idx_account_id', 'key', ['account_id']),
-        ('idx_account_type', 'key', ['account_id', 'automation_type']),
-        ('idx_account_type_active', 'key', ['account_id', 'automation_type', 'is_active']),
-        ('idx_account_keyword', 'key', ['account_id', 'keyword']),
-        ('idx_account_media', 'key', ['account_id', 'linked_media_id']),
-        ('idx_account_type_title_norm', 'key', ['account_id', 'automation_type', 'title_normalized']),
-        ('idx_template_id', 'key', ['template_id']),
-    ])
-
-    # Reply Templates
-    setup_collection("reply_templates", "Reply Templates", [
-        ('user_id', databases.create_string_attribute, 255, True),
-        ('account_id', databases.create_string_attribute, 255, True),
-        ('name', databases.create_string_attribute, 255, True),
-        ('name_normalized', databases.create_string_attribute, 255, False),
-        ('template_type', databases.create_string_attribute, 50, True),
-        # TARGET FIX: 12000 chars for carousel support
-        ('template_data', databases.create_string_attribute, 12000, True),
-        ('automation_count', databases.create_integer_attribute, None, False, 0),
-    ], indexes=[
-        ('idx_user_id', 'key', ['user_id']),
-        ('idx_account_id', 'key', ['account_id']),
-        ('idx_account_name_norm', 'key', ['account_id', 'name_normalized']),
-        ('idx_template_type', 'key', ['template_type']),
-    ])
-
-    # Inbox Menus
-    setup_collection("inbox_menus", "Inbox Menus", [
-        ('user_id', databases.create_string_attribute, 255, True),
-        ('account_id', databases.create_string_attribute, 255, True),
-        ('menu_items', databases.create_string_attribute, 4000, True),
-    ], indexes=[
-        ('idx_user_acc', 'key', ['user_id', 'account_id']),
-    ])
-
-    # Convo Starters
-    setup_collection("convo_starters", "Convo Starters", [
-        ('user_id', databases.create_string_attribute, 255, True),
-        ('account_id', databases.create_string_attribute, 255, True),
-        ('starters', databases.create_string_attribute, 4000, True),
-    ], indexes=[
-        ('idx_user_acc', 'key', ['user_id', 'account_id']),
-    ])
-
-    # Super Profiles
-    setup_collection("super_profiles", "Super Profiles", [
-        ('user_id', databases.create_string_attribute, 255, True),
-        ('account_id', databases.create_string_attribute, 255, True),
-        ('slug', databases.create_string_attribute, 255, False),
-        ('template_id', databases.create_string_attribute, 255, False),
-        ('buttons', databases.create_string_attribute, 6000, False),
-        ('is_active', databases.create_boolean_attribute, None, True, True),
-    ], indexes=[
-        ('idx_slug', 'key', ['slug']),
-        ('idx_slug_unique', 'unique', ['slug']),
-        ('idx_user_id', 'key', ['user_id']),
-        ('idx_user_acc', 'key', ['user_id', 'account_id']),
-    ])
-
-    # Mentions
-    setup_collection("mentions", "Mentions", [
-        ('user_id', databases.create_string_attribute, 255, True),
-        ('account_id', databases.create_string_attribute, 255, True),
-        ('template_id', databases.create_string_attribute, 255, False),
-        ('is_active', databases.create_boolean_attribute, None, False, True),
-    ], indexes=[
-        ('idx_user_acc', 'key', ['user_id', 'account_id']),
-        ('idx_template_id', 'key', ['template_id']),
-    ])
-
-    # Suggest More
-    setup_collection("suggest_more", "Suggest More", [
-        ('user_id', databases.create_string_attribute, 255, True),
-        ('account_id', databases.create_string_attribute, 255, True),
-        ('template_id', databases.create_string_attribute, 255, False),
-        ('is_active', databases.create_boolean_attribute, None, False, True),
-    ], indexes=[
-        ('idx_user_acc', 'key', ['user_id', 'account_id']),
-        ('idx_template_id', 'key', ['template_id']),
-    ])
-
-
-
-    # Comment Moderation
-    setup_collection("comment_moderation", "Comment Moderation", [
-        ('user_id', databases.create_string_attribute, 255, True),
-        ('account_id', databases.create_string_attribute, 255, True),
-        ('rules', databases.create_string_attribute, 10000, True),
-        ('is_active', databases.create_boolean_attribute, None, True, True),
-    ], indexes=[
-        ('idx_user_acc', 'key', ['user_id', 'account_id']),
-    ])
-
-    # Affiliate Profiles
-    setup_collection("affiliate_profiles", "Affiliate Profiles", [
-        ('user_id', databases.create_string_attribute, 255, True),
-        ('status', databases.create_string_attribute, 50, True, 'pending'),
-        ('type', databases.create_string_attribute, 50, True, 'standard'),
-        ('instagram_url', databases.create_string_attribute, 500, False),
-        ('youtube_url', databases.create_string_attribute, 500, False),
-        ('referral_code', databases.create_string_attribute, 20, True),
-        ('earnings_total', databases.create_float_attribute, None, False, 0.0),
-        ('earnings_pending', databases.create_float_attribute, None, False, 0.0),
-    ], indexes=[
-        ('idx_user_id', 'unique', ['user_id']),
-        ('idx_ref_code', 'unique', ['referral_code']),
-    ])
-
-    # Referrals
-    setup_collection("referrals", "Referrals", [
-        ('referrer_id', databases.create_string_attribute, 255, True),
-        ('referred_id', databases.create_string_attribute, 255, True),
-        ('status', databases.create_string_attribute, 50, True, 'pending'),
-        ('commission_amount', databases.create_float_attribute, None, True, 0.0),
-        ('qualified_at', databases.create_datetime_attribute, None, False),
-    ], indexes=[
-        ('idx_referrer', 'key', ['referrer_id']),
-    ])
-
-    # Payouts
-    setup_collection("payouts", "Payouts", [
-        ('affiliate_id', databases.create_string_attribute, 255, True),
-        ('amount', databases.create_float_attribute, None, True, 0.0),
-        ('status', databases.create_string_attribute, 50, True, 'pending'),
-        ('requested_at', databases.create_datetime_attribute, None, True),
-        ('paid_at', databases.create_datetime_attribute, None, False),
-        ('processed_at', databases.create_datetime_attribute, None, False),
-        ('transaction_id', databases.create_string_attribute, 255, False),
-    ], indexes=[
-        ('idx_affiliate', 'key', ['affiliate_id']),
-    ])
-
-    # Keywords (For detailed management of triggers)
-    setup_collection("keywords", "Keywords", [
-        ('automation_id', databases.create_string_attribute, 255, True),
-        ('account_id', databases.create_string_attribute, 255, True),
-        ('automation_type', databases.create_string_attribute, 50, False),
-        ('type', databases.create_string_attribute, 50, False),
-        ('keyword', databases.create_string_attribute, 255, True),
-        ('keyword_normalized', databases.create_string_attribute, 255, True),
-        ('keyword_hash', databases.create_string_attribute, 255, True),
-        ('match_type', databases.create_string_attribute, 50, False, 'exact'),
-        ('is_active', databases.create_boolean_attribute, None, False, True),
-    ], indexes=[
-        ('idx_account_type_keyword_norm', 'unique', ['account_id', 'automation_type', 'keyword_normalized']),
-        ('idx_automation_keyword_norm', 'unique', ['automation_id', 'keyword_normalized']),
-        ('idx_automation', 'key', ['automation_id']),
-        ('idx_account_active', 'key', ['account_id', 'is_active']),
-    ])
-
-    # Keyword Index (For high-performance routing/lookup)
-    setup_collection("keyword_index", "Keyword Index", [
-        ('account_id', databases.create_string_attribute, 255, True),
-        ('keyword_hash', databases.create_string_attribute, 255, True),
-        ('automation_id', databases.create_string_attribute, 255, True),
-        ('automation_type', databases.create_string_attribute, 50, False),
-    ], indexes=[
-        ('idx_lookup_type', 'unique', ['account_id', 'automation_type', 'keyword_hash']),
-        ('idx_automation', 'key', ['automation_id']),
-        ('idx_account_type', 'key', ['account_id', 'automation_type']),
-    ])
-
-    # Analytics (optional / future use)
-    setup_collection("analytics", "Analytics", [
-        ('user_id', databases.create_string_attribute, 255, False),
-        ('account_id', databases.create_string_attribute, 255, True),
-        ('metric', databases.create_string_attribute, 100, True),
-        ('payload', databases.create_string_attribute, 20000, True),
-        ('range_start', databases.create_datetime_attribute, None, False),
-        ('range_end', databases.create_datetime_attribute, None, False),
-        ('recorded_at', databases.create_datetime_attribute, None, False),
-    ], indexes=[
-        ('idx_account', 'key', ['account_id']),
-        ('idx_recorded_at', 'key', ['recorded_at']),
-        ('idx_account_recorded', 'key', ['account_id', 'recorded_at']),
-    ])
-
-    print("\n[COMPLETE] Appwrite Schema Sync Finished.")
-
-
-
-
-
-
+    main()

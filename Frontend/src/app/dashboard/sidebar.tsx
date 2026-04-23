@@ -13,14 +13,13 @@ import {
   Radio,
   BookText,
   AtSign,
-  MailPlus,
-  Wallet,
   Landmark,
   ChevronUp,
   Plus,
   Check,
   Instagram,
   BarChart2,
+  LineChart,
   Lightbulb,
   Inbox,
   Shield,
@@ -28,11 +27,12 @@ import {
   FileStack,
   RefreshCw,
   Lock,
+  Sparkles,
 } from 'lucide-react';
+import { toBrowserPreviewUrl } from '../../lib/templatePreview';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useRef, useEffect } from 'react';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
-import LockedFeatureModal from '../../components/ui/LockedFeatureModal';
 import { useDashboard, ViewType } from '../../contexts/DashboardContext';
 import { cn } from '../../lib/utils';
 
@@ -43,10 +43,12 @@ interface SidebarProps {
 
 const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
   const { user, hasLinkedInstagram } = useAuth();
-  const { currentView, setCurrentView, igAccounts, setActiveAccountID, activeAccountID, activeAccount, hasUnsavedChanges, setHasUnsavedChanges, saveUnsavedChanges, discardUnsavedChanges } = useDashboard();
+  const { currentView, setCurrentView, igAccounts, setActiveAccountID, activeAccountID, activeAccount, hasUnsavedChanges, setHasUnsavedChanges, saveUnsavedChanges, discardUnsavedChanges, accessState } = useDashboard();
+  const hasAnyLinkedAccount = (igAccounts?.length || 0) > 0;
+  const hasAutomationAccountAccess = !!hasLinkedInstagram || hasAnyLinkedAccount;
+  const automationLockedByBan = accessState?.automation_locked === true;
+  const canAccessAutomation = hasAutomationAccountAccess && !automationLockedByBan;
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [isLockedModalOpen, setIsLockedModalOpen] = useState(false);
-  const [lockedFeatureName, setLockedFeatureName] = useState("");
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   // Navigation Protection State
@@ -91,13 +93,20 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
     const automationFeatures: ViewType[] = [
       'Reply Templates', 'Super Profile', 'Inbox Menu', 'Convo Starter',
       'Global Trigger', 'DM Automation', 'Post Automation', 'Reel Automation',
-      'Story Automation', 'Live Automation', 'Mentions', 'Email Collector',
+      'Story Automation', 'Live Automation', 'Mentions',
       'Comment Moderation', 'Suggest More'
     ];
 
-    if (automationFeatures.includes(viewName) && !hasLinkedInstagram) {
-      setLockedFeatureName(viewName);
-      setIsLockedModalOpen(true);
+    if (automationFeatures.includes(viewName) && !canAccessAutomation) {
+      window.dispatchEvent(new CustomEvent('show-locked-feature-modal', {
+        detail: {
+          featureName: automationLockedByBan ? `${viewName} is locked` : viewName,
+          message: automationLockedByBan
+            ? (accessState?.ban_message || 'Automation access is restricted on this account.')
+            : undefined
+        }
+      }));
+      onItemClick?.();
       return;
     }
 
@@ -160,7 +169,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
   };
 
   const completeAccountSwitch = (account: any) => {
-    if (account.status !== 'active') {
+    if (account.status !== 'active' || account.effective_access === false) {
       setCurrentView('Account Settings');
       setProfileMenuOpen(false);
       onItemClick?.();
@@ -171,24 +180,6 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
     onItemClick?.();
   };
 
-  const handleInstagramLink = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/instagram/url`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        console.error('Failed to get Instagram login URL:', data.error);
-      }
-    } catch (err: any) {
-      console.error('Failed to start Instagram login:', err);
-    }
-  };
-
   const menuSections: {
     title: string;
     items: { name: ViewType; icon: any }[];
@@ -196,8 +187,9 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
       {
         title: '',
         items: [
-          { name: 'Dashboard', icon: LayoutDashboard },
+          { name: 'Overview', icon: LayoutDashboard },
           { name: 'Analytics', icon: BarChart2 },
+          { name: 'Insights', icon: LineChart },
         ]
       },
       {
@@ -205,8 +197,9 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
         items: [
           { name: 'Reply Templates', icon: FileStack },
           { name: 'Super Profile', icon: Users },
-          { name: 'Inbox Menu', icon: Inbox },
+          { name: 'Welcome Message', icon: Sparkles },
           { name: 'Convo Starter', icon: MessageCircle },
+          { name: 'Inbox Menu', icon: Inbox },
           { name: 'Global Trigger', icon: Zap },
           { name: 'DM Automation', icon: MessageSquare },
           { name: 'Post Automation', icon: FileTextIcon },
@@ -214,7 +207,6 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
           { name: 'Story Automation', icon: BookText },
           { name: 'Live Automation', icon: Radio },
           { name: 'Mentions', icon: AtSign },
-          { name: 'Email Collector', icon: MailPlus },
           { name: 'Suggest More', icon: Lightbulb },
           { name: 'Comment Moderation', icon: Shield },
         ]
@@ -224,7 +216,6 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
         items: [
           { name: 'My Plan', icon: Tag },
           { name: 'Transactions', icon: Landmark },
-          { name: 'Affiliate & Referral', icon: Wallet },
           { name: 'Account Settings', icon: Settings },
           { name: 'Support', icon: HelpCircle },
           { name: 'Contact', icon: Mail },
@@ -258,12 +249,12 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                       key={item.name}
                       onClick={() => handleNavigation(item.name)}
                       className={cn(
-                        "w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
+                        "w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 group",
                         isCollapsed && "justify-center px-2",
                         isActive
                           ? "bg-gradient-to-r from-ig-purple via-ig-pink to-ig-orange text-white shadow-lg shadow-primary/25 ring-1 ring-white/30"
                           : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                        !isActive && !hasLinkedInstagram && section.title === 'Automation' && "opacity-80"
+                        !isActive && !canAccessAutomation && section.title === 'Automation' && "opacity-80"
                       )}
                     >
                       <div className="flex items-center gap-3 truncate">
@@ -273,11 +264,11 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                           !isActive && "group-hover:scale-110"
                         )} />
                         {!isCollapsed && (
-                          <span className="truncate">{item.name}</span>
+                          <span className="truncate font-bold">{item.name}</span>
                         )}
                       </div>
 
-                      {!isCollapsed && !isActive && !hasLinkedInstagram && section.title === 'Automation' && (
+                      {!isCollapsed && !isActive && !canAccessAutomation && section.title === 'Automation' && (
                         <Lock className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
                       )}
                     </button>
@@ -311,7 +302,12 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                 <div className="max-h-[50vh] sm:max-h-[60vh] overflow-y-auto custom-scrollbar space-y-0.5 px-1">
                   {igAccounts.map((account) => {
                     const isSelected = activeAccountID === account.ig_user_id;
-                    const isInactive = account.status !== 'active';
+                    const isInactive = account.status !== 'active' || account.effective_access === false;
+                    const accountSubtitle = account.status !== 'active'
+                      ? 'Re-authorize'
+                      : account.effective_access === false
+                        ? (account.access_state === 'plan_locked' ? 'Plan locked' : 'Access disabled')
+                        : 'Connected';
 
                     return (
                       <button
@@ -337,7 +333,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                               : "bg-border"
                           )}>
                             <img
-                              src={account.profile_picture_url || '/images/logo.png'}
+                              src={toBrowserPreviewUrl(account.profile_picture_url || '') || '/images/logo.png'}
                               alt={account.username}
                               className="w-8 h-8 rounded-full object-cover border-2 border-card"
                             />
@@ -359,9 +355,9 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                             </p>
                             <p className={cn(
                               "text-2xs font-medium uppercase tracking-wide",
-                              account.status === 'active' ? "text-success" : "text-muted-foreground"
+                              account.status === 'active' && account.effective_access !== false ? "text-success" : "text-muted-foreground"
                             )}>
-                              {account.status === 'active' ? 'Connected' : 'Re-authorize'}
+                              {accountSubtitle}
                             </p>
                           </div>
                         )}
@@ -437,7 +433,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                   "bg-border group-hover:bg-gradient-to-tr group-hover:from-ig-yellow group-hover:via-ig-pink group-hover:to-ig-purple"
                 )}>
                   <img
-                    src={activeAccount.profile_picture_url || '/images/logo.png'}
+                    src={toBrowserPreviewUrl(activeAccount.profile_picture_url || '') || '/images/logo.png'}
                     alt="Profile"
                     className={cn(
                       isCollapsed ? "relative w-9 h-9" : "relative w-10 h-10",
@@ -493,7 +489,11 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                     "transition-colors duration-300"
                   )}>
                     {activeAccount
-                      ? (activeAccount.status === 'active' ? 'Connected' : 'Unlinked')
+                      ? (activeAccount.status !== 'active'
+                        ? 'Unlinked'
+                        : activeAccount.effective_access === false
+                          ? (activeAccount.access_state === 'plan_locked' ? 'Plan locked' : 'Access disabled')
+                          : 'Connected')
                       : 'Connect now'}
                   </p>
                 </div>
@@ -530,13 +530,6 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
         />,
         document.body
       )}
-
-      <LockedFeatureModal
-        isOpen={isLockedModalOpen}
-        onClose={() => setIsLockedModalOpen(false)}
-        onConnect={handleInstagramLink}
-        featureName={lockedFeatureName}
-      />
     </>
   );
 };

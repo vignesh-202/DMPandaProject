@@ -21,6 +21,7 @@ const VerifyEmailPage: React.FC = () => {
           const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/verify-callback`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ userId, secret }),
           });
 
@@ -28,7 +29,6 @@ const VerifyEmailPage: React.FC = () => {
 
           if (response.ok) {
             setMessage('Verification successful! Logging you in...');
-            localStorage.setItem('token', data.token);
             await login();
             navigate('/dashboard', { replace: true });
           } else {
@@ -49,10 +49,10 @@ const VerifyEmailPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-red-500 text-center">
-            <h1 className="text-xl font-bold">Verification Failed</h1>
-            <p>{error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-neutral-950 transition-colors duration-500">
+        <div className="text-center">
+          <h1 className="text-xl font-bold text-red-500 dark:text-red-400">Verification Failed</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">{error}</p>
         </div>
       </div>
     );

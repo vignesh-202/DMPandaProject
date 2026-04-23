@@ -4,15 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import AuthVerifyingScreen from '../../components/ui/AuthVerifyingScreen';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Loader2, Check, X, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Check, X } from 'lucide-react';
 import PasswordStrengthIndicator from '../../components/ui/PasswordStrength';
 
 const LoginPage: React.FC = () => {
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { isAuthenticated, authHint, isLoading, login } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [hardBanMessage, setHardBanMessage] = useState<string | null>(null);
 
   // Form state
   const [email, setEmail] = useState('');
@@ -22,37 +23,36 @@ const LoginPage: React.FC = () => {
 
   // UI state
   const [isLoginView, setIsLoginView] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
+    if (isAuthenticated || authHint) {
+      navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, authHint, navigate]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const popupReason = urlParams.get('popup_reason');
     const message = urlParams.get('message');
+    const normalizedMessage = message ? decodeURIComponent(message) : null;
 
     if (popupReason) {
-      if (message) {
-        alert(message);
+      if (popupReason === 'user_banned' || popupReason === 'hard_ban') {
+        setHardBanMessage(normalizedMessage || 'Your account has been hard banned. Dashboard access has been blocked.');
+      } else if (normalizedMessage) {
+        setError(normalizedMessage);
       } else if (popupReason === 'not_logged_in') {
-        alert('You must be logged in to view this page.');
-      } else if (popupReason === 'user_banned') {
-        alert('Your account has been banned.');
+        setError('You must be logged in to view this page.');
       } else if (popupReason === 'user_deleted') {
-        alert('Your account has been deleted.');
+        setError('Your account has been deleted.');
       } else if (popupReason === 'invalid_session') {
-        alert('Your session is invalid. Please log in again.');
+        setError('Your session is invalid. Please log in again.');
       } else if (popupReason === 'oauth_failed') {
-        alert('Google login failed. Please try again.');
+        setError('Google login failed. Please try again.');
       } else if (popupReason === 'session_creation_failed') {
-        alert('Failed to create user session after Google login. Please try again.');
+        setError('Failed to create user session after Google login. Please try again.');
       } else if (popupReason === 'auth_error') {
-        alert('An unexpected authentication error occurred. Please try again.');
+        setError('An unexpected authentication error occurred. Please try again.');
       }
     }
   }, []);
@@ -61,7 +61,16 @@ const LoginPage: React.FC = () => {
     setIsSubmitting(true);
     setError(null);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/google`);
+      const params = new URLSearchParams({
+        target: 'frontend',
+        redirect_origin: window.location.origin,
+      });
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/google?${params.toString()}`, {
+        credentials: 'include',
+        headers: {
+          'X-App-Context': 'frontend',
+        },
+      });
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
@@ -108,7 +117,11 @@ const LoginPage: React.FC = () => {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Context': 'frontend',
+        },
+        credentials: 'include',
         body: JSON.stringify({ email, password, name: isLoginView ? undefined : name, isLoginView }),
       });
 
@@ -116,11 +129,12 @@ const LoginPage: React.FC = () => {
 
       if (response.ok) {
         if (isLoginView) {
-          localStorage.setItem('token', data.token);
-          await login();
+          const sessionReady = await login();
+          if (!sessionReady) {
+            throw new Error('Login completed, but the dashboard session could not be verified. Please try again.');
+          }
           navigate('/dashboard');
         } else {
-          // This is the registration view
           setSuccessMessage(data.message || 'Registration successful. Please check your email to verify your account.');
         }
       } else {
@@ -138,14 +152,14 @@ const LoginPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-4xl mx-auto bg-white shadow-2xl rounded-2xl flex overflow-hidden">
+    <div className="h-screen overflow-hidden flex items-center justify-center bg-gray-50 dark:bg-neutral-950 px-3 pt-20 pb-4 sm:px-4 sm:pt-24 transition-colors duration-500">
+      <div className="w-full max-w-4xl mx-auto max-h-[calc(100vh-6rem)] sm:max-h-[calc(100vh-7rem)] bg-white dark:bg-neutral-900 shadow-2xl dark:shadow-black/40 rounded-2xl flex overflow-hidden transition-colors duration-500">
         {/* Left Side - Promotional Content */}
-        <div className="hidden md:flex w-1/2 bg-black text-white p-12 flex-col justify-center">
+        <div className="hidden md:flex w-1/2 bg-black dark:bg-neutral-800 text-white p-10 lg:p-12 flex-col justify-center">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
             Automate Your DMs, Grow Your Brand
           </h2>
-          <p className="text-gray-300 mb-8">
+          <p className="text-gray-300 dark:text-gray-400 mb-8">
             Join thousands of creators and businesses who use DM Panda to save time and boost engagement on Instagram.
           </p>
           <ul className="space-y-4">
@@ -165,60 +179,50 @@ const LoginPage: React.FC = () => {
         </div>
 
         {/* Right Side - Login Form */}
-        <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
+        <div className="w-full md:w-1/2 p-6 sm:p-7 md:p-8 lg:p-10 flex flex-col justify-center">
           <div className="text-center w-full">
-            <img src="/images/logo.png" alt="DM Panda Logo" className="mx-auto mb-4" style={{ maxHeight: '70px' }} />
-            <h2 className="text-2xl font-bold mb-2 text-gray-900">{isLoginView ? 'Welcome Back!' : 'Create Your Account'}</h2>
-            <p className="text-gray-600 mb-6">{isLoginView ? 'Sign in to continue to your dashboard.' : 'Get started with DM Panda today.'}</p>
+            <img src="/images/logo.png" alt="DM Panda Logo" className="mx-auto mb-3" style={{ maxHeight: '62px' }} />
+            <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">{isLoginView ? 'Welcome Back!' : 'Create Your Account'}</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">{isLoginView ? 'Sign in to continue to your dashboard.' : 'Get started with DM Panda today.'}</p>
 
-            {error && <p className="bg-red-100 text-red-700 p-3 rounded-md mb-4">{error}</p>}
-            {successMessage && <p className="bg-green-100 text-green-700 p-3 rounded-md mb-4">{successMessage}</p>}
+            {hardBanMessage && (
+              <div className="mb-4 rounded-xl border border-red-300 bg-red-100 px-4 py-3 text-left shadow-sm dark:border-red-500/40 dark:bg-red-950/40">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-700 dark:text-red-300">Account Blocked</p>
+                <p className="mt-2 text-sm font-medium text-red-800 dark:text-red-200">{hardBanMessage}</p>
+              </div>
+            )}
+            {error && <p className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-3 rounded-md mb-4">{error}</p>}
+            {successMessage && <p className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-3 rounded-md mb-4">{successMessage}</p>}
 
             <form onSubmit={handleEmailPasswordSubmit} className="space-y-4">
               {!isLoginView && (
-                <Input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full text-black" />
+                <Input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500" />
               )}
-              <Input id="email-input" type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full text-black" />
+              <Input id="email-input" type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500" />
 
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full text-black pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500"
+              />
 
               {!isLoginView && (
                 <>
                   <PasswordStrengthIndicator password={password} />
                   <div className="relative">
                     <Input
-                      type={showConfirmPassword ? "text" : "password"}
+                      type="password"
                       placeholder="Confirm Password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
-                      className="w-full text-black pr-10"
+                      className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    >
-                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
                     {confirmPassword && (
-                      <div className="absolute right-10 top-1/2 -translate-y-1/2 mr-1">
+                      <div className="absolute right-12 top-1/2 -translate-y-1/2">
                         {password === confirmPassword ? (
                           <Check size={18} className="text-green-500" />
                         ) : (
@@ -257,32 +261,32 @@ const LoginPage: React.FC = () => {
                         .catch(() => setError('An error occurred.'))
                         .finally(() => setIsSubmitting(false));
                     }}
-                    className="text-sm text-blue-600 hover:underline"
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     Forgot password?
                   </button>
                 </div>
               )}
 
-              <Button type="submit" className="w-full bg-black text-white hover:bg-gray-800 transition-colors" disabled={isSubmitting}>
+              <Button type="submit" className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isLoginView ? 'Sign In' : 'Sign Up'}
               </Button>
             </form>
 
-            <div className="relative my-6">
+            <div className="relative my-5">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="w-full border-t border-gray-300 dark:border-neutral-700" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">OR</span>
+                <span className="px-2 bg-white dark:bg-neutral-900 text-gray-500 dark:text-gray-400">OR</span>
               </div>
             </div>
 
             <button
               onClick={handleGoogleLogin}
               disabled={isSubmitting}
-              className="w-full group relative flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-300 ease-in-out overflow-hidden disabled:opacity-50"
+              className="w-full group relative flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-black dark:bg-neutral-800 hover:bg-gray-800 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-offset-neutral-900 transition-all duration-300 ease-in-out overflow-hidden disabled:opacity-50"
             >
               <span className="absolute left-0 top-0 h-full w-full bg-gradient-to-r from-instagram-start via-instagram-pink to-instagram-yellow opacity-0 group-hover:opacity-100 transition-opacity duration-500"></span>
               <span className="relative flex items-center">
@@ -296,26 +300,26 @@ const LoginPage: React.FC = () => {
               </span>
             </button>
 
-            <p className="text-sm text-gray-500 mt-6">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-5">
               {isLoginView ? "Don't have an account?" : 'Already have an account?'}
-              <button onClick={() => setIsLoginView(!isLoginView)} className="font-medium text-blue-600 hover:underline ml-1">
+              <button onClick={() => setIsLoginView(!isLoginView)} className="font-medium text-blue-600 dark:text-blue-400 hover:underline ml-1">
                 {isLoginView ? 'Sign Up' : 'Sign In'}
               </button>
             </p>
-            <p className="text-xs text-gray-400 mt-4">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
               By continuing, you agree to our{' '}
-              <a href="/terms" className="text-blue-500 hover:underline">
+              <a href="/terms" className="text-blue-500 dark:text-blue-400 hover:underline">
                 Terms of Service
               </a>{' '}
               and{' '}
-              <a href="/privacy" className="text-blue-500 hover:underline">
+              <a href="/privacy" className="text-blue-500 dark:text-blue-400 hover:underline">
                 Privacy Policy
               </a>.
             </p>
           </div>
         </div>
-      </div >
-    </div >
+      </div>
+    </div>
   );
 };
 

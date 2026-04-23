@@ -1,18 +1,13 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 
 const DisclaimerPage: React.FC = () => {
-  useEffect(() => {
-    document.documentElement.classList.add('light');
-    document.documentElement.classList.remove('dark');
-  }, []);
-
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans">
-      <div className="container mx-auto px-4 py-16 max-w-4xl">
-        <h1 className="text-4xl font-bold text-center mb-4">Disclaimer</h1>
-        <p className="text-center text-gray-500 mb-12">Last updated: November 06, 2025</p>
+    <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-16 sm:pb-24 max-w-4xl">
+        <h1 className="text-3xl sm:text-4xl font-bold text-center mb-3 sm:mb-4 text-gray-900 dark:text-white">Disclaimer</h1>
+        <p className="text-center text-gray-500 dark:text-gray-400 mb-10 sm:mb-12 text-sm sm:text-base">Last updated: November 06, 2025</p>
 
-        <div className="prose prose-lg mx-auto text-gray-700 space-y-8">
+        <div className="prose prose-lg mx-auto text-gray-600 dark:text-gray-400 space-y-6 sm:space-y-8 text-sm sm:text-base leading-relaxed">
           <p>
             The information provided by DM Panda ("we," "us," or "our") on https://dmpanda.com (the "Site") and our mobile application is for general informational purposes only. All information on the Site and our mobile application is provided in good faith, however, we make no representation or warranty of any kind, express or implied, regarding the accuracy, adequacy, validity, reliability, availability, or completeness of any information on the Site or our mobile application.
           </p>

@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect } from 'react';
 import { ThemeProvider, ThemeContext } from './contexts/ThemeContext';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import ProtectedRoute from './app/dashboard/ProtectedRoute';
 import PublicRoute from './app/PublicRoute';
@@ -18,7 +18,6 @@ const LoginPageLazy = React.lazy(() => import('./app/login/page'));
 const RefundPolicyPageLazy = React.lazy(() => import('./app/refund-policy/page'));
 const NotFoundPageLazy = React.lazy(() => import('./app/not-found'));
 const VerifyEmailPageLazy = React.lazy(() => import('./app/auth/verify/page'));
-const AffiliatePageLazy = React.lazy(() => import('./app/affiliate/page'));
 const SuperProfilePublicPageLazy = React.lazy(() => import('./app/superprofile/page'));
 
 const DeleteAccountGuidePageLazy = React.lazy(() => import('./app/delete-account-guide/page'));
@@ -29,25 +28,64 @@ import Navbar from './components/ui/Navbar';
 import Footer from './components/ui/Footer';
 import DashboardLoading from './components/ui/DashboardLoading';
 import ScrollToTop from './components/ui/ScrollToTop';
+
+const SITE_ORIGIN = String(import.meta.env.VITE_PUBLIC_SITE_URL || 'https://dmpanda.com').replace(/\/+$/, '');
+const ROUTE_TITLES: Record<string, string> = {
+  '/': 'DM Panda',
+  '/pricing': 'Pricing | DM Panda',
+  '/about': 'About | DM Panda',
+  '/features': 'Features | DM Panda',
+  '/contact': 'Contact | DM Panda',
+  '/disclaimer': 'Disclaimer | DM Panda',
+  '/privacy': 'Privacy Policy | DM Panda',
+  '/terms': 'Terms & Conditions | DM Panda',
+  '/refund-policy': 'Refund Policy | DM Panda',
+  '/delete-account-guide': 'Delete Account Guide | DM Panda',
+  '/login': 'Login | DM Panda'
+};
+
 const AppContent: React.FC = () => {
   const location = useLocation();
   const { setForceLightMode } = React.useContext(ThemeContext);
   const isPublicPage = !location.pathname?.startsWith('/dashboard');
   const isSuperProfilePage = location.pathname?.startsWith('/superprofile');
 
-  // Enforce light mode on public pages
   useEffect(() => {
-    setForceLightMode(isPublicPage);
+    // Public pages now respect browser theme (light/dark auto)
+    // Only dashboard manages forced theme
+    setForceLightMode(false);
   }, [isPublicPage, setForceLightMode]);
 
+  useEffect(() => {
+    const path = location.pathname || '/';
+    const isDashboardLike = path.startsWith('/dashboard') || path.startsWith('/auth/');
+    document.title = ROUTE_TITLES[path] || 'DM Panda';
+
+    let robotsTag = document.querySelector('meta[name="robots"]');
+    if (!robotsTag) {
+      robotsTag = document.createElement('meta');
+      robotsTag.setAttribute('name', 'robots');
+      document.head.appendChild(robotsTag);
+    }
+    robotsTag.setAttribute('content', isDashboardLike ? 'noindex,nofollow' : 'index,follow');
+
+    let canonicalTag = document.querySelector('link[rel="canonical"]');
+    if (!canonicalTag) {
+      canonicalTag = document.createElement('link');
+      canonicalTag.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonicalTag);
+    }
+    canonicalTag.setAttribute('href', `${SITE_ORIGIN}${path === '/' ? '' : path}`);
+  }, [location.pathname]);
+
   return (
-    <ThemeProvider>
+    <>
       {isPublicPage && !isSuperProfilePage && <Navbar />}
       <div className="page-transition">
         <Suspense fallback={isPublicPage ? null : <DashboardLoading />}>
           <Routes>
             <Route path="/" element={<HomePageLazy />} />
-            <Route path="/dashboard" element={<ProtectedRoute><DashboardPageLazy /></ProtectedRoute>} />
+            <Route path="/dashboard/*" element={<ProtectedRoute><DashboardPageLazy /></ProtectedRoute>} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/auth/verify" element={<VerifyEmailPageLazy />} />
             <Route path="/auth/recovery" element={<PasswordRecoveryPageLazy />} />
@@ -59,7 +97,6 @@ const AppContent: React.FC = () => {
             <Route path="/disclaimer" element={<DisclaimerPageLazy />} />
             <Route path="/privacy" element={<PrivacyPageLazy />} />
             <Route path="/terms" element={<TermsPageLazy />} />
-            <Route path="/affiliate" element={<AffiliatePageLazy />} />
             <Route path="/superprofile/:slug" element={<SuperProfilePublicPageLazy />} />
             <Route path="/login" element={<PublicRoute><LoginPageLazy /></PublicRoute>} />
             <Route path="/refund-policy" element={<RefundPolicyPageLazy />} />
@@ -69,12 +106,13 @@ const AppContent: React.FC = () => {
         </Suspense>
       </div>
       {isPublicPage && !isSuperProfilePage && <Footer />}
-    </ThemeProvider>
+    </>
   );
 };
+
 function App() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ScrollToTop />
       <ThemeProvider>
         <AuthProvider>

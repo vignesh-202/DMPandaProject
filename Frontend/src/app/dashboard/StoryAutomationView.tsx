@@ -1,224 +1,340 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import MediaSection from '../../components/dashboard/MediaSection';
 import AutomationEditor from '../../components/dashboard/AutomationEditor';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
+import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
-import { ChevronRight, AlertCircle, CheckCircle2, LayoutTemplate, Info, Share2 } from 'lucide-react';
-import Card from '../../components/ui/card';
-
-interface ReplyTemplate {
-  id: string;
-  template_type: string;
-  template_data?: any;
-}
+import { ArrowLeft, Info } from 'lucide-react';
+import { takeTransientState } from '../../lib/transientState';
+import AutomationToast from '../../components/ui/AutomationToast';
+import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
+import { prefetchReplyTemplates, type ReplyTemplate } from '../../components/dashboard/TemplateSelector';
+import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 
 const StoryAutomationView: React.FC = () => {
   const { authenticatedFetch } = useAuth();
   const { activeAccountID, activeAccount, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges } = useDashboard();
   const [selectedMedia, setSelectedMedia] = useState<any>(null);
-  const [notShownEditorOpen, setNotShownEditorOpen] = useState(false);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [replyTemplatesList, setReplyTemplatesList] = useState<ReplyTemplate[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  const isEditorOpen = (selectedMedia || notShownEditorOpen) && activeAccountID;
-  const isForNotShown = notShownEditorOpen && !selectedMedia;
+  const [isPreparingEditor, setIsPreparingEditor] = useState(false);
+  const [editorLoadingMessage, setEditorLoadingMessage] = useState('Preparing story automation editor');
+  const [prefetchedAutomation, setPrefetchedAutomation] = useState<any>(null);
+  const [prefetchedTemplate, setPrefetchedTemplate] = useState<ReplyTemplate | null>(null);
+  const [mediaRefreshKey, setMediaRefreshKey] = useState(0);
+  const saveHandlerRef = React.useRef<() => Promise<boolean>>(async () => true);
+  useDashboardMainScrollLock(Boolean(selectedMedia || isPreparingEditor));
 
   const handleTemplatesLoaded = useCallback((templates: ReplyTemplate[]) => {
-    setReplyTemplatesList(templates);
+    setReplyTemplatesList((current) => {
+      const merged = new Map(current.map((template) => [template.id, template]));
+      templates.forEach((template) => {
+        merged.set(template.id, {
+          ...(merged.get(template.id) || {}),
+          ...template,
+          template_data: template.template_data && Object.keys(template.template_data || {}).length > 0
+            ? template.template_data
+            : merged.get(template.id)?.template_data
+        });
+      });
+      return Array.from(merged.values());
+    });
   }, []);
 
-  const handleCreateAutomation = (media: any) => {
-    setSelectedMedia(media);
-    setNotShownEditorOpen(false);
-    setSelectedTemplateId('');
-    setError(null);
-    setSuccess(null);
-  };
+  const primeEditorResources = useCallback(async () => {
+    if (!activeAccountID) return;
+    await prefetchReplyTemplates(activeAccountID, authenticatedFetch);
+  }, [activeAccountID, authenticatedFetch]);
 
-  const openNotShownEditor = () => {
+  const handleDeletedAutomationFallback = useCallback(() => {
     setSelectedMedia(null);
-    setNotShownEditorOpen(true);
-    setError(null);
-    setSuccess(null);
-  };
-
-  const handleBack = () => {
-    setSelectedMedia(null);
-    setNotShownEditorOpen(false);
+    setEditorDirty(false);
+    setShowLeaveModal(false);
     setSelectedTemplateId('');
+    setPrefetchedAutomation(null);
+    setPrefetchedTemplate(null);
     setHasUnsavedChanges(false);
-  };
+    setMediaRefreshKey((value) => value + 1);
+    setError('Automation not found. It may have been deleted.');
+  }, [setHasUnsavedChanges]);
 
-  const handleEditorChange = () => {
-    setHasUnsavedChanges(true);
-  };
+  const handleCreateAutomation = useCallback(async (media: any) => {
+    const isEditingExisting = Boolean(media?.automation_id);
+    setEditorLoadingMessage(isEditingExisting ? 'Loading story automation' : 'Opening story automation');
+    setIsPreparingEditor(true);
+    try {
+      await primeEditorResources();
+      let resolvedAutomation: any = null;
+      let resolvedTemplate: ReplyTemplate | null = null;
+      if (isEditingExisting && media?.automation_id) {
+        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${media.automation_id}?account_id=${activeAccountID}&type=story`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            handleDeletedAutomationFallback();
+            return;
+          }
+          throw new Error('Failed to load automation.');
+        }
+        resolvedAutomation = await res.json();
+        if (resolvedAutomation?.template_id) {
+          const templateRes = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${resolvedAutomation.template_id}?account_id=${activeAccountID}`);
+          if (templateRes.ok) {
+            resolvedTemplate = await templateRes.json();
+          }
+        }
+      }
+      setPrefetchedAutomation(resolvedAutomation);
+      setPrefetchedTemplate(resolvedTemplate);
+      setSelectedMedia(media);
+      setEditorDirty(false);
+      setShowLeaveModal(false);
+      setSelectedTemplateId('');
+      setError(null);
+      setSuccess(null);
+    } catch (_) {
+      setError('Could not open automation.');
+    } finally {
+      setIsPreparingEditor(false);
+    }
+  }, [activeAccountID, authenticatedFetch, handleDeletedAutomationFallback, primeEditorResources]);
 
-  const handleSave = () => {
+  const closeEditor = useCallback(() => {
     setSelectedMedia(null);
-    setNotShownEditorOpen(false);
+    setEditorDirty(false);
+    setShowLeaveModal(false);
     setSelectedTemplateId('');
-    setSuccess('Automation saved successfully!');
-    setTimeout(() => setSuccess(null), 3000);
+    setPrefetchedAutomation(null);
+    setPrefetchedTemplate(null);
+    setHasUnsavedChanges(false);
+  }, [setHasUnsavedChanges]);
+
+  const requestClose = useCallback(() => {
+    if (editorDirty) {
+      setShowLeaveModal(true);
+      return;
+    }
+    closeEditor();
+  }, [closeEditor, editorDirty]);
+
+  const handleEditorChange = (dirty: boolean) => {
+    setEditorDirty(dirty);
+    setHasUnsavedChanges(dirty);
   };
 
-  // Track unsaved changes
+  const handleSave = useCallback(() => {
+    setSelectedMedia(null);
+    setEditorDirty(false);
+    setShowLeaveModal(false);
+    setSelectedTemplateId('');
+    setPrefetchedAutomation(null);
+    setPrefetchedTemplate(null);
+    setHasUnsavedChanges(false);
+    setSuccess('Automation saved successfully!');
+  }, [setHasUnsavedChanges]);
+
   useEffect(() => {
-    if (isEditorOpen) {
-      setSaveUnsavedChanges(() => async () => {
-        return true;
-      });
-      setDiscardUnsavedChanges(() => {
-        handleBack();
+    if (selectedMedia) {
+      setSaveUnsavedChanges(() => async () => saveHandlerRef.current());
+      setDiscardUnsavedChanges(() => () => {
+        closeEditor();
       });
     } else {
+      setEditorDirty(false);
+      setShowLeaveModal(false);
       setHasUnsavedChanges(false);
+      setSaveUnsavedChanges(() => async () => true);
+      setDiscardUnsavedChanges(() => () => { });
     }
-  }, [isEditorOpen, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges]);
+  }, [closeEditor, selectedMedia, setDiscardUnsavedChanges, setHasUnsavedChanges, setSaveUnsavedChanges]);
 
   useEffect(() => {
     if (!activeAccountID) return;
-    const targetId = sessionStorage.getItem('openAutomationId');
-    const targetType = sessionStorage.getItem('openAutomationType');
+    const targetId = takeTransientState<string>('openAutomationId');
+    const targetType = takeTransientState<string>('openAutomationType');
     if (!targetId || (targetType || '').toLowerCase() !== 'story') return;
 
-    sessionStorage.removeItem('openAutomationId');
-    sessionStorage.removeItem('openAutomationType');
-
     (async () => {
+      setEditorLoadingMessage('Loading story automation');
+      setIsPreparingEditor(true);
       try {
-        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}&type=comment`);
-        if (res.ok) {
-          const data = await res.json();
-          const mediaId = data.media_id || data.mediaId || data.media?.id;
-          if (!mediaId) {
-            setError('Could not open automation: media not found.');
+        const res = await authenticatedFetch(
+          `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}&type=story`
+        );
+        if (!res.ok) {
+          if (res.status === 404) {
+            handleDeletedAutomationFallback();
             return;
           }
-          setNotShownEditorOpen(false);
-          setSelectedMedia({
-            id: mediaId,
-            automation_id: targetId,
-            caption: data.caption || data.media_caption || ''
-          });
-        } else {
           setError('Could not open automation.');
+          return;
         }
+
+        const data = await res.json();
+        const mediaId = data.media_id || data.mediaId || data.media?.id;
+        if (!mediaId) {
+          setError('Could not open automation: media not found.');
+          return;
+        }
+
+        await primeEditorResources();
+        let resolvedTemplate: ReplyTemplate | null = null;
+        if (data.template_id) {
+          const templateRes = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${data.template_id}?account_id=${activeAccountID}`);
+          if (templateRes.ok) {
+            resolvedTemplate = await templateRes.json();
+          }
+        }
+        setPrefetchedAutomation(data);
+        setPrefetchedTemplate(resolvedTemplate);
+        setSelectedMedia({
+          id: mediaId,
+          automation_id: targetId,
+          caption: data.caption || data.media_caption || ''
+        });
       } catch (_) {
         setError('Could not open automation.');
+      } finally {
+        setIsPreparingEditor(false);
       }
     })();
-  }, [activeAccountID, authenticatedFetch]);
+  }, [activeAccountID, authenticatedFetch, handleDeletedAutomationFallback, primeEditorResources]);
 
-  if (isEditorOpen) {
+  useEffect(() => {
+    if (selectedMedia) {
+      document.querySelector('main')?.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }, [selectedMedia]);
+
+  if (isPreparingEditor) {
     return (
-      <div className="max-w-[1400px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
-        <div className="flex items-center justify-between border-b border-content pb-6">
-          <button onClick={handleBack} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
-            <ChevronRight className="w-4 h-4 rotate-180" /> Back to Dashboard
-          </button>
-          <div className="flex items-center gap-3">
-            {error && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-destructive-muted/40 text-destructive rounded-lg text-[10px] font-black border border-destructive/30 animate-in fade-in slide-in-from-right-2">
-                <AlertCircle className="w-3 h-3" /> {error}
-              </div>
-            )}
-            {success && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-success-muted/60 text-success rounded-lg text-[10px] font-black border border-success/30 animate-in fade-in slide-in-from-right-2">
-                <CheckCircle2 className="w-3 h-3" /> {success}
-              </div>
-            )}
-          </div>
-        </div>
+      <LoadingOverlay
+        variant="fullscreen"
+        message={editorLoadingMessage}
+        subMessage="Preparing the automation editor and linked reply templates..."
+      />
+    );
+  }
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 xl:h-[calc(100vh-11rem)] xl:min-h-0">
-          {/* Left: Editor */}
-          <div className="xl:col-span-8 space-y-8 order-2 xl:order-1 xl:overflow-y-auto xl:overscroll-behavior-contain xl:min-h-0 xl:pr-2">
-            <section className="bg-card p-8 rounded-[40px] border border-content shadow-sm space-y-8">
-              <AutomationEditor
-                type="story"
-                variant="embedded"
-                activeAccountID={activeAccountID}
-                authenticatedFetch={authenticatedFetch}
-                automationId={isForNotShown ? undefined : selectedMedia?.automation_id}
-                mediaId={isForNotShown ? undefined : selectedMedia?.id}
-                onClose={handleBack}
-                onSave={handleSave}
-                onDelete={async (id) => {
-                  await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${id}?account_id=${activeAccountID}&type=comment`, {
-                    method: 'DELETE'
-                  });
-                  handleSave();
-                }}
-                titleOverride={isForNotShown ? 'Story replies (shared from others)' : undefined}
-                onChange={handleEditorChange}
-                onTemplateSelect={(templateId) => setSelectedTemplateId(templateId || '')}
-                onTemplatesLoaded={handleTemplatesLoaded}
-              />
-            </section>
-          </div>
+  if (selectedMedia && activeAccountID) {
+    return (
+      <>
+        <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
+          <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
+          <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
+            <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2">
+              <section className="bg-card p-8 rounded-[40px] border border-content shadow-sm space-y-8 xl:min-h-0">
+                <AutomationEditor
+                  type="story"
+                  variant="embedded"
+                  activeAccountID={activeAccountID}
+                  authenticatedFetch={authenticatedFetch}
+                  automationId={selectedMedia?.automation_id}
+                  mediaId={selectedMedia?.id}
+                  initialAutomationData={prefetchedAutomation}
+                  initialSelectedTemplate={prefetchedTemplate}
+                  onClose={requestClose}
+                  onSave={handleSave}
+                  registerSaveHandler={(handler) => {
+                    saveHandlerRef.current = handler;
+                  }}
+                  onDelete={async (id) => {
+                    await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${id}?account_id=${activeAccountID}&type=story`, {
+                      method: 'DELETE'
+                    });
+                    handleSave();
+                  }}
+                  titleOverride=""
+                  onChange={handleEditorChange}
+                  onTemplateSelect={(templateId) => setSelectedTemplateId(templateId || '')}
+                  onTemplatesLoaded={handleTemplatesLoaded}
+                  actionBarLeft={
+                    <button
+                      type="button"
+                      onClick={requestClose}
+                      className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                  }
+                />
+              </section>
+            </div>
 
-          {/* Right: Live Preview */}
-          <div className="xl:col-span-4 order-1 xl:order-2">
-            <div className="xl:sticky xl:top-24 h-fit max-h-[calc(100vh-8rem)] overflow-y-auto">
-              {/* Live Preview */}
-              <div className="space-y-4">
-                {selectedTemplateId ? (
-                  (() => {
-                    const template = replyTemplatesList.find(t => t.id === selectedTemplateId);
-                    if (template) {
-                      const displayName = activeAccount?.username || 'your_account';
-                      const profilePic = activeAccount?.profile_picture_url || null;
+            <AutomationPreviewPanel>
+              {selectedTemplateId ? (
+                (() => {
+                  const template = replyTemplatesList.find((t) => t.id === selectedTemplateId);
+                  if (!template) return null;
 
-                      const previewAutomation = {
-                        template_type: template.template_type as any,
-                        template_content: template.template_type === 'template_text' ? template.template_data?.text :
-                          template.template_type === 'template_media' ? template.template_data?.media_url :
-                            template.template_type === 'template_quick_replies' ? template.template_data?.text : undefined,
-                        template_elements: template.template_type === 'template_carousel' ? template.template_data?.elements : undefined,
-                        replies: template.template_type === 'template_quick_replies' ? template.template_data?.replies : undefined,
-                        buttons: template.template_type === 'template_buttons' ? template.template_data?.buttons : undefined,
-                        media_id: template.template_type === 'template_share_post' ? template.template_data?.media_id : undefined,
-                        media_url: template.template_type === 'template_share_post' ? template.template_data?.media_url : undefined,
-                        use_latest_post: template.template_type === 'template_share_post' ? template.template_data?.use_latest_post : undefined,
-                        latest_post_type: template.template_type === 'template_share_post' ? template.template_data?.latest_post_type : undefined,
-                        keyword: selectedMedia?.caption || (isForNotShown ? 'Story Reply' : 'Story comment'),
-                        template_data: template.template_data
-                      };
+                  const previewAutomation = {
+                    ...(buildPreviewAutomationFromTemplate(template) || {}),
+                    keyword: selectedMedia?.caption || 'Story reply'
+                  };
 
-                      return (
-                        <SharedMobilePreview
-                          mode="automation"
-                          automation={previewAutomation}
-                          displayName={displayName}
-                          profilePic={profilePic || undefined}
-                        />
-                      );
-                    }
-                    return null;
-                  })()
-                ) : (
-                  <div className="bg-muted/40 p-4 flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-border">
+                  return (
                     <SharedMobilePreview
                       mode="automation"
-                      automation={{ keyword: selectedMedia?.caption || (isForNotShown ? 'Story Reply' : 'Story comment') }}
+                      automation={previewAutomation}
+                      activeAccountID={activeAccountID}
+                      authenticatedFetch={authenticatedFetch}
                       displayName={activeAccount?.username || 'your_account'}
                       profilePic={activeAccount?.profile_picture_url || undefined}
+                      lockScroll
+                      hideAutomationPrompt
                     />
-                  </div>
-                )}
-              </div>
-            </div>
+                  );
+                })()
+              ) : (
+                <SharedMobilePreview
+                  mode="automation"
+                  automation={{ template_type: 'template_text', template_content: 'Select a reply template to see preview...' }}
+                  activeAccountID={activeAccountID}
+                  authenticatedFetch={authenticatedFetch}
+                  displayName={activeAccount?.username || 'your_account'}
+                  profilePic={activeAccount?.profile_picture_url || undefined}
+                  lockScroll
+                  hideAutomationPrompt
+                />
+              )}
+            </AutomationPreviewPanel>
           </div>
         </div>
-      </div>
+        <ModernConfirmModal
+          isOpen={showLeaveModal}
+          onClose={() => setShowLeaveModal(false)}
+          onConfirm={async () => {
+            const ok = await saveHandlerRef.current();
+            if (ok) {
+              setShowLeaveModal(false);
+            }
+          }}
+          onSecondary={() => {
+            setShowLeaveModal(false);
+            closeEditor();
+          }}
+          title="Unsaved changes"
+          description="Do you want to save before leaving?"
+          type="warning"
+          confirmLabel="Save"
+          secondaryLabel="Leave without saving"
+          cancelLabel="Cancel"
+        />
+      </>
     );
   }
 
   return (
     <div className="relative h-full space-y-8">
+      <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
+      <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
       <div className="flex flex-col sm:flex-row sm:items-start gap-3 p-4 sm:p-5 bg-primary/10 border border-primary/30 rounded-2xl">
         <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
           <Info className="w-5 h-5 text-primary" />
@@ -226,58 +342,21 @@ const StoryAutomationView: React.FC = () => {
         <div>
           <h3 className="text-sm font-bold text-primary mb-1">What appears here</h3>
           <p className="text-sm text-primary/80 leading-relaxed">
-            <strong>Shown:</strong> Stories that are your ownâ€”for example, when you share your own reels, your own posts from your Instagram profile, or your own images.
-            <strong className="block mt-1">Not shown:</strong> If you share someone else&apos;s post or reel to your story, those stories will not appear here.
+            Stories posted with media you own can appear here. If a story contains someone else&apos;s post or reel, Meta does not expose that story to the app, so it will not be available here.
           </p>
         </div>
       </div>
 
-      {/* Option 1: Setup automation for stories SHOWN here */}
       <section>
-        <h2 className="text-lg font-black text-foreground mb-1 flex items-center gap-2">
-          <span className="text-primary">1.</span> Setup automation for stories shown here
-        </h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          Your own stories (reels, posts, or images) that we can fetch from Instagram.
-        </p>
         <MediaSection
-          title="Stories shown here"
+          key={`story-media-${activeAccountID || 'none'}-${mediaRefreshKey}`}
+          title="Story Automation"
           type="story"
-          onCreateAutomation={handleCreateAutomation}
+          onCreateAutomation={(media) => void handleCreateAutomation(media)}
         />
-      </section>
-
-      {/* Option 2: Setup automation for stories NOT shown here */}
-      <section>
-        <h2 className="text-lg font-black text-foreground mb-1 flex items-center gap-2">
-          <span className="text-primary">2.</span> Setup automation for stories not shown here
-        </h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          When you share someone else&apos;s post or reel to your story, Instagram does not make that story available to us, so it won&apos;t appear in the list above. You can set a default reply for those story replies here.
-        </p>
-        <div className="p-6 sm:p-8 bg-card border border-content rounded-2xl flex flex-col sm:flex-row sm:items-center gap-6">
-          <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
-            <Share2 className="w-7 h-7 text-muted-foreground" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-foreground mb-1">Stories with shared posts or reels</h3>
-            <p className="text-sm text-muted-foreground">
-              Set up a default auto-reply when someone replies to a story where you shared another account&apos;s post or reel.
-            </p>
-          </div>
-          {activeAccountID && (
-            <button
-              onClick={openNotShownEditor}
-              className="flex-shrink-0 px-6 py-3 bg-foreground text-background rounded-xl font-bold text-xs uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all shadow-lg"
-            >
-              Setup automation
-            </button>
-          )}
-        </div>
       </section>
     </div>
   );
 };
 
 export default StoryAutomationView;
-

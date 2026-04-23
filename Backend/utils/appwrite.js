@@ -1,4 +1,4 @@
-const { Client, Account, Databases, Users, Storage, Functions } = require('node-appwrite');
+const { Client, Account, Databases, Users, Storage, Functions, Messaging } = require('node-appwrite');
 require('dotenv').config();
 
 const APPWRITE_ENDPOINT = process.env.APPWRITE_ENDPOINT;
@@ -32,22 +32,33 @@ const getAppwriteClient = (options = {}) => {
 module.exports = {
     getAppwriteClient,
     Functions,
-    APPWRITE_DATABASE_ID: process.env.APPWRITE_DATABASE_ID,
+    Messaging,
+    APPWRITE_DATABASE_ID: process.env.APPWRITE_DATABASE_ID || process.env.DATABASE_ID,
     USERS_COLLECTION_ID: 'users',
     SETTINGS_COLLECTION_ID: 'settings',
+    ADMIN_SETTINGS_COLLECTION_ID: 'admin_settings',
     CAMPAIGNS_COLLECTION_ID: 'campaigns',
+    EMAIL_CAMPAIGNS_COLLECTION_ID: 'email_campaigns',
     IG_ACCOUNTS_COLLECTION_ID: 'ig_accounts',
+    TRANSACTIONS_COLLECTION_ID: 'transactions',
+    PAYMENT_ATTEMPTS_COLLECTION_ID: 'payment_attempts',
     PRICING_COLLECTION_ID: 'pricing',
+    COUPONS_COLLECTION_ID: 'coupons',
+    COUPON_REDEMPTIONS_COLLECTION_ID: 'coupon_redemptions',
+    PROFILES_COLLECTION_ID: 'profiles',
     AUTOMATIONS_COLLECTION_ID: 'automations',
     REPLY_TEMPLATES_COLLECTION_ID: 'reply_templates',
     INBOX_MENUS_COLLECTION_ID: 'inbox_menus',
     CONVO_STARTERS_COLLECTION_ID: 'convo_starters',
-    MENTIONS_COLLECTION_ID: 'mentions',
     SUPER_PROFILES_COLLECTION_ID: 'super_profiles',
-    SUGGEST_MORE_COLLECTION_ID: 'suggest_more',
     COMMENT_MODERATION_COLLECTION_ID: 'comment_moderation',
+    LOGS_COLLECTION_ID: 'logs',
+    CHAT_STATES_COLLECTION_ID: 'chat_states',
+    AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID: 'automation_collect_destinations',
+    AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID: 'automation_collected_emails',
     KEYWORDS_COLLECTION_ID: 'keywords',
     KEYWORD_INDEX_COLLECTION_ID: 'keyword_index',
+    ADMIN_AUDIT_LOGS_COLLECTION_ID: 'admin_audit_logs',
     // Function IDs
     FUNCTION_REMOVE_INSTAGRAM: process.env.FUNCTION_REMOVE_INSTAGRAM
 };

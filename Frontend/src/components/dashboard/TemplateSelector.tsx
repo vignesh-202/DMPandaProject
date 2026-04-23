@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { writeTransientState } from '../../lib/transientState';
 
 export interface ReplyTemplate {
   id: string;
@@ -41,6 +42,7 @@ interface TemplateSelectorProps {
 
 // Shared promise to coalesce duplicate list requests
 let replyTemplatesListPromise: Promise<{ templates: ReplyTemplate[]; error: string | null }> | null = null;
+let replyTemplatesListPromiseKey = '';
 
 // Cache templates by account ID to avoid reloading when switching sections
 const templatesCache: Record<string, { templates: ReplyTemplate[]; timestamp: number }> = {};
@@ -62,6 +64,62 @@ const TEMPLATE_TYPE_LABELS: Record<string, string> = {
   template_quick_replies: 'Quick Replies',
   template_media: 'Media',
   template_share_post: 'Share Post',
+};
+
+const loadReplyTemplates = async (
+  activeAccountID: string,
+  authenticatedFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+  force = false
+) => {
+  if (!activeAccountID) {
+    return { templates: [], error: null };
+  }
+
+  if (!force && templatesCache[activeAccountID]) {
+    const cached = templatesCache[activeAccountID];
+    if (Date.now() - cached.timestamp < CACHE_DURATION) {
+      return { templates: cached.templates, error: null };
+    }
+  }
+
+  const requestKey = `${activeAccountID}|reply-templates`;
+  if (!force && replyTemplatesListPromise && replyTemplatesListPromiseKey === requestKey) {
+    return replyTemplatesListPromise;
+  }
+
+  replyTemplatesListPromiseKey = requestKey;
+  replyTemplatesListPromise = (async () => {
+    try {
+      const res = await authenticatedFetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates?account_id=${activeAccountID}&full=false`
+      );
+      if (!res.ok) {
+        return { templates: [], error: 'Failed to load templates' };
+      }
+
+      const data = await res.json();
+      const templates = data.templates || [];
+      templatesCache[activeAccountID] = { templates, timestamp: Date.now() };
+      return { templates, error: null };
+    } catch (_) {
+      return { templates: [], error: 'Failed to load templates' };
+    } finally {
+      if (replyTemplatesListPromiseKey === requestKey) {
+        replyTemplatesListPromise = null;
+        replyTemplatesListPromiseKey = '';
+      }
+    }
+  })();
+
+  return replyTemplatesListPromise;
+};
+
+export const prefetchReplyTemplates = async (
+  activeAccountID: string,
+  authenticatedFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+) => {
+  const result = await loadReplyTemplates(activeAccountID, authenticatedFetch, false);
+  return result.templates;
 };
 
 const TemplateSelector: React.FC<TemplateSelectorProps> = ({
@@ -87,55 +145,9 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
       return;
     }
 
-    // Check cache first (unless forcing refresh)
-    if (!force && templatesCache[activeAccountID]) {
-      const cached = templatesCache[activeAccountID];
-      const age = Date.now() - cached.timestamp;
-      if (age < CACHE_DURATION) {
-        setTemplates(cached.templates);
-        setError(null);
-        setIsLoading(false);
-        onTemplatesLoaded?.(cached.templates);
-        return;
-      }
-    }
-
-    if (replyTemplatesListPromise && !force) {
-      try {
-        const result = await replyTemplatesListPromise;
-        setTemplates(result.templates);
-        setError(result.error);
-        templatesCache[activeAccountID] = { templates: result.templates, timestamp: Date.now() };
-        onTemplatesLoaded?.(result.templates);
-      } catch (err) {
-        setError('Failed to load templates');
-      } finally {
-        setIsLoading(false);
-      }
-      return;
-    }
-
     setIsLoading(true);
-    replyTemplatesListPromise = (async () => {
-      try {
-        const res = await authenticatedFetch(
-          `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates?account_id=${activeAccountID}&full=false`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const templates = data.templates || [];
-          templatesCache[activeAccountID] = { templates, timestamp: Date.now() };
-          return { templates, error: null };
-        } else {
-          return { templates: [], error: 'Failed to load templates' };
-        }
-      } catch (err) {
-        return { templates: [], error: 'Failed to load templates' };
-      }
-    })();
-
     try {
-      const result = await replyTemplatesListPromise;
+      const result = await loadReplyTemplates(activeAccountID, authenticatedFetch, force);
       setTemplates(result.templates);
       setError(result.error);
       onTemplatesLoaded?.(result.templates);
@@ -143,7 +155,6 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
       setError('Failed to load templates');
     } finally {
       setIsLoading(false);
-      replyTemplatesListPromise = null;
     }
   }, [activeAccountID, authenticatedFetch, onTemplatesLoaded]);
 
@@ -168,10 +179,15 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
         );
         if (res.ok) {
           const fullTemplate = await res.json();
-          // Update the template in the templates array
-          setTemplates(prev => prev.map(t =>
-            t.id === template.id ? fullTemplate : t
-          ));
+          let nextTemplates: ReplyTemplate[] = [];
+          setTemplates(prev => {
+            nextTemplates = prev.map(t => t.id === template.id ? fullTemplate : t);
+            return nextTemplates;
+          });
+          if (activeAccountID) {
+            templatesCache[activeAccountID] = { templates: nextTemplates, timestamp: Date.now() };
+          }
+          onTemplatesLoaded?.(nextTemplates);
           onSelect(fullTemplate);
         } else {
           onSelect(template); // Fallback to partial data
@@ -194,6 +210,13 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
     onSelect(null);
   };
 
+  const handleTemplateCardKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, template: ReplyTemplate) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      void handleSelect(template);
+    }
+  };
+
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Search Bar with Refresh Button */}
@@ -205,14 +228,14 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search templates..."
-            className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-medium text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+            className="w-full rounded-2xl border-2 border-content/70 bg-card/90 py-3 pl-11 pr-4 text-sm font-medium text-foreground placeholder:text-muted-foreground/70 transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
           />
         </div>
         <button
           type="button"
           onClick={() => fetchTemplates(true)}
           disabled={isLoading}
-          className="p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-xl border-2 border-content/70 bg-card p-3 text-muted-foreground transition-all hover:border-primary/30 hover:bg-muted/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           title="Refresh templates"
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -230,7 +253,7 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
       </div>
 
       {/* Templates Container Box */}
-      <div className="bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-2xl p-4 min-h-[200px] max-h-[400px] overflow-y-auto custom-scrollbar relative">
+      <div className="relative min-h-[220px] max-h-[420px] overflow-y-auto rounded-[28px] border border-content bg-card/95 p-4 shadow-sm custom-scrollbar">
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
@@ -238,15 +261,15 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-12 px-4">
             <AlertCircle className="w-8 h-8 text-red-500 mb-2" />
-            <p className="text-sm font-bold text-gray-500 text-center">{error}</p>
+            <p className="text-center text-sm font-bold text-muted-foreground">{error}</p>
           </div>
         ) : filteredTemplates.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-4">
-            <LayoutTemplate className="w-12 h-12 text-gray-300 mb-3" />
-            <p className="text-sm font-bold text-gray-400 text-center mb-1">
+            <LayoutTemplate className="mb-3 h-12 w-12 text-muted-foreground/50" />
+            <p className="mb-1 text-center text-sm font-bold text-muted-foreground">
               {searchQuery ? 'No templates found' : 'No templates yet'}
             </p>
-            <p className="text-xs text-gray-300 text-center">
+            <p className="text-center text-xs text-muted-foreground/70">
               {searchQuery ? 'Try a different search term' : 'Create your first template'}
             </p>
             {!searchQuery && onCreateNew && (
@@ -269,24 +292,30 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
               const isTemplateLoading = loadingTemplateIds.has(template.id);
 
               return (
-                <button
+                <div
                   key={template.id}
-                  type="button"
-                  onClick={() => handleSelect(template)}
-                  disabled={isTemplateLoading}
-                  className={`group relative p-4 rounded-xl border-2 transition-all text-left ${isSelected
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10 shadow-lg shadow-blue-500/20'
+                  role="button"
+                  tabIndex={isTemplateLoading ? -1 : 0}
+                  onClick={() => {
+                    if (!isTemplateLoading) {
+                      void handleSelect(template);
+                    }
+                  }}
+                  onKeyDown={(event) => handleTemplateCardKeyDown(event, template)}
+                  aria-disabled={isTemplateLoading}
+                  className={`group relative rounded-[24px] border p-4 text-left transition-all ${isSelected
+                    ? 'border-primary/40 bg-primary/8 shadow-[0_18px_40px_rgba(108,43,217,0.12)]'
                     : isTemplateLoading
-                      ? 'border-gray-300 bg-gray-100 dark:bg-gray-700 opacity-75 cursor-not-allowed'
-                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-500/5'
+                      ? 'cursor-not-allowed border-content/70 bg-muted/50 opacity-75'
+                      : 'cursor-pointer border-content/70 bg-background/70 hover:border-primary/30 hover:bg-primary/5 hover:shadow-md'
                     }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`p-2.5 rounded-lg transition-all ${isSelected
-                      ? 'bg-blue-500 text-white shadow-md'
+                    <div className={`rounded-2xl p-2.5 transition-all ${isSelected
+                      ? 'bg-primary text-primary-foreground shadow-md'
                       : isTemplateLoading
-                        ? 'bg-gray-300 dark:bg-gray-600 text-gray-500'
-                        : 'bg-white dark:bg-gray-700 text-gray-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-500/20 group-hover:text-blue-500'
+                        ? 'bg-muted text-muted-foreground'
+                        : 'bg-card text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
                       }`}>
                       {isTemplateLoading ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -295,30 +324,26 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-bold mb-1 truncate ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100'
+                      <div className={`mb-1 truncate text-sm font-bold ${isSelected ? 'text-primary' : 'text-foreground'
                         }`}>
                         {template.name}
                       </div>
-                      <div className={`text-xs font-medium ${isSelected ? 'text-blue-500' : 'text-gray-400'
+                      <div className={`text-xs font-medium ${isSelected ? 'text-primary/80' : 'text-muted-foreground'
                         }`}>
                         {TEMPLATE_TYPE_LABELS[template.template_type] || template.template_type}
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[11px]">
-                        <span className="text-gray-400 dark:text-gray-500">
+                        <span className="text-muted-foreground/80">
                           Click to select
                         </span>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            try {
-                              sessionStorage.setItem('replyTemplateEditId', template.id);
-                            } catch {
-                              // ignore storage failures, still navigate
-                            }
+                            writeTransientState('replyTemplateEditId', template.id);
                             setCurrentView('Reply Templates');
                           }}
-                          className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 font-bold"
+                          className="inline-flex items-center gap-1 font-bold text-primary transition-colors hover:text-primary/80"
                         >
                           <Pencil className="w-3 h-3" />
                           Edit
@@ -330,9 +355,9 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
                     )}
                   </div>
                   {isSelected && (
-                    <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    <div className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary animate-pulse" />
                   )}
-                </button>
+                </div>
               );
             })}
           </div>

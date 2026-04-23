@@ -57,6 +57,9 @@ export const getSocialIcon = (id?: string) => SOCIAL_ICONS.find((icon) => icon.i
 export const SocialIcon: React.FC<{ id?: string; className?: string; color?: string }> = ({ id, className, color }) => {
   const icon = getSocialIcon(id);
   const resolvedColor = (color || SIMPLE_ICON_COLOR).replace('#', '');
+  const simpleIconClassName = color
+    ? (className || '')
+    : `${className || ''} dark:invert dark:brightness-200`;
   if (!icon) {
     const Fallback = LinkIcon;
     return <Fallback className={className} />;
@@ -66,7 +69,7 @@ export const SocialIcon: React.FC<{ id?: string; className?: string; color?: str
       <img
         src={simpleIconUrl(icon.slug, resolvedColor)}
         alt={icon.label}
-        className={`${className || ''} dark:invert dark:brightness-200`}
+        className={simpleIconClassName}
         loading="lazy"
       />
     );

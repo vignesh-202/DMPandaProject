@@ -1,13 +1,18 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { MessageSquare, Plus, RefreshCw, AlertCircle, Trash2, CheckCircle2, Instagram, MessageCircle, Loader2, Pencil, Image as ImageIcon, Reply, ChevronLeft, X, HelpCircle, List, Calendar, ChevronDown, Film, Globe, PlusSquare, Edit, Grid3X3, Rows, GripVertical } from 'lucide-react';
+import { MessageSquare, Plus, RefreshCw, AlertCircle, Trash2, CheckCircle2, Instagram, MessageCircle, Loader2, Pencil, Image as ImageIcon, Reply, ArrowLeft, X, HelpCircle, List, Calendar, ChevronDown, Film, Globe, PlusSquare, Edit, LayoutGrid, GripVertical, Lock, Sparkles, Mail } from 'lucide-react';
 import Card from '../../components/ui/card';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
-import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
+import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
+import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
+import TemplateSelector, { ReplyTemplate, prefetchReplyTemplates } from '../../components/dashboard/TemplateSelector';
+import AutomationToast from '../../components/ui/AutomationToast';
 import { useDashboard, ViewType } from '../../contexts/DashboardContext';
 import { useAuth } from '../../contexts/AuthContext';
+import ToggleSwitch from '../../components/ui/ToggleSwitch';
+import { takeTransientState } from '../../lib/transientState';
+import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 
 // Max 4 Convo Starters per Instagram API limit
 const MAX_CONVO_STARTERS = 4;
@@ -19,9 +24,22 @@ let sharedConvoStarterMediaKey = '';
 interface ConvoStarter {
     question: string;
     payload: string;
+    template_name?: string;
     template_type?: 'template_text' | 'template_carousel' | 'template_buttons' | 'template_media' | 'template_share_post' | 'template_quick_replies';
     template_id?: string;
     template_data?: any;
+    followers_only?: boolean;
+    followers_only_message?: string;
+    followers_only_primary_button_text?: string;
+    followers_only_secondary_button_text?: string;
+    suggest_more_enabled?: boolean;
+    once_per_user_24h?: boolean;
+    collect_email_enabled?: boolean;
+    collect_email_only_gmail?: boolean;
+    collect_email_prompt_message?: string;
+    collect_email_fail_retry_message?: string;
+    collect_email_success_reply_message?: string;
+    seen_typing_enabled?: boolean;
 }
 
 interface ConvoStarterData {
@@ -34,7 +52,28 @@ interface ConvoStarterData {
 }
 
 const getByteLength = (str: string) => new Blob([str]).size;
-const createBlankStarter = (): ConvoStarter => ({ question: '', payload: '' });
+const FOLLOWERS_ONLY_MESSAGE_DEFAULT = 'Please follow this account first, then send your message again.';
+const FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT = '👤 Follow Account';
+const FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT = "✅ I've Followed";
+const COLLECT_EMAIL_PROMPT_DEFAULT = '📧 Could you share your best email so we can send the details and updates ✨';
+const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '⚠️ That email looks invalid. Please send a valid email like name@example.com.';
+const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ✅';
+const createBlankStarter = (): ConvoStarter => ({
+    question: '',
+    payload: '',
+    followers_only: false,
+    followers_only_message: FOLLOWERS_ONLY_MESSAGE_DEFAULT,
+    followers_only_primary_button_text: FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
+    followers_only_secondary_button_text: FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
+    suggest_more_enabled: false,
+    once_per_user_24h: false,
+    collect_email_enabled: false,
+    collect_email_only_gmail: false,
+    collect_email_prompt_message: COLLECT_EMAIL_PROMPT_DEFAULT,
+    collect_email_fail_retry_message: COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
+    collect_email_success_reply_message: COLLECT_EMAIL_SUCCESS_DEFAULT,
+    seen_typing_enabled: false
+});
 const normalizeQuestion = (value: string) => (value || '').trim().toLowerCase();
 const suggestUniqueQuestion = (base: string, existing: string[]) => {
     const trimmed = (base || '').trim();
@@ -66,6 +105,18 @@ const validateConvoStarter = (item: ConvoStarter, selectedTemplate: ReplyTemplat
         errors.template = 'Please select a reply template';
     }
 
+    if (item.followers_only) {
+        if (!String(item.followers_only_message || '').trim()) {
+            errors.followers_only_message = 'Followers-only message is required.';
+        }
+        if (getByteLength(String(item.followers_only_primary_button_text || '')) > 40) {
+            errors.followers_only_primary_button_text = 'Follow button text must be 40 UTF-8 bytes or less.';
+        }
+        if (getByteLength(String(item.followers_only_secondary_button_text || '')) > 40) {
+            errors.followers_only_secondary_button_text = 'Retry button text must be 40 UTF-8 bytes or less.';
+        }
+    }
+
     return errors;
 };
 
@@ -90,7 +141,6 @@ const ConvoStarterView: React.FC = () => {
     const { authenticatedFetch } = useAuth();
 
     // State
-    const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [syncing, setSyncing] = useState(false);
@@ -106,8 +156,13 @@ const ConvoStarterView: React.FC = () => {
     const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
     const [layoutMode, setLayoutMode] = useState<'grid' | 'rows'>('grid');
     const [initialStarters, setInitialStarters] = useState<ConvoStarter[]>([]);
+    const [isHydratingInitialData, setIsHydratingInitialData] = useState(Boolean(activeAccountID));
+    const [isPreparingEditor, setIsPreparingEditor] = useState(false);
+    useDashboardMainScrollLock(Boolean(editingIndex !== null || isPreparingEditor));
+    const [editorLoadingMessage, setEditorLoadingMessage] = useState('Preparing starter editor');
     const [itemBeforeEdit, setItemBeforeEdit] = useState<ConvoStarter | null>(null);
     const hasFetchedForAccount = useRef<string | null>(null);
+    const pendingLinkedTemplateIdRef = useRef<string | null>(takeTransientState<string>('openLinkedTemplateId'));
 
     // Drag state for reordering
     const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -185,13 +240,29 @@ const ConvoStarterView: React.FC = () => {
         setItemBeforeEdit(null);
     }, [initialStarters, setConvoStarters]);
 
-    const startCreate = useCallback(() => {
-        setNewItem(createBlankStarter());
-        setIsCreatingItem(true);
-        setEditingIndex(null);
-        setSelectedTemplate(null);
-        setValidationErrors({});
-    }, []);
+    const primeEditorResources = useCallback(async () => {
+        if (!activeAccountID) return;
+        try {
+            await prefetchReplyTemplates(activeAccountID, authenticatedFetch);
+        } catch (_) { }
+    }, [activeAccountID, authenticatedFetch]);
+
+    const startCreate = useCallback(async () => {
+        setEditorLoadingMessage('Opening starter editor');
+        setIsPreparingEditor(true);
+        try {
+            await primeEditorResources();
+            const blankStarter = createBlankStarter();
+            setNewItem(blankStarter);
+            setItemBeforeEdit(blankStarter);
+            setEditingIndex(null);
+            setSelectedTemplate(null);
+            setValidationErrors({});
+            setIsCreatingItem(true);
+        } finally {
+            setIsPreparingEditor(false);
+        }
+    }, [primeEditorResources]);
 
     const handleSaveConvoStarters = async (): Promise<boolean> => {
         setSaving(true);
@@ -228,17 +299,27 @@ const ConvoStarterView: React.FC = () => {
         setSuccess(null);
         setError(null);
         setValidationErrors({});
+        setIsHydratingInitialData(Boolean(activeAccountID));
+        if (!activeAccountID) {
+            setInitialStarters([]);
+        }
     }, [activeAccountID]);
+
+    useEffect(() => {
+        if (activeAccountID && convoStarterLoading) {
+            setIsHydratingInitialData(true);
+        }
+    }, [activeAccountID, convoStarterLoading]);
 
     // Fetch data
     useEffect(() => {
-        if (activeAccountID && !convoStarterData && hasFetchedForAccount.current !== activeAccountID) {
+        const needsFetch = activeAccountID
+            && (!convoStarterData || convoStarterData.account_id !== activeAccountID)
+            && hasFetchedForAccount.current !== activeAccountID;
+
+        if (needsFetch) {
             hasFetchedForAccount.current = activeAccountID;
-            fetchConvoStarters();
-            const timeout = setTimeout(() => {
-                setLoading(false);
-            }, 10000);
-            return () => clearTimeout(timeout);
+            void fetchConvoStarters();
         }
     }, [activeAccountID, convoStarterData, fetchConvoStarters]);
     useEffect(() => {
@@ -248,46 +329,32 @@ const ConvoStarterView: React.FC = () => {
     }, [activeAccountID]);
 
     useEffect(() => {
-        if (convoStarterData) {
-            setLoading(false);
+        if (convoStarterData && convoStarterData.account_id === activeAccountID) {
             const starters = convoStarterData.db_starters?.length > 0
                 ? convoStarterData.db_starters
                 : convoStarterData.ig_starters || [];
             setConvoStarters(starters);
             setInitialStarters(JSON.parse(JSON.stringify(starters)));
-        } else if (!convoStarterLoading && activeAccountID) {
-            setLoading(false);
+            setIsHydratingInitialData(false);
         }
-    }, [convoStarterData, convoStarterLoading, activeAccountID, setConvoStarters]);
-
-    useEffect(() => {
-        if (!convoStarterData && !convoStarterLoading && activeAccountID) {
-            const stored = localStorage.getItem(`convo_starters_${activeAccountID}`);
-            if (stored) {
-                try {
-                    const starters = JSON.parse(stored);
-                    if (Array.isArray(starters)) {
-                        setConvoStarters(starters);
-                        setInitialStarters(JSON.parse(JSON.stringify(starters)));
-                    }
-                } catch (_) { }
-            }
-        }
-    }, [convoStarterData, convoStarterLoading, activeAccountID, setConvoStarters]);
+    }, [convoStarterData, activeAccountID, setConvoStarters]);
 
     // Unsaved changes tracking
-    const hasChanges = useMemo(() => {
-        return JSON.stringify(convoStarters) !== JSON.stringify(initialStarters);
-    }, [convoStarters, initialStarters]);
+    const hasChanges = useMemo(() => JSON.stringify(convoStarters) !== JSON.stringify(initialStarters), [convoStarters, initialStarters]);
+    const itemHasChanges = useMemo(() => {
+        if (!isCreatingItem) return false;
+        const baseline = itemBeforeEdit || createBlankStarter();
+        return JSON.stringify(newItem || createBlankStarter()) !== JSON.stringify(baseline);
+    }, [isCreatingItem, itemBeforeEdit, newItem]);
 
     useEffect(() => {
-        setHasUnsavedChanges(hasChanges || isCreatingItem);
-    }, [hasChanges, isCreatingItem, setHasUnsavedChanges]);
+        setHasUnsavedChanges(hasChanges || itemHasChanges);
+    }, [hasChanges, itemHasChanges, setHasUnsavedChanges]);
 
     // Global Save/Discard Handlers (Protection)
     useEffect(() => {
         const saveHandler = async (): Promise<boolean> => {
-            if (isCreatingItem) await handleSaveItem();
+            if (isCreatingItem && itemHasChanges) await handleSaveItem();
             return await handleSaveConvoStarters();
         };
         const discardHandler = () => {
@@ -296,7 +363,29 @@ const ConvoStarterView: React.FC = () => {
         };
         setSaveUnsavedChanges(() => saveHandler);
         setDiscardUnsavedChanges(() => discardHandler);
-    }, [isCreatingItem, convoStarters, initialStarters, activeAccountID, setSaveUnsavedChanges, setDiscardUnsavedChanges, setHasUnsavedChanges, handleCancelEditing]);
+    }, [isCreatingItem, itemHasChanges, convoStarters, initialStarters, activeAccountID, setSaveUnsavedChanges, setDiscardUnsavedChanges, setHasUnsavedChanges, handleCancelEditing]);
+
+    const loadReplyTemplate = useCallback(async (templateId?: string, fallbackType?: ConvoStarter['template_type'], fallbackData?: any, fallbackName?: string) => {
+        if (!templateId || !activeAccountID) {
+            return null;
+        }
+
+        try {
+            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${templateId}?account_id=${activeAccountID}`);
+            if (response.ok) {
+                const template = await response.json();
+                return template as ReplyTemplate;
+            }
+        } catch (_) { }
+
+        return {
+            id: templateId,
+            name: fallbackName || 'Selected Reply Template',
+            template_type: (fallbackType || 'template_text') as any,
+            template_data: fallbackData || {},
+            type: 'saved'
+        } as ReplyTemplate;
+    }, [activeAccountID, authenticatedFetch]);
 
     // Share post template media fetching
     const fetchSharePostMedia = useCallback(async (force = false) => {
@@ -360,6 +449,12 @@ const ConvoStarterView: React.FC = () => {
         }
     }, [isCreatingItem, newItem]);
 
+    useEffect(() => {
+        if (isCreatingItem) {
+            document.querySelector('main')?.scrollTo({ top: 0, behavior: 'auto' });
+        }
+    }, [isCreatingItem]);
+
     // Handlers
     const handleSaveItem = async () => {
         if (!newItem) return;
@@ -408,21 +503,78 @@ const ConvoStarterView: React.FC = () => {
         await handleSaveItem();
     };
 
+    const handleCloseEditor = () => {
+        setIsCreatingItem(false);
+        setSelectedTemplate(null);
+        setEditingIndex(null);
+        setNewItem(null);
+        setValidationErrors({});
+        setItemBeforeEdit(null);
+    };
+
+    const handleEditStarter = useCallback(async (starter: ConvoStarter, index: number) => {
+        setEditorLoadingMessage('Loading starter details');
+        setIsPreparingEditor(true);
+        try {
+            await primeEditorResources();
+            const [template] = await Promise.all([
+                loadReplyTemplate(starter.template_id, starter.template_type, starter.template_data, starter.template_name)
+            ]);
+            const draft = JSON.parse(JSON.stringify(starter));
+            setEditingIndex(index);
+            setNewItem(draft);
+            setItemBeforeEdit(draft);
+            setSelectedTemplate(template);
+            setValidationErrors({});
+            setIsCreatingItem(true);
+        } finally {
+            setIsPreparingEditor(false);
+        }
+    }, [loadReplyTemplate, primeEditorResources]);
+
+    useEffect(() => {
+        const templateId = pendingLinkedTemplateIdRef.current;
+        if (!templateId || isCreatingItem || convoStarters.length === 0) return;
+
+        const targetIndex = convoStarters.findIndex(starter => starter.template_id === templateId);
+        if (targetIndex === -1) return;
+
+        void handleEditStarter(convoStarters[targetIndex], targetIndex);
+        pendingLinkedTemplateIdRef.current = null;
+    }, [convoStarters, handleEditStarter, isCreatingItem]);
+
+    const handleDeleteCurrentStarter = async () => {
+        if (editingIndex === null) return;
+        setConvoStarters(convoStarters.filter((_, idx) => idx !== editingIndex));
+        handleCloseEditor();
+        setSuccess('Conversation starter removed from the draft.');
+    };
+
     const handlePublish = async () => {
         setSaving(true);
         setError(null);
         setSuccess(null);
         try {
-            // Clean up convo starters data before saving
             const cleanedStarters = convoStarters.map(starter => {
-                const cleaned = { ...starter };
-                // If template_id is not a real template ID (fake IDs start with 'saved_'), remove template fields
-                if (cleaned.template_id && cleaned.template_id.startsWith('saved_')) {
-                    delete cleaned.template_type;
-                    delete cleaned.template_id;
-                    delete cleaned.template_data;
-                }
-                return cleaned;
+                const templateId = String(starter.template_id || starter.payload || '').trim();
+                return {
+                    question: starter.question,
+                    payload: templateId,
+                    template_id: templateId || undefined,
+                    template_type: starter.template_type,
+                    followers_only: starter.followers_only === true,
+                    followers_only_message: starter.followers_only ? (starter.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT) : '',
+                    followers_only_primary_button_text: starter.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
+                    followers_only_secondary_button_text: starter.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
+                    suggest_more_enabled: starter.suggest_more_enabled === true,
+                    once_per_user_24h: starter.once_per_user_24h === true,
+                    collect_email_enabled: starter.collect_email_enabled === true,
+                    collect_email_only_gmail: starter.collect_email_only_gmail === true,
+                    collect_email_prompt_message: starter.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT,
+                    collect_email_fail_retry_message: starter.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
+                    collect_email_success_reply_message: starter.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT,
+                    seen_typing_enabled: starter.seen_typing_enabled === true
+                };
             });
 
             const res = await authenticatedFetch(
@@ -529,85 +681,147 @@ const ConvoStarterView: React.FC = () => {
         );
     }
 
-    if ((loading || convoStarterLoading) && activeAccountID) {
-        return <LoadingOverlay variant="fullscreen" message="Loading..." />;
+    const isConvoStarterReady = Boolean(
+        activeAccountID
+        && convoStarterData
+        && convoStarterData.account_id === activeAccountID
+    );
+
+    if (activeAccountID && !isCreatingItem && (!isConvoStarterReady || convoStarterLoading || isHydratingInitialData)) {
+        return (
+            <LoadingOverlay
+                variant="fullscreen"
+                message="Loading Convo Starters"
+                subMessage="Preparing your starter prompts and linked reply templates..."
+            />
+        );
+    }
+
+    if (isPreparingEditor) {
+        return (
+            <LoadingOverlay
+                variant="fullscreen"
+                message={editorLoadingMessage}
+                subMessage="Preparing the starter editor and linked reply templates..."
+            />
+        );
     }
 
     const status = convoStarterData?.status || 'none';
-    const canShowMainWorkspace = isCreatingItem || !!convoStarterData || convoStarters.length > 0 || (!convoStarterLoading && !!activeAccountID);
+    const canShowMainWorkspace = isCreatingItem || isConvoStarterReady;
 
     return (
-        <div className="max-w-6xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-8">
-                <div>
-                    <div className="flex items-center gap-2 text-primary mb-2">
-                        <MessageCircle className="w-4 h-4" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Convo Starters</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <h1 className="text-3xl font-black text-foreground">Convo Starters</h1>
-                        {status === 'match' && (
-                            <span className="flex items-center gap-1.5 px-3 py-1 bg-success-muted/60 text-success text-[10px] font-black uppercase tracking-widest rounded-full">
-                                <CheckCircle2 className="w-3 h-3" /> Synced
-                            </span>
-                        )}
-                    </div>
-                    <p className="text-muted-foreground mt-1 text-sm">Help new visitors start a conversation (max {MAX_CONVO_STARTERS})</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setLayoutMode(layoutMode === 'grid' ? 'rows' : 'grid')}
-                        className="p-3 bg-muted rounded-xl"
-                        title={`Switch to ${layoutMode === 'grid' ? 'rows' : 'grid'} layout`}
-                    >
-                        {layoutMode === 'grid' ? <Rows className="w-4 h-4" /> : <Grid3X3 className="w-4 h-4" />}
-                    </button>
-                    <button onClick={() => fetchConvoStarters(true)} className="p-3 bg-muted rounded-xl">
-                        <RefreshCw className={`w-4 h-4 ${convoStarterLoading ? 'animate-spin' : ''}`} />
-                    </button>
-                    {!isCreatingItem && (
-                        <button
-                            onClick={() => {
-                                if (convoStarters.length >= MAX_CONVO_STARTERS) {
-                                    setError(`Maximum ${MAX_CONVO_STARTERS} conversation starters allowed.`);
-                                    return;
-                                }
-                                startCreate();
-                            }}
-                            className="px-8 py-3 bg-foreground text-background rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-foreground/10 flex items-center gap-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Add Question
-                        </button>
-                    )}
-                    {hasChanges && !isCreatingItem && editingIndex === null && (
-                        <button onClick={handlePublish} disabled={saving} className="px-8 py-3 bg-primary text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-primary/20 flex items-center gap-2">
-                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                            Publish Changes
-                        </button>
-                    )}
-                </div>
-            </div>
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 px-3 sm:px-4 md:px-6">
+            <AutomationToast
+                message={success}
+                variant="success"
+                onClose={() => setSuccess(null)}
+            />
+            <AutomationToast
+                message={error}
+                variant="error"
+                onClose={() => setError(null)}
+            />
 
-            {/* Alerts */}
-            {error && <div className="p-4 bg-destructive-muted/40 text-destructive rounded-xl flex items-center gap-3">{error}</div>}
-            {success && <div className="p-4 bg-success-muted/60 text-success rounded-xl flex items-center gap-3">{success}</div>}
+            {!isCreatingItem && (
+                <>
+                    <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-end md:justify-between">
+                        <div className="space-y-2">
+                            <h1 className="text-3xl font-black text-foreground tracking-tight">Convo Starters</h1>
+                            <p className="text-sm font-medium text-muted-foreground">Help new visitors start a conversation. You can keep up to 4 quick starter prompts live on Instagram.</p>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-end gap-3">
+                            <button
+                                onClick={() => fetchConvoStarters(true)}
+                                className="p-3 bg-secondary text-muted-foreground rounded-xl hover:bg-secondary/80 transition-all"
+                            >
+                                <RefreshCw className={`w-4 h-4 ${convoStarterLoading ? 'animate-spin' : ''}`} />
+                            </button>
+                            <div className="flex bg-secondary p-1 rounded-xl border border-border">
+                                <button
+                                    onClick={() => setLayoutMode('grid')}
+                                    className={`p-2 rounded-lg transition-all ${layoutMode === 'grid' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                >
+                                    <LayoutGrid className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setLayoutMode('rows')}
+                                    className={`p-2 rounded-lg transition-all ${layoutMode === 'rows' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                >
+                                    <List className="w-4 h-4" />
+                                </button>
+                            </div>
+                            {convoStarters.length < MAX_CONVO_STARTERS && (
+                                <button
+                                    onClick={() => {
+                                        if (convoStarters.length >= MAX_CONVO_STARTERS) {
+                                            setError(`Maximum ${MAX_CONVO_STARTERS} conversation starters allowed.`);
+                                            return;
+                                        }
+                                        void startCreate();
+                                    }}
+                                    className="px-8 py-3 bg-foreground text-background rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-foreground/10 flex items-center gap-2"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add Question
+                                </button>
+                            )}
+                            {hasChanges && editingIndex === null && (
+                                <button onClick={handlePublish} disabled={saving} className="px-8 py-3 bg-primary text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-primary/20 flex items-center gap-2">
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                    Publish Changes
+                                </button>
+                            )}
+                            {convoStarters.length > 0 && (
+                                <button
+                                    onClick={handleDeleteAll}
+                                    disabled={isDeleting}
+                                    className="px-8 py-3 bg-destructive text-destructive-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-destructive/20 flex items-center gap-2 disabled:opacity-70"
+                                >
+                                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                    Delete
+                                </button>
+                            )}
+                            {status === 'match' && (
+                                <span className="flex items-center gap-1.5 px-3 py-1 bg-success-muted/60 text-success text-[10px] font-black uppercase tracking-widest rounded-full">
+                                    <CheckCircle2 className="w-3 h-3" /> Synced
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Main Workspace */}
             {canShowMainWorkspace && (
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 xl:h-[calc(100vh-11rem)] xl:min-h-0">
-                    {/* Left: Form - scrollable on xl */}
-                    <div className="xl:col-span-8 space-y-6 order-2 xl:order-1 xl:overflow-y-auto xl:overscroll-behavior-contain xl:min-h-0 xl:pr-2">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
+                    {/* Left: Form */}
+                    <div className="xl:col-span-8 space-y-6 order-2 xl:order-1 xl:overflow-y-auto xl:pr-2">
                         {isCreatingItem && newItem ? (
                             /* Edit Form */
                             <div className="bg-card border border-content rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-foreground/10 space-y-12">
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2 text-primary">
-                                        <Plus className="w-5 h-5" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">{editingIndex !== null ? 'Edit Question' : 'New Question'}</span>
+                                <div className="-mx-2 rounded-[2rem] bg-card/95 px-2 py-2">
+                                    <div className="flex flex-col gap-4 border border-content/70 rounded-[2rem] bg-card px-5 py-4 shadow-lg md:flex-row md:items-start md:justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                onClick={handleCloseEditor}
+                                                className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
+                                            >
+                                                <ArrowLeft className="w-5 h-5" />
+                                            </button>
+                                            <div className="flex items-center gap-2 text-primary">
+                                                <Plus className="w-5 h-5" />
+                                                <span className="text-[10px] font-black uppercase tracking-[0.3em]">{editingIndex !== null ? 'Edit Question' : 'New Question'}</span>
+                                            </div>
+                                        </div>
+                                        <AutomationActionBar
+                                            hasExisting={editingIndex !== null}
+                                            isSaving={saving}
+                                            onSave={handleSave}
+                                            onDelete={handleDeleteCurrentStarter}
+                                            saveDisabled={!selectedTemplate}
+                                        />
                                     </div>
-                                    <h2 className="text-4xl font-black text-foreground tracking-tight">Configure Starter</h2>
                                 </div>
 
                                 <div className="space-y-4">
@@ -615,16 +829,132 @@ const ConvoStarterView: React.FC = () => {
                                     <input
                                         value={newItem.question}
                                         onChange={(e) => setNewItem({ ...newItem, question: e.target.value })}
-                                        className={`w-full bg-muted/40 border-2 ${validationErrors.question ? 'border-destructive' : 'border-transparent'} focus:border-primary outline-none rounded-2xl py-5 px-8 text-lg font-black transition-all shadow-inner`}
+                                        className={`w-full bg-muted/40 border-2 ${validationErrors.question ? 'border-destructive' : 'border-content dark:border-border'} focus:border-primary outline-none rounded-2xl py-5 px-8 text-lg font-black transition-all shadow-inner`}
                                         placeholder="e.g. How can I help you today?"
                                     />
-                                    <div className="flex justify-between items-center px-2">
-                                        <p className="text-[10px] text-muted-foreground font-medium italic">Visible as a quick question button.</p>
+                                    <div className="flex justify-end items-center px-2">
                                         <span className="text-[10px] font-black text-muted-foreground">{getByteLength(newItem.question)}/80 bytes</span>
                                     </div>
                                     {validationErrors.question && (
                                         <p className="text-[10px] text-destructive font-bold px-2">{validationErrors.question}</p>
                                     )}
+                                </div>
+
+                                <div className="space-y-4 pt-6 border-t border-content">
+                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3 bg-card rounded-2xl shadow-sm">
+                                                <Lock className={`w-5 h-5 ${newItem.followers_only ? 'text-primary' : 'text-muted-foreground'}`} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Followers Only</p>
+                                                <p className="text-[10px] font-medium text-muted-foreground">Gate this starter until the sender follows the account.</p>
+                                            </div>
+                                        </div>
+                                        <ToggleSwitch
+                                            isChecked={Boolean(newItem.followers_only)}
+                                            onChange={() => setNewItem({
+                                                ...newItem,
+                                                followers_only: !newItem.followers_only,
+                                                followers_only_message: !newItem.followers_only
+                                                    ? (newItem.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
+                                                    : ''
+                                            })}
+                                            variant="plain"
+                                        />
+                                    </div>
+
+                                    {newItem.followers_only && (
+                                        <div className="bg-card border border-content rounded-2xl p-6 space-y-4">
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Followers-Only Message</label>
+                                                <textarea
+                                                    value={newItem.followers_only_message || ''}
+                                                    onChange={(e) => setNewItem({ ...newItem, followers_only_message: e.target.value })}
+                                                    className="input-base min-h-[96px] text-sm"
+                                                    placeholder={FOLLOWERS_ONLY_MESSAGE_DEFAULT}
+                                                />
+                                                <div className="flex justify-end">
+                                                    <span className="text-[10px] font-black text-muted-foreground">{getByteLength(newItem.followers_only_message || '')}/300 bytes</span>
+                                                </div>
+                                                {validationErrors.followers_only_message && <p className="text-[10px] text-destructive font-bold">{validationErrors.followers_only_message}</p>}
+                                            </div>
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                <div className="space-y-2">
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Follow Button Text</label>
+                                                    <input
+                                                        value={newItem.followers_only_primary_button_text || ''}
+                                                        onChange={(e) => setNewItem({ ...newItem, followers_only_primary_button_text: e.target.value })}
+                                                        className="input-base text-sm"
+                                                        placeholder={FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT}
+                                                    />
+                                                    {validationErrors.followers_only_primary_button_text && <p className="text-[10px] text-destructive font-bold">{validationErrors.followers_only_primary_button_text}</p>}
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Retry Button Text</label>
+                                                    <input
+                                                        value={newItem.followers_only_secondary_button_text || ''}
+                                                        onChange={(e) => setNewItem({ ...newItem, followers_only_secondary_button_text: e.target.value })}
+                                                        className="input-base text-sm"
+                                                        placeholder={FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT}
+                                                    />
+                                                    {validationErrors.followers_only_secondary_button_text && <p className="text-[10px] text-destructive font-bold">{validationErrors.followers_only_secondary_button_text}</p>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3 bg-card rounded-2xl shadow-sm">
+                                                <Sparkles className={`w-5 h-5 ${newItem.suggest_more_enabled ? 'text-primary' : 'text-muted-foreground'}`} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Suggest More</p>
+                                                <p className="text-[10px] font-medium text-muted-foreground">Send your Suggest More template after this conversation starter reply.</p>
+                                            </div>
+                                        </div>
+                                        <ToggleSwitch isChecked={Boolean(newItem.suggest_more_enabled)} onChange={() => setNewItem({ ...newItem, suggest_more_enabled: !newItem.suggest_more_enabled })} variant="plain" />
+                                    </div>
+
+                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3 bg-card rounded-2xl shadow-sm">
+                                                <Calendar className={`w-5 h-5 ${newItem.once_per_user_24h ? 'text-primary' : 'text-muted-foreground'}`} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Once Per User (24h)</p>
+                                                <p className="text-[10px] font-medium text-muted-foreground">Prevent the same person from triggering this starter again for 24 hours.</p>
+                                            </div>
+                                        </div>
+                                        <ToggleSwitch isChecked={Boolean(newItem.once_per_user_24h)} onChange={() => setNewItem({ ...newItem, once_per_user_24h: !newItem.once_per_user_24h })} variant="plain" />
+                                    </div>
+
+                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3 bg-card rounded-2xl shadow-sm">
+                                                <Mail className={`w-5 h-5 ${newItem.collect_email_enabled ? 'text-primary' : 'text-muted-foreground'}`} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Collect Email</p>
+                                                <p className="text-[10px] font-medium text-muted-foreground">Require a valid email before the main reply continues.</p>
+                                            </div>
+                                        </div>
+                                        <ToggleSwitch isChecked={Boolean(newItem.collect_email_enabled)} onChange={() => setNewItem({ ...newItem, collect_email_enabled: !newItem.collect_email_enabled })} variant="plain" />
+                                    </div>
+
+                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3 bg-card rounded-2xl shadow-sm">
+                                                <MessageSquare className={`w-5 h-5 ${newItem.seen_typing_enabled ? 'text-primary' : 'text-muted-foreground'}`} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Seen + Typing Reaction</p>
+                                                <p className="text-[10px] font-medium text-muted-foreground">Store the seen and typing preference with this starter.</p>
+                                            </div>
+                                        </div>
+                                        <ToggleSwitch isChecked={Boolean(newItem.seen_typing_enabled)} onChange={() => setNewItem({ ...newItem, seen_typing_enabled: !newItem.seen_typing_enabled })} variant="plain" />
+                                    </div>
                                 </div>
 
                                 <div className={`space-y-6 pt-6 border-t ${validationErrors.template ? 'border-destructive' : 'border-content'}`}>
@@ -641,10 +971,20 @@ const ConvoStarterView: React.FC = () => {
                                                     if (template) {
                                                         setNewItem({
                                                             ...(newItem || createBlankStarter()),
+                                                            template_name: template.name,
                                                             template_type: template.template_type as any,
                                                             template_id: template.id,
                                                             payload: template.id,
                                                             template_data: JSON.parse(JSON.stringify(template.template_data))
+                                                        });
+                                                    } else {
+                                                        setNewItem({
+                                                            ...(newItem || createBlankStarter()),
+                                                            template_name: undefined,
+                                                            template_type: undefined,
+                                                            template_id: undefined,
+                                                            payload: '',
+                                                            template_data: undefined
                                                         });
                                                     }
                                                 }}
@@ -668,13 +1008,6 @@ const ConvoStarterView: React.FC = () => {
                                     )}
                                 </div>
 
-                                <div className="flex items-center justify-between pt-12 border-t-2 border-border/60">
-                                    <button onClick={() => { setIsCreatingItem(false); setSelectedTemplate(null); setEditingIndex(null); }} className="px-8 py-4 bg-muted text-muted-foreground rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Cancel</button>
-                                    <button onClick={handleSave} disabled={saving || !selectedTemplate} className="px-12 py-4 bg-primary text-primary-foreground rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-primary/30 flex items-center gap-3">
-                                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-                                        {saving ? 'Saving...' : (editingIndex !== null ? 'Update Starter' : 'Save Starter')}
-                                    </button>
-                                </div>
                             </div>
                         ) : (
                             /* List View */
@@ -692,7 +1025,7 @@ const ConvoStarterView: React.FC = () => {
                                             Create your first conversation starter to help users engage.
                                         </p>
                                         <button
-                                            onClick={startCreate}
+                                            onClick={() => { void startCreate(); }}
                                             className="mt-8 px-10 py-4 bg-primary text-primary-foreground rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-primary/90 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 flex items-center gap-2"
                                         >
                                             <Plus className="w-4 h-4" /> Create First Question
@@ -731,20 +1064,7 @@ const ConvoStarterView: React.FC = () => {
                                                             {starter.template_type?.replace('template_', '') || 'Reply'}
                                                         </span>
                                                         <button
-                                                            onClick={() => {
-                                                                setEditingIndex(index);
-                                                                setNewItem(JSON.parse(JSON.stringify(starter)));
-                                                                setIsCreatingItem(true);
-                                                                if (starter.template_type) {
-                                                                    setSelectedTemplate({
-                                                                        id: `saved_${index}`,
-                                                                        name: 'Existing Reply',
-                                                                        template_type: starter.template_type,
-                                                                        template_data: starter.template_data,
-                                                                        type: 'saved'
-                                                                    } as any);
-                                                                }
-                                                            }}
+                                                            onClick={() => void handleEditStarter(starter, index)}
                                                             className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-primary-foreground transition-all shadow-sm"
                                                             title="Edit"
                                                         >
@@ -766,7 +1086,7 @@ const ConvoStarterView: React.FC = () => {
                                                         <div className="flex items-center gap-2">
                                                             <MessageSquare className="w-3 h-3 text-primary" />
                                                             <p className="text-xs font-bold text-muted-foreground truncate">
-                                                                {starter.template_type?.replace('template_', '') || 'Reply'} template
+                                                                {starter.template_name || `${starter.template_type?.replace('template_', '') || 'Reply'} template`}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -780,40 +1100,51 @@ const ConvoStarterView: React.FC = () => {
                     </div>
 
                     {/* Right: Live Preview - sticky on xl */}
-                    <div className="xl:col-span-4 order-1 xl:order-2">
-                        <div className="xl:sticky xl:top-24 h-fit max-h-[calc(100vh-8rem)] overflow-y-auto">
-                            {isCreatingItem && newItem && selectedTemplate ? (
-                                <SharedMobilePreview
-                                    mode="convo_starter"
-                                    isEditing={true}
-                                    newItem={newItem as any}
-                                    displayName={activeAccount?.username || 'Username'}
-                                    profilePic={activeAccount?.profile_picture_url || null}
-                                />
-                            ) : convoStarters.length > 0 ? (
-                                <SharedMobilePreview
-                                    mode="convo_starter"
-                                    items={convoStarters.map(starter => ({
-                                        title: starter.question,
-                                        type: 'postback' as const,
-                                        template_type: starter.template_type,
-                                        template_data: starter.template_data
-                                    }))}
-                                    displayName={activeAccount?.username || 'Username'}
-                                    profilePic={activeAccount?.profile_picture_url || null}
-                                />
-                            ) : (
-                                <div className="flex justify-center bg-card rounded-2xl p-4 shadow-inner min-h-[400px]">
-                                    <SharedMobilePreview
-                                        mode="convo_starter"
-                                        items={[]}
-                                        displayName={activeAccount?.username || 'Username'}
-                                        profilePic={activeAccount?.profile_picture_url || null}
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    <AutomationPreviewPanel minHeightClassName={!isCreatingItem && convoStarters.length === 0 ? 'min-h-[400px]' : ''}>
+                        {isCreatingItem && newItem && selectedTemplate ? (
+                            <SharedMobilePreview
+                                mode="convo_starter"
+                                isEditing={true}
+                                newItem={newItem as any}
+                                activeAccountID={activeAccountID}
+                                authenticatedFetch={authenticatedFetch}
+                                displayName={activeAccount?.username || 'Username'}
+                                profilePic={activeAccount?.profile_picture_url || null}
+                                lockScroll
+                            />
+                        ) : convoStarters.length > 0 ? (
+                            <SharedMobilePreview
+                                mode="convo_starter"
+                                items={convoStarters.map(starter => ({
+                                    question: starter.question,
+                                    type: 'postback' as const,
+                                    template_name: starter.template_name,
+                                    template_id: starter.template_id,
+                                    template_type: starter.template_type,
+                                    template_data: starter.template_data,
+                                    followers_only: starter.followers_only,
+                                    followers_only_message: starter.followers_only_message,
+                                    followers_only_primary_button_text: starter.followers_only_primary_button_text,
+                                    followers_only_secondary_button_text: starter.followers_only_secondary_button_text
+                                }))}
+                                activeAccountID={activeAccountID}
+                                authenticatedFetch={authenticatedFetch}
+                                displayName={activeAccount?.username || 'Username'}
+                                profilePic={activeAccount?.profile_picture_url || null}
+                                lockScroll
+                            />
+                        ) : (
+                            <SharedMobilePreview
+                                mode="convo_starter"
+                                items={[]}
+                                activeAccountID={activeAccountID}
+                                authenticatedFetch={authenticatedFetch}
+                                displayName={activeAccount?.username || 'Username'}
+                                profilePic={activeAccount?.profile_picture_url || null}
+                                lockScroll
+                            />
+                        )}
+                    </AutomationPreviewPanel>
                 </div>
             )}
 

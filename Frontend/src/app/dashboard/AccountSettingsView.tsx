@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import Card from '../../components/ui/card';
+import { createPortal } from 'react-dom';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,6 +8,8 @@ import { useDashboard } from '../../contexts/DashboardContext';
 import { Loader2, Check, X, EyeIcon, EyeOffIcon, Instagram, Link as LinkIcon, Trash2, Unlink, Plus, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Skeleton } from '../../components/ui/skeleton';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import { toBrowserPreviewUrl } from '../../lib/templatePreview';
 
 const calculateStrength = (pwd: string) => {
   let strength = 0;
@@ -118,7 +121,7 @@ const PasswordInput = ({
 
 const AccountSettingsView = () => {
   const { user, hasPassword, checkAuth, logout, authenticatedFetch } = useAuth();
-  const { igAccounts, fetchIgAccounts, isLoadingAccounts, setActiveAccountID, activeAccountID } = useDashboard();
+  const { igAccounts, fetchIgAccounts, isLoadingAccounts, setActiveAccountID, activeAccountID, planLimits } = useDashboard();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -128,6 +131,12 @@ const AccountSettingsView = () => {
   const [isSubmittingInfo, setIsSubmittingInfo] = useState(false);
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
   const [isSubmittingSetPassword, setIsSubmittingSetPassword] = useState(false);
+  const instagramConnectionLimit = typeof planLimits?.instagram_connections_limit === 'number'
+    ? Number(planLimits.instagram_connections_limit)
+    : null;
+  const canAddAnotherInstagramAccount = instagramConnectionLimit == null
+    ? true
+    : igAccounts.length < instagramConnectionLimit;
 
   // Section-specific messages
   const [sectionMessages, setSectionMessages] = useState<Record<string, { type: 'success' | 'error'; text: string } | null>>({
@@ -145,6 +154,7 @@ const AccountSettingsView = () => {
   // Delete Account State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
+  const [deleteModalError, setDeleteModalError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Instagram Account Management State
@@ -155,6 +165,12 @@ const AccountSettingsView = () => {
   const [showUnlinkConfirm, setShowUnlinkConfirm] = useState<string | null>(null);
   const [showDeleteIGConfirm, setShowDeleteIGConfirm] = useState<string | null>(null);
   const [deleteIGPassword, setDeleteIGPassword] = useState('');
+  const sectionOverlayRoot = typeof document !== 'undefined'
+    ? document.querySelector('[data-dashboard-section-overlay-root]') as HTMLElement | null
+    : null;
+  const sectionModalClass = sectionOverlayRoot
+    ? 'pointer-events-auto absolute inset-0 z-[160] flex items-center justify-center bg-foreground/30 backdrop-blur-sm p-4 animate-in fade-in duration-300'
+    : 'pointer-events-auto fixed inset-0 z-[160] flex items-center justify-center bg-foreground/30 backdrop-blur-sm p-4 animate-in fade-in duration-300';
 
   const resetMessages = () => {
     setSectionMessages({
@@ -170,10 +186,21 @@ const AccountSettingsView = () => {
     setSectionMessages(prev => ({ ...prev, [section]: { type, text } }));
   };
 
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeletePassword('');
+    setDeleteModalError('');
+    setIsDeleting(false);
+  };
+
   const handleDeleteAccount = async () => {
-    if (!deletePassword) return;
+    if (!deletePassword) {
+      setDeleteModalError('Please enter your password.');
+      return;
+    }
 
     setIsDeleting(true);
+    setDeleteModalError('');
     resetMessages();
 
     try {
@@ -193,10 +220,12 @@ const AccountSettingsView = () => {
           await logout();
         }, 1500);
       } else {
+        setDeleteModalError(data.error || 'Failed to delete account.');
         setMsg('danger', 'error', data.error || 'Failed to delete account.');
         setIsDeleting(false);
       }
     } catch (error) {
+      setDeleteModalError('An error occurred. Please try again.');
       setMsg('danger', 'error', 'An error occurred. Please try again.');
       setIsDeleting(false);
     }
@@ -259,6 +288,15 @@ const AccountSettingsView = () => {
   };
 
   const handleInstagramLink = async (accountID: string = 'new') => {
+    if (accountID === 'new' && instagramConnectionLimit != null && !canAddAnotherInstagramAccount) {
+      setMsg(
+        'instagram',
+        'error',
+        `Your current plan allows ${instagramConnectionLimit} Instagram connection${instagramConnectionLimit === 1 ? '' : 's'} only. Upgrade your plan or unlink an account first.`
+      );
+      return;
+    }
+
     setLinkingAccountID(accountID);
     resetMessages();
     try {
@@ -345,31 +383,15 @@ const AccountSettingsView = () => {
     setIsSyncingIG(accountID);
     resetMessages();
     try {
-      // Step 1: Fetch latest stats (which includes profile pic & username)
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/stats?account_id=${accountID}`);
+      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts/refresh-profiles`, {
+        method: 'POST'
+      });
       if (response.ok) {
-        const data = await response.json();
-
-        // Step 2: Update database with latest data
-        const updateResp = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts/sync-profile`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            account_id: accountID,
-            profile_picture_url: data.profile_picture_url,
-            username: data.username
-          })
-        });
-
-        if (updateResp.ok) {
-          setMsg('instagram', 'success', 'Profile synced successfully!');
-          await fetchIgAccounts();
-        } else {
-          setMsg('instagram', 'error', 'Failed to update profile data in database.');
-        }
+        setMsg('instagram', 'success', 'Profiles refreshed successfully.');
+        await fetchIgAccounts();
       } else {
-        const data = await response.json();
-        setMsg('instagram', 'error', data.error || 'Failed to fetch latest profile data.');
+        const data = await response.json().catch(() => ({}));
+        setMsg('instagram', 'error', data.error || 'Failed to refresh linked Instagram profiles.');
       }
     } catch (err) {
       setMsg('instagram', 'error', 'An error occurred during profile sync.');
@@ -435,10 +457,6 @@ const AccountSettingsView = () => {
       });
       const data = await response.json();
       if (response.ok) {
-        // If backend rotated the session token, persist it so the user stays logged in
-        if (data.token) {
-          localStorage.setItem('token', data.token);
-        }
         setMsg('global', 'success', 'Password set successfully!');
         setShowSetPassword(false);
         setNewPassword('');
@@ -467,6 +485,16 @@ const AccountSettingsView = () => {
       </div>
     );
   };
+
+  if (!user || (isLoadingAccounts && igAccounts.length === 0)) {
+    return (
+      <LoadingOverlay
+        variant="fullscreen"
+        message="Loading Account Settings"
+        subMessage="Fetching your profile, security details, and linked Instagram accounts..."
+      />
+    );
+  }
 
   return (
     <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-6 sm:space-y-8 lg:space-y-10 max-w-4xl mx-auto select-text">
@@ -607,7 +635,7 @@ const AccountSettingsView = () => {
                             : "bg-muted"
                         )}>
                           <img
-                            src={account.profile_picture_url || '/images/logo.png'}
+                            src={toBrowserPreviewUrl(account.profile_picture_url || '') || '/images/logo.png'}
                             alt={account.username}
                             className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-card shadow-md object-cover"
                           />
@@ -697,9 +725,14 @@ const AccountSettingsView = () => {
 
             <div className="pt-6 border-t border-border">
               <InlineMessage section="instagram" />
+              {instagramConnectionLimit != null && (
+                <p className="mt-4 text-xs font-semibold text-muted-foreground">
+                  {igAccounts.length} of {instagramConnectionLimit} Instagram connections used.
+                </p>
+              )}
               <Button
                 onClick={() => handleInstagramLink('new')}
-                disabled={linkingAccountID === 'new'}
+                disabled={linkingAccountID === 'new' || !canAddAnotherInstagramAccount}
                 className="w-full mt-4 h-12 bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 transition-all duration-200 rounded-xl border-0 font-semibold flex items-center justify-center gap-2.5 group relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
@@ -717,7 +750,11 @@ const AccountSettingsView = () => {
                     </>
                   )}
                   <span className="text-sm font-semibold">
-                    {linkingAccountID === 'new' ? 'Connecting to Instagram...' : 'Add Instagram Account'}
+                    {linkingAccountID === 'new'
+                      ? 'Connecting to Instagram...'
+                      : !canAddAnotherInstagramAccount
+                        ? 'Instagram Limit Reached'
+                        : 'Add Instagram Account'}
                   </span>
                 </div>
               </Button>
@@ -752,10 +789,10 @@ const AccountSettingsView = () => {
         </Card>
       </section>
 
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+      {showDeleteModal && typeof document !== 'undefined' && createPortal(
+        <div className={sectionModalClass}>
           <Card className="w-full max-w-md p-8 shadow-2xl border border-border bg-card rounded-3xl relative">
-            <button onClick={() => setShowDeleteModal(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+            <button onClick={closeDeleteModal} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
               <X className="h-6 w-6" />
             </button>
             <h3 className="text-2xl font-bold text-destructive mb-2 text-center">Delete Your Account?</h3>
@@ -764,7 +801,7 @@ const AccountSettingsView = () => {
               <ul className="text-xs text-destructive/80 space-y-2 text-left list-disc list-inside font-medium leading-relaxed">
                 <li>All active automations will be stopped immediately.</li>
                 <li>Your automation configurations, history, and analytics will be permanently erased.</li>
-                <li>You will lose all access to the DM Panda dashboard and features.</li>
+                <li>You will lose all access to the dashboard and its features.</li>
                 <li>All linked Instagram accounts will be disconnected.</li>
               </ul>
             </div>
@@ -778,9 +815,13 @@ const AccountSettingsView = () => {
                 <Input
                   type="password"
                   value={deletePassword}
-                  onChange={(e) => setDeletePassword(e.target.value)}
+                  onChange={(e) => {
+                    setDeletePassword(e.target.value);
+                    if (deleteModalError) setDeleteModalError('');
+                  }}
                   className="h-12 rounded-xl text-center text-lg"
                   placeholder="••••••••"
+                  error={deleteModalError || undefined}
                 />
               </div>
 
@@ -795,10 +836,7 @@ const AccountSettingsView = () => {
                 </Button>
                 <Button
                   variant="ghost"
-                  onClick={() => {
-                    setShowDeleteModal(false);
-                    setDeletePassword('');
-                  }}
+                  onClick={closeDeleteModal}
                   disabled={isDeleting}
                   className="h-12 text-muted-foreground hover:text-foreground"
                 >
@@ -807,12 +845,13 @@ const AccountSettingsView = () => {
               </div>
             </div>
           </Card>
-        </div>
+        </div>,
+        sectionOverlayRoot || document.body
       )}
 
       {/* Unlink Confirmation Modal */}
-      {showUnlinkConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-foreground/30 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+      {showUnlinkConfirm && typeof document !== 'undefined' && createPortal(
+        <div className={sectionModalClass}>
           <Card className="w-full max-w-md p-8 shadow-2xl border border-border bg-card rounded-3xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1.5 bg-destructive"></div>
             <button onClick={() => setShowUnlinkConfirm(null)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
@@ -860,11 +899,12 @@ const AccountSettingsView = () => {
               </div>
             </div>
           </Card>
-        </div>
+        </div>,
+        sectionOverlayRoot || document.body
       )}
       {/* Permanent IG Delete Confirmation Modal */}
-      {showDeleteIGConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-foreground/30 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+      {showDeleteIGConfirm && typeof document !== 'undefined' && createPortal(
+        <div className={sectionModalClass}>
           <Card className="w-full max-w-md p-8 shadow-2xl border border-border bg-card rounded-3xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1.5 bg-destructive"></div>
             <button onClick={() => { setShowDeleteIGConfirm(null); setDeleteIGPassword(''); }} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
@@ -927,11 +967,12 @@ const AccountSettingsView = () => {
               </div>
             </div>
           </Card>
-        </div>
+        </div>,
+        sectionOverlayRoot || document.body
       )}
       {/* Set Password Modal */}
-      {showSetPassword && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-foreground/30 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+      {showSetPassword && typeof document !== 'undefined' && createPortal(
+        <div className={sectionModalClass}>
           <Card className="w-full max-w-md p-8 shadow-2xl border border-border bg-card rounded-3xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1.5 bg-primary"></div>
             <button onClick={() => { setShowSetPassword(false); setNewPassword(''); setConfirmPassword(''); }} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
@@ -993,7 +1034,8 @@ const AccountSettingsView = () => {
               </form>
             </div>
           </Card>
-        </div>
+        </div>,
+        sectionOverlayRoot || document.body
       )}
     </div>
   );

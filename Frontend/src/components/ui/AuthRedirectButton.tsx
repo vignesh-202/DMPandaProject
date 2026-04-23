@@ -8,8 +8,8 @@ interface AuthRedirectButtonProps {
 }
 
 const AuthRedirectButton: React.FC<AuthRedirectButtonProps> = ({ children, className }) => {
-  const { isAuthenticated } = useAuth();
-  const to = isAuthenticated ? '/dashboard' : '/login';
+  const { isAuthenticated, authHint } = useAuth();
+  const to = isAuthenticated || authHint ? '/dashboard' : '/login';
 
   return (
     <Link to={to} className={className}>

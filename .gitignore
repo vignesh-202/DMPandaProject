@@ -3,10 +3,22 @@ __pycache__/
 *.pyc
 .venv/
 .env
+*.log
+*.tmp
 
 # IDEs
 .idea/
 .vscode/
+
+# Local artifacts
+.qa-logs/
+.codex_recovery/
+docs/codex-recovery/
+docs/subscription-migration-report.json
+
+# Node / web build artifacts
+node_modules/
+dist/
 
 # MobileApp build artifacts
 MobileApp/node_modules/

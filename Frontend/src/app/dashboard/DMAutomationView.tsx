@@ -5,14 +5,18 @@ import { useDashboard } from '../../contexts/DashboardContext';
 import {
     MessageSquare, Plus, Trash2, Save, AlertCircle, Radio, BookText,
     MousePointerClick, Smartphone, Loader2, Instagram, CheckCircle2, Globe, Pencil, Lightbulb, PencilLine, HelpCircle, Film, RefreshCcw, Calendar, ChevronDown, Check, Info, ArrowLeft, MoreHorizontal, Settings, X, Search,
-    Image as ImageIcon, Video, Music, FileText, Share2, Reply, ChevronRight, Link as LinkIcon, Power, LayoutTemplate
+    Image as ImageIcon, Video, Music, FileText, Share2, Reply, ChevronRight, Link as LinkIcon, Power, LayoutTemplate, Mail, Copy
 } from 'lucide-react';
 import ModernCalendar from '../../components/ui/ModernCalendar';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
+import AutomationToast from '../../components/ui/AutomationToast';
+import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
 import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
+import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
+import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 import {
     getByteLength,
     AUTOMATION_TITLE_MAX,
@@ -23,6 +27,15 @@ import {
     CAROUSEL_TITLE_MAX,
     CAROUSEL_SUBTITLE_MAX,
 } from '../../lib/templateLimits';
+import { takeTransientState } from '../../lib/transientState';
+import {
+    buildPreviewAutomationFromTemplate,
+    canBrowserRenderPreviewUrl,
+    getPreferredSharePostImageUrl,
+    getPreferredSharePostPreviewUrl,
+    toBrowserPreviewUrl
+} from '../../lib/templatePreview';
+import { normalizeAutomationKeywords } from '../../lib/automationKeywords';
 
 interface Automation {
     $id?: string;
@@ -32,6 +45,7 @@ interface Automation {
     template_id?: string;
     active: boolean;
     followers_only: boolean;
+    followers_only_message?: string;
     case_sensitive: boolean;
     template_content?: any; // Can be string or object
     media_type?: string;
@@ -46,9 +60,28 @@ interface Automation {
     template_elements?: any[];
     media_id?: string;
     media_url?: string;
+    thumbnail_url?: string;
+    linked_media_url?: string;
     use_latest_post?: boolean;
     latest_post_type?: string;
 }
+
+const FOLLOWERS_ONLY_MESSAGE_DEFAULT = 'Please follow this account first, then send your message again.';
+const FOLLOWERS_ONLY_MESSAGE_MAX = 300;
+const FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT = '👤 Follow Account';
+const FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT = "✅ I've Followed";
+const COLLECT_EMAIL_PROMPT_DEFAULT = '📧 Could you share your best email so we can send the details and updates ✨';
+const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '⚠️ That email looks invalid. Please send a valid email like name@example.com.';
+const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ✅';
+const createCollectorDestinationState = () => ({
+    destination_type: 'sheet',
+    sheet_link: '',
+    webhook_url: '',
+    verified: false,
+    verified_at: null as string | null,
+    service_account_email: '',
+    destination_json: {} as Record<string, unknown>
+});
 
 function mergeReplyTemplateIntoAutomation(templateType: string, templateData: Record<string, unknown>): Partial<Automation> {
     const d = templateData || {};
@@ -58,7 +91,7 @@ function mergeReplyTemplateIntoAutomation(templateType: string, templateData: Re
         case 'template_carousel': return { template_type: 'template_carousel', template_elements: Array.isArray(d.elements) ? d.elements : [] };
         case 'template_quick_replies': return { template_type: 'template_quick_replies', template_content: String(d.text || ''), replies: Array.isArray(d.replies) ? d.replies : [] };
         case 'template_media': return { template_type: 'template_media', template_content: String(d.media_url || ''), buttons: Array.isArray(d.buttons) ? d.buttons : [] };
-        case 'template_share_post': return { template_type: 'template_share_post', media_id: String(d.media_id || ''), media_url: String(d.media_url || ''), use_latest_post: !!(d.use_latest_post), latest_post_type: (d.latest_post_type === 'reel' ? 'reel' : 'post') };
+        case 'template_share_post': return { template_type: 'template_share_post', media_id: String(d.media_id || ''), media_url: String(d.thumbnail_url || d.media_url || ''), thumbnail_url: String(d.thumbnail_url || ''), use_latest_post: !!(d.use_latest_post), latest_post_type: (d.latest_post_type === 'reel' ? 'reel' : 'post') };
         default: return { template_type: 'template_text', template_content: String(d.text || '') };
     }
 }
@@ -122,22 +155,8 @@ const validateMediaUrl = async (url: string, type: string): Promise<{ valid: boo
     }
 };
 
-const suggestUniqueTitle = (base: string, existing: string[]) => {
-    const trimmed = (base || '').trim();
-    if (!trimmed) return trimmed;
-    const existingSet = new Set(existing.map(t => (t || '').trim().toLowerCase()));
-    if (!existingSet.has(trimmed.toLowerCase())) return trimmed;
-    let i = 2;
-    while (i < 1000) {
-        const candidate = `${trimmed} (${i})`;
-        if (!existingSet.has(candidate.toLowerCase())) return candidate;
-        i += 1;
-    }
-    return `${trimmed} (${Date.now()})`;
-};
-
 const DMAutomationView: React.FC = () => {
-    const { activeAccountID, dmAutomations, setDmAutomations, automationInitialLoaded, setAutomationInitialLoaded, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, setCurrentView } = useDashboard();
+    const { activeAccountID, activeAccount, dmAutomations, setDmAutomations, automationInitialLoaded, setAutomationInitialLoaded, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, setCurrentView } = useDashboard();
     const { authenticatedFetch, user } = useAuth();
     const [loading, setLoading] = useState(!automationInitialLoaded['dm']);
     const [saving, setSaving] = useState(false);
@@ -145,10 +164,15 @@ const DMAutomationView: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [editingAutomation, setEditingAutomation] = useState<any>(null);
+    const [collectorDestination, setCollectorDestination] = useState(createCollectorDestinationState);
+    const [collectorDestinationLoading, setCollectorDestinationLoading] = useState(false);
+    const [collectorDestinationSaving, setCollectorDestinationSaving] = useState(false);
+    const [copiedServiceAccountEmail, setCopiedServiceAccountEmail] = useState(false);
     const [keywordWarnings, setKeywordWarnings] = useState<{ [key: number]: string }>({});
     const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
     const [originalAutomation, setOriginalAutomation] = useState<any>(null);
     const [preparing, setPreparing] = useState(false);
+    useDashboardMainScrollLock(Boolean(editingAutomation || preparing));
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
@@ -169,7 +193,7 @@ const DMAutomationView: React.FC = () => {
         onConfirm: () => { }
     });
 
-    const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+    const closeModal = useCallback(() => setModalConfig(prev => ({ ...prev, isOpen: false })), []);
 
     const showAlert = (title: string, description: string, type: 'danger' | 'info' | 'warning' | 'success' = 'info') => {
         setModalConfig({
@@ -198,12 +222,13 @@ const DMAutomationView: React.FC = () => {
     const [mediaDateDropdownOpen, setMediaDateDropdownOpen] = useState(false);
     const [mediaSortOrder, setMediaSortOrder] = useState<'recent' | 'oldest'>('recent');
     const [mediaSortDropdownOpen, setMediaSortDropdownOpen] = useState(false);
+    const [suggestMoreSetup, setSuggestMoreSetup] = useState(false);
 
     // Reply template: use existing only (create via Reply Templates)
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
     const [selectedTemplateData, setSelectedTemplateData] = useState<any | null>(null);
+    const [showTemplateSelector, setShowTemplateSelector] = useState(true);
     const templateCacheRef = useRef<Map<string, any>>(new Map());
-    const [globalAutomations, setGlobalAutomations] = useState<any[]>([]);
 
     // Memoized filtered media list for optimized display
     const filteredMedia = useMemo(() => {
@@ -259,10 +284,16 @@ const DMAutomationView: React.FC = () => {
         if (isManual) setRefreshing(true);
 
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations?account_id=${activeAccountID}&type=dm`);
+            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations?account_id=${activeAccountID}&type=dm&summary=1`);
             const data = await res.json();
             if (res.ok) {
-                setDmAutomations(data.automations || data.documents || []);
+                const normalized = (data.automations || data.documents || []).map((doc: any) => ({
+                    ...doc,
+                    active: doc?.is_active !== false,
+                    is_active: doc?.is_active !== false,
+                    suggest_more_enabled: Boolean(doc?.suggest_more_enabled)
+                }));
+                setDmAutomations(normalized);
                 setAutomationInitialLoaded(prev => ({ ...prev, dm: true }));
             }
         } catch (err) {
@@ -295,34 +326,37 @@ const DMAutomationView: React.FC = () => {
     }, [activeAccountID]);
 
     useEffect(() => {
+        let alive = true;
         if (!activeAccountID) {
-            setGlobalAutomations([]);
+            setSuggestMoreSetup(false);
             return;
         }
-        let alive = true;
+
         (async () => {
             try {
-                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations?account_id=${activeAccountID}&type=global`);
+                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/suggest-more?account_id=${activeAccountID}`);
                 if (!res.ok) return;
                 const data = await res.json();
-                if (!alive) return;
-                setGlobalAutomations(data.automations || data.documents || []);
+                if (alive) setSuggestMoreSetup(Boolean(data?.is_setup));
             } catch (_) {
-                if (alive) setGlobalAutomations([]);
+                if (alive) setSuggestMoreSetup(false);
             }
         })();
+
         return () => { alive = false; };
     }, [activeAccountID, authenticatedFetch]);
 
     useEffect(() => {
         if (!selectedTemplateId) {
             setSelectedTemplateData(null);
+            setShowTemplateSelector(true);
             return;
         }
 
         const cached = templateCacheRef.current.get(selectedTemplateId);
         if (cached) {
             setSelectedTemplateData(cached);
+            setShowTemplateSelector(false);
             return;
         }
 
@@ -335,11 +369,12 @@ const DMAutomationView: React.FC = () => {
                 if (!alive) return;
                 templateCacheRef.current.set(selectedTemplateId, data);
                 setSelectedTemplateData(data);
+                setShowTemplateSelector(false);
             } catch (_) { }
         })();
 
         return () => { alive = false; };
-    }, [selectedTemplateId, authenticatedFetch]);
+    }, [activeAccountID, selectedTemplateId, authenticatedFetch]);
 
     const handleCreate = () => {
         setPreparing(true);
@@ -347,6 +382,7 @@ const DMAutomationView: React.FC = () => {
             setEditingAutomation({
                 title: 'New Automation',
                 keyword: [],
+                keywords: [],
                 template_type: 'template_text',
                 template_content: '',
                 text: '',
@@ -360,7 +396,19 @@ const DMAutomationView: React.FC = () => {
                     }
                 ],
                 active: true,
+                is_active: true,
                 followers_only: false,
+                followers_only_message: FOLLOWERS_ONLY_MESSAGE_DEFAULT,
+                suggest_more_enabled: false,
+                once_per_user_24h: false,
+                collect_email_enabled: false,
+                collect_email_only_gmail: false,
+                seen_typing_enabled: false,
+                followers_only_primary_button_text: FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
+                followers_only_secondary_button_text: FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
+                collect_email_prompt_message: COLLECT_EMAIL_PROMPT_DEFAULT,
+                collect_email_fail_retry_message: COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
+                collect_email_success_reply_message: COLLECT_EMAIL_SUCCESS_DEFAULT,
                 case_sensitive: false,
                 is_global: false,
                 global_posts: false,
@@ -380,6 +428,125 @@ const DMAutomationView: React.FC = () => {
         }, 600);
     };
 
+    useEffect(() => {
+        if (editingAutomation || preparing) {
+            document.querySelector('main')?.scrollTo({ top: 0, behavior: 'auto' });
+        }
+    }, [editingAutomation, preparing]);
+
+    useEffect(() => {
+        let alive = true;
+        const loadCollectorDestination = async () => {
+            if (!editingAutomation?.$id || editingAutomation.collect_email_enabled !== true) {
+                setCollectorDestination(createCollectorDestinationState());
+                setCollectorDestinationLoading(false);
+                return;
+            }
+
+            setCollectorDestinationLoading(true);
+            try {
+                const res = await authenticatedFetch(
+                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${editingAutomation.$id}/email-collector-destination`
+                );
+                const data = await res.json();
+                if (!alive) return;
+                if (res.ok && data?.destination) {
+                    setCollectorDestination({
+                        destination_type: data.destination.destination_type || 'sheet',
+                        sheet_link: data.destination.sheet_link || '',
+                        webhook_url: data.destination.webhook_url || '',
+                        verified: data.destination.verified === true,
+                        verified_at: data.destination.verified_at || null,
+                        service_account_email: data.destination.service_account_email || '',
+                        destination_json: data.destination.destination_json || {}
+                    });
+                } else {
+                    setCollectorDestination(createCollectorDestinationState());
+                }
+            } catch (_) {
+                if (alive) setCollectorDestination(createCollectorDestinationState());
+            } finally {
+                if (alive) setCollectorDestinationLoading(false);
+            }
+        };
+
+        loadCollectorDestination();
+        return () => {
+            alive = false;
+        };
+    }, [authenticatedFetch, editingAutomation?.$id, editingAutomation?.collect_email_enabled]);
+
+    const persistCollectorDestination = useCallback(async (savedAutomationId: string, shouldVerify = false) => {
+        if (!savedAutomationId || editingAutomation?.collect_email_enabled !== true) {
+            return true;
+        }
+
+        const urlValue = collectorDestination.destination_type === 'webhook'
+            ? String(collectorDestination.webhook_url || '').trim()
+            : String(collectorDestination.sheet_link || '').trim();
+
+        if (!urlValue) {
+            setError(collectorDestination.destination_type === 'webhook'
+                ? 'Enter a webhook URL for the email collector.'
+                : 'Enter a Google Sheet URL for the email collector.');
+            return false;
+        }
+
+        setCollectorDestinationSaving(true);
+        try {
+            const saveRes = await authenticatedFetch(
+                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${savedAutomationId}/email-collector-destination`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        destination_type: collectorDestination.destination_type,
+                        sheet_link: collectorDestination.destination_type === 'sheet' ? urlValue : '',
+                        webhook_url: collectorDestination.destination_type === 'webhook' ? urlValue : ''
+                    })
+                }
+            );
+            const saveData = await saveRes.json();
+            if (!saveRes.ok) {
+                setError(saveData?.error || 'Failed to save email collector destination.');
+                return false;
+            }
+
+            let nextDestination = saveData?.destination || null;
+            if (shouldVerify) {
+                const verifyRes = await authenticatedFetch(
+                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${savedAutomationId}/email-collector-destination/verify`,
+                    { method: 'POST' }
+                );
+                const verifyData = await verifyRes.json();
+                if (!verifyRes.ok) {
+                    setError(verifyData?.error || 'Failed to verify email collector destination.');
+                    return false;
+                }
+                nextDestination = verifyData?.destination || nextDestination;
+            }
+
+            if (nextDestination) {
+                setCollectorDestination({
+                    destination_type: nextDestination.destination_type || 'sheet',
+                    sheet_link: nextDestination.sheet_link || '',
+                    webhook_url: nextDestination.webhook_url || '',
+                    verified: nextDestination.verified === true,
+                    verified_at: nextDestination.verified_at || null,
+                    service_account_email: nextDestination.service_account_email || '',
+                    destination_json: nextDestination.destination_json || {}
+                });
+            }
+
+            return true;
+        } catch (_) {
+            setError('Failed to save email collector destination.');
+            return false;
+        } finally {
+            setCollectorDestinationSaving(false);
+        }
+    }, [authenticatedFetch, collectorDestination, editingAutomation?.collect_email_enabled]);
+
     const openingRef = useRef<string | null>(null);
 
     const handleEdit = async (auto: any) => {
@@ -389,24 +556,20 @@ const DMAutomationView: React.FC = () => {
         setError(null);
 
         try {
-            const useLocal = auto && auto.template_type;
             let targetAuto = auto;
-
-            if (!useLocal) {
-                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${auto.$id}?account_id=${activeAccountID}`);
-                if (!res.ok) {
-                    if (res.status === 404) {
-                        setError("Automation not found. It may have been deleted.");
-                        setPreparing(false);
-                        fetchAutomations(true);
-                        openingRef.current = null;
-                        return;
-                    }
-                    throw new Error("Failed to load");
+            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${auto.$id}?account_id=${activeAccountID}`);
+            if (!res.ok) {
+                if (res.status === 404) {
+                    setError("Automation not found. It may have been deleted.");
+                    setPreparing(false);
+                    fetchAutomations(true);
+                    openingRef.current = null;
+                    return;
                 }
-                const freshAuto = await res.json();
-                targetAuto = freshAuto || auto;
+                throw new Error("Failed to load");
             }
+            const freshAuto = await res.json();
+            targetAuto = freshAuto || auto;
 
             let sid: string | null = null;
             if (targetAuto.template_id) {
@@ -437,7 +600,7 @@ const DMAutomationView: React.FC = () => {
                 } else if (targetAuto.template_type === 'template_media') {
                     // For single media, template_content might be url
                 }
-                const kws = Array.isArray(targetAuto.keyword) ? targetAuto.keyword : (targetAuto.keyword ? targetAuto.keyword.split(',').map((s: string) => s.trim()) : ['']);
+                const { keywords: kws } = normalizeAutomationKeywords(targetAuto);
 
                 // Parse buttons for template_buttons if needed
                 let buttons = [];
@@ -458,7 +621,21 @@ const DMAutomationView: React.FC = () => {
                     global_live: false,
                     global_stories: false,
                     ...targetAuto,
+                    active: targetAuto?.is_active !== false,
+                    is_active: targetAuto?.is_active !== false,
                     keyword: kws,
+                    keywords: kws,
+                    followers_only_message: targetAuto.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT,
+                    suggest_more_enabled: Boolean(targetAuto?.suggest_more_enabled),
+                    once_per_user_24h: Boolean(targetAuto?.once_per_user_24h),
+                    collect_email_enabled: Boolean(targetAuto?.collect_email_enabled),
+                    collect_email_only_gmail: Boolean(targetAuto?.collect_email_only_gmail),
+                    seen_typing_enabled: Boolean(targetAuto?.seen_typing_enabled),
+                    followers_only_primary_button_text: String(targetAuto?.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT),
+                    followers_only_secondary_button_text: String(targetAuto?.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT),
+                    collect_email_prompt_message: String(targetAuto?.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT),
+                    collect_email_fail_retry_message: String(targetAuto?.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT),
+                    collect_email_success_reply_message: String(targetAuto?.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT),
                     template_elements: elements,
                     buttons,
                     text
@@ -485,12 +662,9 @@ const DMAutomationView: React.FC = () => {
 
     useEffect(() => {
         if (!activeAccountID) return;
-        const targetId = sessionStorage.getItem('openAutomationId');
-        const targetType = sessionStorage.getItem('openAutomationType');
+        const targetId = takeTransientState<string>('openAutomationId');
+        const targetType = takeTransientState<string>('openAutomationType');
         if (!targetId || targetType !== 'dm') return;
-
-        sessionStorage.removeItem('openAutomationId');
-        sessionStorage.removeItem('openAutomationType');
         handleEdit({ $id: targetId });
     }, [activeAccountID]);
 
@@ -530,18 +704,6 @@ const DMAutomationView: React.FC = () => {
         } else if (titleBytes > AUTOMATION_TITLE_MAX) {
             errors['title'] = `Title must be at most ${AUTOMATION_TITLE_MAX} UTF-8 bytes.`;
             hasError = true;
-        } else {
-            const normalizedTitle = editingAutomation.title.trim().toLowerCase();
-            const existingTitles = (dmAutomations || []).filter((a: any) => !editingAutomation.$id || a.$id !== editingAutomation.$id).map((a: any) => a.title || '');
-            const duplicate = existingTitles.some(t => (t || '').trim().toLowerCase() === normalizedTitle);
-            if (duplicate) {
-                const suggested = suggestUniqueTitle(editingAutomation.title, existingTitles);
-                if (suggested && suggested !== editingAutomation.title) {
-                    setEditingAutomation({ ...editingAutomation, title: suggested });
-                }
-                errors['title'] = `Title already exists. Suggested: ${suggested}`;
-                hasError = true;
-            }
         }
 
         // Global Trigger Validation
@@ -573,13 +735,17 @@ const DMAutomationView: React.FC = () => {
                 const uniqueDuplicates = Array.from(new Set(duplicates)) as string[];
                 errors['keywords'] = `Duplicate keywords within this rule: ${uniqueDuplicates.join(', ')}`;
                 hasError = true;
-            } else {
-                const conflicts = processedKws.filter((k: string) => keywordConflictSet.has(k));
-                if (conflicts.length > 0) {
-                    const uniqueConflicts = Array.from(new Set(conflicts)) as string[];
-                    errors['keywords'] = `Keywords already used: ${uniqueConflicts.join(', ')}`;
-                    hasError = true;
-                }
+            }
+        }
+
+        const followMsg = String(editingAutomation.followers_only_message || '').trim();
+        if (editingAutomation.followers_only) {
+            if (!followMsg) {
+                errors['followers_only_message'] = "Followers-only message is required.";
+                hasError = true;
+            } else if (getByteLength(followMsg) > FOLLOWERS_ONLY_MESSAGE_MAX) {
+                errors['followers_only_message'] = `Followers-only message must be at most ${FOLLOWERS_ONLY_MESSAGE_MAX} UTF-8 bytes.`;
+                hasError = true;
             }
         }
 
@@ -587,6 +753,42 @@ const DMAutomationView: React.FC = () => {
         if (!selectedTemplateId) {
             errors['template'] = "Please select a reply template or create one in Reply Templates.";
             hasError = true;
+        }
+
+        const followersPrimaryButton = String(editingAutomation.followers_only_primary_button_text || '').trim();
+        const followersSecondaryButton = String(editingAutomation.followers_only_secondary_button_text || '').trim();
+        if (followersPrimaryButton && getByteLength(followersPrimaryButton) > 40) {
+            errors['followers_only_primary_button_text'] = "Primary button text must be at most 40 UTF-8 bytes.";
+            hasError = true;
+        }
+        if (followersSecondaryButton && getByteLength(followersSecondaryButton) > 40) {
+            errors['followers_only_secondary_button_text'] = "Retry button text must be at most 40 UTF-8 bytes.";
+            hasError = true;
+        }
+
+        if (editingAutomation.collect_email_enabled) {
+            if (getByteLength(editingAutomation.collect_email_prompt_message || '') > 1000) {
+                errors['collect_email_prompt_message'] = "Prompt message must be at most 1000 UTF-8 bytes.";
+                hasError = true;
+            }
+            if (getByteLength(editingAutomation.collect_email_fail_retry_message || '') > 1000) {
+                errors['collect_email_fail_retry_message'] = "Retry message must be at most 1000 UTF-8 bytes.";
+                hasError = true;
+            }
+            if (getByteLength(editingAutomation.collect_email_success_reply_message || '') > 1000) {
+                errors['collect_email_success_reply_message'] = "Success message must be at most 1000 UTF-8 bytes.";
+                hasError = true;
+            }
+
+            const destinationUrl = collectorDestination.destination_type === 'webhook'
+                ? String(collectorDestination.webhook_url || '').trim()
+                : String(collectorDestination.sheet_link || '').trim();
+            if (!destinationUrl) {
+                errors['collect_email_destination'] = collectorDestination.destination_type === 'webhook'
+                    ? "Webhook URL is required."
+                    : "Google Sheet URL is required.";
+                hasError = true;
+            }
         }
 
         if (false) {
@@ -713,10 +915,29 @@ const DMAutomationView: React.FC = () => {
 
         try {
             // Always send as 'keyword' to backend (backend expects singular)
-            const payload = { ...editingAutomation, keyword: kws, type: 'dm' };
+            const payload = {
+                ...editingAutomation,
+                keyword: kws,
+                type: 'dm',
+                is_active: editingAutomation.is_active !== false,
+                suggest_more_enabled: editingAutomation.suggest_more_enabled === true,
+                once_per_user_24h: editingAutomation.once_per_user_24h === true,
+                collect_email_enabled: editingAutomation.collect_email_enabled === true,
+                collect_email_only_gmail: editingAutomation.collect_email_only_gmail === true,
+                seen_typing_enabled: editingAutomation.seen_typing_enabled === true,
+                followers_only_primary_button_text: editingAutomation.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
+                followers_only_secondary_button_text: editingAutomation.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
+                collect_email_prompt_message: editingAutomation.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT,
+                collect_email_fail_retry_message: editingAutomation.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
+                collect_email_success_reply_message: editingAutomation.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT,
+                followers_only_message: editingAutomation.followers_only
+                    ? (String(editingAutomation.followers_only_message || '').trim() || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
+                    : ''
+            };
             // Remove keywords field if it exists to avoid confusion
             delete payload.keywords;
             delete payload.automation_type;
+            delete payload.active;
             if (selectedTemplateId) {
                 payload.template_id = selectedTemplateId;
             }
@@ -730,15 +951,20 @@ const DMAutomationView: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+            const data = await res.json();
 
             if (res.ok) {
+                const savedAutomationId = editingAutomation.$id || data?.automation_id || data?.$id;
+                if (editingAutomation.collect_email_enabled) {
+                    const collectorSaved = await persistCollectorDestination(savedAutomationId, true);
+                    if (!collectorSaved) {
+                        return;
+                    }
+                }
                 setSuccess(editingAutomation.$id ? "Automation updated!" : "Automation published!");
                 setEditingAutomation(null);
                 fetchAutomations(true);
             } else {
-                const data = await res.json();
-
-
                 // Handle Multi-Field Errors (New Format)
                 if (data.fields) {
                     setFieldErrors(data.fields);
@@ -796,17 +1022,29 @@ const DMAutomationView: React.FC = () => {
                     setError(data.error || "Failed to save.");
                 }
             }
-            // Clear notifications after 5s
+            // Clear notifications after 4s
             setTimeout(() => {
                 setSuccess(null);
                 setError(null);
-            }, 5000);
+            }, 4000);
         } catch (err) {
             setError("Network error.");
         } finally {
             setSaving(false);
         }
     };
+
+    const resetEditorState = useCallback(() => {
+        setEditingAutomation(null);
+        setOriginalAutomation(null);
+        setCollectorDestination(createCollectorDestinationState());
+        setKeywordWarnings({});
+        setFieldErrors({});
+        setDuplicateErrorKeywords(new Set());
+        setSelectedTemplateId(null);
+        setSelectedTemplateData(null);
+        setShowTemplateSelector(true);
+    }, []);
 
     const handleBack = () => {
         if (hasDirtyChanges()) {
@@ -824,14 +1062,12 @@ const DMAutomationView: React.FC = () => {
                 },
                 onSecondary: () => {
                     closeModal();
-                    setEditingAutomation(null);
-                    setOriginalAutomation(null);
+                    resetEditorState();
                 }
             });
             return;
         }
-        setEditingAutomation(null);
-        setOriginalAutomation(null);
+        resetEditorState();
     };
 
     // Check if there are unsaved changes
@@ -843,6 +1079,11 @@ const DMAutomationView: React.FC = () => {
         return editingAutomation.title !== 'New Automation' || (editingAutomation.keywords || []).length > 0;
     }, [editingAutomation, originalAutomation]);
 
+    const handleSaveRef = useRef(handleSave);
+    useEffect(() => {
+        handleSaveRef.current = handleSave;
+    }, [handleSave]);
+
     // Register global unsaved changes tracking
     useEffect(() => {
         if (editingAutomation) {
@@ -850,72 +1091,56 @@ const DMAutomationView: React.FC = () => {
         } else {
             setHasUnsavedChanges(false);
         }
-    }, [editingAutomation, originalAutomation, hasDirtyChanges, setHasUnsavedChanges]);
+    }, [editingAutomation, hasDirtyChanges, setHasUnsavedChanges]);
 
     // Register Save Handler for global navigation
     useEffect(() => {
-        if (editingAutomation) {
-            const saveHandler = async (): Promise<boolean> => {
-                // Trigger the save logic - we need to call the inline save function
-                // Since save() has side effects and uses local state, we trigger it indirectly
-                // For simplicity, we'll just try to save and return the result
-                // Note: This is a simplified version - full validation happens in save()
-                return new Promise((resolve) => {
-                    // We can't easily call save() here due to closure issues
-                    // Best approach: show modal for DM editing since it's complex
-                    setModalConfig(prev => ({
-                        ...prev,
-                        isOpen: true,
-                        title: 'Unsaved Changes',
-                        description: 'You have unsaved changes in your automation. Do you want to save them before leaving?',
-                        type: 'warning',
-                        confirmLabel: 'Save Changes',
-                        secondaryLabel: 'Discard & Leave',
-                        cancelLabel: 'Keep Editing',
-                        onConfirm: () => {
-                            closeModal();
-                            handleSave();
-                            resolve(true); // Assume save will eventually succeed or user will be notified
-                        },
-                        onSecondary: () => {
-                            closeModal();
-                            setEditingAutomation(null);
-                            setOriginalAutomation(null);
-                            resolve(true); // Discarded, safe to navigate
-                        },
-                        onCancel: () => {
-                            closeModal();
-                            resolve(false); // User chose to keep editing
-                        }
-                    }));
-                });
-            };
-            setSaveUnsavedChanges(() => saveHandler);
+        if (!editingAutomation) {
+            setSaveUnsavedChanges(() => async () => true);
+            return;
         }
-        return () => {
-            if (editingAutomation) {
-                setSaveUnsavedChanges(() => async () => true);
-            }
-        };
-    }, [editingAutomation, setSaveUnsavedChanges, handleSave]);
+
+        const saveHandler = async (): Promise<boolean> => (
+            new Promise((resolve) => {
+                setModalConfig((prev) => ({
+                    ...prev,
+                    isOpen: true,
+                    title: 'Unsaved Changes',
+                    description: 'You have unsaved changes in your automation. Do you want to save them before leaving?',
+                    type: 'warning',
+                    confirmLabel: 'Save Changes',
+                    secondaryLabel: 'Discard & Leave',
+                    cancelLabel: 'Keep Editing',
+                    onConfirm: () => {
+                        closeModal();
+                        void handleSaveRef.current();
+                        resolve(true);
+                    },
+                    onSecondary: () => {
+                        closeModal();
+                        resetEditorState();
+                        resolve(true);
+                    },
+                    onCancel: () => {
+                        closeModal();
+                        resolve(false);
+                    }
+                }));
+            })
+        );
+
+        setSaveUnsavedChanges(() => saveHandler);
+    }, [closeModal, editingAutomation, resetEditorState, setSaveUnsavedChanges]);
 
     // Register Discard Handler for global navigation
     useEffect(() => {
-        if (editingAutomation) {
-            const discardHandler = () => {
-                setEditingAutomation(null);
-                setOriginalAutomation(null);
-                setKeywordWarnings({});
-                setFieldErrors({});
-            };
-            setDiscardUnsavedChanges(() => discardHandler);
+        if (!editingAutomation) {
+            setDiscardUnsavedChanges(() => () => { });
+            return;
         }
-        return () => {
-            if (editingAutomation) {
-                setDiscardUnsavedChanges(() => () => { });
-            }
-        };
-    }, [editingAutomation, setDiscardUnsavedChanges]);
+
+        setDiscardUnsavedChanges(() => resetEditorState);
+    }, [editingAutomation, resetEditorState, setDiscardUnsavedChanges]);
 
     // Ref for media cache to keep fetchMedia stable
     const mediaCacheRef = React.useRef(mediaCache);
@@ -1074,15 +1299,16 @@ const DMAutomationView: React.FC = () => {
     }, [editingAutomation?.template_type, mediaDateFilter, mediaStartDate, mediaEndDate, fetchMedia, selectedTemplateId]);
 
     useEffect(() => {
-        if (editingAutomation?.template_type === 'template_share_post' && editingAutomation.media_url) {
+        const previewUrl = getPreferredSharePostImageUrl(editingAutomation);
+        if (editingAutomation?.template_type === 'template_share_post' && canBrowserRenderPreviewUrl(previewUrl)) {
             const img = new window.Image();
-            img.src = editingAutomation.media_url;
+            img.src = previewUrl;
             img.onload = () => setIsMediaDeleted(false);
             img.onerror = () => setIsMediaDeleted(true);
         } else {
             setIsMediaDeleted(false);
         }
-    }, [editingAutomation?.template_type, editingAutomation?.media_url]);
+    }, [editingAutomation?.template_type, editingAutomation?.media_url, (editingAutomation as any)?.thumbnail_url, (editingAutomation as any)?.template_data]);
 
     const isKeywordDuplicate = useCallback((kw: string) => {
         const kws = editingAutomation?.keywords || [];
@@ -1098,21 +1324,9 @@ const DMAutomationView: React.FC = () => {
 
     const keywordConflictSet = useMemo(() => {
         const set = new Set<string>();
-        const addFrom = (auto: any) => {
-            const raw = Array.isArray(auto?.keyword) ? auto.keyword : (auto?.keyword ? String(auto.keyword).split(',') : []);
-            raw.forEach((k: string) => {
-                const norm = String(k || '').trim().toUpperCase();
-                if (norm) set.add(norm);
-            });
-        };
-        (dmAutomations || []).forEach((a: any) => {
-            if (editingAutomation?.$id && a.$id === editingAutomation.$id) return;
-            addFrom(a);
-        });
-        (globalAutomations || []).forEach((a: any) => addFrom(a));
         duplicateErrorKeywords.forEach(k => set.add(String(k || '').trim().toUpperCase()));
         return set;
-    }, [duplicateErrorKeywords, dmAutomations, globalAutomations, editingAutomation?.$id]);
+    }, [duplicateErrorKeywords]);
 
     const validateKeywordsList = useCallback((newKeywords: string[]) => {
         const kws = newKeywords.filter((k: string) => k.trim().length > 0);
@@ -1125,29 +1339,10 @@ const DMAutomationView: React.FC = () => {
             const duplicates = processedKws.filter((item, index) => processedKws.indexOf(item) !== index);
             const uniqueDuplicates = Array.from(new Set(duplicates));
             errorMsg = `Duplicate keywords within this rule: ${uniqueDuplicates.join(', ')}`;
-        } else {
-            const conflicts = processedKws.filter((k) => keywordConflictSet.has(k));
-            if (conflicts.length > 0) {
-                errorMsg = `Keywords already used: ${Array.from(new Set(conflicts)).join(', ')}`;
-            }
         }
 
         return errorMsg;
     }, [keywordConflictSet]);
-
-    const hasTitleConflict = useMemo(() => {
-        const title = (editingAutomation?.title || '').trim().toLowerCase();
-        if (!title) return false;
-        const existingTitles = (dmAutomations || [])
-            .filter((a: any) => !editingAutomation?.$id || a.$id !== editingAutomation.$id)
-            .map((a: any) => (a.title || '').trim().toLowerCase());
-        return existingTitles.includes(title);
-    }, [editingAutomation?.title, editingAutomation?.$id, dmAutomations]);
-
-    const hasKeywordConflict = useMemo(() => {
-        const kws = (editingAutomation?.keywords || []).map((k: string) => String(k || '').trim().toUpperCase()).filter(Boolean);
-        return kws.some((k: string) => keywordConflictSet.has(k));
-    }, [editingAutomation?.keywords, keywordConflictSet]);
 
     const handleAddKeyword = () => {
         let val = keywordInput.trim().toUpperCase();
@@ -1208,10 +1403,7 @@ const DMAutomationView: React.FC = () => {
             setFieldErrors(prev => { const n = { ...prev }; delete n['keywords']; return n; });
         }
 
-        if (hasTitleConflict) {
-            setFieldErrors(prev => ({ ...prev, title: "Title already exists." }));
-        }
-    }, [editingAutomation?.keywords, validateKeywordsList, hasTitleConflict, editingAutomation]);
+    }, [editingAutomation?.keywords, validateKeywordsList, editingAutomation]);
 
     const addTemplateElement = () => {
         if (editingAutomation.template_elements.length >= 10) return;
@@ -1284,17 +1476,17 @@ const DMAutomationView: React.FC = () => {
 
     const handleToggleActive = async (auto: any) => {
         setTogglingIds(prev => new Set(prev).add(auto.$id));
-        const originalStatus = auto.active;
-        setDmAutomations(prev => prev.map(a => a.$id === auto.$id ? { ...a, active: !originalStatus } : a));
+        const originalStatus = auto?.is_active !== false;
+        setDmAutomations(prev => prev.map(a => a.$id === auto.$id ? { ...a, active: !originalStatus, is_active: !originalStatus } : a));
         try {
             const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${auto.$id}?account_id=${activeAccountID}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ active: !originalStatus })
+                body: JSON.stringify({ is_active: !originalStatus })
             });
             if (!res.ok) throw new Error();
         } catch (e) {
-            setDmAutomations(prev => prev.map(a => a.$id === auto.$id ? { ...a, active: originalStatus } : a));
+            setDmAutomations(prev => prev.map(a => a.$id === auto.$id ? { ...a, active: originalStatus, is_active: originalStatus } : a));
         } finally {
             setTogglingIds(prev => { const n = new Set(prev); n.delete(auto.$id); return n; });
         }
@@ -1333,43 +1525,37 @@ const DMAutomationView: React.FC = () => {
             || keywordsCount === 0
             || !!fieldErrors['title']
             || !!fieldErrors['keywords']
-            || !!fieldErrors['template']
-            || hasTitleConflict
-            || hasKeywordConflict;
+            || !!fieldErrors['template'];
 
         return (
-            <div className="max-w-[1400px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
-                <div className="flex items-center justify-between border border-content/60 bg-background/90 backdrop-blur px-4 py-3 rounded-2xl sticky top-4 z-40">
-                    <button onClick={handleBack} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
-                        <ChevronRight className="w-4 h-4 rotate-180" /> Back to Dashboard
-                    </button>
-                    <div className="flex items-center gap-3">
-                        {error && (
-                            <div className="flex items-center gap-2 px-3 py-1 bg-destructive-muted/40 text-destructive rounded-lg text-[10px] font-black border border-destructive/30 animate-in fade-in slide-in-from-right-2">
-                                <AlertCircle className="w-3 h-3" /> {error}
+            <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
+                <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
+                <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
+                    <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2">
+                        <section className="bg-card rounded-[40px] border border-content shadow-sm">
+                            <div className="rounded-t-[40px] border-b border-content/70 bg-card/95 px-8 py-5">
+                                <AutomationActionBar
+                                    hasExisting={Boolean(editingAutomation.$id)}
+                                    isSaving={saving}
+                                    isDeleting={Boolean(editingAutomation?.$id && deletingIds.has(editingAutomation.$id))}
+                                    saveDisabled={isPublishDisabled}
+                                    deleteDisabled={Boolean(editingAutomation?.$id && deletingIds.has(editingAutomation.$id))}
+                                    onSave={handleSave}
+                                    onDelete={editingAutomation.$id ? () => handleDelete(editingAutomation.$id) : undefined}
+                                    onCancel={handleBack}
+                                    leftContent={
+                                        <button
+                                            type="button"
+                                            onClick={handleBack}
+                                            className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
+                                        >
+                                            <ArrowLeft className="w-5 h-5" />
+                                        </button>
+                                    }
+                                />
                             </div>
-                        )}
-                        {success && (
-                            <div className="flex items-center gap-2 px-3 py-1 bg-success-muted/60 text-success rounded-lg text-[10px] font-black border border-success/30 animate-in fade-in slide-in-from-right-2">
-                                <CheckCircle2 className="w-3 h-3" /> {success}
-                            </div>
-                        )}
-                        <button
-                            onClick={handleSave}
-                            disabled={isPublishDisabled}
-                            className="group relative px-10 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-[0_14px_28px_-12px_rgba(37,99,235,0.45)] flex items-center gap-3 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-                        >
-                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 transition-transform group-hover:rotate-6" />}
-                            {saving ? 'Processing...' : (editingAutomation.$id ? 'Update Changes' : 'Publish Automation')}
-                        </button>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 xl:h-[calc(100vh-11rem)] xl:min-h-0">
-                    {/* Left: Editor - scrollable on xl */}
-                    <div className="xl:col-span-8 space-y-8 order-2 xl:order-1 xl:overflow-y-auto xl:overscroll-behavior-contain xl:min-h-0 xl:pr-2">
-                        <section className="bg-card p-8 rounded-[40px] border border-content shadow-sm space-y-8">
-                            <div>
+                            <div className="space-y-8 p-8 pb-10">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-6">Automation Core</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-4">
@@ -1398,15 +1584,7 @@ const DMAutomationView: React.FC = () => {
                                                     if (!trimmed) {
                                                         setFieldErrors((prev: any) => ({ ...prev, title: "Title must be at least 2 characters." }));
                                                     } else {
-                                                        const normalizedTitle = trimmed.toLowerCase();
-                                                        const existingTitles = (dmAutomations || [])
-                                                            .filter((a: any) => !editingAutomation?.$id || a.$id !== editingAutomation.$id)
-                                                            .map((a: any) => (a.title || '').trim().toLowerCase());
-                                                        if (existingTitles.includes(normalizedTitle)) {
-                                                            setFieldErrors((prev: any) => ({ ...prev, title: "Title already exists." }));
-                                                        } else {
-                                                            setFieldErrors((prev: any) => { const n = { ...prev }; delete n['title']; return n; });
-                                                        }
+                                                        setFieldErrors((prev: any) => { const n = { ...prev }; delete n['title']; return n; });
                                                     }
                                                 }
                                             }}
@@ -1508,7 +1686,32 @@ const DMAutomationView: React.FC = () => {
                                 </div>
 
                                 <div className="pt-6 border-t border-border/60 mt-6 lg:mt-8">
-                                    <div className="flex items-center justify-between bg-primary/10  p-5 rounded-[28px] border border-primary/20 transition-all hover:bg-primary/10 ">
+                                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.is_active !== false ? 'ring-1 ring-primary/15' : ''}`}>
+                                        <div className="flex items-center gap-4">
+                                            <div className={`p-3 rounded-2xl shadow-sm border ${editingAutomation.is_active !== false
+                                                ? 'bg-white dark:bg-gray-900 border-emerald-100 dark:border-emerald-500/10'
+                                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                                                }`}>
+                                                <Power className={`w-5 h-5 transition-colors ${editingAutomation.is_active !== false ? 'text-emerald-500' : 'text-gray-400'}`} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Automation Status</p>
+                                                <p className="text-[10px] font-medium text-muted-foreground">Turn this DM automation on or off before you publish it.</p>
+                                            </div>
+                                        </div>
+                                        <ToggleSwitch
+                                            isChecked={editingAutomation.is_active !== false}
+                                            onChange={() => {
+                                                const nextIsActive = !(editingAutomation.is_active !== false);
+                                                setEditingAutomation({ ...editingAutomation, is_active: nextIsActive, active: nextIsActive });
+                                            }}
+                                            variant="plain"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="pt-4">
+                                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.followers_only ? 'ring-1 ring-primary/15' : ''}`}>
                                         <div className="flex items-center gap-4">
                                             <div className="p-3 bg-card rounded-2xl shadow-sm border border-primary/20">
                                                 <Power className={`w-5 h-5 transition-colors ${editingAutomation.followers_only ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -1520,46 +1723,390 @@ const DMAutomationView: React.FC = () => {
                                         </div>
                                         <ToggleSwitch
                                             isChecked={editingAutomation.followers_only}
-                                            onChange={() => setEditingAutomation({ ...editingAutomation, followers_only: !editingAutomation.followers_only })}
+                                            onChange={() => {
+                                                const nextFollowersOnly = !editingAutomation.followers_only;
+                                                setEditingAutomation({
+                                                    ...editingAutomation,
+                                                    followers_only: nextFollowersOnly,
+                                                    followers_only_message: nextFollowersOnly
+                                                        ? (editingAutomation.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
+                                                        : ''
+                                                });
+                                                if (!nextFollowersOnly) {
+                                                    setFieldErrors((prev) => {
+                                                        const next = { ...prev };
+                                                        delete next['followers_only_message'];
+                                                        return next;
+                                                    });
+                                                }
+                                            }}
                                             variant="plain"
                                         />
                                     </div>
                                 </div>
+                                {editingAutomation.followers_only && (
+                                    <div className="mt-4 bg-card/50 p-4 rounded-2xl border border-primary/15 space-y-4">
+                                        <div className="flex justify-between items-center px-1 mb-2">
+                                            <label id="field_followers_only_message" className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Followers-Only Message</label>
+                                            <span className={`text-[8px] font-bold ${getByteLength(editingAutomation.followers_only_message || '') > FOLLOWERS_ONLY_MESSAGE_MAX ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                                {getByteLength(editingAutomation.followers_only_message || '')}/{FOLLOWERS_ONLY_MESSAGE_MAX} bytes
+                                            </span>
+                                        </div>
+                                        <textarea
+                                            value={editingAutomation.followers_only_message || ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (getByteLength(val) <= FOLLOWERS_ONLY_MESSAGE_MAX) {
+                                                    setEditingAutomation({ ...editingAutomation, followers_only_message: val });
+                                                    if (fieldErrors['followers_only_message']) {
+                                                        setFieldErrors((prev) => {
+                                                            const next = { ...prev };
+                                                            delete next['followers_only_message'];
+                                                            return next;
+                                                        });
+                                                    }
+                                                }
+                                            }}
+                                            className={`input-base min-h-[88px] resize-y text-xs font-medium ${fieldErrors['followers_only_message'] ? 'border-destructive focus:border-destructive focus:shadow-[0_0_0_3px_rgba(237,73,86,0.14)]' : ''}`}
+                                            placeholder={FOLLOWERS_ONLY_MESSAGE_DEFAULT}
+                                        />
+                                        {fieldErrors['followers_only_message'] && (
+                                            <p className="mt-2 text-[9px] font-bold text-destructive flex items-center gap-1">
+                                                <AlertCircle className="w-3 h-3" /> {fieldErrors['followers_only_message']}
+                                            </p>
+                                        )}
+                                        <div className="grid gap-3 md:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between px-1">
+                                                    <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Follow Button Text</label>
+                                                    <span className="text-[8px] font-bold text-muted-foreground">{getByteLength(editingAutomation.followers_only_primary_button_text || '')}/40 bytes</span>
+                                                </div>
+                                                <input
+                                                    value={editingAutomation.followers_only_primary_button_text || ''}
+                                                    onChange={(e) => setEditingAutomation({ ...editingAutomation, followers_only_primary_button_text: e.target.value })}
+                                                    className={`input-base text-xs font-medium ${fieldErrors['followers_only_primary_button_text'] ? 'border-destructive focus:border-destructive focus:shadow-[0_0_0_3px_rgba(237,73,86,0.14)]' : ''}`}
+                                                    placeholder={FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT}
+                                                />
+                                                {fieldErrors['followers_only_primary_button_text'] && <p className="text-[9px] font-bold text-destructive">{fieldErrors['followers_only_primary_button_text']}</p>}
+                                            </div>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between px-1">
+                                                    <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Retry Button Text</label>
+                                                    <span className="text-[8px] font-bold text-muted-foreground">{getByteLength(editingAutomation.followers_only_secondary_button_text || '')}/40 bytes</span>
+                                                </div>
+                                                <input
+                                                    value={editingAutomation.followers_only_secondary_button_text || ''}
+                                                    onChange={(e) => setEditingAutomation({ ...editingAutomation, followers_only_secondary_button_text: e.target.value })}
+                                                    className={`input-base text-xs font-medium ${fieldErrors['followers_only_secondary_button_text'] ? 'border-destructive focus:border-destructive focus:shadow-[0_0_0_3px_rgba(237,73,86,0.14)]' : ''}`}
+                                                    placeholder={FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT}
+                                                />
+                                                {fieldErrors['followers_only_secondary_button_text'] && <p className="text-[9px] font-bold text-destructive">{fieldErrors['followers_only_secondary_button_text']}</p>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className={`mt-4 flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${(editingAutomation.suggest_more_enabled && suggestMoreSetup) ? 'ring-1 ring-primary/15' : ''}`}>
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-3 rounded-2xl shadow-sm border ${suggestMoreSetup
+                                            ? 'bg-white dark:bg-gray-900 border-yellow-100 dark:border-yellow-500/10'
+                                            : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                                            }`}>
+                                            <Lightbulb className={`w-5 h-5 transition-colors ${editingAutomation.suggest_more_enabled && suggestMoreSetup ? 'text-yellow-500' : 'text-gray-400'}`} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Suggest More</p>
+                                            <p className="text-[10px] font-medium text-muted-foreground">
+                                                {suggestMoreSetup
+                                                    ? 'Send your Suggest More template right after this DM reply.'
+                                                    : 'Setup Suggest More first to enable this option.'
+                                                }
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {suggestMoreSetup ? (
+                                        <ToggleSwitch
+                                            isChecked={editingAutomation.suggest_more_enabled === true}
+                                            onChange={() => setEditingAutomation({ ...editingAutomation, suggest_more_enabled: !(editingAutomation.suggest_more_enabled === true) })}
+                                            variant="plain"
+                                        />
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentView('Suggest More')}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-yellow-500/20 transition-all"
+                                        >
+                                            Setup <ChevronRight className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className={`mt-4 flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.once_per_user_24h ? 'ring-1 ring-primary/15' : ''}`}>
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-3 rounded-2xl shadow-sm border ${editingAutomation.once_per_user_24h
+                                            ? 'bg-white dark:bg-gray-900 border-cyan-100 dark:border-cyan-500/10'
+                                            : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                                            }`}>
+                                            <Calendar className={`w-5 h-5 ${editingAutomation.once_per_user_24h ? 'text-cyan-500' : 'text-gray-400'}`} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Once Per User (24h)</p>
+                                            <p className="text-[10px] font-medium text-muted-foreground">Prevent the same person from retriggering this DM automation again for 24 hours.</p>
+                                        </div>
+                                    </div>
+                                    <ToggleSwitch
+                                        isChecked={editingAutomation.once_per_user_24h === true}
+                                        onChange={() => setEditingAutomation({ ...editingAutomation, once_per_user_24h: !(editingAutomation.once_per_user_24h === true) })}
+                                        variant="plain"
+                                    />
+                                </div>
+
+                                <div className="mt-4 space-y-3">
+                                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.collect_email_enabled ? 'ring-1 ring-primary/15' : ''}`}>
+                                        <div className="flex items-center gap-4">
+                                            <div className={`p-3 rounded-2xl shadow-sm border ${editingAutomation.collect_email_enabled
+                                                ? 'bg-white dark:bg-gray-900 border-indigo-100 dark:border-indigo-500/10'
+                                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                                                }`}>
+                                                <Mail className={`w-5 h-5 ${editingAutomation.collect_email_enabled ? 'text-indigo-500' : 'text-gray-400'}`} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Collect Email</p>
+                                                <p className="text-[10px] font-medium text-muted-foreground">Ask for an email before finishing this DM flow.</p>
+                                            </div>
+                                        </div>
+                                        <ToggleSwitch
+                                            isChecked={editingAutomation.collect_email_enabled === true}
+                                            onChange={() => setEditingAutomation({
+                                                ...editingAutomation,
+                                                collect_email_enabled: !(editingAutomation.collect_email_enabled === true),
+                                                collect_email_only_gmail: editingAutomation.collect_email_enabled ? false : editingAutomation.collect_email_only_gmail
+                                            })}
+                                            variant="plain"
+                                        />
+                                    </div>
+                                    {editingAutomation.collect_email_enabled && (
+                                        <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
+                                            <div className="flex items-center justify-between gap-4">
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Gmail Only</p>
+                                                    <p className="text-[10px] text-muted-foreground">Allow only Gmail addresses for this rule.</p>
+                                                </div>
+                                                <ToggleSwitch
+                                                    isChecked={editingAutomation.collect_email_only_gmail === true}
+                                                    onChange={() => setEditingAutomation({ ...editingAutomation, collect_email_only_gmail: !(editingAutomation.collect_email_only_gmail === true) })}
+                                                    variant="plain"
+                                                />
+                                            </div>
+                                            <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
+                                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Prompt Message</p>
+                                                <textarea
+                                                    value={editingAutomation.collect_email_prompt_message || ''}
+                                                    onChange={(e) => setEditingAutomation({ ...editingAutomation, collect_email_prompt_message: e.target.value })}
+                                                    className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                                    placeholder={COLLECT_EMAIL_PROMPT_DEFAULT}
+                                                />
+                                                <p className="text-[9px] text-muted-foreground">{getByteLength(editingAutomation.collect_email_prompt_message || '')}/1000 bytes</p>
+                                            </div>
+                                            <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
+                                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Retry Message</p>
+                                                <textarea
+                                                    value={editingAutomation.collect_email_fail_retry_message || ''}
+                                                    onChange={(e) => setEditingAutomation({ ...editingAutomation, collect_email_fail_retry_message: e.target.value })}
+                                                    className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                                    placeholder={COLLECT_EMAIL_FAIL_RETRY_DEFAULT}
+                                                />
+                                                <p className="text-[9px] text-muted-foreground">{getByteLength(editingAutomation.collect_email_fail_retry_message || '')}/1000 bytes</p>
+                                            </div>
+                                            <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
+                                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Success Message</p>
+                                                <textarea
+                                                    value={editingAutomation.collect_email_success_reply_message || ''}
+                                                    onChange={(e) => setEditingAutomation({ ...editingAutomation, collect_email_success_reply_message: e.target.value })}
+                                                    className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                                    placeholder={COLLECT_EMAIL_SUCCESS_DEFAULT}
+                                                />
+                                                <p className="text-[9px] text-muted-foreground">{getByteLength(editingAutomation.collect_email_success_reply_message || '')}/1000 bytes</p>
+                                            </div>
+                                            <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div>
+                                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Delivery Destination</p>
+                                                        <p className="text-[10px] text-muted-foreground">Choose one verified destination for collected emails.</p>
+                                                    </div>
+                                                    {collectorDestinationLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                                                </div>
+                                                <div className="grid gap-2 sm:grid-cols-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setCollectorDestination((prev) => ({ ...prev, destination_type: 'sheet', verified: false, verified_at: null }))}
+                                                        className={`rounded-2xl border px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${collectorDestination.destination_type === 'sheet' ? 'border-primary bg-primary/10 text-primary' : 'border-content/70 bg-card text-foreground'}`}
+                                                    >
+                                                        Google Sheets
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setCollectorDestination((prev) => ({ ...prev, destination_type: 'webhook', verified: false, verified_at: null }))}
+                                                        className={`rounded-2xl border px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${collectorDestination.destination_type === 'webhook' ? 'border-primary bg-primary/10 text-primary' : 'border-content/70 bg-card text-foreground'}`}
+                                                    >
+                                                        Webhook
+                                                    </button>
+                                                </div>
+                                                {collectorDestination.destination_type === 'sheet' ? (
+                                                    <div className="space-y-2">
+                                                        <div className="rounded-2xl border border-content/70 bg-card p-3">
+                                                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                                                <div>
+                                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Google Service Account</p>
+                                                                    <p className="mt-1 text-[10px] text-muted-foreground">Share the target sheet with this email before verifying the destination.</p>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={async () => {
+                                                                        const serviceEmail = String(collectorDestination.service_account_email || '').trim();
+                                                                        if (!serviceEmail) return;
+                                                                        await navigator.clipboard.writeText(serviceEmail);
+                                                                        setCopiedServiceAccountEmail(true);
+                                                                        window.setTimeout(() => setCopiedServiceAccountEmail(false), 2000);
+                                                                    }}
+                                                                    disabled={!collectorDestination.service_account_email}
+                                                                    className="inline-flex items-center gap-2 rounded-2xl border border-content/70 bg-background px-4 py-2 text-[10px] font-black uppercase tracking-widest text-foreground transition-all hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                                                                >
+                                                                    {copiedServiceAccountEmail ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                                                    {copiedServiceAccountEmail ? 'Copied' : 'Copy Email'}
+                                                                </button>
+                                                            </div>
+                                                            <div className="mt-3 rounded-2xl bg-muted/40 px-4 py-3 text-xs font-semibold text-foreground break-all">
+                                                                {collectorDestination.service_account_email || 'No service account email available yet.'}
+                                                            </div>
+                                                        </div>
+                                                        <input
+                                                            value={collectorDestination.sheet_link || ''}
+                                                            onChange={(e) => setCollectorDestination((prev) => ({ ...prev, sheet_link: e.target.value, verified: false, verified_at: null }))}
+                                                            className="w-full rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                                            placeholder="https://docs.google.com/spreadsheets/d/..."
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-2">
+                                                        <p className="text-[10px] text-muted-foreground">Paste your webhook URL. Verification will send sample lead data to this endpoint.</p>
+                                                        <input
+                                                            value={collectorDestination.webhook_url || ''}
+                                                            onChange={(e) => setCollectorDestination((prev) => ({ ...prev, webhook_url: e.target.value, verified: false, verified_at: null }))}
+                                                            className="w-full rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                                            placeholder="https://example.com/webhook"
+                                                        />
+                                                    </div>
+                                                )}
+                                                {fieldErrors['collect_email_destination'] && <p className="text-[9px] font-bold text-destructive">{fieldErrors['collect_email_destination']}</p>}
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        disabled={!editingAutomation.$id || collectorDestinationSaving}
+                                                        onClick={async () => {
+                                                            const ok = await persistCollectorDestination(String(editingAutomation.$id || ''), true);
+                                                            if (ok) {
+                                                                setSuccess('Email collector destination verified.');
+                                                            }
+                                                        }}
+                                                        className="rounded-2xl bg-black px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-gray-100"
+                                                    >
+                                                        {collectorDestinationSaving ? 'Verifying...' : 'Verify Destination'}
+                                                    </button>
+                                                    <span className={`text-[10px] font-bold ${collectorDestination.verified ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                                                        {collectorDestination.verified
+                                                            ? `Verified${collectorDestination.verified_at ? ` on ${new Date(collectorDestination.verified_at).toLocaleString()}` : ''}`
+                                                            : editingAutomation.$id ? 'Not verified yet' : 'Save the automation once, then verify the destination'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className={`mt-4 flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.seen_typing_enabled ? 'ring-1 ring-primary/15' : ''}`}>
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-3 rounded-2xl shadow-sm border ${editingAutomation.seen_typing_enabled
+                                            ? 'bg-white dark:bg-gray-900 border-violet-100 dark:border-violet-500/10'
+                                            : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                                            }`}>
+                                            <MessageSquare className={`w-5 h-5 ${editingAutomation.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Seen + Typing Reaction</p>
+                                            <p className="text-[10px] font-medium text-muted-foreground">Keep the seen/typing preference with this DM rule.</p>
+                                        </div>
+                                    </div>
+                                    <ToggleSwitch
+                                        isChecked={editingAutomation.seen_typing_enabled === true}
+                                        onChange={() => setEditingAutomation({ ...editingAutomation, seen_typing_enabled: !(editingAutomation.seen_typing_enabled === true) })}
+                                        variant="plain"
+                                    />
+                                </div>
 
                             </div>
 
-                            <div className="pt-8 border-t border-border/60">
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-6">Response Message</h3>
-                                <TemplateSelector
-                                    selectedTemplateId={selectedTemplateId || undefined}
-                                    onSelect={async (template: ReplyTemplate | null) => {
-                                        if (template) {
-                                            setEditingAutomation((prev: any) => ({
-                                                ...prev,
-                                                ...mergeReplyTemplateIntoAutomation(template.template_type, template.template_data || {}),
-                                                template_id: template.id
-                                            }));
-                                            setSelectedTemplateId(template.id);
-                                            setSelectedTemplateData(template);
-                                            templateCacheRef.current.set(template.id, template);
-                                        } else {
-                                            setSelectedTemplateId(null);
-                                            setSelectedTemplateData(null);
-                                            setEditingAutomation((prev: any) => ({
-                                                ...prev,
-                                                template_id: undefined,
-                                                template_type: 'template_text',
-                                                template_content: '',
-                                                template_elements: [],
-                                                buttons: [],
-                                                replies: []
-                                            }));
-                                        }
-                                    }}
-                                    onCreateNew={() => setCurrentView('Reply Templates')}
-                                    className="mb-6"
-                                />
-                                {fieldErrors['template'] && <p id="field_template" className="text-[10px] text-destructive font-bold px-2">{fieldErrors['template']}</p>}
+                            <div className="border-t border-border/60 pt-6">
+                                <div className="mx-4 mb-4 flex items-center justify-between md:mx-8 lg:mx-10">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Response Message</h3>
+                                    {selectedTemplateData && !showTemplateSelector && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowTemplateSelector(true)}
+                                            className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
+                                        >
+                                            Change Template
+                                        </button>
+                                    )}
+                                </div>
+                                {(!selectedTemplateData || showTemplateSelector) && (
+                                    <TemplateSelector
+                                        selectedTemplateId={selectedTemplateId || undefined}
+                                        onSelect={async (template: ReplyTemplate | null) => {
+                                            if (template) {
+                                                setEditingAutomation((prev: any) => ({
+                                                    ...prev,
+                                                    ...mergeReplyTemplateIntoAutomation(template.template_type, template.template_data || {}),
+                                                    template_id: template.id
+                                                }));
+                                                setSelectedTemplateId(template.id);
+                                                setSelectedTemplateData(template);
+                                                setShowTemplateSelector(false);
+                                                templateCacheRef.current.set(template.id, template);
+                                            } else {
+                                                setSelectedTemplateId(null);
+                                                setSelectedTemplateData(null);
+                                                setShowTemplateSelector(true);
+                                                setEditingAutomation((prev: any) => ({
+                                                    ...prev,
+                                                    template_id: undefined,
+                                                    template_type: 'template_text',
+                                                    template_content: '',
+                                                    template_elements: [],
+                                                    buttons: [],
+                                                    replies: []
+                                                }));
+                                            }
+                                        }}
+                                        onCreateNew={() => setCurrentView('Reply Templates')}
+                                        className="mx-4 mb-6 md:mx-8 lg:mx-10"
+                                    />
+                                )}
+                                {selectedTemplateData && !showTemplateSelector && (
+                                    <div className="mx-4 mb-5 flex min-h-[104px] items-center justify-between gap-4 rounded-[30px] border border-primary/20 bg-primary/8 px-6 py-5 shadow-[0_18px_45px_rgba(108,43,217,0.08)] md:mx-8 lg:mx-10">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-[22px] bg-primary/15 text-primary shadow-sm">
+                                                <Reply className="h-5 w-5" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="truncate text-base font-black uppercase tracking-tight text-foreground">{selectedTemplateData.name}</p>
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground">{String(selectedTemplateData.template_type || '').replace('template_', '')}</p>
+                                            </div>
+                                        </div>
+                                        <div className="shrink-0 rounded-full bg-success-muted/70 px-3.5 py-1.5 text-[9px] font-black uppercase tracking-[0.22em] text-success">Selected</div>
+                                    </div>
+                                )}
+                                {fieldErrors['template'] && <p id="field_template" className="mx-4 text-[10px] font-bold text-destructive md:mx-8 lg:mx-10">{fieldErrors['template']}</p>}
                                 {false && !selectedTemplateId && (
                                     <>
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
@@ -2440,7 +2987,7 @@ const DMAutomationView: React.FC = () => {
                                                                                         setEditingAutomation({
                                                                                             ...editingAutomation,
                                                                                             media_id: item.id,
-                                                                                            media_url: item.thumbnail_url || item.media_url,
+                                                                                            media_url: toBrowserPreviewUrl(item.thumbnail_url || item.media_url || ''),
                                                                                             caption: item.caption || ''
                                                                                         });
                                                                                     }}
@@ -2451,7 +2998,7 @@ const DMAutomationView: React.FC = () => {
                                                                                 >
                                                                                     {!isRestrictedMediaUrl(item.thumbnail_url || item.media_url) ? (
                                                                                         <img
-                                                                                            src={item.thumbnail_url || item.media_url}
+                                                                                            src={toBrowserPreviewUrl(item.thumbnail_url || item.media_url || '')}
                                                                                             referrerPolicy="no-referrer"
                                                                                             className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${editingAutomation.media_id === item.id ? 'brightness-75' : ''}`}
                                                                                             alt={item.caption || ''}
@@ -2553,7 +3100,7 @@ const DMAutomationView: React.FC = () => {
                                                                     <div className="flex items-start gap-3 p-4 bg-primary/10 rounded-2xl border border-primary/10">
                                                                         <AlertCircle className="w-3.5 h-3.5 text-primary mt-0.5" />
                                                                         <p className="text-[9px] font-bold text-primary/80 uppercase tracking-widest leading-relaxed">
-                                                                            Note: Instagram allows fetching up to 10,000 recently created posts and reels via DM Panda.
+                                                                            Note: Instagram allows fetching up to 10,000 recently created posts and reels through the workspace.
                                                                         </p>
                                                                     </div>
                                                                 </div>
@@ -2567,96 +3114,53 @@ const DMAutomationView: React.FC = () => {
                                 )}
                             </div>
                         </section>
-
-                        <div className="flex justify-center items-center gap-4 pt-4">
-                            {editingAutomation.$id && (
-                                <button
-                                    onClick={() => handleDelete(editingAutomation.$id)}
-                                    disabled={saving || (editingAutomation?.$id && deletingIds.has(editingAutomation.$id))}
-                                    className="flex-1 px-8 py-4 bg-destructive-muted/40 text-destructive rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-destructive hover:text-primary-foreground disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                    {editingAutomation?.$id && deletingIds.has(editingAutomation.$id) ? (
-                                        <>
-                                            <Loader2 className="w-3 h-3 animate-spin" />
-                                            <span>Deleting...</span>
-                                        </>
-                                    ) : (
-                                        "Delete Rule"
-                                    )}
-                                </button>
-                            )}
-                        </div>
                     </div>
 
                     {/* Right: Live Preview */}
-                    <div className="xl:col-span-4 order-1 xl:order-2">
-                        <div className="xl:sticky xl:top-24 h-fit max-h-[calc(100vh-8rem)] overflow-y-auto">
-                            <div className="fixed top-4 right-4 z-[200] space-y-2 pointer-events-none">
-                                {success && (
-                                    <div className="bg-success text-success-foreground px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-right fade-in duration-300 pointer-events-auto">
-                                        <CheckCircle2 className="w-5 h-5" />
-                                        <span className="font-bold text-sm">{success}</span>
-                                    </div>
-                                )}
-                                {error && (
-                                    <div className="bg-destructive text-destructive-foreground px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-right fade-in duration-300 pointer-events-auto">
-                                        <AlertCircle className="w-5 h-5" />
-                                        <span className="font-bold text-sm">{error}</span>
-                                    </div>
-                                )}
-                            </div>
+                    <AutomationPreviewPanel>
+                        {(() => {
+                            const displayName = activeAccount?.username || 'your_account';
+                            const profilePic = activeAccount?.profile_picture_url || null;
 
-                            {/* Live Preview */}
-                            <div className="space-y-4">
-                                {(() => {
-                                    const { activeAccount } = useDashboard();
-                                    const displayName = activeAccount?.username || 'your_account';
-                                    const profilePic = activeAccount?.profile_picture_url || null;
-
-                                    if (selectedTemplateId && selectedTemplateData) {
-                                        const template = selectedTemplateData;
-                                        if (template) {
-                                            const previewAutomation = {
-                                                template_type: template.template_type as any,
-                                                template_content: template.template_type === 'template_text' ? template.template_data?.text :
-                                                    template.template_type === 'template_media' ? template.template_data?.media_url :
-                                                        template.template_type === 'template_quick_replies' ? template.template_data?.text : undefined,
-                                                template_elements: template.template_type === 'template_carousel' ? template.template_data?.elements : undefined,
-                                                replies: template.template_type === 'template_quick_replies' ? template.template_data?.replies : undefined,
-                                                buttons: template.template_type === 'template_buttons' ? template.template_data?.buttons : undefined,
-                                                media_id: template.template_type === 'template_share_post' ? template.template_data?.media_id : undefined,
-                                                media_url: template.template_type === 'template_share_post' ? (template.template_data?.media_url || template.template_data?.thumbnail_url) : undefined,
-                                                use_latest_post: template.template_type === 'template_share_post' ? template.template_data?.use_latest_post : undefined,
-                                                latest_post_type: template.template_type === 'template_share_post' ? template.template_data?.latest_post_type : undefined,
-                                                keyword: editingAutomation.keywords?.[0] || editingAutomation.keyword?.[0] || editingAutomation.title || 'Trigger message',
-                                                template_data: template.template_data
-                                            };
-
-                                            return (
-                                                <SharedMobilePreview
-                                                    mode="automation"
-                                                    automation={previewAutomation}
-                                                    displayName={displayName}
-                                                    profilePic={profilePic ?? undefined}
-                                                />
-                                            );
-                                        }
-                                    }
-
-                                    // Show empty state with MobilePreview (big screen)
-                                    const emptyAutomation = {
-                                        keyword: editingAutomation.keywords?.[0] || editingAutomation.keyword?.[0] || editingAutomation.title || 'Trigger message',
+                            if (selectedTemplateId && selectedTemplateData) {
+                                const template = selectedTemplateData;
+                                if (template) {
+                                    const previewAutomation = {
+                                        ...(buildPreviewAutomationFromTemplate(template) || {}),
+                                        keyword: editingAutomation.keywords?.[0] || editingAutomation.keyword?.[0] || editingAutomation.title || 'Trigger message'
                                     };
 
                                     return (
-                                        <div className="bg-muted/40 p-4 flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-border">
-                                            <SharedMobilePreview mode="automation" automation={emptyAutomation} displayName={displayName} profilePic={profilePic} />
-                                        </div>
+                                        <SharedMobilePreview
+                                            mode="automation"
+                                            automation={previewAutomation}
+                                            activeAccountID={activeAccountID}
+                                            authenticatedFetch={authenticatedFetch}
+                                            displayName={displayName}
+                                            profilePic={profilePic ?? undefined}
+                                            lockScroll
+                                        />
                                     );
-                                })()}
-                            </div>
-                        </div>
-                    </div>
+                                }
+                            }
+
+                            const emptyAutomation = {
+                                keyword: editingAutomation.keywords?.[0] || editingAutomation.keyword?.[0] || editingAutomation.title || 'Trigger message',
+                            };
+
+                            return (
+                                <SharedMobilePreview
+                                    mode="automation"
+                                    automation={emptyAutomation}
+                                    activeAccountID={activeAccountID}
+                                    authenticatedFetch={authenticatedFetch}
+                                    displayName={displayName}
+                                    profilePic={profilePic}
+                                    lockScroll
+                                />
+                            );
+                        })()}
+                    </AutomationPreviewPanel>
                 </div >
 
                 <ModernConfirmModal
@@ -2678,32 +3182,9 @@ const DMAutomationView: React.FC = () => {
     }
 
     return (
-        <div className="max-w-6xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-12">
-            {/* Global Success Notification */}
-            {success && !editingAutomation && (
-                <div className="fixed bottom-8 right-8 z-[100] px-6 py-4 bg-success text-success-foreground rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-10 fade-in duration-500 cursor-pointer" onClick={() => setSuccess(null)}>
-                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                        <CheckCircle2 className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h4 className="font-black text-sm uppercase tracking-wider">Success</h4>
-                        <p className="text-xs font-medium text-green-50">Your automation has been updated.</p>
-                    </div>
-                </div>
-            )}
-
-            {/* Global Error Notification */}
-            {error && !editingAutomation && (
-                <div className="fixed bottom-8 right-8 z-[100] px-6 py-4 bg-destructive text-destructive-foreground rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-10 fade-in duration-500 cursor-pointer" onClick={() => setError(null)}>
-                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                        <AlertCircle className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h4 className="font-black text-sm uppercase tracking-wider">Error</h4>
-                        <p className="text-xs font-medium text-destructive-foreground/90">{error}</p>
-                    </div>
-                </div>
-            )}
+        <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-12">
+            <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
+            <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-8">
                 <div className="space-y-2">
@@ -2827,7 +3308,7 @@ const DMAutomationView: React.FC = () => {
                                         </div>
                                     ) : (
                                         <ToggleSwitch
-                                            isChecked={auto.active}
+                                            isChecked={auto?.is_active !== false}
                                             onChange={() => handleToggleActive(auto)}
                                             variant="plain"
                                         />
@@ -2857,5 +3338,3 @@ const DMAutomationView: React.FC = () => {
 };
 
 export default DMAutomationView;
-
-

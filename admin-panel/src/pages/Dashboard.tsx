@@ -1,330 +1,468 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import httpClient from '../lib/httpClient';
-import { Loader2, Users, DollarSign, Activity, Zap, ArrowUpRight } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import {
+    Users,
+    Instagram,
+    Activity,
+    TrendingUp,
+    AlertTriangle,
+    Sparkles,
+    ArrowUpRight,
+    CreditCard,
+    Wallet,
+    BarChart3,
+    TicketPercent
+} from 'lucide-react';
+import {
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    Tooltip,
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell,
+    CartesianGrid
+} from 'recharts';
 import { cn } from '../lib/utils';
+import AdminLoadingState from '../components/AdminLoadingState';
+import AdminGauge from '../components/ui/AdminGauge';
+
+const COLORS = ['#405DE6', '#833AB4', '#F56040', '#FCAF45', '#10B981', '#0EA5E9'];
+
+const numberFormatter = new Intl.NumberFormat('en-IN');
+const moneyFormatter = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0
+});
+
+const surfaceClass = 'glass-card rounded-[30px] border border-border/70 bg-card/95';
+const chartGridStroke = 'rgb(148 163 184 / 0.18)';
+
+const ChartTooltip = ({
+    active,
+    payload,
+    label,
+    valueFormatter
+}: {
+    active?: boolean;
+    payload?: Array<{ name?: string; value?: number; color?: string }>;
+    label?: string;
+    valueFormatter?: (value: number) => string;
+}) => {
+    if (!active || !payload?.length) return null;
+
+    return (
+        <div className="rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
+            {label && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{label}</p>}
+            <div className="mt-2 space-y-2">
+                {payload.map((entry, index) => (
+                    <div key={`${entry.name || 'value'}-${index}`} className="flex items-center justify-between gap-4 text-sm">
+                        <span className="flex items-center gap-2 text-foreground">
+                            <span
+                                className="h-2.5 w-2.5 rounded-full"
+                                style={{ backgroundColor: entry.color || COLORS[index % COLORS.length] }}
+                            />
+                            <span className="font-semibold">{entry.name || 'Value'}</span>
+                        </span>
+                        <span className="font-black text-foreground">
+                            {valueFormatter ? valueFormatter(Number(entry.value || 0)) : numberFormatter.format(Number(entry.value || 0))}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 export const Dashboard: React.FC = () => {
-    const [stats, setStats] = useState({
-        totalUsers: 0,
-        paidUsers: 0,
-        newUsers24h: 0,
-        mrr: 0,
-        activeCampaigns: 0,
-        automationsRan: 0
-    });
-    const [recentUsers, setRecentUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-
-    // Mock Data for Charts (Keep until backend provides history)
-    const growthData = [
-        { name: 'Jan', users: 400, revenue: 2400 },
-        { name: 'Feb', users: 600, revenue: 3200 },
-        { name: 'Mar', users: 900, revenue: 4500 },
-        { name: 'Apr', users: 1200, revenue: 6000 },
-        { name: 'May', users: 1800, revenue: 8500 },
-        { name: 'Jun', users: 2400, revenue: 12000 },
-    ];
-
-    const planDistribution = [
-        { name: 'Free', value: 70 },
-        { name: 'Premium Monthly', value: 20 },
-        { name: 'Premium Yearly', value: 10 },
-    ];
-    const COLORS = ['#e5e7eb', '#525252', '#000000'];
+    const [metrics, setMetrics] = useState<any>(null);
+    const [recentUsers, setRecentUsers] = useState<any[]>([]);
 
     useEffect(() => {
-        const fetchStats = async () => {
+        const load = async () => {
             try {
                 setLoading(true);
-                const response = await httpClient.get('/admin/dashboard');
-                if (response.data?.stats) {
-                    setStats(response.data.stats);
-                    setRecentUsers(response.data.recentUsers || []);
-                }
+                const [metricsRes, usersRes] = await Promise.all([
+                    httpClient.get('/api/admin/dashboard/metrics'),
+                    httpClient.get('/api/admin/users', { params: { page: 1, page_size: 6 } })
+                ]);
+                setMetrics(metricsRes.data);
+                setRecentUsers(usersRes.data?.users || []);
             } catch (error) {
-                console.error('Error fetching dashboard stats:', error);
+                console.error('Failed to load metrics:', error);
             } finally {
                 setLoading(false);
             }
         };
-
-        fetchStats();
+        load();
     }, []);
 
-    const StatCard = ({ title, value, icon: Icon, trend }: any) => (
-        <div className="group bg-white dark:bg-[#0A0A0A] p-7 rounded-[24px] border border-gray-100 dark:border-neutral-800/50 transition-all duration-300 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] dark:hover:shadow-[0_20px_40px_-15px_rgba(255,255,255,0.02)] hover:-translate-y-1">
-            <div className="flex justify-between items-start mb-5">
-                <div className={cn(
-                    "p-3 rounded-2xl transition-all duration-300 group-hover:scale-110 group-hover:rotate-3",
-                    "bg-gray-50 dark:bg-neutral-800/50 group-hover:bg-black dark:group-hover:bg-white"
-                )}>
-                    <Icon className="w-5 h-5 text-black dark:text-white group-hover:text-white dark:group-hover:text-black transition-colors" />
-                </div>
-                {trend && (
-                    <div className="flex items-center text-[10px] font-bold tracking-wider uppercase text-emerald-600 bg-emerald-50 dark:bg-emerald-900/10 px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/20">
-                        <ArrowUpRight className="w-3 h-3 mr-1" />
-                        {trend}
-                    </div>
-                )}
-            </div>
-            <div>
-                <h3 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-1 tracking-tight">{value}</h3>
-                <p className="text-xs font-bold text-gray-400 dark:text-neutral-500 uppercase tracking-widest">{title}</p>
-            </div>
-        </div>
+    const growthData = useMemo(() => {
+        const raw = metrics?.user_growth || {};
+        return Object.keys(raw)
+            .sort()
+            .map((day) => ({ day: day.slice(5).replace('-', '/'), users: Number(raw[day] || 0) }));
+    }, [metrics]);
+
+    const planDistribution = useMemo(() => {
+        const plans = metrics?.plans || {};
+        return Object.entries(plans)
+            .map(([name, value]) => ({ name, value: Number(value || 0) }))
+            .filter((entry) => entry.value > 0)
+            .sort((a, b) => b.value - a.value);
+    }, [metrics]);
+
+    const totalPlanUsers = useMemo(
+        () => planDistribution.reduce((sum, entry) => sum + entry.value, 0),
+        [planDistribution]
     );
 
+    const topPlan = planDistribution[0];
+    const poolUsagePercent = Number(metrics?.pool?.usage_percent || 0);
+    const revenueLast30Days = Number(metrics?.revenue_last_30_days || 0);
+    const revenueLast7Days = Number(metrics?.revenue_last_7_days || 0);
+    const paidUsersCount = Number(metrics?.totals?.paid_users || 0);
+    const totalUsersCount = Number(metrics?.totals?.total_users || 0);
+    const averageDailyRevenue = revenueLast30Days > 0 ? revenueLast30Days / 30 : 0;
+    const revenuePerPaidUser = paidUsersCount > 0 ? revenueLast30Days / paidUsersCount : 0;
+    const paidConversionRate = totalUsersCount > 0 ? Math.round((paidUsersCount / totalUsersCount) * 100) : 0;
+    const totalMonthlyBudget = Number(metrics?.totals?.total_users || 0) > 0
+        ? Number(metrics?.totals?.total_users || 0) * 100
+        : 0;
+    const consumedBudget = Number(metrics?.pool?.usage_last_hour || 0);
+    const revenueTrend = Array.isArray(metrics?.revenue_series_30_days)
+        ? metrics.revenue_series_30_days.map((entry: any) => ({
+            day: String(entry.day || '').slice(5).replace('-', '/'),
+            value: Number(entry.value || 0)
+        }))
+        : [];
+
+    const overviewCards = [
+        { label: 'Total Users', value: numberFormatter.format(Number(metrics?.totals?.total_users || 0)), icon: Users, tone: 'text-primary bg-primary/10' },
+        { label: 'Linked IG Accounts', value: numberFormatter.format(Number(metrics?.totals?.linked_instagram_accounts || 0)), icon: Instagram, tone: 'text-ig-orange bg-warning/15' },
+        { label: 'Paid Users', value: numberFormatter.format(Number(metrics?.totals?.paid_users || 0)), icon: CreditCard, tone: 'text-success bg-success/15' },
+        { label: 'Success Rate', value: `${Number(metrics?.totals?.overall_success_rate || 0)}%`, icon: Activity, tone: 'text-ig-blue bg-ig-blue/10' },
+        { label: 'Active Automations', value: numberFormatter.format(Number(metrics?.totals?.active_automations || 0)), icon: Sparkles, tone: 'text-warning bg-warning/15' },
+        { label: 'Revenue 30 Days', value: moneyFormatter.format(Number(metrics?.revenue_last_30_days || 0)), icon: TrendingUp, tone: 'text-primary bg-primary/10' },
+        { label: 'Coupon Redemptions', value: numberFormatter.format(Number(metrics?.coupons?.total_redemptions || 0)), icon: TicketPercent, tone: 'text-success bg-success/15' }
+    ];
+
     if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-                <Loader2 className="animate-spin w-10 h-10 text-black dark:text-white opacity-20" />
-                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 animate-pulse">Loading Analytics...</p>
-            </div>
-        );
+        return <AdminLoadingState title="Loading admin metrics" description="Preparing live subscription, growth, and automation health data." />;
     }
 
     return (
-        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex justify-between items-end">
-                <div>
-                    <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">Overview</h1>
-                    <p className="text-gray-500 dark:text-neutral-400 mt-2 font-medium">Real-time performance metrics and platform growth.</p>
-                </div>
-                <div className="text-right hidden sm:block">
-                    <div className="inline-flex items-center space-x-2 bg-white dark:bg-neutral-900 px-4 py-2 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Live Updates</span>
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <section className={`${surfaceClass} overflow-hidden p-6 sm:p-8`}>
+                <div className="grid gap-8 xl:grid-cols-[minmax(0,1.2fr)_360px] xl:items-start">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/75">Overview</p>
+                        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Platform Control</h1>
+                        <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-muted-foreground">
+                            Track growth, subscriptions, and automation health from one clean view.
+                        </p>
+                        <div className="mt-6 flex flex-wrap gap-3">
+                            <div className="status-pill status-pill-success">
+                                <span className="h-2 w-2 rounded-full bg-success" />
+                                Live data
+                            </div>
+                            <div className="status-pill border border-border bg-card text-foreground">
+                                <ArrowUpRight className="h-3.5 w-3.5" />
+                                {topPlan ? `${topPlan.name} leads plan mix` : 'Plan mix ready'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                        <AdminGauge
+                            label="Actions Per Hour"
+                            sublabel="Live pool draw vs system capacity"
+                            value={Number(metrics?.pool?.usage_last_hour || 0)}
+                            max={Number(metrics?.pool?.capacity_per_hour || 0)}
+                            helper={`${poolUsagePercent}% of the current hourly action pool is already allocated.`}
+                        />
+
+                        <div className="rounded-[26px] border border-border/70 bg-background/70 p-5">
+                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Plan Leader</p>
+                            <p className="mt-3 text-2xl font-extrabold text-foreground">{topPlan?.name || 'No plan data'}</p>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                                {topPlan
+                                    ? `${numberFormatter.format(topPlan.value)} users are on the leading plan.`
+                                    : 'Plan distribution appears here after data is loaded.'}
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard
-                    title="Total Users"
-                    value={stats.totalUsers.toLocaleString()}
-                    icon={Users}
-                    trend="+12%"
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-7">
+                {overviewCards.map((card) => (
+                    <div key={card.label} className={`${surfaceClass} px-5 py-5`}>
+                        <div className="flex items-start justify-between gap-4">
+                            <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl', card.tone)}>
+                                <card.icon className="h-5 w-5" />
+                            </div>
+                            <p className="text-right text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{card.label}</p>
+                        </div>
+                        <p className="mt-5 text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
+                    </div>
+                ))}
+                <AdminGauge
+                    compact
+                    label="Consumed Amount"
+                    sublabel="Usage tracked against the current working budget"
+                    value={consumedBudget}
+                    max={Math.max(totalMonthlyBudget, consumedBudget, 1)}
+                    helper="This gauge stays computation-backed so the admin view reflects real current usage instead of a decorative placeholder."
+                    className="2xl:col-span-1"
                 />
-                <StatCard
-                    title="Monthly Revenue"
-                    value={`$${stats.mrr.toLocaleString()}`}
-                    icon={DollarSign}
-                    trend="+8.2%"
-                />
-                <StatCard
-                    title="Active Automations"
-                    value={stats.automationsRan.toLocaleString()}
-                    icon={Zap}
-                    trend="+24%"
-                />
-                <StatCard
-                    title="Engagement Rate"
-                    value="84.2%"
-                    icon={Activity}
-                />
-            </div>
+            </section>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Main Growth Chart */}
-                <div className="lg:col-span-2 bg-white dark:bg-[#0A0A0A] p-8 rounded-[32px] border border-gray-100 dark:border-neutral-800/50 shadow-sm">
-                    <div className="flex justify-between items-start mb-8">
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_380px]">
+                <div className={`${surfaceClass} p-6 sm:p-7`}>
+                    <div className="mb-6 flex items-center justify-between gap-4">
                         <div>
-                            <h3 className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight">Growth & Revenue</h3>
-                            <p className="text-xs font-bold text-gray-400 dark:text-neutral-500 uppercase tracking-widest mt-1">Acquisition vs Revenue</p>
+                            <h2 className="text-xl font-extrabold text-foreground">Revenue Pulse</h2>
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Last 30 days</p>
                         </div>
-                        <div className="flex gap-2">
-                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-neutral-800 text-[10px] font-bold">
-                                <div className="w-2 h-2 rounded-full bg-black dark:bg-white" />
-                                <span className="text-gray-600 dark:text-neutral-400">Users</span>
-                            </div>
-                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-neutral-800 text-[10px] font-bold">
-                                <div className="w-2 h-2 rounded-full bg-neutral-400" />
-                                <span className="text-gray-600 dark:text-neutral-400">Revenue</span>
-                            </div>
+                        <div className="status-pill border border-border bg-background/70 text-foreground">
+                            <BarChart3 className="h-3.5 w-3.5 text-primary" />
+                            Cashflow trend
                         </div>
                     </div>
-                    <div className="h-[320px] w-full">
+
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">30 day revenue</p>
+                            <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenueLast30Days)}</p>
+                        </div>
+                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">7 day revenue</p>
+                            <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenueLast7Days)}</p>
+                        </div>
+                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Avg / day</p>
+                            <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(averageDailyRevenue)}</p>
+                        </div>
+                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Revenue / paid user</p>
+                            <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenuePerPaidUser)}</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={growthData}>
+                            <AreaChart data={revenueTrend}>
                                 <defs>
-                                    <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#000000" stopOpacity={0.05} />
-                                        <stop offset="95%" stopColor="#000000" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#666666" stopOpacity={0.05} />
-                                        <stop offset="95%" stopColor="#666666" stopOpacity={0} />
+                                    <linearGradient id="dashboardRevenueFill" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#833AB4" stopOpacity={0.32} />
+                                        <stop offset="100%" stopColor="#833AB4" stopOpacity={0.03} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.05} />
-                                <XAxis
-                                    dataKey="name"
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#9ca3af', fontSize: 10, fontWeight: 700 }}
-                                    dy={10}
-                                />
-                                <YAxis
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: '#9ca3af', fontSize: 10, fontWeight: 700 }}
-                                />
-                                <Tooltip
-                                    contentStyle={{
-                                        borderRadius: '16px',
-                                        border: 'none',
-                                        backgroundColor: 'rgba(0,0,0,0.8)',
-                                        backdropFilter: 'blur(8px)',
-                                        boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
-                                        color: 'white'
-                                    }}
-                                    itemStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="users"
-                                    stroke="#000000"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill="url(#colorUsers)"
-                                    className="dark:stroke-white dark:fill-white/10"
-                                    animationDuration={1500}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="revenue"
-                                    stroke="#737373"
-                                    strokeWidth={2}
-                                    strokeDasharray="5 5"
-                                    fillOpacity={1}
-                                    fill="url(#colorRevenue)"
-                                    animationDuration={2000}
-                                />
+                                <CartesianGrid strokeDasharray="4 4" stroke={chartGridStroke} vertical={false} />
+                                <XAxis dataKey="day" tick={{ fill: 'currentColor', fontSize: 11 }} tickLine={false} axisLine={false} />
+                                <YAxis tick={{ fill: 'currentColor', fontSize: 11 }} tickLine={false} axisLine={false} />
+                                <Tooltip content={<ChartTooltip label="Revenue" valueFormatter={(value) => moneyFormatter.format(value)} />} />
+                                <Area type="monotone" dataKey="value" stroke="#833AB4" fill="url(#dashboardRevenueFill)" strokeWidth={3} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
-                {/* User Distribution */}
-                <div className="bg-white dark:bg-[#0A0A0A] p-8 rounded-[32px] border border-gray-100 dark:border-neutral-800/50 shadow-sm flex flex-col">
-                    <div className="mb-8">
-                        <h3 className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight">Plans</h3>
-                        <p className="text-xs font-bold text-gray-400 dark:text-neutral-500 uppercase tracking-widest mt-1">Tier distribution</p>
-                    </div>
-                    <div className="flex-1 min-h-[250px] w-full flex flex-col items-center justify-center relative">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={planDistribution}
-                                    innerRadius={70}
-                                    outerRadius={95}
-                                    paddingAngle={8}
-                                    dataKey="value"
-                                    animationDuration={1500}
-                                >
-                                    {planDistribution.map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    contentStyle={{
-                                        borderRadius: '12px',
-                                        border: 'none',
-                                        fontSize: '10px',
-                                        fontWeight: 'bold',
-                                        textTransform: 'uppercase'
-                                    }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                            <span className="text-2xl font-black text-gray-900 dark:text-white">100%</span>
-                            <span className="text-[8px] font-bold text-gray-400 dark:text-neutral-500 uppercase tracking-[0.2em]">Total Users</span>
+                <div className={`${surfaceClass} p-6 sm:p-7`}>
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                            <Wallet className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-extrabold text-foreground">Revenue Notes</h2>
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Quick read</p>
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 gap-2 mt-6">
-                        {planDistribution.map((entry, index) => (
-                            <div key={entry.name} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 dark:bg-neutral-800/40 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: COLORS[index] }}></div>
-                                    <span className="text-xs font-bold text-gray-600 dark:text-neutral-400 uppercase tracking-wider">{entry.name}</span>
+
+                    <div className="mt-6 space-y-4">
+                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Paid conversion</p>
+                            <p className="mt-2 text-2xl font-extrabold text-foreground">{paidConversionRate}%</p>
+                            <p className="mt-1 text-sm text-muted-foreground">Share of users on paid plans.</p>
+                        </div>
+                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Leading plan</p>
+                            <p className="mt-2 text-2xl font-extrabold text-foreground">{topPlan?.name || 'No plan data'}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                {topPlan
+                                    ? `${numberFormatter.format(topPlan.value)} users are on the most common plan.`
+                                    : 'Plan distribution appears here after data is loaded.'}
+                            </p>
+                        </div>
+                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Revenue signal</p>
+                            <p className="mt-2 text-2xl font-extrabold text-foreground">{revenueLast7Days >= averageDailyRevenue * 7 ? 'Ahead' : 'Steady'}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                {revenueLast7Days >= averageDailyRevenue * 7
+                                    ? 'The last 7 days are pacing above the rolling daily average.'
+                                    : 'The last 7 days are close to the rolling daily average.'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_380px]">
+                <div className={`${surfaceClass} p-6 sm:p-7`}>
+                    <div className="mb-6 flex items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-xl font-extrabold text-foreground">User Growth</h2>
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Last 7 days</p>
+                        </div>
+                        <div className="status-pill border border-border bg-background/70 text-foreground">
+                            <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                            Signup trend
+                        </div>
+                    </div>
+                    <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={growthData}>
+                                <defs>
+                                    <linearGradient id="dashboardGrowthFill" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#405DE6" stopOpacity={0.28} />
+                                        <stop offset="100%" stopColor="#405DE6" stopOpacity={0.03} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="4 4" stroke={chartGridStroke} vertical={false} />
+                                <XAxis dataKey="day" tick={{ fill: 'currentColor', fontSize: 11 }} tickLine={false} axisLine={false} />
+                                <YAxis allowDecimals={false} tick={{ fill: 'currentColor', fontSize: 11 }} tickLine={false} axisLine={false} />
+                                <Tooltip content={<ChartTooltip label="Daily Signups" valueFormatter={(value) => `${numberFormatter.format(value)} users`} />} />
+                                <Area type="monotone" dataKey="users" stroke="#405DE6" fill="url(#dashboardGrowthFill)" strokeWidth={3} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className={`${surfaceClass} p-6 sm:p-7`}>
+                    <div className="mb-5">
+                        <h2 className="text-xl font-extrabold text-foreground">Plan Distribution</h2>
+                        <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">All user profiles</p>
+                    </div>
+                    <div className="grid gap-5 xl:grid-cols-1">
+                        <div className="mx-auto flex h-[220px] w-full max-w-[260px] items-center justify-center">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={planDistribution}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        innerRadius={56}
+                                        outerRadius={90}
+                                        paddingAngle={4}
+                                        stroke="none"
+                                    >
+                                        {planDistribution.map((entry, index) => (
+                                            <Cell key={`${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip content={<ChartTooltip label="Plan Mix" valueFormatter={(value) => `${numberFormatter.format(value)} users`} />} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-4 py-4 text-center">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Tracked Profiles</p>
+                            <p className="mt-2 text-3xl font-extrabold text-foreground">{numberFormatter.format(totalPlanUsers)}</p>
+                        </div>
+                        <div className="space-y-3">
+                            {planDistribution.length === 0 ? (
+                                <div className="rounded-[22px] border border-dashed border-border bg-background/60 px-4 py-6 text-center text-sm font-medium text-muted-foreground">
+                                    No plan distribution data is available yet.
                                 </div>
-                                <span className="text-xs font-black text-gray-900 dark:text-white">{entry.value}%</span>
+                            ) : planDistribution.map((entry, index) => {
+                                const share = totalPlanUsers > 0 ? Math.round((entry.value / totalPlanUsers) * 100) : 0;
+                                return (
+                                    <div key={entry.name} className="rounded-[22px] border border-border/70 bg-background/60 px-4 py-4">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                                                <span className="truncate text-sm font-bold text-foreground">{entry.name}</span>
+                                            </div>
+                                            <span className="text-sm font-black text-foreground">{share}%</span>
+                                        </div>
+                                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                                            <div
+                                                className="h-full rounded-full"
+                                                style={{ width: `${share}%`, backgroundColor: COLORS[index % COLORS.length] }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
+                <div className={`${surfaceClass} overflow-hidden`}>
+                    <div className="flex items-center justify-between border-b border-border/70 px-6 py-5 sm:px-7">
+                        <div>
+                            <h2 className="text-xl font-extrabold text-foreground">Recent Users</h2>
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Latest signups</p>
+                        </div>
+                        <div className="status-pill border border-border bg-background/70 text-foreground">
+                            <Users className="h-3.5 w-3.5 text-primary" />
+                            {recentUsers.length} shown
+                        </div>
+                    </div>
+                    <div className="divide-y divide-border/70">
+                        {recentUsers.length === 0 ? (
+                            <div className="px-6 py-12 text-center text-sm text-muted-foreground">No recent users available.</div>
+                        ) : recentUsers.map((user) => (
+                            <div key={user.$id} className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-bold text-foreground">{user.name || 'Unnamed User'}</p>
+                                    <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                                </div>
+                                <span className="text-[11px] font-semibold text-muted-foreground">
+                                    {new Date(user.$createdAt).toLocaleDateString()}
+                                </span>
                             </div>
                         ))}
                     </div>
                 </div>
-            </div>
 
-            {/* Recent Signups Table */}
-            <div className="bg-white dark:bg-[#0A0A0A] rounded-[32px] border border-gray-100 dark:border-neutral-800/50 overflow-hidden shadow-sm">
-                <div className="p-8 border-b border-gray-50 dark:border-neutral-800/50 flex justify-between items-center bg-gray-50/30 dark:bg-neutral-800/10">
-                    <div>
-                        <h3 className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight">Recent Signups</h3>
-                        <p className="text-xs font-bold text-gray-400 dark:text-neutral-500 uppercase tracking-widest mt-1">Latest users joining the platform</p>
+                <div className={`${surfaceClass} p-6 sm:p-7`}>
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-warning/15 text-warning">
+                            <AlertTriangle className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-extrabold text-foreground">Operational Notes</h2>
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Quick review</p>
+                        </div>
                     </div>
-                    <button className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-80 transition-opacity">
-                        View All
-                    </button>
+
+                    <div className="mt-6 space-y-4">
+                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Linked Account Coverage</p>
+                            <p className="mt-2 text-2xl font-extrabold text-foreground">
+                                {numberFormatter.format(Number(metrics?.totals?.linked_instagram_accounts || 0))}
+                            </p>
+                            <p className="mt-1 text-sm text-muted-foreground">Instagram accounts connected across the workspace.</p>
+                        </div>
+                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Conversion Snapshot</p>
+                            <p className="mt-2 text-2xl font-extrabold text-foreground">
+                                {numberFormatter.format(Number(metrics?.totals?.paid_users || 0))}
+                            </p>
+                            <p className="mt-1 text-sm text-muted-foreground">Paid users active right now.</p>
+                        </div>
+                    </div>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="border-b border-gray-50 dark:border-neutral-800/30">
-                                <th className="px-8 py-5 text-[10px] font-black text-gray-400 dark:text-neutral-500 uppercase tracking-widest">User Details</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-gray-400 dark:text-neutral-500 uppercase tracking-widest">Status</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-gray-400 dark:text-neutral-500 uppercase tracking-widest">Joined Date</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-gray-400 dark:text-neutral-500 uppercase tracking-widest text-right">Plan Value</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50 dark:divide-neutral-800/30">
-                            {recentUsers.map((user, i) => (
-                                <tr key={i} className="group hover:bg-gray-50/50 dark:hover:bg-neutral-800/20 transition-all duration-200">
-                                    <td className="px-8 py-5">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-neutral-800 dark:to-neutral-700 flex items-center justify-center text-gray-600 dark:text-neutral-300 font-black text-xs border border-white dark:border-neutral-800 shadow-sm group-hover:scale-110 transition-transform">
-                                                {user.name?.charAt(0) || 'U'}
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-gray-900 dark:text-white tracking-tight group-hover:text-black dark:group-hover:text-white">{user.name}</p>
-                                                <p className="text-[10px] font-medium text-gray-500 dark:text-neutral-500">{user.email}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-5">
-                                        <span className={cn(
-                                            "inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border",
-                                            user.status === 'Active'
-                                                ? "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-900/20"
-                                                : "bg-red-50 text-red-700 border-red-100 dark:bg-red-900/10 dark:text-red-400 dark:border-red-900/20"
-                                        )}>
-                                            <div className={cn("w-1.5 h-1.5 rounded-full mr-2", user.status === 'Active' ? "bg-emerald-500" : "bg-red-500")} />
-                                            {user.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-5 text-xs font-bold text-gray-600 dark:text-neutral-400">
-                                        {new Date(user.joined_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                    </td>
-                                    <td className="px-8 py-5 text-right">
-                                        <span className="text-xs font-black text-gray-900 dark:text-white">{user.amount || '$0.00'}</span>
-                                    </td>
-                                </tr>
-                            ))}
-                            {recentUsers.length === 0 && (
-                                <tr>
-                                    <td colSpan={4} className="px-8 py-10 text-center">
-                                        <div className="flex flex-col items-center justify-center space-y-2 opacity-50">
-                                            <Users className="w-8 h-8 text-gray-300" />
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">No recent signups</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            </section>
         </div>
     );
 };
+
+export default Dashboard;

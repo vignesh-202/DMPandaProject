@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { Models } from 'appwrite';
 import httpClient from '../lib/httpClient';
 
@@ -6,7 +6,7 @@ interface AuthContextType {
     user: Models.User<Models.Preferences> | null;
     loading: boolean;
     isAdmin: boolean;
-    checkUser: () => Promise<void>;
+    checkUser: () => Promise<Models.User<Models.Preferences> | null>;
     logout: () => Promise<void>;
 }
 
@@ -16,28 +16,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null);
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
+    const checkUserPromiseRef = useRef<Promise<Models.User<Models.Preferences> | null> | null>(null);
 
-    const checkUser = async () => {
-        try {
-            setLoading(true);
-            const response = await httpClient.get('/me');
-            const session = response.data;
-            setUser(session);
-
-            // Check if user has 'admin' label or role
-            // Flask /api/me returns user object similar to Appwrite
-            const hasAdminLabel = session.labels?.includes('admin') || false;
-            setIsAdmin(hasAdminLabel);
-
-        } catch (error) {
-            setUser(null);
-            setIsAdmin(false);
-        } finally {
-            setLoading(false);
+    const checkUser = useCallback(async () => {
+        if (checkUserPromiseRef.current) {
+            return checkUserPromiseRef.current;
         }
-    };
 
-    const logout = async () => {
+        const promise = (async () => {
+            try {
+                setLoading(true);
+                const response = await httpClient.get('/api/me');
+                const session = response.data;
+                setUser(session);
+
+                const hasAdminLabel = session.labels?.includes('admin') || false;
+                setIsAdmin(hasAdminLabel);
+                return session;
+            } catch (error: any) {
+                if (error?.response?.status === 401 || error?.response?.status === 403) {
+                    setUser(null);
+                    setIsAdmin(false);
+                }
+                return null;
+            } finally {
+                setLoading(false);
+            }
+        })();
+
+        checkUserPromiseRef.current = promise.finally(() => {
+            checkUserPromiseRef.current = null;
+        });
+
+        return checkUserPromiseRef.current;
+    }, []);
+
+    const logout = useCallback(async () => {
         try {
             await httpClient.get('/logout'); // Or POST if changed
         } catch (e) {
@@ -46,11 +60,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setIsAdmin(false);
         window.location.href = '/login';
-    };
+    }, []);
 
     useEffect(() => {
-        checkUser();
-    }, []);
+        void checkUser();
+    }, [checkUser]);
 
     return (
         <AuthContext.Provider value={{ user, loading, isAdmin, checkUser, logout }}>

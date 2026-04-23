@@ -1,496 +1,385 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Zap, Check, AlertCircle, Calendar } from 'lucide-react';
+import { AlertCircle, Calendar, Check, CreditCard, Zap } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
+import { PricingPlan, formatMoney, getPaidCheckoutPlans, getPlanBigPrice, normalizePricingPayload } from '../../lib/pricing';
+import { formatShortDate } from '../../lib/date';
+import PlanCheckoutModal from '../../components/dashboard/PlanCheckoutModal';
 
-interface PlanDetails {
-  name: string;
-  features: Array<string | { name?: string; title?: string } | null>;
-  price_monthly_inr: number;
-  price_monthly_usd: number;
-}
-
-interface UserPlan {
+type UserPlan = {
   plan_id: string;
+  assigned_plan_id?: string;
   status: string;
   expires: string | null;
-  details: PlanDetails | null;
-}
-
-interface Plan {
-  id: string;
-  name: string;
-  price_monthly_inr: number;
-  price_yearly_inr: number;
-  price_monthly_usd: number;
-  price_yearly_usd: number;
-  features: Array<string | { name?: string; title?: string } | null>;
-  is_popular?: boolean;
-  button_text?: string;
-  yearly_bonus?: string;
-}
+  access_state?: {
+    automation_locked?: boolean;
+    ban_message?: string | null;
+  } | null;
+  details: {
+    name: string;
+    features: string[];
+    price_monthly_inr: number;
+    price_monthly_usd: number;
+    price_yearly_inr?: number;
+    price_yearly_usd?: number;
+    price_yearly_monthly_inr?: number;
+    price_yearly_monthly_usd?: number;
+    yearly_bonus?: string;
+  } | null;
+  limits?: {
+    hourly_action_limit?: number;
+    daily_action_limit?: number;
+    monthly_action_limit?: number;
+  };
+};
 
 const MyPlanView: React.FC = () => {
+  const { authenticatedFetch, checkAuth } = useAuth();
   const [plan, setPlan] = useState<UserPlan | null>(null);
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [plansLoading, setPlansLoading] = useState(true);
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null);
+  const [syncingPlan, setSyncingPlan] = useState(false);
   const [isYearly, setIsYearly] = useState(false);
   const [currency, setCurrency] = useState<'INR' | 'USD'>('USD');
   const [isIndianUser, setIsIndianUser] = useState(false);
+  const [countryCode, setCountryCode] = useState<string | null>(null);
   const [plansError, setPlansError] = useState<string | null>(null);
-  const { authenticatedFetch } = useAuth();
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [selectedCheckoutPlanId, setSelectedCheckoutPlanId] = useState<string | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const pricingHeaders = useMemo(() => buildCountryHeaders(countryCode), [countryCode]);
 
-  const normalizeFeatures = (features: Plan['features'] | any) => {
-    if (Array.isArray(features)) return features;
-    if (features && typeof features === 'object') return [features];
-    if (typeof features === 'string') return [features];
-    return [];
-  };
-
-  const normalizePlan = (raw: any): Plan => ({
-    id: String(raw?.id ?? raw?.$id ?? raw?.plan_id ?? ''),
-    name: String(raw?.name ?? raw?.title ?? 'Plan'),
-    price_monthly_inr: Number(raw?.price_monthly_inr ?? raw?.monthly_inr ?? 0),
-    price_yearly_inr: Number(raw?.price_yearly_inr ?? raw?.yearly_inr ?? 0),
-    price_monthly_usd: Number(raw?.price_monthly_usd ?? raw?.monthly_usd ?? 0),
-    price_yearly_usd: Number(raw?.price_yearly_usd ?? raw?.yearly_usd ?? 0),
-    features: normalizeFeatures(raw?.features ?? raw?.benefits ?? raw?.feature_list),
-    is_popular: Boolean(raw?.is_popular ?? raw?.popular),
-    button_text: raw?.button_text ?? raw?.cta_text ?? undefined,
-    yearly_bonus: raw?.yearly_bonus ?? raw?.bonus ?? undefined,
-  });
-
-  useEffect(() => {
-    const fetchMyPlan = async () => {
-      try {
-        const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`);
-        if (!response.ok) {
-          setPlan(null);
-          return;
-        }
-        const contentType = response.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) {
-          setPlan(null);
-          return;
-        }
-        const data = await response.json();
-        setPlan(data);
-      } catch (error) {
-        console.error('Error fetching plan:', error);
-        setPlan(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchMyPlan();
-  }, [authenticatedFetch]);
+  const fetchMyPlan = React.useCallback(async () => {
+    const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`, {
+      headers: pricingHeaders
+    });
+    if (!response.ok) {
+      setPlan(null);
+      setPlanError('We could not confirm your latest plan details. Please try again.');
+      return;
+    }
+    const data = await response.json().catch(() => null);
+    setPlan(data);
+    setPlanError(null);
+  }, [authenticatedFetch, pricingHeaders]);
 
   const fetchPlans = React.useCallback(async () => {
-    setPlansError(null);
     setPlansLoading(true);
+    setPlansError(null);
     try {
-      const geoRes = await fetch('https://api.country.is/');
-      const geoData = await geoRes.json();
-      if (geoData?.country === 'IN') {
-        setIsIndianUser(true);
-        setCurrency('INR');
+      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/pricing`, {
+        headers: pricingHeaders
+      });
+      const data = await response.json().catch(() => ({}));
+      const normalized = normalizePricingPayload(data);
+      setPlans(normalized);
+      if (normalized.length === 0) {
+        setPlansError('No plans are available right now.');
       }
-
-      const plansRes = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/pricing`);
-      if (!plansRes.ok) {
-        setPlans([]);
-        setPlansError('Could not load plans. Please try again.');
-        return;
-      }
-      const contentType = plansRes.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        setPlans([]);
-        setPlansError('Plans response was not JSON. Please try again.');
-        return;
-      }
-        const plansData = await plansRes.json();
-        const planList = Array.isArray(plansData)
-          ? plansData
-          : Array.isArray(plansData?.plans)
-            ? plansData.plans
-            : Array.isArray(plansData?.documents)
-              ? plansData.documents
-              : [];
-        const normalizedPlans = planList.map((p: any) => normalizePlan(p));
-        setPlans(normalizedPlans);
-        if (normalizedPlans.length === 0) {
-          setPlansError('No plans are available right now.');
-        }
     } catch (error) {
-      console.error('Error fetching plans:', error);
+      console.error('Failed to load plans:', error);
       setPlans([]);
-      setPlansError('Failed to load plans. Please try again.');
+      setPlansError('Could not load plans. Please try again.');
     } finally {
       setPlansLoading(false);
     }
-  }, [authenticatedFetch]);
+  }, [authenticatedFetch, pricingHeaders]);
 
   useEffect(() => {
-    fetchPlans();
-  }, [fetchPlans]);
-
-  const isExpired = plan?.status === 'expired' || (plan?.expires && new Date(plan.expires) < new Date());
-  const currentPlanName = plan?.details?.name || 'Free';
-  const formattedPlans = useMemo(() => {
-    if (!Array.isArray(plans)) return [] as Array<Plan & { price: number }>;
-    return plans.map((p) => {
-      const price = currency === 'INR'
-        ? (isYearly ? p.price_yearly_inr : p.price_monthly_inr)
-        : (isYearly ? p.price_yearly_usd : p.price_monthly_usd);
-      return { ...p, price } as Plan & { price: number };
-    });
-  }, [plans, currency, isYearly]);
-  const upgradeCandidate = formattedPlans.find((p) => p.name !== currentPlanName);
-  const canUpgrade = Boolean(upgradeCandidate) && !plansLoading;
-
-  if (loading) return <LoadingSpinner text="Loading Plan Details..." />;
-
-  const formatFeature = (feature: string | { name?: string; title?: string } | null) => {
-    if (typeof feature === 'string') {
-      const cleaned = feature.replace(/^[\[\(\{\"\s]+|[\]\)\}\"\s]+$/g, '').trim();
-      return cleaned || 'Feature';
-    }
-    if (feature && typeof feature === 'object') return feature.name || feature.title || 'Feature';
-    return 'Feature';
-  };
-
-  const toFeatureList = (raw: unknown) => {
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw === 'string') {
-      const trimmed = raw.trim();
-      const cleanedRaw = trimmed.replace(/^\"|\"$/g, '').trim();
-      if (cleanedRaw.startsWith('[') && cleanedRaw.endsWith(']')) {
-        try {
-          const parsed = JSON.parse(cleanedRaw);
-          return Array.isArray(parsed) ? parsed : [cleanedRaw];
-        } catch {
-          const inner = cleanedRaw.slice(1, -1);
-          const parts = inner
-            .split('","')
-            .join(',')
-            .split(',')
-            .map((p) => p.replace(/^\"|\"$/g, '').trim())
-            .filter(Boolean);
-          return parts.length ? parts : [cleanedRaw];
-        }
+    const init = async () => {
+      try {
+        const geo = await detectGeoCurrency();
+        setCountryCode(geo.countryCode);
+        setIsIndianUser(geo.isIndianUser);
+        setCurrency(geo.defaultCurrency);
+        const headers = buildCountryHeaders(geo.countryCode);
+        const [planResponse, pricingResponse] = await Promise.all([
+          authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`, { headers }),
+          authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/pricing`, { headers })
+        ]);
+        const planData = await planResponse.json().catch(() => null);
+        const pricingData = await pricingResponse.json().catch(() => ({}));
+        setPlan(planResponse.ok ? planData : null);
+        setPlanError(planResponse.ok ? null : 'We could not confirm your latest plan details. Please try again.');
+        setPlans(normalizePricingPayload(pricingData));
+      } catch (error) {
+        console.error('Failed to initialize my plan view:', error);
+        setPlanError('We could not confirm your latest plan details. Please try again.');
+      } finally {
+        setLoading(false);
+        setPlansLoading(false);
       }
-      if (cleanedRaw.includes(',')) {
-        const parts = cleanedRaw
-          .split(',')
-          .map((p) => p.replace(/^\"|\"$/g, '').trim())
-          .filter(Boolean);
-        return parts.length ? parts : [cleanedRaw];
-      }
-      return [cleanedRaw];
-    }
-    if (raw && typeof raw === 'object') return [raw];
-    return [];
+    };
+    void init();
+  }, [authenticatedFetch]);
+
+  const currentPlanName = String(plan?.details?.name || 'Free Plan');
+  const isExpired = plan?.status === 'expired' || Boolean(plan?.expires && new Date(plan.expires) < new Date());
+  const renderLimitValue = (value?: number | null) => {
+    if (value == null) return 'Unlimited';
+    return String(value);
   };
 
-  const formatPrice = (value: number) => {
-    if (currency === 'INR') {
-      return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
-    }
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+  const checkoutPlans = useMemo(() => {
+    return getPaidCheckoutPlans(plans, plan?.plan_id, currentPlanName);
+  }, [plans, plan?.plan_id, currentPlanName]);
+
+  const openCheckout = (selectedPlan?: PricingPlan) => {
+    setSelectedCheckoutPlanId(selectedPlan?.id || checkoutPlans[0]?.id || null);
+    setCheckoutOpen(true);
   };
 
-  const handleCurrencyToggle = () => {
-    setCurrency((c) => (c === 'INR' ? 'USD' : 'INR'));
-  };
-
-  const handleSubscribe = async (selectedPlan: Plan) => {
-    if (!selectedPlan || selectedPlan.name === currentPlanName) return;
-    setPaymentLoading(selectedPlan.id);
+  const refreshAfterPayment = async () => {
+    setSyncingPlan(true);
     try {
-      const amount = currency === 'INR'
-        ? (isYearly ? selectedPlan.price_yearly_inr : selectedPlan.price_monthly_inr)
-        : (isYearly ? selectedPlan.price_yearly_usd : selectedPlan.price_monthly_usd);
-
-      const orderResponse = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: amount * 100,
-          currency: currency
-        }),
-      });
-
-      if (!orderResponse.ok) throw new Error('Failed to create order');
-      const orderData = await orderResponse.json();
-
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.async = true;
-      document.body.appendChild(script);
-
-      script.onload = () => {
-        const options = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SEjUlisckzqoqx',
-          amount: orderData.amount,
-          currency: orderData.currency,
-          name: 'DM Panda',
-          description: `Upgrade to ${selectedPlan.name} (${isYearly ? 'Yearly' : 'Monthly'})`,
-          order_id: orderData.id,
-          handler: async (response: any) => {
-            const verifyResponse = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/verify-payment`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                plan_id: selectedPlan.name,
-                is_yearly: isYearly
-              }),
-            });
-
-            if (verifyResponse.ok) {
-              window.location.reload();
-            } else {
-              alert('Payment verification failed. Please contact support.');
-            }
-          },
-          prefill: {
-            name: 'User',
-            email: 'user@example.com',
-          },
-          theme: { color: '#000000' },
-        };
-        const rzp = new (window as any).Razorpay(options);
-        rzp.open();
-      };
-    } catch (error) {
-      console.error('Payment error:', error);
-      alert('Payment failed. Please try again.');
+      await Promise.all([fetchMyPlan(), fetchPlans(), checkAuth()]);
     } finally {
+      setSyncingPlan(false);
       setPaymentLoading(null);
     }
   };
 
+  if (loading) {
+    return <LoadingOverlay variant="fullscreen" message="Loading your subscription" subMessage="Fetching plan details..." />;
+  }
+
   return (
-    <div className="p-3 sm:p-4 md:p-6 lg:p-8 max-w-6xl mx-auto space-y-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">My Subscription</h1>
-          <p className="text-muted-foreground">Manage your plan and billing information</p>
-        </div>
-        <div className={`px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 ${isExpired ? 'bg-destructive-muted/40 text-destructive' : 'bg-success-muted/60 text-success'
-          }`}>
-          <div className={`w-2 h-2 rounded-full ${isExpired ? 'bg-destructive' : 'bg-success'}`} />
-          {isExpired ? 'Expired' : 'Active'}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Current Plan Card */}
-        <div className="md:col-span-2 bg-card rounded-3xl p-8 border border-border shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <Zap size={120} className="text-primary" />
-          </div>
-
-          <div className="relative">
-            <span className="text-primary font-bold uppercase tracking-wider text-sm">Current Plan</span>
-            <h2 className="text-4xl font-black mt-2 mb-6 text-foreground flex items-center gap-3">
-              {currentPlanName}
-              <Zap className="fill-primary text-primary" size={28} />
-            </h2>
-
-            <div className="flex flex-wrap gap-4 mb-8">
-              <div className="flex items-center gap-2 text-muted-foreground bg-muted/40 px-4 py-2 rounded-xl border border-border">
-                <Calendar size={18} />
-                <span className="text-sm">
-                  {plan?.expires ? `Renews on ${new Date(plan.expires).toLocaleDateString()}` : 'Never expires'}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-4 mb-8">
-              <h3 className="font-bold text-foreground">Plan Features:</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {toFeatureList(plan?.details?.features).map((feature, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <div className="w-5 h-5 rounded-full bg-success-muted/60 flex items-center justify-center text-success flex-shrink-0">
-                      <Check size={12} strokeWidth={3} />
-                    </div>
-                    {formatFeature(feature)}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <button
-              className={`px-8 py-3 rounded-2xl font-bold transition-all flex items-center gap-2 ${canUpgrade ? 'bg-foreground text-background hover:opacity-90' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
-              onClick={() => {
-                if (upgradeCandidate) handleSubscribe(upgradeCandidate);
-              }}
-              disabled={!canUpgrade}
-            >
-              {canUpgrade ? 'Upgrade Plan' : 'No upgrades available'}
-            </button>
-          </div>
-        </div>
-
-        {/* Status/Actions Card */}
-        <div className="space-y-6">
-          <div className="bg-primary/10 rounded-3xl p-6 border border-primary/20">
-            <div className="flex items-center gap-3 mb-4 text-primary">
-              <AlertCircle size={20} />
-              <h4 className="font-bold">Need more?</h4>
-            </div>
-            <p className="text-sm text-primary/80 mb-4">
-              Upgrade to a higher tier to unlock more accounts and automated actions for your growth.
-            </p>
-          </div>
-
-          <div className="bg-foreground text-background rounded-3xl p-6 shadow-xl">
-            <h4 className="font-bold mb-2">Usage Summary</h4>
-            <div className="space-y-4 mt-6">
-              <div>
-                <div className="flex justify-between text-xs mb-1 text-muted-foreground">
-                  <span>Daily Actions</span>
-                  <span>24/100</span>
-                </div>
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary w-[24%]" />
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-xs mb-1 text-muted-foreground">
-                  <span>Accounts Connected</span>
-                  <span>1/3</span>
-                </div>
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-success w-[33%]" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Available Plans */}
-      <div className="bg-card border border-border rounded-3xl p-6 md:p-8 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <>
+      {syncingPlan && (
+        <LoadingOverlay
+          variant="fullscreen"
+          message="Refreshing your plan"
+          subMessage="Waiting for the new subscription to appear on the dashboard..."
+        />
+      )}
+      <div className="mx-auto max-w-6xl space-y-8 p-3 sm:p-4 md:p-6 lg:p-8">
+        <div className="mb-8 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-black text-foreground">Available Plans</h2>
-            <p className="text-muted-foreground">Choose a plan that fits your growth goals.</p>
+            <h1 className="text-3xl font-bold text-foreground">My Subscription</h1>
+            <p className="text-muted-foreground">Manage the active plan and review the next upgrades.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="bg-muted p-1 rounded-2xl inline-flex">
-              <button
-                onClick={() => setIsYearly(false)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${!isYearly ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                Monthly
-              </button>
-              <button
-                onClick={() => setIsYearly(true)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${isYearly ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                Yearly
-              </button>
-            </div>
-            {isIndianUser && (
-              <button
-                onClick={handleCurrencyToggle}
-                className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-              >
-                {currency === 'INR' ? 'INR' : 'USD'}
-              </button>
-            )}
+          <div className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${isExpired ? 'bg-destructive-muted/40 text-destructive' : 'bg-success-muted/60 text-success'}`}>
+            <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-destructive' : 'bg-success'}`} />
+            {isExpired ? 'Expired' : 'Active'}
           </div>
         </div>
 
-        {plansLoading ? (
-          <LoadingSpinner text="Loading Plans..." />
-        ) : plansError ? (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-            <span>{plansError}</span>
-            <button
-              className="px-4 py-2 rounded-xl bg-foreground text-background text-xs font-semibold hover:opacity-90 transition"
-              onClick={fetchPlans}
-            >
-              Retry
-            </button>
-          </div>
-        ) : formattedPlans.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No plans available right now.</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {formattedPlans.map((p) => {
-              const isCurrent = p.name === currentPlanName;
-              const isPopular = !!p.is_popular;
-              return (
-                <div
-                  key={p.id}
-                  className={`relative flex flex-col p-8 rounded-3xl transition-all duration-300 ${
-                    isPopular
-                      ? 'bg-card border border-primary/40 shadow-xl scale-[1.02] ring-1 ring-primary/15 text-foreground'
-                      : 'bg-card border border-border hover:shadow-xl hover:border-border/60 text-foreground'
-                  }`}
-                >
-                  {isPopular && (
-                    <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-bold px-4 py-1.5 rounded-bl-xl rounded-tr-2xl">
-                      POPULAR
-                    </div>
-                  )}
-
-                  <h3 className="text-2xl font-bold mb-2">{p.name}</h3>
-                  <div className="mb-6 h-20 flex flex-col justify-center">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold">
-                        {formatPrice(Number((p as any).price || 0))}
-                      </span>
-                      <span className="text-sm text-muted-foreground">/month</span>
-                    </div>
-                    {isYearly && p.yearly_bonus && (
-                      <p className="text-success text-sm font-medium mt-1">{p.yearly_bonus}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-4 flex-grow">
-                    {toFeatureList(p.features).slice(0, 8).map((f, idx) => (
-                      <div key={idx} className="flex items-start gap-3 text-sm">
-                        <div className="mt-0.5 text-success">
-                          <Check size={16} strokeWidth={3} />
-                        </div>
-                        <span className="text-muted-foreground">
-                          {formatFeature(f)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className={`mt-8 pt-6 border-t ${isPopular ? 'border-primary/30' : 'border-border'}`}>
-                    <button
-                      className={`w-full py-4 h-14 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all duration-300 flex items-center justify-center shadow-xl ${
-                        isCurrent
-                          ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                          : isPopular
-                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                            : 'bg-foreground text-background hover:opacity-90'
-                      }`}
-                      disabled={isCurrent || paymentLoading === p.id}
-                      onClick={() => handleSubscribe(p)}
-                    >
-                      {isCurrent ? 'Current Plan' : paymentLoading === p.id ? 'Processing...' : (p.button_text || 'Choose Plan')}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+        {planError && (
+          <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {planError}
           </div>
         )}
+
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+          <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-8 shadow-sm md:col-span-2">
+            <div className="absolute right-0 top-0 p-8 opacity-10">
+              <Zap size={120} className="text-primary" />
+            </div>
+            <div className="relative">
+              <span className="text-sm font-bold uppercase tracking-wider text-primary">Current Plan</span>
+              <h2 className="mt-2 mb-6 flex items-center gap-3 text-4xl font-black text-foreground">
+                {currentPlanName}
+                <Zap className="fill-primary text-primary" size={28} />
+              </h2>
+
+              <div className="mb-8 flex flex-wrap gap-4">
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-2 text-muted-foreground">
+                  <Calendar size={18} />
+                  <span className="text-sm">
+                    {plan?.expires ? `Valid until ${formatShortDate(plan.expires)}` : 'No expiry on record'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-2 text-muted-foreground">
+                  <CreditCard size={18} />
+                  <span className="text-sm">
+                    Assigned plan: {String(plan?.assigned_plan_id || plan?.plan_id || 'free').toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-2 text-muted-foreground">
+                  <Zap size={18} />
+                  <span className="text-sm">
+                    Effective plan: {String(plan?.plan_id || 'free').toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mb-8 space-y-4">
+                <h3 className="font-bold text-foreground">Plan Features</h3>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {(plan?.details?.features || []).map((feature, index) => (
+                    <div key={`${feature}-${index}`} className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-success-muted/60 text-success">
+                        <Check size={12} strokeWidth={3} />
+                      </div>
+                      {feature}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="rounded-3xl border border-primary/20 bg-primary/10 p-6">
+              <div className="mb-4 flex items-center gap-3 text-primary">
+                <AlertCircle size={20} />
+                <h4 className="font-bold">Billing Windows</h4>
+              </div>
+              <p className="text-sm text-primary/80">
+                Monthly plans run for 30 days. Yearly plans run for 364 days with a lower monthly-effective price.
+              </p>
+            </div>
+
+            <div className="rounded-3xl bg-foreground p-6 text-background shadow-xl">
+              <h4 className="mb-2 font-bold">Current Limits</h4>
+              <div className="mt-6 space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span>Hourly actions</span>
+                  <span>{renderLimitValue(plan?.limits?.hourly_action_limit)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Daily actions</span>
+                  <span>{renderLimitValue(plan?.limits?.daily_action_limit)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Monthly actions</span>
+                  <span>{renderLimitValue(plan?.limits?.monthly_action_limit)}</span>
+                </div>
+              </div>
+              {plan?.access_state?.automation_locked && (
+                <div className="mt-4 rounded-2xl bg-background/10 px-3 py-3 text-xs text-background/80">
+                  Automation access is locked. {plan?.access_state?.ban_message || 'Please contact support if you need help.'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-border bg-card p-6 shadow-sm md:p-8">
+          <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-2xl font-black text-foreground">Available Upgrades</h2>
+              <p className="text-muted-foreground">All plans are visible here. Checkout lets you switch between paid plans and keeps free as the expiry fallback.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="inline-flex rounded-2xl bg-muted p-1">
+                <button
+                  onClick={() => setIsYearly(false)}
+                  className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${!isYearly ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setIsYearly(true)}
+                  className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${isYearly ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  Yearly
+                </button>
+              </div>
+              {isIndianUser && (
+                <button
+                  onClick={() => setCurrency((current) => current === 'INR' ? 'USD' : 'INR')}
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                >
+                  {currency}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {plansLoading ? (
+            <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">Loading plans...</div>
+          ) : plansError ? (
+            <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">{plansError}</div>
+          ) : plans.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-muted/30 px-4 py-4 text-sm text-muted-foreground">
+              No plans are available right now.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {plans.map((entry) => {
+                const bigPrice = getPlanBigPrice(entry, currency, isYearly);
+                const isCurrentPlan = entry.id === plan?.plan_id || entry.name === currentPlanName;
+                const isSelectablePaidPlan = checkoutPlans.some((item) => item.id === entry.id);
+                const isUnavailable = entry.plan_code === 'free' || (!isCurrentPlan && !isSelectablePaidPlan);
+                return (
+                  <div
+                    key={entry.id}
+                    className={`relative flex flex-col rounded-3xl p-8 text-foreground transition-all duration-300 ${entry.is_popular ? 'scale-[1.02] border border-primary/40 bg-card shadow-xl ring-1 ring-primary/15' : 'border border-border bg-card hover:border-border/60 hover:shadow-xl'} ${isUnavailable ? 'opacity-75' : ''}`}
+                  >
+                    {entry.is_popular && (
+                      <div className="absolute top-0 right-0 rounded-tr-2xl rounded-bl-xl bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground">
+                        POPULAR
+                      </div>
+                    )}
+
+                    <h3 className="mb-2 text-2xl font-bold">{entry.name}</h3>
+                    <div className="mb-6 flex h-20 flex-col justify-center">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-bold">{formatMoney(bigPrice, currency)}</span>
+                        <span className="text-sm text-muted-foreground">/month</span>
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {isYearly ? 'Yearly total is shown in checkout.' : 'Monthly total is shown in checkout.'}
+                      </p>
+                      {isYearly && entry.yearly_bonus && (
+                        <p className="mt-1 text-sm font-medium text-success">{entry.yearly_bonus}</p>
+                      )}
+                    </div>
+
+                    <div className="flex-grow space-y-4">
+                      {entry.features.map((feature, index) => (
+                        <div key={`${entry.id}-${index}`} className="flex items-start gap-3 text-sm">
+                          <div className="mt-0.5 text-success">
+                            <Check size={16} strokeWidth={3} />
+                          </div>
+                          <span className="text-muted-foreground">{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className={`mt-8 border-t pt-6 ${entry.is_popular ? 'border-primary/30' : 'border-border'}`}>
+                      <button
+                        className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl py-4 text-xs font-black uppercase tracking-[0.2em] shadow-xl transition-all duration-300 ${isCurrentPlan || isUnavailable ? 'bg-muted text-muted-foreground shadow-none cursor-not-allowed' : entry.is_popular ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-foreground text-background hover:opacity-90'}`}
+                        disabled={syncingPlan || isCurrentPlan || isUnavailable}
+                        onClick={() => openCheckout(entry)}
+                      >
+                        <CreditCard size={16} />
+                        {isCurrentPlan ? 'Current Plan' : entry.plan_code === 'free' ? 'Free On Expiry' : 'Change Plan'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      <PlanCheckoutModal
+        isOpen={checkoutOpen}
+        plans={plans}
+        currentPlan={plan}
+        initialPlanId={selectedCheckoutPlanId}
+        defaultBillingCycle={isYearly ? 'yearly' : 'monthly'}
+        currency={currency}
+        countryCode={countryCode}
+        canToggleCurrency={isIndianUser}
+        onCurrencyToggle={() => setCurrency((current) => current === 'INR' ? 'USD' : 'INR')}
+        authenticatedFetch={authenticatedFetch}
+        loadingPlanId={paymentLoading}
+        syncingPlan={syncingPlan}
+        onClose={() => setCheckoutOpen(false)}
+        onPaymentSuccess={() => {
+          setPaymentLoading(null);
+          setSelectedCheckoutPlanId(null);
+        }}
+        onSyncComplete={refreshAfterPayment}
+      />
+    </>
   );
 };
 

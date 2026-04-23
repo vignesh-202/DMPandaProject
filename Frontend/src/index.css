@@ -298,8 +298,17 @@
     border-color: rgb(255 255 255 / 0.12);
   }
 
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   /* Base body styles */
   body {
+    min-height: 100vh;
     background-color: rgb(var(--background));
     color: rgb(var(--foreground));
     font-family: var(--font-sans);
@@ -319,6 +328,49 @@
       radial-gradient(1000px 700px at 15% -10%, rgb(var(--ig-purple) / 0.08), transparent 60%),
       radial-gradient(900px 600px at 90% -5%, rgb(var(--ig-pink) / 0.06), transparent 55%),
       radial-gradient(1200px 800px at 50% 120%, rgb(var(--ig-blue) / 0.06), transparent 60%);
+  }
+
+  img,
+  video,
+  canvas,
+  svg,
+  iframe {
+    max-width: 100%;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    max-width: 100%;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    background-color: rgb(var(--input));
+    color: rgb(var(--foreground));
+    border-color: rgb(var(--border));
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"])::placeholder,
+  textarea::placeholder {
+    color: rgb(var(--muted-foreground));
+    opacity: 1;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):disabled,
+  textarea:disabled,
+  select:disabled {
+    color: rgb(var(--muted-foreground));
+    background-color: rgb(var(--muted));
+    opacity: 1;
+  }
+
+  @media (max-width: 1023px) {
+    body {
+      background-attachment: scroll;
+    }
   }
 
   /* Selection styling */
@@ -983,9 +1035,9 @@ select,
   background: linear-gradient(135deg, rgb(var(--ig-purple)), rgb(var(--ig-blue)));
   color: rgb(var(--primary-foreground));
   box-shadow: 0 4px 12px rgb(var(--ig-purple) / 0.35);
-}
+  }
 
-.sidebar-section-title {
+  .sidebar-section-title {
   padding: 0.5rem 0.75rem;
   font-size: 0.625rem;
   font-weight: 600;
@@ -1014,6 +1066,32 @@ select,
     display: grid;
     gap: 1rem;
     grid-template-columns: 1fr;
+  }
+
+  .select-modern {
+    width: 100%;
+    appearance: none;
+    border-radius: 1rem;
+    border: 1px solid rgb(var(--border));
+    background-color: rgb(var(--input));
+    padding: 0.75rem 2.85rem 0.75rem 0.95rem;
+    color: rgb(var(--foreground));
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+    background-image:
+      linear-gradient(45deg, transparent 50%, rgb(var(--muted-foreground) / 0.9) 50%),
+      linear-gradient(135deg, rgb(var(--muted-foreground) / 0.9) 50%, transparent 50%);
+    background-position:
+      calc(100% - 1.15rem) calc(50% - 0.12rem),
+      calc(100% - 0.85rem) calc(50% - 0.12rem);
+    background-size: 0.45rem 0.45rem, 0.45rem 0.45rem;
+    background-repeat: no-repeat;
+  }
+
+  .select-modern:focus {
+    border-color: rgb(var(--primary));
+    box-shadow: 0 0 0 3px rgb(var(--primary) / 0.14);
   }
 
   @media (min-width: 640px) {

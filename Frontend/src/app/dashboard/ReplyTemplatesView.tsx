@@ -10,9 +10,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
 import SharedTemplateEditor, { TemplateType, TemplateData } from '../../components/dashboard/SharedTemplateEditor';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
+import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import { getDefaultTemplateData } from '../../lib/utils';
+import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
+import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 import {
   getByteLength,
   TEMPLATE_NAME_MAX,
@@ -36,6 +39,7 @@ import {
   CAROUSEL_BUTTON_TITLE_MAX,
   MEDIA_URL_MAX
 } from '../../lib/templateLimits';
+import { takeTransientState, writeTransientState } from '../../lib/transientState';
 
 const TEMPLATE_TYPE_OPTIONS: { id: TemplateType; label: string; icon: React.ElementType }[] = [
   { id: 'template_text', label: 'Text', icon: FileText },
@@ -63,6 +67,11 @@ function templateDataToPayload(type: TemplateType, d: TemplateData): Record<stri
         media_id: d.media_id || '',
         media_url: d.media_url || '',
         thumbnail_url: d.thumbnail_url || '',
+        preview_media_url: d.preview_media_url || '',
+        linked_media_url: d.linked_media_url || '',
+        caption: d.caption || '',
+        media_type: d.media_type || '',
+        permalink: d.permalink || '',
         use_latest_post: d.use_latest_post || false,
         latest_post_type: d.latest_post_type || 'post',
       };
@@ -88,6 +97,11 @@ function payloadToTemplateData(type: TemplateType, p: Record<string, unknown>): 
         media_id: (p.media_id as string) || '',
         media_url: (p.media_url as string) || '',
         thumbnail_url: (p.thumbnail_url as string) || '',
+        preview_media_url: (p.preview_media_url as string) || '',
+        linked_media_url: (p.linked_media_url as string) || '',
+        caption: (p.caption as string) || '',
+        media_type: (p.media_type as string) || '',
+        permalink: (p.permalink as string) || '',
         use_latest_post: (p.use_latest_post as boolean) || false,
         latest_post_type: (p.latest_post_type as 'post' | 'reel') || 'post',
       };
@@ -129,25 +143,11 @@ const suggestUniqueName = (base: string, existing: string[]) => {
 // Shared promise to coalesce duplicate list requests (e.g. React Strict Mode double-mount)
 let replyTemplatesListPromise: Promise<{ templates: unknown[]; error: string | null }> | null = null;
 
-// Cache key for templates list
-const TEMPLATES_CACHE_KEY = 'replyTemplatesList';
+let replyTemplatesListCache: { templates: unknown[]; timestamp: number } | null = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 function templateToPreviewAutomation(type: TemplateType, d: TemplateData): Record<string, unknown> {
-  const t = type; const da = d || {};
-  return {
-    template_type: t,
-    template_content: t === 'template_text' ? (da.text as string) : t === 'template_buttons' ? (da.text as string) : t === 'template_quick_replies' ? (da.text as string) : t === 'template_media' ? (da.media_url as string) : undefined,
-    template_elements: t === 'template_carousel' ? (da.elements as unknown[]) : undefined,
-    replies: t === 'template_quick_replies' ? (da.replies as unknown[]) : undefined,
-    buttons: (t === 'template_buttons' || t === 'template_media') ? (da.buttons as unknown[]) : undefined,
-    media_url: t === 'template_share_post' ? (da.media_url as string) : undefined,
-    thumbnail_url: t === 'template_share_post' ? (da.thumbnail_url as string) : undefined,
-    media_id: t === 'template_share_post' ? (da.media_id as string) : undefined,
-    use_latest_post: t === 'template_share_post' ? da.use_latest_post : undefined,
-    latest_post_type: t === 'template_share_post' ? da.latest_post_type : undefined,
-    template_data: d,
-  };
+  return buildPreviewAutomationFromTemplate({ template_type: type, template_data: d }) || {};
 }
 
 export default function ReplyTemplatesView() {
@@ -190,24 +190,17 @@ export default function ReplyTemplatesView() {
   }>({ open: false, templateId: '', templateName: '', automations: [], loading: false, error: null });
 
   const initialValuesRef = useRef<{ name: string; type: TemplateType; data: TemplateData } | null>(null);
+  useDashboardMainScrollLock(editorMode !== null);
 
   const fetchList = useCallback(async (force = false) => {
     // Check cache first (unless forcing refresh)
     if (!force) {
-      try {
-        const cached = sessionStorage.getItem(TEMPLATES_CACHE_KEY);
-        if (cached) {
-          const { templates: cachedTemplates, timestamp } = JSON.parse(cached);
-          const age = Date.now() - timestamp;
-          if (age < CACHE_DURATION) {
-            setTemplates((cachedTemplates || []) as typeof templates);
-            setError(null);
-            setLoading(false);
-            return;
-          }
-        }
-      } catch (err) {
-        // Ignore cache read errors
+      const age = replyTemplatesListCache ? Date.now() - replyTemplatesListCache.timestamp : Number.POSITIVE_INFINITY;
+      if (replyTemplatesListCache && age < CACHE_DURATION) {
+        setTemplates((replyTemplatesListCache.templates || []) as typeof templates);
+        setError(null);
+        setLoading(false);
+        return;
       }
     }
 
@@ -217,15 +210,7 @@ export default function ReplyTemplatesView() {
         const d = await replyTemplatesListPromise;
         setTemplates((d.templates || []) as typeof templates);
         setError(d.error);
-        // Update cache
-        try {
-          sessionStorage.setItem(TEMPLATES_CACHE_KEY, JSON.stringify({
-            templates: d.templates,
-            timestamp: Date.now()
-          }));
-        } catch {
-          // Ignore storage errors
-        }
+        replyTemplatesListCache = { templates: d.templates, timestamp: Date.now() };
       } catch {
         setError('Network error');
       }
@@ -256,15 +241,7 @@ export default function ReplyTemplatesView() {
       });
       setTemplates(sortedTemplates as typeof templates);
       setError(d.error);
-      // Update cache
-      try {
-        sessionStorage.setItem(TEMPLATES_CACHE_KEY, JSON.stringify({
-          templates: d.templates,
-          timestamp: Date.now()
-        }));
-      } catch {
-        // Ignore storage errors
-      }
+      replyTemplatesListCache = { templates: d.templates, timestamp: Date.now() };
     } catch {
       setError('Network error');
     } finally {
@@ -282,33 +259,40 @@ export default function ReplyTemplatesView() {
     return Number.isFinite(count) && count >= 0 ? count : 0;
   };
 
-  const resolveAutomationView = useCallback((automationTypeRaw: string) => {
-    const automationType = (automationTypeRaw || '').toLowerCase();
-    const map: Record<string, import('../../contexts/DashboardContext').ViewType> = {
-      dm: 'DM Automation',
-      suggest_more: 'Suggest More',
-      mention: 'Mentions',
-      comment_moderation: 'Comment Moderation',
-      global: 'Global Trigger',
-      global_trigger: 'Global Trigger',
-      comment: 'Post Automation',
-      post: 'Post Automation',
-      reel: 'Reel Automation',
-      story: 'Story Automation',
-      live: 'Live Automation'
-    };
-    return map[automationType] || null;
-  }, []);
+    const resolveAutomationView = useCallback((automationTypeRaw: string) => {
+      const automationType = (automationTypeRaw || '').toLowerCase();
+      const map: Record<string, import('../../contexts/DashboardContext').ViewType> = {
+        dm: 'DM Automation',
+        suggest_more: 'Suggest More',
+        mention: 'Mentions',
+        mentions: 'Mentions',
+        comment_moderation: 'Comment Moderation',
+        global: 'Global Trigger',
+        global_trigger: 'Global Trigger',
+        comment: 'Post Automation',
+        post: 'Post Automation',
+        reel: 'Reel Automation',
+        story: 'Story Automation',
+        live: 'Live Automation',
+        inbox_menu: 'Inbox Menu',
+        convo_starter: 'Convo Starter',
+        welcome_message: 'Welcome Message'
+      };
+      return map[automationType] || null;
+    }, []);
 
-  const openAutomation = useCallback((item: { automation_id?: string; id?: string; title?: string; automation_type?: string }) => {
+  const openAutomation = useCallback((item: { automation_id?: string; id?: string; title?: string; automation_type?: string }, linkedTemplateId?: string) => {
     const automationType = item.automation_type || '';
     const view = resolveAutomationView(automationType);
     if (!view) return;
 
     const automationId = item.automation_id || item.id || '';
     if (automationId) {
-      sessionStorage.setItem('openAutomationId', automationId);
-      sessionStorage.setItem('openAutomationType', automationType.toLowerCase());
+      writeTransientState('openAutomationId', automationId);
+      writeTransientState('openAutomationType', automationType.toLowerCase());
+    }
+    if (linkedTemplateId) {
+      writeTransientState('openLinkedTemplateId', linkedTemplateId);
     }
 
     setLinkedModal(prev => ({ ...prev, open: false }));
@@ -357,16 +341,11 @@ export default function ReplyTemplatesView() {
   // open that template in the editor view once templates are loaded.
   useEffect(() => {
     if (loading) return;
-    try {
-      const editId = sessionStorage.getItem('replyTemplateEditId');
-      if (!editId) return;
-      const t = templates.find((tpl) => tpl.id === editId);
-      if (t) {
-        openEdit(t);
-      }
-      sessionStorage.removeItem('replyTemplateEditId');
-    } catch {
-      // Ignore storage errors
+    const editId = takeTransientState<string>('replyTemplateEditId');
+    if (!editId) return;
+    const t = templates.find((tpl) => tpl.id === editId);
+    if (t) {
+      openEdit(t);
     }
   }, [loading, templates]);
 
@@ -832,11 +811,32 @@ export default function ReplyTemplatesView() {
     }
   };
 
+  const activeEditId = editorMode !== null && editorMode !== 'create' && typeof editorMode === 'object'
+    ? editorMode.editId
+    : null;
+  const isEditorEdit = editorMode !== null && editorMode !== 'create';
   const previewAutomation = useMemo(() => templateToPreviewAutomation(templateType, templateData), [templateType, templateData]);
+  const currentEditedTemplate = useMemo(
+    () => (activeEditId ? templates.find((template) => template.id === activeEditId) || null : null),
+    [activeEditId, templates]
+  );
+
+  useEffect(() => {
+    if (editorMode !== null) {
+      document.querySelector('main')?.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }, [editorMode]);
 
   const deleteLinkedDescription = useMemo(() => {
     if (deleteLinked.length === 0) {
-      return `Delete "${deleteModal.name}"? This cannot be undone.`;
+      return (
+        <div className="space-y-3">
+          <p>{`Delete "${deleteModal.name}"? This cannot be undone.`}</p>
+          {deleteError && (
+            <p className="text-destructive font-bold">{deleteError}</p>
+          )}
+        </div>
+      );
     }
 
     return (
@@ -847,7 +847,7 @@ export default function ReplyTemplatesView() {
             <button
               key={`${a.automation_type}-${a.id}`}
               type="button"
-              onClick={() => openAutomation({ id: a.id, title: a.title, automation_type: a.automation_type })}
+              onClick={() => openAutomation({ id: a.id, title: a.title, automation_type: a.automation_type }, deleteModal.id)}
               className="w-full text-left px-3 py-2 rounded-lg border border-border bg-card hover:bg-muted/60 transition-colors"
             >
               <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
@@ -861,12 +861,12 @@ export default function ReplyTemplatesView() {
         </div>
       </div>
     );
-  }, [deleteLinked, deleteModal.name, openAutomation]);
+  }, [deleteError, deleteLinked, deleteModal.name, openAutomation]);
 
   // Editor page (new page in section instead of popup)
   if (editorMode !== null) {
     return (
-      <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 relative">
+      <div className="relative max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
         {/* Loading overlay */}
         {editorLoading && (
           <div className="absolute inset-0 bg-card/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-3xl">
@@ -877,28 +877,51 @@ export default function ReplyTemplatesView() {
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={requestBack}
-            disabled={editorLoading}
-            className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105 disabled:opacity-50"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-black text-foreground uppercase tracking-tight">
-              {editorMode === 'create' ? 'Create New Template' : 'Edit Template'}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {editorMode === 'create' ? 'Build a reusable template for your automations' : 'Update your template settings'}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
           {/* Form column */}
-          <div className="space-y-6">
+          <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2">
+            <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-4">
+                <button
+                  onClick={requestBack}
+                  disabled={editorLoading}
+                  className="shrink-0 p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105 disabled:opacity-50"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div className="min-w-0">
+                  <h1 className="truncate text-2xl font-black uppercase tracking-tight text-foreground">
+                    {editorMode === 'create' ? 'Create New Template' : 'Edit Template'}
+                  </h1>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {editorMode === 'create' ? 'Build a reusable template for your automations' : 'Update your template settings'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-start gap-3 sm:justify-end">
+                {isEditorEdit && currentEditedTemplate && (
+                  <button
+                    type="button"
+                    onClick={() => requestDelete(currentEditedTemplate)}
+                    disabled={saving || editorLoading}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-destructive px-5 py-3 text-[10px] font-black uppercase tracking-widest text-destructive-foreground shadow-lg shadow-destructive/20 transition-all hover:bg-destructive/90 disabled:opacity-60"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={async () => { const ok = await handleSave(); if (ok) goBack(); }}
+                  disabled={saving || editorLoading}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {editorMode === 'create' ? 'Create' : 'Update'}
+                </button>
+              </div>
+            </div>
+
             {editorError && (
               <div className="p-4 rounded-2xl bg-destructive-muted/40 border-2 border-destructive/30 text-destructive text-sm flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 shrink-0" />
@@ -997,47 +1020,22 @@ export default function ReplyTemplatesView() {
               />
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-4 pt-4">
-              <button
-                onClick={requestBack}
-                className="flex-1 px-6 py-4 rounded-xl border-2 border-border bg-card text-foreground font-bold hover:bg-muted/40 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => { const ok = await handleSave(); if (ok) goBack(); }}
-                disabled={saving}
-                className="flex-1 px-6 py-4 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
-              >
-                {saving && <Loader2 className="w-5 h-5 animate-spin" />}
-                {editorMode === 'create' ? 'Create Template' : 'Save Changes'}
-              </button>
-            </div>
           </div>
 
           {/* Live Preview - Sticky */}
-          <div className="xl:sticky xl:top-8 self-start">
-            <div className="rounded-3xl border-2 border-border bg-muted/30 p-6 shadow-2xl">
-              <div className="flex items-center gap-3 mb-6 pb-4 border-b-2 border-border">
-                <div className="p-2 bg-primary rounded-xl">
-                  <Smartphone className="w-5 h-5 text-primary-foreground" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-black text-foreground uppercase tracking-tight">Live Preview</h2>
-                  <p className="text-xs text-muted-foreground">See how it looks on Instagram</p>
-                </div>
-              </div>
-              <div className="flex justify-center bg-card rounded-2xl p-4 shadow-inner">
-                <SharedMobilePreview
-                  mode="automation"
-                  automation={previewAutomation as any}
-                  displayName={activeAccount?.username || 'Username'}
-                  profilePic={activeAccount?.profile_picture_url || undefined}
-                />
-              </div>
-            </div>
-          </div>
+          <AutomationPreviewPanel
+            title="Live Preview"
+            wrapperClassName="order-1 hidden min-h-0 w-full lg:block xl:order-2 xl:col-span-4 xl:self-start xl:max-h-[calc(100vh-7rem)]"
+          >
+            <SharedMobilePreview
+              mode="automation"
+              automation={previewAutomation as any}
+              displayName={activeAccount?.username || 'Username'}
+              profilePic={activeAccount?.profile_picture_url || undefined}
+              lockScroll
+              hideAutomationPrompt
+            />
+          </AutomationPreviewPanel>
         </div>
 
         {/* Unsaved changes when Back/Cancel or leaving */}
@@ -1268,17 +1266,18 @@ export default function ReplyTemplatesView() {
       <ModernConfirmModal
         isOpen={deleteModal.open}
         onClose={() => { setDeleteModal({ open: false, id: '', name: '' }); setDeleteLinked([]); setDeleteError(null); }}
-        onConfirm={deleteLinked.length > 0 ? () => { setDeleteModal({ open: false, id: '', name: '' }); setDeleteLinked([]); setDeleteError(null); } : confirmDelete}
+        onConfirm={deleteLinked.length > 0 ? () => {
+          setDeleteModal({ open: false, id: '', name: '' });
+          setDeleteLinked([]);
+          setDeleteError(null);
+        } : confirmDelete}
         title="Delete template?"
         description={deleteLinkedDescription}
         type="danger"
-        confirmLabel={deleteLinked.length > 0 ? 'OK' : 'Delete'}
-        cancelLabel="Cancel"
+        confirmLabel={deleteLinked.length > 0 ? 'Close' : 'Delete'}
+        cancelLabel={deleteLinked.length > 0 ? 'Close' : 'Cancel'}
         oneButton={deleteLinked.length > 0}
       />
-      {deleteError && deleteLinked.length === 0 && deleteModal.open && (
-        <p className="mt-2 text-sm text-destructive">{deleteError}</p>
-      )}
 
       {/* Linked automations list */}
       <ModernConfirmModal
@@ -1299,7 +1298,7 @@ export default function ReplyTemplatesView() {
                   <button
                     key={`${a.automation_type}-${a.automation_id}`}
                     type="button"
-                    onClick={() => openAutomation(a)}
+                    onClick={() => openAutomation(a, linkedModal.templateId)}
                     className="w-full text-left px-3 py-2 rounded-lg border border-border bg-card hover:bg-muted/60 transition-colors"
                   >
                     <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">

@@ -2,9 +2,135 @@ import os
 import json
 import datetime
 from appwrite.client import Client
-from appwrite.services.databases import Databases
+from appwrite.query import Query
 from appwrite.permission import Permission
 from appwrite.role import Role
+from appwrite.id import ID
+
+
+def _env(key, default=""):
+    runtime_key = {
+        "APPWRITE_ENDPOINT": "APPWRITE_FUNCTION_API_ENDPOINT",
+        "APPWRITE_PROJECT_ID": "APPWRITE_FUNCTION_PROJECT_ID",
+        "APPWRITE_API_KEY": "APPWRITE_FUNCTION_API_KEY",
+    }.get(key, key.replace("APPWRITE_", "APPWRITE_FUNCTION_"))
+    return str(
+        os.environ.get(key)
+        or os.environ.get(runtime_key)
+        or default
+        or ""
+    ).strip()
+
+
+def _call_appwrite(client, method, path, params=None):
+    headers = {"content-type": "application/json"}
+    return client.call(method, path=path, headers=headers, params=params or {}, response_type="json")
+
+
+def _list_documents(client, db_id, collection_id, queries=None):
+    return _call_appwrite(
+        client,
+        "get",
+        f"/databases/{db_id}/collections/{collection_id}/documents",
+        {"queries": list(queries or [])},
+    )
+
+
+def _get_document(client, db_id, collection_id, document_id):
+    return _call_appwrite(
+        client,
+        "get",
+        f"/databases/{db_id}/collections/{collection_id}/documents/{document_id}",
+    )
+
+
+def _create_document(client, db_id, collection_id, document_id, data, permissions=None):
+    return _call_appwrite(
+        client,
+        "post",
+        f"/databases/{db_id}/collections/{collection_id}/documents",
+        {
+            "documentId": document_id or ID.unique(),
+            "data": data,
+            "permissions": permissions or [],
+        },
+    )
+
+
+def _safe_int(value, fallback=0):
+    try:
+        if value is None:
+            return fallback
+        return int(float(str(value)))
+    except Exception:
+        return fallback
+
+
+def _obj_get(value, key, default=None):
+    if isinstance(value, dict):
+        return value.get(key, default)
+    return getattr(value, key, default)
+
+
+def _request_header(context, key):
+    headers = getattr(getattr(context, "req", None), "headers", None) or {}
+    return str(
+        _obj_get(headers, key)
+        or _obj_get(headers, key.lower())
+        or _obj_get(headers, key.upper())
+        or ""
+    ).strip()
+
+
+def _load_free_plan_snapshot(client, db_id, pricing_collection_id):
+    pricing = _list_documents(
+        client,
+        db_id,
+        pricing_collection_id,
+        [Query.limit(100)]
+    )
+    free_plan = next(
+        (
+            doc for doc in (_obj_get(pricing, "documents", []) or [])
+            if str(_obj_get(doc, "plan_code") or _obj_get(doc, "name") or "").strip().lower() == "free"
+        ),
+        None
+    )
+    if not free_plan:
+        raise ValueError("Pricing collection does not contain a free plan row.")
+
+    monthly_limit = _safe_int(_obj_get(free_plan, "actions_per_month_limit"), 0)
+    linked_limit = _safe_int(_obj_get(free_plan, "instagram_link_limit"), _safe_int(_obj_get(free_plan, "instagram_connections_limit"), 0))
+    limits_snapshot = {
+        "instagram_connections_limit": _safe_int(_obj_get(free_plan, "instagram_connections_limit"), 0),
+        "instagram_link_limit": linked_limit,
+        "hourly_action_limit": _safe_int(_obj_get(free_plan, "actions_per_hour_limit"), 0),
+        "daily_action_limit": _safe_int(_obj_get(free_plan, "actions_per_day_limit"), 0),
+        "monthly_action_limit": monthly_limit if monthly_limit > 0 else None,
+    }
+    return {
+        "plan_code": "free",
+        "plan_name": str(_obj_get(free_plan, "name") or "Free Plan").strip() or "Free Plan",
+        "plan_status": "inactive",
+        "billing_cycle": None,
+        "expires_at": None,
+        "limits_json": json.dumps(limits_snapshot),
+        "features_json": json.dumps({}),
+        "paid_plan_snapshot_json": None,
+        "admin_override_json": None,
+        "kill_switch_enabled": True,
+        "instagram_connections_limit": limits_snapshot["instagram_connections_limit"],
+        "hourly_action_limit": limits_snapshot["hourly_action_limit"],
+        "daily_action_limit": limits_snapshot["daily_action_limit"],
+        "monthly_action_limit": monthly_limit if monthly_limit > 0 else 0,
+        "hourly_actions_used": 0,
+        "daily_actions_used": 0,
+        "monthly_actions_used": 0,
+        "hourly_window_started_at": None,
+        "daily_window_started_at": None,
+        "monthly_window_started_at": None,
+        "feature_overrides_json": None,
+    }
 
 # This function is triggered by users.*.create event in Appwrite.
 # It creates a corresponding document in both 'users' and 'profiles' collections.
@@ -38,36 +164,46 @@ def main(context):
 
         context.log(f"New user created event received for userId: {user_id}")
 
+        endpoint = _env("APPWRITE_ENDPOINT")
+        project_id = _env("APPWRITE_PROJECT_ID")
+        api_key = _request_header(context, "x-appwrite-key") or _env("APPWRITE_API_KEY")
+        db_id = _env("APPWRITE_DATABASE_ID")
+        users_collection_id = _env("USERS_COLLECTION_ID", "users")
+        profiles_collection_id = _env("PROFILES_COLLECTION_ID", "profiles")
+        pricing_collection_id = _env("PRICING_COLLECTION_ID", "pricing")
+        if not endpoint or not project_id or not api_key or not db_id:
+            raise ValueError("Missing required Appwrite runtime configuration.")
+
         client = Client()
-        client.set_endpoint(os.environ["APPWRITE_FUNCTION_ENDPOINT"])
-        client.set_project(os.environ["APPWRITE_FUNCTION_PROJECT_ID"])
-        client.set_key(os.environ["APPWRITE_API_KEY"])
+        client.set_endpoint(endpoint)
+        client.set_project(project_id)
+        client.set_key(api_key)
 
-        databases = Databases(client)
-        db_id = os.environ["APPWRITE_DATABASE_ID"]
-
-        users_collection_id = "users"
-        profiles_collection_id = "profiles"
+        free_plan_profile = _load_free_plan_snapshot(client, db_id, pricing_collection_id)
 
         # 1. Create Users document (idempotent)
         try:
-            databases.get_document(db_id, users_collection_id, user_id)
+            _get_document(client, db_id, users_collection_id, user_id)
             context.log(f"User document already exists for userId: {user_id}")
         except Exception:
             context.log(f"Creating user document for userId: {user_id}")
             now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            databases.create_document(
-                database_id=db_id,
-                collection_id=users_collection_id,
-                document_id=user_id,
-                data={
+            _create_document(
+                client,
+                db_id,
+                users_collection_id,
+                user_id,
+                {
                     "name": user_name,
                     "email": user_email,
                     "first_login": now,
                     "last_login": now,
                     "status": "active",
+                    "plan_id": "free",
+                    "plan_expires_at": None,
+                    "kill_switch_enabled": True,
                 },
-                permissions=[
+                [
                     Permission.read(Role.user(user_id)),
                     Permission.update(Role.user(user_id)),
                 ],
@@ -75,20 +211,20 @@ def main(context):
 
         # 2. Create Profiles document (idempotent)
         try:
-            databases.get_document(db_id, profiles_collection_id, user_id)
+            _get_document(client, db_id, profiles_collection_id, user_id)
             context.log(f"Profile document already exists for userId: {user_id}")
         except Exception:
             context.log(f"Creating profile document for userId: {user_id}")
-            databases.create_document(
-                database_id=db_id,
-                collection_id=profiles_collection_id,
-                document_id=user_id,
-                data={
+            _create_document(
+                client,
+                db_id,
+                profiles_collection_id,
+                user_id,
+                {
                     "user_id": user_id,
-                    "credits": 10,  # Give 10 credits by default
-                    "tier": "free",
+                    **free_plan_profile,
                 },
-                permissions=[
+                [
                     Permission.read(Role.user(user_id)),
                     Permission.update(Role.user(user_id)),
                 ],

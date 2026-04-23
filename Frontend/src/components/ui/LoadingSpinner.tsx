@@ -5,7 +5,7 @@ interface LoadingSpinnerProps {
   className?: string;
 }
 
-const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ 
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   text = "Panda is working...",
   className = ""
 }) => {
@@ -15,15 +15,15 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
         {/* Background Glow */}
         <div className="absolute inset-0 bg-primary/10 rounded-full blur-3xl animate-pulse" />
         {/* Panda Animation */}
-        <img 
-          src="/images/loading_panda.gif" 
-          alt="Loading..." 
-          className="w-48 h-48 relative z-10 drop-shadow-lg" 
+        <img
+          src="/images/loading_panda.gif"
+          alt="Loading..."
+          className="relative z-10 h-56 w-56 drop-shadow-lg sm:h-64 sm:w-64"
         />
       </div>
       {/* Loading Text */}
-      <div className="mt-4 text-center">
-        <p className="text-muted-foreground text-2xs font-semibold uppercase tracking-widest animate-pulse">
+      <div className="mt-5 text-center">
+        <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-[0.22em] animate-pulse">
           {text}
         </p>
       </div>

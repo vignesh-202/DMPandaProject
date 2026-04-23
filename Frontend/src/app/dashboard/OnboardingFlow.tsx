@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
@@ -41,7 +42,7 @@ const FullScreenLoader = () => (
 );
 
 const OnboardingFlow: React.FC = () => {
-    const { logout, setHasPasswordManually, login, hasPassword, isVerified, hasLinkedInstagram, user, isLoading: isAuthLoading } = useAuth();
+    const { logout, setHasPasswordManually, login, hasPassword, isVerified, hasLinkedInstagram, user, isLoading: isAuthLoading, authenticatedFetch } = useAuth();
     const navigate = useNavigate();
 
     // Loading states
@@ -69,6 +70,13 @@ const OnboardingFlow: React.FC = () => {
     const [deletePassword, setDeletePassword] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+
+    const closeDeleteModal = () => {
+        setShowDeleteModal(false);
+        setDeletePassword('');
+        setDeleteError(null);
+        setIsDeleting(false);
+    };
 
     // Check if coming back from Instagram OAuth
     useEffect(() => {
@@ -133,12 +141,10 @@ const OnboardingFlow: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/set-password`, {
+            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/set-password`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ password })
             });
@@ -146,9 +152,6 @@ const OnboardingFlow: React.FC = () => {
             const data = await response.json();
 
             if (response.ok) {
-                if (data.token) {
-                    localStorage.setItem('token', data.token);
-                }
                 setHasPasswordManually(true);
                 setSuccessMessage('Password set successfully!');
                 await login();
@@ -167,10 +170,8 @@ const OnboardingFlow: React.FC = () => {
         setIsSubmitting(true);
         setError(null);
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/resend-verification`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
+            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/resend-verification`, {
+                method: 'POST'
             });
 
             const data = await response.json();
@@ -192,12 +193,10 @@ const OnboardingFlow: React.FC = () => {
         setIsSubmitting(true);
         setError(null);
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/change-unverified-email`, {
+            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/change-unverified-email`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ email: newEmail })
             });
@@ -225,10 +224,7 @@ const OnboardingFlow: React.FC = () => {
         setError(null);
 
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/instagram/url`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/instagram/url`);
             const data = await response.json();
 
             if (data.url) {
@@ -603,8 +599,8 @@ const OnboardingFlow: React.FC = () => {
             </div>
 
             {/* Delete Account Modal */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            {showDeleteModal && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[120] flex min-h-screen items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="w-full max-w-sm bg-white dark:bg-gray-900 shadow-2xl rounded-xl p-6 border border-gray-200 dark:border-gray-800 animate-[fadeIn_0.2s_ease-out]">
                         <div className="text-center mb-4">
                             <div className="w-12 h-12 mx-auto mb-3 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
@@ -621,23 +617,17 @@ const OnboardingFlow: React.FC = () => {
                                 type="password"
                                 placeholder="Enter your password to confirm"
                                 value={deletePassword}
-                                onChange={(e) => setDeletePassword(e.target.value)}
+                                onChange={(e) => {
+                                    setDeletePassword(e.target.value);
+                                    if (deleteError) setDeleteError(null);
+                                }}
                                 className="w-full text-black dark:text-white text-sm"
+                                error={deleteError || undefined}
                             />
-
-                            {deleteError && (
-                                <div className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 p-2 rounded-md text-xs animate-[shake_0.3s_ease-out]">
-                                    {deleteError}
-                                </div>
-                            )}
 
                             <div className="flex gap-2">
                                 <Button
-                                    onClick={() => {
-                                        setShowDeleteModal(false);
-                                        setDeletePassword('');
-                                        setDeleteError(null);
-                                    }}
+                                    onClick={closeDeleteModal}
                                     className="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                                     disabled={isDeleting}
                                 >
@@ -652,12 +642,10 @@ const OnboardingFlow: React.FC = () => {
                                         setIsDeleting(true);
                                         setDeleteError(null);
                                         try {
-                                            const token = localStorage.getItem('token');
-                                            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/delete`, {
+                                            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/delete`, {
                                                 method: 'DELETE',
                                                 headers: {
-                                                    'Content-Type': 'application/json',
-                                                    'Authorization': `Bearer ${token}`,
+                                                    'Content-Type': 'application/json'
                                                 },
                                                 body: JSON.stringify({ password: deletePassword }),
                                             });
@@ -681,7 +669,8 @@ const OnboardingFlow: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Global Email Change Modal */}

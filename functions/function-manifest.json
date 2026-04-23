@@ -1,0 +1,91 @@
+[
+  {
+    "functionId": "audit-media-automations",
+    "name": "audit-media-automations",
+    "runtime": "python-3.9",
+    "path": "audit-media-automations",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite python-dotenv requests",
+    "timeout": 900,
+    "schedule": "0 * * * *"
+  },
+  {
+    "functionId": "cleanup-logs-chat-state",
+    "name": "cleanup-logs-chat-state",
+    "runtime": "python-3.9",
+    "path": "cleanup-logs-chat-state",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite python-dotenv requests",
+    "timeout": 900,
+    "schedule": "0 */6 * * *"
+  },
+  {
+    "functionId": "on-user-create",
+    "name": "on-user-create",
+    "runtime": "python-3.9",
+    "events": ["users.*.create"],
+    "path": "on-user-create",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite python-dotenv requests",
+    "timeout": 900
+  },
+  {
+    "functionId": "refresh-instagram-tokens",
+    "name": "refresh-instagram-tokens",
+    "runtime": "python-3.9",
+    "path": "refresh-instagram-tokens",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite python-dotenv requests",
+    "timeout": 900,
+    "schedule": "0 0 1 * *"
+  },
+  {
+    "functionId": "remind-link-instagram",
+    "name": "remind-link-instagram",
+    "runtime": "python-3.9",
+    "path": "remind-link-instagram",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite python-dotenv requests",
+    "timeout": 900,
+    "schedule": "0 * * * *"
+  },
+  {
+    "functionId": "remove-instagram",
+    "name": "remove-instagram",
+    "runtime": "python-3.9",
+    "path": "remove-instagram",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite python-dotenv requests",
+    "timeout": 900
+  },
+  {
+    "functionId": "reset-user-action-budgets",
+    "name": "reset-user-action-budgets",
+    "runtime": "python-3.9",
+    "path": "reset-user-action-budgets",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite python-dotenv requests",
+    "timeout": 900,
+    "schedule": "0 * * * *"
+  },
+  {
+    "functionId": "subscription-manager",
+    "name": "subscription-manager",
+    "runtime": "python-3.9",
+    "path": "subscription-manager",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite python-dotenv requests",
+    "timeout": 900,
+    "schedule": "*/30 * * * *"
+  },
+  {
+    "functionId": "payment-reminders",
+    "name": "payment-reminders",
+    "runtime": "python-3.9",
+    "path": "payment-reminders",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite python-dotenv requests",
+    "timeout": 900,
+    "schedule": "0 * * * *"
+  }
+]
