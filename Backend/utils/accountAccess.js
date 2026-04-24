@@ -13,6 +13,39 @@ const parseJsonObject = (value, fallback = {}) => {
     }
 };
 
+const isTransientFetchError = (error) => {
+    const message = String(error?.message || '').trim().toLowerCase();
+    return message.includes('fetch failed')
+        || message.includes('socket hang up')
+        || message.includes('etimedout')
+        || message.includes('econnreset')
+        || message.includes('enotfound')
+        || message.includes('eai_again');
+};
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const retryAppwriteOperation = async (operation, {
+    retries = 2,
+    retryDelayMs = 250
+} = {}) => {
+    let attempt = 0;
+    let lastError;
+    while (attempt <= retries) {
+        try {
+            return await operation();
+        } catch (error) {
+            lastError = error;
+            if (!isTransientFetchError(error) || attempt === retries) {
+                throw error;
+            }
+            await delay(retryDelayMs * (attempt + 1));
+            attempt += 1;
+        }
+    }
+    throw lastError;
+};
+
 const toFiniteNumber = (value) => {
     if (value === null || value === undefined || value === '') return null;
     const numeric = Number(value);
@@ -104,10 +137,10 @@ const normalizeAccountAccess = (account = null) => {
 };
 
 const listUserInstagramAccounts = async (databases, userId) => {
-    const response = await databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
+    const response = await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
         Query.equal('user_id', String(userId || '').trim()),
         Query.limit(200)
-    ]);
+    ]));
     return response.documents || [];
 };
 
@@ -165,12 +198,12 @@ const recomputeAccountAccessForUser = async (databases, userId, profile = null, 
 
         if (Object.keys(patch).length > 0) {
             updates.push(
-                databases.updateDocument(
+                retryAppwriteOperation(() => databases.updateDocument(
                     APPWRITE_DATABASE_ID,
                     IG_ACCOUNTS_COLLECTION_ID,
                     account.$id,
                     patch
-                ).catch(() => null)
+                ))
             );
         }
 
@@ -183,7 +216,13 @@ const recomputeAccountAccessForUser = async (databases, userId, profile = null, 
     }
 
     if (updates.length > 0) {
-        await Promise.allSettled(updates);
+        const results = await Promise.allSettled(updates);
+        const failures = results.filter((result) => result.status === 'rejected');
+        if (failures.length > 0) {
+            const error = new Error(`Failed to recompute Instagram account access for ${failures.length} account(s).`);
+            error.failures = failures.map((result) => result.reason?.message || String(result.reason || 'unknown'));
+            throw error;
+        }
     }
 
     return nextAccounts

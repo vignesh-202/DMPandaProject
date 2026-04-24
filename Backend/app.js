@@ -30,6 +30,7 @@ const isTrustedDynamicOrigin = (origin) => {
 };
 
 // Middleware
+app.use('/api/razorpay/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(cookieParser());
 

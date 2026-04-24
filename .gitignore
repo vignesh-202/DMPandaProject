@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .venv/
 .env
+.env.*
+!.env.example
+!.env.*.example
 *.log
 *.tmp
 
@@ -15,10 +18,17 @@ __pycache__/
 .codex_recovery/
 docs/codex-recovery/
 docs/subscription-migration-report.json
+**/.git/
 
 # Node / web build artifacts
 node_modules/
 dist/
+build/
+**/node_modules/
+**/dist/
+**/build/
+**/.cache/
+**/__pycache__/
 
 # MobileApp build artifacts
 MobileApp/node_modules/

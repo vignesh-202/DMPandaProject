@@ -25,9 +25,7 @@ if (-not $selected.Count) {
 Push-Location $PSScriptRoot
 try {
 
-$ObsoleteFunctionIds = @(
-    "subscription-reminders"
-)
+$ObsoleteFunctionIds = @()
 
 function Sync-FunctionVariables {
     param(

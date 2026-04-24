@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from datetime import datetime, timedelta, timezone
@@ -227,10 +228,8 @@ def _resolve_reminder_type(
         return None
 
     created_at = _parse_iso_datetime(_obj_get(user_doc, "$createdAt", ""))
-    expires_at = _parse_iso_datetime(_obj_get(profile_doc, "expires_at") or _obj_get(profile_doc, "subscription_expires"))
-    subscription_status = _normalize_subscription_status(
-        _obj_get(profile_doc, "subscription_status")
-    )
+    expires_at = _parse_iso_datetime(_obj_get(profile_doc, "expires_at"))
+    subscription_status = _normalize_subscription_status(_obj_get(profile_doc, "plan_status"))
 
     if expires_at:
         expiry_marker = _build_expiry_marker(expires_at, subscription_status)
@@ -396,10 +395,8 @@ def main(context):
                     continue
 
                 user_name = str(_obj_get(user_doc, "name", "there") or "there").strip() or "there"
-                expires_at = _parse_iso_datetime(_obj_get(profile_doc, "expires_at") or _obj_get(profile_doc, "subscription_expires"))
-                subscription_status = _normalize_subscription_status(
-                    _obj_get(profile_doc, "subscription_status")
-                )
+                expires_at = _parse_iso_datetime(_obj_get(profile_doc, "expires_at"))
+                subscription_status = _normalize_subscription_status(_obj_get(profile_doc, "plan_status"))
 
                 if not dry_run:
                     _send_reminder_email(messaging, user_id, reminder_type, user_name, expires_at)

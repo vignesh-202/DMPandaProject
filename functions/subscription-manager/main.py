@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import time
 from datetime import datetime, timedelta, timezone
 
 from appwrite.client import Client
@@ -9,6 +10,19 @@ from appwrite.query import Query
 
 PAGE_SIZE = 100
 DEFAULT_FREE_PLAN = "free"
+MAX_RETRIES = 3
+
+
+def _is_transient_error(error: Exception) -> bool:
+    message = str(error or "").strip().lower()
+    return any(marker in message for marker in {
+        "fetch failed",
+        "socket hang up",
+        "etimedout",
+        "econnreset",
+        "enotfound",
+        "eai_again",
+    })
 
 
 def _env(key: str, default: str = "") -> str:
@@ -198,7 +212,16 @@ def _infer_plan_source(profile, user_doc):
 
 def _call_appwrite(client: Client, method: str, path: str, params=None):
     headers = {"content-type": "application/json"}
-    return client.call(method, path=path, headers=headers, params=params or {}, response_type="json")
+    last_error = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            return client.call(method, path=path, headers=headers, params=params or {}, response_type="json")
+        except Exception as error:
+            last_error = error
+            if attempt >= (MAX_RETRIES - 1) or not _is_transient_error(error):
+                raise
+            time.sleep(0.25 * (attempt + 1))
+    raise last_error
 
 
 def _list_all(client: Client, db_id: str, collection_id: str, queries=None):

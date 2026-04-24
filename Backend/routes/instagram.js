@@ -209,6 +209,39 @@ const buildInstagramAccountAccessError = (account) => {
     };
 };
 
+const buildHttpError = (statusCode, message, payload = null) => {
+    const error = new Error(message);
+    error.statusCode = statusCode;
+    if (payload) {
+        error.payload = payload;
+    }
+    return error;
+};
+
+const ensureAccessibleOwnedIgAccount = async (databases, userId, accountIdentifier) => {
+    const accounts = await listOwnedIgAccounts(databases, userId);
+    const profileContext = await resolveUserPlanContext(databases, userId);
+    const recomputedAccounts = await recomputeAccountAccessForUser(
+        databases,
+        userId,
+        profileContext.profile,
+        accounts.documents || []
+    );
+    const account = recomputedAccounts.find((doc) => matchesIgAccountIdentifier(doc, accountIdentifier));
+    if (!account) {
+        throw buildHttpError(404, 'Account not found');
+    }
+    if (account.effective_access !== true) {
+        throw buildHttpError(403, 'This Instagram account is not accessible in your current plan.', buildInstagramAccountAccessError(account));
+    }
+    return {
+        account,
+        normalizedAccountId: getIgProfessionalAccountId(account),
+        recomputedAccounts,
+        profileContext
+    };
+};
+
 const AUTOMATION_LOCKED_PREFIXES = [
     '/instagram/automations',
     '/instagram/reply-templates',
@@ -458,6 +491,15 @@ const getOwnedAutomationDocument = async (databases, userId, automationId) => {
         throw error;
     }
     return automation;
+};
+
+const getOwnedAutomationDocumentWithAccess = async (databases, userId, automationId) => {
+    const automation = await getOwnedAutomationDocument(databases, userId, automationId);
+    const accountAccess = await ensureAccessibleOwnedIgAccount(databases, userId, automation.account_id);
+    return {
+        automation,
+        accountAccess
+    };
 };
 
 const buildCollectorVerifySamplePayload = (automation) => ({
@@ -1965,7 +2007,7 @@ const unlinkIgAccountHandler = async (req, res) => {
         const functions = new Functions(serverClient);
         const execution = await functions.createExecution(
             FUNCTION_REMOVE_INSTAGRAM,
-            JSON.stringify({ action: 'delete', account_doc_id: accountId }),
+            JSON.stringify({ action: 'unlink', account_doc_id: accountId }),
             false // async
         );
 
@@ -1973,7 +2015,7 @@ const unlinkIgAccountHandler = async (req, res) => {
             throw new Error("Function execution failed: " + execution.response);
         }
 
-        res.json({ message: 'Instagram account and associated data deletion initiated.' });
+        res.json({ message: 'Instagram account unlink initiated.' });
 
     } catch (err) {
         if (err.code === 404) return res.status(404).json({ error: 'Account not found.' });
@@ -2865,10 +2907,7 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
-        if (!account) return res.status(404).json({ error: 'Account not found' });
-        const targetAccountId = getIgProfessionalAccountId(account);
+        const { normalizedAccountId: targetAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, account_id);
 
         const body = req.body;
         const automationType = type || body.automation_type || 'dm';
@@ -2977,6 +3016,12 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
         }
         res.status(201).json({ status: "success", automation_id: doc.$id });
     } catch (err) {
+        if (err?.statusCode && err?.payload) {
+            return res.status(err.statusCode).json(err.payload);
+        }
+        if (err?.statusCode === 404) {
+            return res.status(404).json({ error: 'Account not found' });
+        }
         console.error(`Create Automation Error: ${err.message}`, err?.response?.message || err?.response || '');
         res.status(500).json({ error: 'Failed to create automation' });
     }
@@ -2990,6 +3035,7 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
 
         const existing = await databases.getDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, req.params.id);
         if (existing.user_id !== req.user.$id) return res.status(403).json({ error: 'Unauthorized' });
+        await ensureAccessibleOwnedIgAccount(databases, req.user.$id, existing.account_id);
 
         const body = req.body;
         const nextAutomationType = body.automation_type || existing.automation_type || 'dm';
@@ -3104,6 +3150,9 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
 
         res.json(doc);
     } catch (err) {
+        if (err?.statusCode && err?.payload) {
+            return res.status(err.statusCode).json(err.payload);
+        }
         console.error(`Update Automation Error: ${err.message}`);
         if (err.code === 404) return res.status(404).json({ error: 'Automation not found' });
         res.status(500).json({ error: 'Failed to update automation' });
@@ -3135,7 +3184,7 @@ router.put('/instagram/automations/:id/email-collector-destination', loginRequir
     try {
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const automation = await getOwnedAutomationDocument(databases, req.user.$id, req.params.id);
+        const { automation } = await getOwnedAutomationDocumentWithAccess(databases, req.user.$id, req.params.id);
         const existingDocument = await loadCollectorDestinationDocument(databases, automation);
 
         const destinationType = normalizeCollectorDestinationType(req.body?.destination_type);
@@ -3187,6 +3236,7 @@ router.put('/instagram/automations/:id/email-collector-destination', loginRequir
         });
     } catch (error) {
         console.error(`Save Email Collector Destination Error: ${error.message}`);
+        if (error?.statusCode && error?.payload) return res.status(error.statusCode).json(error.payload);
         if (error.statusCode === 403) return res.status(403).json({ error: 'Unauthorized' });
         if (error.code === 404) return res.status(404).json({ error: 'Automation not found' });
         if (isMissingCollectionError(error)) {
@@ -3200,7 +3250,7 @@ router.post('/instagram/automations/:id/email-collector-destination/verify', log
     try {
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const automation = await getOwnedAutomationDocument(databases, req.user.$id, req.params.id);
+        const { automation } = await getOwnedAutomationDocumentWithAccess(databases, req.user.$id, req.params.id);
         const existingDocument = await loadCollectorDestinationDocument(databases, automation);
         if (!existingDocument) {
             return res.status(400).json({ error: 'Save the destination before verifying it' });
@@ -3261,6 +3311,7 @@ router.post('/instagram/automations/:id/email-collector-destination/verify', log
         });
     } catch (error) {
         console.error(`Verify Email Collector Destination Error: ${error.message}`);
+        if (error?.statusCode && error?.payload) return res.status(error.statusCode).json(error.payload);
         if (error.statusCode === 403) return res.status(403).json({ error: 'Unauthorized' });
         if (error.code === 404) return res.status(404).json({ error: 'Automation not found' });
         if (isMissingCollectionError(error)) {
@@ -3869,10 +3920,7 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-        const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
-        if (!igAccount) return res.status(404).json({ error: 'Account not found' });
-        const normalizedAccountId = getIgProfessionalAccountId(igAccount);
+        const { account: igAccount, normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, account_id);
 
         // Duplicate title validation (case-insensitive)
         if (Array.isArray(menu_items)) {
@@ -4029,6 +4077,12 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
 
         res.json({ message: 'Menu saved successfully', menu_items: menuItems });
     } catch (err) {
+        if (err?.statusCode && err?.payload) {
+            return res.status(err.statusCode).json(err.payload);
+        }
+        if (err?.statusCode === 404) {
+            return res.status(404).json({ error: 'Account not found' });
+        }
         console.error(`Save Inbox Menu Error: ${err.message}`);
         res.status(500).json({ error: 'Failed to save inbox menu' });
     }
@@ -4176,10 +4230,7 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-        const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
-        if (!igAccount) return res.status(404).json({ error: 'Account not found' });
-        const normalizedAccountId = getIgProfessionalAccountId(igAccount);
+        const { account: igAccount, normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, account_id);
 
         // Duplicate question validation (case-insensitive)
         if (Array.isArray(starters)) {
@@ -4322,6 +4373,12 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
 
         res.json({ message: 'Convo starters saved successfully' });
     } catch (err) {
+        if (err?.statusCode && err?.payload) {
+            return res.status(err.statusCode).json(err.payload);
+        }
+        if (err?.statusCode === 404) {
+            return res.status(404).json({ error: 'Account not found' });
+        }
         console.error(`Save Convo Starters Error: ${err.message}`);
         res.status(500).json({ error: 'Failed to save convo starters' });
     }
@@ -4425,10 +4482,7 @@ router.post('/instagram/mentions-config', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
-        if (!account) return res.status(404).json({ error: 'Account not found or unauthorized' });
-        const normalizedAccountId = getIgProfessionalAccountId(account);
+        const { normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, account_id);
 
         const existing = await listMentionsDocuments(databases, {
             userId: req.user.$id,
@@ -4517,6 +4571,12 @@ router.post('/instagram/mentions-config', loginRequired, async (req, res) => {
 
         res.json({ message: 'Mentions config saved' });
     } catch (err) {
+        if (err?.statusCode && err?.payload) {
+            return res.status(err.statusCode).json(err.payload);
+        }
+        if (err?.statusCode === 404) {
+            return res.status(404).json({ error: 'Account not found or unauthorized' });
+        }
         console.error(`Save Mentions Config Error: ${err.message}`);
         res.status(500).json({ error: 'Failed to save mentions config' });
     }
@@ -4799,10 +4859,7 @@ router.post('/instagram/suggest-more', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
-        if (!account) return res.status(404).json({ error: 'Account not found or unauthorized' });
-        const normalizedAccountId = getIgProfessionalAccountId(account);
+        const { normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, account_id);
 
         const existing = await listSuggestMoreDocuments(databases, {
             userId: req.user.$id,
@@ -4840,6 +4897,12 @@ router.post('/instagram/suggest-more', loginRequired, async (req, res) => {
 
         res.json({ message: 'Suggest more config saved' });
     } catch (err) {
+        if (err?.statusCode && err?.payload) {
+            return res.status(err.statusCode).json(err.payload);
+        }
+        if (err?.statusCode === 404) {
+            return res.status(404).json({ error: 'Account not found or unauthorized' });
+        }
         console.error(`Save Suggest More Error: ${err.message}`);
         res.status(500).json({ error: 'Failed to save suggest more config' });
     }
@@ -4935,13 +4998,7 @@ router.post('/instagram/comment-moderation', loginRequired, async (req, res) => 
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-
-        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-        const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, targetAccountId));
-        if (!account) {
-            return res.status(404).json({ error: 'Account not found or unauthorized' });
-        }
-        const normalizedAccountId = getIgProfessionalAccountId(account);
+        const { normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, targetAccountId);
 
         const normalizedRules = (Array.isArray(rules) ? rules : [])
             .filter((rule) => ['hide', 'delete'].includes(String(rule?.action || '')))
@@ -5001,6 +5058,12 @@ router.post('/instagram/comment-moderation', loginRequired, async (req, res) => 
 
         res.json({ message: 'Comment moderation rules saved' });
     } catch (err) {
+        if (err?.statusCode && err?.payload) {
+            return res.status(err.statusCode).json(err.payload);
+        }
+        if (err?.statusCode === 404) {
+            return res.status(404).json({ error: 'Account not found or unauthorized' });
+        }
         console.error(`Save Comment Moderation Error: ${err.message}`, err);
         res.status(500).json({ error: 'Failed to save comment moderation rules' });
     }

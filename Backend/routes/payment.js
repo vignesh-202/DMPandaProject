@@ -39,6 +39,7 @@ const router = express.Router();
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || RAZORPAY_KEY_SECRET;
 const razorpay = (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET)
     ? new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET })
     : null;
@@ -205,6 +206,42 @@ const getDatabases = () => {
     return new Databases(client);
 };
 
+const normalizeRazorpayPaymentStatus = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (['captured', 'paid'].includes(normalized)) return normalized;
+    if (normalized === 'authorized') return normalized;
+    if (['failed', 'refunded', 'voided'].includes(normalized)) return normalized;
+    return normalized || 'unknown';
+};
+
+const getWebhookRawBody = (req) => {
+    if (Buffer.isBuffer(req.body)) {
+        return req.body;
+    }
+    if (typeof req.body === 'string') {
+        return Buffer.from(req.body, 'utf8');
+    }
+    return Buffer.from(JSON.stringify(req.body || {}), 'utf8');
+};
+
+const verifyRazorpayWebhookSignature = (rawBody, signature) => {
+    const safeSecret = String(RAZORPAY_WEBHOOK_SECRET || '').trim();
+    const safeSignature = String(signature || '').trim();
+    if (!safeSecret || !safeSignature || !rawBody) return false;
+
+    const expectedSignature = crypto
+        .createHmac('sha256', safeSecret)
+        .update(rawBody)
+        .digest('hex');
+
+    const providedBuffer = Buffer.from(safeSignature, 'utf8');
+    const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+    if (providedBuffer.length !== expectedBuffer.length) {
+        return false;
+    }
+    return crypto.timingSafeEqual(providedBuffer, expectedBuffer);
+};
+
 const describeError = (error) => {
     const parts = [];
     const pushPart = (value) => {
@@ -323,7 +360,7 @@ const buildTransactionPayload = (transaction, pricingMap) => {
 
 const getDocumentIfExists = async (databases, collectionId, documentId) => {
     try {
-        return await databases.getDocument(APPWRITE_DATABASE_ID, collectionId, documentId);
+        return await retryAppwriteOperation(() => databases.getDocument(APPWRITE_DATABASE_ID, collectionId, documentId));
     } catch (error) {
         const code = Number(error?.code || error?.response?.code || 0);
         if (code === 404) return null;
@@ -407,7 +444,7 @@ const getPaymentAttemptIfExists = async (databases, documentId) => {
     const safeDocumentId = String(documentId || '').trim();
     if (!safeDocumentId) return null;
     try {
-        return await databases.getDocument(APPWRITE_DATABASE_ID, PAYMENT_ATTEMPTS_COLLECTION_ID, safeDocumentId);
+        return await retryAppwriteOperation(() => databases.getDocument(APPWRITE_DATABASE_ID, PAYMENT_ATTEMPTS_COLLECTION_ID, safeDocumentId));
     } catch (error) {
         const code = Number(error?.code || error?.response?.code || 0);
         if (code === 404) return null;
@@ -416,10 +453,10 @@ const getPaymentAttemptIfExists = async (databases, documentId) => {
 };
 
 const listPaymentAttempts = async (databases, queries = [], limit = 25) => {
-    const response = await databases.listDocuments(APPWRITE_DATABASE_ID, PAYMENT_ATTEMPTS_COLLECTION_ID, [
+    const response = await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, PAYMENT_ATTEMPTS_COLLECTION_ID, [
         Query.limit(limit),
         ...queries
-    ]);
+    ]));
     return response.documents || [];
 };
 
@@ -432,7 +469,7 @@ const createPendingPaymentAttempt = async ({
     meta = null
 }) => {
     const placeholderGatewayOrderId = `pending_${ID.unique()}`;
-    const attempt = await databases.createDocument(
+    const attempt = await retryAppwriteOperation(() => databases.createDocument(
         APPWRITE_DATABASE_ID,
         PAYMENT_ATTEMPTS_COLLECTION_ID,
         ID.unique(),
@@ -444,14 +481,161 @@ const createPendingPaymentAttempt = async ({
             gatewayOrderId: placeholderGatewayOrderId,
             meta
         })
-    );
+    ));
     return attempt;
 };
 
 const updatePaymentAttempt = async (databases, attemptId, patch = {}) => {
     const safeAttemptId = String(attemptId || '').trim();
     if (!safeAttemptId) return null;
-    return databases.updateDocument(APPWRITE_DATABASE_ID, PAYMENT_ATTEMPTS_COLLECTION_ID, safeAttemptId, patch);
+    return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PAYMENT_ATTEMPTS_COLLECTION_ID, safeAttemptId, patch));
+};
+
+const parsePaymentAttemptMeta = (attempt) => {
+    try {
+        const parsed = attempt?.meta_json ? JSON.parse(attempt.meta_json) : {};
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+        return {};
+    }
+};
+
+const buildPricingFromPaymentAttempt = (attempt) => {
+    const meta = parsePaymentAttemptMeta(attempt);
+    const billing_cycle = normalizeBillingCycle(
+        attempt?.billing_cycle
+        || meta.requested_billing_cycle
+        || 'monthly'
+    );
+    const currency = normalizeCurrency(
+        attempt?.currency
+        || meta.requested_currency
+        || 'INR'
+    );
+    return {
+        billing_cycle,
+        currency,
+        base_amount: Number(attempt?.base_amount || 0),
+        discount: Number(attempt?.discount_amount || 0),
+        final_amount: Number(attempt?.final_amount || 0),
+        yearly_monthly_display_price: Number(attempt?.base_amount || 0),
+        validity_days: getValidityDays(billing_cycle)
+    };
+};
+
+const buildCouponSnapshotFromAttempt = (attempt) => {
+    const couponId = String(attempt?.coupon_id || '').trim();
+    const couponCode = String(attempt?.coupon_code || '').trim();
+    if (!couponId && !couponCode) return null;
+    return {
+        $id: couponId || null,
+        code: couponCode || null
+    };
+};
+
+const resolveAttemptPlanPurchase = async (databases, paymentAttempt) => {
+    const planIdentifier = String(paymentAttempt?.plan_code || '').trim();
+    const plan = await getPlanByIdentifier(databases, planIdentifier);
+    if (!plan) {
+        const error = new Error('Pricing plan for payment attempt was not found.');
+        error.statusCode = 409;
+        throw error;
+    }
+    return {
+        plan,
+        pricing: buildPricingFromPaymentAttempt(paymentAttempt),
+        appliedCoupon: buildCouponSnapshotFromAttempt(paymentAttempt)
+    };
+};
+
+const patchExistingTransaction = async (databases, transaction, patch = {}) => {
+    const safeTransactionId = String(transaction?.$id || '').trim();
+    if (!safeTransactionId) return transaction;
+    const nextPatch = Object.entries(patch).reduce((acc, [key, value]) => {
+        if (value !== undefined && transaction?.[key] !== value) {
+            acc[key] = value;
+        }
+        return acc;
+    }, {});
+    if (Object.keys(nextPatch).length === 0) {
+        return transaction;
+    }
+    return retryAppwriteOperation(() => databases.updateDocument(
+        APPWRITE_DATABASE_ID,
+        TRANSACTIONS_COLLECTION_ID,
+        safeTransactionId,
+        nextPatch
+    ));
+};
+
+const upsertSuccessfulTransaction = async ({
+    databases,
+    userId,
+    plan,
+    pricing,
+    appliedCoupon,
+    razorpay_order_id = null,
+    razorpay_payment_id = null,
+    notes = '',
+    paymentAttemptId = null
+}) => {
+    let transaction = razorpay_payment_id
+        ? await findTransactionDocument(databases, userId, razorpay_payment_id)
+        : null;
+    if (!transaction && razorpay_order_id) {
+        transaction = await findTransactionDocument(databases, userId, razorpay_order_id);
+    }
+
+    const payload = buildTransactionDocumentData({
+        userId,
+        plan,
+        pricing,
+        appliedCoupon,
+        razorpay_order_id,
+        razorpay_payment_id,
+        notes,
+        paymentAttemptId
+    });
+
+    if (transaction) {
+        return patchExistingTransaction(databases, transaction, payload);
+    }
+
+    return retryAppwriteOperation(() => databases.createDocument(
+        APPWRITE_DATABASE_ID,
+        TRANSACTIONS_COLLECTION_ID,
+        ID.unique(),
+        payload
+    ));
+};
+
+const getCapturedPaymentForOrder = async (orderId) => {
+    const safeOrderId = String(orderId || '').trim();
+    if (!razorpay || !safeOrderId || typeof razorpay.orders?.fetchPayments !== 'function') {
+        return null;
+    }
+    const response = await razorpay.orders.fetchPayments(safeOrderId);
+    const payments = Array.isArray(response?.items) ? response.items : [];
+    const ranked = payments
+        .slice()
+        .sort((left, right) => Number(right?.created_at || 0) - Number(left?.created_at || 0));
+    return ranked.find((entry) => normalizeRazorpayPaymentStatus(entry?.status) === 'captured')
+        || ranked.find((entry) => normalizeRazorpayPaymentStatus(entry?.status) === 'authorized')
+        || ranked[0]
+        || null;
+};
+
+const fetchGatewayPaymentEntity = async ({ razorpayPaymentId = null, razorpayOrderId = null, paymentEntity = null } = {}) => {
+    if (paymentEntity?.id) {
+        return paymentEntity;
+    }
+
+    const safePaymentId = String(razorpayPaymentId || '').trim();
+    if (razorpay && safePaymentId && typeof razorpay.payments?.fetch === 'function') {
+        return razorpay.payments.fetch(safePaymentId);
+    }
+
+    return getCapturedPaymentForOrder(razorpayOrderId);
 };
 
 const findPaymentAttemptForVerification = async (databases, {
@@ -521,10 +705,10 @@ const ensureUserProfileDocument = async (
     let existingProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, profileId);
 
     if (!existingProfile) {
-        const profileList = await databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
+        const profileList = await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
             Query.equal('user_id', String(userId || '').trim()),
             Query.limit(1)
-        ]);
+        ]));
         existingProfile = profileList.documents[0] || null;
         profileId = existingProfile?.$id || profileId;
     }
@@ -542,13 +726,13 @@ const ensureUserProfileDocument = async (
     });
 
     if (!existingProfile) {
-        return databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, {
+        return retryAppwriteOperation(() => databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, {
             user_id: String(userId || '').trim(),
             ...payload
-        });
+        }));
     }
 
-    return databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, payload);
+    return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, payload));
 };
 
 const updateUserSubscriptionMemory = async (
@@ -556,7 +740,7 @@ const updateUserSubscriptionMemory = async (
     userId,
     plan,
     subscriptionExpires
-) => databases.updateDocument(
+) => retryAppwriteOperation(() => databases.updateDocument(
     APPWRITE_DATABASE_ID,
     USERS_COLLECTION_ID,
     String(userId || '').trim(),
@@ -564,7 +748,7 @@ const updateUserSubscriptionMemory = async (
         plan_id: String(plan?.plan_code || plan?.id || 'free').trim() || 'free',
         plan_expires_at: subscriptionExpires || null
     }
-);
+));
 
 const finalizePlanPurchase = async ({
     databases,
@@ -598,7 +782,19 @@ const finalizePlanPurchase = async ({
         }
     });
 
-    await updateUserSubscriptionMemory(databases, userId, plan, subscriptionExpires);
+    const transaction = await upsertSuccessfulTransaction({
+        databases,
+        userId,
+        plan,
+        pricing,
+        appliedCoupon,
+        razorpay_order_id,
+        razorpay_payment_id,
+        notes,
+        paymentAttemptId
+    });
+
+    await retryAppwriteOperation(() => updateUserSubscriptionMemory(databases, userId, plan, subscriptionExpires));
     await ensureUserProfileDocument(
         databases,
         userId,
@@ -611,29 +807,6 @@ const finalizePlanPurchase = async ({
     );
     const runtimeContext = await resolveUserPlanContext(databases, userId);
     await recomputeAccountAccessForUser(databases, userId, runtimeContext.profile);
-    let transaction = razorpay_payment_id
-        ? await findTransactionDocument(databases, userId, razorpay_payment_id)
-        : null;
-    if (!transaction && razorpay_order_id) {
-        transaction = await findTransactionDocument(databases, userId, razorpay_order_id);
-    }
-    if (!transaction) {
-        transaction = await databases.createDocument(
-            APPWRITE_DATABASE_ID,
-            TRANSACTIONS_COLLECTION_ID,
-            ID.unique(),
-            buildTransactionDocumentData({
-                userId,
-                plan,
-                pricing,
-                appliedCoupon,
-                razorpay_order_id,
-                razorpay_payment_id,
-                notes,
-                paymentAttemptId
-            })
-        );
-    }
 
     if (paymentAttemptId) {
         await updatePaymentAttempt(databases, paymentAttemptId, {
@@ -641,7 +814,7 @@ const finalizePlanPurchase = async ({
             gateway_order_id: razorpay_order_id || null,
             gateway_payment_id: razorpay_payment_id || null,
             verified_at: new Date().toISOString()
-        }).catch(() => null);
+        });
         await clearSupersededPaymentAttempts({
             databases,
             userId,
@@ -649,7 +822,7 @@ const finalizePlanPurchase = async ({
             billingCycle: pricing.billing_cycle,
             excludeAttemptId: paymentAttemptId,
             createdBefore: transaction?.transactionDate || transaction?.created_at || new Date().toISOString()
-        }).catch(() => null);
+        });
     }
 
     await recordCouponRedemptionIfNeeded({
@@ -669,8 +842,8 @@ const finalizePlanPurchase = async ({
             ? 'Payment verified successfully.'
             : 'Plan activated successfully.',
         plan: buildUserPlanPayload(plan, {
-            subscription_expires: subscriptionExpires,
-            subscription_billing_cycle: pricing.billing_cycle,
+            expires_at: subscriptionExpires,
+            billing_cycle: pricing.billing_cycle,
             feature_overrides_json: buildProfileConfigPayload({
                 paidPlanSnapshot
             }),
@@ -694,11 +867,11 @@ const findTransactionDocument = async (databases, userId, identifier) => {
 
     const lookupFields = ['gatewayPaymentId', 'gatewayOrderId'];
     for (const field of lookupFields) {
-        const response = await databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
+        const response = await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
             Query.equal('userId', String(userId)),
             Query.equal(field, normalizedIdentifier),
             Query.limit(1)
-        ]);
+        ]));
         if (response.documents[0]) {
             return response.documents[0];
         }
@@ -892,13 +1065,13 @@ const buildUserPlanPayload = (plan, profile, subscriptionStatus, subscriptionPla
                 .join(' '));
     return {
         plan_id: subscriptionPlanId || normalizedPlan.plan_code || normalizedPlan.id || 'free',
-        assigned_plan_id: profile?.plan_code || profile?.subscription_plan_id || subscriptionPlanId || normalizedPlan.plan_code || normalizedPlan.id || 'free',
+        assigned_plan_id: profile?.plan_code || subscriptionPlanId || normalizedPlan.plan_code || normalizedPlan.id || 'free',
         plan_source: String(planSource || 'self').trim() || 'self',
         self_plan_id: profile?.self_plan_id || undefined,
         self_plan_expires_at: profile?.self_plan_expires_at || undefined,
         status: String(subscriptionStatus || 'inactive'),
-        expires: profile?.expires_at || profile?.subscription_expires || null,
-        billing_cycle: profile?.billing_cycle || profile?.subscription_billing_cycle || null,
+        expires: profile?.expires_at || null,
+        billing_cycle: profile?.billing_cycle || null,
         access_state: accessState,
         entitlements,
         custom_feature_overrides: profileConfig.feature_overrides,
@@ -1054,7 +1227,14 @@ router.post('/create-order', loginRequired, async (req, res) => {
                 amount: pricing.final_amount * 100,
                 currency: pricing.currency,
                 receipt: `dmp_${req.user.$id}_${Date.now()}`,
-                payment_capture: 1
+                payment_capture: 1,
+                notes: {
+                    payment_attempt_id: paymentAttempt.$id,
+                    user_id: req.user.$id,
+                    plan_code: String(plan.plan_code || plan.id || '').trim(),
+                    billing_cycle: pricing.billing_cycle,
+                    coupon_code: appliedCoupon?.code || ''
+                }
             });
         } catch (error) {
             await updatePaymentAttempt(databases, paymentAttempt.$id, {
@@ -1071,7 +1251,7 @@ router.post('/create-order', loginRequired, async (req, res) => {
                 requested_billing_cycle: billingCycle,
                 razorpay_order_status: order.status || null
             })
-        }).catch(() => null);
+        });
 
         return res.json({
             order,
@@ -1102,39 +1282,57 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
             coupon_code,
             payment_attempt_id
         } = req.body || {};
-        if (!plan_id) {
-            return res.status(400).json({ error: 'Missing payment details' });
-        }
-
         const billingCycle = normalizeBillingCycle(req.body?.billing_cycle);
         const currencyPolicy = resolveRequestCurrency(req, req.body?.currency);
         const databases = getDatabases();
-        const plan = await getPlanByIdentifier(databases, plan_id);
-        if (!plan) {
-            return res.status(404).json({ error: 'Plan not found' });
-        }
 
-        let appliedCoupon = null;
-        if (coupon_code) {
-            const result = await validateCoupon({
-                databases,
-                couponCode: coupon_code,
-                userId: req.user.$id,
-                planId: plan.id,
-                billingCycle
-            });
-            if (!result.valid) {
-                return res.status(400).json({ error: 'Invalid coupon code.', reason: result.reason });
-            }
-            appliedCoupon = result.coupon;
-        }
-
-        const pricing = buildPricingQuote({
-            plan,
-            billingCycle,
-            currency: currencyPolicy.currency,
-            coupon: appliedCoupon
+        const paymentAttempt = await findPaymentAttemptForVerification(databases, {
+            paymentAttemptId: payment_attempt_id,
+            gatewayOrderId: razorpay_order_id,
+            gatewayPaymentId: razorpay_payment_id
         });
+        if (paymentAttempt && String(paymentAttempt.user_id || '').trim() !== String(req.user.$id || '').trim()) {
+            return res.status(403).json({ error: 'Payment attempt does not belong to this user.' });
+        }
+
+        let plan;
+        let pricing;
+        let appliedCoupon = null;
+        if (paymentAttempt) {
+            ({ plan, pricing, appliedCoupon } = await resolveAttemptPlanPurchase(databases, paymentAttempt));
+            if (plan_id && normalizePlanCode(plan_id) !== normalizePlanCode(plan.plan_code || plan.id)) {
+                return res.status(409).json({ error: 'Payment attempt plan does not match verification request.' });
+            }
+        } else {
+            if (!plan_id) {
+                return res.status(400).json({ error: 'Missing payment details' });
+            }
+            plan = await getPlanByIdentifier(databases, plan_id);
+            if (!plan) {
+                return res.status(404).json({ error: 'Plan not found' });
+            }
+
+            if (coupon_code) {
+                const result = await validateCoupon({
+                    databases,
+                    couponCode: coupon_code,
+                    userId: req.user.$id,
+                    planId: plan.id,
+                    billingCycle
+                });
+                if (!result.valid) {
+                    return res.status(400).json({ error: 'Invalid coupon code.', reason: result.reason });
+                }
+                appliedCoupon = result.coupon;
+            }
+
+            pricing = buildPricingQuote({
+                plan,
+                billingCycle,
+                currency: currencyPolicy.currency,
+                coupon: appliedCoupon
+            });
+        }
 
         if (pricing.final_amount <= 0) {
             return res.json(await finalizePlanPurchase({
@@ -1166,27 +1364,6 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
             return res.status(400).json({ error: 'Payment verification failed' });
         }
 
-        const paymentAttempt = await findPaymentAttemptForVerification(databases, {
-            paymentAttemptId: payment_attempt_id,
-            gatewayOrderId: razorpay_order_id,
-            gatewayPaymentId: razorpay_payment_id
-        });
-        if (paymentAttempt && String(paymentAttempt.user_id || '').trim() !== String(req.user.$id || '').trim()) {
-            return res.status(403).json({ error: 'Payment attempt does not belong to this user.' });
-        }
-        if (paymentAttempt && normalizePaymentAttemptStatus(paymentAttempt.status) === 'paid') {
-            const runtimeContext = await resolveUserPlanContext(databases, req.user.$id, req.user);
-            return res.json(buildUserPlanPayload(plan, {
-                ...(runtimeContext.profile || {}),
-                self_plan_id: runtimeContext.selfPlanId,
-                self_plan_expires_at: runtimeContext.selfPlanExpiresAt
-            }, runtimeContext.subscriptionStatus, runtimeContext.subscriptionPlanId, req.accessState || null, runtimeContext.planSource));
-        }
-
-        if (paymentAttempt && normalizePlanCode(paymentAttempt.plan_code || '') && normalizePlanCode(paymentAttempt.plan_code || '') !== normalizePlanCode(plan.plan_code || plan.id)) {
-            return res.status(409).json({ error: 'Payment attempt plan does not match verification request.' });
-        }
-
         return res.json(await finalizePlanPurchase({
             databases,
             userId: req.user.$id,
@@ -1200,6 +1377,91 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
     } catch (error) {
         console.error('Razorpay verify error:', describeError(error));
         return res.status(500).json({ error: 'Failed to verify payment.' });
+    }
+});
+
+router.post('/razorpay/webhook', async (req, res) => {
+    try {
+        if (!razorpay || !RAZORPAY_WEBHOOK_SECRET) {
+            return res.status(500).json({ error: 'Payment webhook is not configured.' });
+        }
+
+        const rawBody = getWebhookRawBody(req);
+        const signature = req.headers['x-razorpay-signature'];
+        if (!verifyRazorpayWebhookSignature(rawBody, signature)) {
+            return res.status(400).json({ error: 'Invalid Razorpay webhook signature.' });
+        }
+
+        const payload = JSON.parse(rawBody.toString('utf8') || '{}');
+        const eventName = String(payload?.event || '').trim().toLowerCase();
+        const relevantEvents = new Set(['payment.captured', 'order.paid']);
+        if (!relevantEvents.has(eventName)) {
+            return res.status(200).json({ ok: true, ignored: true, event: eventName || 'unknown' });
+        }
+
+        const webhookPayment = payload?.payload?.payment?.entity || null;
+        const webhookOrder = payload?.payload?.order?.entity || null;
+        let razorpayPaymentId = String(webhookPayment?.id || '').trim();
+        let razorpayOrderId = String(webhookPayment?.order_id || webhookOrder?.id || '').trim();
+
+        const gatewayPayment = await fetchGatewayPaymentEntity({
+            razorpayPaymentId,
+            razorpayOrderId,
+            paymentEntity: webhookPayment
+        });
+        const paymentStatus = normalizeRazorpayPaymentStatus(gatewayPayment?.status || webhookPayment?.status || webhookOrder?.status);
+        if (!['captured', 'paid'].includes(paymentStatus)) {
+            return res.status(200).json({ ok: true, ignored: true, status: paymentStatus });
+        }
+
+        razorpayPaymentId = String(gatewayPayment?.id || razorpayPaymentId).trim();
+        razorpayOrderId = String(gatewayPayment?.order_id || razorpayOrderId).trim();
+
+        const databases = getDatabases();
+        const paymentAttempt = await findPaymentAttemptForVerification(databases, {
+            gatewayOrderId: razorpayOrderId,
+            gatewayPaymentId: razorpayPaymentId
+        });
+
+        if (!paymentAttempt) {
+            return res.status(202).json({ ok: true, ignored: true, reason: 'payment_attempt_not_found' });
+        }
+
+        const { plan, pricing, appliedCoupon } = await resolveAttemptPlanPurchase(databases, paymentAttempt);
+        if (Number(pricing.final_amount || 0) <= 0) {
+            return res.status(200).json({ ok: true, ignored: true, reason: 'no_charge_attempt' });
+        }
+
+        const gatewayAmount = Number(gatewayPayment?.amount || webhookPayment?.amount || 0) / 100;
+        const gatewayCurrency = normalizeCurrency(gatewayPayment?.currency || webhookPayment?.currency || pricing.currency);
+        if (gatewayAmount > 0 && Math.abs(gatewayAmount - Number(pricing.final_amount || 0)) > 0.01) {
+            return res.status(409).json({ error: 'Webhook payment amount does not match the payment attempt.' });
+        }
+        if (gatewayCurrency !== normalizeCurrency(pricing.currency)) {
+            return res.status(409).json({ error: 'Webhook payment currency does not match the payment attempt.' });
+        }
+
+        const response = await finalizePlanPurchase({
+            databases,
+            userId: paymentAttempt.user_id,
+            plan,
+            pricing,
+            appliedCoupon,
+            razorpay_order_id: razorpayOrderId,
+            razorpay_payment_id: razorpayPaymentId,
+            paymentAttemptId: paymentAttempt.$id,
+            notes: `Razorpay webhook (${eventName})`
+        });
+
+        return res.status(200).json({
+            ok: true,
+            event: eventName,
+            payment_attempt_id: paymentAttempt.$id,
+            plan_id: response?.plan?.plan_id || null
+        });
+    } catch (error) {
+        console.error('Razorpay webhook error:', describeError(error));
+        return res.status(500).json({ error: 'Failed to process Razorpay webhook.' });
     }
 });
 

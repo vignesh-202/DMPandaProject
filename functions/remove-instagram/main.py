@@ -1,14 +1,37 @@
 import os
 import json
+import time
 from appwrite.client import Client
 from appwrite.query import Query
 
 PAGE_SIZE = 100
+MAX_RETRIES = 3
+
+
+def _is_transient_error(error: Exception) -> bool:
+    message = str(error or "").strip().lower()
+    return any(marker in message for marker in {
+        "fetch failed",
+        "socket hang up",
+        "etimedout",
+        "econnreset",
+        "enotfound",
+        "eai_again",
+    })
 
 
 def _call_appwrite(client, method, path, params=None):
     headers = {"content-type": "application/json"}
-    return client.call(method, path=path, headers=headers, params=params or {}, response_type="json")
+    last_error = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            return client.call(method, path=path, headers=headers, params=params or {}, response_type="json")
+        except Exception as error:
+            last_error = error
+            if attempt >= (MAX_RETRIES - 1) or not _is_transient_error(error):
+                raise
+            time.sleep(0.25 * (attempt + 1))
+    raise last_error
 
 
 def _parse_body(context):
@@ -54,6 +77,122 @@ def _delete_by_queries(client, db_id, collection_id, queries, dry_run=False):
     return deleted
 
 
+def _list_by_queries(client, db_id, collection_id, queries):
+    rows = []
+    cursor = None
+    while True:
+        page_queries = list(queries) + [Query.limit(PAGE_SIZE)]
+        if cursor:
+            page_queries.append(Query.cursor_after(cursor))
+        docs = _call_appwrite(
+            client,
+            "get",
+            f"/databases/{db_id}/collections/{collection_id}/documents",
+            {"queries": page_queries},
+        )
+        page_rows = _obj_get(docs, "documents", []) or []
+        if not page_rows:
+            break
+        rows.extend(page_rows)
+        if len(page_rows) < PAGE_SIZE:
+            break
+        cursor = str(_obj_get(page_rows[-1], "$id", "") or "").strip() or None
+        if not cursor:
+            break
+    return rows
+
+
+def _safe_int(value, fallback=0):
+    try:
+        if value in (None, ""):
+            return fallback
+        return int(float(str(value)))
+    except Exception:
+        return fallback
+
+
+def _parse_json_object(value):
+    if value in (None, "", {}):
+        return {}
+    try:
+        parsed = json.loads(value) if isinstance(value, str) else value
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        return {}
+
+
+def _recompute_account_access(client, db_id, user_id, profile_doc, dry_run=False):
+    if not user_id:
+        return 0
+    limits_payload = _parse_json_object(_obj_get(profile_doc, "limits_json"))
+    active_limit = _safe_int(
+        limits_payload.get("instagram_connections_limit", _obj_get(profile_doc, "instagram_connections_limit")),
+        0,
+    )
+    accounts = _list_by_queries(client, db_id, "ig_accounts", [Query.equal("user_id", str(user_id))])
+    ordered_active = [
+        account for account in accounts
+        if _obj_get(account, "is_active", True) is not False
+        and str(_obj_get(account, "status") or "active").strip().lower() == "active"
+    ]
+    ordered_active.sort(
+        key=lambda account: (
+            str(_obj_get(account, "linked_at") or ""),
+            str(_obj_get(account, "$createdAt") or ""),
+            str(_obj_get(account, "$id") or ""),
+        )
+    )
+    default_window_ids = {
+        str(_obj_get(account, "$id", "") or "").strip()
+        for account in ordered_active[:max(0, active_limit)]
+    }
+
+    updated = 0
+    for account in accounts:
+        account_id = str(_obj_get(account, "$id", "") or "").strip()
+        if not account_id:
+            continue
+        linked_active = (
+            _obj_get(account, "is_active", True) is not False
+            and str(_obj_get(account, "status") or "active").strip().lower() == "active"
+        )
+        admin_disabled = _obj_get(account, "admin_disabled", False) is True
+        access_override_enabled = _obj_get(account, "access_override_enabled", False) is True
+        plan_locked = bool(linked_active and account_id not in default_window_ids and not access_override_enabled)
+        effective_access = bool(linked_active and not admin_disabled and (not plan_locked or access_override_enabled))
+        access_state = "inactive"
+        access_reason = "inactive"
+        if linked_active:
+            if admin_disabled:
+                access_state = "admin_disabled"
+                access_reason = "admin_disabled"
+            elif plan_locked and not access_override_enabled:
+                access_state = "plan_locked"
+                access_reason = "plan_locked"
+            elif access_override_enabled:
+                access_state = "override_enabled"
+                access_reason = "override_enabled"
+            else:
+                access_state = "active"
+                access_reason = None
+        if not dry_run:
+            _call_appwrite(
+                client,
+                "patch",
+                f"/databases/{db_id}/collections/ig_accounts/documents/{account_id}",
+                {
+                    "data": {
+                        "plan_locked": plan_locked,
+                        "effective_access": effective_access,
+                        "access_state": access_state,
+                        "access_reason": access_reason,
+                    }
+                },
+            )
+        updated += 1
+    return updated
+
+
 # Handle Instagram account unlink (soft delete) and delete (hard delete with cascade).
 def main(context):
     try:
@@ -84,18 +223,30 @@ def main(context):
             )
             ig_user_id = account.get('ig_user_id')
             account_id = account.get('account_id')
+            user_id = account.get('user_id')
         except Exception as e:
             return context.res.json({"error": f"Account not found: {str(e)}"}, 404)
 
+        profile = None
+        if user_id:
+            profile_rows = _list_by_queries(
+                client,
+                db_id,
+                "profiles",
+                [Query.equal("user_id", str(user_id)), Query.limit(1)],
+            )
+            profile = profile_rows[0] if profile_rows else {}
+
         if action == 'unlink':
-            # Soft delete: set is_active to false
+            # Preserve the record so relink can refresh linked_at and keep ordering semantics.
             if not dry_run:
                 _call_appwrite(
                     client,
                     "patch",
                     f"/databases/{db_id}/collections/{IG_ACCOUNTS_COLLECTION}/documents/{account_doc_id}",
-                    {"data": {"is_active": False, "status": "inactive"}},
+                    {"data": {"is_active": False, "status": "unlinked", "effective_access": False, "access_state": "inactive", "access_reason": "inactive"}},
                 )
+                _recompute_account_access(client, db_id, user_id, profile, dry_run=False)
             context.log(f"Account unlinked: {account_doc_id}")
             return context.res.json({"status": "success", "dry_run": dry_run, "message": "Account unlinked"})
 
@@ -170,6 +321,7 @@ def main(context):
                     "delete",
                     f"/databases/{db_id}/collections/{IG_ACCOUNTS_COLLECTION}/documents/{account_doc_id}",
                 )
+                _recompute_account_access(client, db_id, user_id, profile, dry_run=False)
             context.log(f"Account deleted: {account_doc_id}")
             
             return context.res.json({"status": "success", "dry_run": dry_run, "deleted_counts": deleted_counts, "message": "Account and related data deleted"})

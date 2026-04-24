@@ -9,6 +9,7 @@ from appwrite.query import Query
 
 PAGE_SIZE = 100
 STALE_AFTER_HOURS = 24
+PAID_PLAN_ACTIVE_STATUSES = {"active", "trial"}
 
 
 def _env(key: str, default: str = "") -> str:
@@ -60,6 +61,11 @@ def _to_iso(value):
 def _call_appwrite(client: Client, method: str, path: str, params=None):
     headers = {"content-type": "application/json"}
     return client.call(method, path=path, headers=headers, params=params or {}, response_type="json")
+
+
+def _is_duplicate_conflict(error: Exception) -> bool:
+    message = str(error or "").strip().lower()
+    return "already exists" in message or "document with the requested id already exists" in message or "409" in message
 
 
 def _list_all(client: Client, db_id: str, collection_id: str, queries=None):
@@ -119,12 +125,16 @@ def _create_document(client: Client, db_id: str, collection_id: str, document_id
 
 
 def _send_email(client: Client, user_id: str, subject: str, html: str):
+    _send_email_with_id(client, ID.unique(), user_id, subject, html)
+
+
+def _send_email_with_id(client: Client, message_id: str, user_id: str, subject: str, html: str):
     _call_appwrite(
         client,
         "post",
         "/messaging/messages/email",
         {
-            "messageId": ID.unique(),
+            "messageId": message_id,
             "subject": subject,
             "content": html,
             "users": [user_id],
@@ -162,6 +172,37 @@ def _normalize_plan_code(value):
 def _normalize_billing_cycle(value):
     normalized = str(value or "").strip().lower()
     return normalized if normalized in {"monthly", "yearly"} else "monthly"
+
+
+def _normalize_attempt_status(value):
+    normalized = str(value or "").strip().lower()
+    return normalized if normalized in {"created", "paid", "expired", "cleared", "cancelled"} else "created"
+
+
+def _parse_json_object(value, fallback=None):
+    if value in (None, ""):
+        return {} if fallback is None else fallback
+    try:
+        parsed = json.loads(value) if isinstance(value, str) else value
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+    return {} if fallback is None else fallback
+
+
+def _serialize_json_object(value):
+    return json.dumps(value or {}, separators=(",", ":")) if value else None
+
+
+def _build_attempt_meta(attempt, **updates):
+    meta = _parse_json_object(_obj_get(attempt, "meta_json"), {})
+    for key, value in updates.items():
+        if value is None:
+            meta.pop(key, None)
+        else:
+            meta[key] = value
+    return meta
 
 
 def _transaction_created_at(transaction):
@@ -221,8 +262,41 @@ def _find_success_transaction(transactions, attempt):
     return None, None
 
 
+def _is_profile_currently_paid(profile, now):
+    if not profile:
+        return False
+    plan_code = _normalize_plan_code(_obj_get(profile, "plan_code"))
+    plan_status = str(_obj_get(profile, "plan_status") or "").strip().lower()
+    expires_at = _parse_datetime(_obj_get(profile, "expires_at"))
+    if plan_code == "free" or plan_status not in PAID_PLAN_ACTIVE_STATUSES:
+        return False
+    if expires_at and expires_at <= now:
+        return False
+    return True
+
+
+def _cleanup_attempt_document(client, db_id, attempts_collection, attempt, next_status=None, meta_updates=None):
+    attempt_id = str(_obj_get(attempt, "$id", "") or "").strip()
+    if not attempt_id:
+        return False
+    patch = {}
+    if next_status:
+        patch["status"] = next_status
+    if meta_updates is not None:
+        patch["meta_json"] = _serialize_json_object(_build_attempt_meta(attempt, **meta_updates))
+    if patch:
+        _update_document(client, db_id, attempts_collection, attempt_id, patch)
+        attempt = {
+            **attempt,
+            **patch
+        }
+    _delete_document(client, db_id, attempts_collection, attempt_id)
+    return True
+
+
 def _send_payment_reminder(client, attempt):
     user_id = str(_obj_get(attempt, "user_id", "") or "").strip()
+    attempt_id = str(_obj_get(attempt, "$id", "") or "").strip()
     plan_name = str(_obj_get(attempt, "plan_name") or "DM Panda Plan").strip()
     billing_cycle = str(_obj_get(attempt, "billing_cycle") or "monthly").strip()
     subject = "Finish your DM Panda payment"
@@ -235,7 +309,14 @@ def _send_payment_reminder(client, attempt):
       </body>
     </html>
     """
-    _send_email(client, user_id, subject, html)
+    message_id = hashlib.sha1(f"payment-reminder:{attempt_id}".encode("utf-8")).hexdigest()[:32]
+    try:
+        _send_email_with_id(client, message_id, user_id, subject, html)
+        return "sent"
+    except Exception as error:
+        if _is_duplicate_conflict(error):
+            return "already_sent"
+        raise
 
 
 def main(context):
@@ -254,17 +335,21 @@ def main(context):
 
         attempts_collection = _env("PAYMENT_ATTEMPTS_COLLECTION_ID", "payment_attempts")
         transactions_collection = _env("TRANSACTIONS_COLLECTION_ID", "transactions")
+        profiles_collection = _env("PROFILES_COLLECTION_ID", "profiles")
         job_locks_collection = _env("JOB_LOCKS_COLLECTION_ID", "job_locks")
 
         run_window = datetime.now(timezone.utc).strftime("%Y%m%d%H")
         if not _acquire_run_lock(client, db_id, job_locks_collection, "payment-reminders", run_window):
             return context.res.json({"status": "ok", "skipped_due_lock": 1})
 
-        attempts = _list_all(client, db_id, attempts_collection, [Query.equal("status", "created")])
-        cleanup_attempts = []
-        for status in ("expired", "cleared", "cancelled"):
-            cleanup_attempts.extend(_list_all(client, db_id, attempts_collection, [Query.equal("status", status)]))
+        attempts = _list_all(client, db_id, attempts_collection)
         transactions = _list_all(client, db_id, transactions_collection)
+        profiles = _list_all(client, db_id, profiles_collection)
+        profiles_by_user_id = {
+            str(_obj_get(profile, "user_id", "") or "").strip(): profile
+            for profile in profiles
+            if str(_obj_get(profile, "user_id", "") or "").strip()
+        }
         now = datetime.now(timezone.utc)
         stale_before = now - timedelta(hours=STALE_AFTER_HOURS)
 
@@ -273,57 +358,100 @@ def main(context):
             "run_window": run_window,
             "scanned": 0,
             "reminded": 0,
-            "cleared_paid": 0,
-            "cleared_superseded": 0,
+            "already_reminded": 0,
+            "cleaned_paid_plan": 0,
+            "cleaned_reconciled": 0,
+            "cleaned_terminal": 0,
+            "cleaned_abandoned": 0,
             "deleted": 0,
             "failed": 0,
             "skipped_due_lock": 0,
         }
 
-        for attempt in cleanup_attempts:
-            attempt_id = str(_obj_get(attempt, "$id", "") or "").strip()
-            if not attempt_id:
-                continue
-            try:
-                _delete_document(client, db_id, attempts_collection, attempt_id)
-                summary["deleted"] += 1
-            except Exception as error:
-                summary["failed"] += 1
-                context.error(json.dumps({
-                    "job": "payment-reminders",
-                    "attempt_id": attempt_id,
-                    "user_id": _obj_get(attempt, "user_id"),
-                    "error": str(error),
-                    "action": "cleanup_existing_terminal_attempt",
-                }))
-
         for attempt in attempts:
             summary["scanned"] += 1
             attempt_id = str(_obj_get(attempt, "$id", "") or "").strip()
             created_at = _parse_datetime(_obj_get(attempt, "created_at") or _obj_get(attempt, "$createdAt"))
+            attempt_status = _normalize_attempt_status(_obj_get(attempt, "status"))
             if not attempt_id or not created_at or created_at > stale_before:
                 continue
             try:
+                if attempt_status in {"expired", "cleared", "cancelled", "paid"}:
+                    _cleanup_attempt_document(client, db_id, attempts_collection, attempt)
+                    summary["cleaned_terminal"] += 1
+                    summary["deleted"] += 1
+                    continue
+
                 transaction, match_type = _find_success_transaction(transactions, attempt)
                 if transaction:
-                    _update_document(client, db_id, attempts_collection, attempt_id, {"status": "cleared"})
-                    _delete_document(client, db_id, attempts_collection, attempt_id)
-                    summary["cleared_paid"] += 1
+                    _cleanup_attempt_document(
+                        client,
+                        db_id,
+                        attempts_collection,
+                        attempt,
+                        next_status="cleared",
+                        meta_updates={
+                            "cleanup_reason": f"reconciled:{match_type or 'transaction'}",
+                            "cleanup_at": _to_iso(now),
+                        },
+                    )
+                    summary["cleaned_reconciled"] += 1
                     summary["deleted"] += 1
                     continue
 
                 superseding_transaction = _find_superseding_transaction(transactions, attempt, created_at)
                 if superseding_transaction:
-                    _update_document(client, db_id, attempts_collection, attempt_id, {"status": "cleared"})
-                    _delete_document(client, db_id, attempts_collection, attempt_id)
-                    summary["cleared_superseded"] += 1
+                    _cleanup_attempt_document(
+                        client,
+                        db_id,
+                        attempts_collection,
+                        attempt,
+                        next_status="cleared",
+                        meta_updates={
+                            "cleanup_reason": "superseded_by_paid_transaction",
+                            "cleanup_at": _to_iso(now),
+                        },
+                    )
+                    summary["cleaned_reconciled"] += 1
                     summary["deleted"] += 1
                     continue
 
-                _send_payment_reminder(client, attempt)
-                _update_document(client, db_id, attempts_collection, attempt_id, {"status": "expired"})
-                _delete_document(client, db_id, attempts_collection, attempt_id)
-                summary["reminded"] += 1
+                user_id = str(_obj_get(attempt, "user_id", "") or "").strip()
+                profile = profiles_by_user_id.get(user_id)
+                if _is_profile_currently_paid(profile, now):
+                    _cleanup_attempt_document(
+                        client,
+                        db_id,
+                        attempts_collection,
+                        attempt,
+                        next_status="cleared",
+                        meta_updates={
+                            "cleanup_reason": "user_already_on_paid_plan",
+                            "cleanup_at": _to_iso(now),
+                        },
+                    )
+                    summary["cleaned_paid_plan"] += 1
+                    summary["deleted"] += 1
+                    continue
+
+                reminder_result = _send_payment_reminder(client, attempt)
+                _cleanup_attempt_document(
+                    client,
+                    db_id,
+                    attempts_collection,
+                    attempt,
+                    next_status="expired",
+                    meta_updates={
+                        "reminder_sent_at": _to_iso(now),
+                        "cleanup_reason": "abandoned_payment_attempt",
+                        "cleanup_at": _to_iso(now),
+                    },
+                )
+                if reminder_result == "sent":
+                    summary["reminded"] += 1
+                elif reminder_result == "already_sent":
+                    summary["already_reminded"] += 1
+                summary["cleaned_abandoned"] += 1
                 summary["deleted"] += 1
             except Exception as error:
                 summary["failed"] += 1
@@ -332,6 +460,7 @@ def main(context):
                     "attempt_id": attempt_id,
                     "user_id": _obj_get(attempt, "user_id"),
                     "error": str(error),
+                    "attempt_status": attempt_status,
                 }))
 
         context.log(json.dumps(summary))

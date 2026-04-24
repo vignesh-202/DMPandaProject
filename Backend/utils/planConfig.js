@@ -416,27 +416,19 @@ const applySnapshotRuntimeState = ({
 };
 
 const getRuntimePlanIdentity = (profile = null) => ({
-    plan_code: normalizePlanCode(
-        profile?.plan_code
-        || profile?.subscription_plan_id
-        || 'free'
-    ) || 'free',
-    plan_name: String(profile?.plan_name || profile?.subscription_plan_id || 'Free Plan').trim() || 'Free Plan',
-    plan_status: normalizeSubscriptionStatus(
-        profile?.plan_status
-        || profile?.subscription_status
-        || 'inactive'
-    ),
+    plan_code: normalizePlanCode(profile?.plan_code || 'free') || 'free',
+    plan_name: String(profile?.plan_name || 'Free Plan').trim() || 'Free Plan',
+    plan_status: normalizeSubscriptionStatus(profile?.plan_status || 'inactive'),
     billing_cycle: profile?.billing_cycle
         ? normalizeBillingCycle(profile.billing_cycle)
-        : (profile?.subscription_billing_cycle ? normalizeBillingCycle(profile.subscription_billing_cycle) : null),
-    expires_at: profile?.expires_at || profile?.subscription_expires || null
+        : null,
+    expires_at: profile?.expires_at || null
 });
 
 const inferPlanSource = (profile = null, selfMemory = null) => {
-    const profilePlan = normalizePlanCode(profile?.plan_code || profile?.subscription_plan_id || 'free') || 'free';
+    const profilePlan = normalizePlanCode(profile?.plan_code || 'free') || 'free';
     const userPlan = normalizePlanCode(selfMemory?.plan_id || 'free') || 'free';
-    const profileExpiry = toIsoDateTime(profile?.expires_at || profile?.subscription_expires || null);
+    const profileExpiry = toIsoDateTime(profile?.expires_at || null);
     const userExpiry = toIsoDateTime(selfMemory?.plan_expires_at || null);
     if (profilePlan !== userPlan) return 'admin';
     if ((profileExpiry || null) !== (userExpiry || null)) return 'admin';
@@ -642,7 +634,7 @@ const buildPlanProfilePayload = ({
         : normalizeSubscriptionStatus(subscriptionStatus, 'active');
     const normalizedBillingCycle = isFreePlan
         ? null
-        : normalizeBillingCycle(billingCycle || currentProfile?.billing_cycle || currentProfile?.subscription_billing_cycle || 'monthly');
+        : normalizeBillingCycle(billingCycle || currentProfile?.billing_cycle || 'monthly');
     const normalizedExpires = isFreePlan ? null : toIsoDateTime(subscriptionExpires);
     const defaults = resolvePlanLimits(plan, null);
     const nextFeatureOverrides = featureOverrides === undefined

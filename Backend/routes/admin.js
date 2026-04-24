@@ -523,6 +523,38 @@ const getProfileForUser = async (databases, userId) => {
     return docs.documents[0] || null;
 };
 
+const buildProfileRollbackPayload = (profile = null) => {
+    if (!profile) return null;
+    return {
+        user_id: String(profile.user_id || '').trim() || null,
+        plan_code: profile.plan_code || null,
+        plan_name: profile.plan_name || null,
+        plan_status: profile.plan_status || 'inactive',
+        billing_cycle: profile.billing_cycle || null,
+        expires_at: profile.expires_at || null,
+        limits_json: profile.limits_json || null,
+        features_json: profile.features_json || null,
+        paid_plan_snapshot_json: profile.paid_plan_snapshot_json || null,
+        admin_override_json: profile.admin_override_json || null,
+        kill_switch_enabled: profile.kill_switch_enabled !== false,
+        instagram_connections_limit: Number(profile.instagram_connections_limit || 0),
+        instagram_link_limit: Number(profile.instagram_link_limit || 0),
+        hourly_action_limit: Number(profile.hourly_action_limit || 0),
+        daily_action_limit: Number(profile.daily_action_limit || 0),
+        monthly_action_limit: Number(profile.monthly_action_limit || 0),
+        feature_overrides_json: profile.feature_overrides_json || null,
+        credits: Number(profile.credits || 0),
+        hourly_actions_used: Number(profile.hourly_actions_used || 0),
+        daily_actions_used: Number(profile.daily_actions_used || 0),
+        monthly_actions_used: Number(profile.monthly_actions_used || 0)
+    };
+};
+
+const restoreProfileDocument = async (databases, profileId, rollbackPayload) => {
+    if (!profileId || !rollbackPayload) return null;
+    return databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, rollbackPayload);
+};
+
 const normalizePlanCode = (value) => String(value || '').trim().toLowerCase();
 const toFiniteNumber = (value, fallback = null) => {
     const normalized = Number(value);
@@ -868,9 +900,9 @@ const buildEmailCampaignAudience = async ({ databases, messaging }, rawFilters =
                 })
                 .filter(Boolean);
 
-            const currentPlan = normalizePlanCode(profile?.plan_code || profile?.subscription_plan_id || 'free') || 'free';
-            const currentStatus = String(profile?.plan_status || profile?.subscription_status || 'inactive').trim().toLowerCase() || 'inactive';
-            const expiresAt = profile?.expires_at || profile?.subscription_expires || null;
+            const currentPlan = normalizePlanCode(profile?.plan_code || 'free') || 'free';
+            const currentStatus = String(profile?.plan_status || 'inactive').trim().toLowerCase() || 'inactive';
+            const expiresAt = profile?.expires_at || null;
             const linkedInstagramAccounts = Number(linkedCounts[userId] || 0);
             const hasTransactions = userTransactions.length > 0;
             const hasPaidHistory = userTransactions.some((transaction) => transaction.planCode && transaction.planCode !== 'free' && transaction.amount > 0);
@@ -1055,9 +1087,9 @@ const buildDashboardMetrics = async (databases) => {
         total_users: users.length,
         linked_instagram_accounts: accounts.length,
         paid_users: profiles.filter((profile) =>
-            String(profile.plan_status || profile.subscription_status || '').toLowerCase() === 'active'
-            && String(profile.plan_code || profile.subscription_plan_id || '').trim()
-            && String(profile.plan_code || profile.subscription_plan_id || '').trim().toLowerCase() !== 'free'
+            String(profile.plan_status || '').toLowerCase() === 'active'
+            && String(profile.plan_code || '').trim()
+            && String(profile.plan_code || '').trim().toLowerCase() !== 'free'
         ).length,
         overall_success_rate: statusLogs.length > 0
             ? Math.round((successLogs.length / statusLogs.length) * 100)
@@ -1082,7 +1114,7 @@ const buildDashboardMetrics = async (databases) => {
     });
 
     const plans = profiles.reduce((acc, profile) => {
-        const key = String(profile.plan_code || profile.subscription_plan_id || 'free').trim() || 'free';
+        const key = String(profile.plan_code || 'free').trim() || 'free';
         acc[key] = Number(acc[key] || 0) + 1;
         return acc;
     }, {});
@@ -1840,7 +1872,7 @@ router.get('/users', loginRequired, adminRequired, async (req, res) => {
                     if (filters.plan) {
                         const effectivePlan = String(
                             user.profile?.plan_code
-                            || user.profile?.subscription_plan_id
+                            || user.profile?.plan_code
                             || ''
                         ).toLowerCase();
                         if (effectivePlan !== filters.plan) return false;
@@ -1848,7 +1880,7 @@ router.get('/users', loginRequired, adminRequired, async (req, res) => {
                     if (filters.subscription_status) {
                         const effectiveStatus = String(
                             user.profile?.plan_status
-                            || user.profile?.subscription_status
+                            || user.profile?.plan_status
                             || ''
                         ).toLowerCase();
                         if (effectiveStatus !== filters.subscription_status) return false;
@@ -1930,17 +1962,17 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
         const existingProfile = await getProfileForUser(databases, userId);
         const action = String(req.body?.action || 'change_assigned_plan').trim().toLowerCase();
         const pricingPlans = await listPricingPlans(databases);
-        const currentPlanId = String(existingProfile?.plan_code || existingProfile?.subscription_plan_id || 'free').trim() || 'free';
+        const currentPlanId = String(existingProfile?.plan_code || 'free').trim() || 'free';
         const currentPlan = pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === normalizePlanCode(currentPlanId))
             || pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === 'free')
             || null;
         const profileConfig = parseProfileConfig(existingProfile);
-        const currentBillingCycle = normalizeBillingCycle(existingProfile?.billing_cycle || existingProfile?.subscription_billing_cycle || 'monthly');
+        const currentBillingCycle = normalizeBillingCycle(existingProfile?.billing_cycle || 'monthly');
 
         let nextPlan = currentPlan;
         let nextPlanId = String(currentPlan?.plan_code || currentPlan?.id || 'free').trim() || 'free';
-        let nextStatus = normalizeSubscriptionStatus(existingProfile?.plan_status || existingProfile?.subscription_status || 'inactive');
-        let nextExpires = existingProfile?.expires_at || existingProfile?.subscription_expires || null;
+        let nextStatus = normalizeSubscriptionStatus(existingProfile?.plan_status || 'inactive');
+        let nextExpires = existingProfile?.expires_at || null;
         let nextBillingCycle = currentBillingCycle;
         let featureOverrides = req.body?.feature_overrides_json == null
             ? profileConfig.feature_overrides
@@ -1949,7 +1981,7 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
         let paidPlanSnapshot = profileConfig.paid_plan_snapshot;
 
         if (action === 'change_assigned_plan') {
-            const requestedPlanId = String(req.body?.plan_code || req.body?.subscription_plan_id || 'free').trim() || 'free';
+            const requestedPlanId = String(req.body?.plan_code || 'free').trim() || 'free';
             const requestedPlanCode = normalizePlanCode(requestedPlanId);
             nextPlan = requestedPlanCode === 'free'
                 ? (pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === 'free') || null)
@@ -1962,14 +1994,14 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
                 : String(nextPlan?.plan_code || nextPlan?.id || requestedPlanId).trim();
             nextStatus = nextPlanId === 'free'
                 ? 'inactive'
-                : normalizeSubscriptionStatus(req.body?.plan_status || req.body?.subscription_status || existingProfile?.plan_status || existingProfile?.subscription_status || 'active');
+                : normalizeSubscriptionStatus(req.body?.plan_status || existingProfile?.plan_status || 'active');
             nextBillingCycle = nextPlanId === 'free'
                 ? null
-                : normalizeBillingCycle(req.body?.billing_cycle || req.body?.subscription_billing_cycle || existingProfile?.billing_cycle || existingProfile?.subscription_billing_cycle || 'monthly');
+                : normalizeBillingCycle(req.body?.billing_cycle || existingProfile?.billing_cycle || 'monthly');
             nextExpires = nextPlanId === 'free'
                 ? null
                 : resolveAdminSubscriptionExpiry({
-                    requestedExpiry: req.body?.custom_expiry_date || req.body?.expires_at || req.body?.subscription_expires,
+                    requestedExpiry: req.body?.custom_expiry_date || req.body?.expires_at,
                     requestedDurationDays: req.body?.duration_days,
                     billingCycle: nextBillingCycle,
                     fallbackToDefaultThirtyDays: true
@@ -2023,25 +2055,44 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             payload.kill_switch_enabled = req.body.kill_switch_enabled !== false;
         }
 
+        const previousProfileSnapshot = buildProfileRollbackPayload(existingProfile);
+        const previousUserKillSwitch = userDocument?.kill_switch_enabled;
         let profile;
-        if (existingProfile) {
-            profile = await databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, existingProfile.$id, payload);
-        } else {
-            profile = await databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, userId, {
-                user_id: userId,
-                credits: 0,
-                ...payload
-            });
-        }
-
+        let user;
+        let instagram_accounts;
         const userUpdate = {};
         if (req.body?.kill_switch_enabled !== undefined) {
             userUpdate.kill_switch_enabled = req.body.kill_switch_enabled !== false;
         }
-        const user = Object.keys(userUpdate).length > 0
-            ? await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, userUpdate)
-            : await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
-        const instagram_accounts = await recomputeAccountAccessForUser(databases, userId, profile);
+
+        try {
+            if (existingProfile) {
+                profile = await databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, existingProfile.$id, payload);
+            } else {
+                profile = await databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, userId, {
+                    user_id: userId,
+                    credits: 0,
+                    ...payload
+                });
+            }
+
+            user = Object.keys(userUpdate).length > 0
+                ? await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, userUpdate)
+                : await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
+            instagram_accounts = await recomputeAccountAccessForUser(databases, userId, profile);
+        } catch (error) {
+            if (profile?.$id && existingProfile?.$id && previousProfileSnapshot) {
+                await restoreProfileDocument(databases, existingProfile.$id, previousProfileSnapshot).catch(() => null);
+            } else if (profile?.$id && !existingProfile?.$id) {
+                await databases.deleteDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profile.$id).catch(() => null);
+            }
+            if (Object.prototype.hasOwnProperty.call(userUpdate, 'kill_switch_enabled')) {
+                await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, {
+                    kill_switch_enabled: previousUserKillSwitch !== false
+                }).catch(() => null);
+            }
+            throw error;
+        }
 
         await writeAdminAuditLog(databases, {
             adminId: req.user.$id,
@@ -2115,14 +2166,14 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
         const profile = await getProfileForUser(databases, userId);
         const pricingPlans = await listPricingPlans(databases);
         const action = String(req.body?.action || 'reset_to_paid_snapshot_or_free').trim().toLowerCase();
-        const currentPlanId = String(profile?.plan_code || profile?.subscription_plan_id || 'free').trim() || 'free';
+        const currentPlanId = String(profile?.plan_code || 'free').trim() || 'free';
         let nextPlan = pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === normalizePlanCode(currentPlanId))
             || pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === 'free')
             || null;
         let nextPlanId = String(nextPlan?.plan_code || nextPlan?.id || 'free').trim() || 'free';
-        let nextStatus = normalizeSubscriptionStatus(profile?.plan_status || profile?.subscription_status || 'inactive');
-        let nextExpires = profile?.expires_at || profile?.subscription_expires || null;
-        let nextBillingCycle = normalizeBillingCycle(profile?.billing_cycle || profile?.subscription_billing_cycle || 'monthly');
+        let nextStatus = normalizeSubscriptionStatus(profile?.plan_status || 'inactive');
+        let nextExpires = profile?.expires_at || null;
+        let nextBillingCycle = normalizeBillingCycle(profile?.billing_cycle || 'monthly');
         let limitOverrides = {};
         let featureOverrides = {};
 
@@ -2138,23 +2189,31 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
         }
 
         if (profile) {
-            const updatedProfile = await databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profile.$id, {
-                ...buildPlanProfilePayload({
-                    currentProfile: profile,
-                    plan: nextPlan,
-                    planId: nextPlanId,
-                    billingCycle: nextBillingCycle,
-                    subscriptionStatus: nextStatus,
-                    subscriptionExpires: nextExpires,
-                    featureOverrides,
-                    limitOverrides,
-                    paidPlanSnapshot: nextPlanId === 'free'
-                        ? null
-                        : buildPlanSnapshot(nextPlan, nextExpires, nextStatus, nextBillingCycle),
-                    resetReminderState: true
-                })
-            });
-            await recomputeAccountAccessForUser(databases, userId, updatedProfile);
+            const previousProfileSnapshot = buildProfileRollbackPayload(profile);
+            try {
+                const updatedProfile = await databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profile.$id, {
+                    ...buildPlanProfilePayload({
+                        currentProfile: profile,
+                        plan: nextPlan,
+                        planId: nextPlanId,
+                        billingCycle: nextBillingCycle,
+                        subscriptionStatus: nextStatus,
+                        subscriptionExpires: nextExpires,
+                        featureOverrides,
+                        limitOverrides,
+                        paidPlanSnapshot: nextPlanId === 'free'
+                            ? null
+                            : buildPlanSnapshot(nextPlan, nextExpires, nextStatus, nextBillingCycle),
+                        resetReminderState: true
+                    })
+                });
+                await recomputeAccountAccessForUser(databases, userId, updatedProfile);
+            } catch (error) {
+                if (previousProfileSnapshot) {
+                    await restoreProfileDocument(databases, profile.$id, previousProfileSnapshot).catch(() => null);
+                }
+                throw error;
+            }
         }
         await writeAdminAuditLog(databases, {
             adminId: req.user.$id,
