@@ -76,7 +76,8 @@
     "entrypoint": "main.py",
     "buildCommands": "pip install appwrite python-dotenv requests",
     "timeout": 900,
-    "schedule": "*/30 * * * *"
+    "schedule": "*/30 * * * *",
+    "scopes": ["documents.read", "documents.write", "messages.write"]
   },
   {
     "functionId": "payment-reminders",
@@ -86,6 +87,18 @@
     "entrypoint": "main.py",
     "buildCommands": "pip install appwrite python-dotenv requests",
     "timeout": 900,
-    "schedule": "0 * * * *"
+    "schedule": "0 * * * *",
+    "scopes": ["documents.read", "documents.write", "messages.write"]
+  },
+  {
+    "functionId": "inactive-user-cleanup",
+    "name": "inactive-user-cleanup",
+    "runtime": "python-3.9",
+    "path": "inactive-user-cleanup",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite python-dotenv requests",
+    "timeout": 900,
+    "schedule": "0 2 * * *",
+    "scopes": ["documents.read", "documents.write", "users.read", "users.write", "messages.write"]
   }
 ]

@@ -16,7 +16,7 @@
         "LOG_LEVEL": "error",
         "DISABLE_CONSOLE_OUTPUT": "true",
         "N8N_API_URL": "http://localhost:5678",
-        "N8N_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0YWJmYjRkZS1mY2FhLTQ5N2UtYjE4NS1lMGRkZTQzNjEwM2MiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY1MzY1NTczfQ.EpjpsbejdvZdpTDQrfgbVGc2OWBq3LMb5In1Ph7WqQA"
+        "N8N_API_KEY": "<redacted>"
       }
     },
     "appwrite-api": {
@@ -28,7 +28,7 @@
       "env": {
         "APPWRITE_ENDPOINT": "https://fra.cloud.appwrite.io/v1",
         "APPWRITE_PROJECT_ID": "68d0d95b001865f467e5",
-        "APPWRITE_API_KEY": "standard_eaeb38bcb7babdc1840619b3db85f5a3b6e48ff711e117a11021ccb2b64c718f9d097a15192e0b8c377051a915516f4ba5aeb54b5628b198522a3ae440055a08711a058aa3eb2dfc775dc41238fb2a8957958f2824ce39e8dcf4e7fff5b9fac7df6b9fb50cf5d41da51746686cac3c1451051f12a7d9512169d5e78fd392660d"
+        "APPWRITE_API_KEY": "<redacted>"
       }
     }
   }

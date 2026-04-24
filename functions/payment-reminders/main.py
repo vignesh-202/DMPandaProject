@@ -176,7 +176,7 @@ def _normalize_billing_cycle(value):
 
 def _normalize_attempt_status(value):
     normalized = str(value or "").strip().lower()
-    return normalized if normalized in {"created", "paid", "expired", "cleared", "cancelled"} else "created"
+    return normalized if normalized in {"created", "paid", "expired", "cancelled", "failed", "cleared"} else "created"
 
 
 def _parse_json_object(value, fallback=None):
@@ -376,7 +376,7 @@ def main(context):
             if not attempt_id or not created_at or created_at > stale_before:
                 continue
             try:
-                if attempt_status in {"expired", "cleared", "cancelled", "paid"}:
+                if attempt_status in {"expired", "cleared", "cancelled", "failed", "paid"}:
                     _cleanup_attempt_document(client, db_id, attempts_collection, attempt)
                     summary["cleaned_terminal"] += 1
                     summary["deleted"] += 1
@@ -389,7 +389,7 @@ def main(context):
                         db_id,
                         attempts_collection,
                         attempt,
-                        next_status="cleared",
+                        next_status="cancelled",
                         meta_updates={
                             "cleanup_reason": f"reconciled:{match_type or 'transaction'}",
                             "cleanup_at": _to_iso(now),
@@ -406,7 +406,7 @@ def main(context):
                         db_id,
                         attempts_collection,
                         attempt,
-                        next_status="cleared",
+                        next_status="cancelled",
                         meta_updates={
                             "cleanup_reason": "superseded_by_paid_transaction",
                             "cleanup_at": _to_iso(now),
@@ -424,7 +424,7 @@ def main(context):
                         db_id,
                         attempts_collection,
                         attempt,
-                        next_status="cleared",
+                        next_status="cancelled",
                         meta_updates={
                             "cleanup_reason": "user_already_on_paid_plan",
                             "cleanup_at": _to_iso(now),

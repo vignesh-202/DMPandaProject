@@ -45,6 +45,7 @@ module.exports = {
     PRICING_COLLECTION_ID: 'pricing',
     COUPONS_COLLECTION_ID: 'coupons',
     COUPON_REDEMPTIONS_COLLECTION_ID: 'coupon_redemptions',
+    INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID: 'inactive_user_cleanup_audit',
     PROFILES_COLLECTION_ID: 'profiles',
     AUTOMATIONS_COLLECTION_ID: 'automations',
     REPLY_TEMPLATES_COLLECTION_ID: 'reply_templates',
@@ -60,6 +61,7 @@ module.exports = {
     KEYWORD_INDEX_COLLECTION_ID: 'keyword_index',
     ADMIN_AUDIT_LOGS_COLLECTION_ID: 'admin_audit_logs',
     // Function IDs
-    FUNCTION_REMOVE_INSTAGRAM: process.env.FUNCTION_REMOVE_INSTAGRAM
+    FUNCTION_REMOVE_INSTAGRAM: process.env.FUNCTION_REMOVE_INSTAGRAM,
+    FUNCTION_INACTIVE_USER_CLEANUP: process.env.FUNCTION_INACTIVE_USER_CLEANUP
 };
 

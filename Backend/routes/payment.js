@@ -34,6 +34,7 @@ const {
 } = require('../utils/planConfig');
 const { loadUserAccessState } = require('../utils/accessControl');
 const { recomputeAccountAccessForUser } = require('../utils/accountAccess');
+const { touchUserActivity } = require('../utils/userActivity');
 
 const router = express.Router();
 
@@ -402,7 +403,7 @@ const buildTransactionDocumentData = ({
 
 const normalizePaymentAttemptStatus = (value, fallback = 'created') => {
     const normalized = String(value || '').trim().toLowerCase();
-    if (['created', 'paid', 'expired', 'cleared', 'cancelled'].includes(normalized)) {
+    if (['created', 'paid', 'expired', 'cancelled', 'failed', 'cleared'].includes(normalized)) {
         return normalized;
     }
     return fallback;
@@ -689,7 +690,7 @@ const clearSupersededPaymentAttempts = async ({
                 return !Number.isNaN(attemptCreated) && attemptCreated <= createdBeforeTs;
             })
             .map((attempt) => updatePaymentAttempt(databases, attempt.$id, {
-                status: 'cleared'
+                status: 'cancelled'
             }).catch(() => null))
     );
 };
@@ -807,6 +808,11 @@ const finalizePlanPurchase = async ({
     );
     const runtimeContext = await resolveUserPlanContext(databases, userId);
     await recomputeAccountAccessForUser(databases, userId, runtimeContext.profile);
+    await touchUserActivity(userId, {
+        databases,
+        force: true,
+        clearCleanupState: true
+    }).catch(() => null);
 
     if (paymentAttemptId) {
         await updatePaymentAttempt(databases, paymentAttemptId, {

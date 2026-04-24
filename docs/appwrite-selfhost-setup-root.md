@@ -20,7 +20,7 @@ This document captures the Appwrite self-host settings used for DM Panda so the 
 - `_APP_SMTP_PORT=465`
 - `_APP_SMTP_SECURE=ssl`
 - `_APP_SMTP_USERNAME=contact@dmpanda.com`
-- `_APP_SMTP_PASSWORD=Vigu@hostinger123456`
+- `_APP_SMTP_PASSWORD=<redacted>` stored only in the server `.env`
 
 ## DNS records
 - `appwrite.dmpanda.com` (Appwrite sub domain for appwrite console)
@@ -33,11 +33,11 @@ Note: If Appwrite Functions SSL is not working, first confirm the CNAME record e
 
 ## GitHub App
 - `_APP_VCS_GITHUB_APP_NAME=dm-panda-appwrite`
-- `_APP_VCS_GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAyoZTU1X7EXf4ZQkHbQ260NQhfidl9cIGxjY3/giaBH41oODM\nvc/yEnCITZ2rdQSQ4tu/9tS4tg9hNvvuY8PuL+prDtO>"`  <New line should be replaced with \n or else error will be returned and the entire string should be inside " ">
+- `_APP_VCS_GITHUB_PRIVATE_KEY="<redacted>"` stored only in the server `.env` and never committed
 - `_APP_VCS_GITHUB_APP_ID=2816895`
 - `_APP_VCS_GITHUB_CLIENT_ID=Iv23liSXCngBVaMahXJG`
-- `_APP_VCS_GITHUB_CLIENT_SECRET=bda4c49571737033d896d86c9d09b73e3236d6f3`
-- `_APP_VCS_GITHUB_WEBHOOK_SECRET=123456`
+- `_APP_VCS_GITHUB_CLIENT_SECRET=<redacted>` stored only in the server `.env`
+- `_APP_VCS_GITHUB_WEBHOOK_SECRET=<redacted>` stored only in the server `.env`
 
 Note: The private key must be wrapped in double quotes, and new lines must be replaced with `\n`.
 

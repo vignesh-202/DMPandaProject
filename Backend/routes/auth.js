@@ -16,6 +16,7 @@ const {
     loadUserAccessState,
     buildAccessDeniedPayload
 } = require('../utils/accessControl');
+const { ensureUserActivityDocument } = require('../utils/userActivity');
 
 const processedOAuthSecrets = new Map(); // Cache for duplicate prevention
 
@@ -122,40 +123,12 @@ const manageUserOnLogin = async (user) => {
     try {
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-
-        const existingDocs = await databases.listDocuments(
-            process.env.APPWRITE_DATABASE_ID,
-            USERS_COLLECTION_ID,
-            [Query.equal('$id', user.$id)]
-        );
-
-        if (existingDocs.total === 0) {
-            console.log(`Creating new user document for userId: ${user.$id}`);
-            await databases.createDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                USERS_COLLECTION_ID,
-                user.$id,
-                {
-                    name: user.name || 'N/A',
-                    email: user.email || 'N/A',
-                },
-                [
-                    Permission.read(Role.user(user.$id)),
-                    Permission.update(Role.user(user.$id))
-                ]
-            );
-        } else {
-            const docId = existingDocs.documents[0].$id;
-            await databases.updateDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                USERS_COLLECTION_ID,
-                docId,
-                {
-                    name: user.name || 'N/A',
-                    email: user.email || 'N/A',
-                }
-            );
-        }
+        console.log(`Refreshing login activity for userId: ${user.$id}`);
+        await ensureUserActivityDocument(user, {
+            databases,
+            markLogin: true,
+            clearCleanupState: true
+        });
     } catch (err) {
         console.error(`Failed to manage user document: ${err.message}`);
     }

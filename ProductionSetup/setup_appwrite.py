@@ -134,11 +134,63 @@ JOB_LOCKS_COLLECTION = {
     ],
 }
 
+INACTIVE_USER_CLEANUP_AUDIT_COLLECTION = {
+    "id": "inactive_user_cleanup_audit",
+    "name": "Inactive User Cleanup Audit",
+    "enabled": True,
+    "documentSecurity": False,
+    "permissions": [
+        "read(\"label:admin\")",
+        "create(\"label:admin\")",
+        "update(\"label:admin\")",
+        "delete(\"label:admin\")",
+    ],
+    "attributes": [
+        {"key": "user_hash", "type": "string", "size": 64, "required": True, "array": False, "default": None},
+        {"key": "email_hash", "type": "string", "size": 64, "required": False, "array": False, "default": None},
+        {
+            "key": "action",
+            "type": "string",
+            "required": True,
+            "array": False,
+            "default": None,
+            "elements": [
+                "warning_30d",
+                "warning_7d",
+                "warning_1d",
+                "warning_final",
+                "dry_run_candidate",
+                "skip_paid",
+                "skip_protected",
+                "skip_uncertain",
+                "delete_started",
+                "delete_completed",
+                "delete_failed",
+            ],
+        },
+        {"key": "plan_code", "type": "string", "size": 32, "required": False, "array": False, "default": None},
+        {"key": "reason", "type": "string", "size": 255, "required": False, "array": False, "default": None},
+        {"key": "last_active_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "scheduled_delete_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "dry_run", "type": "boolean", "required": False, "array": False, "default": False},
+        {"key": "details_json", "type": "string", "size": 4000, "required": False, "array": False, "default": None},
+        {"key": "created_at", "type": "datetime", "required": True, "array": False, "default": None},
+    ],
+    "indexes": [
+        {"key": "idx_cleanup_audit_user_created", "type": "key", "attributes": ["user_hash", "created_at"], "orders": []},
+        {"key": "idx_cleanup_audit_action_created", "type": "key", "attributes": ["action", "created_at"], "orders": []},
+        {"key": "idx_cleanup_audit_schedule", "type": "key", "attributes": ["scheduled_delete_at"], "orders": []},
+    ],
+}
+
 ADDITIONAL_ATTRIBUTES = {
     "users": [
         {"key": "plan_id", "type": "string", "required": False, "array": False, "default": "free", "size": 32},
         {"key": "plan_expires_at", "type": "datetime", "required": False, "array": False, "default": None},
         {"key": "kill_switch_enabled", "type": "boolean", "required": False, "array": False, "default": True},
+        {"key": "last_active_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "cleanup_protected", "type": "boolean", "required": False, "array": False, "default": False},
+        {"key": "cleanup_state_json", "type": "string", "required": False, "array": False, "default": None, "size": 4000},
     ],
     "profiles": [
         {"key": "plan_code", "type": "string", "required": False, "array": False, "default": None, "size": 32},
@@ -203,7 +255,7 @@ ADDITIONAL_ATTRIBUTES = {
             "required": True,
             "array": False,
             "default": "created",
-            "elements": ["created", "paid", "expired", "cleared", "cancelled"],
+            "elements": ["created", "paid", "failed", "cancelled", "expired"],
         },
     ],
 }
@@ -214,6 +266,8 @@ ADDITIONAL_INDEXES = {
         {"key": "idx_users_name_search", "type": "fulltext", "attributes": ["name"], "orders": []},
         {"key": "idx_users_plan_id", "type": "key", "attributes": ["plan_id"], "orders": []},
         {"key": "idx_users_plan_expiry", "type": "key", "attributes": ["plan_id", "plan_expires_at"], "orders": []},
+        {"key": "idx_users_last_active", "type": "key", "attributes": ["last_active_at"], "orders": []},
+        {"key": "idx_users_cleanup_candidate", "type": "key", "attributes": ["cleanup_protected", "plan_id", "last_active_at"], "orders": []},
     ],
     "profiles": [
         {"key": "idx_profiles_expires_at", "type": "key", "attributes": ["expires_at"], "orders": []},
@@ -321,7 +375,12 @@ def load_schema_definitions():
         base = json.load(handle)
 
     merged = {collection["id"]: deepcopy(collection) for collection in base}
-    for extra in (EMAIL_CAMPAIGNS_COLLECTION, AUTOMATION_COLLECTED_EMAILS_COLLECTION, JOB_LOCKS_COLLECTION):
+    for extra in (
+        EMAIL_CAMPAIGNS_COLLECTION,
+        AUTOMATION_COLLECTED_EMAILS_COLLECTION,
+        JOB_LOCKS_COLLECTION,
+        INACTIVE_USER_CLEANUP_AUDIT_COLLECTION,
+    ):
         if extra["id"] not in merged:
             merged[extra["id"]] = deepcopy(extra)
         else:

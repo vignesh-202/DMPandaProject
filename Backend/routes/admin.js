@@ -41,6 +41,7 @@ const {
     buildAccessState
 } = require('../utils/accessControl');
 const { setSessionCookie } = require('../utils/sessionContext');
+const { touchUserActivity } = require('../utils/userActivity');
 
 const router = express.Router();
 
@@ -2057,12 +2058,16 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
 
         const previousProfileSnapshot = buildProfileRollbackPayload(existingProfile);
         const previousUserKillSwitch = userDocument?.kill_switch_enabled;
+        const previousCleanupProtected = userDocument?.cleanup_protected === true;
         let profile;
         let user;
         let instagram_accounts;
         const userUpdate = {};
         if (req.body?.kill_switch_enabled !== undefined) {
             userUpdate.kill_switch_enabled = req.body.kill_switch_enabled !== false;
+        }
+        if (req.body?.cleanup_protected !== undefined) {
+            userUpdate.cleanup_protected = req.body.cleanup_protected === true;
         }
 
         try {
@@ -2086,10 +2091,16 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             } else if (profile?.$id && !existingProfile?.$id) {
                 await databases.deleteDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profile.$id).catch(() => null);
             }
-            if (Object.prototype.hasOwnProperty.call(userUpdate, 'kill_switch_enabled')) {
-                await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, {
-                    kill_switch_enabled: previousUserKillSwitch !== false
-                }).catch(() => null);
+            if (Object.prototype.hasOwnProperty.call(userUpdate, 'kill_switch_enabled')
+                || Object.prototype.hasOwnProperty.call(userUpdate, 'cleanup_protected')) {
+                const rollbackPatch = {};
+                if (Object.prototype.hasOwnProperty.call(userUpdate, 'kill_switch_enabled')) {
+                    rollbackPatch.kill_switch_enabled = previousUserKillSwitch !== false;
+                }
+                if (Object.prototype.hasOwnProperty.call(userUpdate, 'cleanup_protected')) {
+                    rollbackPatch.cleanup_protected = previousCleanupProtected;
+                }
+                await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, rollbackPatch).catch(() => null);
             }
             throw error;
         }
@@ -2103,9 +2114,15 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
                 plan_code: payload.plan_code,
                 plan_status: payload.plan_status,
                 billing_cycle: payload.billing_cycle,
-                kill_switch_enabled: userUpdate.kill_switch_enabled
+                kill_switch_enabled: userUpdate.kill_switch_enabled,
+                cleanup_protected: userUpdate.cleanup_protected
             }
         });
+        await touchUserActivity(userId, {
+            databases,
+            force: true,
+            clearCleanupState: true
+        }).catch(() => null);
 
         return ok(res, {
             profile,
@@ -2225,6 +2242,11 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
                 next_status: nextStatus
             }
         });
+        await touchUserActivity(userId, {
+            databases,
+            force: true,
+            clearCleanupState: true
+        }).catch(() => null);
         return ok(res, {
             message: action === 'reset_to_assigned_defaults'
                 ? 'Assigned plan defaults restored successfully.'

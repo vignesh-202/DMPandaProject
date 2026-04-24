@@ -101,6 +101,10 @@ function Ensure-FunctionExists {
     if ($Item.PSObject.Properties.Name -contains "schedule" -and -not [string]::IsNullOrWhiteSpace([string]$Item.schedule)) {
         $createArgs += @("--schedule", [string]$Item.schedule)
     }
+    if ($Item.PSObject.Properties.Name -contains "scopes" -and @($Item.scopes).Count -gt 0) {
+        $createArgs += @("--scopes")
+        $createArgs += @($Item.scopes)
+    }
     if ($Item.PSObject.Properties.Name -contains "events" -and $Item.events) {
         $createArgs += @("--events")
         $createArgs += @($Item.events)
@@ -166,6 +170,10 @@ foreach ($item in $selected) {
         )
         if ($item.PSObject.Properties.Name -contains "schedule" -and -not [string]::IsNullOrWhiteSpace([string]$item.schedule)) {
             $updateArgs += @("--schedule", [string]$item.schedule)
+        }
+        if ($item.PSObject.Properties.Name -contains "scopes" -and @($item.scopes).Count -gt 0) {
+            $updateArgs += @("--scopes")
+            $updateArgs += @($item.scopes)
         }
         if ($item.PSObject.Properties.Name -contains "events" -and $item.events) {
             $updateArgs += @("--events")

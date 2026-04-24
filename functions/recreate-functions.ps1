@@ -95,6 +95,10 @@ foreach ($item in $selected) {
     if ($item.PSObject.Properties.Name -contains "schedule" -and -not [string]::IsNullOrWhiteSpace([string]$item.schedule)) {
         $createArgs += @("--schedule", [string]$item.schedule)
     }
+    if ($item.PSObject.Properties.Name -contains "scopes" -and @($item.scopes).Count -gt 0) {
+        $createArgs += @("--scopes")
+        $createArgs += @($item.scopes)
+    }
 
     & $AppwriteCli @createArgs | Out-Null
     if ($LASTEXITCODE -ne 0) {

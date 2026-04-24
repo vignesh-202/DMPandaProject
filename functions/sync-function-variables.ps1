@@ -90,6 +90,20 @@ $functionVariables = @{
         @{ key = "TRANSACTIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "TRANSACTIONS_COLLECTION_ID" -Default "transactions"); secret = $false }
         @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
     )
+    "inactive-user-cleanup" = @(
+        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
+        @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
+        @{ key = "TRANSACTIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "TRANSACTIONS_COLLECTION_ID" -Default "transactions"); secret = $false }
+        @{ key = "PAYMENT_ATTEMPTS_COLLECTION_ID"; value = (Get-EnvValue -Key "PAYMENT_ATTEMPTS_COLLECTION_ID" -Default "payment_attempts"); secret = $false }
+        @{ key = "COUPON_REDEMPTIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "COUPON_REDEMPTIONS_COLLECTION_ID" -Default "coupon_redemptions"); secret = $false }
+        @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
+        @{ key = "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID" -Default (Get-EnvValue -Key "INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID" -Default "inactive_user_cleanup_audit")); secret = $false }
+        @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
+        @{ key = "INACTIVE_CLEANUP_PROTECTED_EMAILS"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_PROTECTED_EMAILS"); secret = $false }
+        @{ key = "INACTIVE_CLEANUP_PROTECTED_EMAIL_DOMAINS"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_PROTECTED_EMAIL_DOMAINS"); secret = $false }
+        @{ key = "INACTIVE_CLEANUP_BATCH_SIZE"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_BATCH_SIZE" -Default "50"); secret = $false }
+    )
 }
 
 $selectedFunctionIds = if ([string]::IsNullOrWhiteSpace($FunctionId)) {

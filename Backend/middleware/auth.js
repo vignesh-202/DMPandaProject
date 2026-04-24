@@ -2,6 +2,7 @@ const { Account } = require('node-appwrite');
 const { getAppwriteClient } = require('../utils/appwrite');
 const { getSessionTokenFromRequest, clearSessionCookie, getAppContextFromRequest } = require('../utils/sessionContext');
 const { createServerDatabases, loadUserAccessState, buildAccessDeniedPayload } = require('../utils/accessControl');
+const { touchUserActivity } = require('../utils/userActivity');
 
 const isAdminApiRequest = (req) => String(req?.originalUrl || req?.url || '').startsWith('/api/admin');
 const isAdminContextRequest = (req) => isAdminApiRequest(req) || getAppContextFromRequest(req) === 'admin';
@@ -83,6 +84,15 @@ const loginRequired = async (req, res, next) => {
         req.accessState = accessState;
         req.adminAccessOverride = adminOverrideAllowed;
         req.appwriteClient = client;
+        try {
+            req.userDocument = await touchUserActivity(user.$id, {
+                databases,
+                userDocument,
+                clearCleanupState: true
+            }) || userDocument;
+        } catch (activityError) {
+            console.warn(`Failed to refresh user activity for ${user.$id}: ${activityError.message}`);
+        }
         next();
     } catch (err) {
         const authCode = Number(err?.code || err?.response?.code || 0);
