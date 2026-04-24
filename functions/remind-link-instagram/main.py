@@ -8,6 +8,7 @@ from appwrite.id import ID
 from appwrite.query import Query
 from appwrite.services.messaging import Messaging
 from appwrite.services.users import Users
+from email_template import render_email_html
 
 PAGE_SIZE = 100
 MAX_RETRIES = 3
@@ -34,17 +35,6 @@ def _env(key: str, default: str = "") -> str:
 
 def _trim_trailing_slash(value: str = "") -> str:
     return str(value or "").rstrip("/")
-
-
-def _escape_html(value: str = "") -> str:
-    return (
-        str(value or "")
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-        .replace("'", "&#39;")
-    )
 
 
 def _with_retry(fn):
@@ -104,70 +94,6 @@ def _list_all(client: Client, db_id: str, collection_id: str, queries=None):
             break
 
     return rows
-
-
-def _build_email_html(title: str, paragraphs: list[str], action_label: str, action_url: str) -> str:
-    frontend_origin = _trim_trailing_slash(_env("FRONTEND_ORIGIN"))
-    logo_url = f"{frontend_origin}/images/logo.png" if frontend_origin else ""
-    dashboard_url = f"{frontend_origin}/dashboard" if frontend_origin else ""
-    paragraph_html = "".join(
-        f'<p style="margin:0 0 14px;color:#334155;font-size:15px;line-height:1.7;">{_escape_html(paragraph)}</p>'
-        for paragraph in paragraphs
-    )
-    action_html = (
-        f'<div style="margin:26px 0 14px;">'
-        f'<a href="{_escape_html(action_url)}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;'
-        f'padding:14px 22px;border-radius:12px;font-weight:700;font-size:14px;">{_escape_html(action_label)}</a>'
-        f"</div>"
-        if action_label and action_url
-        else ""
-    )
-    dashboard_html = (
-        f'<div style="margin-top:8px;"><a href="{_escape_html(dashboard_url)}" style="color:#2563eb;text-decoration:none;font-weight:600;">Open DM Panda dashboard</a></div>'
-        if dashboard_url
-        else ""
-    )
-    logo_html = (
-        f'<img src="{_escape_html(logo_url)}" alt="DM Panda" width="52" height="52" style="display:block;border-radius:14px;background:#ffffff;padding:6px;object-fit:contain;" />'
-        if logo_url
-        else ""
-    )
-    return f"""
-    <!doctype html>
-    <html lang="en">
-      <body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;padding:28px 12px;">
-          <tr>
-            <td align="center">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border:1px solid #e2e8f0;border-radius:24px;overflow:hidden;">
-                <tr>
-                  <td style="padding:28px 32px 20px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);">
-                    {logo_html}
-                    <p style="margin:18px 0 8px;color:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">DM Panda</p>
-                    <h1 style="margin:0;color:#ffffff;font-size:28px;line-height:1.25;">{_escape_html(title)}</h1>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:28px 32px 32px;">
-                    {paragraph_html}
-                    {action_html}
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:0 32px 28px;">
-                    <div style="border-top:1px solid #e2e8f0;padding-top:18px;color:#64748b;font-size:13px;line-height:1.6;">
-                      Need help? Contact support@dmpanda.com.
-                      {dashboard_html}
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-    """
 
 
 def _build_dashboard_account_settings_url():
@@ -252,18 +178,33 @@ def _resolve_reminder_type(
 def _build_reminder_payload(reminder_type: str, user_name: str, expires_at):
     action_url = _build_dashboard_account_settings_url()
     safe_name = user_name or "there"
+    frontend_origin = _trim_trailing_slash(_env("FRONTEND_ORIGIN"))
+    dashboard_url = f"{frontend_origin}/dashboard" if frontend_origin else ""
 
     if reminder_type == "expired":
         return {
-            "subject": "Your DM Panda subscription is over. Link Instagram when you renew",
-            "title": "Subscription ended before Instagram was linked",
+            "subject": "Your DM Panda plan ended before Instagram was connected",
+            "title": "Instagram was never connected during your paid period",
+            "intro": f"Hi {safe_name}, your DM Panda subscription has ended and no Instagram account was connected while the plan was active.",
             "paragraphs": [
-                f"Hi {safe_name}, your DM Panda subscription has ended and no Instagram account was linked during the active period.",
-                "When you renew your plan, connect Instagram first so you can immediately use DM automations, comment flows, welcome messages, and lead capture journeys.",
-                "Your account settings are ready whenever you want to reconnect and finish setup.",
+                "You are receiving this email because Instagram connection is required before DM Panda automations, comment flows, welcome messages, and lead capture journeys can go live.",
+                "When you renew, connect Instagram first so you can start using the plan immediately.",
+            ],
+            "callouts": [{
+                "tone": "info",
+                "title": "Next best step",
+                "lines": [
+                    "Renew your plan, then open account settings to connect Instagram before turning automations back on."
+                ],
+            }],
+            "summary_rows": [
+                ("Subscription status", "Expired"),
+                ("Instagram status", "Not connected"),
+                ("Next step", "Renew and connect Instagram"),
             ],
             "action_label": "Open Account Settings",
             "action_url": action_url,
+            "secondary_links": [{"label": "Open dashboard", "url": dashboard_url}] if dashboard_url else [],
         }
 
     if reminder_type == "expiring":
@@ -271,39 +212,78 @@ def _build_reminder_payload(reminder_type: str, user_name: str, expires_at):
         return {
             "subject": "Link Instagram before your DM Panda subscription expires",
             "title": "Your subscription is close to ending",
+            "intro": f"Hi {safe_name}, your DM Panda subscription is close to ending, but your Instagram account is still not linked.",
             "paragraphs": [
-                f"Hi {safe_name}, your DM Panda subscription is close to ending, but your Instagram account is still not linked.",
-                f"Your current subscription is set to expire on {expiry_text}. Link Instagram before then so you can start using your plan while it is still active.",
-                "Once Instagram is connected, you can complete setup directly from the dashboard in a few minutes.",
+                f"Your current subscription is set to expire on {expiry_text}. Connect Instagram before then so you can start using your plan while it is still active.",
+                "You are receiving this email because your account currently has paid access but no active Instagram connection.",
+            ],
+            "callouts": [{
+                "tone": "warning",
+                "title": "Why linking matters",
+                "lines": [
+                    "Without Instagram connected, your paid automation features cannot start.",
+                    "Connection takes only a few steps from account settings."
+                ],
+            }],
+            "summary_rows": [
+                ("Subscription status", "Active but expiring soon"),
+                ("Expiry date", expiry_text),
+                ("Instagram status", "Not connected"),
+            ],
+            "bullets": [
+                "Welcome messages and keyword automations need an active Instagram connection.",
+                "Lead capture flows only start after the Instagram account is linked.",
             ],
             "action_label": "Link Instagram",
             "action_url": action_url,
+            "secondary_links": [{"label": "Open dashboard", "url": dashboard_url}] if dashboard_url else [],
         }
 
     return {
         "subject": "Complete your DM Panda setup by linking Instagram",
         "title": "Link Instagram to start your automations",
+        "intro": f"Hi {safe_name}, your DM Panda account is ready, but your Instagram account is still not connected.",
         "paragraphs": [
-            f"Hi {safe_name}, your DM Panda account is ready, but your Instagram account is still not connected.",
-            "Connect Instagram to start building welcome automations, keyword replies, comment flows, and lead capture journeys.",
+            "You are receiving this setup reminder because Instagram must be linked before automations can run.",
             "This reminder is sent once after your first 24 hours so you can finish setup without repeated nudges.",
+        ],
+        "summary_rows": [
+            ("Account status", "Ready for setup"),
+            ("Instagram status", "Not connected"),
+            ("Next step", "Connect Instagram in account settings"),
+        ],
+        "bullets": [
+            "Start welcome automations and keyword replies.",
+            "Launch comment flows and lead capture journeys.",
+            "Manage your connected account from the DM Panda dashboard.",
         ],
         "action_label": "Link Instagram",
         "action_url": action_url,
+        "secondary_links": [{"label": "Open dashboard", "url": dashboard_url}] if dashboard_url else [],
     }
 
 
 def _send_reminder_email(messaging: Messaging, user_id: str, reminder_type: str, user_name: str, expires_at):
     payload = _build_reminder_payload(reminder_type, user_name, expires_at)
+    frontend_origin = _trim_trailing_slash(_env("FRONTEND_ORIGIN"))
     _with_retry(
         lambda: messaging.create_email(
             message_id=ID.unique(),
             subject=payload["subject"],
-            content=_build_email_html(
+            content=render_email_html(
                 title=payload["title"],
+                preheader=payload["subject"],
+                greeting="",
+                intro=payload.get("intro", ""),
                 paragraphs=payload["paragraphs"],
-                action_label=payload["action_label"],
-                action_url=payload["action_url"],
+                bullets=payload.get("bullets", []),
+                callouts=payload.get("callouts", []),
+                summary_rows=payload.get("summary_rows", []),
+                cta_label=payload["action_label"],
+                cta_url=payload["action_url"],
+                secondary_links=payload.get("secondary_links", []),
+                footer_note="If Instagram is already connected, you can ignore this reminder.",
+                frontend_origin=frontend_origin,
             ),
             users=[user_id],
             html=True,

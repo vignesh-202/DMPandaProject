@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from appwrite.client import Client
 from appwrite.id import ID
 from appwrite.query import Query
+from email_template import render_email_html
 
 PAGE_SIZE = 100
 MAX_RETRIES = 3
@@ -333,33 +334,83 @@ def _warning_key_for_days(days_until: int):
 
 def _build_warning_email(stage: str, scheduled_delete_at: datetime, frontend_origin: str):
     delete_date = scheduled_delete_at.date().isoformat()
-    title_map = {
-        "30d": "Your DM Panda free account will be deleted in 30 days",
-        "7d": "Your DM Panda free account will be deleted in 7 days",
-        "1d": "Your DM Panda free account will be deleted tomorrow",
-        "day0": "Your DM Panda free account is scheduled for deletion today",
+    frontend_base = str(frontend_origin or "").rstrip("/")
+    login_url = f"{frontend_base}/login" if frontend_base else ""
+    dashboard_url = f"{frontend_base}/dashboard" if frontend_base else ""
+    stage_map = {
+        "30d": {
+            "subject": "Log in to keep your DM Panda account",
+            "title": "Your inactive free account is scheduled for deletion",
+            "tone": "info",
+            "status": "30 days remaining",
+            "callout_title": "What to do now",
+            "callout_lines": [
+                f"Log in before {delete_date} to cancel the deletion countdown automatically.",
+                "Paid users and active paid subscriptions are not deleted by this cleanup.",
+            ],
+        },
+        "7d": {
+            "subject": "Your DM Panda free account is scheduled for deletion in 7 days",
+            "title": "Your deletion window is getting close",
+            "tone": "warning",
+            "status": "7 days remaining",
+            "callout_title": "Action needed this week",
+            "callout_lines": [
+                f"Log in before {delete_date} to keep your DM Panda account.",
+                "If you stay inactive, your free account data enters the final cleanup window.",
+            ],
+        },
+        "1d": {
+            "subject": "Final reminder: log in today to keep your DM Panda account",
+            "title": "Final reminder before scheduled deletion",
+            "tone": "critical",
+            "status": "1 day remaining",
+            "callout_title": "Final 24-hour warning",
+            "callout_lines": [
+                f"Your free account is scheduled for deletion on {delete_date}.",
+                "Logging in today cancels the cleanup countdown immediately.",
+            ],
+        },
+        "day0": {
+            "subject": "Final notice: your DM Panda free account is scheduled for deletion today",
+            "title": "Your account is due for deletion today",
+            "tone": "critical",
+            "status": "Scheduled today",
+            "callout_title": "Immediate action required",
+            "callout_lines": [
+                "This is the final scheduled deletion day for your inactive free account.",
+                "Log in now if you want to keep the account and stop the cleanup process.",
+            ],
+        },
     }
-    subject = title_map.get(stage, "Your DM Panda account is scheduled for deletion")
-    dashboard_url = f"{frontend_origin.rstrip('/')}/login" if frontend_origin else ""
-    body = (
-        "<p>Your free-plan DM Panda account has been inactive for 6 months.</p>"
-        f"<p>If you log in before <strong>{delete_date}</strong>, the deletion countdown is cancelled automatically.</p>"
-        "<p>Paid users and users with active paid subscriptions are never deleted by this cleanup.</p>"
+    payload = stage_map.get(stage, stage_map["30d"])
+    html = render_email_html(
+        title=payload["title"],
+        preheader=payload["subject"],
+        greeting="Hello,",
+        intro="Your DM Panda free-plan account has been inactive for at least 6 months, so it has entered the inactive-account cleanup process.",
+        callouts=[{
+            "tone": payload["tone"],
+            "title": payload["callout_title"],
+            "lines": payload["callout_lines"],
+        }],
+        summary_rows=[
+            ("Account status", payload["status"]),
+            ("Scheduled deletion date", delete_date),
+            ("How to stop deletion", "Log in before the scheduled date"),
+        ],
+        paragraphs=[
+            "You are receiving this email because DM Panda periodically removes long-inactive free accounts to keep the workspace secure and accurate.",
+            "If deletion proceeds, inactive account records may be removed and financial references kept for reporting may be anonymized.",
+            "Paid users and users with active paid subscriptions are not deleted by this cleanup flow.",
+        ],
+        cta_label="Log in to keep your account",
+        cta_url=login_url,
+        secondary_links=[{"label": "Open dashboard", "url": dashboard_url}] if dashboard_url else [],
+        footer_note="If you have already logged in recently, you can ignore this email and the cleanup state will be cleared automatically.",
+        frontend_origin=frontend_base,
     )
-    action = (
-        f'<p><a href="{dashboard_url}" style="display:inline-block;padding:12px 18px;background:#111827;color:#ffffff;text-decoration:none;border-radius:10px;">Log in to keep your account</a></p>'
-        if dashboard_url else ""
-    )
-    html = f"""
-    <html>
-      <body style="font-family:Arial,sans-serif;color:#111827;">
-        <h2>{subject}</h2>
-        {body}
-        {action}
-      </body>
-    </html>
-    """
-    return subject, html
+    return payload["subject"], html
 
 
 def _acquire_run_lock(client: Client, db_id: str, collection_id: str, job_name: str, run_window: str, ttl_hours: int = 30):

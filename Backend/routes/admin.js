@@ -42,6 +42,7 @@ const {
 } = require('../utils/accessControl');
 const { setSessionCookie } = require('../utils/sessionContext');
 const { touchUserActivity } = require('../utils/userActivity');
+const { wrapAdminCampaignEmail } = require('../utils/emailTemplate');
 
 const router = express.Router();
 
@@ -1622,6 +1623,13 @@ router.post('/email-campaigns/send', loginRequired, adminRequired, async (req, r
             return fail(res, 400, 'Scheduled send time must be in the future.');
         }
 
+        const renderedCampaign = wrapAdminCampaignEmail({
+            subject,
+            content,
+            format,
+            frontendOrigin: process.env.FRONTEND_ORIGIN || ''
+        });
+
         const audiencePayload = await buildEmailCampaignAudience(services, req.body?.filters || {}, { includeRecipientIds: true });
         const targetIds = Array.isArray(audiencePayload?.recipient_ids) ? audiencePayload.recipient_ids : [];
         if (targetIds.length === 0) {
@@ -1631,7 +1639,7 @@ router.post('/email-campaigns/send', loginRequired, adminRequired, async (req, r
         const message = await services.messaging.createEmail({
             messageId: ID.unique(),
             subject,
-            content,
+            content: format === 'html' ? renderedCampaign.html : renderedCampaign.text,
             users: targetIds,
             draft: false,
             html: format === 'html',

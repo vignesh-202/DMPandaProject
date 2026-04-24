@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from datetime import datetime, timedelta, timezone
@@ -7,6 +8,7 @@ from appwrite.client import Client
 from appwrite.id import ID
 from appwrite.query import Query
 from appwrite.services.messaging import Messaging
+from email_template import escape_html, render_email_html
 
 PAGE_SIZE = 100
 MAX_RETRIES = 3
@@ -34,21 +36,6 @@ def _parse_request_body(context):
         return json.loads(str(raw))
     except Exception:  # noqa: BLE001
         return {}
-
-
-def _trim_trailing_slash(value: str = "") -> str:
-    return str(value or "").rstrip("/")
-
-
-def _escape_html(value: str = "") -> str:
-    return (
-        str(value or "")
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-        .replace("'", "&#39;")
-    )
 
 
 def _with_retry(fn):
@@ -280,61 +267,47 @@ def _story_should_exist(
 
 def _send_report_email(messaging: Messaging, user_id: str, rows: list[dict], ts: str):
     subject = f"Automation Cleanup Report: {len(rows)} invalid automations removed"
-    frontend_origin = _trim_trailing_slash(_env("FRONTEND_ORIGIN"))
-    logo_url = f"{frontend_origin}/images/logo.png" if frontend_origin else ""
+    frontend_origin = str(_env("FRONTEND_ORIGIN") or "").rstrip("/")
     dashboard_url = f"{frontend_origin}/dashboard" if frontend_origin else ""
     detail_rows = "".join(
         "<tr>"
-        f"<td style=\"padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#0f172a;font-size:13px;\">{_escape_html(_obj_get(row, 'title') or _obj_get(row, 'automation_id') or '')}</td>"
-        f"<td style=\"padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;\">{_escape_html(_obj_get(row, 'automation_type') or 'automation')}</td>"
-        f"<td style=\"padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;\">{_escape_html(_obj_get(row, 'reason') or 'Missing Instagram media')}</td>"
+        f"<td style=\"padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#0f172a;font-size:13px;\">{escape_html(_obj_get(row, 'title') or _obj_get(row, 'automation_id') or '')}</td>"
+        f"<td style=\"padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;\">{escape_html(_obj_get(row, 'automation_type') or 'automation')}</td>"
+        f"<td style=\"padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;\">{escape_html(_obj_get(row, 'reason') or 'Missing Instagram media')}</td>"
         "</tr>"
         for row in rows
     )
-    html = f"""
-    <!doctype html>
-    <html lang="en">
-      <body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;padding:28px 12px;">
-          <tr>
-            <td align="center">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#ffffff;border:1px solid #e2e8f0;border-radius:24px;overflow:hidden;">
-                <tr>
-                  <td style="padding:28px 32px 20px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);">
-                    {f'<img src="{_escape_html(logo_url)}" alt="DM Panda" width="52" height="52" style="display:block;border-radius:14px;background:#ffffff;padding:6px;object-fit:contain;" />' if logo_url else ''}
-                    <p style="margin:18px 0 8px;color:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">DM Panda</p>
-                    <h1 style="margin:0;color:#ffffff;font-size:28px;line-height:1.25;">Automation cleanup completed</h1>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:28px 32px 32px;">
-                    <p style="margin:0 0 14px;color:#334155;font-size:15px;line-height:1.7;">We audited your Instagram-linked post, reel, and story automations and removed {len(rows)} automation(s) because the connected media no longer exists or is no longer accessible.</p>
-                    <p style="margin:0 0 14px;color:#334155;font-size:15px;line-height:1.7;">Audit timestamp (UTC): {_escape_html(ts)}</p>
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;border-collapse:separate;border-spacing:0;">
-                      <tr style="background:#f8fafc;">
-                        <th align="left" style="padding:12px;border-bottom:1px solid #e2e8f0;color:#475569;font-size:12px;text-transform:uppercase;">Automation</th>
-                        <th align="left" style="padding:12px;border-bottom:1px solid #e2e8f0;color:#475569;font-size:12px;text-transform:uppercase;">Type</th>
-                        <th align="left" style="padding:12px;border-bottom:1px solid #e2e8f0;color:#475569;font-size:12px;text-transform:uppercase;">Reason</th>
-                      </tr>
-                      {detail_rows}
-                    </table>
-                    {f'<div style="margin:24px 0 8px;"><a href="{_escape_html(dashboard_url)}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;font-size:14px;">Open Dashboard</a></div>' if dashboard_url else ''}
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:0 32px 28px;">
-                    <div style="border-top:1px solid #e2e8f0;padding-top:18px;color:#64748b;font-size:13px;line-height:1.6;">
-                      Related keyword and keyword-index mappings were also removed for each deleted automation. If you need help, contact {_escape_html(SUPPORT_EMAIL)}.
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-    """
+    html = render_email_html(
+        title="Automation cleanup completed",
+        preheader=subject,
+        greeting="Hello,",
+        intro=f"We audited your Instagram-linked automations and removed {len(rows)} item(s) because the connected media no longer exists or is no longer accessible.",
+        callouts=[{
+            "tone": "info",
+            "title": "What changed",
+            "lines": [
+                "Related keyword and keyword-index mappings were also removed for each deleted automation."
+            ],
+        }],
+        summary_rows=[
+            ("Removed automations", str(len(rows))),
+            ("Audit timestamp (UTC)", ts),
+            ("Recommended next step", "Review your dashboard and recreate any flows you still need"),
+        ],
+        body_html=(
+            '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+            'style="margin:0 0 16px;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;border-collapse:separate;border-spacing:0;">'
+            '<tr style="background:#f8fafc;">'
+            '<th align="left" style="padding:12px;border-bottom:1px solid #e2e8f0;color:#475569;font-size:12px;text-transform:uppercase;">Automation</th>'
+            '<th align="left" style="padding:12px;border-bottom:1px solid #e2e8f0;color:#475569;font-size:12px;text-transform:uppercase;">Type</th>'
+            '<th align="left" style="padding:12px;border-bottom:1px solid #e2e8f0;color:#475569;font-size:12px;text-transform:uppercase;">Reason</th>'
+            f'</tr>{detail_rows}</table>'
+        ),
+        cta_label="Open dashboard",
+        cta_url=dashboard_url,
+        footer_note="If something looks unexpected, contact support and include the audit timestamp above.",
+        frontend_origin=frontend_origin,
+    )
     messaging.create_email(
         message_id=ID.unique(),
         subject=subject,

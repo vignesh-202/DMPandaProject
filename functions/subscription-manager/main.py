@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from appwrite.client import Client
 from appwrite.id import ID
 from appwrite.query import Query
+from email_template import render_email_html
 
 PAGE_SIZE = 100
 DEFAULT_FREE_PLAN = "free"
@@ -466,27 +467,82 @@ def _update_user_memory(client, db_id, users_collection, user_id, plan_id, expir
     )
 
 
-def _build_email_content(stage: str, plan_name: str, expiry: str):
+def _build_email_content(stage: str, plan_name: str, expiry: str, frontend_origin: str = ""):
+    frontend_base = str(frontend_origin or "").rstrip("/")
+    pricing_url = f"{frontend_base}/pricing" if frontend_base else ""
+    dashboard_url = f"{frontend_base}/dashboard" if frontend_base else ""
     if stage == "3d":
-        subject = "Your DM Panda plan ends in 3 days"
-        body = f"<p>Your <strong>{plan_name}</strong> plan is scheduled to end on <strong>{expiry}</strong>.</p><p>Renew now to keep your current benefits active.</p>"
+        subject = "Your DM Panda plan expires in 3 days"
+        title = "Your paid plan is close to expiry"
+        intro = f"Your {plan_name} plan is scheduled to expire on {expiry}."
+        callouts = [{
+            "tone": "warning",
+            "title": "Action recommended",
+            "lines": [
+                "Renew before the expiry date to keep your current automation access and paid limits without interruption."
+            ],
+        }]
     elif stage == "day0":
-        subject = "Your DM Panda plan ends today"
-        body = f"<p>Your <strong>{plan_name}</strong> plan reaches expiry today: <strong>{expiry}</strong>.</p><p>Renew now to avoid free-plan access.</p>"
+        subject = "Your DM Panda plan expires today"
+        title = "Your paid access ends today"
+        intro = f"Your {plan_name} plan reaches its expiry date today: {expiry}."
+        callouts = [{
+            "tone": "warning",
+            "title": "Renew today to avoid disruption",
+            "lines": [
+                "If renewal is not completed, your account will fall back to free-plan access and premium automation capacity will stop."
+            ],
+        }]
     elif stage == "day1":
         subject = "Your DM Panda plan has expired"
-        body = f"<p>Your <strong>{plan_name}</strong> plan expired on <strong>{expiry}</strong>.</p><p>Renew to restore paid access.</p>"
+        title = "Your paid access has expired"
+        intro = f"Your {plan_name} plan expired on {expiry}."
+        callouts = [{
+            "tone": "critical",
+            "title": "Current impact",
+            "lines": [
+                "Your account now follows free-plan access rules until you renew.",
+                "Extra Instagram accounts and premium automation capacity stay locked until paid access is restored.",
+            ],
+        }]
     else:
-        subject = "Renew your DM Panda plan"
-        body = f"<p>Your previous <strong>{plan_name}</strong> plan expired on <strong>{expiry}</strong>.</p><p>Renew to restore paid access.</p>"
-    html = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #111827;">
-        <h2>{subject}</h2>
-        {body}
-      </body>
-    </html>
-    """
+        subject = "Renew your DM Panda plan to restore full access"
+        title = "Renew to restore your paid automation access"
+        intro = f"Your previous {plan_name} plan expired on {expiry}."
+        callouts = [{
+            "tone": "info",
+            "title": "When you renew",
+            "lines": [
+                "Your paid plan limits and premium automation access will be restored as soon as the renewal is completed."
+            ],
+        }]
+    html = render_email_html(
+        title=title,
+        preheader=subject,
+        greeting="Hello,",
+        intro=intro,
+        callouts=callouts,
+        summary_rows=[
+            ("Plan", plan_name),
+            ("Status", "Expires soon" if stage in {"3d", "day0"} else "Expired"),
+            ("Effective date", expiry),
+        ],
+        paragraphs=[
+            "You are receiving this email because your DM Panda account currently has or recently had an active paid subscription.",
+            "Renewing keeps your automation setup available and prevents avoidable interruptions to account access."
+            if stage in {"3d", "day0"}
+            else "Renewing restores paid limits so you can continue using your premium automation setup."
+        ],
+        bullets=[
+            "Linked Instagram accounts above the free-plan limit remain locked until your paid plan is active again.",
+            "Your account data stays in place. This notice is only about subscription access and plan entitlements.",
+        ],
+        cta_label="Review plans and renew",
+        cta_url=pricing_url,
+        secondary_links=[{"label": "Open dashboard", "url": dashboard_url}] if dashboard_url else [],
+        footer_note="Questions about billing or renewal timing? Reply to support and we will help.",
+        frontend_origin=frontend_base,
+    )
     return subject, html
 
 
@@ -602,7 +658,7 @@ def _maybe_send_reminder(client, db_id, profiles_collection, profile, stage, anc
     expiry_text = anchor_expiry.date().isoformat()
     last_expired = _snapshot_last_expired(profile)
     plan_name = str(_obj_get(profile, "plan_name") or last_expired.get("n") or _obj_get(_snapshot_state(profile), "plan_name") or "DM Panda Plan").strip()
-    subject, html = _build_email_content(stage, plan_name, expiry_text)
+    subject, html = _build_email_content(stage, plan_name, expiry_text, _env("FRONTEND_ORIGIN"))
     _send_email(client, user_id, subject, html)
     next_snapshot = _apply_snapshot_runtime(
         _snapshot_state(profile),

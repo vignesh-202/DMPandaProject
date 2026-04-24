@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from appwrite.client import Client
 from appwrite.id import ID
 from appwrite.query import Query
+from email_template import render_email_html
 
 PAGE_SIZE = 100
 STALE_AFTER_HOURS = 24
@@ -299,16 +300,38 @@ def _send_payment_reminder(client, attempt):
     attempt_id = str(_obj_get(attempt, "$id", "") or "").strip()
     plan_name = str(_obj_get(attempt, "plan_name") or "DM Panda Plan").strip()
     billing_cycle = str(_obj_get(attempt, "billing_cycle") or "monthly").strip()
-    subject = "Finish your DM Panda payment"
-    html = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #111827;">
-        <h2>{subject}</h2>
-        <p>You started a <strong>{plan_name}</strong> {billing_cycle} checkout but it was not completed within 24 hours.</p>
-        <p>If you already finished payment, you can ignore this email. Otherwise, start checkout again from your dashboard.</p>
-      </body>
-    </html>
-    """
+    frontend_origin = str(_env("FRONTEND_ORIGIN") or "").rstrip("/")
+    pricing_url = f"{frontend_origin}/pricing" if frontend_origin else ""
+    dashboard_url = f"{frontend_origin}/dashboard" if frontend_origin else ""
+    subject = "Complete your DM Panda subscription checkout"
+    html = render_email_html(
+        title="Your checkout was not completed",
+        preheader=subject,
+        greeting="Hello,",
+        intro=f"You started a {plan_name} ({billing_cycle}) checkout in DM Panda, but it was not completed within 24 hours.",
+        callouts=[{
+            "tone": "info",
+            "title": "No charge was made",
+            "lines": [
+                "If the payment was abandoned or failed, no subscription charge is applied until you successfully complete checkout.",
+                "If you already finished payment from another attempt, you can safely ignore this email.",
+            ],
+        }],
+        summary_rows=[
+            ("Plan", plan_name),
+            ("Billing cycle", billing_cycle.title()),
+            ("Checkout status", "Not completed"),
+        ],
+        paragraphs=[
+            "You are receiving this email because your account started a subscription purchase that did not finish.",
+            "To continue with paid access, start a fresh checkout from the pricing page or your dashboard."
+        ],
+        cta_label="Continue subscription checkout",
+        cta_url=pricing_url,
+        secondary_links=[{"label": "Open dashboard", "url": dashboard_url}] if dashboard_url else [],
+        footer_note="Need a hand with billing or checkout issues? Our team can help.",
+        frontend_origin=frontend_origin,
+    )
     message_id = hashlib.sha1(f"payment-reminder:{attempt_id}".encode("utf-8")).hexdigest()[:32]
     try:
         _send_email_with_id(client, message_id, user_id, subject, html)
