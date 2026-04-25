@@ -17,7 +17,6 @@ const {
     KEYWORD_INDEX_COLLECTION_ID,
     LOGS_COLLECTION_ID,
     CHAT_STATES_COLLECTION_ID,
-    PROFILES_COLLECTION_ID,
     AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
     FUNCTION_REMOVE_INSTAGRAM
 } = require('../utils/appwrite');
@@ -102,7 +101,27 @@ const KEYWORD_TYPES = new Set(['dm', 'global', 'post', 'reel', 'story', 'live', 
 const GATED_AUTOMATION_FEATURES = {
     suggest_more_enabled: 'suggest_more',
     collect_email_enabled: 'collect_email',
-    seen_typing_enabled: 'seen_typing'
+    seen_typing_enabled: 'seen_typing',
+    followers_only: 'followers_only'
+};
+
+const AUTOMATION_TYPE_FEATURES = {
+    dm: 'dm_automation',
+    global: 'global_trigger',
+    comment: 'post_comment_dm_automation',
+    post: 'post_comment_dm_automation',
+    reel: 'reel_comment_dm_automation',
+    story: 'story_automation',
+    live: 'instagram_live_automation',
+    mention: 'mentions',
+    mentions: 'mentions',
+    welcome_message: 'welcome_message',
+    inbox_menu: 'inbox_menu',
+    convo_starter: 'convo_starters',
+    suggest_more: 'suggest_more',
+    comment_moderation: 'comment_moderation',
+    moderation_hide: 'comment_moderation',
+    moderation_delete: 'comment_moderation'
 };
 
 const normalizeKeywordToken = (value) => String(value || '').trim().toUpperCase();
@@ -122,7 +141,27 @@ const parseJsonArray = (value) => {
 const PLAN_FEATURE_ALIASES = {
     suggest_more: ['suggest_more'],
     collect_email: ['collect_email', 'email_collector', 'webhook_integrations'],
-    seen_typing: ['seen_typing']
+    seen_typing: ['seen_typing'],
+    followers_only: ['followers_only'],
+    post_comment_dm_automation: ['post_comment_dm_automation'],
+    post_comment_reply_automation: ['post_comment_reply_automation'],
+    reel_comment_dm_automation: ['reel_comment_dm_automation'],
+    reel_comment_reply_automation: ['reel_comment_reply_automation'],
+    share_post_to_dm: ['share_post_to_dm'],
+    share_reel_to_dm: ['share_reel_to_dm'],
+    dm_automation: ['dm_automation', 'dm_automations'],
+    global_trigger: ['global_trigger'],
+    mentions: ['mentions', 'mention', 'story_mentions_custom_dm'],
+    welcome_message: ['welcome_message'],
+    inbox_menu: ['inbox_menu'],
+    convo_starters: ['convo_starters'],
+    story_automation: ['story_automation'],
+    instagram_live_automation: ['instagram_live_automation'],
+    comment_moderation: ['comment_moderation'],
+    super_profile: ['super_profile'],
+    no_watermark: ['no_watermark'],
+    priority_support: ['priority_support'],
+    unlimited_contacts: ['unlimited_contacts']
 };
 
 const loadUserPlanAccess = async (databases, userId) => {
@@ -141,9 +180,24 @@ const hasPlanEntitlement = (entitlements, featureKey) => {
 
 const collectLockedAutomationFeatures = (payload) => {
     const source = payload && typeof payload === 'object' ? payload : {};
-    return Object.entries(GATED_AUTOMATION_FEATURES)
+    const locked = Object.entries(GATED_AUTOMATION_FEATURES)
         .filter(([field]) => source[field] === true)
         .map(([, featureKey]) => featureKey);
+    const automationType = String(source.automation_type || source.type || '').trim().toLowerCase();
+    if (AUTOMATION_TYPE_FEATURES[automationType]) {
+        locked.push(AUTOMATION_TYPE_FEATURES[automationType]);
+    }
+    if (source.private_reply_enabled === false && ['comment', 'post'].includes(automationType)) {
+        locked.push('post_comment_reply_automation');
+    }
+    if (source.private_reply_enabled === false && automationType === 'reel') {
+        locked.push('reel_comment_reply_automation');
+    }
+    if (String(source.template_type || '').trim() === 'template_share_post') {
+        const latestType = String(source.latest_post_type || '').trim().toLowerCase();
+        locked.push(latestType === 'reel' ? 'share_reel_to_dm' : 'share_post_to_dm');
+    }
+    return locked;
 };
 
 const enforceAutomationFeatureAccess = async (databases, userId, payload, options = {}) => {
@@ -161,7 +215,24 @@ const enforceAutomationFeatureAccess = async (databases, userId, payload, option
     const featureLabels = {
         suggest_more: 'Suggest More',
         collect_email: 'Collect Email',
-        seen_typing: 'Seen + Typing Reaction'
+        seen_typing: 'Seen + Typing Reaction',
+        followers_only: 'Followers Only',
+        post_comment_dm_automation: 'Post Comment DM Automation',
+        post_comment_reply_automation: 'Post Comment Reply Automation',
+        reel_comment_dm_automation: 'Reel Comment DM Automation',
+        reel_comment_reply_automation: 'Reel Comment Reply Automation',
+        share_post_to_dm: 'Share Post to DM',
+        share_reel_to_dm: 'Share Reel to DM',
+        dm_automation: 'DM Automation',
+        global_trigger: 'Global Trigger',
+        mentions: 'Mentions',
+        welcome_message: 'Welcome Message',
+        inbox_menu: 'Inbox Menu',
+        convo_starters: 'Convo Starters',
+        story_automation: 'Story Automation',
+        instagram_live_automation: 'Instagram Live Automation',
+        comment_moderation: 'Comment Moderation',
+        super_profile: 'Super Profile'
     };
 
     return {
@@ -2079,6 +2150,8 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
         const { account_id } = req.query;
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'super_profile' });
+        if (featureAccessError) return res.status(403).json(featureAccessError);
 
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const profileContext = await resolveUserPlanContext(databases, req.user.$id);
@@ -2297,6 +2370,8 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'super_profile' });
+        if (featureAccessError) return res.status(403).json(featureAccessError);
 
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
 
@@ -2452,28 +2527,28 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
             ? [Query.equal('account_id', targetAccountId)]
             : (allOwnedAccountIds.length > 0 ? [Query.equal('account_id', allOwnedAccountIds)] : []);
 
-        const [templatesResult, mentionsResult, welcomeMessageResult, suggestMoreResult, emailCollectorsResult, profileResult, logsResult] = await Promise.allSettled([
+        const [templatesResult, mentionsResult, welcomeMessageResult, suggestMoreResult, emailCollectorsResult, logsResult] = await Promise.allSettled([
             databases.listDocuments(process.env.APPWRITE_DATABASE_ID, REPLY_TEMPLATES_COLLECTION_ID, templateQueries.concat([Query.limit(1)])),
             listMentionsDocuments(databases, { userId, accountIds: targetAccountId || allOwnedAccountIds, limit: 1 }),
             databases.listDocuments(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, queries.concat([Query.equal('automation_type', 'welcome_message'), Query.limit(1)])),
             listSuggestMoreDocuments(databases, { userId, accountIds: targetAccountId || allOwnedAccountIds, limit: 1 }),
             databases.listDocuments(process.env.APPWRITE_DATABASE_ID, AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID, accountScopedQueries.concat([Query.limit(1)])),
-            databases.listDocuments(process.env.APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [Query.equal('user_id', userId), Query.limit(1)]),
             databases.listDocuments(process.env.APPWRITE_DATABASE_ID, LOGS_COLLECTION_ID, accountScopedQueries.concat([
                 Query.greaterThanEqual('sent_at', new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString()),
                 Query.limit(5000)
             ]))
         ]);
 
-        const profile = profileResult.status === 'fulfilled' ? profileResult.value.documents[0] || null : null;
+        const effectiveLimits = profileContext.limits || {};
         const logs = logsResult.status === 'fulfilled' ? logsResult.value.documents || [] : [];
         const successfulLogs = logs.filter((entry) => String(entry.status || '').toLowerCase() === 'success').length;
         const replyRate = logs.length > 0 ? Math.round((successfulLogs / logs.length) * 100) : 0;
         const reelReplies = logs.filter((entry) => String(entry.automation_type || '').toLowerCase() === 'reel').length;
         const postReplies = logs.filter((entry) => ['comment', 'post'].includes(String(entry.automation_type || '').toLowerCase())).length;
-        const hourlyLimit = Number(profile?.hourly_action_limit || 0);
-        const dailyLimit = Number(profile?.daily_action_limit || 0);
-        const monthlyLimit = Number(profile?.monthly_action_limit || 0);
+        const hourlyLimit = Number(effectiveLimits.hourly_action_limit || 0);
+        const dailyLimit = Number(effectiveLimits.daily_action_limit || 0);
+        const monthlyLimit = Number(effectiveLimits.monthly_action_limit || 0);
+        const instagramLimit = Number(effectiveLimits.instagram_link_limit || effectiveLimits.instagram_connections_limit || 0);
         const now = Date.now();
         const countInWindow = (windowMs) => logs.reduce((count, entry) => {
             const raw = entry.sent_at || entry.created_at;
@@ -2495,7 +2570,7 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
             gauge_metrics: {
                 dm_rate: replyRate,
                 actions_month: monthlyUsage,
-                actions_month_limit: Number(profile?.monthly_action_limit || 0),
+                actions_month_limit: monthlyLimit,
                 reel_replies: reelReplies,
                 post_replies: postReplies,
                 hourly_actions_used: hourlyUsage,
@@ -2512,6 +2587,10 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 daily_action_limit: dailyLimit,
                 monthly_actions_used: monthlyUsage,
                 monthly_action_limit: monthlyLimit
+            },
+            account_link_metrics: {
+                linked_accounts: recomputedAccounts.length,
+                accounts_allowed: instagramLimit
             }
         });
     } catch (err) {
@@ -2911,7 +2990,10 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
 
         const body = req.body;
         const automationType = type || body.automation_type || 'dm';
-        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, body);
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {
+            ...body,
+            automation_type: automationType
+        });
         if (featureAccessError) {
             return res.status(403).json(featureAccessError);
         }
@@ -3830,6 +3912,8 @@ router.get('/instagram/inbox-menu', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'inbox_menu' });
+        if (featureAccessError) return res.status(403).json(featureAccessError);
 
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
@@ -3920,6 +4004,8 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const menuFeatureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'inbox_menu' });
+        if (menuFeatureAccessError) return res.status(403).json(menuFeatureAccessError);
         const { account: igAccount, normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, account_id);
 
         // Duplicate title validation (case-insensitive)
@@ -4138,6 +4224,8 @@ router.get('/instagram/convo-starters', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'convo_starters' });
+        if (featureAccessError) return res.status(403).json(featureAccessError);
 
         // Verify account ownership
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
@@ -4230,6 +4318,8 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const starterFeatureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'convo_starters' });
+        if (starterFeatureAccessError) return res.status(403).json(starterFeatureAccessError);
         const { account: igAccount, normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, account_id);
 
         // Duplicate question validation (case-insensitive)
@@ -4433,6 +4523,8 @@ router.get('/instagram/mentions-config', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'mentions' });
+        if (featureAccessError) return res.status(403).json(featureAccessError);
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
         if (!account) return res.status(404).json({ error: 'Account not found or unauthorized' });
@@ -4482,6 +4574,8 @@ router.post('/instagram/mentions-config', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const mentionsFeatureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'mentions' });
+        if (mentionsFeatureAccessError) return res.status(403).json(mentionsFeatureAccessError);
         const { normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, account_id);
 
         const existing = await listMentionsDocuments(databases, {
@@ -4998,6 +5092,8 @@ router.post('/instagram/comment-moderation', loginRequired, async (req, res) => 
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'comment_moderation' });
+        if (featureAccessError) return res.status(403).json(featureAccessError);
         const { normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, targetAccountId);
 
         const normalizedRules = (Array.isArray(rules) ? rules : [])

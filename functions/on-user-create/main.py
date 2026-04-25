@@ -7,6 +7,41 @@ from appwrite.permission import Permission
 from appwrite.role import Role
 from appwrite.id import ID
 
+BENEFIT_KEYS = [
+    "unlimited_contacts",
+    "post_comment_dm_automation",
+    "post_comment_reply_automation",
+    "reel_comment_dm_automation",
+    "reel_comment_reply_automation",
+    "share_reel_to_dm",
+    "share_post_to_dm",
+    "super_profile",
+    "welcome_message",
+    "convo_starters",
+    "inbox_menu",
+    "dm_automation",
+    "story_automation",
+    "suggest_more",
+    "comment_moderation",
+    "global_trigger",
+    "mentions",
+    "collect_email",
+    "instagram_live_automation",
+    "priority_support",
+    "followers_only",
+    "seen_typing",
+    "no_watermark",
+]
+
+BENEFIT_STORAGE_KEYS = {
+    "post_comment_reply_automation": "post_comment_reply",
+    "reel_comment_reply_automation": "reel_comment_reply",
+}
+
+
+def _benefit_field(key):
+    return f"benefit_{BENEFIT_STORAGE_KEYS.get(key, key)}"
+
 
 def _env(key, default=""):
     runtime_key = {
@@ -108,6 +143,20 @@ def _load_free_plan_snapshot(client, db_id, pricing_collection_id):
         "daily_action_limit": _safe_int(_obj_get(free_plan, "actions_per_day_limit"), 0),
         "monthly_action_limit": monthly_limit if monthly_limit > 0 else None,
     }
+    entitlements = {
+        key: bool(_obj_get(free_plan, _benefit_field(key)))
+        for key in BENEFIT_KEYS
+    }
+    if not any(entitlements.values()):
+        comparison = _obj_get(free_plan, "comparison_json") or "[]"
+        try:
+            parsed = json.loads(comparison) if isinstance(comparison, str) else comparison
+        except Exception:
+            parsed = []
+        for item in parsed if isinstance(parsed, list) else []:
+            key = str(_obj_get(item, "key") or _obj_get(item, "label") or "").strip().lower().replace(" ", "_")
+            if key in entitlements:
+                entitlements[key] = bool(_obj_get(item, "value"))
     return {
         "plan_code": "free",
         "plan_name": str(_obj_get(free_plan, "name") or "Free Plan").strip() or "Free Plan",
@@ -115,7 +164,7 @@ def _load_free_plan_snapshot(client, db_id, pricing_collection_id):
         "billing_cycle": None,
         "expires_at": None,
         "limits_json": json.dumps(limits_snapshot),
-        "features_json": json.dumps({}),
+        "features_json": json.dumps(entitlements),
         "paid_plan_snapshot_json": None,
         "admin_override_json": None,
         "kill_switch_enabled": True,
@@ -130,6 +179,7 @@ def _load_free_plan_snapshot(client, db_id, pricing_collection_id):
         "daily_window_started_at": None,
         "monthly_window_started_at": None,
         "feature_overrides_json": None,
+        **{_benefit_field(key): value for key, value in entitlements.items()},
     }
 
 # This function is triggered by users.*.create event in Appwrite.
@@ -199,8 +249,6 @@ def main(context):
                     "first_login": now,
                     "last_login": now,
                     "status": "active",
-                    "plan_id": "free",
-                    "plan_expires_at": None,
                     "kill_switch_enabled": True,
                 },
                 [

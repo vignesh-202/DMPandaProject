@@ -435,7 +435,7 @@ def _acquire_run_lock(client: Client, db_id: str, collection_id: str, job_name: 
         return False
 
 
-def _write_audit_log(client: Client, db_id: str, collection_id: str, *, user_doc, action: str, reason: str = None, details: dict = None, dry_run: bool = False, scheduled_delete_at=None, last_active_at=None):
+def _write_audit_log(client: Client, db_id: str, collection_id: str, *, user_doc, action: str, reason: str = None, details: dict = None, dry_run: bool = False, scheduled_delete_at=None, last_active_at=None, plan_code=None):
     if not collection_id:
         return None
     email = str(_obj_get(user_doc, "email") or "").strip().lower()
@@ -443,7 +443,7 @@ def _write_audit_log(client: Client, db_id: str, collection_id: str, *, user_doc
         "user_hash": _hash_value(str(_obj_get(user_doc, "$id") or _obj_get(user_doc, "user_id") or "")),
         "email_hash": _hash_email(email),
         "action": action,
-        "plan_code": _normalize_plan_code(_obj_get(user_doc, "plan_id") or _obj_get(user_doc, "plan_code")),
+        "plan_code": _normalize_plan_code(plan_code or _obj_get(user_doc, "plan_code")),
         "reason": reason,
         "last_active_at": _to_iso(last_active_at),
         "scheduled_delete_at": _to_iso(scheduled_delete_at),
@@ -496,17 +496,63 @@ def _latest_success_transaction_at(client: Client, db_id: str, collection_id: st
     return latest
 
 
-def _evaluate_user(user_doc, profile_doc, latest_tx_at, now):
+def _latest_self_subscription_from_transactions(client: Client, db_id: str, collection_id: str, user_id: str, now):
+    safe_user_id = str(user_id or "").strip()
+    if not safe_user_id:
+        return {"plan_id": DEFAULT_FREE_PLAN, "expires_at": None}
+    transactions = _list_all(
+        client,
+        db_id,
+        collection_id,
+        [Query.equal("userId", safe_user_id)],
+        page_size=100,
+    )
+    ranked = []
+    for row in transactions:
+        plan_code = _normalize_plan_code(
+            _obj_get(row, "planCode")
+            or _obj_get(row, "plan_code")
+            or _obj_get(row, "planId")
+            or _obj_get(row, "plan_id")
+        )
+        if plan_code == DEFAULT_FREE_PLAN:
+            continue
+        status = str(_obj_get(row, "status") or "").strip().lower()
+        created_at = (
+            _parse_datetime(_obj_get(row, "transactionDate"))
+            or _parse_datetime(_obj_get(row, "created_at"))
+            or _parse_datetime(_obj_get(row, "$createdAt"))
+        )
+        if not created_at:
+            continue
+        ranked.append((created_at, status, plan_code, row))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    decisive = next((item for item in ranked if item[1] in {"success", "paid", "captured", "completed", "active", "refunded", "partially_refunded", "chargeback", "disputed", "void", "reversed", "cancelled", "canceled"}), None)
+    if not decisive:
+        return {"plan_id": DEFAULT_FREE_PLAN, "expires_at": None}
+    created_at, status, plan_code, row = decisive
+    if status in {"refunded", "partially_refunded", "chargeback", "disputed", "void", "reversed", "cancelled", "canceled"}:
+        return {"plan_id": DEFAULT_FREE_PLAN, "expires_at": None}
+    cycle = str(_obj_get(row, "billingCycle") or _obj_get(row, "billing_cycle") or "monthly").strip().lower()
+    days = 364 if cycle == "yearly" else 30
+    expires_at = created_at + timedelta(days=days)
+    if expires_at <= now:
+        return {"plan_id": DEFAULT_FREE_PLAN, "expires_at": expires_at}
+    return {"plan_id": plan_code, "expires_at": expires_at}
+
+
+def _evaluate_user(user_doc, profile_doc, latest_tx_at, now, self_subscription=None):
     if not profile_doc:
         return {"decision": "skip_uncertain", "reason": "missing_profile"}
 
-    self_plan_id = _normalize_plan_code(_obj_get(user_doc, "plan_id"))
-    self_plan_expires = _parse_datetime(_obj_get(user_doc, "plan_expires_at"))
+    self_subscription = self_subscription or {}
+    self_plan_id = _normalize_plan_code(_obj_get(self_subscription, "plan_id"))
+    self_plan_expires = _obj_get(self_subscription, "expires_at")
     if self_plan_id != DEFAULT_FREE_PLAN:
         if not self_plan_expires:
-            return {"decision": "skip_uncertain", "reason": "self_plan_missing_expiry"}
+            return {"decision": "skip_uncertain", "reason": "transaction_self_plan_missing_expiry"}
         if self_plan_expires > now:
-            return {"decision": "skip_paid", "reason": "valid_self_subscription"}
+            return {"decision": "skip_paid", "reason": "valid_transaction_self_subscription"}
 
     profile_plan = _normalize_plan_code(_obj_get(profile_doc, "plan_code"))
     profile_status = _normalize_plan_status(_obj_get(profile_doc, "plan_status"))
@@ -832,7 +878,8 @@ def main(context):
 
                 profile_doc = _get_profile_for_user(client, db_id, profiles_collection, user_id)
                 latest_tx_at = _latest_success_transaction_at(client, db_id, transactions_collection, user_id)
-                evaluation = _evaluate_user(user_doc, profile_doc, latest_tx_at, now)
+                self_subscription = _latest_self_subscription_from_transactions(client, db_id, transactions_collection, user_id, now)
+                evaluation = _evaluate_user(user_doc, profile_doc, latest_tx_at, now, self_subscription)
 
                 if evaluation["decision"] == "skip_paid":
                     summary["skipped_paid"] += 1

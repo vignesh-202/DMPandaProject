@@ -480,7 +480,12 @@ def _sanitize_existing_user(user):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Backfill user self-subscription memory and canonicalize profile entitlements.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "LEGACY dry-run report for the old users-table subscription model. "
+            "Use migrate_pricing_benefits.py for the transaction-derived subscription model."
+        )
+    )
     parser.add_argument("--apply", action="store_true", help="Apply updates to Appwrite.")
     parser.add_argument(
         "--report",
@@ -488,6 +493,11 @@ def main():
         help="Path for JSON report output.",
     )
     args = parser.parse_args()
+    if args.apply:
+        raise SystemExit(
+            "Refusing to apply legacy users.plan_id/users.plan_expires_at writes. "
+            "Run ProductionSetup/migrate_pricing_benefits.py instead."
+        )
 
     missing_env = [
         key for key, value in {

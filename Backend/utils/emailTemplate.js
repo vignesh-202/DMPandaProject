@@ -143,6 +143,9 @@ const renderEmailLayout = ({
     supportEmail = SUPPORT_EMAIL
 } = {}) => {
     const logoUrl = buildLogoUrl(frontendOrigin);
+    const logoMarkup = logoUrl
+        ? `<img src="${escapeHtml(logoUrl)}" alt="${BRAND_NAME}" width="56" height="56" style="display:block;border-radius:16px;background:#ffffff;padding:6px;object-fit:contain;" />`
+        : `<div style="display:inline-block;border-radius:16px;background:#ffffff;padding:12px 14px;color:${COLORS.ink};font-size:18px;font-weight:900;letter-spacing:0.02em;">DM Panda</div>`;
     const dashboardUrl = frontendOrigin ? `${trimTrailingSlash(frontendOrigin)}/dashboard` : '';
     const resolvedSupportNote = String(supportNote || '').trim()
         || `Need help? Contact ${supportEmail}.`;
@@ -175,7 +178,7 @@ const renderEmailLayout = ({
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:24px;overflow:hidden;">
             <tr>
               <td style="padding:28px 32px 24px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 58%,#334155 100%);">
-                ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="${BRAND_NAME}" width="56" height="56" style="display:block;border-radius:16px;background:#ffffff;padding:6px;object-fit:contain;" />` : ''}
+                ${logoMarkup}
                 <p style="margin:18px 0 8px;color:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">${escapeHtml(eyebrow)}</p>
                 <h1 style="margin:0;color:#ffffff;font-size:30px;line-height:1.2;">${escapeHtml(title)}</h1>
               </td>

@@ -151,6 +151,11 @@ def render_email_html(*, title, preheader=DEFAULT_PREHEADER, eyebrow=BRAND_NAME,
                       cta_label="", cta_url="", secondary_links=None, footer_note="", support_note="",
                       frontend_origin="", support_email=SUPPORT_EMAIL):
     logo_url = build_logo_url(frontend_origin)
+    logo_html = (
+        f'<img src="{escape_html(logo_url)}" alt="{BRAND_NAME}" width="56" height="56" style="display:block;border-radius:16px;background:#ffffff;padding:6px;object-fit:contain;" />'
+        if logo_url
+        else f'<div style="display:inline-block;border-radius:16px;background:#ffffff;padding:12px 14px;color:{COLORS["ink"]};font-size:18px;font-weight:900;letter-spacing:0.02em;">DM Panda</div>'
+    )
     dashboard_url = f"{trim_trailing_slash(frontend_origin)}/dashboard" if trim_trailing_slash(frontend_origin) else ""
     footer_html = (
         f'{escape_html(support_note or f"Need help? Contact {support_email}.")}'
@@ -173,7 +178,7 @@ def render_email_html(*, title, preheader=DEFAULT_PREHEADER, eyebrow=BRAND_NAME,
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:{COLORS["card"]};border:1px solid {COLORS["border"]};border-radius:24px;overflow:hidden;">
             <tr>
               <td style="padding:28px 32px 24px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 58%,#334155 100%);">
-                {f'<img src="{escape_html(logo_url)}" alt="{BRAND_NAME}" width="56" height="56" style="display:block;border-radius:16px;background:#ffffff;padding:6px;object-fit:contain;" />' if logo_url else ''}
+                {logo_html}
                 <p style="margin:18px 0 8px;color:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">{escape_html(eyebrow)}</p>
                 <h1 style="margin:0;color:#ffffff;font-size:30px;line-height:1.2;">{escape_html(title)}</h1>
               </td>

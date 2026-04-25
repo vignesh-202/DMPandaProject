@@ -36,6 +36,46 @@ DEFAULT_COLLECTION_PERMISSIONS = [
     Permission.delete(Role.users()),
 ]
 
+BENEFIT_KEYS = [
+    "unlimited_contacts",
+    "post_comment_dm_automation",
+    "post_comment_reply_automation",
+    "reel_comment_dm_automation",
+    "reel_comment_reply_automation",
+    "share_reel_to_dm",
+    "share_post_to_dm",
+    "super_profile",
+    "welcome_message",
+    "convo_starters",
+    "inbox_menu",
+    "dm_automation",
+    "story_automation",
+    "suggest_more",
+    "comment_moderation",
+    "global_trigger",
+    "mentions",
+    "collect_email",
+    "instagram_live_automation",
+    "priority_support",
+    "followers_only",
+    "seen_typing",
+    "no_watermark",
+]
+
+BENEFIT_STORAGE_KEYS = {
+    "post_comment_reply_automation": "post_comment_reply",
+    "reel_comment_reply_automation": "reel_comment_reply",
+}
+
+
+def benefit_attribute_key(key):
+    return f"benefit_{BENEFIT_STORAGE_KEYS.get(key, key)}"
+
+BENEFIT_ATTRIBUTES = [
+    {"key": benefit_attribute_key(key), "type": "boolean", "required": False, "array": False, "default": False}
+    for key in BENEFIT_KEYS
+]
+
 EMAIL_CAMPAIGNS_COLLECTION = {
     "id": "email_campaigns",
     "name": "Email Campaigns",
@@ -217,11 +257,13 @@ ADDITIONAL_ATTRIBUTES = {
         {"key": "paid_plan_snapshot_json", "type": "string", "required": False, "array": False, "default": None, "size": 600},
         {"key": "admin_override_json", "type": "string", "required": False, "array": False, "default": None, "size": 140},
         {"key": "kill_switch_enabled", "type": "boolean", "required": False, "array": False, "default": True},
+        *deepcopy(BENEFIT_ATTRIBUTES),
     ],
     "pricing": [
         {"key": "monthly_duration_days", "type": "integer", "required": False, "array": False, "default": 30, "min": 1, "max": 366},
         {"key": "yearly_duration_days", "type": "integer", "required": False, "array": False, "default": 364, "min": 1, "max": 366},
         {"key": "instagram_link_limit", "type": "integer", "required": False, "array": False, "default": 0, "min": 0, "max": 1000},
+        *deepcopy(BENEFIT_ATTRIBUTES),
     ],
     "ig_accounts": [
         {"key": "admin_disabled", "type": "boolean", "required": False, "array": False, "default": False},

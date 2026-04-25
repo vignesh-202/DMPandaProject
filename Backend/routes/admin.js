@@ -25,6 +25,8 @@ const {
     getPlanByIdentifier,
     resolvePlanLimits,
     resolveUserPlanContext,
+    getUserSelfMemory,
+    BENEFIT_KEYS,
     parseProfileConfig,
     normalizeBillingCycle,
     normalizeSubscriptionStatus,
@@ -635,42 +637,25 @@ const inferBillingCycleFromExpiry = (expiresAt) => {
     const remainingDays = Math.ceil((parsed.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
     return remainingDays > 180 ? 'yearly' : 'monthly';
 };
-const resolveSelfSubscribedPlanRestore = async (databases, userId, userDocument, pricingPlans) => {
-    const storedPlanId = String(userDocument?.plan_id || 'free').trim() || 'free';
-    const normalizedStoredPlanId = normalizePlanCode(storedPlanId);
-    const plan = pricingPlans.find((entry) => normalizePlanCode(entry.plan_code || entry.id) === normalizedStoredPlanId)
+const resolveSelfSubscribedPlanRestore = async (databases, userId, _userDocument, pricingPlans) => {
+    const selfMemory = await getUserSelfMemory(databases, userId, null, pricingPlans);
+    const normalizedSelfPlanId = normalizePlanCode(selfMemory?.plan_id || 'free') || 'free';
+    const plan = pricingPlans.find((entry) => normalizePlanCode(entry.plan_code || entry.id) === normalizedSelfPlanId)
         || pricingPlans.find((entry) => normalizePlanCode(entry.plan_code || entry.id) === 'free')
         || null;
     const nextPlanId = String(plan?.plan_code || plan?.id || 'free').trim() || 'free';
-    const nextExpires = nextPlanId === 'free'
+    const nextExpires = nextPlanId === 'free' ? null : (selfMemory?.plan_expires_at || null);
+    const nextBillingCycle = nextPlanId === 'free'
         ? null
-        : (userDocument?.plan_expires_at || null);
-
-    let nextBillingCycle = nextPlanId === 'free' ? null : inferBillingCycleFromExpiry(nextExpires);
-    if (nextPlanId !== 'free') {
-        try {
-            const transactions = await databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
-                Query.equal('userId', String(userId || '').trim()),
-                Query.limit(100)
-            ]);
-            const matchingTransaction = (transactions.documents || [])
-                .filter((entry) => String(entry.status || '').trim().toLowerCase() === 'success')
-                .sort((a, b) => new Date(getTransactionCreatedAt(b) || 0).getTime() - new Date(getTransactionCreatedAt(a) || 0).getTime())
-                .find((entry) => normalizePlanCode(getTransactionPlanId(entry) || entry.planName || entry.plan_name) === normalizePlanCode(nextPlanId));
-            if (matchingTransaction) {
-                nextBillingCycle = normalizeBillingCycle(matchingTransaction.billingCycle || matchingTransaction.billing_cycle || nextBillingCycle);
-            }
-        } catch (_) {
-            // Fall back to expiry inference when transaction history is unavailable.
-        }
-    }
+        : normalizeBillingCycle(selfMemory?.billing_cycle || inferBillingCycleFromExpiry(nextExpires));
 
     return {
         plan,
         nextPlanId,
         nextStatus: nextPlanId === 'free' ? 'inactive' : 'active',
         nextExpires,
-        nextBillingCycle
+        nextBillingCycle,
+        transaction_id: selfMemory?.transaction_id || null
     };
 };
 const buildEffectivePlanResponse = async (databases, userId, userFallback = null) => {
@@ -2025,6 +2010,21 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
                 daily_action_limit: req.body?.daily_action_limit,
                 monthly_action_limit: req.body?.monthly_action_limit
             });
+        } else if (action === 'edit_benefits') {
+            const requestedBenefits = req.body?.benefits && typeof req.body.benefits === 'object'
+                ? req.body.benefits
+                : {};
+            featureOverrides = { ...profileConfig.feature_overrides };
+            BENEFIT_KEYS.forEach((key) => {
+                const field = `benefit_${key}`;
+                if (Object.prototype.hasOwnProperty.call(requestedBenefits, key)) {
+                    featureOverrides[key] = requestedBenefits[key] === true;
+                } else if (Object.prototype.hasOwnProperty.call(requestedBenefits, field)) {
+                    featureOverrides[key] = requestedBenefits[field] === true;
+                } else if (Object.prototype.hasOwnProperty.call(req.body || {}, field)) {
+                    featureOverrides[key] = req.body[field] === true;
+                }
+            });
         } else if (action === 'reset_to_assigned_defaults') {
             limitOverrides = {};
             featureOverrides = {};
@@ -2259,10 +2259,7 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
             message: action === 'reset_to_assigned_defaults'
                 ? 'Assigned plan defaults restored successfully.'
                 : 'Plan reset successfully.',
-            ...(await buildEffectivePlanResponse(databases, userId, {
-                plan_id: userDocument?.plan_id || 'free',
-                plan_expires_at: userDocument?.plan_expires_at || null
-            }))
+            ...(await buildEffectivePlanResponse(databases, userId, userDocument))
         });
     } catch (error) {
         console.error('Admin reset plan error:', error?.message || String(error));

@@ -79,6 +79,77 @@ class DMWorker {
         return { blocked: false, reason: null, stage: null };
     }
 
+    _getProfileFeatures(profile) {
+        const parsed = (() => {
+            try {
+                const value = typeof profile?.features_json === 'string' ? JSON.parse(profile.features_json) : profile?.features_json;
+                return value && typeof value === 'object' ? value : {};
+            } catch {
+                return {};
+            }
+        })();
+        const features = { ...parsed };
+        let hasExplicitFeatures = Object.keys(parsed).length > 0;
+        const aliases = {
+            post_comment_reply: 'post_comment_reply_automation',
+            reel_comment_reply: 'reel_comment_reply_automation'
+        };
+        Object.keys(profile || {}).forEach((key) => {
+            if (key.startsWith('benefit_')) {
+                hasExplicitFeatures = true;
+                const rawKey = key.slice('benefit_'.length);
+                features[aliases[rawKey] || rawKey] = profile[key] === true;
+            }
+        });
+        features.__hasExplicitFeatures = hasExplicitFeatures;
+        return features;
+    }
+
+    _hasPlanFeature(profile, key) {
+        const features = this._getProfileFeatures(profile);
+        if (features.__hasExplicitFeatures !== true) return true;
+        return features[String(key || '').trim()] === true;
+    }
+
+    _requiredFeaturesForAutomation(automation) {
+        const type = String(automation?.automation_type || 'dm').trim().toLowerCase();
+        const required = [];
+        const typeMap = {
+            dm: 'dm_automation',
+            global: 'global_trigger',
+            post: 'post_comment_dm_automation',
+            comment: 'post_comment_dm_automation',
+            reel: 'reel_comment_dm_automation',
+            story: 'story_automation',
+            live: 'instagram_live_automation',
+            mention: 'mentions',
+            mentions: 'mentions',
+            welcome_message: 'welcome_message',
+            inbox_menu: 'inbox_menu',
+            convo_starter: 'convo_starters',
+            suggest_more: 'suggest_more',
+            moderation_hide: 'comment_moderation',
+            moderation_delete: 'comment_moderation'
+        };
+        if (typeMap[type]) required.push(typeMap[type]);
+        if (automation?.suggest_more_enabled === true) required.push('suggest_more');
+        if (automation?.collect_email_enabled === true) required.push('collect_email');
+        if (automation?.seen_typing_enabled === true) required.push('seen_typing');
+        if (automation?.followers_only === true) required.push('followers_only');
+        if (String(automation?.template_type || '').trim() === 'template_share_post') {
+            required.push(String(automation?.latest_post_type || '').trim().toLowerCase() === 'reel' ? 'share_reel_to_dm' : 'share_post_to_dm');
+        }
+        return Array.from(new Set(required));
+    }
+
+    _isAutomationAllowedByPlan(profile, automation) {
+        const missing = this._requiredFeaturesForAutomation(automation).filter((feature) => !this._hasPlanFeature(profile, feature));
+        return {
+            allowed: missing.length === 0,
+            missing
+        };
+    }
+
     _logAutomationDecision(eventType, details = {}) {
         try {
             console.log(JSON.stringify({
@@ -829,7 +900,7 @@ class DMWorker {
             return false;
         }
 
-        const { accessState, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
+        const { accessState, profile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
         if (actionLimitGate.blocked) {
             this._logAutomationDecision('comment', {
                 user_id: igAccount.user_id,
@@ -884,6 +955,17 @@ class DMWorker {
             if (!matchedAutomation) continue;
             const automationType = String(matchedAutomation.automation_type || 'global').trim() || 'global';
             lastAutomationType = automationType;
+            const planGate = this._isAutomationAllowedByPlan(profile, matchedAutomation);
+            if (!planGate.allowed) {
+                this._logAutomationDecision('comment_feature_locked', {
+                    user_id: igAccount.user_id,
+                    account_id: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
+                    automation_id: matchedAutomation.$id || null,
+                    automation_type: automationType,
+                    missing_features: planGate.missing
+                });
+                continue;
+            }
 
             if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
                 continue;
@@ -1008,7 +1090,7 @@ class DMWorker {
             return false;
         }
 
-        const { accessState, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
+        const { accessState, profile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
         if (actionLimitGate.blocked) {
             this._logAutomationDecision('mention', {
                 user_id: igAccount.user_id,
@@ -1042,6 +1124,17 @@ class DMWorker {
         }
 
         const automationType = String(matchedAutomation.automation_type || 'mentions').trim() || 'mentions';
+        const planGate = this._isAutomationAllowedByPlan(profile, matchedAutomation);
+        if (!planGate.allowed) {
+            this._logAutomationDecision('mention_feature_locked', {
+                user_id: igAccount.user_id,
+                account_id: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
+                automation_id: matchedAutomation.$id || null,
+                automation_type: automationType,
+                missing_features: planGate.missing
+            });
+            return { handled: false, automationType: 'feature_locked' };
+        }
         if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(conversationState, matchedAutomation.$id)) {
             return { handled: true, automationType };
         }
@@ -1195,7 +1288,7 @@ class DMWorker {
                 return false;
             }
             console.log(`IG account found: ${igAccount.username}`);
-            const { accessState, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
+            const { accessState, profile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
             if (actionLimitGate.blocked) {
                 this._logAutomationDecision('dm', {
                     user_id: igAccount.user_id,
@@ -1291,6 +1384,20 @@ class DMWorker {
 
             const automationType = String(matchedAutomation.automation_type || 'dm').trim() || 'dm';
             console.log(`Matched automation: ${matchedAutomation.title || matchedAutomation.$id}`);
+            const planGate = this._isAutomationAllowedByPlan(profile, matchedAutomation);
+            if (!planGate.allowed) {
+                this._logAutomationDecision('dm_feature_locked', {
+                    user_id: igAccount.user_id,
+                    account_id: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
+                    automation_id: matchedAutomation.$id || null,
+                    automation_type: automationType,
+                    missing_features: planGate.missing
+                });
+                return {
+                    handled: false,
+                    automationType: 'feature_locked'
+                };
+            }
 
             if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(conversationState, matchedAutomation.$id)) {
                 console.log(`Skipping automation ${matchedAutomation.$id || matchedAutomation.title || automationType} due to 24h cooldown.`);

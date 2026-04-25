@@ -6,7 +6,6 @@ const { loginRequired } = require('../middleware/auth');
 const {
     getAppwriteClient,
     APPWRITE_DATABASE_ID,
-    USERS_COLLECTION_ID,
     PRICING_COLLECTION_ID,
     COUPONS_COLLECTION_ID,
     COUPON_REDEMPTIONS_COLLECTION_ID,
@@ -24,7 +23,6 @@ const {
     resolvePlanLimits,
     resolveUserPlanContext,
     encodeProfileLimit,
-    buildProfileConfigPayload,
     parseProfileConfig,
     normalizeBillingCycle,
     resolvePlanDurationDays,
@@ -736,21 +734,6 @@ const ensureUserProfileDocument = async (
     return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, payload));
 };
 
-const updateUserSubscriptionMemory = async (
-    databases,
-    userId,
-    plan,
-    subscriptionExpires
-) => retryAppwriteOperation(() => databases.updateDocument(
-    APPWRITE_DATABASE_ID,
-    USERS_COLLECTION_ID,
-    String(userId || '').trim(),
-    {
-        plan_id: String(plan?.plan_code || plan?.id || 'free').trim() || 'free',
-        plan_expires_at: subscriptionExpires || null
-    }
-));
-
 const finalizePlanPurchase = async ({
     databases,
     userId,
@@ -795,7 +778,6 @@ const finalizePlanPurchase = async ({
         paymentAttemptId
     });
 
-    await retryAppwriteOperation(() => updateUserSubscriptionMemory(databases, userId, plan, subscriptionExpires));
     await ensureUserProfileDocument(
         databases,
         userId,
@@ -847,14 +829,18 @@ const finalizePlanPurchase = async ({
         message: pricing.final_amount > 0
             ? 'Payment verified successfully.'
             : 'Plan activated successfully.',
-        plan: buildUserPlanPayload(plan, {
-            expires_at: subscriptionExpires,
-            billing_cycle: pricing.billing_cycle,
-            feature_overrides_json: buildProfileConfigPayload({
-                paidPlanSnapshot
-            }),
-            ...planLimits
-        }, 'active', subscriptionPlanId, null, 'self')
+        plan: buildUserPlanPayload(
+            runtimeContext.plan || plan,
+            {
+                ...(runtimeContext.profile || {}),
+                self_plan_id: runtimeContext.selfPlanId,
+                self_plan_expires_at: runtimeContext.selfPlanExpiresAt
+            },
+            runtimeContext.subscriptionStatus || 'active',
+            runtimeContext.subscriptionPlanId || subscriptionPlanId,
+            null,
+            runtimeContext.planSource || 'self'
+        )
     };
 };
 

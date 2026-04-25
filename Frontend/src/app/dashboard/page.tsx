@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import InstagramStats from '../../components/dashboard/InstagramStats';
 import Gauge from '../../components/ui/gauge';
 import Card from '../../components/ui/card';
-import { FileStack, AtSign, Lightbulb as SuggestIcon, ChevronRight, Sparkles, Check, X } from 'lucide-react';
+import { FileStack, AtSign, Lightbulb as SuggestIcon, ChevronRight, Sparkles, Check, X, Lock } from 'lucide-react';
 import DashboardLayout from './layout';
 import { cn } from '../../lib/utils';
 import DashboardLoading from '../../components/ui/DashboardLoading';
@@ -118,7 +118,7 @@ const GaugeCard = ({ label, value, max, updatedText }: { label: string; value: n
 
 // Dashboard Content
 const DashboardContent: React.FC = () => {
-  const { currentView, activeAccount, activeAccountID, isGlobalLoading, setCurrentView, accessState } = useDashboard();
+  const { currentView, activeAccount, activeAccountID, isGlobalLoading, setCurrentView, accessState, hasPlanFeature } = useDashboard();
   const { authenticatedFetch } = useAuth();
   const [counts, setCounts] = useState<Record<CountsKey, number>>({
     reply_templates: 0, mention: 0, welcome_message: 0, suggest_more: 0,
@@ -211,6 +211,35 @@ const DashboardContent: React.FC = () => {
 
   if (needsAccount && (!activeAccountID || !isAccountAccessible)) {
     return <AccountBarrier />;
+  }
+
+  const viewFeatureMap: Partial<Record<typeof currentView, string>> = {
+    'DM Automation': 'dm_automation',
+    'Story Automation': 'story_automation',
+    'Post Automation': 'post_comment_dm_automation',
+    'Reel Automation': 'reel_comment_dm_automation',
+    'Live Automation': 'instagram_live_automation',
+    'Mentions': 'mentions',
+    'Email Collector': 'collect_email',
+    'Welcome Message': 'welcome_message',
+    'Suggest More': 'suggest_more',
+    'Convo Starter': 'convo_starters',
+    'Global Trigger': 'global_trigger',
+    'Inbox Menu': 'inbox_menu',
+    'Super Profile': 'super_profile',
+    'Comment Moderation': 'comment_moderation'
+  };
+  const requiredFeature = viewFeatureMap[currentView];
+  if (requiredFeature && !hasPlanFeature(requiredFeature)) {
+    return (
+      <div className="mx-auto flex min-h-[60vh] max-w-4xl items-center justify-center p-6">
+        <div className="w-full rounded-3xl border border-border bg-card p-8 text-center shadow-sm">
+          <Lock className="mx-auto h-7 w-7 text-muted-foreground" />
+          <h2 className="mt-4 text-2xl font-bold text-foreground">Feature locked</h2>
+          <p className="mt-3 text-sm text-muted-foreground">This section is not included in your current plan.</p>
+        </div>
+      </div>
+    );
   }
 
   // Dashboard View

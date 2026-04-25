@@ -361,6 +361,7 @@ const AnalyticsView: React.FC = () => {
     const {
         activeAccountID,
         activeAccount,
+        planLimits,
         analyticsDateRange,
         setAnalyticsDateRange
     } = useDashboard();
@@ -521,25 +522,25 @@ const AnalyticsView: React.FC = () => {
             return ts >= now - windowMs ? count + 1 : count;
         }, 0);
 
-        const hourlyLimit = Number(activeAccount?.hourly_action_limit || 0);
-        const dailyLimit = Number(activeAccount?.daily_action_limit || 0);
-        const monthlyLimit = Number(activeAccount?.monthly_action_limit || 0);
+        const hourlyLimit = Number(planLimits.hourly_action_limit || 0);
+        const dailyLimit = Number(planLimits.daily_action_limit || 0);
+        const monthlyLimit = Number(planLimits.monthly_action_limit || 0);
 
         return {
             hour: {
                 value: countInWindow(hourMs),
-                max: hourlyLimit > 0 ? hourlyLimit : 100
+                max: Math.max(hourlyLimit, 1)
             },
             day: {
                 value: countInWindow(dayMs),
-                max: dailyLimit > 0 ? dailyLimit : 1000
+                max: Math.max(dailyLimit, 1)
             },
             month: {
                 value: countInWindow(monthMs),
-                max: monthlyLimit > 0 ? monthlyLimit : 10000
+                max: Math.max(monthlyLimit, 1)
             }
         };
-    }, [activeAccount?.daily_action_limit, activeAccount?.hourly_action_limit, activeAccount?.monthly_action_limit, logs]);
+    }, [logs, planLimits.daily_action_limit, planLimits.hourly_action_limit, planLimits.monthly_action_limit]);
 
     const trafficData = useMemo(() => {
         const now = new Date();

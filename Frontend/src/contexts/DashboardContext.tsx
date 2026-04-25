@@ -114,7 +114,7 @@ interface DashboardContextProps {
     } | null;
     refreshPlanAccess: () => Promise<void>;
     refreshLinkedProfiles: () => Promise<void>;
-    hasPlanFeature: (featureKey: 'suggest_more' | 'collect_email' | 'seen_typing') => boolean;
+    hasPlanFeature: (featureKey: string) => boolean;
 }
 
 const DashboardContext = createContext<DashboardContextProps | undefined>(undefined);
@@ -223,11 +223,17 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
     const { authenticatedFetch } = useAuth();
 
-    const hasPlanFeature = useCallback((featureKey: 'suggest_more' | 'collect_email' | 'seen_typing') => {
+    const hasPlanFeature = useCallback((featureKey: string) => {
         const entitlementAliases: Record<string, string[]> = {
             suggest_more: ['suggest_more'],
             collect_email: ['collect_email', 'email_collector', 'webhook_integrations'],
-            seen_typing: ['seen_typing']
+            seen_typing: ['seen_typing'],
+            dm_automation: ['dm_automation', 'dm_automations'],
+            mentions: ['mentions', 'mention', 'story_mentions_custom_dm'],
+            instagram_live_automation: ['instagram_live_automation'],
+            convo_starters: ['convo_starters'],
+            inbox_menu: ['inbox_menu'],
+            no_watermark: ['no_watermark']
         };
         const normalizedEntitlements = Object.entries(planEntitlements || {}).reduce<Record<string, boolean>>((acc, [key, value]) => {
             acc[String(key || '').toLowerCase().replace(/[+/_-]+/g, ' ').replace(/\s+/g, ' ').trim()] = value === true;

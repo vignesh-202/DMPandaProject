@@ -295,6 +295,46 @@ def _cleanup_attempt_document(client, db_id, attempts_collection, attempt, next_
     return True
 
 
+def _attempt_created_at(attempt):
+    return _parse_datetime(_obj_get(attempt, "created_at") or _obj_get(attempt, "$createdAt")) or datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _latest_attempt(attempts):
+    return sorted(attempts, key=_attempt_created_at, reverse=True)[0] if attempts else None
+
+
+def _latest_transaction_for_user(transactions, user_id):
+    matches = []
+    safe_user_id = str(user_id or "").strip()
+    for transaction in transactions:
+        if str(_obj_get(transaction, "userId") or _obj_get(transaction, "user_id") or "").strip() != safe_user_id:
+            continue
+        created_at = _transaction_created_at(transaction)
+        if created_at:
+            matches.append((created_at, transaction))
+    matches.sort(key=lambda item: item[0], reverse=True)
+    return matches[0][1] if matches else None
+
+
+def _delete_attempt_group(client, db_id, attempts_collection, attempts, summary, next_status=None, reason=None, now=None):
+    deleted = 0
+    for attempt in attempts:
+        _cleanup_attempt_document(
+            client,
+            db_id,
+            attempts_collection,
+            attempt,
+            next_status=next_status,
+            meta_updates={
+                "cleanup_reason": reason,
+                "cleanup_at": _to_iso(now or datetime.now(timezone.utc)),
+            } if reason else None,
+        )
+        deleted += 1
+    summary["deleted"] += deleted
+    return deleted
+
+
 def _send_payment_reminder(client, attempt):
     user_id = str(_obj_get(attempt, "user_id", "") or "").strip()
     attempt_id = str(_obj_get(attempt, "$id", "") or "").strip()
@@ -391,97 +431,125 @@ def main(context):
             "skipped_due_lock": 0,
         }
 
+        attempts_by_user = {}
         for attempt in attempts:
-            summary["scanned"] += 1
-            attempt_id = str(_obj_get(attempt, "$id", "") or "").strip()
-            created_at = _parse_datetime(_obj_get(attempt, "created_at") or _obj_get(attempt, "$createdAt"))
-            attempt_status = _normalize_attempt_status(_obj_get(attempt, "status"))
-            if not attempt_id or not created_at or created_at > stale_before:
+            user_id = str(_obj_get(attempt, "user_id", "") or "").strip()
+            if user_id:
+                attempts_by_user.setdefault(user_id, []).append(attempt)
+
+        for user_id, user_attempts in attempts_by_user.items():
+            summary["scanned"] += len(user_attempts)
+            latest_attempt = _latest_attempt(user_attempts)
+            attempt_id = str(_obj_get(latest_attempt, "$id", "") or "").strip()
+            created_at = _attempt_created_at(latest_attempt)
+            attempt_status = _normalize_attempt_status(_obj_get(latest_attempt, "status"))
+            if not attempt_id:
                 continue
             try:
-                if attempt_status in {"expired", "cleared", "cancelled", "failed", "paid"}:
-                    _cleanup_attempt_document(client, db_id, attempts_collection, attempt)
+                latest_transaction = _latest_transaction_for_user(transactions, user_id)
+                latest_transaction_at = _transaction_created_at(latest_transaction) if latest_transaction else None
+                latest_transaction_status = str(_obj_get(latest_transaction, "status") or "").strip().lower() if latest_transaction else ""
+                latest_transaction_is_newer = bool(latest_transaction_at and latest_transaction_at >= created_at)
+                if attempt_status == "paid" or (
+                    latest_transaction_is_newer
+                    and latest_transaction_status in {"success", "paid", "captured", "completed", "active"}
+                ):
+                    _delete_attempt_group(
+                        client,
+                        db_id,
+                        attempts_collection,
+                        user_attempts,
+                        summary,
+                        next_status="cancelled",
+                        reason="latest_payment_paid",
+                        now=now,
+                    )
+                    summary["cleaned_reconciled"] += 1
+                    continue
+
+                if created_at > stale_before:
+                    continue
+
+                if attempt_status in {"expired", "cleared", "cancelled", "failed"}:
+                    _delete_attempt_group(
+                        client,
+                        db_id,
+                        attempts_collection,
+                        user_attempts,
+                        summary,
+                        reason="terminal_payment_attempt_group",
+                        now=now,
+                    )
                     summary["cleaned_terminal"] += 1
-                    summary["deleted"] += 1
                     continue
 
-                transaction, match_type = _find_success_transaction(transactions, attempt)
+                transaction, match_type = _find_success_transaction(transactions, latest_attempt)
                 if transaction:
-                    _cleanup_attempt_document(
+                    _delete_attempt_group(
                         client,
                         db_id,
                         attempts_collection,
-                        attempt,
+                        user_attempts,
+                        summary,
                         next_status="cancelled",
-                        meta_updates={
-                            "cleanup_reason": f"reconciled:{match_type or 'transaction'}",
-                            "cleanup_at": _to_iso(now),
-                        },
+                        reason=f"reconciled:{match_type or 'transaction'}",
+                        now=now,
                     )
                     summary["cleaned_reconciled"] += 1
-                    summary["deleted"] += 1
                     continue
 
-                superseding_transaction = _find_superseding_transaction(transactions, attempt, created_at)
+                superseding_transaction = _find_superseding_transaction(transactions, latest_attempt, created_at)
                 if superseding_transaction:
-                    _cleanup_attempt_document(
+                    _delete_attempt_group(
                         client,
                         db_id,
                         attempts_collection,
-                        attempt,
+                        user_attempts,
+                        summary,
                         next_status="cancelled",
-                        meta_updates={
-                            "cleanup_reason": "superseded_by_paid_transaction",
-                            "cleanup_at": _to_iso(now),
-                        },
+                        reason="superseded_by_paid_transaction",
+                        now=now,
                     )
                     summary["cleaned_reconciled"] += 1
-                    summary["deleted"] += 1
                     continue
 
-                user_id = str(_obj_get(attempt, "user_id", "") or "").strip()
                 profile = profiles_by_user_id.get(user_id)
                 if _is_profile_currently_paid(profile, now):
-                    _cleanup_attempt_document(
+                    _delete_attempt_group(
                         client,
                         db_id,
                         attempts_collection,
-                        attempt,
+                        user_attempts,
+                        summary,
                         next_status="cancelled",
-                        meta_updates={
-                            "cleanup_reason": "user_already_on_paid_plan",
-                            "cleanup_at": _to_iso(now),
-                        },
+                        reason="user_already_on_paid_plan",
+                        now=now,
                     )
                     summary["cleaned_paid_plan"] += 1
-                    summary["deleted"] += 1
                     continue
 
-                reminder_result = _send_payment_reminder(client, attempt)
-                _cleanup_attempt_document(
+                reminder_result = _send_payment_reminder(client, latest_attempt)
+                _delete_attempt_group(
                     client,
                     db_id,
                     attempts_collection,
-                    attempt,
+                    user_attempts,
+                    summary,
                     next_status="expired",
-                    meta_updates={
-                        "reminder_sent_at": _to_iso(now),
-                        "cleanup_reason": "abandoned_payment_attempt",
-                        "cleanup_at": _to_iso(now),
-                    },
+                    reason="abandoned_payment_attempt",
+                    now=now,
                 )
                 if reminder_result == "sent":
                     summary["reminded"] += 1
                 elif reminder_result == "already_sent":
                     summary["already_reminded"] += 1
                 summary["cleaned_abandoned"] += 1
-                summary["deleted"] += 1
             except Exception as error:
                 summary["failed"] += 1
                 context.error(json.dumps({
                     "job": "payment-reminders",
                     "attempt_id": attempt_id,
-                    "user_id": _obj_get(attempt, "user_id"),
+                    "user_id": user_id,
                     "error": str(error),
                     "attempt_status": attempt_status,
                 }))

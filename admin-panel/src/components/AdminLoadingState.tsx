@@ -18,12 +18,12 @@ export const AdminLoadingState: React.FC<AdminLoadingStateProps> = ({
   return (
     <div
       className={cn(
-        'relative isolate flex h-full w-full flex-1 items-center justify-center overflow-hidden rounded-[32px] border border-border/60 bg-[linear-gradient(180deg,rgba(18,22,28,0.9),rgba(30,34,41,0.84))] px-6 py-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl',
-        fullScreen ? 'min-h-[100dvh] rounded-none border-none bg-background' : 'min-h-[calc(100dvh-8.5rem)]',
+        'relative isolate flex h-full w-full flex-1 items-center justify-center overflow-hidden rounded-[32px] border border-border/60 bg-card/95 px-6 py-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl',
+        fullScreen ? 'min-h-[100dvh] rounded-none border-none bg-background' : 'min-h-[360px]',
         className
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(245,96,64,0.12),transparent_24%),radial-gradient(circle_at_center,rgba(64,93,230,0.18),transparent_34%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]" />
       <div className="pointer-events-none absolute inset-[1px] rounded-[31px] border border-white/6" />
 
       <div className="relative flex max-w-sm flex-col items-center text-center">

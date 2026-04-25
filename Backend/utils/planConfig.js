@@ -3,7 +3,7 @@ const {
     APPWRITE_DATABASE_ID,
     PRICING_COLLECTION_ID,
     PROFILES_COLLECTION_ID,
-    USERS_COLLECTION_ID
+    TRANSACTIONS_COLLECTION_ID
 } = require('./appwrite');
 
 const parseJsonArray = (value) => {
@@ -50,6 +50,66 @@ const normalizeFeatureKey = (value) => String(value || '')
     .replace(/[+/\s-]+/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
+
+const BENEFIT_KEYS = Object.freeze([
+    'unlimited_contacts',
+    'post_comment_dm_automation',
+    'post_comment_reply_automation',
+    'reel_comment_dm_automation',
+    'reel_comment_reply_automation',
+    'share_reel_to_dm',
+    'share_post_to_dm',
+    'super_profile',
+    'welcome_message',
+    'convo_starters',
+    'inbox_menu',
+    'dm_automation',
+    'story_automation',
+    'suggest_more',
+    'comment_moderation',
+    'global_trigger',
+    'mentions',
+    'collect_email',
+    'instagram_live_automation',
+    'priority_support',
+    'followers_only',
+    'seen_typing',
+    'no_watermark'
+]);
+
+const BENEFIT_KEY_SET = new Set(BENEFIT_KEYS);
+const BENEFIT_FIELD_PREFIX = 'benefit_';
+const BENEFIT_ALIASES = Object.freeze({
+    post_comment_dm: 'post_comment_dm_automation',
+    post_comment_reply: 'post_comment_reply_automation',
+    reel_comment_dm: 'reel_comment_dm_automation',
+    reel_comment_reply: 'reel_comment_reply_automation',
+    dm_automations: 'dm_automation',
+    dm_automation: 'dm_automation',
+    auto_reply_dm_keywords: 'dm_automation',
+    story_mentions_custom_dm: 'mentions',
+    mention: 'mentions',
+    email_collector: 'collect_email',
+    webhook_integrations: 'collect_email',
+    seen_typing_indicator: 'seen_typing',
+    no_watermark_branding: 'no_watermark',
+    instagram_connections: 'instagram_connections_limit'
+});
+const BENEFIT_STORAGE_KEYS = Object.freeze({
+    post_comment_reply_automation: 'post_comment_reply',
+    reel_comment_reply_automation: 'reel_comment_reply'
+});
+
+const benefitFieldForKey = (key) => `${BENEFIT_FIELD_PREFIX}${BENEFIT_STORAGE_KEYS[key] || key}`;
+
+const normalizeBenefitKey = (value) => {
+    const normalized = normalizeFeatureKey(value);
+    if (!normalized) return '';
+    const withoutPrefix = normalized.startsWith(BENEFIT_FIELD_PREFIX)
+        ? normalized.slice(BENEFIT_FIELD_PREFIX.length)
+        : normalized;
+    return BENEFIT_ALIASES[withoutPrefix] || withoutPrefix;
+};
 
 const toFiniteNumber = (value) => {
     if (value === null || value === undefined || value === '') return null;
@@ -103,6 +163,27 @@ const PLAN_DURATION_DAYS = Object.freeze({
     yearly: 364
 });
 
+const VALID_SELF_SUBSCRIPTION_STATUSES = new Set(['success', 'paid', 'captured', 'completed', 'active']);
+const NEGATIVE_SELF_SUBSCRIPTION_STATUSES = new Set([
+    'refunded',
+    'partially_refunded',
+    'chargeback',
+    'disputed',
+    'void',
+    'reversed',
+    'cancelled',
+    'canceled'
+]);
+const IGNORED_SELF_SUBSCRIPTION_STATUSES = new Set([
+    'pending',
+    'created',
+    'attempted',
+    'failed',
+    'failure',
+    'expired',
+    'abandoned'
+]);
+
 const encodeProfileLimit = (value) => {
     const numeric = toFiniteNumber(value);
     if (numeric == null || numeric <= 0) return 0;
@@ -148,26 +229,47 @@ const calculateSubscriptionExpiry = ({
     return next.toISOString();
 };
 
-const buildPlanEntitlements = (comparison) => {
+const normalizeBenefitMap = (value = {}) => {
+    const source = parseJsonObject(value, {});
+    return Object.entries(source).reduce((acc, [key, enabled]) => {
+        const normalizedKey = normalizeBenefitKey(key);
+        if (!normalizedKey || !BENEFIT_KEY_SET.has(normalizedKey)) return acc;
+        acc[normalizedKey] = normalizeBooleanEntitlement(enabled);
+        return acc;
+    }, {});
+};
+
+const extractBenefitAttributes = (document = {}) => BENEFIT_KEYS.reduce((acc, key) => {
+    const field = benefitFieldForKey(key);
+    const legacyField = `${BENEFIT_FIELD_PREFIX}${key}`;
+    if (Object.prototype.hasOwnProperty.call(document || {}, field)) {
+        acc[key] = normalizeBooleanEntitlement(document[field]);
+    } else if (legacyField !== field && Object.prototype.hasOwnProperty.call(document || {}, legacyField)) {
+        acc[key] = normalizeBooleanEntitlement(document[legacyField]);
+    } else if (Object.prototype.hasOwnProperty.call(document || {}, key)) {
+        acc[key] = normalizeBooleanEntitlement(document[key]);
+    }
+    return acc;
+}, {});
+
+const buildPlanEntitlements = (comparison, planDocument = null) => {
     const entries = Array.isArray(comparison) ? comparison : [];
     const entitlements = entries.reduce((acc, item) => {
-        const key = normalizeFeatureKey(item?.key || item?.label);
+        const key = normalizeBenefitKey(item?.key || item?.label);
         if (!key || LIMIT_ENTITLEMENT_KEYS.has(key)) return acc;
         acc[key] = normalizeBooleanEntitlement(item?.value);
         return acc;
     }, {});
-    if (entitlements.webhook_integrations === true && entitlements.collect_email !== true) {
-        entitlements.collect_email = true;
-    }
-    if (entitlements.email_collector === true && entitlements.collect_email !== true) {
-        entitlements.collect_email = true;
-    }
-    return entitlements;
+    const booleanAttributes = extractBenefitAttributes(planDocument || {});
+    return BENEFIT_KEYS.reduce((acc, key) => {
+        acc[key] = Boolean(booleanAttributes[key] ?? entitlements[key] ?? false);
+        return acc;
+    }, {});
 };
 
 const normalizePlanDocument = (plan) => {
     const comparison = parseJsonObjectArray(plan?.comparison_json || plan?.comparison);
-    const entitlements = buildPlanEntitlements(comparison);
+    const entitlements = buildPlanEntitlements(comparison, plan);
     const features = parseJsonArray(plan?.features);
     const monthlyLimit = normalizeStoredLimit(plan?.actions_per_month_limit);
     const activeAccountLimit = toFiniteNumber(plan?.instagram_connections_limit) || 0;
@@ -195,7 +297,9 @@ const normalizePlanDocument = (plan) => {
         instagram_link_limit: linkedAccountLimit != null ? linkedAccountLimit : activeAccountLimit,
         actions_per_hour_limit: toFiniteNumber(plan?.actions_per_hour_limit) || 0,
         actions_per_day_limit: toFiniteNumber(plan?.actions_per_day_limit) || 0,
-        actions_per_month_limit: monthlyLimit
+        actions_per_month_limit: monthlyLimit,
+        monthly_duration_days: toFiniteNumber(plan?.monthly_duration_days) || PLAN_DURATION_DAYS.monthly,
+        yearly_duration_days: toFiniteNumber(plan?.yearly_duration_days) || PLAN_DURATION_DAYS.yearly
     };
 };
 
@@ -235,45 +339,124 @@ const getUserProfile = async (databases, userId) => {
     return result.documents?.[0] || null;
 };
 
-const getUserSelfMemory = async (databases, userId, userFallback = null) => {
-    const fallbackId = String(userFallback?.$id || userId || '').trim();
-    const useFallback = userFallback
-        && (
-            Object.prototype.hasOwnProperty.call(userFallback, 'plan_id')
-            || Object.prototype.hasOwnProperty.call(userFallback, 'plan_expires_at')
-            || Object.prototype.hasOwnProperty.call(userFallback, '$id')
-        );
-    if (useFallback) {
-        return {
-            user: {
-                ...userFallback,
-                $id: fallbackId || String(userFallback?.$id || '').trim()
-            },
-            plan_id: normalizePlanCode(userFallback?.plan_id || 'free') || 'free',
-            plan_expires_at: userFallback?.plan_expires_at || null
-        };
+const pickTransactionValue = (transaction, ...keys) => {
+    for (const key of keys) {
+        if (transaction?.[key] !== undefined && transaction?.[key] !== null && transaction?.[key] !== '') {
+            return transaction[key];
+        }
     }
-    if (!fallbackId) {
-        return {
-            user: null,
-            plan_id: 'free',
-            plan_expires_at: null
-        };
+    return null;
+};
+
+const normalizeTransactionStatus = (value) => String(value || '').trim().toLowerCase();
+
+const getTransactionPlanId = (transaction) => normalizePlanCode(
+    pickTransactionValue(transaction, 'planCode', 'plan_code', 'planId', 'plan_id', 'planName', 'plan_name')
+);
+
+const getTransactionCreatedAt = (transaction) => (
+    pickTransactionValue(transaction, 'transactionDate', 'transaction_date', 'created_at', '$createdAt')
+);
+
+const getTransactionBillingCycle = (transaction) => normalizeBillingCycle(
+    pickTransactionValue(transaction, 'billingCycle', 'billing_cycle') || 'monthly'
+);
+
+const calculateTransactionExpiry = (transaction, plan = null) => {
+    const billingCycle = getTransactionBillingCycle(transaction);
+    const startDate = getTransactionCreatedAt(transaction);
+    const durationDays = billingCycle === 'yearly'
+        ? toFiniteNumber(plan?.yearly_duration_days) || PLAN_DURATION_DAYS.yearly
+        : toFiniteNumber(plan?.monthly_duration_days) || PLAN_DURATION_DAYS.monthly;
+    return calculateSubscriptionExpiry({
+        billingCycle,
+        durationDays,
+        baseDate: startDate
+    });
+};
+
+const listUserTransactions = async (databases, userId, limit = 250) => {
+    const safeUserId = String(userId || '').trim();
+    if (!safeUserId) return [];
+    const response = await databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
+        Query.equal('userId', safeUserId),
+        Query.limit(limit)
+    ]);
+    return response.documents || [];
+};
+
+const buildFreeSelfSubscriptionMemory = (extra = {}) => ({
+    user: null,
+    plan_id: 'free',
+    plan_expires_at: null,
+    billing_cycle: null,
+    status: 'inactive',
+    transaction: null,
+    transaction_id: null,
+    ...extra
+});
+
+const getUserSelfMemory = async (databases, userId, _userFallback = null, pricingPlans = null) => {
+    const safeUserId = String(userId || _userFallback?.$id || '').trim();
+    if (!safeUserId) return buildFreeSelfSubscriptionMemory();
+
+    const plans = Array.isArray(pricingPlans) ? pricingPlans : await listPricingPlans(databases);
+    const transactions = await listUserTransactions(databases, safeUserId).catch(() => []);
+    const ranked = transactions
+        .map((transaction) => {
+            const createdAt = getTransactionCreatedAt(transaction);
+            const createdTs = new Date(createdAt || 0).getTime();
+            const planId = getTransactionPlanId(transaction);
+            const status = normalizeTransactionStatus(transaction?.status);
+            const plan = findPlanByIdentifier(plans, planId);
+            return {
+                transaction,
+                createdTs: Number.isNaN(createdTs) ? 0 : createdTs,
+                planId,
+                status,
+                plan
+            };
+        })
+        .filter((entry) => entry.planId && entry.planId !== 'free' && entry.plan)
+        .sort((a, b) => b.createdTs - a.createdTs);
+
+    const decisive = ranked.find((entry) =>
+        VALID_SELF_SUBSCRIPTION_STATUSES.has(entry.status)
+        || NEGATIVE_SELF_SUBSCRIPTION_STATUSES.has(entry.status)
+    );
+
+    if (!decisive) return buildFreeSelfSubscriptionMemory();
+    if (NEGATIVE_SELF_SUBSCRIPTION_STATUSES.has(decisive.status)) {
+        return buildFreeSelfSubscriptionMemory({
+            transaction: decisive.transaction,
+            transaction_id: decisive.transaction?.$id || decisive.transaction?.transactionId || null,
+            status: decisive.status || 'inactive'
+        });
     }
-    try {
-        const user = await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, fallbackId);
-        return {
-            user,
-            plan_id: normalizePlanCode(user?.plan_id || 'free') || 'free',
-            plan_expires_at: user?.plan_expires_at || null
-        };
-    } catch {
-        return {
-            user: null,
-            plan_id: 'free',
-            plan_expires_at: null
-        };
+    if (!VALID_SELF_SUBSCRIPTION_STATUSES.has(decisive.status)) {
+        return buildFreeSelfSubscriptionMemory();
     }
+
+    const expiresAt = calculateTransactionExpiry(decisive.transaction, decisive.plan);
+    if (isExpiredSubscription(decisive.planId, expiresAt)) {
+        return buildFreeSelfSubscriptionMemory({
+            transaction: decisive.transaction,
+            transaction_id: decisive.transaction?.$id || decisive.transaction?.transactionId || null,
+            billing_cycle: getTransactionBillingCycle(decisive.transaction),
+            status: 'expired'
+        });
+    }
+
+    return {
+        user: null,
+        plan_id: decisive.planId,
+        plan_expires_at: expiresAt,
+        billing_cycle: getTransactionBillingCycle(decisive.transaction),
+        status: 'active',
+        transaction: decisive.transaction,
+        transaction_id: decisive.transaction?.$id || decisive.transaction?.transactionId || null,
+        plan: decisive.plan
+    };
 };
 
 const isExpiredSubscription = (planId, expiresAt) => {
@@ -440,20 +623,19 @@ const buildRuntimeFeatureSnapshot = ({
     featureOverrides = {},
     noWatermarkEnabled = false
 } = {}) => {
-    const entitlements = Object.entries(plan?.entitlements || {}).reduce((acc, [key, value]) => {
-        if (value === true) {
-            acc[key] = true;
-        }
+    const entitlements = BENEFIT_KEYS.reduce((acc, key) => {
+        acc[key] = Boolean(plan?.entitlements?.[key] === true);
         return acc;
     }, {});
 
     Object.entries(parseJsonObject(featureOverrides, {})).forEach(([key, value]) => {
-        const normalizedKey = normalizeFeatureKey(key);
+        const normalizedKey = normalizeBenefitKey(key);
         if (!normalizedKey || normalizedKey === 'watermark_text') return;
+        if (!BENEFIT_KEY_SET.has(normalizedKey)) return;
         if (normalizeBooleanEntitlement(value)) {
             entitlements[normalizedKey] = true;
         } else {
-            delete entitlements[normalizedKey];
+            entitlements[normalizedKey] = false;
         }
     });
 
@@ -472,7 +654,7 @@ const buildAdminOverrideSummary = ({
         .map((key) => String(key || '').trim())
         .filter(Boolean);
     const featureKeys = Object.keys(parseJsonObject(featureOverrides, {}))
-        .map((key) => normalizeFeatureKey(key))
+        .map((key) => normalizeBenefitKey(key))
         .filter((key) => Boolean(key) && key !== 'watermark_text');
 
     if (limitKeys.length === 0 && featureKeys.length === 0) {
@@ -517,19 +699,23 @@ const buildProfileConfigPayload = ({
 };
 
 const resolvePlanEntitlements = (plan, profile = null) => {
+    const entitlements = BENEFIT_KEYS.reduce((acc, key) => {
+        acc[key] = Boolean(plan?.entitlements?.[key] === true);
+        return acc;
+    }, {});
+
     const runtimeFeatures = parseJsonObject(profile?.features_json, null);
     if (runtimeFeatures && typeof runtimeFeatures === 'object' && Object.keys(runtimeFeatures).length > 0) {
-        return runtimeFeatures;
+        Object.assign(entitlements, normalizeBenefitMap(runtimeFeatures));
     }
 
-    const entitlements = {
-        ...(plan?.entitlements || {})
-    };
+    Object.assign(entitlements, extractBenefitAttributes(profile || {}));
+
     const overrides = parseProfileConfig(profile).feature_overrides;
 
     Object.entries(overrides).forEach(([key, value]) => {
-        const normalizedKey = normalizeFeatureKey(key);
-        if (!normalizedKey) return;
+        const normalizedKey = normalizeBenefitKey(key);
+        if (!normalizedKey || !BENEFIT_KEY_SET.has(normalizedKey)) return;
         entitlements[normalizedKey] = normalizeBooleanEntitlement(value);
     });
 
@@ -720,6 +906,10 @@ const buildPlanProfilePayload = ({
         })
     };
 
+    BENEFIT_KEYS.forEach((key) => {
+        payload[benefitFieldForKey(key)] = runtimeFeatures[key] === true;
+    });
+
     if (credits !== undefined) {
         payload.credits = Number(credits || 0);
     } else if (!currentProfile?.$id && currentProfile?.credits !== undefined) {
@@ -750,16 +940,11 @@ const inferBillingCycleFromExpiry = (expiresAt) => {
 };
 
 const updateUserSelfPlanMemory = async (databases, userId, planId = 'free', planExpiresAt = null) => {
-    const safeUserId = String(userId || '').trim();
-    if (!safeUserId) return null;
-    try {
-        return await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, safeUserId, {
-            plan_id: normalizePlanCode(planId || 'free') || 'free',
-            plan_expires_at: planExpiresAt || null
-        });
-    } catch {
-        return null;
-    }
+    void databases;
+    void userId;
+    void planId;
+    void planExpiresAt;
+    return null;
 };
 
 const upsertEffectiveProfile = async (databases, userId, currentProfile, plan, options = {}) => {
@@ -800,9 +985,9 @@ const upsertEffectiveProfile = async (databases, userId, currentProfile, plan, o
 
 const resolveUserPlanContext = async (databases, userId, userFallback = null) => {
     const safeUserId = String(userId || userFallback?.$id || '').trim();
-    const [plans, selfMemory, existingProfile] = await Promise.all([
-        listPricingPlans(databases),
-        getUserSelfMemory(databases, safeUserId, userFallback),
+    const plans = await listPricingPlans(databases);
+    const [selfMemory, existingProfile] = await Promise.all([
+        getUserSelfMemory(databases, safeUserId, userFallback, plans),
         getUserProfile(databases, safeUserId)
     ]);
     const freePlan = findPlanByIdentifier(plans, 'free') || normalizePlanDocument({ plan_code: 'free', name: 'Free Plan' });
@@ -821,10 +1006,6 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null) =>
     const selfPlanExpired = isExpiredSubscription(selfPlanId, selfPlanExpiresAt);
     const effectivePlanExpired = isExpiredSubscription(effectivePlanId, effectiveExpiresAt);
 
-    if (selfPlanExpired) {
-        await updateUserSelfPlanMemory(databases, safeUserId, 'free', null);
-    }
-
     if (effectivePlanExpired) {
         const activeSelfPlan = selfPlanId !== 'free' && !selfPlanExpired
             ? (findPlanByIdentifier(plans, selfPlanId) || null)
@@ -833,12 +1014,12 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null) =>
         if (planSource === 'admin' && effectivePlanId !== 'free' && activeSelfPlan) {
             profile = await upsertEffectiveProfile(databases, safeUserId, profile, activeSelfPlan, {
                 planId: selfPlanId,
-                billingCycle: inferBillingCycleFromExpiry(selfPlanExpiresAt),
+                billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfPlanExpiresAt),
                 subscriptionStatus: 'active',
                 subscriptionExpires: selfPlanExpiresAt,
                 paidPlanSnapshot: buildPaidPlanSnapshot({
                     plan: activeSelfPlan,
-                    billingCycle: inferBillingCycleFromExpiry(selfPlanExpiresAt),
+                    billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfPlanExpiresAt),
                     expires: selfPlanExpiresAt,
                     status: 'active'
                 })
@@ -850,9 +1031,6 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null) =>
                 subscriptionStatus: 'inactive',
                 subscriptionExpires: null
             });
-            if (planSource !== 'admin' || effectivePlanId !== 'free') {
-                await updateUserSelfPlanMemory(databases, safeUserId, 'free', null);
-            }
         }
         runtimeIdentity = getRuntimePlanIdentity(profile);
         effectivePlanId = runtimeIdentity.plan_code || 'free';
@@ -879,7 +1057,9 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null) =>
         limits: resolvePlanLimits(effectivePlan, profile),
         selfPlanId: selfPlanExpired ? 'free' : selfPlanId,
         selfPlanExpiresAt: selfPlanExpired ? null : selfPlanExpiresAt,
-        selfUserDocument: selfMemory.user || null
+        selfUserDocument: selfMemory.user || null,
+        selfTransaction: selfMemory.transaction || null,
+        selfTransactionId: selfMemory.transaction_id || null
     };
 };
 
@@ -890,9 +1070,17 @@ module.exports = {
     normalizePlanCode,
     normalizePlanSource,
     normalizeFeatureKey,
+    normalizeBenefitKey,
     normalizeBooleanEntitlement,
     normalizeStoredLimit,
     encodeProfileLimit,
+    BENEFIT_KEYS,
+    BENEFIT_FIELD_PREFIX,
+    BENEFIT_STORAGE_KEYS,
+    benefitFieldForKey,
+    VALID_SELF_SUBSCRIPTION_STATUSES,
+    NEGATIVE_SELF_SUBSCRIPTION_STATUSES,
+    IGNORED_SELF_SUBSCRIPTION_STATUSES,
     PLAN_DURATION_DAYS,
     normalizeBillingCycle,
     resolvePlanDurationDays,
@@ -910,12 +1098,18 @@ module.exports = {
     buildRuntimeFeatureSnapshot,
     buildAdminOverrideSummary,
     buildPlanEntitlements,
+    extractBenefitAttributes,
+    normalizeBenefitMap,
     normalizePlanDocument,
     listPricingPlans,
     findPlanByIdentifier,
     getPlanByIdentifier,
     getUserProfile,
     getUserSelfMemory,
+    listUserTransactions,
+    getTransactionPlanId,
+    getTransactionCreatedAt,
+    calculateTransactionExpiry,
     resolvePlanEntitlements,
     resolvePlanLimits,
     updateUserSelfPlanMemory,

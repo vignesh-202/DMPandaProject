@@ -83,8 +83,6 @@ const ensureUserActivityDocument = async (user, options = {}) => {
                 last_login: nowIso,
                 last_active_at: nowIso,
                 status: 'active',
-                plan_id: 'free',
-                plan_expires_at: null,
                 kill_switch_enabled: true,
                 cleanup_protected: false,
                 cleanup_state_json: null

@@ -43,8 +43,10 @@ interface SidebarProps {
 
 const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
   const { user, hasLinkedInstagram } = useAuth();
-  const { currentView, setCurrentView, igAccounts, setActiveAccountID, activeAccountID, activeAccount, hasUnsavedChanges, setHasUnsavedChanges, saveUnsavedChanges, discardUnsavedChanges, accessState } = useDashboard();
+  const { currentView, setCurrentView, igAccounts, setActiveAccountID, activeAccountID, activeAccount, hasUnsavedChanges, setHasUnsavedChanges, saveUnsavedChanges, discardUnsavedChanges, accessState, planLimits } = useDashboard();
   const hasAnyLinkedAccount = (igAccounts?.length || 0) > 0;
+  const accountLimit = Number(planLimits.instagram_link_limit ?? planLimits.instagram_connections_limit ?? 0);
+  const linkedAccountCount = igAccounts?.length || 0;
   const hasAutomationAccountAccess = !!hasLinkedInstagram || hasAnyLinkedAccount;
   const automationLockedByBan = accessState?.automation_locked === true;
   const canAccessAutomation = hasAutomationAccountAccess && !automationLockedByBan;
@@ -390,6 +392,11 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
 
               {/* Add Account Button - Instagram styled */}
               <div className="mt-2 pt-2 border-t border-border">
+                {!isCollapsed && (
+                  <div className="mb-2 px-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {linkedAccountCount} / {accountLimit || 0} accounts linked
+                  </div>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

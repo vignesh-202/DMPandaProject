@@ -34,6 +34,9 @@ const resolveWatermarkPolicy = ({ globalPolicy, profile }) => {
     };
     const runtimeFeatures = parseFeatureOverrides(profile?.features_json);
     const featureOverrides = parseFeatureOverrides(profile?.feature_overrides_json);
+    if (profile?.benefit_no_watermark === true) {
+        runtimeFeatures.no_watermark = true;
+    }
 
     if (!basePolicy.enabled) {
         return { ...basePolicy, enabled: false };
