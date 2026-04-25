@@ -401,14 +401,6 @@ export const PricingPage: React.FC = () => {
                           className="input-base mt-3"
                         />
                       </div>
-                      <div className="rounded-[24px] border border-border/70 bg-background/60 p-4">
-                        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Yearly bonus</label>
-                        <input
-                          value={plan.yearly_bonus || ''}
-                          onChange={(event) => updatePlan(plan.id, 'yearly_bonus', event.target.value)}
-                          className="input-base mt-3"
-                        />
-                      </div>
                     </div>
 
                     <div className="rounded-[28px] border border-border/70 bg-background/60 p-5">

@@ -66,39 +66,6 @@ const parseFeatureOverrides = (raw: unknown): Record<string, any> => {
 
 const surfaceClass = 'glass-card rounded-[32px] border border-border/80 bg-card/95 shadow-sm';
 
-const BENEFIT_TOGGLES = [
-    ['unlimited_contacts', 'Unlimited Contacts'],
-    ['post_comment_dm_automation', 'Post Comment DM'],
-    ['post_comment_reply_automation', 'Post Comment Reply'],
-    ['reel_comment_dm_automation', 'Reel Comment DM'],
-    ['reel_comment_reply_automation', 'Reel Comment Reply'],
-    ['share_reel_to_dm', 'Share Reel To DM'],
-    ['share_post_to_dm', 'Share Post To DM'],
-    ['super_profile', 'Super Profile'],
-    ['welcome_message', 'Welcome Message'],
-    ['convo_starters', 'Convo Starters'],
-    ['inbox_menu', 'Inbox Menu'],
-    ['dm_automation', 'DM Automation'],
-    ['story_automation', 'Story Automation'],
-    ['suggest_more', 'Suggest More'],
-    ['comment_moderation', 'Comment Moderation'],
-    ['global_trigger', 'Global Trigger'],
-    ['mentions', 'Mentions'],
-    ['collect_email', 'Collect Email'],
-    ['instagram_live_automation', 'Instagram Live'],
-    ['priority_support', 'Priority Support'],
-    ['followers_only', 'Followers Only'],
-    ['seen_typing', 'Seen + Typing'],
-    ['no_watermark', 'No Watermark']
-] as const;
-
-const BENEFIT_STORAGE_KEYS: Record<string, string> = {
-    post_comment_reply_automation: 'post_comment_reply',
-    reel_comment_reply_automation: 'reel_comment_reply'
-};
-
-const benefitFieldForKey = (key: string) => `benefit_${BENEFIT_STORAGE_KEYS[key] || key}`;
-
 const SelectField = ({
     label,
     value,
@@ -112,12 +79,12 @@ const SelectField = ({
     children: React.ReactNode;
     hint?: string;
 }) => (
-    <div className="rounded-[24px] border border-border/70 bg-background/55 p-4">
+    <div className="rounded-[24px] border border-border/70 bg-gradient-to-b from-background/80 to-card/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         <p className="text-xs font-semibold text-muted-foreground">{label}</p>
         {hint ? <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">{hint}</p> : null}
         <div className="relative mt-3">
             <select
-                className="select-modern bg-card text-foreground pr-11"
+                className="select-modern bg-card/90 text-foreground pr-11 shadow-sm"
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
             >
@@ -218,19 +185,14 @@ export const UsersPage: React.FC = () => {
             setDetailData(response.data);
             const profile = response.data?.profile || {};
             const featureOverrides = parseFeatureOverrides(profile.feature_overrides_json);
-            const runtimeFeatures = parseFeatureOverrides(profile.features_json);
-            const benefits = BENEFIT_TOGGLES.reduce<Record<string, boolean>>((acc, [key]) => {
-                acc[key] = Boolean(profile[benefitFieldForKey(key)] ?? profile[`benefit_${key}`] ?? runtimeFeatures[key] ?? featureOverrides[key]);
-                return acc;
-            }, {});
+            const limits = parseFeatureOverrides(profile.limits_json);
             setProfilePatch({
                 action: 'change_assigned_plan',
-                instagram_connections_limit: profile.instagram_connections_limit ?? '',
-                hourly_action_limit: profile.hourly_action_limit ?? '',
-                daily_action_limit: profile.daily_action_limit ?? '',
-                monthly_action_limit: profile.monthly_action_limit ?? '',
-                no_watermark: runtimeFeatures.no_watermark === true || featureOverrides.no_watermark === true,
-                benefits,
+                instagram_connections_limit: limits.instagram_connections_limit ?? response.data?.effective_limits?.instagram_connections_limit ?? '',
+                hourly_action_limit: limits.hourly_action_limit ?? profile.hourly_action_limit ?? '',
+                daily_action_limit: limits.daily_action_limit ?? profile.daily_action_limit ?? '',
+                monthly_action_limit: limits.monthly_action_limit ?? profile.monthly_action_limit ?? '',
+                no_watermark: featureOverrides.no_watermark === true,
                 feature_overrides_json: profile.feature_overrides_json || '',
                 watermark_text: String(featureOverrides?.watermark_text || '').trim(),
                 plan_code: profile.plan_code || profile.subscription_plan_id || 'free',
@@ -279,7 +241,7 @@ export const UsersPage: React.FC = () => {
     const closeModal = () => navigate('/users');
 
     const applyProfileAction = async (
-        action: 'change_assigned_plan' | 'edit_custom_limits' | 'edit_benefits' | 'reset_to_assigned_defaults' | 'reset_to_paid_snapshot_or_free'
+        action: 'change_assigned_plan' | 'edit_custom_limits' | 'reset_to_assigned_defaults' | 'reset_to_paid_snapshot_or_free'
     ) => {
         if (!selectedUser) return;
         setSaving(true);
@@ -296,9 +258,6 @@ export const UsersPage: React.FC = () => {
                 }
             }
             const overrides = parseFeatureOverrides(payload.feature_overrides_json);
-            if (action === 'edit_benefits') {
-                payload.benefits = profilePatch.benefits || {};
-            }
             const watermarkText = String(payload.watermark_text || '').trim();
             if (watermarkText) overrides.watermark_text = watermarkText;
             else delete overrides.watermark_text;
@@ -320,8 +279,6 @@ export const UsersPage: React.FC = () => {
                     ? 'Assigned plan updated.'
                     : action === 'edit_custom_limits'
                         ? 'Custom limits updated.'
-                        : action === 'edit_benefits'
-                            ? 'Benefit overrides updated.'
                         : action === 'reset_to_assigned_defaults'
                             ? 'Assigned-plan defaults restored.'
                             : 'Paid snapshot or free reset applied.'
@@ -683,6 +640,9 @@ export const UsersPage: React.FC = () => {
                                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                                     <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
                                         <h3 className="text-sm font-bold text-foreground">Assigned plan</h3>
+                                        <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                            Set the user&apos;s current assigned plan and expiry window here.
+                                        </p>
                                         <div className="mt-4 space-y-3">
                                             <SelectField
                                                 label="Assigned plan"
@@ -738,13 +698,16 @@ export const UsersPage: React.FC = () => {
                                             </div>
                                             <button onClick={() => applyProfileAction('change_assigned_plan')} className="btn-primary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
                                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                                                Save plan
+                                                Save assigned plan
                                             </button>
                                         </div>
                                     </div>
 
                                     <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
                                         <h3 className="text-sm font-bold text-foreground">Custom limits and watermark</h3>
+                                        <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                            These profile-level settings change runtime behavior without editing pricing defaults.
+                                        </p>
                                         <div className="mt-4 space-y-3">
                                             {[
                                                 ['instagram_connections_limit', 'Instagram connections'],
@@ -792,54 +755,6 @@ export const UsersPage: React.FC = () => {
                                                 Save limits and watermark
                                             </button>
                                         </div>
-                                    </div>
-
-                                    <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div>
-                                                <h3 className="text-sm font-bold text-foreground">Benefit overrides</h3>
-                                                <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
-                                                    Profile-level toggles apply immediately and do not change pricing defaults.
-                                                </p>
-                                            </div>
-                                            <span className="inline-flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-100/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
-                                                Override
-                                            </span>
-                                        </div>
-                                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                            {BENEFIT_TOGGLES.map(([key, label]) => {
-                                                const enabled = profilePatch.benefits?.[key] === true;
-                                                return (
-                                                    <button
-                                                        key={key}
-                                                        type="button"
-                                                        className={cn(
-                                                            'segmented-option min-h-[76px] items-start rounded-[18px] p-4 text-left',
-                                                            enabled ? 'is-active' : ''
-                                                        )}
-                                                        onClick={() => setProfilePatch((prev: any) => ({
-                                                            ...prev,
-                                                            benefits: {
-                                                                ...(prev.benefits || {}),
-                                                                [key]: !(prev.benefits?.[key] === true)
-                                                            }
-                                                        }))}
-                                                    >
-                                                        <span className="segmented-dot mt-0.5" />
-                                                        <span className="min-w-0">
-                                                            <span className="block text-sm font-semibold text-foreground">{label}</span>
-                                                            <span className="mt-1 block text-xs font-medium text-muted-foreground">
-                                                                {enabled ? 'Enabled for this profile' : 'Locked for this profile'}
-                                                            </span>
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        <button onClick={() => applyProfileAction('edit_benefits')} className="btn-primary mt-4 w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
-                                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
-                                            Save benefit overrides
-                                        </button>
                                     </div>
                                 </div>
 
@@ -900,12 +815,22 @@ export const UsersPage: React.FC = () => {
                                     <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
                                         <h3 className="text-sm font-bold text-foreground">Resets and linked accounts</h3>
                                         <div className="mt-4 space-y-3">
-                                            <button onClick={() => applyProfileAction('reset_to_assigned_defaults')} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
-                                                Restore assigned defaults
-                                            </button>
-                                            <button onClick={() => applyProfileAction('reset_to_paid_snapshot_or_free')} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
-                                                Rebuild from self plan
-                                            </button>
+                                            <div className="rounded-[20px] border border-border/70 bg-card/70 p-4">
+                                                <button onClick={() => applyProfileAction('reset_to_assigned_defaults')} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
+                                                    Restore assigned defaults
+                                                </button>
+                                                <p className="mt-2 text-xs text-muted-foreground">
+                                                    Reapply the selected plan defaults while keeping the current user record intact.
+                                                </p>
+                                            </div>
+                                            <div className="rounded-[20px] border border-border/70 bg-card/70 p-4">
+                                                <button onClick={() => applyProfileAction('reset_to_paid_snapshot_or_free')} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
+                                                    Rebuild from self plan
+                                                </button>
+                                                <p className="mt-2 text-xs text-muted-foreground">
+                                                    Restore the latest paid self-subscription snapshot, or fall back to free when none exists.
+                                                </p>
+                                            </div>
                                             <div className="rounded-[20px] border border-border/70 bg-card/70 p-4">
                                                 <p className="text-xs font-semibold text-muted-foreground">Linked Instagram accounts</p>
                                                 <div className="mt-3 space-y-3">
@@ -923,7 +848,7 @@ export const UsersPage: React.FC = () => {
                                                                     <p className="truncate text-sm font-bold text-foreground">{acc.username || acc.ig_user_id || acc.account_id}</p>
                                                                     <p className="mt-1 text-xs text-muted-foreground">
                                                                         {accessLabel}
-                                                                        {acc.access_reason ? ` • ${String(acc.access_reason).replace(/_/g, ' ')}` : ''}
+                                                                        {acc.access_reason ? ` - ${String(acc.access_reason).replace(/_/g, ' ')}` : ''}
                                                                     </p>
                                                                 </div>
                                                                 <button

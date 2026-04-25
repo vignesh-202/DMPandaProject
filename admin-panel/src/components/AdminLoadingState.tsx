@@ -19,7 +19,7 @@ export const AdminLoadingState: React.FC<AdminLoadingStateProps> = ({
     <div
       className={cn(
         'relative isolate flex h-full w-full flex-1 items-center justify-center overflow-hidden rounded-[32px] border border-border/60 bg-card/95 px-6 py-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl',
-        fullScreen ? 'min-h-[100dvh] rounded-none border-none bg-background' : 'min-h-[360px]',
+        fullScreen ? 'min-h-[100dvh] rounded-none border-none bg-background' : 'min-h-[420px]',
         className
       )}
     >

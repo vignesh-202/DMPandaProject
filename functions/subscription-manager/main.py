@@ -468,7 +468,6 @@ def _build_profile_patch_for_plan(profile, plan_defaults, *, plan_code, plan_nam
         "limits_json": json.dumps(limits_payload),
         "features_json": json.dumps(plan_defaults.get("entitlements") or {}),
         "admin_override_json": _obj_get(profile, "admin_override_json"),
-        "instagram_connections_limit": limits_payload["instagram_connections_limit"],
         "hourly_action_limit": limits_payload["hourly_action_limit"],
         "daily_action_limit": limits_payload["daily_action_limit"],
         "monthly_action_limit": limits_payload["monthly_action_limit"],
@@ -547,7 +546,6 @@ def _restore_profile_from_self_memory(client, db_id, profiles_collection, pricin
             _active_snapshot(plan_code, plan_defaults["plan_name"], billing_cycle, "active", expires_at, limits_payload, profile)
         ),
         "admin_override_json": None,
-        "instagram_connections_limit": plan_defaults["instagram_connections_limit"],
         "hourly_action_limit": plan_defaults["hourly_action_limit"],
         "daily_action_limit": plan_defaults["daily_action_limit"],
         "monthly_action_limit": plan_defaults["monthly_action_limit"],

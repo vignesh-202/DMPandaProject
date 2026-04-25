@@ -16,8 +16,7 @@
             "Backend/routes/dashboard.js:60",
             "Backend/routes/dashboard.js:180",
             "Backend/routes/dashboard.js:198",
-            "Backend/routes/dashboard.js:214",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8"
+            "Backend/routes/dashboard.js:214"
           ],
           "required": false,
           "status": "available",
@@ -35,8 +34,7 @@
             "Backend/routes/dashboard.js:61",
             "Backend/routes/dashboard.js:181",
             "Backend/routes/dashboard.js:199",
-            "Backend/routes/dashboard.js:215",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:27"
+            "Backend/routes/dashboard.js:215"
           ],
           "required": false,
           "status": "available",
@@ -100,13 +98,7 @@
             "docs/appwrite-schema-live.json:4637",
             "docs/appwrite-schema-live.json:4640",
             "docs/appwrite-schema-live.json:4746",
-            "docs/appwrite-schema-live.json:4749",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:86",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2708",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4025",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5363",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6064",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6370"
+            "docs/appwrite-schema-live.json:4749"
           ],
           "status": "available",
           "type": "key"
@@ -152,23 +144,21 @@
           "references": [
             "docs/appwrite-schema-live.json:4828",
             "docs/appwrite-schema-live.json:5102",
-            "ProductionSetup/setup_appwrite.py:332",
+            "ProductionSetup/setup_appwrite.py:323",
             "Backend/routes/payment.js:339",
             "Backend/routes/payment.js:355",
             "Backend/routes/payment.js:380",
             "Backend/routes/payment.js:1543",
             "Backend/routes/payment.js:1551",
-            "Backend/utils/planConfig.js:432",
-            "Backend/utils/planConfig.js:444",
-            "Backend/utils/planConfig.js:457",
+            "Backend/utils/planConfig.js:423",
+            "Backend/utils/planConfig.js:435",
+            "Backend/utils/planConfig.js:448",
             "Frontend/src/app/dashboard/TransactionsView.tsx:137",
             "Frontend/src/app/dashboard/TransactionsView.tsx:138",
             "Frontend/src/app/dashboard/TransactionsView.tsx:140",
             "Frontend/src/app/dashboard/TransactionsView.tsx:149",
             "functions/payment-reminders/main.py:259",
-            "functions/payment-reminders/main.py:260",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:142",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:694"
+            "functions/payment-reminders/main.py:260"
           ],
           "required": true,
           "status": "available",
@@ -267,13 +257,11 @@
             "Backend/routes/payment.js:1521",
             "Backend/routes/payment.js:1522",
             "Backend/routes/payment.js:1523",
-            "Backend/utils/planConfig.js:358",
+            "Backend/utils/planConfig.js:349",
             "functions/inactive-user-cleanup/main.py:490",
             "functions/inactive-user-cleanup/main.py:522",
             "functions/payment-reminders/main.py:212",
-            "functions/subscription-manager/main.py:419",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:239",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:744"
+            "functions/subscription-manager/main.py:410"
           ],
           "required": true,
           "status": "available",
@@ -339,11 +327,11 @@
             "admin-panel/src/pages/AuthCallback.tsx:16",
             "admin-panel/src/pages/AuthCallback.tsx:19",
             "admin-panel/src/pages/AuthCallback.tsx:26",
-            "admin-panel/src/pages/Users.tsx:133",
-            "admin-panel/src/pages/Users.tsx:267",
-            "admin-panel/src/pages/Users.tsx:271",
-            "admin-panel/src/pages/Users.tsx:272",
-            "admin-panel/src/pages/Users.tsx:275"
+            "admin-panel/src/pages/Users.tsx:126",
+            "admin-panel/src/pages/Users.tsx:260",
+            "admin-panel/src/pages/Users.tsx:264",
+            "admin-panel/src/pages/Users.tsx:265",
+            "admin-panel/src/pages/Users.tsx:268"
           ],
           "required": true,
           "status": "available",
@@ -372,12 +360,12 @@
             "Backend/routes/payment.js:668",
             "Backend/routes/payment.js:675",
             "Backend/routes/payment.js:809",
-            "Backend/utils/planConfig.js:354",
-            "Backend/utils/planConfig.js:550",
-            "Backend/utils/planConfig.js:554",
+            "Backend/utils/planConfig.js:345",
+            "Backend/utils/planConfig.js:541",
+            "Backend/utils/planConfig.js:545",
             "functions/inactive-user-cleanup/main.py:513",
             "functions/payment-reminders/main.py:231",
-            "functions/subscription-manager/main.py:408",
+            "functions/subscription-manager/main.py:399",
             "ProductionSetup/reports/appwrite-cleanup-report.json:342"
           ],
           "required": false,
@@ -397,13 +385,13 @@
             "Backend/routes/payment.js:387",
             "Backend/routes/payment.js:1048",
             "Backend/routes/payment.js:1081",
-            "Backend/utils/planConfig.js:354",
-            "Backend/utils/planConfig.js:551",
-            "Backend/utils/planConfig.js:555",
+            "Backend/utils/planConfig.js:345",
+            "Backend/utils/planConfig.js:542",
+            "Backend/utils/planConfig.js:546",
             "Frontend/src/app/dashboard/layout.tsx:65",
             "Frontend/src/app/dashboard/layout.tsx:89",
             "Frontend/src/components/dashboard/PlanCheckoutModal.tsx:50",
-            "functions/subscription-manager/main.py:412",
+            "functions/subscription-manager/main.py:403",
             "ProductionSetup/reports/appwrite-cleanup-report.json:376"
           ],
           "required": false,
@@ -520,7 +508,7 @@
           "references": [
             "docs/appwrite-schema-live.json:5001",
             "docs/appwrite-schema-live.json:5134",
-            "ProductionSetup/setup_appwrite.py:331",
+            "ProductionSetup/setup_appwrite.py:322",
             "Backend/routes/payment.js:354",
             "Backend/routes/payment.js:393",
             "Backend/routes/payment.js:416",
@@ -636,7 +624,7 @@
           "references": [
             "docs/appwrite-schema-live.json:5053",
             "docs/appwrite-schema-live.json:5186",
-            "ProductionSetup/setup_appwrite.py:330",
+            "ProductionSetup/setup_appwrite.py:321",
             "Backend/routes/payment.js:378",
             "Backend/routes/payment.js:397",
             "Backend/routes/payment.js:579",
@@ -726,7 +714,7 @@
           "references": [
             "docs/appwrite-schema-live.json:5094",
             "docs/appwrite-schema-live.json:5097",
-            "ProductionSetup/setup_appwrite.py:332",
+            "ProductionSetup/setup_appwrite.py:323",
             "ProductionSetup/reports/appwrite-cleanup-report.json:696"
           ],
           "status": "available",
@@ -761,7 +749,7 @@
             "docs/appwrite-schema-live.json:3602",
             "docs/appwrite-schema-live.json:5126",
             "docs/appwrite-schema-live.json:5129",
-            "ProductionSetup/setup_appwrite.py:331",
+            "ProductionSetup/setup_appwrite.py:322",
             "ProductionSetup/reports/appwrite-cleanup-report.json:727",
             "ProductionSetup/reports/appwrite-cleanup-report.json:9375"
           ],
@@ -868,7 +856,7 @@
         "ProductionSetup/migrate_subscription_truth.py:532",
         "ProductionSetup/migrate_subscription_truth.py:552",
         "ProductionSetup/migrate_subscription_truth.py:553",
-        "ProductionSetup/setup_appwrite.py:329",
+        "ProductionSetup/setup_appwrite.py:320",
         "admin-panel/src/pages/EmailCampaigns.tsx:34",
         "admin-panel/src/pages/EmailCampaigns.tsx:93",
         "admin-panel/src/pages/EmailCampaigns.tsx:550",
@@ -1072,7 +1060,7 @@
             "admin-panel/src/pages/Users.tsx:249",
             "Backend/routes/admin.js:2155",
             "Backend/utils/accessControl.js:27",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1024",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1066",
             "worker-node/src/appwrite.js:457",
             "worker-node/src/appwrite.js:482"
           ],
@@ -1088,7 +1076,7 @@
             "docs/appwrite-schema-inventory.md:40",
             "docs/appwrite-schema-live.json:5328",
             "Backend/routes/admin.js:2156",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1042"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1085"
           ],
           "required": false,
           "status": "available",
@@ -1102,7 +1090,7 @@
             "docs/appwrite-schema-inventory.md:41",
             "docs/appwrite-schema-live.json:5340",
             "Backend/routes/admin.js:2157",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1055"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1099"
           ],
           "required": false,
           "status": "available",
@@ -1239,10 +1227,10 @@
             "functions/inactive-user-cleanup/main.py:941",
             "functions/inactive-user-cleanup/main.py:959",
             "functions/inactive-user-cleanup/main.py:977",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1173",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1321",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1337",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10974"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1218",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1377",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1394",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:12211"
           ],
           "required": false,
           "status": "available",
@@ -1268,8 +1256,8 @@
             "functions/inactive-user-cleanup/main.py:283",
             "functions/inactive-user-cleanup/main.py:284",
             "functions/inactive-user-cleanup/main.py:871",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1204",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1335"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1253",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1392"
           ],
           "required": false,
           "status": "available",
@@ -1295,7 +1283,7 @@
             "functions/inactive-user-cleanup/main.py:616",
             "functions/inactive-user-cleanup/main.py:621",
             "functions/inactive-user-cleanup/main.py:626",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1229"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1280"
           ],
           "required": false,
           "status": "available",
@@ -1316,7 +1304,7 @@
             "docs/appwrite-schema-live.json:5391",
             "docs/appwrite-schema-live.json:5394",
             "ProductionSetup/setup_appwrite.py:307",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1260"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1312"
           ],
           "status": "available",
           "type": "fulltext"
@@ -1333,7 +1321,7 @@
             "docs/appwrite-schema-live.json:5407",
             "docs/appwrite-schema-live.json:5410",
             "ProductionSetup/setup_appwrite.py:308",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1276"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1329"
           ],
           "status": "available",
           "type": "fulltext"
@@ -1350,7 +1338,7 @@
             "docs/appwrite-schema-live.json:5423",
             "docs/appwrite-schema-live.json:5426",
             "ProductionSetup/setup_appwrite.py:309",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1292"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1346"
           ],
           "status": "available",
           "type": "key"
@@ -1366,7 +1354,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:310",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1309"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1364"
           ],
           "status": "available",
           "type": "key"
@@ -1381,7 +1369,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:311",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1323"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1379"
           ],
           "status": "available",
           "type": "key"
@@ -1398,7 +1386,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:312",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1339"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1396"
           ],
           "status": "available",
           "type": "key"
@@ -1492,7 +1480,7 @@
             "Frontend/src/lib/pricing.ts:142",
             "Frontend/src/lib/pricing.ts:149",
             "Frontend/src/app/dashboard/MyPlanView.tsx:22",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1419"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1477"
           ],
           "required": false,
           "status": "available",
@@ -1516,7 +1504,7 @@
             "Frontend/src/lib/pricing.ts:58",
             "Frontend/src/lib/pricing.ts:149",
             "Frontend/src/app/dashboard/MyPlanView.tsx:24",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1444"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1503"
           ],
           "required": false,
           "status": "available",
@@ -1541,7 +1529,7 @@
             "Frontend/src/lib/pricing.ts:144",
             "Frontend/src/lib/pricing.ts:151",
             "Frontend/src/app/dashboard/MyPlanView.tsx:23",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1467"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1527"
           ],
           "required": false,
           "status": "available",
@@ -1565,7 +1553,7 @@
             "Frontend/src/lib/pricing.ts:59",
             "Frontend/src/lib/pricing.ts:151",
             "Frontend/src/app/dashboard/MyPlanView.tsx:25",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1491"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1552"
           ],
           "required": false,
           "status": "available",
@@ -1587,7 +1575,7 @@
             "Backend/utils/planConfig.js:288",
             "Frontend/src/lib/pricing.ts:17",
             "Frontend/src/lib/pricing.ts:62",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1514"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1576"
           ],
           "required": false,
           "status": "available",
@@ -1618,7 +1606,7 @@
             "Frontend/src/app/dashboard/PricingView.tsx:198",
             "Frontend/src/app/pricing/page.tsx:133",
             "Frontend/src/components/dashboard/PlanCheckoutModal.tsx:452",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1535"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1598"
           ],
           "required": false,
           "status": "available",
@@ -1682,9 +1670,9 @@
             "Frontend/src/lib/pricing.ts:86",
             "Frontend/src/lib/pricing.ts:94",
             "Frontend/src/lib/pricing.ts:95",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1600",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2001",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2003"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1664",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2502",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2504"
           ],
           "required": false,
           "status": "available",
@@ -1747,7 +1735,7 @@
             "Frontend/src/app/dashboard/PricingView.tsx:180",
             "Frontend/src/app/pricing/page.tsx:156",
             "Frontend/src/app/pricing/page.tsx:157",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1663"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1730"
           ],
           "required": false,
           "status": "available",
@@ -1845,11 +1833,9 @@
             "functions/on-user-create/main.py:142",
             "functions/subscription-manager/main.py:351",
             "functions/subscription-manager/main.py:376",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1760",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1828",
             "ProductionSetup/reports/pricing-benefits-apply.json:74",
-            "ProductionSetup/reports/pricing-benefits-apply.json:108",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:74",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:108"
+            "ProductionSetup/reports/pricing-benefits-apply.json:108"
           ],
           "required": false,
           "status": "available",
@@ -1877,11 +1863,9 @@
             "functions/on-user-create/main.py:143",
             "functions/subscription-manager/main.py:352",
             "functions/subscription-manager/main.py:377",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1789",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1860",
             "ProductionSetup/reports/pricing-benefits-apply.json:75",
-            "ProductionSetup/reports/pricing-benefits-apply.json:109",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:75",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:109"
+            "ProductionSetup/reports/pricing-benefits-apply.json:109"
           ],
           "required": false,
           "status": "available",
@@ -1911,11 +1895,9 @@
             "functions/on-user-create/main.py:137",
             "functions/subscription-manager/main.py:353",
             "functions/subscription-manager/main.py:367",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1818",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1892",
             "ProductionSetup/reports/pricing-benefits-apply.json:41",
-            "ProductionSetup/reports/pricing-benefits-apply.json:110",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:41",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:110"
+            "ProductionSetup/reports/pricing-benefits-apply.json:110"
           ],
           "required": false,
           "status": "available",
@@ -1935,15 +1917,11 @@
             "Frontend/src/lib/pricing.ts:68",
             "functions/on-user-create/main.py:151",
             "functions/subscription-manager/main.py:342",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1849",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1926",
             "ProductionSetup/reports/pricing-benefits-apply.json:10",
             "ProductionSetup/reports/pricing-benefits-apply.json:43",
             "ProductionSetup/reports/pricing-benefits-apply.json:77",
-            "ProductionSetup/reports/pricing-benefits-apply.json:112",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:10",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:43",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:77",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:112"
+            "ProductionSetup/reports/pricing-benefits-apply.json:112"
           ],
           "required": false,
           "status": "available",
@@ -1967,7 +1945,7 @@
             "Frontend/src/lib/pricing.ts:60",
             "Frontend/src/lib/pricing.ts:142",
             "Frontend/src/app/dashboard/MyPlanView.tsx:26",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1872"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1954"
           ],
           "required": false,
           "status": "available",
@@ -1991,7 +1969,7 @@
             "Frontend/src/lib/pricing.ts:61",
             "Frontend/src/lib/pricing.ts:144",
             "Frontend/src/app/dashboard/MyPlanView.tsx:27",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1895"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1978"
           ],
           "required": false,
           "status": "available",
@@ -2014,7 +1992,7 @@
             "Backend/utils/planConfig.js:370",
             "functions/subscription-manager/main.py:379",
             "functions/subscription-manager/main.py:433",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1918"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2002"
           ],
           "required": false,
           "status": "available",
@@ -2037,7 +2015,7 @@
             "Backend/utils/planConfig.js:369",
             "functions/subscription-manager/main.py:380",
             "functions/subscription-manager/main.py:433",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1940"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2025"
           ],
           "required": false,
           "status": "available",
@@ -2083,14 +2061,12 @@
           "key": "benefit_unlimited_contacts",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2083",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5963",
             "ProductionSetup/reports/pricing-benefits-apply.json:11",
             "ProductionSetup/reports/pricing-benefits-apply.json:44",
             "ProductionSetup/reports/pricing-benefits-apply.json:78",
-            "ProductionSetup/reports/pricing-benefits-apply.json:113",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:11",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:44",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:78",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:113"
+            "ProductionSetup/reports/pricing-benefits-apply.json:113"
           ],
           "required": false,
           "status": "available",
@@ -2101,14 +2077,12 @@
           "key": "benefit_post_comment_dm_automation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2101",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5981",
             "ProductionSetup/reports/pricing-benefits-apply.json:12",
             "ProductionSetup/reports/pricing-benefits-apply.json:45",
             "ProductionSetup/reports/pricing-benefits-apply.json:79",
-            "ProductionSetup/reports/pricing-benefits-apply.json:114",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:12",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:45",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:79",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:114"
+            "ProductionSetup/reports/pricing-benefits-apply.json:114"
           ],
           "required": false,
           "status": "available",
@@ -2119,14 +2093,12 @@
           "key": "benefit_reel_comment_dm_automation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2119",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5999",
             "ProductionSetup/reports/pricing-benefits-apply.json:14",
             "ProductionSetup/reports/pricing-benefits-apply.json:47",
             "ProductionSetup/reports/pricing-benefits-apply.json:81",
-            "ProductionSetup/reports/pricing-benefits-apply.json:116",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:14",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:47",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:81",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:116"
+            "ProductionSetup/reports/pricing-benefits-apply.json:116"
           ],
           "required": false,
           "status": "available",
@@ -2137,14 +2109,12 @@
           "key": "benefit_share_reel_to_dm",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2137",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6017",
             "ProductionSetup/reports/pricing-benefits-apply.json:16",
             "ProductionSetup/reports/pricing-benefits-apply.json:49",
             "ProductionSetup/reports/pricing-benefits-apply.json:83",
-            "ProductionSetup/reports/pricing-benefits-apply.json:118",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:16",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:49",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:83",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:118"
+            "ProductionSetup/reports/pricing-benefits-apply.json:118"
           ],
           "required": false,
           "status": "available",
@@ -2155,14 +2125,12 @@
           "key": "benefit_share_post_to_dm",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2155",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6035",
             "ProductionSetup/reports/pricing-benefits-apply.json:17",
             "ProductionSetup/reports/pricing-benefits-apply.json:50",
             "ProductionSetup/reports/pricing-benefits-apply.json:84",
-            "ProductionSetup/reports/pricing-benefits-apply.json:119",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:17",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:50",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:84",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:119"
+            "ProductionSetup/reports/pricing-benefits-apply.json:119"
           ],
           "required": false,
           "status": "available",
@@ -2173,14 +2141,12 @@
           "key": "benefit_super_profile",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2173",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6053",
             "ProductionSetup/reports/pricing-benefits-apply.json:18",
             "ProductionSetup/reports/pricing-benefits-apply.json:51",
             "ProductionSetup/reports/pricing-benefits-apply.json:85",
-            "ProductionSetup/reports/pricing-benefits-apply.json:120",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:18",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:51",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:85",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:120"
+            "ProductionSetup/reports/pricing-benefits-apply.json:120"
           ],
           "required": false,
           "status": "available",
@@ -2191,14 +2157,12 @@
           "key": "benefit_welcome_message",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2191",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6071",
             "ProductionSetup/reports/pricing-benefits-apply.json:19",
             "ProductionSetup/reports/pricing-benefits-apply.json:52",
             "ProductionSetup/reports/pricing-benefits-apply.json:86",
-            "ProductionSetup/reports/pricing-benefits-apply.json:121",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:19",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:52",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:86",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:121"
+            "ProductionSetup/reports/pricing-benefits-apply.json:121"
           ],
           "required": false,
           "status": "available",
@@ -2209,14 +2173,12 @@
           "key": "benefit_convo_starters",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2209",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6089",
             "ProductionSetup/reports/pricing-benefits-apply.json:20",
             "ProductionSetup/reports/pricing-benefits-apply.json:53",
             "ProductionSetup/reports/pricing-benefits-apply.json:87",
-            "ProductionSetup/reports/pricing-benefits-apply.json:122",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:20",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:53",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:87",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:122"
+            "ProductionSetup/reports/pricing-benefits-apply.json:122"
           ],
           "required": false,
           "status": "available",
@@ -2227,14 +2189,12 @@
           "key": "benefit_inbox_menu",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2227",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6107",
             "ProductionSetup/reports/pricing-benefits-apply.json:21",
             "ProductionSetup/reports/pricing-benefits-apply.json:54",
             "ProductionSetup/reports/pricing-benefits-apply.json:88",
-            "ProductionSetup/reports/pricing-benefits-apply.json:123",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:21",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:54",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:88",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:123"
+            "ProductionSetup/reports/pricing-benefits-apply.json:123"
           ],
           "required": false,
           "status": "available",
@@ -2245,14 +2205,12 @@
           "key": "benefit_dm_automation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2245",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6125",
             "ProductionSetup/reports/pricing-benefits-apply.json:22",
             "ProductionSetup/reports/pricing-benefits-apply.json:55",
             "ProductionSetup/reports/pricing-benefits-apply.json:89",
-            "ProductionSetup/reports/pricing-benefits-apply.json:124",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:22",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:55",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:89",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:124"
+            "ProductionSetup/reports/pricing-benefits-apply.json:124"
           ],
           "required": false,
           "status": "available",
@@ -2263,14 +2221,12 @@
           "key": "benefit_story_automation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2263",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6143",
             "ProductionSetup/reports/pricing-benefits-apply.json:23",
             "ProductionSetup/reports/pricing-benefits-apply.json:56",
             "ProductionSetup/reports/pricing-benefits-apply.json:90",
-            "ProductionSetup/reports/pricing-benefits-apply.json:125",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:23",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:56",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:90",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:125"
+            "ProductionSetup/reports/pricing-benefits-apply.json:125"
           ],
           "required": false,
           "status": "available",
@@ -2281,14 +2237,12 @@
           "key": "benefit_suggest_more",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2281",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6161",
             "ProductionSetup/reports/pricing-benefits-apply.json:24",
             "ProductionSetup/reports/pricing-benefits-apply.json:57",
             "ProductionSetup/reports/pricing-benefits-apply.json:91",
-            "ProductionSetup/reports/pricing-benefits-apply.json:126",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:24",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:57",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:91",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:126"
+            "ProductionSetup/reports/pricing-benefits-apply.json:126"
           ],
           "required": false,
           "status": "available",
@@ -2299,14 +2253,12 @@
           "key": "benefit_comment_moderation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2299",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6179",
             "ProductionSetup/reports/pricing-benefits-apply.json:25",
             "ProductionSetup/reports/pricing-benefits-apply.json:58",
             "ProductionSetup/reports/pricing-benefits-apply.json:92",
-            "ProductionSetup/reports/pricing-benefits-apply.json:127",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:25",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:58",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:92",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:127"
+            "ProductionSetup/reports/pricing-benefits-apply.json:127"
           ],
           "required": false,
           "status": "available",
@@ -2317,14 +2269,12 @@
           "key": "benefit_global_trigger",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2317",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6197",
             "ProductionSetup/reports/pricing-benefits-apply.json:26",
             "ProductionSetup/reports/pricing-benefits-apply.json:59",
             "ProductionSetup/reports/pricing-benefits-apply.json:93",
-            "ProductionSetup/reports/pricing-benefits-apply.json:128",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:26",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:59",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:93",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:128"
+            "ProductionSetup/reports/pricing-benefits-apply.json:128"
           ],
           "required": false,
           "status": "available",
@@ -2335,14 +2285,12 @@
           "key": "benefit_mentions",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2335",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6215",
             "ProductionSetup/reports/pricing-benefits-apply.json:27",
             "ProductionSetup/reports/pricing-benefits-apply.json:60",
             "ProductionSetup/reports/pricing-benefits-apply.json:94",
-            "ProductionSetup/reports/pricing-benefits-apply.json:129",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:27",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:60",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:94",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:129"
+            "ProductionSetup/reports/pricing-benefits-apply.json:129"
           ],
           "required": false,
           "status": "available",
@@ -2353,14 +2301,12 @@
           "key": "benefit_collect_email",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2353",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6233",
             "ProductionSetup/reports/pricing-benefits-apply.json:28",
             "ProductionSetup/reports/pricing-benefits-apply.json:61",
             "ProductionSetup/reports/pricing-benefits-apply.json:95",
-            "ProductionSetup/reports/pricing-benefits-apply.json:130",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:28",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:61",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:95",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:130"
+            "ProductionSetup/reports/pricing-benefits-apply.json:130"
           ],
           "required": false,
           "status": "available",
@@ -2371,14 +2317,12 @@
           "key": "benefit_instagram_live_automation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2371",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6251",
             "ProductionSetup/reports/pricing-benefits-apply.json:29",
             "ProductionSetup/reports/pricing-benefits-apply.json:62",
             "ProductionSetup/reports/pricing-benefits-apply.json:96",
-            "ProductionSetup/reports/pricing-benefits-apply.json:131",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:29",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:62",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:96",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:131"
+            "ProductionSetup/reports/pricing-benefits-apply.json:131"
           ],
           "required": false,
           "status": "available",
@@ -2389,14 +2333,12 @@
           "key": "benefit_priority_support",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2389",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6269",
             "ProductionSetup/reports/pricing-benefits-apply.json:30",
             "ProductionSetup/reports/pricing-benefits-apply.json:63",
             "ProductionSetup/reports/pricing-benefits-apply.json:97",
-            "ProductionSetup/reports/pricing-benefits-apply.json:132",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:30",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:63",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:97",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:132"
+            "ProductionSetup/reports/pricing-benefits-apply.json:132"
           ],
           "required": false,
           "status": "available",
@@ -2407,14 +2349,12 @@
           "key": "benefit_followers_only",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2407",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6287",
             "ProductionSetup/reports/pricing-benefits-apply.json:31",
             "ProductionSetup/reports/pricing-benefits-apply.json:64",
             "ProductionSetup/reports/pricing-benefits-apply.json:98",
-            "ProductionSetup/reports/pricing-benefits-apply.json:133",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:31",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:64",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:98",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:133"
+            "ProductionSetup/reports/pricing-benefits-apply.json:133"
           ],
           "required": false,
           "status": "available",
@@ -2425,14 +2365,12 @@
           "key": "benefit_seen_typing",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2425",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6305",
             "ProductionSetup/reports/pricing-benefits-apply.json:32",
             "ProductionSetup/reports/pricing-benefits-apply.json:65",
             "ProductionSetup/reports/pricing-benefits-apply.json:99",
-            "ProductionSetup/reports/pricing-benefits-apply.json:134",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:32",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:65",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:99",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:134"
+            "ProductionSetup/reports/pricing-benefits-apply.json:134"
           ],
           "required": false,
           "status": "available",
@@ -2443,14 +2381,12 @@
           "key": "benefit_no_watermark",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2443",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6323",
             "ProductionSetup/reports/pricing-benefits-apply.json:33",
             "ProductionSetup/reports/pricing-benefits-apply.json:66",
             "ProductionSetup/reports/pricing-benefits-apply.json:100",
             "ProductionSetup/reports/pricing-benefits-apply.json:135",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:33",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:66",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:100",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:135",
             "worker-node/src/watermark.js:37"
           ],
           "required": false,
@@ -2462,14 +2398,12 @@
           "key": "benefit_post_comment_reply",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2462",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6342",
             "ProductionSetup/reports/pricing-benefits-apply.json:13",
             "ProductionSetup/reports/pricing-benefits-apply.json:46",
             "ProductionSetup/reports/pricing-benefits-apply.json:80",
-            "ProductionSetup/reports/pricing-benefits-apply.json:115",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:13",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:46",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:80",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:115"
+            "ProductionSetup/reports/pricing-benefits-apply.json:115"
           ],
           "required": false,
           "status": "available",
@@ -2480,14 +2414,12 @@
           "key": "benefit_reel_comment_reply",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2480",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6360",
             "ProductionSetup/reports/pricing-benefits-apply.json:15",
             "ProductionSetup/reports/pricing-benefits-apply.json:48",
             "ProductionSetup/reports/pricing-benefits-apply.json:82",
-            "ProductionSetup/reports/pricing-benefits-apply.json:117",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:15",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:48",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:82",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:117"
+            "ProductionSetup/reports/pricing-benefits-apply.json:117"
           ],
           "required": false,
           "status": "available",
@@ -2507,7 +2439,7 @@
           "references": [
             "docs/appwrite-schema-live.json:3953",
             "docs/appwrite-schema-live.json:3956",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2003"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2504"
           ],
           "status": "available",
           "type": "key"
@@ -2523,7 +2455,7 @@
           "references": [
             "docs/appwrite-schema-live.json:3969",
             "docs/appwrite-schema-live.json:3972",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2018"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2520"
           ],
           "status": "available",
           "type": "unique"
@@ -2755,7 +2687,7 @@
             "functions/refresh-instagram-tokens/main.py:93",
             "functions/refresh-instagram-tokens/main.py:95",
             "functions/refresh-instagram-tokens/main.py:99",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2239"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2742"
           ],
           "required": true,
           "status": "available",
@@ -2813,9 +2745,9 @@
             "functions/remove-instagram/main.py:140",
             "functions/remove-instagram/main.py:241",
             "functions/subscription-manager/main.py:655",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2297",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2773",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2775"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2801",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3293",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3295"
           ],
           "required": false,
           "status": "available",
@@ -2937,7 +2869,7 @@
             "Backend/routes/instagram.js:1970",
             "Backend/routes/instagram.js:2006",
             "Backend/routes/instagram.js:2007",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2424"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2931"
           ],
           "required": false,
           "status": "available",
@@ -3181,7 +3113,7 @@
             "functions/subscription-manager/main.py:685",
             "functions/subscription-manager/main.py:688",
             "functions/subscription-manager/main.py:698",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2650",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3158",
             "worker-node/src/appwrite.js:267"
           ],
           "required": false,
@@ -3204,7 +3136,7 @@
           "references": [
             "docs/appwrite-schema-live.json:2652",
             "docs/appwrite-schema-live.json:2655",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2691"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3199"
           ],
           "status": "available",
           "type": "unique"
@@ -3232,12 +3164,12 @@
             "docs/appwrite-schema-live.json:4640",
             "docs/appwrite-schema-live.json:4746",
             "docs/appwrite-schema-live.json:4749",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:86",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2708",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4025",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5363",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6064",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6370"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:88",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3217",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4559",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6384",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7113",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7435"
           ],
           "status": "available",
           "type": "key"
@@ -3261,10 +3193,10 @@
             "docs/appwrite-schema-live.json:2691",
             "docs/appwrite-schema-live.json:4533",
             "docs/appwrite-schema-live.json:4536",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2735",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4052",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6395",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6578"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3250",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4592",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7466",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7656"
           ],
           "status": "available",
           "type": "unique"
@@ -3281,7 +3213,7 @@
           "references": [
             "docs/appwrite-schema-live.json:2706",
             "docs/appwrite-schema-live.json:2709",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2759"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3278"
           ],
           "status": "available",
           "type": "key"
@@ -3297,7 +3229,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:320",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2775"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3295"
           ],
           "status": "available",
           "type": "key"
@@ -3313,7 +3245,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:321",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2790"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3311"
           ],
           "status": "available",
           "type": "key"
@@ -3330,7 +3262,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:322",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2806"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3328"
           ],
           "status": "available",
           "type": "key"
@@ -3908,8 +3840,8 @@
             "Backend/routes/instagram.js:4388",
             "Backend/routes/instagram.js:4625",
             "Backend/routes/instagram.js:4979",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:3376",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4163",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3899",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4717",
             "worker-node/src/matcher.js:22"
           ],
           "required": false,
@@ -4004,7 +3936,7 @@
             "Frontend/src/components/dashboard/AutomationEditor.tsx:260",
             "Frontend/src/components/dashboard/AutomationEditor.tsx:316",
             "Frontend/src/components/dashboard/AutomationEditor.tsx:564",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:3466"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3991"
           ],
           "required": false,
           "status": "available",
@@ -4059,7 +3991,7 @@
             "Backend/routes/instagram.js:4108",
             "Backend/routes/instagram.js:4400",
             "Backend/routes/instagram.js:4637",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:3524",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4050",
             "worker-node/src/matcher.js:56"
           ],
           "required": false,
@@ -4145,7 +4077,7 @@
             "Backend/routes/instagram.js:3787",
             "Backend/routes/instagram.js:4090",
             "Backend/routes/instagram.js:4123",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:3614",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4141",
             "worker-node/src/appwrite.js:113",
             "worker-node/src/appwrite.js:114",
             "worker-node/src/appwrite.js:115",
@@ -4168,8 +4100,8 @@
             "Backend/routes/instagram.js:3781",
             "Backend/routes/instagram.js:3782",
             "Backend/routes/instagram.js:4091",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:3634",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4180"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4162",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4735"
           ],
           "required": false,
           "status": "available",
@@ -4197,7 +4129,7 @@
             "Frontend/src/components/dashboard/AutomationEditor.tsx:1410",
             "Frontend/src/components/dashboard/AutomationEditor.tsx:1418",
             "Frontend/src/components/dashboard/AutomationEditor.tsx:1419",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:3650",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4180",
             "worker-node/src/appwrite.js:120"
           ],
           "required": false,
@@ -4260,9 +4192,9 @@
             "Frontend/src/components/dashboard/AutomationEditor.tsx:319",
             "Frontend/src/components/dashboard/AutomationEditor.tsx:567",
             "Frontend/src/components/dashboard/AutomationEditor.tsx:815",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:3713",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4234",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4237"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4244",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4793",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4796"
           ],
           "required": false,
           "status": "available",
@@ -4574,12 +4506,12 @@
             "docs/appwrite-schema-live.json:4640",
             "docs/appwrite-schema-live.json:4746",
             "docs/appwrite-schema-live.json:4749",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:86",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2708",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4025",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5363",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6064",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6370"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:88",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3217",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4559",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6384",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7113",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7435"
           ],
           "status": "available",
           "type": "key"
@@ -4603,10 +4535,10 @@
             "docs/appwrite-schema-live.json:2691",
             "docs/appwrite-schema-live.json:4533",
             "docs/appwrite-schema-live.json:4536",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2735",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4052",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6395",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6578"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3250",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4592",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7466",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7656"
           ],
           "status": "available",
           "type": "key"
@@ -4624,7 +4556,7 @@
           "references": [
             "docs/appwrite-schema-live.json:1199",
             "docs/appwrite-schema-live.json:1202",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4075"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4619"
           ],
           "status": "available",
           "type": "key"
@@ -4645,9 +4577,9 @@
             "docs/appwrite-schema-live.json:2838",
             "docs/appwrite-schema-live.json:3078",
             "docs/appwrite-schema-live.json:3081",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4093",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4472",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5785"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4638",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5044",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6832"
           ],
           "status": "available",
           "type": "key"
@@ -4682,11 +4614,11 @@
             "docs/appwrite-schema-live.json:2856",
             "docs/appwrite-schema-live.json:3096",
             "docs/appwrite-schema-live.json:3099",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4113",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4148",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4165",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4182",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4200"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4661",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4701",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4719",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4737",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4756"
           ],
           "status": "available",
           "type": "key"
@@ -4704,7 +4636,7 @@
           "references": [
             "docs/appwrite-schema-live.json:1253",
             "docs/appwrite-schema-live.json:1256",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4148"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4701"
           ],
           "status": "available",
           "type": "key"
@@ -4722,7 +4654,7 @@
           "references": [
             "docs/appwrite-schema-live.json:1273",
             "docs/appwrite-schema-live.json:1276",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4165"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4719"
           ],
           "status": "available",
           "type": "unique"
@@ -4740,7 +4672,7 @@
           "references": [
             "docs/appwrite-schema-live.json:1293",
             "docs/appwrite-schema-live.json:1296",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4182"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4737"
           ],
           "status": "available",
           "type": "key"
@@ -4759,7 +4691,7 @@
           "references": [
             "docs/appwrite-schema-live.json:1313",
             "docs/appwrite-schema-live.json:1316",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4200"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4756"
           ],
           "status": "available",
           "type": "key"
@@ -4779,8 +4711,8 @@
             "docs/appwrite-schema-live.json:1316",
             "docs/appwrite-schema-live.json:1335",
             "docs/appwrite-schema-live.json:1338",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4200",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4217"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4756",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4774"
           ],
           "status": "available",
           "type": "key"
@@ -4799,7 +4731,7 @@
           "references": [
             "docs/appwrite-schema-live.json:1355",
             "docs/appwrite-schema-live.json:1358",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4237"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4796"
           ],
           "status": "available",
           "type": "key"
@@ -4817,7 +4749,7 @@
           "references": [
             "docs/appwrite-schema-live.json:1377",
             "docs/appwrite-schema-live.json:1380",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4254"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4814"
           ],
           "status": "available",
           "type": "key"
@@ -4938,9 +4870,9 @@
             "Backend/routes/instagram.js:1331",
             "Backend/routes/instagram.js:1393",
             "Backend/routes/instagram.js:1418",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4370",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4523",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5648"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4931",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5102",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6685"
           ],
           "required": true,
           "status": "available",
@@ -4967,12 +4899,12 @@
             "Backend/routes/instagram.js:1333",
             "Backend/routes/instagram.js:1392",
             "Backend/routes/instagram.js:1423",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4387",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4470",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5622",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5767",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5783",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5800"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4951",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5042",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6653",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6813",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6830",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6848"
           ],
           "required": false,
           "status": "available",
@@ -5029,8 +4961,8 @@
             "docs/appwrite-schema-live.json:2822",
             "docs/appwrite-schema-live.json:3026",
             "docs/appwrite-schema-live.json:3029",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4454",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5733"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5024",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6775"
           ],
           "status": "available",
           "type": "key"
@@ -5049,8 +4981,8 @@
             "docs/appwrite-schema-live.json:2838",
             "docs/appwrite-schema-live.json:3078",
             "docs/appwrite-schema-live.json:3081",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4472",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5785"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5044",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6832"
           ],
           "status": "available",
           "type": "key"
@@ -5085,11 +5017,11 @@
             "docs/appwrite-schema-live.json:2856",
             "docs/appwrite-schema-live.json:3096",
             "docs/appwrite-schema-live.json:3099",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4113",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4148",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4165",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4182",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4200"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4661",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4701",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4719",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4737",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4756"
           ],
           "status": "available",
           "type": "key"
@@ -5107,7 +5039,7 @@
           "references": [
             "docs/appwrite-schema-live.json:2871",
             "docs/appwrite-schema-live.json:2874",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4525"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5104"
           ],
           "status": "available",
           "type": "unique"
@@ -5129,7 +5061,7 @@
         "functions/inactive-user-cleanup/main.py:725",
         "functions/inactive-user-cleanup/main.py:832",
         "functions/remove-instagram/main.py:293",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:4447"
+        "ProductionSetup/reports/appwrite-cleanup-report.json:5017"
       ]
     },
     {
@@ -5184,7 +5116,7 @@
             "ProductionSetup/setup_appwrite.py:369",
             "admin-panel/src/pages/Users.tsx:236",
             "admin-panel/src/pages/Users.tsx:571",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4594"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5175"
           ],
           "required": false,
           "status": "available",
@@ -5206,9 +5138,9 @@
             "Backend/routes/admin.js:910",
             "Backend/routes/admin.js:942",
             "Backend/routes/admin.js:974",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4613",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5386",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5388"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5195",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6413",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6415"
           ],
           "required": false,
           "status": "available",
@@ -5373,7 +5305,7 @@
             "Frontend/src/app/dashboard/page.tsx:250",
             "Frontend/src/app/dashboard/page.tsx:252",
             "functions/on-user-create/main.py:175",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4774",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5359",
             "worker-node/src/worker.js:66",
             "worker-node/tests/process-webhook.test.js:113",
             "worker-node/tests/process-webhook.test.js:286",
@@ -5402,7 +5334,7 @@
             "Frontend/src/app/dashboard/page.tsx:256",
             "Frontend/src/app/dashboard/page.tsx:258",
             "functions/on-user-create/main.py:176",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4803",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5389",
             "worker-node/src/worker.js:67",
             "worker-node/tests/process-webhook.test.js:114",
             "worker-node/tests/process-webhook.test.js:287",
@@ -5432,7 +5364,7 @@
             "Frontend/src/app/dashboard/page.tsx:262",
             "Frontend/src/app/dashboard/page.tsx:264",
             "functions/on-user-create/main.py:177",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4831",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5418",
             "worker-node/src/worker.js:68",
             "worker-node/tests/process-webhook.test.js:115",
             "worker-node/tests/process-webhook.test.js:288",
@@ -5451,7 +5383,7 @@
             "docs/appwrite-schema-live.json:4134",
             "ProductionSetup/migrate_subscription_truth.py:612",
             "functions/on-user-create/main.py:178",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4860"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5448"
           ],
           "required": false,
           "status": "available",
@@ -5465,7 +5397,7 @@
             "docs/appwrite-schema-live.json:4146",
             "ProductionSetup/migrate_subscription_truth.py:613",
             "functions/on-user-create/main.py:179",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4873"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5462"
           ],
           "required": false,
           "status": "available",
@@ -5479,7 +5411,7 @@
             "docs/appwrite-schema-live.json:4158",
             "ProductionSetup/migrate_subscription_truth.py:614",
             "functions/on-user-create/main.py:180",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4886"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5476"
           ],
           "required": false,
           "status": "available",
@@ -5507,7 +5439,7 @@
             "Backend/utils/planConfig.js:471",
             "Backend/utils/planConfig.js:901",
             "functions/on-user-create/main.py:181",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4899",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5490",
             "worker-node/src/watermark.js:36"
           ],
           "required": false,
@@ -5525,7 +5457,7 @@
             "ProductionSetup/migrate_subscription_truth.py:232",
             "admin-panel/src/pages/Users.tsx:238",
             "Backend/routes/admin.js:675",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4927"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5519"
           ],
           "required": false,
           "status": "available",
@@ -5767,7 +5699,7 @@
             "functions/subscription-manager/main.py:468",
             "functions/subscription-manager/main.py:544",
             "functions/subscription-manager/main.py:646",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5153",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5746",
             "worker-node/src/worker.js:57",
             "worker-node/tests/process-webhook.test.js:112",
             "worker-node/tests/process-webhook.test.js:285"
@@ -5800,7 +5732,7 @@
             "functions/on-user-create/main.py:167",
             "functions/subscription-manager/main.py:469",
             "functions/subscription-manager/main.py:545",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5188",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5781",
             "worker-node/src/watermark.js:35",
             "worker-node/src/worker.js:85"
           ],
@@ -5833,7 +5765,7 @@
             "functions/subscription-manager/main.py:496",
             "functions/subscription-manager/main.py:546",
             "functions/subscription-manager/main.py:760",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5219"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5813"
           ],
           "required": false,
           "status": "available",
@@ -5862,7 +5794,7 @@
             "functions/on-user-create/main.py:169",
             "functions/subscription-manager/main.py:470",
             "functions/subscription-manager/main.py:549",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5249"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5844"
           ],
           "required": false,
           "status": "available",
@@ -5908,7 +5840,7 @@
           "key": "expiry_reminder_3d_sent_at",
           "reason": "referenced by checked-in code or scripts",
           "references": [
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5312"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5908"
           ],
           "required": false,
           "status": "available",
@@ -5919,7 +5851,7 @@
           "key": "expiry_reminder_day0_sent_at",
           "reason": "referenced by checked-in code or scripts",
           "references": [
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5321"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5919"
           ],
           "required": false,
           "status": "available",
@@ -5930,7 +5862,7 @@
           "key": "expiry_reminder_day1_sent_at",
           "reason": "referenced by checked-in code or scripts",
           "references": [
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5330"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5930"
           ],
           "required": false,
           "status": "available",
@@ -5941,7 +5873,7 @@
           "key": "last_expired_plan_code",
           "reason": "referenced by checked-in code or scripts",
           "references": [
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5339"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5941"
           ],
           "required": false,
           "status": "available",
@@ -5952,7 +5884,7 @@
           "key": "last_expired_plan_expires_at",
           "reason": "referenced by checked-in code or scripts",
           "references": [
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5348"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5952"
           ],
           "required": false,
           "status": "available",
@@ -5963,14 +5895,12 @@
           "key": "benefit_unlimited_contacts",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2083",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5963",
             "ProductionSetup/reports/pricing-benefits-apply.json:11",
             "ProductionSetup/reports/pricing-benefits-apply.json:44",
             "ProductionSetup/reports/pricing-benefits-apply.json:78",
-            "ProductionSetup/reports/pricing-benefits-apply.json:113",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:11",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:44",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:78",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:113"
+            "ProductionSetup/reports/pricing-benefits-apply.json:113"
           ],
           "required": false,
           "status": "available",
@@ -5981,14 +5911,12 @@
           "key": "benefit_post_comment_dm_automation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2101",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5981",
             "ProductionSetup/reports/pricing-benefits-apply.json:12",
             "ProductionSetup/reports/pricing-benefits-apply.json:45",
             "ProductionSetup/reports/pricing-benefits-apply.json:79",
-            "ProductionSetup/reports/pricing-benefits-apply.json:114",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:12",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:45",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:79",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:114"
+            "ProductionSetup/reports/pricing-benefits-apply.json:114"
           ],
           "required": false,
           "status": "available",
@@ -5999,14 +5927,12 @@
           "key": "benefit_reel_comment_dm_automation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2119",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5999",
             "ProductionSetup/reports/pricing-benefits-apply.json:14",
             "ProductionSetup/reports/pricing-benefits-apply.json:47",
             "ProductionSetup/reports/pricing-benefits-apply.json:81",
-            "ProductionSetup/reports/pricing-benefits-apply.json:116",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:14",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:47",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:81",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:116"
+            "ProductionSetup/reports/pricing-benefits-apply.json:116"
           ],
           "required": false,
           "status": "available",
@@ -6017,14 +5943,12 @@
           "key": "benefit_share_reel_to_dm",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2137",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6017",
             "ProductionSetup/reports/pricing-benefits-apply.json:16",
             "ProductionSetup/reports/pricing-benefits-apply.json:49",
             "ProductionSetup/reports/pricing-benefits-apply.json:83",
-            "ProductionSetup/reports/pricing-benefits-apply.json:118",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:16",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:49",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:83",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:118"
+            "ProductionSetup/reports/pricing-benefits-apply.json:118"
           ],
           "required": false,
           "status": "available",
@@ -6035,14 +5959,12 @@
           "key": "benefit_share_post_to_dm",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2155",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6035",
             "ProductionSetup/reports/pricing-benefits-apply.json:17",
             "ProductionSetup/reports/pricing-benefits-apply.json:50",
             "ProductionSetup/reports/pricing-benefits-apply.json:84",
-            "ProductionSetup/reports/pricing-benefits-apply.json:119",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:17",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:50",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:84",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:119"
+            "ProductionSetup/reports/pricing-benefits-apply.json:119"
           ],
           "required": false,
           "status": "available",
@@ -6053,14 +5975,12 @@
           "key": "benefit_super_profile",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2173",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6053",
             "ProductionSetup/reports/pricing-benefits-apply.json:18",
             "ProductionSetup/reports/pricing-benefits-apply.json:51",
             "ProductionSetup/reports/pricing-benefits-apply.json:85",
-            "ProductionSetup/reports/pricing-benefits-apply.json:120",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:18",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:51",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:85",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:120"
+            "ProductionSetup/reports/pricing-benefits-apply.json:120"
           ],
           "required": false,
           "status": "available",
@@ -6071,14 +5991,12 @@
           "key": "benefit_welcome_message",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2191",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6071",
             "ProductionSetup/reports/pricing-benefits-apply.json:19",
             "ProductionSetup/reports/pricing-benefits-apply.json:52",
             "ProductionSetup/reports/pricing-benefits-apply.json:86",
-            "ProductionSetup/reports/pricing-benefits-apply.json:121",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:19",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:52",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:86",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:121"
+            "ProductionSetup/reports/pricing-benefits-apply.json:121"
           ],
           "required": false,
           "status": "available",
@@ -6089,14 +6007,12 @@
           "key": "benefit_convo_starters",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2209",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6089",
             "ProductionSetup/reports/pricing-benefits-apply.json:20",
             "ProductionSetup/reports/pricing-benefits-apply.json:53",
             "ProductionSetup/reports/pricing-benefits-apply.json:87",
-            "ProductionSetup/reports/pricing-benefits-apply.json:122",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:20",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:53",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:87",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:122"
+            "ProductionSetup/reports/pricing-benefits-apply.json:122"
           ],
           "required": false,
           "status": "available",
@@ -6107,14 +6023,12 @@
           "key": "benefit_inbox_menu",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2227",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6107",
             "ProductionSetup/reports/pricing-benefits-apply.json:21",
             "ProductionSetup/reports/pricing-benefits-apply.json:54",
             "ProductionSetup/reports/pricing-benefits-apply.json:88",
-            "ProductionSetup/reports/pricing-benefits-apply.json:123",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:21",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:54",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:88",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:123"
+            "ProductionSetup/reports/pricing-benefits-apply.json:123"
           ],
           "required": false,
           "status": "available",
@@ -6125,14 +6039,12 @@
           "key": "benefit_dm_automation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2245",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6125",
             "ProductionSetup/reports/pricing-benefits-apply.json:22",
             "ProductionSetup/reports/pricing-benefits-apply.json:55",
             "ProductionSetup/reports/pricing-benefits-apply.json:89",
-            "ProductionSetup/reports/pricing-benefits-apply.json:124",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:22",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:55",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:89",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:124"
+            "ProductionSetup/reports/pricing-benefits-apply.json:124"
           ],
           "required": false,
           "status": "available",
@@ -6143,14 +6055,12 @@
           "key": "benefit_story_automation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2263",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6143",
             "ProductionSetup/reports/pricing-benefits-apply.json:23",
             "ProductionSetup/reports/pricing-benefits-apply.json:56",
             "ProductionSetup/reports/pricing-benefits-apply.json:90",
-            "ProductionSetup/reports/pricing-benefits-apply.json:125",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:23",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:56",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:90",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:125"
+            "ProductionSetup/reports/pricing-benefits-apply.json:125"
           ],
           "required": false,
           "status": "available",
@@ -6161,14 +6071,12 @@
           "key": "benefit_suggest_more",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2281",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6161",
             "ProductionSetup/reports/pricing-benefits-apply.json:24",
             "ProductionSetup/reports/pricing-benefits-apply.json:57",
             "ProductionSetup/reports/pricing-benefits-apply.json:91",
-            "ProductionSetup/reports/pricing-benefits-apply.json:126",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:24",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:57",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:91",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:126"
+            "ProductionSetup/reports/pricing-benefits-apply.json:126"
           ],
           "required": false,
           "status": "available",
@@ -6179,14 +6087,12 @@
           "key": "benefit_comment_moderation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2299",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6179",
             "ProductionSetup/reports/pricing-benefits-apply.json:25",
             "ProductionSetup/reports/pricing-benefits-apply.json:58",
             "ProductionSetup/reports/pricing-benefits-apply.json:92",
-            "ProductionSetup/reports/pricing-benefits-apply.json:127",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:25",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:58",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:92",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:127"
+            "ProductionSetup/reports/pricing-benefits-apply.json:127"
           ],
           "required": false,
           "status": "available",
@@ -6197,14 +6103,12 @@
           "key": "benefit_global_trigger",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2317",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6197",
             "ProductionSetup/reports/pricing-benefits-apply.json:26",
             "ProductionSetup/reports/pricing-benefits-apply.json:59",
             "ProductionSetup/reports/pricing-benefits-apply.json:93",
-            "ProductionSetup/reports/pricing-benefits-apply.json:128",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:26",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:59",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:93",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:128"
+            "ProductionSetup/reports/pricing-benefits-apply.json:128"
           ],
           "required": false,
           "status": "available",
@@ -6215,14 +6119,12 @@
           "key": "benefit_mentions",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2335",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6215",
             "ProductionSetup/reports/pricing-benefits-apply.json:27",
             "ProductionSetup/reports/pricing-benefits-apply.json:60",
             "ProductionSetup/reports/pricing-benefits-apply.json:94",
-            "ProductionSetup/reports/pricing-benefits-apply.json:129",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:27",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:60",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:94",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:129"
+            "ProductionSetup/reports/pricing-benefits-apply.json:129"
           ],
           "required": false,
           "status": "available",
@@ -6233,14 +6135,12 @@
           "key": "benefit_collect_email",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2353",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6233",
             "ProductionSetup/reports/pricing-benefits-apply.json:28",
             "ProductionSetup/reports/pricing-benefits-apply.json:61",
             "ProductionSetup/reports/pricing-benefits-apply.json:95",
-            "ProductionSetup/reports/pricing-benefits-apply.json:130",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:28",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:61",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:95",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:130"
+            "ProductionSetup/reports/pricing-benefits-apply.json:130"
           ],
           "required": false,
           "status": "available",
@@ -6251,14 +6151,12 @@
           "key": "benefit_instagram_live_automation",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2371",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6251",
             "ProductionSetup/reports/pricing-benefits-apply.json:29",
             "ProductionSetup/reports/pricing-benefits-apply.json:62",
             "ProductionSetup/reports/pricing-benefits-apply.json:96",
-            "ProductionSetup/reports/pricing-benefits-apply.json:131",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:29",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:62",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:96",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:131"
+            "ProductionSetup/reports/pricing-benefits-apply.json:131"
           ],
           "required": false,
           "status": "available",
@@ -6269,14 +6167,12 @@
           "key": "benefit_priority_support",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2389",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6269",
             "ProductionSetup/reports/pricing-benefits-apply.json:30",
             "ProductionSetup/reports/pricing-benefits-apply.json:63",
             "ProductionSetup/reports/pricing-benefits-apply.json:97",
-            "ProductionSetup/reports/pricing-benefits-apply.json:132",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:30",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:63",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:97",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:132"
+            "ProductionSetup/reports/pricing-benefits-apply.json:132"
           ],
           "required": false,
           "status": "available",
@@ -6287,14 +6183,12 @@
           "key": "benefit_followers_only",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2407",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6287",
             "ProductionSetup/reports/pricing-benefits-apply.json:31",
             "ProductionSetup/reports/pricing-benefits-apply.json:64",
             "ProductionSetup/reports/pricing-benefits-apply.json:98",
-            "ProductionSetup/reports/pricing-benefits-apply.json:133",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:31",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:64",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:98",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:133"
+            "ProductionSetup/reports/pricing-benefits-apply.json:133"
           ],
           "required": false,
           "status": "available",
@@ -6305,14 +6199,12 @@
           "key": "benefit_seen_typing",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2425",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6305",
             "ProductionSetup/reports/pricing-benefits-apply.json:32",
             "ProductionSetup/reports/pricing-benefits-apply.json:65",
             "ProductionSetup/reports/pricing-benefits-apply.json:99",
-            "ProductionSetup/reports/pricing-benefits-apply.json:134",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:32",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:65",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:99",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:134"
+            "ProductionSetup/reports/pricing-benefits-apply.json:134"
           ],
           "required": false,
           "status": "available",
@@ -6323,14 +6215,12 @@
           "key": "benefit_no_watermark",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2443",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6323",
             "ProductionSetup/reports/pricing-benefits-apply.json:33",
             "ProductionSetup/reports/pricing-benefits-apply.json:66",
             "ProductionSetup/reports/pricing-benefits-apply.json:100",
             "ProductionSetup/reports/pricing-benefits-apply.json:135",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:33",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:66",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:100",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:135",
             "worker-node/src/watermark.js:37"
           ],
           "required": false,
@@ -6342,14 +6232,12 @@
           "key": "benefit_post_comment_reply",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2462",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6342",
             "ProductionSetup/reports/pricing-benefits-apply.json:13",
             "ProductionSetup/reports/pricing-benefits-apply.json:46",
             "ProductionSetup/reports/pricing-benefits-apply.json:80",
-            "ProductionSetup/reports/pricing-benefits-apply.json:115",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:13",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:46",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:80",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:115"
+            "ProductionSetup/reports/pricing-benefits-apply.json:115"
           ],
           "required": false,
           "status": "available",
@@ -6360,14 +6248,12 @@
           "key": "benefit_reel_comment_reply",
           "reason": "current plan benefit field",
           "references": [
+            "ProductionSetup/reports/appwrite-cleanup-report.json:2480",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6360",
             "ProductionSetup/reports/pricing-benefits-apply.json:15",
             "ProductionSetup/reports/pricing-benefits-apply.json:48",
             "ProductionSetup/reports/pricing-benefits-apply.json:82",
-            "ProductionSetup/reports/pricing-benefits-apply.json:117",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:15",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:48",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:82",
-            "ProductionSetup/reports/pricing-benefits-dry-run.json:117"
+            "ProductionSetup/reports/pricing-benefits-apply.json:117"
           ],
           "required": false,
           "status": "available",
@@ -6397,12 +6283,12 @@
             "docs/appwrite-schema-live.json:4640",
             "docs/appwrite-schema-live.json:4746",
             "docs/appwrite-schema-live.json:4749",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:86",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2708",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4025",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5363",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6064",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6370"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:88",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3217",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4559",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6384",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7113",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7435"
           ],
           "status": "available",
           "type": "unique"
@@ -6418,7 +6304,7 @@
           "references": [
             "docs/appwrite-schema-live.json:4351",
             "docs/appwrite-schema-live.json:4354",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5388"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6415"
           ],
           "status": "available",
           "type": "key"
@@ -6435,7 +6321,7 @@
             "docs/appwrite-schema-live.json:4385",
             "docs/appwrite-schema-live.json:4388",
             "ProductionSetup/setup_appwrite.py:315",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5403"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6431"
           ],
           "status": "available",
           "type": "key"
@@ -6453,7 +6339,7 @@
             "docs/appwrite-schema-live.json:4367",
             "docs/appwrite-schema-live.json:4370",
             "ProductionSetup/setup_appwrite.py:316",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5420"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6449"
           ],
           "status": "available",
           "type": "key"
@@ -6469,7 +6355,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:317",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5437"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6467"
           ],
           "status": "available",
           "type": "key"
@@ -6669,12 +6555,12 @@
             "Backend/routes/instagram.js:1333",
             "Backend/routes/instagram.js:1392",
             "Backend/routes/instagram.js:1423",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4387",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4470",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5622",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5767",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5783",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5800"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4951",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5042",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6653",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6813",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6830",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6848"
           ],
           "required": true,
           "status": "available",
@@ -6692,9 +6578,9 @@
             "Backend/routes/instagram.js:1331",
             "Backend/routes/instagram.js:1393",
             "Backend/routes/instagram.js:1418",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4370",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4523",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5648"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4931",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5102",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6685"
           ],
           "required": true,
           "status": "available",
@@ -6756,8 +6642,8 @@
             "Backend/routes/instagram.js:4637",
             "functions/payment-reminders/main.py:486",
             "functions/payment-reminders/main.py:495",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:3524",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5700",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4050",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6740",
             "worker-node/src/matcher.js:56"
           ],
           "required": false,
@@ -6780,8 +6666,8 @@
             "docs/appwrite-schema-live.json:2822",
             "docs/appwrite-schema-live.json:3026",
             "docs/appwrite-schema-live.json:3029",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4454",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5733"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:5024",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6775"
           ],
           "status": "available",
           "type": "key"
@@ -6800,8 +6686,8 @@
             "docs/appwrite-schema-live.json:1588",
             "docs/appwrite-schema-live.json:3042",
             "docs/appwrite-schema-live.json:3045",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5751",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6620"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6795",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7705"
           ],
           "status": "available",
           "type": "key"
@@ -6818,7 +6704,7 @@
           "references": [
             "docs/appwrite-schema-live.json:3060",
             "docs/appwrite-schema-live.json:3063",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5769"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6815"
           ],
           "status": "available",
           "type": "unique"
@@ -6835,7 +6721,7 @@
           "references": [
             "docs/appwrite-schema-live.json:3078",
             "docs/appwrite-schema-live.json:3081",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5785"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6832"
           ],
           "status": "available",
           "type": "key"
@@ -6853,7 +6739,7 @@
           "references": [
             "docs/appwrite-schema-live.json:3096",
             "docs/appwrite-schema-live.json:3099",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5802"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6850"
           ],
           "status": "available",
           "type": "unique"
@@ -7128,12 +7014,12 @@
             "docs/appwrite-schema-live.json:4640",
             "docs/appwrite-schema-live.json:4746",
             "docs/appwrite-schema-live.json:4749",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:86",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2708",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4025",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5363",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6064",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6370"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:88",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3217",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4559",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6384",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7113",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7435"
           ],
           "status": "available",
           "type": "key"
@@ -7154,9 +7040,9 @@
             "docs/appwrite-schema-live.json:1570",
             "docs/appwrite-schema-live.json:4764",
             "docs/appwrite-schema-live.json:4767",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4254",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6092",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6600"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4814",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7147",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7682"
           ],
           "status": "available",
           "type": "key"
@@ -7172,7 +7058,7 @@
           "references": [
             "docs/appwrite-schema-live.json:4782",
             "docs/appwrite-schema-live.json:4785",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6111"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7169"
           ],
           "status": "available",
           "type": "unique"
@@ -7190,8 +7076,8 @@
             "docs/appwrite-schema-live.json:4785",
             "docs/appwrite-schema-live.json:4798",
             "docs/appwrite-schema-live.json:4801",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6111",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6126"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7169",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7185"
           ],
           "status": "available",
           "type": "key"
@@ -7206,7 +7092,7 @@
         "functions/inactive-user-cleanup/main.py:740",
         "functions/inactive-user-cleanup/main.py:824",
         "functions/remove-instagram/main.py:265",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:6057"
+        "ProductionSetup/reports/appwrite-cleanup-report.json:7106"
       ]
     },
     {
@@ -7331,7 +7217,7 @@
             "Frontend/src/app/dashboard/ReplyTemplatesView.tsx:257",
             "Frontend/src/app/dashboard/ReplyTemplatesView.tsx:258",
             "Frontend/src/app/dashboard/ReplyTemplatesView.tsx:690",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6260"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7322"
           ],
           "required": false,
           "status": "available",
@@ -7347,8 +7233,8 @@
             "Backend/routes/instagram.js:1783",
             "Backend/routes/instagram.js:3554",
             "Backend/routes/instagram.js:3606",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6279",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6415"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7342",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7490"
           ],
           "required": false,
           "status": "available",
@@ -7448,12 +7334,12 @@
             "docs/appwrite-schema-live.json:4640",
             "docs/appwrite-schema-live.json:4746",
             "docs/appwrite-schema-live.json:4749",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:86",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2708",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4025",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5363",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6064",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6370"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:88",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3217",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4559",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6384",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7113",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7435"
           ],
           "status": "available",
           "type": "key"
@@ -7475,10 +7361,10 @@
             "docs/appwrite-schema-live.json:2691",
             "docs/appwrite-schema-live.json:4533",
             "docs/appwrite-schema-live.json:4536",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2735",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4052",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6395",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6578"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3250",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4592",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7466",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7656"
           ],
           "status": "available",
           "type": "key"
@@ -7495,7 +7381,7 @@
           "references": [
             "docs/appwrite-schema-live.json:4549",
             "docs/appwrite-schema-live.json:4552",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6417"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7492"
           ],
           "status": "available",
           "type": "key"
@@ -7511,7 +7397,7 @@
           "references": [
             "docs/appwrite-schema-live.json:4567",
             "docs/appwrite-schema-live.json:4570",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6432"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7508"
           ],
           "status": "available",
           "type": "key"
@@ -7533,7 +7419,7 @@
         "functions/inactive-user-cleanup/main.py:737",
         "functions/inactive-user-cleanup/main.py:821",
         "functions/remove-instagram/main.py:264",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:6363",
+        "ProductionSetup/reports/appwrite-cleanup-report.json:7428",
         "worker-node/src/appwrite.js:221"
       ]
     },
@@ -7665,10 +7551,10 @@
             "docs/appwrite-schema-live.json:2691",
             "docs/appwrite-schema-live.json:4533",
             "docs/appwrite-schema-live.json:4536",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:2735",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4052",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6395",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6578"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:3250",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4592",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7466",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7656"
           ],
           "status": "available",
           "type": "key"
@@ -7689,9 +7575,9 @@
             "docs/appwrite-schema-live.json:1570",
             "docs/appwrite-schema-live.json:4764",
             "docs/appwrite-schema-live.json:4767",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4254",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6092",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6600"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4814",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7147",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7682"
           ],
           "status": "available",
           "type": "key"
@@ -7710,8 +7596,8 @@
             "docs/appwrite-schema-live.json:1588",
             "docs/appwrite-schema-live.json:3042",
             "docs/appwrite-schema-live.json:3045",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:5751",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6620"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:6795",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7705"
           ],
           "status": "available",
           "type": "key"
@@ -7804,11 +7690,11 @@
             "Backend/routes/instagram.js:2817",
             "Frontend/src/app/dashboard/AnalyticsView.tsx:15",
             "Frontend/src/app/dashboard/AnalyticsView.tsx:953",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6703",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7041",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7160",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7255",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10293",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7790",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8132",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8254",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8352",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11502",
             "worker-node/src/appwrite.js:69",
             "worker-node/src/appwrite.js:588",
             "worker-node/src/appwrite.js:589",
@@ -7904,8 +7790,8 @@
             "Backend/routes/instagram.js:2815",
             "Frontend/src/app/dashboard/AnalyticsView.tsx:19",
             "Frontend/src/app/dashboard/AnalyticsView.tsx:932",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6808",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7042",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7895",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8133",
             "worker-node/src/worker.js:157"
           ],
           "required": true,
@@ -8099,7 +7985,7 @@
             "Backend/routes/instagram.js:2816",
             "Frontend/src/app/dashboard/AnalyticsView.tsx:16",
             "Frontend/src/app/dashboard/AnalyticsView.tsx:954",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7003"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8092"
           ],
           "required": false,
           "status": "available",
@@ -8120,7 +8006,7 @@
           "references": [
             "docs/appwrite-schema-live.json:3278",
             "docs/appwrite-schema-live.json:3281",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7027"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8117"
           ],
           "status": "available",
           "type": "key"
@@ -8139,7 +8025,7 @@
           "references": [
             "docs/appwrite-schema-live.json:3296",
             "docs/appwrite-schema-live.json:3299",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7045"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8136"
           ],
           "status": "available",
           "type": "key"
@@ -8157,7 +8043,7 @@
           "references": [
             "docs/appwrite-schema-live.json:3318",
             "docs/appwrite-schema-live.json:3321",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7062"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8154"
           ],
           "status": "available",
           "type": "key"
@@ -8175,7 +8061,7 @@
           "references": [
             "docs/appwrite-schema-live.json:3338",
             "docs/appwrite-schema-live.json:3341",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7079"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8172"
           ],
           "status": "available",
           "type": "key"
@@ -8268,11 +8154,11 @@
             "Backend/routes/instagram.js:2817",
             "Frontend/src/app/dashboard/AnalyticsView.tsx:15",
             "Frontend/src/app/dashboard/AnalyticsView.tsx:953",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6703",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7041",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7160",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7255",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10293",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7790",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8132",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8254",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8352",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11502",
             "worker-node/src/appwrite.js:69",
             "worker-node/src/appwrite.js:588",
             "worker-node/src/appwrite.js:589",
@@ -8305,8 +8191,8 @@
             "functions/inactive-user-cleanup/main.py:616",
             "functions/inactive-user-cleanup/main.py:621",
             "functions/inactive-user-cleanup/main.py:626",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1229",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7195",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1280",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8289",
             "worker-node/src/appwrite.js:69",
             "worker-node/src/appwrite.js:605",
             "worker-node/src/appwrite.js:638",
@@ -8330,9 +8216,9 @@
             "docs/appwrite-schema-live.json:1490",
             "functions/cleanup-logs-chat-state/main.py:307",
             "functions/cleanup-logs-chat-state/main.py:321",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7230",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7272",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7274",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8324",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8371",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8373",
             "worker-node/src/appwrite.js:641",
             "worker-node/src/appwrite.js:643",
             "worker-node/src/appwrite.js:644",
@@ -8359,8 +8245,8 @@
             "docs/appwrite-schema-live.json:1467",
             "docs/appwrite-schema-live.json:3296",
             "docs/appwrite-schema-live.json:3299",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7045",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7257"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8136",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8354"
           ],
           "status": "available",
           "type": "unique"
@@ -8376,7 +8262,7 @@
           "references": [
             "docs/appwrite-schema-live.json:1482",
             "docs/appwrite-schema-live.json:1485",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7274"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8373"
           ],
           "status": "available",
           "type": "key"
@@ -8398,7 +8284,7 @@
         "functions/inactive-user-cleanup/main.py:720",
         "functions/inactive-user-cleanup/main.py:826",
         "functions/remove-instagram/main.py:268",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:7249",
+        "ProductionSetup/reports/appwrite-cleanup-report.json:8346",
         "worker-node/src/appwrite.js:4",
         "worker-node/src/appwrite.js:95"
       ]
@@ -8607,7 +8493,7 @@
             "Backend/routes/payment.js:945",
             "Frontend/src/components/dashboard/PlanCheckoutModal.tsx:81",
             "Frontend/src/components/dashboard/PlanCheckoutModal.tsx:83",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7485"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8586"
           ],
           "required": false,
           "status": "available",
@@ -8627,10 +8513,10 @@
             "Backend/routes/admin.js:317",
             "Backend/routes/admin.js:332",
             "Backend/routes/admin.js:343",
-            "Backend/routes/admin.js:1560",
+            "Backend/routes/admin.js:1559",
             "Backend/routes/payment.js:883",
             "Backend/routes/payment.js:929",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7516"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8618"
           ],
           "required": false,
           "status": "available",
@@ -8659,7 +8545,7 @@
             "Backend/routes/admin.js:333",
             "Backend/routes/admin.js:340",
             "Backend/routes/payment.js:913",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7538"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8641"
           ],
           "required": false,
           "status": "available",
@@ -8684,7 +8570,7 @@
             "Backend/routes/admin.js:334",
             "Backend/routes/admin.js:341",
             "Backend/routes/payment.js:923",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7566"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8670"
           ],
           "required": false,
           "status": "available",
@@ -8703,7 +8589,7 @@
             "Backend/routes/instagram.js:3362",
             "Backend/routes/instagram.js:3363",
             "Backend/routes/instagram.js:3364",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7590",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8695",
             "streamer-node/src/worker-hub.js:101",
             "worker-node/src/appwrite.js:95",
             "worker-node/src/emailDestinations.js:75",
@@ -8773,7 +8659,7 @@
             "Backend/routes/admin.js:330",
             "Backend/routes/payment.js:917",
             "Backend/routes/payment.js:918",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7647"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8753"
           ],
           "required": false,
           "status": "available",
@@ -8793,7 +8679,7 @@
           "references": [
             "docs/appwrite-schema-live.json:2043",
             "docs/appwrite-schema-live.json:2046",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7683"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8790"
           ],
           "status": "available",
           "type": "unique"
@@ -8810,7 +8696,7 @@
           "references": [
             "docs/appwrite-schema-live.json:2059",
             "docs/appwrite-schema-live.json:2062",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7699"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8807"
           ],
           "status": "available",
           "type": "key"
@@ -8827,7 +8713,7 @@
             "docs/appwrite-schema-live.json:2077",
             "docs/appwrite-schema-live.json:2080",
             "ProductionSetup/setup_appwrite.py:335",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7714"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8823"
           ],
           "status": "available",
           "type": "fulltext"
@@ -8845,7 +8731,7 @@
             "docs/appwrite-schema-live.json:2093",
             "docs/appwrite-schema-live.json:2096",
             "ProductionSetup/setup_appwrite.py:336",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7731"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8841"
           ],
           "status": "available",
           "type": "key"
@@ -8928,17 +8814,17 @@
             "docs/appwrite-schema-live.json:1811",
             "docs/appwrite-schema-live.json:1827",
             "docs/appwrite-schema-live.json:3476",
-            "Backend/routes/admin.js:1048",
-            "Backend/routes/admin.js:1409",
+            "Backend/routes/admin.js:1047",
+            "Backend/routes/admin.js:1408",
             "Backend/routes/payment.js:431",
             "Backend/routes/payment.js:526",
             "Backend/routes/payment.js:932",
             "Backend/routes/payment.js:941",
             "Backend/routes/payment.js:984",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7813",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8228",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8251",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9144"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8924",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9349",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9376",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10302"
           ],
           "required": false,
           "status": "available",
@@ -8953,10 +8839,10 @@
             "docs/appwrite-schema-live.json:3489",
             "admin-panel/src/pages/Coupons.tsx:28",
             "admin-panel/src/pages/Coupons.tsx:1024",
-            "Backend/routes/admin.js:1045",
-            "Backend/routes/admin.js:1139",
-            "Backend/routes/admin.js:1410",
-            "Backend/routes/admin.js:1444",
+            "Backend/routes/admin.js:1044",
+            "Backend/routes/admin.js:1138",
+            "Backend/routes/admin.js:1409",
+            "Backend/routes/admin.js:1443",
             "Backend/routes/payment.js:352",
             "Backend/routes/payment.js:432",
             "Backend/routes/payment.js:527",
@@ -9070,7 +8956,7 @@
             "admin-panel/src/pages/Pricing.tsx:43",
             "admin-panel/src/pages/Pricing.tsx:48",
             "admin-panel/src/pages/Pricing.tsx:49",
-            "Backend/routes/admin.js:1447",
+            "Backend/routes/admin.js:1446",
             "Backend/routes/payment.js:108",
             "Backend/routes/payment.js:119",
             "Backend/routes/payment.js:121",
@@ -9109,8 +8995,8 @@
             "Frontend/src/app/dashboard/TransactionsView.tsx:349",
             "Frontend/src/components/dashboard/PlanCheckoutModal.tsx:17",
             "Frontend/src/components/dashboard/PlanCheckoutModal.tsx:360",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7974",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9056"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9089",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10210"
           ],
           "required": false,
           "status": "available",
@@ -9134,8 +9020,8 @@
             "Backend/utils/transactionReceipt.js:328",
             "Frontend/src/app/dashboard/TransactionsView.tsx:19",
             "Frontend/src/app/dashboard/TransactionsView.tsx:353",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8004",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9086"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9121",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10242"
           ],
           "required": false,
           "status": "available",
@@ -9150,9 +9036,9 @@
             "docs/appwrite-schema-live.json:3463",
             "admin-panel/src/pages/Coupons.tsx:30",
             "admin-panel/src/pages/Coupons.tsx:1030",
-            "Backend/routes/admin.js:878",
-            "Backend/routes/admin.js:1042",
-            "Backend/routes/admin.js:1446",
+            "Backend/routes/admin.js:877",
+            "Backend/routes/admin.js:1041",
+            "Backend/routes/admin.js:1445",
             "Backend/routes/payment.js:331",
             "Backend/routes/payment.js:351",
             "Backend/routes/payment.js:381",
@@ -9333,8 +9219,8 @@
             "Backend/routes/payment.js:1451",
             "Frontend/src/components/dashboard/PlanCheckoutModal.tsx:280",
             "Frontend/src/components/dashboard/PlanCheckoutModal.tsx:325",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8202",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8285"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9321",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9413"
           ],
           "required": false,
           "status": "available",
@@ -9362,10 +9248,10 @@
             "docs/appwrite-schema-live.json:2096",
             "ProductionSetup/setup_appwrite.py:335",
             "ProductionSetup/setup_appwrite.py:336",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7714",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7731",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8230",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8254"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8823",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8841",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9351",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9379"
           ],
           "status": "available",
           "type": "key"
@@ -9382,7 +9268,7 @@
           "references": [
             "docs/appwrite-schema-live.json:1819",
             "docs/appwrite-schema-live.json:1822",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8254"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9379"
           ],
           "status": "available",
           "type": "key"
@@ -9401,8 +9287,8 @@
             "docs/appwrite-schema-live.json:1840",
             "docs/appwrite-schema-live.json:3631",
             "docs/appwrite-schema-live.json:3634",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8270",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9408"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9396",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10581"
           ],
           "status": "available",
           "type": "key"
@@ -9422,10 +9308,10 @@
             "docs/appwrite-schema-live.json:5181",
             "ProductionSetup/setup_appwrite.py:325",
             "ProductionSetup/setup_appwrite.py:330",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:781",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8287",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9444",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9458"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:816",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9415",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10621",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10636"
           ],
           "status": "available",
           "type": "key"
@@ -9439,7 +9325,7 @@
         "functions/inactive-user-cleanup/main.py:746",
         "functions/inactive-user-cleanup/main.py:805",
         "functions/inactive-user-cleanup/main.py:835",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:8223"
+        "ProductionSetup/reports/appwrite-cleanup-report.json:9344"
       ]
     },
     {
@@ -9459,13 +9345,13 @@
             "Backend/routes/admin.js:121",
             "Backend/routes/admin.js:140",
             "Backend/routes/admin.js:179",
-            "Backend/routes/admin.js:779",
-            "Backend/routes/admin.js:1640",
-            "Backend/routes/admin.js:2457",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8317",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8468",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9710",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10075"
+            "Backend/routes/admin.js:778",
+            "Backend/routes/admin.js:1639",
+            "Backend/routes/admin.js:2456",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9450",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9607",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10898",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11278"
           ],
           "required": true,
           "status": "available",
@@ -9517,12 +9403,12 @@
             "Backend/routes/admin.js:123",
             "Backend/routes/admin.js:141",
             "Backend/routes/admin.js:179",
-            "Backend/routes/admin.js:2447",
-            "Backend/routes/admin.js:2459",
+            "Backend/routes/admin.js:2446",
+            "Backend/routes/admin.js:2458",
             "Backend/utils/userCleanup.js:208",
             "functions/inactive-user-cleanup/main.py:750",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8374",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8500"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9511",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9641"
           ],
           "required": false,
           "status": "available",
@@ -9538,14 +9424,14 @@
             "ProductionSetup/migrate_pricing_benefits.py:232",
             "ProductionSetup/migrate_pricing_benefits.py:254",
             "ProductionSetup/migrate_pricing_benefits.py:258",
-            "ProductionSetup/migrate_pricing_benefits.py:270",
-            "ProductionSetup/migrate_pricing_benefits.py:272",
-            "ProductionSetup/migrate_pricing_benefits.py:288",
-            "ProductionSetup/migrate_pricing_benefits.py:333",
+            "ProductionSetup/migrate_pricing_benefits.py:271",
+            "ProductionSetup/migrate_pricing_benefits.py:273",
+            "ProductionSetup/migrate_pricing_benefits.py:289",
             "ProductionSetup/migrate_pricing_benefits.py:334",
-            "ProductionSetup/migrate_pricing_benefits.py:341",
-            "ProductionSetup/migrate_pricing_benefits.py:345",
+            "ProductionSetup/migrate_pricing_benefits.py:335",
+            "ProductionSetup/migrate_pricing_benefits.py:342",
             "ProductionSetup/migrate_pricing_benefits.py:346",
+            "ProductionSetup/migrate_pricing_benefits.py:347",
             "ProductionSetup/migrate_subscription_truth.py:391",
             "ProductionSetup/migrate_subscription_truth.py:554",
             "ProductionSetup/migrate_subscription_truth.py:558",
@@ -9613,7 +9499,7 @@
           "references": [
             "docs/appwrite-schema-live.json:81",
             "docs/appwrite-schema-live.json:84",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8471"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9610"
           ],
           "status": "available",
           "type": "key"
@@ -9630,7 +9516,7 @@
           "references": [
             "docs/appwrite-schema-live.json:99",
             "docs/appwrite-schema-live.json:102",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8487"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9627"
           ],
           "status": "available",
           "type": "key"
@@ -9648,7 +9534,7 @@
             "docs/appwrite-schema-live.json:117",
             "docs/appwrite-schema-live.json:120",
             "ProductionSetup/setup_appwrite.py:339",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8503"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9644"
           ],
           "status": "available",
           "type": "key"
@@ -9666,7 +9552,7 @@
         "functions/inactive-user-cleanup/main.py:747",
         "functions/inactive-user-cleanup/main.py:750",
         "functions/inactive-user-cleanup/main.py:830",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:8463"
+        "ProductionSetup/reports/appwrite-cleanup-report.json:9602"
       ]
     },
     {
@@ -9790,7 +9676,7 @@
             "Backend/routes/instagram.js:3386",
             "functions/cleanup-logs-chat-state/main.py:149",
             "functions/cleanup-logs-chat-state/main.py:150",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8639",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9491",
             "worker-node/src/emailDestinations.js:72"
           ],
           "required": true,
@@ -9886,7 +9772,7 @@
             "Frontend/src/components/dashboard/AutomationEditor.tsx:47",
             "Frontend/src/components/dashboard/AutomationEditor.tsx:399",
             "Frontend/src/components/dashboard/AutomationEditor.tsx:479",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8728",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9581",
             "worker-node/src/appwrite.js:698",
             "worker-node/src/appwrite.js:699",
             "worker-node/src/appwrite.js:700",
@@ -9917,13 +9803,13 @@
             "admin-panel/src/pages/Settings.tsx:160",
             "Backend/routes/admin.js:58",
             "Backend/routes/admin.js:280",
-            "Backend/routes/admin.js:788",
-            "Backend/routes/admin.js:1277",
-            "Backend/routes/admin.js:1291",
-            "Backend/routes/admin.js:1388",
-            "Backend/routes/admin.js:1651",
-            "Backend/routes/admin.js:1753",
-            "Backend/routes/admin.js:1762",
+            "Backend/routes/admin.js:787",
+            "Backend/routes/admin.js:1276",
+            "Backend/routes/admin.js:1290",
+            "Backend/routes/admin.js:1387",
+            "Backend/routes/admin.js:1650",
+            "Backend/routes/admin.js:1752",
+            "Backend/routes/admin.js:1761",
             "Backend/routes/instagram.js:3313",
             "Backend/routes/instagram.js:3388",
             "Backend/routes/instagram.js:4742"
@@ -9946,7 +9832,7 @@
           "references": [
             "docs/appwrite-schema-live.json:345",
             "docs/appwrite-schema-live.json:348",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8798"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9652"
           ],
           "status": "available",
           "type": "unique"
@@ -9965,8 +9851,8 @@
             "docs/appwrite-schema-live.json:364",
             "docs/appwrite-schema-live.json:3318",
             "docs/appwrite-schema-live.json:3321",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7062",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8814"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7863",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9669"
           ],
           "status": "available",
           "type": "key"
@@ -10001,11 +9887,11 @@
             "docs/appwrite-schema-live.json:2856",
             "docs/appwrite-schema-live.json:3096",
             "docs/appwrite-schema-live.json:3099",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4113",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4148",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4165",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4182",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:4200"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4509",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4549",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4567",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4585",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:4604"
           ],
           "status": "available",
           "type": "key"
@@ -10023,7 +9909,7 @@
         "functions/inactive-user-cleanup/main.py:742",
         "functions/inactive-user-cleanup/main.py:827",
         "functions/remove-instagram/main.py:269",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:8791",
+        "ProductionSetup/reports/appwrite-cleanup-report.json:9645",
         "worker-node/src/appwrite.js:5"
       ]
     },
@@ -10084,16 +9970,16 @@
             "ProductionSetup/migrate_pricing_benefits.py:254",
             "ProductionSetup/migrate_pricing_benefits.py:255",
             "ProductionSetup/migrate_pricing_benefits.py:260",
-            "ProductionSetup/migrate_pricing_benefits.py:289",
             "ProductionSetup/migrate_pricing_benefits.py:290",
-            "ProductionSetup/migrate_pricing_benefits.py:313",
-            "ProductionSetup/migrate_pricing_benefits.py:325",
+            "ProductionSetup/migrate_pricing_benefits.py:291",
+            "ProductionSetup/migrate_pricing_benefits.py:314",
             "ProductionSetup/migrate_pricing_benefits.py:326",
-            "ProductionSetup/migrate_pricing_benefits.py:330",
-            "ProductionSetup/migrate_pricing_benefits.py:333",
-            "ProductionSetup/migrate_pricing_benefits.py:336",
-            "ProductionSetup/migrate_pricing_benefits.py:339",
-            "ProductionSetup/migrate_pricing_benefits.py:341",
+            "ProductionSetup/migrate_pricing_benefits.py:327",
+            "ProductionSetup/migrate_pricing_benefits.py:331",
+            "ProductionSetup/migrate_pricing_benefits.py:334",
+            "ProductionSetup/migrate_pricing_benefits.py:337",
+            "ProductionSetup/migrate_pricing_benefits.py:340",
+            "ProductionSetup/migrate_pricing_benefits.py:342",
             "ProductionSetup/migrate_subscription_truth.py:40"
           ],
           "required": true,
@@ -10116,8 +10002,8 @@
             "ProductionSetup/migrate_subscription_truth.py:459",
             "ProductionSetup/setup_appwrite.py:237",
             "Backend/routes/admin.js:535",
-            "Backend/routes/admin.js:668",
-            "Backend/routes/admin.js:877",
+            "Backend/routes/admin.js:667",
+            "Backend/routes/admin.js:876",
             "Backend/routes/payment.js:323",
             "Backend/routes/payment.js:342",
             "Backend/routes/payment.js:425",
@@ -10191,7 +10077,7 @@
             "admin-panel/src/pages/Pricing.tsx:43",
             "admin-panel/src/pages/Pricing.tsx:48",
             "admin-panel/src/pages/Pricing.tsx:49",
-            "Backend/routes/admin.js:1447",
+            "Backend/routes/admin.js:1446",
             "Backend/routes/payment.js:108",
             "Backend/routes/payment.js:119",
             "Backend/routes/payment.js:121",
@@ -10230,8 +10116,8 @@
             "Frontend/src/app/dashboard/TransactionsView.tsx:349",
             "Frontend/src/components/dashboard/PlanCheckoutModal.tsx:17",
             "Frontend/src/components/dashboard/PlanCheckoutModal.tsx:360",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7974",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9056"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8798",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9919"
           ],
           "required": true,
           "status": "available",
@@ -10255,8 +10141,8 @@
             "Backend/utils/transactionReceipt.js:328",
             "Frontend/src/app/dashboard/TransactionsView.tsx:19",
             "Frontend/src/app/dashboard/TransactionsView.tsx:353",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8004",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9086"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8830",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9951"
           ],
           "required": false,
           "status": "available",
@@ -10271,9 +10157,9 @@
             "docs/appwrite-schema-live.json:3463",
             "admin-panel/src/pages/Coupons.tsx:30",
             "admin-panel/src/pages/Coupons.tsx:1030",
-            "Backend/routes/admin.js:878",
-            "Backend/routes/admin.js:1042",
-            "Backend/routes/admin.js:1446",
+            "Backend/routes/admin.js:877",
+            "Backend/routes/admin.js:1041",
+            "Backend/routes/admin.js:1445",
             "Backend/routes/payment.js:331",
             "Backend/routes/payment.js:351",
             "Backend/routes/payment.js:381",
@@ -10306,17 +10192,17 @@
             "docs/appwrite-schema-live.json:1811",
             "docs/appwrite-schema-live.json:1827",
             "docs/appwrite-schema-live.json:3476",
-            "Backend/routes/admin.js:1048",
-            "Backend/routes/admin.js:1409",
+            "Backend/routes/admin.js:1047",
+            "Backend/routes/admin.js:1408",
             "Backend/routes/payment.js:431",
             "Backend/routes/payment.js:526",
             "Backend/routes/payment.js:932",
             "Backend/routes/payment.js:941",
             "Backend/routes/payment.js:984",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7813",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8228",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8251",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9144"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8633",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9058",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9085",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10011"
           ],
           "required": false,
           "status": "available",
@@ -10331,10 +10217,10 @@
             "docs/appwrite-schema-live.json:3489",
             "admin-panel/src/pages/Coupons.tsx:28",
             "admin-panel/src/pages/Coupons.tsx:1024",
-            "Backend/routes/admin.js:1045",
-            "Backend/routes/admin.js:1139",
-            "Backend/routes/admin.js:1410",
-            "Backend/routes/admin.js:1444",
+            "Backend/routes/admin.js:1044",
+            "Backend/routes/admin.js:1138",
+            "Backend/routes/admin.js:1409",
+            "Backend/routes/admin.js:1443",
             "Backend/routes/payment.js:352",
             "Backend/routes/payment.js:432",
             "Backend/routes/payment.js:527",
@@ -10405,8 +10291,8 @@
             "Backend/routes/payment.js:1239",
             "Backend/routes/payment.js:1252",
             "functions/payment-reminders/main.py:249",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9235",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9373"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10106",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10252"
           ],
           "required": true,
           "status": "available",
@@ -10424,10 +10310,10 @@
             "Backend/routes/payment.js:657",
             "Backend/routes/payment.js:803",
             "functions/payment-reminders/main.py:250",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9253",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9388",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9456",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9484"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10126",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10268",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10343",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10374"
           ],
           "required": false,
           "status": "available",
@@ -10441,7 +10327,7 @@
             "docs/appwrite-schema-live.json:3547",
             "Backend/routes/payment.js:436",
             "Backend/routes/payment.js:1240",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9270"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10147"
           ],
           "required": false,
           "status": "available",
@@ -10528,7 +10414,7 @@
             "Backend/routes/payment.js:1241",
             "functions/payment-reminders/main.py:200",
             "functions/payment-reminders/main.py:287",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9353"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10231"
           ],
           "required": false,
           "status": "available",
@@ -10548,7 +10434,7 @@
           "references": [
             "docs/appwrite-schema-live.json:3599",
             "docs/appwrite-schema-live.json:3602",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9375"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10254"
           ],
           "status": "available",
           "type": "unique"
@@ -10566,8 +10452,8 @@
             "docs/appwrite-schema-live.json:3618",
             "docs/appwrite-schema-live.json:5110",
             "docs/appwrite-schema-live.json:5113",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:712",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9390"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:740",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10270"
           ],
           "status": "available",
           "type": "key"
@@ -10584,7 +10470,7 @@
           "references": [
             "docs/appwrite-schema-live.json:3631",
             "docs/appwrite-schema-live.json:3634",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9408"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10290"
           ],
           "status": "available",
           "type": "key"
@@ -10605,9 +10491,9 @@
             "docs/appwrite-schema-live.json:5163",
             "docs/appwrite-schema-live.json:5194",
             "docs/appwrite-schema-live.json:5197",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:762",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:802",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9424"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:794",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:841",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10307"
           ],
           "status": "available",
           "type": "key"
@@ -10623,7 +10509,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:325",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9444"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10330"
           ],
           "status": "available",
           "type": "key"
@@ -10637,7 +10523,7 @@
           "orders": [],
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9458"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10345"
           ],
           "status": "available",
           "type": "key"
@@ -10654,7 +10540,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:326",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9472"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10361"
           ],
           "status": "available",
           "type": "key"
@@ -10669,7 +10555,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:327",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9486"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10376"
           ],
           "status": "available",
           "type": "key"
@@ -10689,7 +10575,7 @@
         "functions/inactive-user-cleanup/main.py:804",
         "functions/inactive-user-cleanup/main.py:834",
         "functions/payment-reminders/main.py:399",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:9368"
+        "ProductionSetup/reports/appwrite-cleanup-report.json:10247"
       ]
     },
     {
@@ -10707,11 +10593,11 @@
             "admin-panel/src/pages/Settings.tsx:133",
             "admin-panel/src/pages/Settings.tsx:134",
             "Backend/routes/admin.js:54",
-            "Backend/routes/admin.js:1273",
-            "Backend/routes/admin.js:1287",
-            "Backend/routes/admin.js:1747",
-            "Backend/routes/admin.js:1758",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9517",
+            "Backend/routes/admin.js:1272",
+            "Backend/routes/admin.js:1286",
+            "Backend/routes/admin.js:1746",
+            "Backend/routes/admin.js:1757",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10409",
             "worker-node/src/appwrite.js:523",
             "worker-node/src/appwrite.js:530",
             "worker-node/src/watermark.js:3",
@@ -10771,13 +10657,13 @@
             "admin-panel/src/pages/Settings.tsx:142",
             "admin-panel/src/pages/Settings.tsx:147",
             "Backend/routes/admin.js:55",
-            "Backend/routes/admin.js:1274",
-            "Backend/routes/admin.js:1288",
+            "Backend/routes/admin.js:1273",
+            "Backend/routes/admin.js:1287",
+            "Backend/routes/admin.js:1747",
             "Backend/routes/admin.js:1748",
             "Backend/routes/admin.js:1749",
-            "Backend/routes/admin.js:1750",
-            "Backend/routes/admin.js:1759",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9579",
+            "Backend/routes/admin.js:1758",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10472",
             "worker-node/src/appwrite.js:524",
             "worker-node/src/appwrite.js:531",
             "worker-node/src/watermark.js:4",
@@ -10797,11 +10683,11 @@
             "docs/appwrite-schema-live.json:186",
             "ProductionSetup/setup_appwrite.py:824",
             "Backend/routes/admin.js:57",
-            "Backend/routes/admin.js:1276",
-            "Backend/routes/admin.js:1290",
-            "Backend/routes/admin.js:1752",
-            "Backend/routes/admin.js:1761",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9609"
+            "Backend/routes/admin.js:1275",
+            "Backend/routes/admin.js:1289",
+            "Backend/routes/admin.js:1751",
+            "Backend/routes/admin.js:1760",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10503"
           ],
           "required": false,
           "status": "available",
@@ -10819,11 +10705,11 @@
             "admin-panel/src/pages/Settings.tsx:110",
             "admin-panel/src/pages/Settings.tsx:117",
             "Backend/routes/admin.js:56",
-            "Backend/routes/admin.js:1275",
-            "Backend/routes/admin.js:1289",
-            "Backend/routes/admin.js:1751",
-            "Backend/routes/admin.js:1760",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9626",
+            "Backend/routes/admin.js:1274",
+            "Backend/routes/admin.js:1288",
+            "Backend/routes/admin.js:1750",
+            "Backend/routes/admin.js:1759",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10521",
             "worker-node/src/appwrite.js:525",
             "worker-node/src/appwrite.js:532",
             "worker-node/src/watermark.js:5",
@@ -10854,13 +10740,13 @@
             "admin-panel/src/pages/Settings.tsx:160",
             "Backend/routes/admin.js:58",
             "Backend/routes/admin.js:280",
-            "Backend/routes/admin.js:788",
-            "Backend/routes/admin.js:1277",
-            "Backend/routes/admin.js:1291",
-            "Backend/routes/admin.js:1388",
-            "Backend/routes/admin.js:1651",
-            "Backend/routes/admin.js:1753",
-            "Backend/routes/admin.js:1762",
+            "Backend/routes/admin.js:787",
+            "Backend/routes/admin.js:1276",
+            "Backend/routes/admin.js:1290",
+            "Backend/routes/admin.js:1387",
+            "Backend/routes/admin.js:1650",
+            "Backend/routes/admin.js:1752",
+            "Backend/routes/admin.js:1761",
             "Backend/routes/instagram.js:3313",
             "Backend/routes/instagram.js:3388",
             "Backend/routes/instagram.js:4742"
@@ -10886,7 +10772,7 @@
         "ProductionSetup/setup_appwrite.py:830",
         "ProductionSetup/setup_appwrite.py:856",
         "Backend/utils/appwrite.js:39",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:9686",
+        "ProductionSetup/reports/appwrite-cleanup-report.json:10582",
         "worker-node/src/appwrite.js:518"
       ]
     },
@@ -10907,13 +10793,13 @@
             "Backend/routes/admin.js:121",
             "Backend/routes/admin.js:140",
             "Backend/routes/admin.js:179",
-            "Backend/routes/admin.js:779",
-            "Backend/routes/admin.js:1640",
-            "Backend/routes/admin.js:2457",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8317",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:8468",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9710",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10075"
+            "Backend/routes/admin.js:778",
+            "Backend/routes/admin.js:1639",
+            "Backend/routes/admin.js:2456",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9159",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:9316",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10607",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10987"
           ],
           "required": true,
           "status": "available",
@@ -10930,12 +10816,12 @@
             "ProductionSetup/setup_appwrite.py:118",
             "admin-panel/src/pages/EmailCampaigns.tsx:51",
             "admin-panel/src/pages/EmailCampaigns.tsx:392",
-            "Backend/routes/admin.js:780",
-            "Backend/routes/admin.js:1641",
-            "Backend/routes/admin.js:1671",
-            "Backend/routes/admin.js:1717",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9732",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10092"
+            "Backend/routes/admin.js:779",
+            "Backend/routes/admin.js:1640",
+            "Backend/routes/admin.js:1670",
+            "Backend/routes/admin.js:1716",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10633",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11005"
           ],
           "required": false,
           "status": "available",
@@ -10957,16 +10843,16 @@
             "admin-panel/src/pages/EmailCampaigns.tsx:606",
             "admin-panel/src/pages/EmailCampaigns.tsx:685",
             "admin-panel/src/pages/EmailCampaigns.tsx:706",
-            "Backend/routes/admin.js:777",
-            "Backend/routes/admin.js:1596",
-            "Backend/routes/admin.js:1601",
-            "Backend/routes/admin.js:1612",
-            "Backend/routes/admin.js:1626",
-            "Backend/routes/admin.js:1642",
-            "Backend/routes/admin.js:1668",
-            "Backend/routes/admin.js:1676",
-            "Backend/routes/admin.js:1682",
-            "Backend/routes/admin.js:1716",
+            "Backend/routes/admin.js:776",
+            "Backend/routes/admin.js:1595",
+            "Backend/routes/admin.js:1600",
+            "Backend/routes/admin.js:1611",
+            "Backend/routes/admin.js:1625",
+            "Backend/routes/admin.js:1641",
+            "Backend/routes/admin.js:1667",
+            "Backend/routes/admin.js:1675",
+            "Backend/routes/admin.js:1681",
+            "Backend/routes/admin.js:1715",
             "Backend/utils/emailTemplate.js:257",
             "Backend/utils/emailTemplate.js:262",
             "Frontend/src/app/contact/page.tsx:24",
@@ -10986,10 +10872,10 @@
             "admin-panel/src/pages/EmailCampaigns.tsx:47",
             "admin-panel/src/pages/EmailCampaigns.tsx:378",
             "admin-panel/src/pages/EmailCampaigns.tsx:686",
+            "Backend/routes/admin.js:780",
             "Backend/routes/admin.js:781",
-            "Backend/routes/admin.js:782",
-            "Backend/routes/admin.js:1644",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9787"
+            "Backend/routes/admin.js:1643",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10690"
           ],
           "required": false,
           "status": "available",
@@ -11004,9 +10890,9 @@
             "ProductionSetup/setup_appwrite.py:103",
             "admin-panel/src/pages/EmailCampaigns.tsx:48",
             "admin-panel/src/pages/EmailCampaigns.tsx:379",
-            "Backend/routes/admin.js:782",
-            "Backend/routes/admin.js:1645",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9805"
+            "Backend/routes/admin.js:781",
+            "Backend/routes/admin.js:1644",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10709"
           ],
           "required": false,
           "status": "available",
@@ -11022,10 +10908,10 @@
             "admin-panel/src/pages/EmailCampaigns.tsx:49",
             "admin-panel/src/pages/EmailCampaigns.tsx:380",
             "admin-panel/src/pages/EmailCampaigns.tsx:686",
-            "Backend/routes/admin.js:783",
-            "Backend/routes/admin.js:1646",
-            "Backend/routes/admin.js:1685",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9821"
+            "Backend/routes/admin.js:782",
+            "Backend/routes/admin.js:1645",
+            "Backend/routes/admin.js:1684",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10726"
           ],
           "required": false,
           "status": "available",
@@ -11040,9 +10926,9 @@
             "ProductionSetup/setup_appwrite.py:105",
             "admin-panel/src/pages/EmailCampaigns.tsx:50",
             "admin-panel/src/pages/EmailCampaigns.tsx:381",
-            "Backend/routes/admin.js:784",
-            "Backend/routes/admin.js:1647",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9839"
+            "Backend/routes/admin.js:783",
+            "Backend/routes/admin.js:1646",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10745"
           ],
           "required": false,
           "status": "available",
@@ -11058,12 +10944,12 @@
             "admin-panel/src/pages/EmailCampaigns.tsx:44",
             "admin-panel/src/pages/EmailCampaigns.tsx:230",
             "admin-panel/src/pages/EmailCampaigns.tsx:374",
-            "Backend/routes/admin.js:785",
-            "Backend/routes/admin.js:1599",
-            "Backend/routes/admin.js:1648",
-            "Backend/routes/admin.js:1670",
-            "Backend/routes/admin.js:1684",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9855"
+            "Backend/routes/admin.js:784",
+            "Backend/routes/admin.js:1598",
+            "Backend/routes/admin.js:1647",
+            "Backend/routes/admin.js:1669",
+            "Backend/routes/admin.js:1683",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10762"
           ],
           "required": false,
           "status": "available",
@@ -11089,15 +10975,15 @@
             "admin-panel/src/pages/EmailCampaigns.tsx:688",
             "Backend/routes/admin.js:435",
             "Backend/routes/admin.js:464",
-            "Backend/routes/admin.js:786",
-            "Backend/routes/admin.js:1061",
-            "Backend/routes/admin.js:1187",
-            "Backend/routes/admin.js:1197",
-            "Backend/routes/admin.js:1253",
-            "Backend/routes/admin.js:1259",
-            "Backend/routes/admin.js:1346",
-            "Backend/routes/admin.js:1359",
-            "Backend/routes/admin.js:1649",
+            "Backend/routes/admin.js:785",
+            "Backend/routes/admin.js:1060",
+            "Backend/routes/admin.js:1186",
+            "Backend/routes/admin.js:1196",
+            "Backend/routes/admin.js:1252",
+            "Backend/routes/admin.js:1258",
+            "Backend/routes/admin.js:1345",
+            "Backend/routes/admin.js:1358",
+            "Backend/routes/admin.js:1648",
             "Backend/routes/dashboard.js:72"
           ],
           "required": false,
@@ -11159,13 +11045,13 @@
             "admin-panel/src/pages/Settings.tsx:160",
             "Backend/routes/admin.js:58",
             "Backend/routes/admin.js:280",
-            "Backend/routes/admin.js:788",
-            "Backend/routes/admin.js:1277",
-            "Backend/routes/admin.js:1291",
-            "Backend/routes/admin.js:1388",
-            "Backend/routes/admin.js:1651",
-            "Backend/routes/admin.js:1753",
-            "Backend/routes/admin.js:1762",
+            "Backend/routes/admin.js:787",
+            "Backend/routes/admin.js:1276",
+            "Backend/routes/admin.js:1290",
+            "Backend/routes/admin.js:1387",
+            "Backend/routes/admin.js:1650",
+            "Backend/routes/admin.js:1752",
+            "Backend/routes/admin.js:1761",
             "Backend/routes/instagram.js:3313",
             "Backend/routes/instagram.js:3388",
             "Backend/routes/instagram.js:4742"
@@ -11181,9 +11067,9 @@
           "references": [
             "docs/appwrite-schema-live.json:2264",
             "ProductionSetup/setup_appwrite.py:110",
-            "Backend/routes/admin.js:789",
-            "Backend/routes/admin.js:1652",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9980"
+            "Backend/routes/admin.js:788",
+            "Backend/routes/admin.js:1651",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10888"
           ],
           "required": false,
           "status": "available",
@@ -11196,8 +11082,8 @@
           "references": [
             "docs/appwrite-schema-live.json:2277",
             "ProductionSetup/setup_appwrite.py:111",
-            "Backend/routes/admin.js:1653",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:9994"
+            "Backend/routes/admin.js:1652",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10903"
           ],
           "required": false,
           "status": "available",
@@ -11210,8 +11096,8 @@
           "references": [
             "docs/appwrite-schema-live.json:2290",
             "ProductionSetup/setup_appwrite.py:112",
-            "Backend/routes/admin.js:1654",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10007"
+            "Backend/routes/admin.js:1653",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10917"
           ],
           "required": false,
           "status": "available",
@@ -11267,7 +11153,7 @@
             "docs/appwrite-schema-live.json:2324",
             "docs/appwrite-schema-live.json:2327",
             "ProductionSetup/setup_appwrite.py:115",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10061"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10972"
           ],
           "status": "available",
           "type": "key"
@@ -11285,7 +11171,7 @@
             "docs/appwrite-schema-live.json:2340",
             "docs/appwrite-schema-live.json:2343",
             "ProductionSetup/setup_appwrite.py:117",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10078"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:10990"
           ],
           "status": "available",
           "type": "key"
@@ -11302,7 +11188,7 @@
             "docs/appwrite-schema-live.json:2358",
             "docs/appwrite-schema-live.json:2361",
             "ProductionSetup/setup_appwrite.py:118",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10094"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11007"
           ],
           "status": "available",
           "type": "key"
@@ -11320,7 +11206,7 @@
             "docs/appwrite-schema-live.json:2374",
             "docs/appwrite-schema-live.json:2377",
             "ProductionSetup/setup_appwrite.py:116",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10111"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11025"
           ],
           "status": "available",
           "type": "key"
@@ -11334,7 +11220,7 @@
         "ProductionSetup/appwrite_cleanup_report.py:34",
         "ProductionSetup/setup_appwrite.py:80",
         "Backend/utils/appwrite.js:41",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:10054"
+        "ProductionSetup/reports/appwrite-cleanup-report.json:10965"
       ]
     },
     {
@@ -11452,7 +11338,7 @@
           "references": [
             "docs/appwrite-schema-live.json:450",
             "ProductionSetup/setup_appwrite.py:132",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10243",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11159",
             "worker-node/src/appwrite.js:69",
             "worker-node/src/appwrite.js:70",
             "worker-node/src/appwrite.js:582",
@@ -11475,7 +11361,7 @@
             "docs/appwrite-schema-live.json:463",
             "ProductionSetup/setup_appwrite.py:133",
             "Backend/routes/instagram.js:583",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10264",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11181",
             "streamer-node/src/meta-parser.js:43",
             "worker-node/src/appwrite.js:69",
             "worker-node/src/appwrite.js:585",
@@ -11508,19 +11394,19 @@
             "docs/appwrite-schema-live.json:3143",
             "docs/appwrite-schema-live.json:3305",
             "ProductionSetup/setup_appwrite.py:134",
-            "Backend/routes/admin.js:1023",
-            "Backend/routes/admin.js:1619",
+            "Backend/routes/admin.js:1022",
+            "Backend/routes/admin.js:1618",
             "Backend/routes/dashboard.js:123",
             "Backend/routes/instagram.js:2770",
             "Backend/routes/instagram.js:2810",
             "Backend/routes/instagram.js:2817",
             "Frontend/src/app/dashboard/AnalyticsView.tsx:15",
             "Frontend/src/app/dashboard/AnalyticsView.tsx:953",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:6703",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7041",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7160",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:7255",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10293",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7499",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7841",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:7963",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:8061",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11211",
             "worker-node/src/appwrite.js:69",
             "worker-node/src/appwrite.js:588",
             "worker-node/src/appwrite.js:589",
@@ -11594,9 +11480,9 @@
             "ProductionSetup/setup_appwrite.py:136",
             "ProductionSetup/setup_appwrite.py:146",
             "Backend/routes/instagram.js:587",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10363",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10567",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10569"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11281",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11494",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11496"
           ],
           "required": true,
           "status": "available",
@@ -11610,7 +11496,7 @@
             "docs/appwrite-schema-live.json:515",
             "ProductionSetup/setup_appwrite.py:137",
             "Backend/routes/instagram.js:1733",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10398",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11316",
             "worker-node/src/appwrite.js:753",
             "worker-node/src/appwrite.js:847",
             "worker-node/src/worker.js:1023",
@@ -11629,7 +11515,7 @@
             "docs/appwrite-schema-live.json:528",
             "ProductionSetup/setup_appwrite.py:138",
             "Backend/routes/instagram.js:584",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10416",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11335",
             "worker-node/src/appwrite.js:754",
             "worker-node/src/appwrite.js:848",
             "worker-node/src/emailDestinations.js:84",
@@ -11647,7 +11533,7 @@
             "docs/appwrite-schema-live.json:541",
             "ProductionSetup/setup_appwrite.py:139",
             "Backend/routes/instagram.js:585",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10433",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11353",
             "worker-node/src/appwrite.js:755",
             "worker-node/src/appwrite.js:849",
             "worker-node/src/emailDestinations.js:85",
@@ -11665,7 +11551,7 @@
             "docs/appwrite-schema-live.json:554",
             "ProductionSetup/setup_appwrite.py:140",
             "Backend/routes/instagram.js:580",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10450",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11371",
             "worker-node/src/appwrite.js:756",
             "worker-node/src/appwrite.js:850",
             "worker-node/src/emailDestinations.js:87",
@@ -11699,10 +11585,10 @@
             "docs/appwrite-schema-live.json:3327",
             "ProductionSetup/setup_appwrite.py:141",
             "admin-panel/src/pages/Automations.tsx:167",
-            "Backend/routes/admin.js:1211",
-            "Backend/routes/admin.js:1257",
-            "Backend/routes/admin.js:1349",
-            "Backend/routes/admin.js:1384",
+            "Backend/routes/admin.js:1210",
+            "Backend/routes/admin.js:1256",
+            "Backend/routes/admin.js:1348",
+            "Backend/routes/admin.js:1383",
             "Backend/routes/dashboard.js:121",
             "Backend/routes/dashboard.js:122"
           ],
@@ -11725,11 +11611,11 @@
             "ProductionSetup/setup_appwrite.py:142",
             "ProductionSetup/setup_appwrite.py:147",
             "ProductionSetup/setup_appwrite.py:148",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10502",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10585",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10587",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10603",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10605",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11424",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11513",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11515",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11532",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11534",
             "worker-node/src/appwrite.js:773",
             "worker-node/src/appwrite.js:793",
             "worker-node/src/appwrite.js:795",
@@ -11761,13 +11647,13 @@
             "admin-panel/src/pages/Settings.tsx:160",
             "Backend/routes/admin.js:58",
             "Backend/routes/admin.js:280",
-            "Backend/routes/admin.js:788",
-            "Backend/routes/admin.js:1277",
-            "Backend/routes/admin.js:1291",
-            "Backend/routes/admin.js:1388",
-            "Backend/routes/admin.js:1651",
-            "Backend/routes/admin.js:1753",
-            "Backend/routes/admin.js:1762",
+            "Backend/routes/admin.js:787",
+            "Backend/routes/admin.js:1276",
+            "Backend/routes/admin.js:1290",
+            "Backend/routes/admin.js:1387",
+            "Backend/routes/admin.js:1650",
+            "Backend/routes/admin.js:1752",
+            "Backend/routes/admin.js:1761",
             "Backend/routes/instagram.js:3313",
             "Backend/routes/instagram.js:3388",
             "Backend/routes/instagram.js:4742"
@@ -11791,7 +11677,7 @@
             "docs/appwrite-schema-live.json:606",
             "docs/appwrite-schema-live.json:609",
             "ProductionSetup/setup_appwrite.py:146",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10569",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11496",
             "worker-node/src/appwrite.js:786"
           ],
           "status": "available",
@@ -11810,7 +11696,7 @@
             "docs/appwrite-schema-live.json:622",
             "docs/appwrite-schema-live.json:625",
             "ProductionSetup/setup_appwrite.py:147",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10587",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11515",
             "worker-node/src/appwrite.js:793"
           ],
           "status": "available",
@@ -11829,7 +11715,7 @@
             "docs/appwrite-schema-live.json:640",
             "docs/appwrite-schema-live.json:643",
             "ProductionSetup/setup_appwrite.py:148",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10605",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11534",
             "worker-node/src/appwrite.js:800"
           ],
           "status": "available",
@@ -11848,7 +11734,7 @@
         "functions/inactive-user-cleanup/main.py:743",
         "functions/inactive-user-cleanup/main.py:828",
         "functions/remove-instagram/main.py:270",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:10562",
+        "ProductionSetup/reports/appwrite-cleanup-report.json:11489",
         "worker-node/src/appwrite.js:6"
       ]
     },
@@ -11868,12 +11754,12 @@
             "functions/payment-reminders/main.py:147",
             "functions/payment-reminders/main.py:148",
             "functions/payment-reminders/main.py:157",
-            "functions/subscription-manager/main.py:705",
-            "functions/subscription-manager/main.py:706",
-            "functions/subscription-manager/main.py:715",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10638",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10797",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10800"
+            "functions/subscription-manager/main.py:703",
+            "functions/subscription-manager/main.py:704",
+            "functions/subscription-manager/main.py:713",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11569",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11737",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11740"
           ],
           "required": true,
           "status": "available",
@@ -11897,14 +11783,14 @@
             "functions/payment-reminders/main.py:404",
             "functions/payment-reminders/main.py:405",
             "functions/payment-reminders/main.py:421",
-            "functions/subscription-manager/main.py:705",
-            "functions/subscription-manager/main.py:706",
-            "functions/subscription-manager/main.py:716",
-            "functions/subscription-manager/main.py:785",
-            "functions/subscription-manager/main.py:786",
-            "functions/subscription-manager/main.py:801",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10659",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10798"
+            "functions/subscription-manager/main.py:703",
+            "functions/subscription-manager/main.py:704",
+            "functions/subscription-manager/main.py:714",
+            "functions/subscription-manager/main.py:783",
+            "functions/subscription-manager/main.py:784",
+            "functions/subscription-manager/main.py:799",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11593",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11738"
           ],
           "required": true,
           "status": "available",
@@ -11923,12 +11809,12 @@
             "functions/payment-reminders/main.py:148",
             "functions/payment-reminders/main.py:149",
             "functions/payment-reminders/main.py:159",
-            "functions/subscription-manager/main.py:706",
-            "functions/subscription-manager/main.py:707",
-            "functions/subscription-manager/main.py:717",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10688",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10783",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10785"
+            "functions/subscription-manager/main.py:704",
+            "functions/subscription-manager/main.py:705",
+            "functions/subscription-manager/main.py:715",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11624",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11722",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11724"
           ],
           "required": true,
           "status": "available",
@@ -12017,7 +11903,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:171",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10785"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11724"
           ],
           "status": "available",
           "type": "unique"
@@ -12033,7 +11919,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:172",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10800"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11740"
           ],
           "status": "available",
           "type": "key"
@@ -12048,7 +11934,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:173",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10814"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11755"
           ],
           "status": "available",
           "type": "key"
@@ -12063,11 +11949,11 @@
         "functions/inactive-user-cleanup/main.py:841",
         "functions/payment-reminders/main.py:402",
         "functions/payment-reminders/main.py:405",
-        "functions/subscription-manager/main.py:705",
-        "functions/subscription-manager/main.py:712",
-        "functions/subscription-manager/main.py:782",
-        "functions/subscription-manager/main.py:786",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:10778"
+        "functions/subscription-manager/main.py:703",
+        "functions/subscription-manager/main.py:710",
+        "functions/subscription-manager/main.py:780",
+        "functions/subscription-manager/main.py:784",
+        "ProductionSetup/reports/appwrite-cleanup-report.json:11717"
       ]
     },
     {
@@ -12081,8 +11967,8 @@
             "ProductionSetup/setup_appwrite.py:189",
             "ProductionSetup/setup_appwrite.py:220",
             "functions/inactive-user-cleanup/main.py:443",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10844",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:11124"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11787",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:12077"
           ],
           "required": true,
           "status": "available",
@@ -12095,7 +11981,7 @@
           "references": [
             "ProductionSetup/setup_appwrite.py:190",
             "functions/inactive-user-cleanup/main.py:444",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10857"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11802"
           ],
           "required": false,
           "status": "available",
@@ -12155,16 +12041,16 @@
             "ProductionSetup/migrate_pricing_benefits.py:254",
             "ProductionSetup/migrate_pricing_benefits.py:255",
             "ProductionSetup/migrate_pricing_benefits.py:260",
-            "ProductionSetup/migrate_pricing_benefits.py:289",
-            "ProductionSetup/migrate_pricing_benefits.py:290",
-            "ProductionSetup/migrate_pricing_benefits.py:313",
-            "ProductionSetup/migrate_pricing_benefits.py:325",
-            "ProductionSetup/migrate_pricing_benefits.py:326",
-            "ProductionSetup/migrate_pricing_benefits.py:330",
+            "ProductionSetup/migrate_pricing_benefits.py:297",
+            "ProductionSetup/migrate_pricing_benefits.py:298",
+            "ProductionSetup/migrate_pricing_benefits.py:321",
             "ProductionSetup/migrate_pricing_benefits.py:333",
-            "ProductionSetup/migrate_pricing_benefits.py:336",
-            "ProductionSetup/migrate_pricing_benefits.py:339",
+            "ProductionSetup/migrate_pricing_benefits.py:334",
+            "ProductionSetup/migrate_pricing_benefits.py:338",
             "ProductionSetup/migrate_pricing_benefits.py:341",
+            "ProductionSetup/migrate_pricing_benefits.py:344",
+            "ProductionSetup/migrate_pricing_benefits.py:347",
+            "ProductionSetup/migrate_pricing_benefits.py:349",
             "ProductionSetup/migrate_subscription_truth.py:40"
           ],
           "required": false,
@@ -12188,19 +12074,19 @@
             "ProductionSetup/appwrite_cleanup_report.py:238",
             "ProductionSetup/appwrite_cleanup_report.py:246",
             "ProductionSetup/appwrite_cleanup_report.py:253",
-            "ProductionSetup/migrate_pricing_benefits.py:330",
+            "ProductionSetup/migrate_pricing_benefits.py:338",
             "ProductionSetup/setup_appwrite.py:212",
             "ProductionSetup/setup_appwrite.py:281",
             "streamer-node/index.js:143",
             "admin-panel/src/pages/Analytics.tsx:432",
             "admin-panel/src/pages/Users.tsx:28",
-            "admin-panel/src/pages/Users.tsx:249",
-            "admin-panel/src/pages/Users.tsx:344",
-            "admin-panel/src/pages/Users.tsx:863",
-            "admin-panel/src/pages/Users.tsx:926",
-            "Backend/routes/admin.js:1258",
-            "Backend/routes/admin.js:2152",
-            "Backend/routes/admin.js:2155"
+            "admin-panel/src/pages/Users.tsx:211",
+            "admin-panel/src/pages/Users.tsx:301",
+            "admin-panel/src/pages/Users.tsx:778",
+            "admin-panel/src/pages/Users.tsx:851",
+            "Backend/routes/admin.js:1257",
+            "Backend/routes/admin.js:2151",
+            "Backend/routes/admin.js:2154"
           ],
           "required": false,
           "status": "available",
@@ -12232,10 +12118,10 @@
             "functions/inactive-user-cleanup/main.py:941",
             "functions/inactive-user-cleanup/main.py:959",
             "functions/inactive-user-cleanup/main.py:977",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1173",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1321",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:1337",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:10974"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1218",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1377",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:1394",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11920"
           ],
           "required": false,
           "status": "available",
@@ -12269,8 +12155,8 @@
             "functions/inactive-user-cleanup/main.py:940",
             "functions/inactive-user-cleanup/main.py:958",
             "functions/inactive-user-cleanup/main.py:976",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:11005",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:11154"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:11955",
+            "ProductionSetup/reports/appwrite-cleanup-report.json:12109"
           ],
           "required": false,
           "status": "available",
@@ -12318,7 +12204,7 @@
           "references": [
             "ProductionSetup/setup_appwrite.py:216",
             "functions/inactive-user-cleanup/main.py:451",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:11073"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:12025"
           ],
           "required": false,
           "status": "available",
@@ -12373,7 +12259,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:220",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:11127"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:12080"
           ],
           "status": "available",
           "type": "key"
@@ -12389,7 +12275,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:221",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:11142"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:12096"
           ],
           "status": "available",
           "type": "key"
@@ -12404,7 +12290,7 @@
           "reason": "index key or attributes are referenced by checked-in queries",
           "references": [
             "ProductionSetup/setup_appwrite.py:222",
-            "ProductionSetup/reports/appwrite-cleanup-report.json:11156"
+            "ProductionSetup/reports/appwrite-cleanup-report.json:12111"
           ],
           "status": "available",
           "type": "key"
@@ -12418,12 +12304,12 @@
         "ProductionSetup/verify_inactive_cleanup.py:83",
         "Backend/utils/appwrite.js:48",
         "functions/inactive-user-cleanup/main.py:810",
-        "ProductionSetup/reports/appwrite-cleanup-report.json:11119"
+        "ProductionSetup/reports/appwrite-cleanup-report.json:12072"
       ]
     }
   ],
   "database_id": "698b09ff002b91aff785",
   "deletion_guard": "No collections, attributes, or indexes are deleted by this script.",
-  "generated_at": "2026-04-25T10:04:06.545524+00:00",
+  "generated_at": "2026-04-25T10:53:44.442122+00:00",
   "mode": "read_only_report"
 }

@@ -258,6 +258,7 @@ def _pricing_payload(plan_code, existing):
     payload = {
         "name": str(existing.get("name") or definition["name"]),
         "plan_code": plan_code,
+        "yearly_bonus": "",
         "instagram_connections_limit": instagram,
         "instagram_link_limit": instagram,
         "actions_per_hour_limit": hourly,
@@ -270,6 +271,13 @@ def _pricing_payload(plan_code, existing):
         **_benefit_payload(benefits),
     }
     return payload
+
+
+def _pricing_value_matches(existing, key, value):
+    current = existing.get(key)
+    if key == "yearly_bonus":
+        return str(current or "") == str(value or "")
+    return current == value
 
 
 def _profile_has_admin_override(profile, pricing_defaults):
@@ -331,7 +339,7 @@ def main():
             })
             continue
         payload = _pricing_payload(plan_code, existing)
-        changed = {key: value for key, value in payload.items() if existing.get(key) != value}
+        changed = {key: value for key, value in payload.items() if not _pricing_value_matches(existing, key, value)}
         if changed:
             report["pricing_updates"].append({"plan_code": plan_code, "document_id": existing.get("$id"), "changes": changed})
         if args.apply and changed:

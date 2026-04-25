@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../../lib/utils';
 
 interface GaugeProps {
@@ -12,7 +12,7 @@ interface GaugeProps {
   className?: string;
 }
 
-const syncState: Record<string, { startTime: number; animating: boolean }> = {};
+const syncState: { [key: string]: { startTime: number; animating: boolean } } = {};
 
 const Gauge: React.FC<GaugeProps> = ({
   value,
@@ -25,8 +25,9 @@ const Gauge: React.FC<GaugeProps> = ({
   className
 }) => {
   const [animatedPercent, setAnimatedPercent] = useState(0);
-  const requestRef = useRef<number | null>(null);
+  const requestRef = useRef<number | undefined>(undefined);
   const mountedRef = useRef(true);
+
   const targetValue = Math.min(Math.max(value, 0), max);
   const targetPercent = max > 0 ? (targetValue / max) * 100 : 0;
 
@@ -43,6 +44,7 @@ const Gauge: React.FC<GaugeProps> = ({
     const animate = (now: number) => {
       if (!mountedRef.current) return;
       const elapsed = now - startTime;
+
       if (elapsed < duration) {
         const progress = elapsed / duration;
         const eased = 1 - Math.pow(1 - progress, 3);
@@ -57,9 +59,16 @@ const Gauge: React.FC<GaugeProps> = ({
     requestRef.current = requestAnimationFrame(animate);
     return () => {
       mountedRef.current = false;
-      if (requestRef.current != null) cancelAnimationFrame(requestRef.current);
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
   }, [targetPercent, syncId]);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, []);
 
   const sizes = {
     sm: { container: 'w-full max-w-[160px]', valueSize: 'text-xl sm:text-2xl', labelSize: 'text-2xs' },
@@ -70,6 +79,7 @@ const Gauge: React.FC<GaugeProps> = ({
 
   const center = 100;
   const radius = 80;
+  const strokeWidth = 14;
   const startAngle = -210;
   const endAngle = 30;
   const totalAngle = endAngle - startAngle;
@@ -89,10 +99,10 @@ const Gauge: React.FC<GaugeProps> = ({
     return `M ${p1.x} ${p1.y} A ${r} ${r} 0 ${largeArc} 1 ${p2.x} ${p2.y}`;
   };
 
-  const currentAngle = startAngle + ((animatedPercent / 100) * totalAngle);
+  const currentAngle = startAngle + (animatedPercent / 100) * totalAngle;
   const needlePos = getPos(currentAngle, radius - 10);
 
-  const getActivityColor = (percent: number) => {
+  const getActivityColor = (p: number): string => {
     const stops = [
       { pos: 0, color: [34, 197, 94] },
       { pos: 25, color: [34, 197, 94] },
@@ -106,8 +116,9 @@ const Gauge: React.FC<GaugeProps> = ({
 
     let lower = stops[0];
     let upper = stops[stops.length - 1];
-    for (let i = 0; i < stops.length - 1; i += 1) {
-      if (percent >= stops[i].pos && percent <= stops[i + 1].pos) {
+
+    for (let i = 0; i < stops.length - 1; i++) {
+      if (p >= stops[i].pos && p <= stops[i + 1].pos) {
         lower = stops[i];
         upper = stops[i + 1];
         break;
@@ -115,36 +126,37 @@ const Gauge: React.FC<GaugeProps> = ({
     }
 
     const range = upper.pos - lower.pos;
-    const factor = range === 0 ? 0 : (percent - lower.pos) / range;
-    const r = Math.round(lower.color[0] + ((upper.color[0] - lower.color[0]) * factor));
-    const g = Math.round(lower.color[1] + ((upper.color[1] - lower.color[1]) * factor));
-    const b = Math.round(lower.color[2] + ((upper.color[2] - lower.color[2]) * factor));
+    const factor = range === 0 ? 0 : (p - lower.pos) / range;
+    const r = Math.round(lower.color[0] + (upper.color[0] - lower.color[0]) * factor);
+    const g = Math.round(lower.color[1] + (upper.color[1] - lower.color[1]) * factor);
+    const b = Math.round(lower.color[2] + (upper.color[2] - lower.color[2]) * factor);
+
     return `rgb(${r}, ${g}, ${b})`;
   };
 
   const percent = animatedPercent;
   const mainColor = getActivityColor(percent);
+
   let activityLabel = 'QUIET';
   if (percent >= 25 && percent < 50) activityLabel = 'ACTIVE';
   else if (percent >= 50 && percent < 75) activityLabel = 'BUSY';
   else if (percent >= 75) activityLabel = 'PEAK';
 
-  const displayValue = Number(targetValue || 0).toLocaleString('en-IN');
-  const displayMax = Number(max || 0).toLocaleString('en-IN');
-
   return (
-    <div className={cn(`gauge-legacy mx-auto flex select-none flex-col items-center justify-center ${s.container}`, className)}>
+    <div className={cn(`gauge-legacy flex flex-col items-center justify-center mx-auto select-none ${s.container}`, className)}>
       <div className="relative w-full aspect-square">
-        <svg viewBox="0 0 200 180" className="h-full w-full overflow-visible">
+        <svg viewBox="0 0 200 180" className="w-full h-full overflow-visible">
           <defs>
             <path id="pathQuiet" d={createArcPath(-210, -165, radius + 15)} fill="none" />
             <path id="pathActive" d={createArcPath(-155, -100, radius + 15)} fill="none" />
             <path id="pathBusy" d={createArcPath(-80, -25, radius + 15)} fill="none" />
             <path id="pathPeak" d={createArcPath(-15, 35, radius + 15)} fill="none" />
+
             <filter id="needleGlow">
               <feGaussianBlur stdDeviation="2" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
+
             <linearGradient id="igGaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#405DE6" />
               <stop offset="25%" stopColor="#833AB4" />
@@ -152,6 +164,7 @@ const Gauge: React.FC<GaugeProps> = ({
               <stop offset="75%" stopColor="#F56040" />
               <stop offset="100%" stopColor="#FCAF45" />
             </linearGradient>
+
             <filter id="igGlow" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="3" result="coloredBlur" />
               <feMerge>
@@ -166,61 +179,125 @@ const Gauge: React.FC<GaugeProps> = ({
           <path d={createArcPath(-90, -20, radius + 15)} fill="none" stroke="#f97316" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.4" />
           <path d={createArcPath(-20, 30, radius + 15)} fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.4" />
 
-          <text className="fill-[#22c55e] text-[7px] font-bold tracking-[2px] uppercase">
+          {[-160, -90, -20, 30].map((tickAngle, i) => {
+            const p1 = getPos(tickAngle, radius + 13);
+            const p2 = getPos(tickAngle, radius + 17);
+            const tickColors = ['#eab308', '#f97316', '#ef4444', '#ef4444'];
+            return (
+              <line
+                key={tickAngle}
+                x1={p1.x}
+                y1={p1.y}
+                x2={p2.x}
+                y2={p2.y}
+                stroke={tickColors[i]}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeOpacity="0.6"
+              />
+            );
+          })}
+
+          <text fill="#22c55e" fontSize="6" fontWeight="700" letterSpacing="0.02em" className="opacity-80 [@media(max-width:360px)]:hidden">
             <textPath href="#pathQuiet" startOffset="50%" textAnchor="middle">QUIET</textPath>
           </text>
-          <text className="fill-[#eab308] text-[7px] font-bold tracking-[2px] uppercase">
+          <text fill="#eab308" fontSize="6" fontWeight="700" letterSpacing="0.05em" className="opacity-80 [@media(max-width:360px)]:hidden">
             <textPath href="#pathActive" startOffset="50%" textAnchor="middle">ACTIVE</textPath>
           </text>
-          <text className="fill-[#f97316] text-[7px] font-bold tracking-[2px] uppercase">
+          <text fill="#f97316" fontSize="6" fontWeight="700" letterSpacing="0.05em" className="opacity-80 [@media(max-width:360px)]:hidden">
             <textPath href="#pathBusy" startOffset="50%" textAnchor="middle">BUSY</textPath>
           </text>
-          <text className="fill-[#ef4444] text-[7px] font-bold tracking-[2px] uppercase">
+          <text fill="#ef4444" fontSize="6" fontWeight="700" letterSpacing="0.02em" className="opacity-80 [@media(max-width:360px)]:hidden">
             <textPath href="#pathPeak" startOffset="50%" textAnchor="middle">PEAK</textPath>
           </text>
 
-          <path d={createArcPath(startAngle, endAngle, radius)} fill="none" stroke="currentColor" strokeWidth="10" strokeLinecap="round" className="text-muted/30" />
+          <path
+            d={createArcPath(startAngle, endAngle, radius)}
+            fill="none"
+            className="stroke-muted"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+          />
+
+          {animatedPercent > 0 && (
+            <path
+              d={createArcPath(startAngle, currentAngle, radius)}
+              fill="none"
+              stroke={mainColor}
+              strokeWidth={strokeWidth + 4}
+              strokeOpacity="0.15"
+              strokeLinecap="round"
+            />
+          )}
+
           <path
             d={createArcPath(startAngle, currentAngle, radius)}
             fill="none"
-            stroke="url(#igGaugeGradient)"
-            strokeWidth="10"
+            stroke={mainColor}
+            strokeWidth={strokeWidth}
             strokeLinecap="round"
-            filter="url(#igGlow)"
+            style={{
+              filter: `drop-shadow(0 0 6px ${mainColor}) drop-shadow(0 0 10px ${mainColor}CC) drop-shadow(0 0 14px ${mainColor}99)`,
+              transition: 'filter 0.3s ease, stroke 0.3s ease',
+            }}
           />
 
           {showNeedle && (
-            <g filter="url(#needleGlow)">
+            <g filter="url(#igGlow)">
               <line
                 x1={center}
                 y1={center}
                 x2={needlePos.x}
                 y2={needlePos.y}
                 stroke={mainColor}
-                strokeWidth="3"
+                strokeWidth="3.5"
                 strokeLinecap="round"
               />
-              <circle cx={center} cy={center} r="6" fill={mainColor} />
+              <circle
+                cx={center}
+                cy={center}
+                r="7"
+                fill={mainColor}
+                className="stroke-card"
+                strokeWidth="2.5"
+              />
+              <circle
+                cx={center}
+                cy={center}
+                r="3"
+                fill="white"
+                fillOpacity="0.3"
+              />
             </g>
           )}
-
-          {label ? (
-            <text x="100" y="70" textAnchor="middle" className="fill-muted-foreground text-[8px] font-bold uppercase tracking-[2px]">
-              {label}
-            </text>
-          ) : null}
-          <text x="100" y="103" textAnchor="middle" className={cn('fill-foreground font-[900]', s.valueSize)}>
-            {displayValue}
-          </text>
-          <text x="100" y="122" textAnchor="middle" className="fill-muted-foreground text-[9px] font-semibold">
-            of {displayMax}
-          </text>
-          <text x="100" y="142" textAnchor="middle" className={cn('font-bold tracking-[2px] uppercase', s.labelSize)} fill={mainColor}>
-            {activityLabel}
-          </text>
         </svg>
+
+        <div className="absolute inset-0 flex flex-col items-center justify-end pb-6 sm:pb-4 md:pb-3">
+          <div
+            className={cn('font-black leading-tight tracking-tight drop-shadow-sm', s.valueSize)}
+            style={{
+              color: mainColor,
+              textShadow: `0 0 20px ${mainColor}40`
+            }}
+          >
+            {((animatedPercent / 100) * max).toFixed(2)}
+          </div>
+          <div className="text-muted-foreground font-semibold text-2xs sm:text-xs mt-1.5 sm:mt-1 uppercase tracking-wide">
+            {updatedText}
+          </div>
+          {label && (
+            <div className="absolute top-0 text-2xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
+              {label}
+            </div>
+          )}
+          <div
+            className={cn('absolute bottom-1 text-[10px] font-black uppercase tracking-[0.2em]', s.labelSize)}
+            style={{ color: mainColor }}
+          >
+            {activityLabel}
+          </div>
+        </div>
       </div>
-      <p className="mt-2 text-center text-xs font-medium text-muted-foreground">{updatedText}</p>
     </div>
   );
 };

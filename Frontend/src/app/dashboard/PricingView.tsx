@@ -4,7 +4,7 @@ import Card from '../../components/ui/card';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import { useAuth } from '../../contexts/AuthContext';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
-import { PricingPlan, formatMoney, getPaidCheckoutPlans, getPlanBigPrice, getPlanBilledTotal, normalizePricingPayload } from '../../lib/pricing';
+import { PricingPlan, formatMoney, formatPlanLimit, getPaidCheckoutPlans, getPlanBigPrice, getPlanBilledTotal, normalizePricingPayload } from '../../lib/pricing';
 import PlanCheckoutModal from '../../components/dashboard/PlanCheckoutModal';
 
 type UserPlanSummary = {
@@ -154,6 +154,13 @@ const PricingView: React.FC = () => {
             const isCurrentPlan = plan.id === currentPlan?.plan_id || plan.name === currentPlan?.details?.name;
             const isSelectablePaidPlan = checkoutPlans.some((item) => item.id === plan.id);
             const isUnavailable = plan.plan_code === 'free' || (!isCurrentPlan && !isSelectablePaidPlan);
+            const planLimits = [
+              { label: 'Instagram connections', value: formatPlanLimit(plan.instagram_connections_limit) },
+              { label: 'Actions / hour', value: formatPlanLimit(plan.actions_per_hour_limit) },
+              { label: 'Actions / day', value: formatPlanLimit(plan.actions_per_day_limit) },
+              { label: 'Actions / month', value: formatPlanLimit(plan.actions_per_month_limit) },
+              { label: 'Contacts', value: 'Unlimited' }
+            ];
             return (
               <Card
                 key={plan.id}
@@ -176,9 +183,18 @@ const PricingView: React.FC = () => {
                       ? `Billed yearly at ${formatMoney(billedTotal, currency)} for 364 days.`
                       : `Billed every 30 days at ${formatMoney(billedTotal, currency)}.`}
                   </p>
-                  {isYearly && plan.yearly_bonus && (
-                    <p className="mt-2 text-xs font-bold text-success">{plan.yearly_bonus}</p>
-                  )}
+                </div>
+
+                <div className="mb-6 rounded-2xl border border-border/70 bg-muted/30 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Plan limits</p>
+                  <div className="mt-4 space-y-3">
+                    {planLimits.map((item) => (
+                      <div key={`${plan.id}-${item.label}`} className="flex items-center justify-between gap-4 text-sm">
+                        <span className="text-muted-foreground">{item.label}</span>
+                        <span className="font-semibold text-foreground">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="mb-8 flex-grow space-y-4">

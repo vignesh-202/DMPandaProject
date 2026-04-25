@@ -893,7 +893,6 @@ const buildPlanProfilePayload = ({
         paid_plan_snapshot_json: paidSnapshotPayload ? JSON.stringify(paidSnapshotPayload) : null,
         admin_override_json: adminOverrideSummary ? JSON.stringify(adminOverrideSummary) : null,
         kill_switch_enabled: currentProfile?.kill_switch_enabled !== false,
-        instagram_connections_limit: Number(effectiveLimits.instagram_connections_limit || 0),
         instagram_link_limit: Number(effectiveLimits.instagram_link_limit || 0),
         hourly_action_limit: Number(effectiveLimits.hourly_action_limit || 0),
         daily_action_limit: Number(effectiveLimits.daily_action_limit || 0),
