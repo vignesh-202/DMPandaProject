@@ -1,0 +1,28 @@
+{
+  "expected": [
+    "audit-media-automations",
+    "cleanup-logs-chat-state",
+    "on-user-create",
+    "refresh-instagram-tokens",
+    "remind-link-instagram",
+    "remove-instagram",
+    "reset-user-action-budgets",
+    "subscription-manager",
+    "payment-reminders",
+    "inactive-user-cleanup"
+  ],
+  "actual": [
+    "audit-media-automations",
+    "cleanup-logs-chat-state",
+    "on-user-create",
+    "refresh-instagram-tokens",
+    "remind-link-instagram",
+    "remove-instagram",
+    "reset-user-action-budgets",
+    "subscription-manager",
+    "payment-reminders",
+    "inactive-user-cleanup"
+  ],
+  "missing": [],
+  "unexpected": []
+}

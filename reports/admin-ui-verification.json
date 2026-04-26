@@ -1,0 +1,24 @@
+{
+  "adminLoadingStateFiles": [
+    "admin-panel/src/App.tsx",
+    "admin-panel/src/components/AdminLoadingState.tsx",
+    "admin-panel/src/components/ProtectedRoute.tsx",
+    "admin-panel/src/pages/Analytics.tsx",
+    "admin-panel/src/pages/AuthCallback.tsx",
+    "admin-panel/src/pages/Automations.tsx",
+    "admin-panel/src/pages/Coupons.tsx",
+    "admin-panel/src/pages/Dashboard.tsx",
+    "admin-panel/src/pages/EmailCampaigns.tsx",
+    "admin-panel/src/pages/Pricing.tsx",
+    "admin-panel/src/pages/Settings.tsx",
+    "admin-panel/src/pages/Users.tsx"
+  ],
+  "selectFieldFiles": [
+    "admin-panel/src/pages/Users.tsx"
+  ],
+  "nativeSelectFiles": [
+    "admin-panel/src/pages/Analytics.tsx",
+    "admin-panel/src/pages/EmailCampaigns.tsx",
+    "admin-panel/src/pages/Users.tsx"
+  ]
+}

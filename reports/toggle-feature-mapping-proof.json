@@ -1,0 +1,28 @@
+{
+  "rows": [
+    {
+      "toggle": "suggest_more_enabled",
+      "feature": "suggest_more",
+      "backend_has_feature": true,
+      "worker_has_feature": true
+    },
+    {
+      "toggle": "collect_email_enabled",
+      "feature": "collect_email",
+      "backend_has_feature": true,
+      "worker_has_feature": true
+    },
+    {
+      "toggle": "seen_typing_enabled",
+      "feature": "seen_typing",
+      "backend_has_feature": true,
+      "worker_has_feature": true
+    },
+    {
+      "toggle": "followers_only",
+      "feature": "followers_only",
+      "backend_has_feature": true,
+      "worker_has_feature": true
+    }
+  ]
+}

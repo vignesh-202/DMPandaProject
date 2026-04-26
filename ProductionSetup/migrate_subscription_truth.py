@@ -487,12 +487,15 @@ def main():
         )
     )
     parser.add_argument("--apply", action="store_true", help="Apply updates to Appwrite.")
+    parser.add_argument("--dry-run", action="store_true", help="Explicitly run in dry-run mode.")
     parser.add_argument(
         "--report",
         default=str(ROOT_DIR / "docs" / "subscription-migration-report.json"),
         help="Path for JSON report output.",
     )
     args = parser.parse_args()
+    if args.apply and args.dry_run:
+        raise SystemExit("Cannot use --apply with --dry-run.")
     if args.apply:
         raise SystemExit(
             "Refusing to apply legacy users.plan_id/users.plan_expires_at writes. "

@@ -12,7 +12,7 @@ import LoadingOverlay from '../ui/LoadingOverlay';
 import TemplateSelector, { ReplyTemplate, prefetchReplyTemplates } from './TemplateSelector';
 import SharedMobilePreview from './SharedMobilePreview';
 import AutomationActionBar from './AutomationActionBar';
-import { useNavigate } from 'react-router-dom';
+import LockedFeatureToggle from '../ui/LockedFeatureToggle';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import { normalizeAutomationKeywords } from '../../lib/automationKeywords';
 
@@ -126,10 +126,12 @@ interface AutomationEditorProps {
 const AutomationEditor: React.FC<AutomationEditorProps> = ({
     type, onClose, onSave, authenticatedFetch, activeAccountID, onDelete, automationId, mediaId, isStandalone, titleOverride, onChange, onTemplateSelect, onTemplatesLoaded, useParentLayout, variant = 'modal', existingTitles: _existingTitles, actionBarLeft, initialAutomationData, initialSelectedTemplate, showActionCancel = true, saveButtonLabel, registerSaveHandler
 }) => {
-    const { activeAccount, setCurrentView, hasPlanFeature } = useDashboard();
+    const { activeAccount, setCurrentView, hasPlanFeature, getPlanGate } = useDashboard();
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [isPlanInvalid, setIsPlanInvalid] = useState(false);
+    const [planInvalidFeatures, setPlanInvalidFeatures] = useState<string[]>([]);
     const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
     const [automation, setAutomation] = useState<any>({
         title: '',
@@ -278,6 +280,26 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         };
 
         setAutomation(automationData);
+        const hasPlanInvalidState = String(data?.plan_validation_state || '').trim().toLowerCase() === 'invalid_due_to_plan';
+        const nextInvalidFeatures = (() => {
+            if (!hasPlanInvalidState) {
+                return [];
+            }
+            if (Array.isArray(data?.invalid_features)) {
+                return data.invalid_features.map((item: unknown) => String(item || '').trim()).filter(Boolean);
+            }
+            if (typeof data?.invalid_features === 'string') {
+                try {
+                    const parsed = JSON.parse(data.invalid_features);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map((item: unknown) => String(item || '').trim()).filter(Boolean);
+                    }
+                } catch (_) { }
+            }
+            return [];
+        })();
+        setIsPlanInvalid(hasPlanInvalidState);
+        setPlanInvalidFeatures(nextInvalidFeatures);
         if (type === 'global' && keywordArray.length > 0) {
             setKeywordInput(keywordArray[0]);
         }
@@ -549,6 +571,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             setSelectedTemplate(null);
             setShowTemplateSelector(true);
             emitTemplateSelect(null);
+            setIsPlanInvalid(false);
+            setPlanInvalidFeatures([]);
             setAutomation({
                 title: '',
                 keyword: '',
@@ -897,6 +921,15 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     {success}
                 </div>
             )}
+            {isPlanInvalid && (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-amber-700 dark:text-amber-300 text-xs font-semibold">
+                    <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>This automation is currently invalid due to plan restrictions.</span>
+                    </div>
+                    <p className="mt-2 font-medium break-words">Blocked features: {planInvalidFeatures.length ? planInvalidFeatures.join(', ') : 'Not specified'}</p>
+                </div>
+            )}
 
             <div className="space-y-6">
                 {/* 1. Automation Core (DM-like): Title + Keyword in 2-col for global useParentLayout */}
@@ -1189,45 +1222,21 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
                 {supportsCollectEmail && (
                     <div className="space-y-3">
-                        <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${automation.collect_email_enabled ? 'ring-1 ring-primary/15' : ''}`}>
-                            <div className="flex items-center gap-4">
-                                <div className={`p-3 rounded-2xl shadow-sm border ${automation.collect_email_enabled
-                                    ? 'bg-white dark:bg-gray-900 border-indigo-100 dark:border-indigo-500/10'
-                                    : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                    }`}>
-                                    <Mail className={`w-5 h-5 ${automation.collect_email_enabled ? 'text-indigo-500' : 'text-gray-400'}`} />
-                                </div>
-                                <div>
-                                    <p className="mb-0.5 text-[11px] font-black uppercase tracking-[0.15em] text-foreground">Collect Email</p>
-                                    <p className="text-[10px] font-medium text-muted-foreground">
-                                        {collectEmailLocked
-                                            ? 'Upgrade your plan to collect emails inside this automation.'
-                                            : 'Ask for an email before finishing the automation flow.'}
-                                    </p>
-                                </div>
-                            </div>
-                            <ToggleSwitch
-                                isChecked={automation.collect_email_enabled === true}
-                                onChange={() => {
-                                    if (collectEmailLocked) {
-                                        setCurrentView('My Plan');
-                                        return;
-                                    }
-                                    setAutomation({
-                                        ...automation,
-                                        collect_email_enabled: !(automation.collect_email_enabled === true),
-                                        collect_email_only_gmail: automation.collect_email_enabled ? false : automation.collect_email_only_gmail
-                                    });
-                                }}
-                                variant="plain"
-                                disabled={collectEmailLocked}
-                            />
-                        </div>
-                        {collectEmailLocked && (
-                            <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4">
-                                <p className="text-[10px] font-bold text-muted-foreground">Collect Email is locked on your current plan. Open <button type="button" onClick={() => setCurrentView('My Plan')} className="font-black text-primary underline">My Plan</button> to upgrade.</p>
-                            </div>
-                        )}
+                        <LockedFeatureToggle
+                            icon={<Mail className={`w-5 h-5 ${automation.collect_email_enabled ? 'text-indigo-500' : 'text-gray-400'}`} />}
+                            title="Collect Email"
+                            description="Ask for an email before finishing the automation flow."
+                            checked={automation.collect_email_enabled === true}
+                            onToggle={() => setAutomation({
+                                ...automation,
+                                collect_email_enabled: !(automation.collect_email_enabled === true),
+                                collect_email_only_gmail: automation.collect_email_enabled ? false : automation.collect_email_only_gmail
+                            })}
+                            locked={collectEmailLocked}
+                            note={collectEmailGate.note}
+                            onUpgrade={() => setCurrentView('My Plan')}
+                            activeIconClassName="text-indigo-500"
+                        />
                         {automation.collect_email_enabled && !collectEmailLocked && (
                             <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
                                 <div className="flex items-center justify-between gap-4">
@@ -1368,58 +1377,31 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 )}
 
                 {supportsSeenTyping && (
-                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${automation.seen_typing_enabled ? 'ring-1 ring-primary/15' : ''}`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-2xl shadow-sm border ${automation.seen_typing_enabled
-                                ? 'bg-white dark:bg-gray-900 border-violet-100 dark:border-violet-500/10'
-                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                }`}>
-                                <MessageSquare className={`w-5 h-5 ${automation.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />
-                            </div>
-                            <div>
-                                <p className="mb-0.5 text-[11px] font-black uppercase tracking-[0.15em] text-foreground">Seen + Typing Reaction</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">
-                                    {seenTypingLocked
-                                        ? 'Upgrade your plan to enable seen and typing reactions.'
-                                        : 'Store the seen/typing preference with this automation rule.'}
-                                </p>
-                            </div>
-                        </div>
-                        <ToggleSwitch
-                            isChecked={automation.seen_typing_enabled === true}
-                            onChange={() => {
-                                if (seenTypingLocked) {
-                                    setCurrentView('My Plan');
-                                    return;
-                                }
-                                setAutomation({ ...automation, seen_typing_enabled: !(automation.seen_typing_enabled === true) });
-                            }}
-                            variant="plain"
-                            disabled={seenTypingLocked}
-                        />
-                    </div>
+                    <LockedFeatureToggle
+                        icon={<MessageSquare className={`w-5 h-5 ${automation.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />}
+                        title="Seen + Typing Reaction"
+                        description="Store the seen and typing preference with this automation rule."
+                        checked={automation.seen_typing_enabled === true}
+                        onToggle={() => setAutomation({ ...automation, seen_typing_enabled: !(automation.seen_typing_enabled === true) })}
+                        locked={seenTypingLocked}
+                        note={seenTypingGate.note}
+                        onUpgrade={() => setCurrentView('My Plan')}
+                        activeIconClassName="text-violet-500"
+                    />
                 )}
 
                 {supportsShareToAdmin && (
-                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${automation.share_to_admin_enabled ? 'ring-1 ring-primary/15' : ''}`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-2xl shadow-sm border ${automation.share_to_admin_enabled
-                                ? 'bg-white dark:bg-gray-900 border-emerald-100 dark:border-emerald-500/10'
-                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                }`}>
-                                <Share2 className={`w-5 h-5 ${automation.share_to_admin_enabled ? 'text-emerald-500' : 'text-gray-400'}`} />
-                            </div>
-                            <div>
-                                <p className="mb-0.5 text-[11px] font-black uppercase tracking-[0.15em] text-foreground">Share To Admin</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">Share the post or reel to the admin, then the reply template will be sent automatically.</p>
-                            </div>
-                        </div>
-                        <ToggleSwitch
-                            isChecked={automation.share_to_admin_enabled === true}
-                            onChange={() => setAutomation({ ...automation, share_to_admin_enabled: !(automation.share_to_admin_enabled === true) })}
-                            variant="plain"
-                        />
-                    </div>
+                    <LockedFeatureToggle
+                        icon={<Share2 className={`w-5 h-5 ${automation.share_to_admin_enabled ? 'text-emerald-500' : 'text-gray-400'}`} />}
+                        title="Share To Admin"
+                        description="Share the post or reel to the admin, then the reply template will be sent automatically."
+                        checked={automation.share_to_admin_enabled === true}
+                        onToggle={() => setAutomation({ ...automation, share_to_admin_enabled: !(automation.share_to_admin_enabled === true) })}
+                        locked={shareToAdminLocked}
+                        note={shareToAdminGate.note}
+                        onUpgrade={() => setCurrentView('My Plan')}
+                        activeIconClassName="text-emerald-500"
+                    />
                 )}
 
                 {/* 3. Trigger Selection - Hidden for Global Type */}
@@ -1528,29 +1510,21 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 {/* Comment Reply Field */}
                 {supportsCommentReply && (automation.trigger_type === 'keywords' || automation.trigger_type === 'all_comments' || type === 'global') && automation.trigger_type !== 'share_to_admin' && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-top-2 pt-6 border-t border-slate-100 dark:border-slate-800">
-                        <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${commentReplyEnabled ? 'ring-1 ring-primary/15' : ''}`}>
-                            <div className="flex items-center gap-4">
-                                <div className={`p-3 rounded-2xl shadow-sm border ${commentReplyEnabled
-                                    ? 'bg-white dark:bg-gray-900 border-violet-100 dark:border-violet-500/10'
-                                    : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                    }`}>
-                                    <Reply className={`w-5 h-5 transition-colors ${commentReplyEnabled ? 'text-violet-500' : 'text-gray-400'}`} />
-                                </div>
-                                <div>
-                                    <p className="mb-0.5 text-[11px] font-black uppercase tracking-[0.15em] text-foreground">Comment Reply</p>
-                                    <p className="text-[10px] font-medium text-muted-foreground">Post a public reply when this automation is triggered from a comment.</p>
-                                </div>
-                            </div>
-                            <ToggleSwitch
-                                isChecked={commentReplyEnabled}
-                                onChange={() => setAutomation({
-                                    ...automation,
-                                    comment_reply_text: commentReplyEnabled ? '' : (automation.comment_reply_text || 'Thanks for your comment! Check your DMs for the details.')
-                                })}
-                                variant="plain"
-                            />
-                        </div>
-                        {commentReplyEnabled && (
+                        <LockedFeatureToggle
+                            icon={<Reply className={`w-5 h-5 transition-colors ${commentReplyEnabled ? 'text-violet-500' : 'text-gray-400'}`} />}
+                            title="Comment Reply"
+                            description="Post a public reply when this automation is triggered from a comment."
+                            checked={commentReplyEnabled}
+                            onToggle={() => setAutomation({
+                                ...automation,
+                                comment_reply_text: commentReplyEnabled ? '' : (automation.comment_reply_text || 'Thanks for your comment! Check your DMs for the details.')
+                            })}
+                            locked={commentReplyLocked}
+                            note={commentReplyGate.note}
+                            onUpgrade={() => setCurrentView('My Plan')}
+                            activeIconClassName="text-violet-500"
+                        />
+                        {commentReplyEnabled && !commentReplyLocked && (
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center px-1">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Public Comment Reply</label>
@@ -1719,8 +1693,14 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     const supportsSeenTyping = supportsAdvancedToggles;
     const supportsShareToAdmin = ['posts', 'reel'].includes(type);
     const suggestMoreLocked = !hasPlanFeature('suggest_more');
-    const collectEmailLocked = !hasPlanFeature('collect_email');
-    const seenTypingLocked = !hasPlanFeature('seen_typing');
+    const collectEmailGate = getPlanGate('collect_email');
+    const seenTypingGate = getPlanGate('seen_typing');
+    const shareToAdminGate = getPlanGate(type === 'reel' ? 'share_reel_to_dm' : 'share_post_to_dm', 'Upgrade your plan to unlock Share To Admin.');
+    const commentReplyGate = getPlanGate(type === 'reel' ? 'reel_comment_reply_automation' : 'post_comment_reply_automation', 'Upgrade your plan to unlock public comment replies.');
+    const collectEmailLocked = collectEmailGate.isLocked;
+    const seenTypingLocked = seenTypingGate.isLocked;
+    const shareToAdminLocked = shareToAdminGate.isLocked;
+    const commentReplyLocked = commentReplyGate.isLocked;
     const commentReplyEnabled = Boolean(String(automation.comment_reply_text || '').trim());
     const triggerOptions = [
         { id: 'keywords', icon: MessageSquare, label: 'Keywords' },

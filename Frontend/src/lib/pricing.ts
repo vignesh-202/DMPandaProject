@@ -4,6 +4,12 @@ export type PricingComparisonItem = {
   value?: unknown;
 };
 
+export type PricingComparisonRow = {
+  key: string;
+  label: string;
+  values: Record<string, unknown>;
+};
+
 export type PricingPlan = {
   id: string;
   plan_code: string;
@@ -172,4 +178,71 @@ export const formatPlanLimit = (value: number | null, suffix?: string) => {
     maximumFractionDigits: 0
   }).format(Number(value || 0));
   return suffix ? `${formatted} ${suffix}` : formatted;
+};
+
+const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
+  key: string;
+  label: string;
+  value: (plan: PricingPlan) => unknown;
+}> = [
+  {
+    key: 'instagram_connections_limit',
+    label: 'Instagram connections',
+    value: (plan) => formatPlanLimit(plan.instagram_connections_limit)
+  },
+  {
+    key: 'actions_per_hour_limit',
+    label: 'Actions per hour',
+    value: (plan) => formatPlanLimit(plan.actions_per_hour_limit)
+  },
+  {
+    key: 'actions_per_day_limit',
+    label: 'Actions per day',
+    value: (plan) => formatPlanLimit(plan.actions_per_day_limit)
+  },
+  {
+    key: 'actions_per_month_limit',
+    label: 'Actions per month',
+    value: (plan) => formatPlanLimit(plan.actions_per_month_limit)
+  }
+];
+
+export const buildPlanLimitItems = (plan: PricingPlan): Array<{ label: string; value: string }> => ([
+  { label: 'Instagram connections', value: formatPlanLimit(plan.instagram_connections_limit) },
+  { label: 'Actions / hour', value: formatPlanLimit(plan.actions_per_hour_limit) },
+  { label: 'Actions / day', value: formatPlanLimit(plan.actions_per_day_limit) },
+  { label: 'Actions / month', value: formatPlanLimit(plan.actions_per_month_limit) }
+]);
+
+export const buildPricingComparisonRows = (plans: PricingPlan[]): PricingComparisonRow[] => {
+  const rows = new Map<string, PricingComparisonRow>();
+
+  DEFAULT_LIMIT_COMPARISON_ROWS.forEach((row) => {
+    rows.set(row.key, {
+      key: row.key,
+      label: row.label,
+      values: {}
+    });
+  });
+
+  plans.forEach((plan) => {
+    const planKey = plan.plan_code || plan.id;
+
+    DEFAULT_LIMIT_COMPARISON_ROWS.forEach((row) => {
+      const existing = rows.get(row.key);
+      if (!existing) return;
+      existing.values[planKey] = row.value(plan);
+    });
+
+    plan.comparison.forEach((item) => {
+      const key = String(item.key || item.label || '').trim();
+      const label = String(item.label || item.key || '').trim();
+      if (!key || !label) return;
+      const existing = rows.get(key) || { key, label, values: {} };
+      existing.values[planKey] = item.value;
+      rows.set(key, existing);
+    });
+  });
+
+  return Array.from(rows.values());
 };

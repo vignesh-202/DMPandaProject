@@ -2,7 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AuthRedirectButton from '../../components/ui/AuthRedirectButton';
 import { ChevronDown, ChevronUp, Check, X } from 'lucide-react';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
-import { PricingComparisonItem, PricingPlan, formatMoney, getPlanBigPrice, normalizePricingPayload } from '../../lib/pricing';
+import {
+  PricingPlan,
+  buildPlanLimitItems,
+  buildPricingComparisonRows,
+  formatMoney,
+  getPlanBigPrice,
+  getPlanBilledTotal,
+  normalizePricingPayload
+} from '../../lib/pricing';
 
 let pricingPageBootstrapPromise: Promise<{
   geo: Awaited<ReturnType<typeof detectGeoCurrency>>;
@@ -58,7 +66,7 @@ const PricingPage: React.FC = () => {
       }
     };
 
-    init();
+    void init();
 
     return () => {
       cancelled = true;
@@ -67,98 +75,131 @@ const PricingPage: React.FC = () => {
 
   const toggleAllCards = () => setAllExpanded(!allExpanded);
 
-  const comparisonRows = useMemo(() => {
-    const rows = new Map<string, { label: string; values: Record<string, unknown> }>();
-    plans.forEach((plan) => {
-      plan.comparison.forEach((item: PricingComparisonItem) => {
-        const key = String(item.key || item.label || '').trim();
-        const label = String(item.label || item.key || '').trim();
-        if (!key || !label) return;
-        const existing = rows.get(key) || { label, values: {} };
-        existing.values[plan.plan_code || plan.id] = item.value;
-        rows.set(key, existing);
-      });
-    });
-    return Array.from(rows.entries()).map(([key, row]) => ({ key, ...row }));
-  }, [plans]);
+  const comparisonRows = useMemo(() => buildPricingComparisonRows(plans), [plans]);
 
   return (
-    <section className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans pt-28 sm:pt-32 pb-16 sm:pb-24 transition-colors duration-500">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-        <div className="text-center mb-12 sm:mb-16 max-w-3xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 tracking-tight">Flexible Pricing for Everyone</h2>
-          <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-400">Choose the plan that's right for you. Start free, upgrade as you grow.</p>
+    <section className="min-h-screen bg-white text-gray-900 transition-colors duration-500 dark:bg-neutral-950 dark:text-gray-100 font-sans pt-28 pb-16 sm:pt-32 sm:pb-24">
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto mb-12 max-w-3xl text-center sm:mb-16">
+          <h2 className="mb-4 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:mb-6 sm:text-4xl lg:text-5xl">
+            Flexible Pricing for Everyone
+          </h2>
+          <p className="text-base text-gray-600 dark:text-gray-400 sm:text-lg lg:text-xl">
+            Choose the plan that&apos;s right for you. Start free, upgrade as you grow.
+          </p>
         </div>
 
-        {/* Toggles */}
-        <div className="flex flex-col items-center mb-12 sm:mb-16 space-y-6 sm:space-y-8">
-          <div className="bg-gray-100 dark:bg-white/[0.06] p-1 rounded-2xl inline-flex relative">
+        <div className="mb-12 flex flex-col items-center space-y-6 sm:mb-16 sm:space-y-8">
+          <div className="relative inline-flex rounded-2xl bg-gray-100 p-1 dark:bg-white/[0.06]">
             <button
               onClick={() => setIsYearly(false)}
-              className={`relative z-10 px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl text-sm font-bold transition-all duration-300 ${!isYearly ? 'bg-white dark:bg-white/[0.1] shadow-md text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+              className={`relative z-10 rounded-xl px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:px-8 sm:py-3 ${
+                !isYearly
+                  ? 'bg-white text-gray-900 shadow-md dark:bg-white/[0.1] dark:text-white'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+              }`}
             >
               Monthly
             </button>
             <button
               onClick={() => setIsYearly(true)}
-              className={`relative z-10 px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 ${isYearly ? 'bg-white dark:bg-white/[0.1] shadow-md text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+              className={`relative z-10 flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:px-8 sm:py-3 ${
+                isYearly
+                  ? 'bg-white text-gray-900 shadow-md dark:bg-white/[0.1] dark:text-white'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+              }`}
             >
               Yearly
-              <span className="bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-[10px] px-2 py-0.5 rounded-lg uppercase tracking-wider">Save</span>
+              <span className="rounded-lg bg-green-100 px-2 py-0.5 text-[10px] uppercase tracking-wider text-green-700 dark:bg-green-500/20 dark:text-green-400">
+                Save
+              </span>
             </button>
           </div>
 
           {isIndianUser && (
-            <div className="flex items-center gap-4 text-sm font-medium bg-gray-50 dark:bg-white/[0.04] px-4 py-2 rounded-lg border border-gray-200 dark:border-white/[0.08]">
-              <span className={`${currency === 'INR' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>INR</span>
+            <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium dark:border-white/[0.08] dark:bg-white/[0.04]">
+              <span className={currency === 'INR' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}>INR</span>
               <button
                 onClick={() => setCurrency(currency === 'INR' ? 'USD' : 'INR')}
-                className={`w-12 h-6 rounded-xl p-1 transition-colors duration-300 ${currency === 'INR' ? 'bg-gray-900 dark:bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                className={`h-6 w-12 rounded-xl p-1 transition-colors duration-300 ${
+                  currency === 'INR' ? 'bg-gray-900 dark:bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
               >
-                <div className={`w-4 h-4 bg-white rounded-full transition-transform duration-300 ${currency === 'INR' ? 'translate-x-0' : 'translate-x-6'}`} />
+                <div
+                  className={`h-4 w-4 rounded-full bg-white transition-transform duration-300 ${
+                    currency === 'INR' ? 'translate-x-0' : 'translate-x-6'
+                  }`}
+                />
               </button>
-              <span className={`${currency === 'USD' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>USD</span>
+              <span className={currency === 'USD' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}>USD</span>
             </div>
           )}
         </div>
 
-        {/* Cards */}
         {loading ? (
-          <div className="text-center text-gray-500 dark:text-gray-500 py-12">Loading pricing...</div>
+          <div className="py-12 text-center text-gray-500 dark:text-gray-500">Loading pricing...</div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 mb-16 sm:mb-24">
+          <div className="mb-16 grid grid-cols-1 gap-4 sm:mb-24 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4 lg:gap-8">
             {plans.map((plan, index) => {
               const visibleFeatures = allExpanded ? plan.features : plan.features.slice(0, 6);
               const hasMoreFeatures = plan.features.length > 6;
               const isPopular = plan.is_popular;
               const price = getPlanBigPrice(plan, currency, isYearly);
+              const billedTotal = getPlanBilledTotal(plan, currency, isYearly);
+              const planLimits = buildPlanLimitItems(plan);
 
               return (
                 <div
                   key={index}
-                  className={`relative flex flex-col p-6 sm:p-8 rounded-3xl transition-all duration-300 ${isPopular
-                    ? 'bg-gray-900 dark:bg-gradient-to-b dark:from-purple-500/20 dark:to-blue-500/10 text-white shadow-2xl scale-[1.02] sm:scale-105 z-10 ring-1 ring-gray-800 dark:ring-purple-500/20'
-                    : 'bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.08] hover:shadow-xl hover:border-gray-300 dark:hover:border-white/[0.12] text-gray-900 dark:text-gray-100'
-                    }`}
+                  className={`relative flex flex-col rounded-3xl p-6 transition-all duration-300 sm:p-8 ${
+                    isPopular
+                      ? 'z-10 scale-[1.02] bg-gray-900 text-white shadow-2xl ring-1 ring-gray-800 sm:scale-105 dark:bg-gradient-to-b dark:from-purple-500/20 dark:to-blue-500/10 dark:ring-purple-500/20'
+                      : 'border border-gray-200 bg-white text-gray-900 hover:border-gray-300 hover:shadow-xl dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-gray-100 dark:hover:border-white/[0.12]'
+                  }`}
                 >
                   {isPopular && (
-                    <div className="absolute top-0 right-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl rounded-tr-2xl">
+                    <div className="absolute right-0 top-0 rounded-bl-xl rounded-tr-2xl bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-1.5 text-xs font-bold text-white">
                       POPULAR
                     </div>
                   )}
 
-                  <h3 className="text-xl sm:text-2xl font-bold mb-2">{plan.name}</h3>
-                  <div className="mb-6 h-20 flex flex-col justify-center">
+                  <h3 className="mb-2 text-xl font-bold sm:text-2xl">{plan.name}</h3>
+                  <div className="mb-6 flex h-auto min-h-20 flex-col justify-center">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl sm:text-4xl font-bold">{formatMoney(price, currency)}</span>
+                      <span className="text-3xl font-bold sm:text-4xl">{formatMoney(price, currency)}</span>
                       <span className={`text-sm ${isPopular ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>/month</span>
                     </div>
                     {isYearly && plan.yearly_bonus && (
-                      <p className="text-green-500 dark:text-green-400 text-sm font-medium mt-1">{plan.yearly_bonus}</p>
+                      <p className="mt-1 text-sm font-medium text-green-500 dark:text-green-400">{plan.yearly_bonus}</p>
                     )}
+                    <p className={`mt-2 text-xs ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                      {isYearly
+                        ? `Billed yearly at ${formatMoney(billedTotal, currency)} for 364 days.`
+                        : `Billed every 30 days at ${formatMoney(billedTotal, currency)}.`}
+                    </p>
                   </div>
 
-                  <div className="space-y-3 sm:space-y-4 flex-grow">
+                  <div
+                    className={`mb-6 rounded-2xl border p-4 ${
+                      isPopular
+                        ? 'border-white/10 bg-white/5'
+                        : 'border-gray-200 bg-gray-50 dark:border-white/[0.08] dark:bg-white/[0.03]'
+                    }`}
+                  >
+                    <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                      Plan limits
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      {planLimits.map((item) => (
+                        <div key={`${plan.id}-${item.label}`} className="flex items-center justify-between gap-4 text-sm">
+                          <span className={isPopular ? 'text-gray-300' : 'text-gray-600 dark:text-gray-400'}>{item.label}</span>
+                          <span className="font-semibold">{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex-grow space-y-3 sm:space-y-4">
                     {visibleFeatures.map((feature, i) => (
                       <div key={i} className="flex items-start gap-3 text-sm">
                         <div className={`mt-0.5 ${isPopular ? 'text-green-400' : 'text-green-600 dark:text-green-400'}`}>
@@ -172,22 +213,29 @@ const PricingPage: React.FC = () => {
                   {hasMoreFeatures && (
                     <button
                       onClick={toggleAllCards}
-                      className={`mt-6 mb-4 flex items-center justify-center gap-2 text-sm font-medium hover:underline ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}
+                      className={`mb-4 mt-6 flex items-center justify-center gap-2 text-sm font-medium hover:underline ${
+                        isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'
+                      }`}
                     >
                       {allExpanded ? (
-                        <>Show Less <ChevronUp size={14} /></>
+                        <>
+                          Show Less <ChevronUp size={14} />
+                        </>
                       ) : (
-                        <>View all features <ChevronDown size={14} /></>
+                        <>
+                          View all features <ChevronDown size={14} />
+                        </>
                       )}
                     </button>
                   )}
 
-                  <div className={`mt-8 pt-6 border-t ${isPopular ? 'border-gray-700 dark:border-white/[0.1]' : 'border-gray-100 dark:border-white/[0.06]'}`}>
+                  <div className={`mt-8 border-t pt-6 ${isPopular ? 'border-gray-700 dark:border-white/[0.1]' : 'border-gray-100 dark:border-white/[0.06]'}`}>
                     <AuthRedirectButton
-                      className={`w-full py-3.5 sm:py-4 h-12 sm:h-14 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all duration-300 flex items-center justify-center shadow-lg ${isPopular
-                        ? 'bg-white text-gray-900 hover:bg-gray-100 shadow-white/5'
-                        : 'bg-gray-900 dark:bg-white/[0.1] text-white hover:bg-gray-800 dark:hover:bg-white/[0.15] shadow-black/10'
-                        }`}
+                      className={`flex h-12 w-full items-center justify-center rounded-xl py-3.5 text-xs font-black uppercase tracking-[0.2em] shadow-lg transition-all duration-300 sm:h-14 sm:py-4 ${
+                        isPopular
+                          ? 'bg-white text-gray-900 shadow-white/5 hover:bg-gray-100'
+                          : 'bg-gray-900 text-white shadow-black/10 hover:bg-gray-800 dark:bg-white/[0.1] dark:hover:bg-white/[0.15]'
+                      }`}
                     >
                       {plan.button_text}
                     </AuthRedirectButton>
@@ -198,31 +246,38 @@ const PricingPage: React.FC = () => {
           </div>
         )}
 
-        {/* Comparison Table */}
         {comparisonRows.length > 0 && (
           <div className="mt-16 sm:mt-32">
-            <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12 sm:mb-16 text-gray-900 dark:text-white">Compare features</h2>
-            <div className="overflow-x-auto rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/[0.08] shadow-xl">
-              <table className="w-full text-left bg-white dark:bg-white/[0.02]">
+            <h2 className="mb-12 text-center text-3xl font-bold text-gray-900 dark:text-white sm:mb-16 sm:text-4xl">
+              Compare features
+            </h2>
+            <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-xl dark:border-white/[0.08] sm:rounded-3xl">
+              <table className="w-full bg-white text-left dark:bg-white/[0.02]">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-white/[0.04] border-b border-gray-200 dark:border-white/[0.08]">
-                    <th className="p-4 sm:p-6 font-bold text-gray-900 dark:text-white sticky left-0 bg-gray-50 dark:bg-neutral-900 text-sm">Features</th>
+                  <tr className="border-b border-gray-200 bg-gray-50 dark:border-white/[0.08] dark:bg-white/[0.04]">
+                    <th className="sticky left-0 bg-gray-50 p-4 text-sm font-bold text-gray-900 dark:bg-neutral-900 dark:text-white sm:p-6">
+                      Features
+                    </th>
                     {plans.map((plan) => (
-                      <th key={plan.id} className="p-4 sm:p-6 font-bold text-gray-900 dark:text-white text-center text-sm">{plan.name.replace(' Plan', '')}</th>
+                      <th key={plan.id} className="p-4 text-center text-sm font-bold text-gray-900 dark:text-white sm:p-6">
+                        {plan.name.replace(' Plan', '')}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-white/[0.06]">
                   {comparisonRows.map((row) => (
-                    <tr key={row.key} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
-                      <td className="p-4 sm:p-6 font-medium text-gray-900 dark:text-gray-200 sticky left-0 bg-white dark:bg-neutral-950 hover:bg-gray-50 dark:hover:bg-white/[0.02] text-sm">{row.label}</td>
+                    <tr key={row.key} className="transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                      <td className="sticky left-0 bg-white p-4 text-sm font-medium text-gray-900 hover:bg-gray-50 dark:bg-neutral-950 dark:text-gray-200 dark:hover:bg-white/[0.02] sm:p-6">
+                        {row.label}
+                      </td>
                       {plans.map((plan) => {
                         const value = row.values[plan.plan_code || plan.id];
                         return (
-                          <td key={`${row.key}-${plan.id}`} className="p-4 sm:p-6 text-gray-600 dark:text-gray-400 text-center text-sm">
+                          <td key={`${row.key}-${plan.id}`} className="p-4 text-center text-sm text-gray-600 dark:text-gray-400 sm:p-6">
                             {typeof value === 'boolean'
                               ? (value ? <Check className="mx-auto text-green-500" size={20} /> : <X className="mx-auto text-gray-300 dark:text-gray-600" size={20} />)
-                              : (value == null || value === '' ? '—' : String(value))}
+                              : (value == null || value === '' ? '-' : String(value))}
                           </td>
                         );
                       })}

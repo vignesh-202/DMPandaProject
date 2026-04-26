@@ -266,8 +266,7 @@
     background: linear-gradient(135deg, rgb(var(--ig-blue)), rgb(var(--primary)));
     color: rgb(var(--primary-foreground));
     font-weight: 800;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
+    letter-spacing: 0.04em;
     box-shadow: 0 16px 40px rgb(var(--primary) / 0.2);
     transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
   }
@@ -291,8 +290,7 @@
     background: rgb(var(--card));
     color: rgb(var(--foreground));
     font-weight: 800;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    letter-spacing: 0.04em;
     transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
   }
 

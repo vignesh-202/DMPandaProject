@@ -300,6 +300,24 @@ ADDITIONAL_ATTRIBUTES = {
             "elements": ["created", "paid", "failed", "cancelled", "expired"],
         },
     ],
+    "automations": [
+        {
+            "key": "plan_validation_state",
+            "type": "string",
+            "required": False,
+            "array": False,
+            "default": "valid",
+            "elements": ["valid", "invalid_due_to_plan"],
+        },
+        {
+            "key": "invalid_features",
+            "type": "string",
+            "required": False,
+            "array": False,
+            "default": None,
+            "size": 2000,
+        },
+    ],
 }
 
 ADDITIONAL_INDEXES = {

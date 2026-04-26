@@ -1,0 +1,1 @@
+{"message":"User (role: guests) missing scopes ([\"functions.read\"])","code":401,"type":"general_unauthorized_scope","version":"1.8.1"}

@@ -1462,6 +1462,7 @@ router.get('/my-plan', loginRequired, async (req, res) => {
         const databases = getDatabases();
         const {
             profile,
+            plan,
             subscriptionPlanId,
             subscriptionStatus,
             planSource,
@@ -1471,7 +1472,7 @@ router.get('/my-plan', loginRequired, async (req, res) => {
         const { accessState } = await loadUserAccessState(databases, req.user.$id, {
             userDocument: req.userDocument || null
         });
-        return res.json(buildUserPlanPayload(null, {
+        return res.json(buildUserPlanPayload(plan, {
             ...(profile || {}),
             self_plan_id: selfPlanId,
             self_plan_expires_at: selfPlanExpiresAt

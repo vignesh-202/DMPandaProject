@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { buildLockedFeatureState, getFeatureLabel, hasPlanEntitlement, normalizeFeatureKey } from '../lib/planAccess';
 
 export type ViewType =
     | 'Overview'
@@ -115,6 +116,12 @@ interface DashboardContextProps {
     refreshPlanAccess: () => Promise<void>;
     refreshLinkedProfiles: () => Promise<void>;
     hasPlanFeature: (featureKey: string) => boolean;
+    getPlanGate: (featureKey: string, note?: string) => {
+        isLocked: boolean;
+        featureKey: string;
+        label: string;
+        note: string;
+    };
 }
 
 const DashboardContext = createContext<DashboardContextProps | undefined>(undefined);
@@ -224,37 +231,21 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     const { authenticatedFetch } = useAuth();
 
     const hasPlanFeature = useCallback((featureKey: string) => {
-        const entitlementAliases: Record<string, string[]> = {
-            suggest_more: ['suggest_more'],
-            collect_email: ['collect_email', 'email_collector', 'webhook_integrations'],
-            seen_typing: ['seen_typing'],
-            dm_automation: ['dm_automation', 'dm_automations'],
-            mentions: ['mentions', 'mention', 'story_mentions_custom_dm'],
-            instagram_live_automation: ['instagram_live_automation'],
-            convo_starters: ['convo_starters'],
-            inbox_menu: ['inbox_menu'],
-            no_watermark: ['no_watermark']
-        };
-        const normalizedEntitlements = Object.entries(planEntitlements || {}).reduce<Record<string, boolean>>((acc, [key, value]) => {
-            acc[String(key || '').toLowerCase().replace(/[+/_-]+/g, ' ').replace(/\s+/g, ' ').trim()] = value === true;
-            return acc;
-        }, {});
-        const hasEntitlement = (entitlementAliases[featureKey] || [featureKey]).some((alias) =>
-            normalizedEntitlements[String(alias || '').toLowerCase().replace(/[+/_-]+/g, ' ').replace(/\s+/g, ' ').trim()] === true
-        );
-        if (hasEntitlement) return true;
+        if (hasPlanEntitlement(planEntitlements, featureKey)) return true;
 
-        const normalizedFeatures = planFeatures
-            .map((feature) => String(feature || '').toLowerCase().replace(/[+/_-]+/g, ' ').replace(/\s+/g, ' ').trim())
-            .filter(Boolean);
-        const matchers: Record<string, string[][]> = {
-            suggest_more: [['suggest', 'more']],
-            collect_email: [['collect', 'email'], ['email', 'collector'], ['google', 'sheet'], ['webhook', 'integration']],
-            seen_typing: [['seen', 'typing'], ['seen', 'typing', 'reaction']]
+        const normalizedFeatureLabel = normalizeFeatureKey(getFeatureLabel(featureKey)).replace(/_/g, ' ');
+        return planFeatures
+            .map((feature) => normalizeFeatureKey(String(feature || '')).replace(/_/g, ' '))
+            .filter(Boolean)
+            .some((feature) => feature === normalizedFeatureLabel || feature.includes(normalizedFeatureLabel));
+    }, [planEntitlements, planFeatures]);
+
+    const getPlanGate = useCallback((featureKey: string, note?: string) => {
+        const gate = buildLockedFeatureState(planEntitlements, featureKey, note);
+        return {
+            ...gate,
+            isLocked: !hasPlanFeature(gate.featureKey)
         };
-        return (matchers[featureKey] || []).some((terms) =>
-            normalizedFeatures.some((feature) => terms.every((term) => feature.includes(term)))
-        );
     }, [planEntitlements, planFeatures]);
 
     const setCurrentView = useCallback((view: ViewType) => {
@@ -690,7 +681,8 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         accessState,
         refreshPlanAccess,
         refreshLinkedProfiles,
-        hasPlanFeature
+        hasPlanFeature,
+        getPlanGate
     };
 
     return (

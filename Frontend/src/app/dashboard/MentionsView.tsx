@@ -8,6 +8,7 @@ import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview'
 import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
 import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
+import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
 import AutomationToast from '../../components/ui/AutomationToast';
@@ -42,7 +43,7 @@ const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been s
 
 const MentionsView: React.FC = () => {
     const { authenticatedFetch } = useAuth();
-    const { activeAccountID, activeAccount, setCurrentView, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, hasPlanFeature } = useDashboard();
+    const { activeAccountID, activeAccount, setCurrentView, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, getPlanGate } = useDashboard();
 
     const [config, setConfig] = useState<MentionsConfig>({ is_setup: false, is_active: false });
     const [isLoading, setIsLoading] = useState(true);
@@ -319,6 +320,9 @@ const MentionsView: React.FC = () => {
 
     // Preview data for SharedMobilePreview
     const previewItem = buildPreviewAutomationFromTemplate(selectedTemplate);
+    const suggestMoreGate = getPlanGate('suggest_more', 'Upgrade your plan to enable Suggest More.');
+    const collectEmailGate = getPlanGate('collect_email', 'Upgrade your plan to enable email collection.');
+    const seenTypingGate = getPlanGate('seen_typing', 'Upgrade your plan to enable seen and typing reactions.');
 
     return (
         <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
@@ -411,18 +415,16 @@ const MentionsView: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                <Sparkles className={`w-5 h-5 ${suggestMoreEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
-                            </div>
-                            <div>
-                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Suggest More</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">{hasPlanFeature('suggest_more') ? 'Show extra reply suggestions after the main mentions reply.' : 'Upgrade your plan to enable Suggest More.'}</p>
-                            </div>
-                        </div>
-                        <ToggleSwitch isChecked={suggestMoreEnabled} onChange={() => hasPlanFeature('suggest_more') ? setSuggestMoreEnabled(!suggestMoreEnabled) : setCurrentView('My Plan')} variant="plain" disabled={!hasPlanFeature('suggest_more')} />
-                    </div>
+                    <LockedFeatureToggle
+                        icon={<Sparkles className={`w-5 h-5 ${suggestMoreEnabled ? 'text-primary' : 'text-muted-foreground'}`} />}
+                        title="Suggest More"
+                        description="Show extra reply suggestions after the main mentions reply."
+                        checked={suggestMoreEnabled}
+                        onToggle={() => setSuggestMoreEnabled(!suggestMoreEnabled)}
+                        locked={suggestMoreGate.isLocked}
+                        note={suggestMoreGate.note}
+                        onUpgrade={() => setCurrentView('My Plan')}
+                    />
 
                     <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
                         <div className="flex items-center gap-4">
@@ -437,20 +439,18 @@ const MentionsView: React.FC = () => {
                         <ToggleSwitch isChecked={oncePerUser} onChange={() => setOncePerUser(!oncePerUser)} variant="plain" />
                     </div>
 
-                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                <Mail className={`w-5 h-5 ${collectEmailEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
-                            </div>
-                            <div>
-                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Collect Email</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">{hasPlanFeature('collect_email') ? 'Capture an email before finishing the mentions flow.' : 'Upgrade your plan to enable email collection.'}</p>
-                            </div>
-                        </div>
-                        <ToggleSwitch isChecked={collectEmailEnabled} onChange={() => hasPlanFeature('collect_email') ? setCollectEmailEnabled(!collectEmailEnabled) : setCurrentView('My Plan')} variant="plain" disabled={!hasPlanFeature('collect_email')} />
-                    </div>
+                    <LockedFeatureToggle
+                        icon={<Mail className={`w-5 h-5 ${collectEmailEnabled ? 'text-primary' : 'text-muted-foreground'}`} />}
+                        title="Collect Email"
+                        description="Capture an email before finishing the mentions flow."
+                        checked={collectEmailEnabled}
+                        onToggle={() => setCollectEmailEnabled(!collectEmailEnabled)}
+                        locked={collectEmailGate.isLocked}
+                        note={collectEmailGate.note}
+                        onUpgrade={() => setCurrentView('My Plan')}
+                    />
 
-                    {collectEmailEnabled && hasPlanFeature('collect_email') && (
+                    {collectEmailEnabled && !collectEmailGate.isLocked && (
                         <div className="bg-card border border-content rounded-2xl p-6 space-y-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-black uppercase tracking-[0.15em] text-foreground">Gmail Only</span>
@@ -462,18 +462,16 @@ const MentionsView: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                <MessageSquare className={`w-5 h-5 ${seenTypingEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
-                            </div>
-                            <div>
-                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Seen + Typing Reaction</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">{hasPlanFeature('seen_typing') ? 'Simulate seen and typing before the mentions reply.' : 'Upgrade your plan to enable seen and typing reactions.'}</p>
-                            </div>
-                        </div>
-                        <ToggleSwitch isChecked={seenTypingEnabled} onChange={() => hasPlanFeature('seen_typing') ? setSeenTypingEnabled(!seenTypingEnabled) : setCurrentView('My Plan')} variant="plain" disabled={!hasPlanFeature('seen_typing')} />
-                    </div>
+                    <LockedFeatureToggle
+                        icon={<MessageSquare className={`w-5 h-5 ${seenTypingEnabled ? 'text-primary' : 'text-muted-foreground'}`} />}
+                        title="Seen + Typing Reaction"
+                        description="Simulate seen and typing before the mentions reply."
+                        checked={seenTypingEnabled}
+                        onToggle={() => setSeenTypingEnabled(!seenTypingEnabled)}
+                        locked={seenTypingGate.isLocked}
+                        note={seenTypingGate.note}
+                        onUpgrade={() => setCurrentView('My Plan')}
+                    />
 
                     {/* Template Selector */}
                     <div className="bg-card border border-content rounded-2xl p-6 space-y-4">

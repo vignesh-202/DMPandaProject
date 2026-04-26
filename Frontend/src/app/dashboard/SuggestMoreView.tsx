@@ -7,7 +7,7 @@ import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
 import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
 import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
-import ToggleSwitch from '../../components/ui/ToggleSwitch';
+import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
 import AutomationToast from '../../components/ui/AutomationToast';
@@ -256,31 +256,18 @@ const SuggestMoreView: React.FC = () => {
                             }
                         />
                     </div>
-                    {!suggestMoreAvailable && (
-                        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4">
-                            <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
-                                Suggest More is locked on your current plan. Open My Plan to upgrade and enable this response layer.
-                            </p>
-                        </div>
-                    )}
                     {/* Active Toggle */}
-                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                <Lightbulb className={`w-5 h-5 ${isActive ? 'text-warning' : 'text-muted-foreground'}`} />
-                            </div>
-                            <div>
-                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Enable Suggest More</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">When enabled, users will see this response</p>
-                            </div>
-                        </div>
-                        <ToggleSwitch
-                            isChecked={isActive}
-                            onChange={() => suggestMoreAvailable ? setIsActive(!isActive) : setCurrentView('My Plan')}
-                            variant="plain"
-                            disabled={!suggestMoreAvailable}
-                        />
-                    </div>
+                    <LockedFeatureToggle
+                        icon={<Lightbulb className={`w-5 h-5 ${isActive ? 'text-warning' : 'text-muted-foreground'}`} />}
+                        title="Enable Suggest More"
+                        description="When enabled, users will see this response."
+                        checked={isActive}
+                        onToggle={() => setIsActive(!isActive)}
+                        locked={!suggestMoreAvailable}
+                        note="Suggest More is locked on your current plan. Upgrade to enable this response layer."
+                        onUpgrade={() => setCurrentView('My Plan')}
+                        activeIconClassName="text-warning"
+                    />
 
                     {/* Template Selector */}
                     <div className="bg-card border border-content rounded-2xl p-6 space-y-4">

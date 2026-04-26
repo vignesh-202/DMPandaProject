@@ -1,0 +1,17 @@
+{
+  "free_plan_mapping": {
+    "dm_automation": false,
+    "post_comment_dm_automation": true,
+    "reel_comment_dm_automation": true
+  },
+  "my_plan_sample": {
+    "user_id": "698b809e242a1a0279ae",
+    "plan_code": "free",
+    "entitlements": {
+      "dm_automation": false,
+      "post_comment_dm_automation": true,
+      "reel_comment_dm_automation": true
+    },
+    "frontend_gate_dm_locked": true
+  }
+}

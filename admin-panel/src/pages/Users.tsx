@@ -280,8 +280,8 @@ export const UsersPage: React.FC = () => {
                     : action === 'edit_custom_limits'
                         ? 'Custom limits updated.'
                         : action === 'reset_to_assigned_defaults'
-                            ? 'Assigned-plan defaults restored.'
-                            : 'Paid snapshot or free reset applied.'
+                            ? 'Default limits restored.'
+                            : 'Reset to default completed.'
             );
         } catch (error) {
             console.error('Failed to update profile:', error);
@@ -626,9 +626,9 @@ export const UsersPage: React.FC = () => {
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                                     {[
                                         ['Effective Plan', detailData?.effective_plan?.name || 'Free'],
-                                        ['Plan Source', String(detailData?.plan_source ?? 'self')],
+                                        ['Latest plan', detailData?.latest_subscribed_plan?.plan_name || 'Free'],
                                         ['IG Connections', detailData?.effective_limits?.instagram_connections_limit ?? 0],
-                                        ['Self Plan', detailData?.self_plan?.id || 'free']
+                                        ['Transactions', detailData?.total_transactions ?? 0]
                                     ].map(([label, value]) => (
                                         <div key={String(label)} className="rounded-[24px] border border-border/70 bg-background/50 p-5">
                                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
@@ -659,7 +659,7 @@ export const UsersPage: React.FC = () => {
                                             </SelectField>
                                             <SelectField
                                                 label="Plan status"
-                                                hint="Set the live paid/free lifecycle state."
+                                                hint={detailData?.plan_status_help?.description || 'Set the live access lifecycle for this user.'}
                                                 value={profilePatch.plan_status || 'inactive'}
                                                 onChange={(value) => setProfilePatch((prev: any) => ({ ...prev, plan_status: value }))}
                                             >
@@ -817,7 +817,7 @@ export const UsersPage: React.FC = () => {
                                         <div className="mt-4 space-y-3">
                                             <div className="rounded-[20px] border border-border/70 bg-card/70 p-4">
                                                 <button onClick={() => applyProfileAction('reset_to_assigned_defaults')} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
-                                                    Restore assigned defaults
+                                                    Restore Default limits
                                                 </button>
                                                 <p className="mt-2 text-xs text-muted-foreground">
                                                     Reapply the selected plan defaults while keeping the current user record intact.
@@ -825,7 +825,7 @@ export const UsersPage: React.FC = () => {
                                             </div>
                                             <div className="rounded-[20px] border border-border/70 bg-card/70 p-4">
                                                 <button onClick={() => applyProfileAction('reset_to_paid_snapshot_or_free')} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
-                                                    Rebuild from self plan
+                                                    Reset to default
                                                 </button>
                                                 <p className="mt-2 text-xs text-muted-foreground">
                                                     Restore the latest paid self-subscription snapshot, or fall back to free when none exists.

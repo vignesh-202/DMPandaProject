@@ -1,12 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin, FaPaperPlane } from 'react-icons/fa';
+import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin } from 'react-icons/fa';
 
 const Footer: React.FC = () => {
   return (
     <footer className="bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 border-t border-gray-100 dark:border-white/[0.06] transition-colors duration-500">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 max-w-7xl">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 lg:gap-12">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
             <h3 className="text-2xl font-bold mb-3">DM Panda</h3>
@@ -69,22 +69,6 @@ const Footer: React.FC = () => {
                 </li>
               ))}
             </ul>
-          </div>
-
-          {/* Newsletter */}
-          <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">Stay Updated</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">Subscribe for the latest updates and offers.</p>
-            <div className="relative">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="w-full bg-gray-100 dark:bg-white/[0.06] text-gray-900 dark:text-gray-100 rounded-xl py-3 px-4 pr-12 focus:outline-none focus:ring-2 focus:ring-[#833AB4]/40 border border-transparent focus:border-[#833AB4]/30 dark:focus:border-purple-500/30 placeholder-gray-400 dark:placeholder-gray-500 text-sm transition-all duration-200"
-              />
-              <button className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-gradient-to-r from-[#833AB4] to-[#405DE6] text-white rounded-lg hover:shadow-lg hover:shadow-[#833AB4]/20 transition-all duration-300 hover:scale-105 active:scale-95">
-                <FaPaperPlane size={12} />
-              </button>
-            </div>
           </div>
         </div>
       </div>

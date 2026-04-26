@@ -181,6 +181,50 @@ def _load_free_plan_snapshot(client, db_id, pricing_collection_id):
         **{_benefit_field(key): value for key, value in entitlements.items()},
     }
 
+
+def _default_free_plan_snapshot():
+    entitlements = {key: False for key in BENEFIT_KEYS}
+    for key in (
+        "unlimited_contacts",
+        "post_comment_dm_automation",
+        "reel_comment_dm_automation",
+        "super_profile",
+        "welcome_message",
+        "convo_starters",
+        "inbox_menu",
+    ):
+        entitlements[key] = True
+    limits_snapshot = {
+        "instagram_connections_limit": 3,
+        "instagram_link_limit": 3,
+        "hourly_action_limit": 100,
+        "daily_action_limit": 100,
+        "monthly_action_limit": 1000,
+    }
+    return {
+        "plan_code": "free",
+        "plan_name": "Free Plan",
+        "plan_status": "inactive",
+        "billing_cycle": None,
+        "expires_at": None,
+        "limits_json": json.dumps(limits_snapshot),
+        "features_json": json.dumps(entitlements, separators=(",", ":")),
+        "paid_plan_snapshot_json": None,
+        "admin_override_json": None,
+        "kill_switch_enabled": True,
+        "hourly_action_limit": limits_snapshot["hourly_action_limit"],
+        "daily_action_limit": limits_snapshot["daily_action_limit"],
+        "monthly_action_limit": limits_snapshot["monthly_action_limit"],
+        "hourly_actions_used": 0,
+        "daily_actions_used": 0,
+        "monthly_actions_used": 0,
+        "hourly_window_started_at": None,
+        "daily_window_started_at": None,
+        "monthly_window_started_at": None,
+        "feature_overrides_json": None,
+        **{_benefit_field(key): value for key, value in entitlements.items()},
+    }
+
 # This function is triggered by users.*.create event in Appwrite.
 # It creates a corresponding document in both 'users' and 'profiles' collections.
 def main(context):
@@ -205,10 +249,10 @@ def main(context):
         user_email = user.get("email", "")
 
         if not user_id:
-            context.error(f"on-user-create: Missing user id in payload: {user}")
+            context.log("on-user-create: missing user id in payload; noop execution for manual trigger.")
             return context.res.json(
-                {"status": "error", "message": "Missing user id in event payload."},
-                400,
+                {"status": "noop", "message": "Missing user id in payload; nothing to create."},
+                200,
             )
 
         context.log(f"New user created event received for userId: {user_id}")
@@ -228,7 +272,11 @@ def main(context):
         client.set_project(project_id)
         client.set_key(api_key)
 
-        free_plan_profile = _load_free_plan_snapshot(client, db_id, pricing_collection_id)
+        try:
+            free_plan_profile = _load_free_plan_snapshot(client, db_id, pricing_collection_id)
+        except Exception as pricing_error:
+            context.error(f"on-user-create: failed to load pricing free plan snapshot, using default fallback. error={pricing_error}")
+            free_plan_profile = _default_free_plan_snapshot()
 
         # 1. Create Users document (idempotent)
         try:

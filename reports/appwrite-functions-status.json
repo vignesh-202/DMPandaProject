@@ -1,0 +1,94 @@
+{
+  "functions": [
+    {
+      "function_id": "audit-media-automations",
+      "enabled": true,
+      "deployment_id": "69edb35d57677c5191db",
+      "latest_deployment_id": "69edb35d57677c5191db",
+      "latest_deployment_status": "ready",
+      "runtime": "python-3.9",
+      "entrypoint": "main.py"
+    },
+    {
+      "function_id": "cleanup-logs-chat-state",
+      "enabled": true,
+      "deployment_id": "69edb1954afbfd849f2d",
+      "latest_deployment_id": "69edb1954afbfd849f2d",
+      "latest_deployment_status": "ready",
+      "runtime": "python-3.9",
+      "entrypoint": "main.py"
+    },
+    {
+      "function_id": "on-user-create",
+      "enabled": true,
+      "deployment_id": "69edbde490da1f4ccbc5",
+      "latest_deployment_id": "69edbde490da1f4ccbc5",
+      "latest_deployment_status": "ready",
+      "runtime": "python-3.9",
+      "entrypoint": "main.py"
+    },
+    {
+      "function_id": "refresh-instagram-tokens",
+      "enabled": true,
+      "deployment_id": "69edb19a4de0061add2f",
+      "latest_deployment_id": "69edb19a4de0061add2f",
+      "latest_deployment_status": "ready",
+      "runtime": "python-3.9",
+      "entrypoint": "main.py"
+    },
+    {
+      "function_id": "remind-link-instagram",
+      "enabled": true,
+      "deployment_id": "69edb36033043144bec6",
+      "latest_deployment_id": "69edb36033043144bec6",
+      "latest_deployment_status": "ready",
+      "runtime": "python-3.9",
+      "entrypoint": "main.py"
+    },
+    {
+      "function_id": "remove-instagram",
+      "enabled": true,
+      "deployment_id": "69edbdefe82ef7c2782c",
+      "latest_deployment_id": "69edbdefe82ef7c2782c",
+      "latest_deployment_status": "ready",
+      "runtime": "python-3.9",
+      "entrypoint": "main.py"
+    },
+    {
+      "function_id": "reset-user-action-budgets",
+      "enabled": true,
+      "deployment_id": "69edb1a2009fee0d5f37",
+      "latest_deployment_id": "69edb1a2009fee0d5f37",
+      "latest_deployment_status": "ready",
+      "runtime": "python-3.9",
+      "entrypoint": "main.py"
+    },
+    {
+      "function_id": "subscription-manager",
+      "enabled": true,
+      "deployment_id": "69edb3633e2853c8c658",
+      "latest_deployment_id": "69edb3633e2853c8c658",
+      "latest_deployment_status": "ready",
+      "runtime": "python-3.9",
+      "entrypoint": "main.py"
+    },
+    {
+      "function_id": "payment-reminders",
+      "enabled": true,
+      "deployment_id": "69edb366188f995f01af",
+      "latest_deployment_id": "69edb366188f995f01af",
+      "latest_deployment_status": "ready",
+      "runtime": "python-3.9",
+      "entrypoint": "main.py"
+    },
+    {
+      "function_id": "inactive-user-cleanup",
+      "enabled": true,
+      "deployment_id": "69edb368d4ec33d7cee4",
+      "latest_deployment_id": "69edb368d4ec33d7cee4",
+      "latest_deployment_status": "ready",
+      "runtime": "python-3.9",
+      "entrypoint": "main.py"
+    }
+  ]
+}

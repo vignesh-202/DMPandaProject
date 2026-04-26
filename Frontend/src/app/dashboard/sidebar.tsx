@@ -42,14 +42,13 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
-  const { user, hasLinkedInstagram } = useAuth();
-  const { currentView, setCurrentView, igAccounts, setActiveAccountID, activeAccountID, activeAccount, hasUnsavedChanges, setHasUnsavedChanges, saveUnsavedChanges, discardUnsavedChanges, accessState, hasPlanFeature } = useDashboard();
+  const { hasLinkedInstagram } = useAuth();
+  const { currentView, setCurrentView, igAccounts, setActiveAccountID, activeAccountID, activeAccount, hasUnsavedChanges, setHasUnsavedChanges, saveUnsavedChanges, discardUnsavedChanges, accessState, hasPlanFeature, planLimits } = useDashboard();
   const hasAnyLinkedAccount = (igAccounts?.length || 0) > 0;
-  const accountLimit = 10;
+  const accountLimit = Number(planLimits?.instagram_link_limit || planLimits?.instagram_connections_limit || 0);
   const linkedAccountCount = igAccounts?.length || 0;
   const hasAutomationAccountAccess = !!hasLinkedInstagram || hasAnyLinkedAccount;
   const automationLockedByBan = accessState?.automation_locked === true;
-  const canAccessAutomation = hasAutomationAccountAccess && !automationLockedByBan;
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -107,7 +106,6 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
       'Super Profile': 'super_profile',
     };
 
-    // Check if feature requires Instagram
     const automationFeatures: ViewType[] = [
       'Reply Templates', 'Super Profile', 'Inbox Menu', 'Convo Starter',
       'Global Trigger', 'DM Automation', 'Post Automation', 'Reel Automation',
@@ -116,30 +114,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
     ];
     const requiredFeature = viewFeatureMap[viewName];
     const lockedByPlan = requiredFeature ? !hasPlanFeature(requiredFeature) : false;
-
-    if (automationFeatures.includes(viewName) && !canAccessAutomation) {
-      window.dispatchEvent(new CustomEvent('show-locked-feature-modal', {
-        detail: {
-          featureName: automationLockedByBan ? `${viewName} is locked` : viewName,
-          message: automationLockedByBan
-            ? (accessState?.ban_message || 'Automation access is restricted on this account.')
-            : undefined
-        }
-      }));
-      onItemClick?.();
-      return;
-    }
-
-    if (lockedByPlan) {
-      window.dispatchEvent(new CustomEvent('show-locked-feature-modal', {
-        detail: {
-          featureName: `${viewName} is locked`,
-          message: 'This section is not included in your current plan.'
-        }
-      }));
-      onItemClick?.();
-      return;
-    }
+    const lockedByAutomationAccess = automationLockedByBan && automationFeatures.includes(viewName);
 
     if (currentView === viewName) return;
 
@@ -175,6 +150,13 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
       });
       return;
     }
+
+    if (lockedByPlan || lockedByAutomationAccess || (automationFeatures.includes(viewName) && !hasAutomationAccountAccess)) {
+      setCurrentView(viewName);
+      onItemClick?.();
+      return;
+    }
+
     setCurrentView(viewName);
     onItemClick?.();
   };
@@ -292,7 +274,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                   const isActive = currentView === item.name;
                   const requiredFeature = viewFeatureMap[item.name];
                   const lockedByPlan = requiredFeature ? !hasPlanFeature(requiredFeature) : false;
-                  const lockedByAutomationAccess = section.title === 'Automation' && !canAccessAutomation;
+                  const lockedByAutomationAccess = section.title === 'Automation' && automationLockedByBan;
                   const isLocked = lockedByPlan || lockedByAutomationAccess;
 
                   return (
@@ -309,26 +291,23 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                       )}
                     >
                       <div className="flex items-center gap-3 truncate">
-                        <div className="relative flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center">
-                          <Icon className={cn(
-                            "w-[18px] h-[18px] transition-all duration-200",
-                            isActive && "drop-shadow-sm",
-                            !isActive && "group-hover:scale-110",
-                            isLocked && "opacity-80"
-                          )} />
-                          {isLocked && (
-                            <span className={cn(
-                              "absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-card bg-card text-muted-foreground shadow-sm",
-                              isActive && "border-white/40 bg-white/20 text-white"
-                            )}>
-                              <Lock className="h-2.5 w-2.5" />
-                            </span>
-                          )}
-                        </div>
+                        <Icon className={cn(
+                          "w-[18px] h-[18px] flex-shrink-0 transition-all duration-200",
+                          isActive && "drop-shadow-sm",
+                          !isActive && "group-hover:scale-110",
+                          isLocked && isCollapsed && "opacity-80"
+                        )} />
                         {!isCollapsed && (
                           <span className="truncate font-bold">{item.name}</span>
                         )}
                       </div>
+
+                      {isLocked && !isCollapsed && (
+                        <Lock className={cn(
+                          "h-[15px] w-[15px] flex-shrink-0",
+                          isActive ? "text-white" : "text-muted-foreground/80"
+                        )} />
+                      )}
                     </button>
                   );
                 })}
@@ -357,7 +336,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
 
               {/* Account List */}
               {igAccounts && igAccounts.length > 0 ? (
-                <div className="max-h-[50vh] sm:max-h-[60vh] overflow-y-auto custom-scrollbar space-y-0.5 px-1">
+                <div className="max-h-[56vh] sm:max-h-[62vh] overflow-y-auto custom-scrollbar space-y-0.5 px-1 pr-0.5">
                   {igAccounts.map((account) => {
                     const isSelected = activeAccountID === account.ig_user_id;
                     const isInactive = account.status !== 'active' || account.effective_access === false;
@@ -451,7 +430,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                 {!isCollapsed && (
                   <div className="mb-2 px-2">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                      {linkedAccountCount} / {accountLimit} accounts linked
+                      {linkedAccountCount} / {accountLimit || 0} accounts linked
                     </p>
                     <p className="mt-1 text-[11px] text-muted-foreground">
                       Active automation access still follows your plan limit.

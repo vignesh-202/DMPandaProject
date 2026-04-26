@@ -1,12 +1,16 @@
 import hashlib
 import json
 import os
+import sys
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from appwrite.client import Client
 from appwrite.id import ID
 from appwrite.query import Query
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from email_template import render_email_html
 
 PAGE_SIZE = 100

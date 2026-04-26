@@ -29,6 +29,7 @@ const {
     resolveUserPlanContext,
     normalizeFeatureKey
 } = require('../utils/planConfig');
+const sharedPlanFeatures = require('../../shared/planFeatures.json');
 const { Databases, Query, ID, Permission, Role, ExecutionMethod } = require('node-appwrite');
 const { buildAccessDeniedPayload } = require('../utils/accessControl');
 const {
@@ -98,14 +99,19 @@ const normalizeTitle = (value) => String(value || '').trim().toLowerCase();
 
 const KEYWORD_MAX_PER_AUTOMATION = 5;
 const KEYWORD_TYPES = new Set(['dm', 'global', 'post', 'reel', 'story', 'live', 'comment']);
-const GATED_AUTOMATION_FEATURES = {
+const USE_NEW_GATING = String(process.env.USE_NEW_GATING ?? 'true').trim().toLowerCase() !== 'false';
+const GATED_AUTOMATION_FEATURES = Object.freeze(sharedPlanFeatures.toggleFeatureMap || {});
+const AUTOMATION_TYPE_FEATURES = Object.freeze(sharedPlanFeatures.automationTypeFeatureMap || {});
+const COMMENT_REPLY_FEATURES = Object.freeze(sharedPlanFeatures.commentReplyFeatureMap || {});
+const SHARE_TRIGGER_FEATURES = Object.freeze(sharedPlanFeatures.shareTriggerFeatureMap || {});
+const FEATURE_LABELS = Object.freeze(sharedPlanFeatures.featureLabels || {});
+const LEGACY_GATED_AUTOMATION_FEATURES = Object.freeze({
     suggest_more_enabled: 'suggest_more',
     collect_email_enabled: 'collect_email',
     seen_typing_enabled: 'seen_typing',
     followers_only: 'followers_only'
-};
-
-const AUTOMATION_TYPE_FEATURES = {
+});
+const LEGACY_AUTOMATION_TYPE_FEATURES = Object.freeze({
     dm: 'dm_automation',
     global: 'global_trigger',
     comment: 'post_comment_dm_automation',
@@ -122,7 +128,7 @@ const AUTOMATION_TYPE_FEATURES = {
     comment_moderation: 'comment_moderation',
     moderation_hide: 'comment_moderation',
     moderation_delete: 'comment_moderation'
-};
+});
 
 const normalizeKeywordToken = (value) => String(value || '').trim().toUpperCase();
 const parseJsonArray = (value) => {
@@ -138,31 +144,16 @@ const parseJsonArray = (value) => {
     return [];
 };
 
-const PLAN_FEATURE_ALIASES = {
-    suggest_more: ['suggest_more'],
-    collect_email: ['collect_email', 'email_collector', 'webhook_integrations'],
-    seen_typing: ['seen_typing'],
-    followers_only: ['followers_only'],
-    post_comment_dm_automation: ['post_comment_dm_automation'],
-    post_comment_reply_automation: ['post_comment_reply_automation'],
-    reel_comment_dm_automation: ['reel_comment_dm_automation'],
-    reel_comment_reply_automation: ['reel_comment_reply_automation'],
-    share_post_to_dm: ['share_post_to_dm'],
-    share_reel_to_dm: ['share_reel_to_dm'],
-    dm_automation: ['dm_automation', 'dm_automations'],
-    global_trigger: ['global_trigger'],
-    mentions: ['mentions', 'mention', 'story_mentions_custom_dm'],
-    welcome_message: ['welcome_message'],
-    inbox_menu: ['inbox_menu'],
-    convo_starters: ['convo_starters'],
-    story_automation: ['story_automation'],
-    instagram_live_automation: ['instagram_live_automation'],
-    comment_moderation: ['comment_moderation'],
-    super_profile: ['super_profile'],
-    no_watermark: ['no_watermark'],
-    priority_support: ['priority_support'],
-    unlimited_contacts: ['unlimited_contacts']
-};
+const PLAN_FEATURE_ALIASES = Object.freeze(Object.entries(sharedPlanFeatures.benefitAliases || {}).reduce((acc, [alias, key]) => {
+    const normalizedKey = normalizeFeatureKey(key);
+    const normalizedAlias = normalizeFeatureKey(alias);
+    if (!normalizedKey) return acc;
+    if (!acc[normalizedKey]) acc[normalizedKey] = [normalizedKey];
+    if (normalizedAlias && !acc[normalizedKey].includes(normalizedAlias)) {
+        acc[normalizedKey].push(normalizedAlias);
+    }
+    return acc;
+}, {}));
 
 const loadUserPlanAccess = async (databases, userId) => {
     const planContext = await resolveUserPlanContext(databases, userId);
@@ -174,30 +165,47 @@ const loadUserPlanAccess = async (databases, userId) => {
 };
 
 const hasPlanEntitlement = (entitlements, featureKey) => {
-    const aliases = PLAN_FEATURE_ALIASES[featureKey] || [featureKey];
+    const normalizedFeatureKey = normalizeFeatureKey(featureKey);
+    const aliases = PLAN_FEATURE_ALIASES[normalizedFeatureKey] || [normalizedFeatureKey];
     return aliases.some((candidate) => entitlements?.[normalizeFeatureKey(candidate)] === true);
 };
 
 const collectLockedAutomationFeatures = (payload) => {
     const source = payload && typeof payload === 'object' ? payload : {};
-    const locked = Object.entries(GATED_AUTOMATION_FEATURES)
+    const toggles = USE_NEW_GATING ? GATED_AUTOMATION_FEATURES : LEGACY_GATED_AUTOMATION_FEATURES;
+    const types = USE_NEW_GATING ? AUTOMATION_TYPE_FEATURES : LEGACY_AUTOMATION_TYPE_FEATURES;
+    const locked = Object.entries(toggles)
         .filter(([field]) => source[field] === true)
         .map(([, featureKey]) => featureKey);
     const automationType = String(source.automation_type || source.type || '').trim().toLowerCase();
-    if (AUTOMATION_TYPE_FEATURES[automationType]) {
-        locked.push(AUTOMATION_TYPE_FEATURES[automationType]);
+    if (types[automationType]) {
+        locked.push(types[automationType]);
     }
-    if (source.private_reply_enabled === false && ['comment', 'post'].includes(automationType)) {
-        locked.push('post_comment_reply_automation');
+    if (!USE_NEW_GATING) {
+        if (source.private_reply_enabled === false && ['comment', 'post'].includes(automationType)) {
+            locked.push('post_comment_reply_automation');
+        }
+        if (source.private_reply_enabled === false && automationType === 'reel') {
+            locked.push('reel_comment_reply_automation');
+        }
+        if (String(source.template_type || '').trim() === 'template_share_post') {
+            const latestType = String(source.latest_post_type || '').trim().toLowerCase();
+            locked.push(latestType === 'reel' ? 'share_reel_to_dm' : 'share_post_to_dm');
+        }
+        return Array.from(new Set(locked));
     }
-    if (source.private_reply_enabled === false && automationType === 'reel') {
-        locked.push('reel_comment_reply_automation');
+    const hasCommentReply = Boolean(String(source.comment_reply ?? source.comment_reply_text ?? '').trim());
+    const commentReplyFeature = COMMENT_REPLY_FEATURES[automationType] || (automationType === 'global' ? 'post_comment_reply_automation' : '');
+    if (hasCommentReply && commentReplyFeature) {
+        locked.push(commentReplyFeature);
     }
-    if (String(source.template_type || '').trim() === 'template_share_post') {
-        const latestType = String(source.latest_post_type || '').trim().toLowerCase();
-        locked.push(latestType === 'reel' ? 'share_reel_to_dm' : 'share_post_to_dm');
+    const isShareTrigger = String(source.trigger_type || '').trim().toLowerCase() === 'share_to_admin'
+        || source.share_to_admin_enabled === true
+        || String(source.template_type || '').trim() === 'template_share_post';
+    if (isShareTrigger) {
+        locked.push(SHARE_TRIGGER_FEATURES[automationType] || 'share_post_to_dm');
     }
-    return locked;
+    return Array.from(new Set(locked));
 };
 
 const enforceAutomationFeatureAccess = async (databases, userId, payload, options = {}) => {
@@ -212,31 +220,8 @@ const enforceAutomationFeatureAccess = async (databases, userId, payload, option
     const lockedFeatures = Array.from(requestedFeatures).filter((featureKey) => !hasPlanEntitlement(entitlements, featureKey));
     if (lockedFeatures.length === 0) return null;
 
-    const featureLabels = {
-        suggest_more: 'Suggest More',
-        collect_email: 'Collect Email',
-        seen_typing: 'Seen + Typing Reaction',
-        followers_only: 'Followers Only',
-        post_comment_dm_automation: 'Post Comment DM Automation',
-        post_comment_reply_automation: 'Post Comment Reply Automation',
-        reel_comment_dm_automation: 'Reel Comment DM Automation',
-        reel_comment_reply_automation: 'Reel Comment Reply Automation',
-        share_post_to_dm: 'Share Post to DM',
-        share_reel_to_dm: 'Share Reel to DM',
-        dm_automation: 'DM Automation',
-        global_trigger: 'Global Trigger',
-        mentions: 'Mentions',
-        welcome_message: 'Welcome Message',
-        inbox_menu: 'Inbox Menu',
-        convo_starters: 'Convo Starters',
-        story_automation: 'Story Automation',
-        instagram_live_automation: 'Instagram Live Automation',
-        comment_moderation: 'Comment Moderation',
-        super_profile: 'Super Profile'
-    };
-
     return {
-        error: `${lockedFeatures.map((feature) => featureLabels[feature] || feature).join(', ')} is not included in your current plan.`,
+        error: `${lockedFeatures.map((feature) => FEATURE_LABELS[feature] || feature).join(', ')} is not included in your current plan.`,
         field: 'subscription',
         locked_features: lockedFeatures
     };
@@ -2890,17 +2875,25 @@ router.get('/instagram/automations', loginRequired, async (req, res) => {
             }
             return String(doc?.story_scope || 'shown').toLowerCase() === 'shown';
         });
+        const { entitlements } = await loadUserPlanAccess(databases, req.user.$id);
 
         const summaryMode = summary === '1' || summary === 'true';
 
         const automations = documents.map(doc => {
             const parsed = { ...doc };
+            const invalidFeatures = collectLockedAutomationFeatures(parsed)
+                .filter((featureKey) => !hasPlanEntitlement(entitlements, featureKey));
+            const planValidationState = invalidFeatures.length > 0 ? 'invalid_due_to_plan' : 'valid';
             try { if (typeof parsed.keywords === 'string') parsed.keywords = JSON.parse(parsed.keywords); } catch (e) { parsed.keywords = []; }
             if (!summaryMode) {
                 try { if (typeof parsed.buttons === 'string') parsed.buttons = JSON.parse(parsed.buttons); } catch (e) { }
                 try { if (typeof parsed.template_elements === 'string') parsed.template_elements = JSON.parse(parsed.template_elements); } catch (e) { }
                 try { if (typeof parsed.replies === 'string') parsed.replies = JSON.parse(parsed.replies); } catch (e) { }
-                return parsed;
+                return {
+                    ...parsed,
+                    plan_validation_state: planValidationState,
+                    invalid_features: invalidFeatures
+                };
             }
 
             const keywordList = Array.isArray(parsed.keywords)
@@ -2937,7 +2930,9 @@ router.get('/instagram/automations', loginRequired, async (req, res) => {
                 keyword_match_type: parsed.keyword_match_type || 'exact',
                 keyword: keywordList,
                 keywords: keywordList,
-                comment_reply: parsed.comment_reply || ''
+                comment_reply: parsed.comment_reply || '',
+                plan_validation_state: planValidationState,
+                invalid_features: invalidFeatures
             };
         });
 
@@ -2966,6 +2961,11 @@ router.get('/instagram/automations/:id', loginRequired, async (req, res) => {
         if (String(parsed.automation_type || '').toLowerCase() === 'story') {
             parsed.story_scope = 'shown';
         }
+        const { entitlements } = await loadUserPlanAccess(databases, req.user.$id);
+        const invalidFeatures = collectLockedAutomationFeatures(parsed)
+            .filter((featureKey) => !hasPlanEntitlement(entitlements, featureKey));
+        parsed.plan_validation_state = invalidFeatures.length > 0 ? 'invalid_due_to_plan' : 'valid';
+        parsed.invalid_features = invalidFeatures;
 
         res.json(parsed);
     } catch (err) {

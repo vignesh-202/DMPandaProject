@@ -1,0 +1,7 @@
+{
+  "endpoint_configured": true,
+  "project_id_configured": true,
+  "api_key_configured": true,
+  "cli_or_key_auth_check": "ok",
+  "function_count_visible": 10
+}

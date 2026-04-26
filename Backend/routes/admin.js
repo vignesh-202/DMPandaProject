@@ -23,10 +23,13 @@ const { cleanupUserOwnedData } = require('../utils/userCleanup');
 const {
     listPricingPlans,
     getPlanByIdentifier,
+    normalizePlanDocument,
+    resolvePlanEntitlements,
     resolvePlanLimits,
     resolveUserPlanContext,
     getUserSelfMemory,
     BENEFIT_KEYS,
+    benefitFieldForKey,
     parseProfileConfig,
     normalizeBillingCycle,
     normalizeSubscriptionStatus,
@@ -45,6 +48,7 @@ const {
 const { setSessionCookie } = require('../utils/sessionContext');
 const { touchUserActivity } = require('../utils/userActivity');
 const { wrapAdminCampaignEmail } = require('../utils/emailTemplate');
+const sharedPlanFeatures = require('../../shared/planFeatures.json');
 
 const router = express.Router();
 
@@ -209,27 +213,39 @@ const parseFeatures = (raw) => {
     return [];
 };
 
-const normalizePlan = (plan) => ({
-    id: String(plan?.$id || ''),
-    name: String(plan?.name || 'Plan'),
-    plan_code: String(plan?.plan_code || '').trim(),
-    price_monthly_inr: Number(plan?.price_monthly_inr || 0),
-    price_monthly_usd: Number(plan?.price_monthly_usd || 0),
-    price_yearly_inr: Number(plan?.price_yearly_inr || 0),
-    price_yearly_usd: Number(plan?.price_yearly_usd || 0),
-    price_yearly_monthly_inr: Number(plan?.price_yearly_monthly_inr || 0),
-    price_yearly_monthly_usd: Number(plan?.price_yearly_monthly_usd || 0),
-    yearly_bonus: String(plan?.yearly_bonus || ''),
-    is_popular: Boolean(plan?.is_popular),
-    is_custom: Boolean(plan?.is_custom),
-    display_order: Number(plan?.display_order || 0),
-    button_text: String(plan?.button_text || 'Choose Plan'),
-    instagram_connections_limit: Number(plan?.instagram_connections_limit || 0),
-    actions_per_hour_limit: Number(plan?.actions_per_hour_limit || 0),
-    actions_per_day_limit: Number(plan?.actions_per_day_limit || 0),
-    actions_per_month_limit: Number(plan?.actions_per_month_limit || 0),
-    features: parseFeatures(plan?.features)
-});
+const normalizePlan = (plan) => {
+    const normalized = normalizePlanDocument(plan || {});
+    const entitlements = resolvePlanEntitlements(normalized, null);
+    return {
+        id: normalized.id,
+        name: normalized.name,
+        plan_code: normalized.plan_code,
+        price_monthly_inr: normalized.price_monthly_inr,
+        price_monthly_usd: normalized.price_monthly_usd,
+        price_yearly_inr: normalized.price_yearly_inr,
+        price_yearly_usd: normalized.price_yearly_usd,
+        price_yearly_monthly_inr: normalized.price_yearly_monthly_inr,
+        price_yearly_monthly_usd: normalized.price_yearly_monthly_usd,
+        yearly_bonus: normalized.yearly_bonus,
+        is_popular: normalized.is_popular,
+        is_custom: normalized.is_custom,
+        display_order: normalized.display_order,
+        button_text: normalized.button_text,
+        instagram_connections_limit: Number(normalized.instagram_connections_limit || 0),
+        instagram_link_limit: Number(normalized.instagram_link_limit || normalized.instagram_connections_limit || 0),
+        actions_per_hour_limit: Number(normalized.actions_per_hour_limit || 0),
+        actions_per_day_limit: Number(normalized.actions_per_day_limit || 0),
+        actions_per_month_limit: Number(normalized.actions_per_month_limit || 0),
+        features: normalized.features,
+        comparison: normalized.comparison,
+        entitlements,
+        benefits: BENEFIT_KEYS.map((key) => ({
+            key,
+            label: sharedPlanFeatures.featureLabels?.[key] || key,
+            enabled: entitlements[key] === true
+        }))
+    };
+};
 
 const normalizeCouponCode = (value) =>
     String(value || '')
@@ -1931,14 +1947,37 @@ router.get('/users/:userId', loginRequired, adminRequired, async (req, res) => {
         const userId = String(req.params.userId || '').trim();
         const user = await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
         const profile = await getProfileForUser(databases, userId);
-        const instagramAccounts = await recomputeAccountAccessForUser(databases, userId, profile);
-        const effectivePlanResponse = await buildEffectivePlanResponse(databases, userId, user);
+        const [instagramAccounts, effectivePlanResponse, transactionsResponse] = await Promise.all([
+            recomputeAccountAccessForUser(databases, userId, profile),
+            buildEffectivePlanResponse(databases, userId, user),
+            databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
+                Query.equal('userId', userId),
+                Query.limit(250),
+                Query.orderDesc('$createdAt')
+            ]).catch(() => ({ documents: [] }))
+        ]);
+        const transactions = Array.isArray(transactionsResponse?.documents) ? transactionsResponse.documents : [];
+        const successfulTransactions = transactions.filter(isSuccessfulTransaction);
+        const latestSubscribedPlan = successfulTransactions[0]
+            ? {
+                plan_code: normalizePlanCode(successfulTransactions[0]?.planCode || successfulTransactions[0]?.plan_code || successfulTransactions[0]?.planName || successfulTransactions[0]?.plan_name),
+                plan_name: String(successfulTransactions[0]?.planName || successfulTransactions[0]?.plan_name || 'Plan').trim() || 'Plan',
+                transaction_at: successfulTransactions[0]?.transactionDate || successfulTransactions[0]?.created_at || successfulTransactions[0]?.$createdAt || null
+            }
+            : null;
         return ok(res, {
             user,
             profile,
             access_state: buildAccessState(user),
             linked_instagram_accounts: instagramAccounts.length,
             instagram_accounts: instagramAccounts,
+            total_transactions: successfulTransactions.length,
+            latest_subscribed_plan: latestSubscribedPlan,
+            plan_status_help: {
+                value: String(profile?.plan_status || 'inactive').trim() || 'inactive',
+                title: 'Plan status',
+                description: 'This is the live access lifecycle for the effective profile. Active allows paid access, inactive keeps the user on free access, and expired marks a paid term that has ended.'
+            },
             ...effectivePlanResponse
         });
     } catch (error) {
@@ -2358,6 +2397,9 @@ router.patch('/pricing/:planId', loginRequired, adminRequired, async (req, res) 
     try {
         const { databases } = getServices();
         const planId = String(req.params.planId || '').trim();
+        const requestedBenefits = req.body?.benefits && typeof req.body.benefits === 'object'
+            ? req.body.benefits
+            : {};
         const payload = {
             name: String(req.body?.name || 'Plan'),
             plan_code: String(req.body?.plan_code || '').trim(),
@@ -2377,8 +2419,16 @@ router.patch('/pricing/:planId', loginRequired, adminRequired, async (req, res) 
             actions_per_hour_limit: Number(req.body?.actions_per_hour_limit || 0),
             actions_per_day_limit: Number(req.body?.actions_per_day_limit || 0),
             actions_per_month_limit: Number(req.body?.actions_per_month_limit || 0),
-            features: JSON.stringify(Array.isArray(req.body?.features) ? req.body.features : parseFeatures(req.body?.features))
+            features: JSON.stringify(Array.isArray(req.body?.features) ? req.body.features : parseFeatures(req.body?.features)),
+            comparison_json: JSON.stringify(Array.isArray(req.body?.comparison) ? req.body.comparison : [])
         };
+        BENEFIT_KEYS.forEach((key) => {
+            if (Object.prototype.hasOwnProperty.call(requestedBenefits, key)) {
+                payload[benefitFieldForKey(key)] = requestedBenefits[key] === true;
+            } else if (req.body?.entitlements && typeof req.body.entitlements === 'object' && Object.prototype.hasOwnProperty.call(req.body.entitlements, key)) {
+                payload[benefitFieldForKey(key)] = req.body.entitlements[key] === true;
+            }
+        });
         const updated = await databases.updateDocument(APPWRITE_DATABASE_ID, PRICING_COLLECTION_ID, planId, payload);
         return ok(res, { plan: normalizePlan(updated) });
     } catch (error) {

@@ -109,10 +109,12 @@ def wait_for_attribute(databases, collection_id, key, timeout_seconds=45):
 def main():
     parser = argparse.ArgumentParser(description="Ensure pricing/profile benefit boolean attributes.")
     parser.add_argument("--apply", action="store_true", help="Create missing optional benefit boolean attributes.")
+    parser.add_argument("--dry-run", action="store_true", help="Explicitly run in dry-run mode.")
     args = parser.parse_args()
+    should_apply = bool(args.apply) and not bool(args.dry_run)
     require_env()
     databases = build_databases()
-    summary = {"apply": bool(args.apply), "created": [], "existing": [], "failed": []}
+    summary = {"apply": bool(should_apply), "dry_run": not should_apply, "created": [], "existing": [], "failed": []}
 
     for collection_id in COLLECTION_IDS:
         existing = list_attribute_keys(databases, collection_id)
@@ -122,7 +124,7 @@ def main():
             if attribute_key in existing:
                 summary["existing"].append(item)
                 continue
-            if not args.apply:
+            if not should_apply:
                 summary["created"].append({**item, "dry_run": True})
                 continue
             try:
@@ -144,6 +146,7 @@ def main():
 
     print(json.dumps({
         "apply": summary["apply"],
+        "dry_run": summary["dry_run"],
         "created": len(summary["created"]),
         "existing": len(summary["existing"]),
         "failed": len(summary["failed"]),

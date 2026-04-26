@@ -1,0 +1,74 @@
+{
+  "functions": [
+    {
+      "function_id": "audit-media-automations",
+      "latest_deployment": "69edb35d57677c5191db",
+      "before": 1,
+      "removed": 0,
+      "after": 1
+    },
+    {
+      "function_id": "cleanup-logs-chat-state",
+      "latest_deployment": "69edb1954afbfd849f2d",
+      "before": 1,
+      "removed": 0,
+      "after": 1
+    },
+    {
+      "function_id": "on-user-create",
+      "latest_deployment": "69edbde490da1f4ccbc5",
+      "before": 2,
+      "removed": 1,
+      "after": 1
+    },
+    {
+      "function_id": "refresh-instagram-tokens",
+      "latest_deployment": "69edb19a4de0061add2f",
+      "before": 1,
+      "removed": 0,
+      "after": 1
+    },
+    {
+      "function_id": "remind-link-instagram",
+      "latest_deployment": "69edb36033043144bec6",
+      "before": 1,
+      "removed": 0,
+      "after": 1
+    },
+    {
+      "function_id": "remove-instagram",
+      "latest_deployment": "69edbdefe82ef7c2782c",
+      "before": 2,
+      "removed": 1,
+      "after": 1
+    },
+    {
+      "function_id": "reset-user-action-budgets",
+      "latest_deployment": "69edb1a2009fee0d5f37",
+      "before": 1,
+      "removed": 0,
+      "after": 1
+    },
+    {
+      "function_id": "subscription-manager",
+      "latest_deployment": "69edb3633e2853c8c658",
+      "before": 1,
+      "removed": 0,
+      "after": 1
+    },
+    {
+      "function_id": "payment-reminders",
+      "latest_deployment": "69edb366188f995f01af",
+      "before": 1,
+      "removed": 0,
+      "after": 1
+    },
+    {
+      "function_id": "inactive-user-cleanup",
+      "latest_deployment": "69edb368d4ec33d7cee4",
+      "before": 1,
+      "removed": 0,
+      "after": 1
+    }
+  ]
+}

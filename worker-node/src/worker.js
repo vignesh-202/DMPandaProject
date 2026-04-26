@@ -2,6 +2,7 @@ const AppwriteClient = require('./appwrite');
 const InstagramAPI = require('./instagram');
 const AutomationMatcher = require('./matcher');
 const TemplateRenderer = require('./renderer');
+const sharedPlanFeatures = require('../../shared/planFeatures.json');
 const { planWatermark, resolveWatermarkPolicy } = require('./watermark');
 const { deliverCollectedEmail } = require('./emailDestinations');
 
@@ -13,6 +14,49 @@ const AUTOMATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const getTriggerType = (automation) => String(automation?.trigger_type || 'keywords').trim().toLowerCase();
 const isKeywordTrigger = (automation) => getTriggerType(automation) === 'keywords';
 const isAllCommentsTrigger = (automation) => getTriggerType(automation) === 'all_comments';
+const FEATURE_ALIASES = Object.freeze(sharedPlanFeatures.benefitAliases || {});
+const TOGGLE_FEATURE_MAP = Object.freeze(sharedPlanFeatures.toggleFeatureMap || {});
+const AUTOMATION_TYPE_FEATURE_MAP = Object.freeze(sharedPlanFeatures.automationTypeFeatureMap || {});
+const COMMENT_REPLY_FEATURE_MAP = Object.freeze(sharedPlanFeatures.commentReplyFeatureMap || {});
+const SHARE_TRIGGER_FEATURE_MAP = Object.freeze(sharedPlanFeatures.shareTriggerFeatureMap || {});
+const USE_NEW_GATING = String(process.env.USE_NEW_GATING ?? 'true').trim().toLowerCase() !== 'false';
+const LEGACY_TOGGLE_FEATURE_MAP = Object.freeze({
+    suggest_more_enabled: 'suggest_more',
+    collect_email_enabled: 'collect_email',
+    seen_typing_enabled: 'seen_typing',
+    followers_only: 'followers_only'
+});
+const LEGACY_AUTOMATION_TYPE_FEATURE_MAP = Object.freeze({
+    dm: 'dm_automation',
+    global: 'global_trigger',
+    comment: 'post_comment_dm_automation',
+    post: 'post_comment_dm_automation',
+    reel: 'reel_comment_dm_automation',
+    story: 'story_automation',
+    live: 'instagram_live_automation',
+    mention: 'mentions',
+    mentions: 'mentions',
+    welcome_message: 'welcome_message',
+    inbox_menu: 'inbox_menu',
+    convo_starter: 'convo_starters',
+    suggest_more: 'suggest_more',
+    comment_moderation: 'comment_moderation',
+    moderation_hide: 'comment_moderation',
+    moderation_delete: 'comment_moderation'
+});
+
+const normalizeFeatureKey = (value) => String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[+/\s-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+const resolveCanonicalFeatureKey = (value) => {
+    const normalized = normalizeFeatureKey(value);
+    if (!normalized) return '';
+    return FEATURE_ALIASES[normalized] || normalized;
+};
 
 class DMWorker {
     constructor() {
@@ -90,15 +134,11 @@ class DMWorker {
         })();
         const features = { ...parsed };
         let hasExplicitFeatures = Object.keys(parsed).length > 0;
-        const aliases = {
-            post_comment_reply: 'post_comment_reply_automation',
-            reel_comment_reply: 'reel_comment_reply_automation'
-        };
         Object.keys(profile || {}).forEach((key) => {
             if (key.startsWith('benefit_')) {
                 hasExplicitFeatures = true;
                 const rawKey = key.slice('benefit_'.length);
-                features[aliases[rawKey] || rawKey] = profile[key] === true;
+                features[resolveCanonicalFeatureKey(rawKey)] = profile[key] === true;
             }
         });
         features.__hasExplicitFeatures = hasExplicitFeatures;
@@ -108,45 +148,74 @@ class DMWorker {
     _hasPlanFeature(profile, key) {
         const features = this._getProfileFeatures(profile);
         if (features.__hasExplicitFeatures !== true) return true;
-        return features[String(key || '').trim()] === true;
+        return features[resolveCanonicalFeatureKey(key)] === true;
     }
 
     _requiredFeaturesForAutomation(automation) {
         const type = String(automation?.automation_type || 'dm').trim().toLowerCase();
+        const toggleMap = USE_NEW_GATING ? TOGGLE_FEATURE_MAP : LEGACY_TOGGLE_FEATURE_MAP;
+        const typeMap = USE_NEW_GATING ? AUTOMATION_TYPE_FEATURE_MAP : LEGACY_AUTOMATION_TYPE_FEATURE_MAP;
         const required = [];
-        const typeMap = {
-            dm: 'dm_automation',
-            global: 'global_trigger',
-            post: 'post_comment_dm_automation',
-            comment: 'post_comment_dm_automation',
-            reel: 'reel_comment_dm_automation',
-            story: 'story_automation',
-            live: 'instagram_live_automation',
-            mention: 'mentions',
-            mentions: 'mentions',
-            welcome_message: 'welcome_message',
-            inbox_menu: 'inbox_menu',
-            convo_starter: 'convo_starters',
-            suggest_more: 'suggest_more',
-            moderation_hide: 'comment_moderation',
-            moderation_delete: 'comment_moderation'
-        };
         if (typeMap[type]) required.push(typeMap[type]);
-        if (automation?.suggest_more_enabled === true) required.push('suggest_more');
-        if (automation?.collect_email_enabled === true) required.push('collect_email');
-        if (automation?.seen_typing_enabled === true) required.push('seen_typing');
-        if (automation?.followers_only === true) required.push('followers_only');
-        if (String(automation?.template_type || '').trim() === 'template_share_post') {
-            required.push(String(automation?.latest_post_type || '').trim().toLowerCase() === 'reel' ? 'share_reel_to_dm' : 'share_post_to_dm');
+        Object.entries(toggleMap).forEach(([toggleField, featureKey]) => {
+            if (automation?.[toggleField] === true) required.push(featureKey);
+        });
+        if (!USE_NEW_GATING) {
+            if (automation?.private_reply_enabled === false && ['comment', 'post'].includes(type)) {
+                required.push('post_comment_reply_automation');
+            }
+            if (automation?.private_reply_enabled === false && type === 'reel') {
+                required.push('reel_comment_reply_automation');
+            }
+            if (String(automation?.template_type || '').trim() === 'template_share_post') {
+                const latestType = String(automation?.latest_post_type || '').trim().toLowerCase();
+                required.push(latestType === 'reel' ? 'share_reel_to_dm' : 'share_post_to_dm');
+            }
+            return Array.from(new Set(required.map((feature) => resolveCanonicalFeatureKey(feature)).filter(Boolean)));
         }
-        return Array.from(new Set(required));
+        const commentReplyFeature = COMMENT_REPLY_FEATURE_MAP[type] || (type === 'global' ? 'post_comment_reply_automation' : '');
+        if (String(automation?.comment_reply ?? automation?.comment_reply_text ?? '').trim() && commentReplyFeature) {
+            required.push(commentReplyFeature);
+        }
+        const isShareTrigger = getTriggerType(automation) === 'share_to_admin'
+            || automation?.share_to_admin_enabled === true
+            || String(automation?.template_type || '').trim() === 'template_share_post';
+        if (isShareTrigger) {
+            required.push(SHARE_TRIGGER_FEATURE_MAP[type] || 'share_post_to_dm');
+        }
+        return Array.from(new Set(required.map((feature) => resolveCanonicalFeatureKey(feature)).filter(Boolean)));
     }
 
     _isAutomationAllowedByPlan(profile, automation) {
+        if (String(automation?.plan_validation_state || '').trim().toLowerCase() === 'invalid_due_to_plan') {
+            const invalidFeatures = (() => {
+                if (Array.isArray(automation?.invalid_features)) {
+                    return automation.invalid_features;
+                }
+                if (typeof automation?.invalid_features === 'string') {
+                    try {
+                        const parsed = JSON.parse(automation.invalid_features);
+                        return Array.isArray(parsed) ? parsed : [];
+                    } catch {
+                        return [];
+                    }
+                }
+                return [];
+            })();
+            const missing = invalidFeatures
+                .map((feature) => resolveCanonicalFeatureKey(feature))
+                .filter(Boolean);
+            return {
+                allowed: false,
+                missing: missing.length > 0 ? missing : this._requiredFeaturesForAutomation(automation),
+                invalidState: true
+            };
+        }
         const missing = this._requiredFeaturesForAutomation(automation).filter((feature) => !this._hasPlanFeature(profile, feature));
         return {
             allowed: missing.length === 0,
-            missing
+            missing,
+            invalidState: false
         };
     }
 
@@ -160,6 +229,29 @@ class DMWorker {
         } catch (_) {
             console.log('automation_gate', eventType, details);
         }
+    }
+
+    _logBlockedFeatures({ userId, accountId, automation, missingFeatures, reason, eventType }) {
+        const safeMissingFeatures = Array.isArray(missingFeatures)
+            ? Array.from(new Set(missingFeatures.map((item) => String(item || '').trim()).filter(Boolean)))
+            : [];
+        this._logAutomationDecision(eventType, {
+            user_id: userId,
+            account_id: accountId || null,
+            automation_id: automation?.$id || null,
+            automation_type: String(automation?.automation_type || 'dm').trim() || 'dm',
+            reason: String(reason || 'plan_feature_blocked').trim() || 'plan_feature_blocked',
+            missing_features: safeMissingFeatures
+        });
+        safeMissingFeatures.forEach((featureKey) => {
+            this._logAutomationDecision('feature_blocked', {
+                user_id: userId,
+                feature_key: featureKey,
+                reason: String(reason || 'plan_feature_blocked').trim() || 'plan_feature_blocked',
+                account_id: accountId || null,
+                automation_id: automation?.$id || null
+            });
+        });
     }
 
     async _getFreshExecutionGateState(userId, igAccount = null) {
@@ -957,13 +1049,15 @@ class DMWorker {
             lastAutomationType = automationType;
             const planGate = this._isAutomationAllowedByPlan(profile, matchedAutomation);
             if (!planGate.allowed) {
-                this._logAutomationDecision('comment_feature_locked', {
-                    user_id: igAccount.user_id,
-                    account_id: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
-                    automation_id: matchedAutomation.$id || null,
-                    automation_type: automationType,
-                    missing_features: planGate.missing
+                this._logBlockedFeatures({
+                    userId: igAccount.user_id,
+                    accountId: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
+                    automation: matchedAutomation,
+                    missingFeatures: planGate.missing,
+                    reason: planGate.invalidState ? 'invalid_due_to_plan' : 'plan_feature_blocked',
+                    eventType: 'comment_feature_locked'
                 });
+                lastAutomationType = 'invalid_due_to_plan';
                 continue;
             }
 
@@ -1126,14 +1220,15 @@ class DMWorker {
         const automationType = String(matchedAutomation.automation_type || 'mentions').trim() || 'mentions';
         const planGate = this._isAutomationAllowedByPlan(profile, matchedAutomation);
         if (!planGate.allowed) {
-            this._logAutomationDecision('mention_feature_locked', {
-                user_id: igAccount.user_id,
-                account_id: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
-                automation_id: matchedAutomation.$id || null,
-                automation_type: automationType,
-                missing_features: planGate.missing
+            this._logBlockedFeatures({
+                userId: igAccount.user_id,
+                accountId: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
+                automation: matchedAutomation,
+                missingFeatures: planGate.missing,
+                reason: planGate.invalidState ? 'invalid_due_to_plan' : 'plan_feature_blocked',
+                eventType: 'mention_feature_locked'
             });
-            return { handled: false, automationType: 'feature_locked' };
+            return { handled: false, automationType: 'invalid_due_to_plan' };
         }
         if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(conversationState, matchedAutomation.$id)) {
             return { handled: true, automationType };
@@ -1386,16 +1481,17 @@ class DMWorker {
             console.log(`Matched automation: ${matchedAutomation.title || matchedAutomation.$id}`);
             const planGate = this._isAutomationAllowedByPlan(profile, matchedAutomation);
             if (!planGate.allowed) {
-                this._logAutomationDecision('dm_feature_locked', {
-                    user_id: igAccount.user_id,
-                    account_id: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
-                    automation_id: matchedAutomation.$id || null,
-                    automation_type: automationType,
-                    missing_features: planGate.missing
+                this._logBlockedFeatures({
+                    userId: igAccount.user_id,
+                    accountId: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
+                    automation: matchedAutomation,
+                    missingFeatures: planGate.missing,
+                    reason: planGate.invalidState ? 'invalid_due_to_plan' : 'plan_feature_blocked',
+                    eventType: 'dm_feature_locked'
                 });
                 return {
                     handled: false,
-                    automationType: 'feature_locked'
+                    automationType: 'invalid_due_to_plan'
                 };
             }
 

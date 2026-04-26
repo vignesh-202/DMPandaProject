@@ -1,0 +1,254 @@
+{
+  "apply": false,
+  "dry_run": true,
+  "resume": false,
+  "schema_support": {
+    "plan_validation_state": false,
+    "invalid_features": false
+  },
+  "checkpoint": "C:\\Users\\vigan\\PycharmProjects\\DMPandaProject\\reports\\automation-feature-audit.checkpoint.json",
+  "backup": null,
+  "profiles_scanned": 1,
+  "automations_scanned": 26,
+  "invalid_automations": [
+    {
+      "automation_id": "69958cee0020b1d76241",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "New Automation",
+      "automation_type": "dm",
+      "missing_features": [
+        "dm_automation"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "6995907f0037464c84e1",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "New Automation (2)",
+      "automation_type": "dm",
+      "missing_features": [
+        "dm_automation",
+        "share_post_to_dm"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "699594cd000f37ec5c41",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "New Automation 3",
+      "automation_type": "dm",
+      "missing_features": [
+        "dm_automation"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "699596e10018b1769099",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "New Automation 4",
+      "automation_type": "dm",
+      "missing_features": [
+        "dm_automation"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "699596fb002b3313172d",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "New Automation 5",
+      "automation_type": "dm",
+      "missing_features": [
+        "dm_automation"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "6995970e0022be222e7d",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "New Automation 6",
+      "automation_type": "dm",
+      "missing_features": [
+        "dm_automation",
+        "followers_only"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "6996ed310019ed7f4096",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "New Automation test",
+      "automation_type": "dm",
+      "missing_features": [
+        "collect_email",
+        "dm_automation",
+        "suggest_more"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "69974ec9003baf138b5f",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "New Automation",
+      "automation_type": "global",
+      "missing_features": [
+        "global_trigger",
+        "post_comment_reply_automation",
+        "share_post_to_dm",
+        "suggest_more"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "6998a379000f9a2d4da5",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "Welcome Message",
+      "automation_type": "welcome_message",
+      "missing_features": [
+        "followers_only",
+        "share_post_to_dm",
+        "suggest_more"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "699ad87b0036e35f8000",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "hello",
+      "automation_type": "convo_starter",
+      "missing_features": [
+        "share_post_to_dm"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "699be818001b1a884961",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "two",
+      "automation_type": "inbox_menu",
+      "missing_features": [
+        "followers_only"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "699be818002465320b6e",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "three",
+      "automation_type": "inbox_menu",
+      "missing_features": [
+        "followers_only",
+        "share_post_to_dm"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "699ca06a000d871dee11",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "POSTS Automation (18031795967011250)",
+      "automation_type": "post",
+      "missing_features": [
+        "post_comment_reply_automation",
+        "share_post_to_dm"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "699d50fe003b251f57c2",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "POSTS Automation (17954677532119267)",
+      "automation_type": "post",
+      "missing_features": [
+        "collect_email",
+        "followers_only",
+        "post_comment_reply_automation",
+        "share_post_to_dm",
+        "suggest_more"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "699df565001442d38f4e",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "REEL Automation (17858110407590140)",
+      "automation_type": "reel",
+      "missing_features": [
+        "reel_comment_reply_automation"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "69a87b8a000cc7fe9be3",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "POSTS Automation (17945496002402810)",
+      "automation_type": "post",
+      "missing_features": [
+        "collect_email",
+        "followers_only",
+        "post_comment_reply_automation",
+        "share_post_to_dm"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "69b2ffaa0037c39f0f4a",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "LIVE - ALL COMMENTS",
+      "automation_type": "live",
+      "missing_features": [
+        "instagram_live_automation"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "69b3e9890020ef78b2f2",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "LIVE - TEST",
+      "automation_type": "live",
+      "missing_features": [
+        "instagram_live_automation"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "69c3d79f002c9147ca81",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "Suggest More",
+      "automation_type": "suggest_more",
+      "missing_features": [
+        "suggest_more"
+      ],
+      "will_deactivate": false
+    },
+    {
+      "automation_id": "69c3d7bc000421ef89b8",
+      "user_id": "698b809e242a1a0279ae",
+      "account_id": "17841452817679462",
+      "title": "Mentions",
+      "automation_type": "mentions",
+      "missing_features": [
+        "mentions"
+      ],
+      "will_deactivate": false
+    }
+  ],
+  "failures": []
+}

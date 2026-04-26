@@ -1,0 +1,65 @@
+{
+  "functions": [
+    {
+      "function_id": "audit-media-automations",
+      "before": 0,
+      "deleted": 0,
+      "after": 0
+    },
+    {
+      "function_id": "cleanup-logs-chat-state",
+      "before": 0,
+      "deleted": 0,
+      "after": 0
+    },
+    {
+      "function_id": "on-user-create",
+      "before": 2,
+      "deleted": 2,
+      "after": 0
+    },
+    {
+      "function_id": "refresh-instagram-tokens",
+      "before": 0,
+      "deleted": 0,
+      "after": 0
+    },
+    {
+      "function_id": "remind-link-instagram",
+      "before": 0,
+      "deleted": 0,
+      "after": 0
+    },
+    {
+      "function_id": "remove-instagram",
+      "before": 2,
+      "deleted": 2,
+      "after": 0
+    },
+    {
+      "function_id": "reset-user-action-budgets",
+      "before": 0,
+      "deleted": 0,
+      "after": 0
+    },
+    {
+      "function_id": "subscription-manager",
+      "before": 0,
+      "deleted": 0,
+      "after": 0
+    },
+    {
+      "function_id": "payment-reminders",
+      "before": 0,
+      "deleted": 0,
+      "after": 0
+    },
+    {
+      "function_id": "inactive-user-cleanup",
+      "before": 0,
+      "deleted": 0,
+      "after": 0
+    }
+  ],
+  "remaining_total": 0
+}

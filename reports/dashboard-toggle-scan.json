@@ -1,0 +1,151 @@
+{
+  "toggleSwitch": [
+    {
+      "file": "Frontend/src/app/dashboard/ConvoStarterView.tsx",
+      "line": 854,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/ConvoStarterView.tsx",
+      "line": 917,
+      "snippet": "<ToggleSwitch isChecked={Boolean(newItem.suggest_more_enabled)} onChange={() => setNewItem({ ...newItem, suggest_more_enabled: !newItem.suggest_more_enabled })} variant=\"plain\" />"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/ConvoStarterView.tsx",
+      "line": 930,
+      "snippet": "<ToggleSwitch isChecked={Boolean(newItem.once_per_user_24h)} onChange={() => setNewItem({ ...newItem, once_per_user_24h: !newItem.once_per_user_24h })} variant=\"plain\" />"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/ConvoStarterView.tsx",
+      "line": 943,
+      "snippet": "<ToggleSwitch isChecked={Boolean(newItem.collect_email_enabled)} onChange={() => setNewItem({ ...newItem, collect_email_enabled: !newItem.collect_email_enabled })} variant=\"plain\" />"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/ConvoStarterView.tsx",
+      "line": 956,
+      "snippet": "<ToggleSwitch isChecked={Boolean(newItem.seen_typing_enabled)} onChange={() => setNewItem({ ...newItem, seen_typing_enabled: !newItem.seen_typing_enabled })} variant=\"plain\" />"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/DMAutomationView.tsx",
+      "line": 1702,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/DMAutomationView.tsx",
+      "line": 1724,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/DMAutomationView.tsx",
+      "line": 1828,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/DMAutomationView.tsx",
+      "line": 1857,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/DMAutomationView.tsx",
+      "line": 1878,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/DMAutomationView.tsx",
+      "line": 1895,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/DMAutomationView.tsx",
+      "line": 2040,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/DMAutomationView.tsx",
+      "line": 3310,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/GlobalTriggersView.tsx",
+      "line": 605,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/InboxMenu.tsx",
+      "line": 1445,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/InboxMenu.tsx",
+      "line": 1462,
+      "snippet": "<ToggleSwitch isChecked={false} onChange={() => { }} variant=\"plain\" disabled />"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/InboxMenu.tsx",
+      "line": 1475,
+      "snippet": "<ToggleSwitch isChecked={false} onChange={() => { }} variant=\"plain\" disabled />"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/InboxMenu.tsx",
+      "line": 1491,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/layout.tsx",
+      "line": 573,
+      "snippet": "<ToggleSwitch isChecked={isDarkMode} onChange={toggleTheme} />"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/MentionsView.tsx",
+      "line": 373,
+      "snippet": "<ToggleSwitch"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/MentionsView.tsx",
+      "line": 390,
+      "snippet": "<ToggleSwitch isChecked={followersOnly} onChange={() => setFollowersOnly(!followersOnly)} variant=\"plain\" />"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/MentionsView.tsx",
+      "line": 439,
+      "snippet": "<ToggleSwitch isChecked={oncePerUser} onChange={() => setOncePerUser(!oncePerUser)} variant=\"plain\" />"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/MentionsView.tsx",
+      "line": 457,
+      "snippet": "<ToggleSwitch isChecked={collectEmailOnlyGmail} onChange={() => setCollectEmailOnlyGmail(!collectEmailOnlyGmail)} variant=\"plain\" />"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/WelcomeMessageView.tsx",
+      "line": 283,
+      "snippet": "<ToggleSwitch"
+    }
+  ],
+  "lockedFeatureToggle": [
+    {
+      "file": "Frontend/src/app/dashboard/MentionsView.tsx",
+      "line": 418,
+      "snippet": "<LockedFeatureToggle"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/MentionsView.tsx",
+      "line": 442,
+      "snippet": "<LockedFeatureToggle"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/MentionsView.tsx",
+      "line": 465,
+      "snippet": "<LockedFeatureToggle"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/SuggestMoreView.tsx",
+      "line": 260,
+      "snippet": "<LockedFeatureToggle"
+    },
+    {
+      "file": "Frontend/src/app/dashboard/WelcomeMessageView.tsx",
+      "line": 318,
+      "snippet": "<LockedFeatureToggle"
+    }
+  ]
+}

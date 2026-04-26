@@ -7,6 +7,7 @@ import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview'
 import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
 import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
+import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
 import AutomationToast from '../../components/ui/AutomationToast';
@@ -19,7 +20,7 @@ const FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT = "✅ I've Followed";
 
 const WelcomeMessageView: React.FC = () => {
     const { authenticatedFetch } = useAuth();
-    const { activeAccountID, activeAccount, setCurrentView, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, hasPlanFeature } = useDashboard();
+    const { activeAccountID, activeAccount, setCurrentView, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, getPlanGate } = useDashboard();
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -228,6 +229,7 @@ const WelcomeMessageView: React.FC = () => {
     }
 
     const previewItem = buildPreviewAutomationFromTemplate(selectedTemplate);
+    const suggestMoreGate = getPlanGate('suggest_more', 'Upgrade your plan to enable Suggest More on the welcome flow.');
 
     return (
         <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
@@ -313,27 +315,16 @@ const WelcomeMessageView: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                <Sparkles className={`w-5 h-5 ${suggestMoreEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
-                            </div>
-                            <div>
-                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Suggest More</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">
-                                    {hasPlanFeature('suggest_more')
-                                        ? 'Send the Suggest More template right after the welcome reply.'
-                                        : 'Upgrade your plan to enable Suggest More on the welcome flow.'}
-                                </p>
-                            </div>
-                        </div>
-                        <ToggleSwitch
-                            isChecked={suggestMoreEnabled}
-                            onChange={() => hasPlanFeature('suggest_more') ? setSuggestMoreEnabled(!suggestMoreEnabled) : setCurrentView('My Plan')}
-                            variant="plain"
-                            disabled={!hasPlanFeature('suggest_more')}
-                        />
-                    </div>
+                    <LockedFeatureToggle
+                        icon={<Sparkles className={`w-5 h-5 ${suggestMoreEnabled ? 'text-primary' : 'text-muted-foreground'}`} />}
+                        title="Suggest More"
+                        description="Send the Suggest More template right after the welcome reply."
+                        checked={suggestMoreEnabled}
+                        onToggle={() => setSuggestMoreEnabled(!suggestMoreEnabled)}
+                        locked={suggestMoreGate.isLocked}
+                        note={suggestMoreGate.note}
+                        onUpgrade={() => setCurrentView('My Plan')}
+                    />
 
                     <div className="bg-card border border-content rounded-2xl p-6 space-y-4">
                         <div className="flex items-center justify-between">

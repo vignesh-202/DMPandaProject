@@ -1,4 +1,5 @@
 const { Query } = require('node-appwrite');
+const rawSharedPlanFeatures = require('../../shared/planFeatures.json');
 const {
     APPWRITE_DATABASE_ID,
     PRICING_COLLECTION_ID,
@@ -51,54 +52,81 @@ const normalizeFeatureKey = (value) => String(value || '')
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
 
-const BENEFIT_KEYS = Object.freeze([
-    'unlimited_contacts',
-    'post_comment_dm_automation',
-    'post_comment_reply_automation',
-    'reel_comment_dm_automation',
-    'reel_comment_reply_automation',
-    'share_reel_to_dm',
-    'share_post_to_dm',
-    'super_profile',
-    'welcome_message',
-    'convo_starters',
-    'inbox_menu',
-    'dm_automation',
-    'story_automation',
-    'suggest_more',
-    'comment_moderation',
-    'global_trigger',
-    'mentions',
-    'collect_email',
-    'instagram_live_automation',
-    'priority_support',
-    'followers_only',
-    'seen_typing',
-    'no_watermark'
-]);
+const DEFAULT_PLAN_FEATURES = Object.freeze({
+    version: '1.0.0',
+    benefitFieldPrefix: 'benefit_',
+    benefitKeys: [
+        'unlimited_contacts',
+        'post_comment_dm_automation',
+        'post_comment_reply_automation',
+        'reel_comment_dm_automation',
+        'reel_comment_reply_automation',
+        'share_reel_to_dm',
+        'share_post_to_dm',
+        'super_profile',
+        'welcome_message',
+        'convo_starters',
+        'inbox_menu',
+        'dm_automation',
+        'story_automation',
+        'suggest_more',
+        'comment_moderation',
+        'global_trigger',
+        'mentions',
+        'collect_email',
+        'instagram_live_automation',
+        'priority_support',
+        'followers_only',
+        'seen_typing',
+        'no_watermark'
+    ],
+    benefitStorageKeys: {
+        post_comment_reply_automation: 'post_comment_reply',
+        reel_comment_reply_automation: 'reel_comment_reply'
+    },
+    benefitAliases: {
+        post_comment_dm: 'post_comment_dm_automation',
+        post_comment_reply: 'post_comment_reply_automation',
+        reel_comment_dm: 'reel_comment_dm_automation',
+        reel_comment_reply: 'reel_comment_reply_automation',
+        dm_automations: 'dm_automation',
+        mention: 'mentions',
+        email_collector: 'collect_email',
+        webhook_integrations: 'collect_email',
+        seen_typing_indicator: 'seen_typing',
+        no_watermark_branding: 'no_watermark',
+        instagram_connections: 'instagram_connections_limit'
+    },
+    limitKeys: [
+        'instagram_connections_limit',
+        'instagram_link_limit',
+        'actions_per_hour_limit',
+        'actions_per_day_limit',
+        'actions_per_month_limit',
+        'hourly_action_limit',
+        'daily_action_limit',
+        'monthly_action_limit'
+    ]
+});
 
+const EXPECTED_PLAN_FEATURES_VERSION = process.env.PLAN_FEATURES_VERSION || DEFAULT_PLAN_FEATURES.version;
+const SHARED_PLAN_FEATURES_VERSION = String(rawSharedPlanFeatures?.version || '').trim();
+const PLAN_FEATURES_VERSION_MISMATCH = SHARED_PLAN_FEATURES_VERSION && SHARED_PLAN_FEATURES_VERSION !== EXPECTED_PLAN_FEATURES_VERSION;
+if (PLAN_FEATURES_VERSION_MISMATCH) {
+    console.error(
+        `[plan-features] version mismatch detected. expected=${EXPECTED_PLAN_FEATURES_VERSION} actual=${SHARED_PLAN_FEATURES_VERSION}. Falling back to bundled defaults.`
+    );
+}
+const sharedPlanFeatures = PLAN_FEATURES_VERSION_MISMATCH ? DEFAULT_PLAN_FEATURES : {
+    ...DEFAULT_PLAN_FEATURES,
+    ...(rawSharedPlanFeatures || {})
+};
+
+const BENEFIT_KEYS = Object.freeze(sharedPlanFeatures.benefitKeys || DEFAULT_PLAN_FEATURES.benefitKeys);
 const BENEFIT_KEY_SET = new Set(BENEFIT_KEYS);
-const BENEFIT_FIELD_PREFIX = 'benefit_';
-const BENEFIT_ALIASES = Object.freeze({
-    post_comment_dm: 'post_comment_dm_automation',
-    post_comment_reply: 'post_comment_reply_automation',
-    reel_comment_dm: 'reel_comment_dm_automation',
-    reel_comment_reply: 'reel_comment_reply_automation',
-    dm_automations: 'dm_automation',
-    dm_automation: 'dm_automation',
-    auto_reply_dm_keywords: 'dm_automation',
-    story_mentions_custom_dm: 'mentions',
-    mention: 'mentions',
-    email_collector: 'collect_email',
-    webhook_integrations: 'collect_email',
-    seen_typing_indicator: 'seen_typing',
-    no_watermark_branding: 'no_watermark',
-    instagram_connections: 'instagram_connections_limit'
-});
-const BENEFIT_STORAGE_KEYS = Object.freeze({
-    post_comment_reply_automation: 'post_comment_reply',
-    reel_comment_reply_automation: 'reel_comment_reply'
-});
+const BENEFIT_FIELD_PREFIX = sharedPlanFeatures.benefitFieldPrefix || DEFAULT_PLAN_FEATURES.benefitFieldPrefix;
+const BENEFIT_ALIASES = Object.freeze(sharedPlanFeatures.benefitAliases || DEFAULT_PLAN_FEATURES.benefitAliases);
+const BENEFIT_STORAGE_KEYS = Object.freeze(sharedPlanFeatures.benefitStorageKeys || DEFAULT_PLAN_FEATURES.benefitStorageKeys);
 
 const benefitFieldForKey = (key) => `${BENEFIT_FIELD_PREFIX}${BENEFIT_STORAGE_KEYS[key] || key}`;
 
@@ -139,16 +167,7 @@ const RESERVED_PROFILE_CONFIG_KEYS = new Set([
     '__limit_overrides',
     '__paid_plan_snapshot'
 ]);
-const LIMIT_ENTITLEMENT_KEYS = new Set([
-    'instagram_connections_limit',
-    'instagram_link_limit',
-    'actions_per_hour_limit',
-    'actions_per_day_limit',
-    'actions_per_month_limit',
-    'hourly_action_limit',
-    'daily_action_limit',
-    'monthly_action_limit'
-]);
+const LIMIT_ENTITLEMENT_KEYS = new Set(sharedPlanFeatures.limitKeys || DEFAULT_PLAN_FEATURES.limitKeys);
 
 const DEFAULT_FREE_PROFILE_LIMITS = Object.freeze({
     instagram_connections_limit: 0,
@@ -260,9 +279,15 @@ const buildPlanEntitlements = (comparison, planDocument = null) => {
         acc[key] = normalizeBooleanEntitlement(item?.value);
         return acc;
     }, {});
+    const featureListEntitlements = parseJsonArray(planDocument?.features).reduce((acc, item) => {
+        const key = normalizeBenefitKey(item);
+        if (!key || LIMIT_ENTITLEMENT_KEYS.has(key)) return acc;
+        acc[key] = true;
+        return acc;
+    }, {});
     const booleanAttributes = extractBenefitAttributes(planDocument || {});
     return BENEFIT_KEYS.reduce((acc, key) => {
-        acc[key] = Boolean(booleanAttributes[key] ?? entitlements[key] ?? false);
+        acc[key] = Boolean(booleanAttributes[key] ?? entitlements[key] ?? featureListEntitlements[key] ?? false);
         return acc;
     }, {});
 };
@@ -479,12 +504,22 @@ const parseProfileConfig = (profile) => {
         return acc;
     }, {});
 
+    const featureOverrides = Object.entries({
+        ...legacyFeatureOverrides,
+        ...rawFeatureOverrides
+    }).reduce((acc, [key, value]) => {
+        const rawKey = String(key || '').trim();
+        if (!rawKey || rawKey.startsWith('__')) return acc;
+        const normalizedKey = normalizeFeatureKey(rawKey);
+        if (!normalizedKey || normalizedKey.startsWith('__')) return acc;
+        if (normalizedKey === 'paid_plan_snapshot' || normalizedKey === 'feature_overrides' || normalizedKey === 'limit_overrides') return acc;
+        acc[normalizedKey] = value;
+        return acc;
+    }, {});
+
     return {
         raw: parsed,
-        feature_overrides: {
-            ...legacyFeatureOverrides,
-            ...rawFeatureOverrides
-        },
+        feature_overrides: featureOverrides,
         limit_overrides: rawLimitOverrides,
         paid_plan_snapshot: paidPlanSnapshot && typeof paidPlanSnapshot === 'object'
             ? paidPlanSnapshot

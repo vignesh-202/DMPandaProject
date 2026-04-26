@@ -1,5 +1,6 @@
 const { Client, Databases, Query, ID } = require('node-appwrite');
 require('dotenv').config();
+const { withAppwriteRetry } = require('./appwriteSafety');
 
 const CHAT_STATES_COLLECTION_ID = process.env.CHAT_STATES_COLLECTION_ID || 'chat_states';
 const AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID = process.env.AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID || 'automation_collect_destinations';
@@ -140,24 +141,33 @@ class AppwriteClient {
 
     async getIGAccount(accountId) {
         try {
-            let response = await this.databases.listDocuments(
+            let response = await withAppwriteRetry(() => this.databases.listDocuments(
                 this.databaseId,
                 process.env.IG_ACCOUNTS_COLLECTION_ID,
                 [Query.equal('ig_user_id', accountId)]
-            );
+            ), {
+                operationName: 'get_ig_account_by_ig_user_id',
+                context: { account_id: accountId }
+            });
             if (response.documents.length === 0) {
-                response = await this.databases.listDocuments(
+                response = await withAppwriteRetry(() => this.databases.listDocuments(
                     this.databaseId,
                     process.env.IG_ACCOUNTS_COLLECTION_ID,
                     [Query.equal('account_id', accountId)]
-                );
+                ), {
+                    operationName: 'get_ig_account_by_account_id',
+                    context: { account_id: accountId }
+                });
             }
             if (response.documents.length === 0) {
-                response = await this.databases.listDocuments(
+                response = await withAppwriteRetry(() => this.databases.listDocuments(
                     this.databaseId,
                     process.env.IG_ACCOUNTS_COLLECTION_ID,
                     [Query.equal('ig_user_id', accountId)]
-                );
+                ), {
+                    operationName: 'retry_get_ig_account_by_ig_user_id',
+                    context: { account_id: accountId }
+                });
             }
             return response.documents.length > 0 ? this._normalizeAccountAccess(response.documents[0]) : null;
         } catch (error) {
@@ -173,7 +183,7 @@ class AppwriteClient {
             if (normalizedAccountIds.length === 0) return [];
             if (normalizedTypes.length === 0) return [];
 
-            const response = await this.databases.listDocuments(
+            const response = await withAppwriteRetry(() => this.databases.listDocuments(
                 this.databaseId,
                 process.env.AUTOMATIONS_COLLECTION_ID,
                 [
@@ -181,7 +191,10 @@ class AppwriteClient {
                     Query.equal('automation_type', normalizedTypes),
                     Query.equal('is_active', true)
                 ]
-            );
+            ), {
+                operationName: 'get_active_automations',
+                context: { account_ids: normalizedAccountIds, automation_types: normalizedTypes }
+            });
             return response.documents.map((document) => this._normalizeAutomation(document));
         } catch (error) {
             console.error(`Error fetching automations for ${JSON.stringify(accountIds)}:`, error);
@@ -194,7 +207,7 @@ class AppwriteClient {
             const normalizedAccountIds = this.normalizeAccountIds(accountIds);
             if (normalizedAccountIds.length === 0) return null;
 
-            const response = await this.databases.listDocuments(
+            const response = await withAppwriteRetry(() => this.databases.listDocuments(
                 this.databaseId,
                 process.env.AUTOMATIONS_COLLECTION_ID,
                 [
@@ -203,7 +216,10 @@ class AppwriteClient {
                     Query.equal('is_active', true),
                     Query.limit(1)
                 ]
-            );
+            ), {
+                operationName: 'get_active_config_automation',
+                context: { account_ids: normalizedAccountIds, automation_type: automationType }
+            });
             return response.documents[0] ? this._normalizeAutomation(response.documents[0]) : null;
         } catch (error) {
             console.error(
@@ -411,11 +427,14 @@ class AppwriteClient {
 
     async getProfile(userId) {
         try {
-            const response = await this.databases.listDocuments(
+            const response = await withAppwriteRetry(() => this.databases.listDocuments(
                 this.databaseId,
                 process.env.PROFILES_COLLECTION_ID || 'profiles',
                 [Query.equal('user_id', String(userId)), Query.limit(1)]
-            );
+            ), {
+                operationName: 'get_profile',
+                context: { user_id: userId }
+            });
             return response.documents[0] || null;
         } catch (error) {
             console.error(`Error fetching profile ${userId}:`, error);
@@ -425,11 +444,14 @@ class AppwriteClient {
 
     async getUser(userId) {
         try {
-            return await this.databases.getDocument(
+            return await withAppwriteRetry(() => this.databases.getDocument(
                 this.databaseId,
                 process.env.USERS_COLLECTION_ID || 'users',
                 String(userId || '').trim()
-            );
+            ), {
+                operationName: 'get_user',
+                context: { user_id: userId }
+            });
         } catch (error) {
             console.error(`Error fetching user ${userId}:`, error);
             return null;

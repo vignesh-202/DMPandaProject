@@ -33,7 +33,11 @@ type PricingPlan = {
   actions_per_hour_limit?: number;
   actions_per_day_limit?: number;
   actions_per_month_limit?: number;
+  instagram_link_limit?: number;
   features: string[];
+  comparison?: Array<{ key?: string; label?: string; value?: boolean | string | number }>;
+  entitlements?: Record<string, boolean>;
+  benefits?: Array<{ key: string; label: string; enabled: boolean }>;
 };
 
 const surfaceClass = 'glass-card rounded-[32px] border border-border/70 bg-card/95 shadow-[0_22px_65px_rgba(15,23,42,0.07)]';
@@ -58,6 +62,7 @@ const numericFields: Array<{ key: keyof PricingPlan; label: string }> = [
   { key: 'price_yearly_monthly_inr', label: 'Yearly monthly INR' },
   { key: 'price_yearly_monthly_usd', label: 'Yearly monthly USD' },
   { key: 'instagram_connections_limit', label: 'Instagram accounts' },
+  { key: 'instagram_link_limit', label: 'Linked account slots' },
   { key: 'actions_per_hour_limit', label: 'Actions per hour' },
   { key: 'actions_per_day_limit', label: 'Actions per day' },
   { key: 'actions_per_month_limit', label: 'Actions per month' },
@@ -195,6 +200,27 @@ export const PricingPage: React.FC = () => {
     );
   };
 
+  const toggleBenefit = (planId: string, benefitKey: string) => {
+    setPlans((current) =>
+      current.map((plan) => {
+        if (plan.id !== planId) return plan;
+        const currentEnabled = plan.entitlements?.[benefitKey] === true;
+        const nextEntitlements = {
+          ...(plan.entitlements || {}),
+          [benefitKey]: !currentEnabled
+        };
+        const nextBenefits = (plan.benefits || []).map((benefit) =>
+          benefit.key === benefitKey ? { ...benefit, enabled: !currentEnabled } : benefit
+        );
+        return {
+          ...plan,
+          entitlements: nextEntitlements,
+          benefits: nextBenefits
+        };
+      })
+    );
+  };
+
   const addFeature = (planId: string) => {
     setPlans((current) =>
       current.map((plan) => (plan.id === planId ? { ...plan, features: [...(plan.features || []), ''] } : plan))
@@ -227,7 +253,13 @@ export const PricingPage: React.FC = () => {
     try {
       await httpClient.patch(`/api/admin/pricing/${plan.id}`, {
         ...plan,
-        features: (plan.features || []).map((item) => item.trim()).filter(Boolean)
+        features: (plan.features || []).map((item) => item.trim()).filter(Boolean),
+        benefits: (plan.benefits || []).reduce<Record<string, boolean>>((acc, benefit) => {
+          acc[benefit.key] = benefit.enabled === true;
+          return acc;
+        }, {}),
+        entitlements: plan.entitlements || {},
+        comparison: plan.comparison || []
       });
       await loadPlans();
     } catch (error) {
@@ -513,6 +545,41 @@ export const PricingPage: React.FC = () => {
                           />
                         ))
                       )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[30px] border border-border/70 bg-background/60 p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Plan benefits</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Turn each runtime entitlement on or off for this plan.</p>
+                      </div>
+                      <span className="rounded-full border border-border/70 bg-card/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                        {(plan.benefits || []).filter((benefit) => benefit.enabled).length} enabled
+                      </span>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {(plan.benefits || []).map((benefit) => (
+                        <button
+                          key={`${plan.id}-${benefit.key}`}
+                          type="button"
+                          onClick={() => toggleBenefit(plan.id, benefit.key)}
+                          className={`rounded-[22px] border px-4 py-4 text-left transition ${
+                            benefit.enabled
+                              ? 'border-primary/30 bg-primary/10 text-foreground shadow-sm'
+                              : 'border-border/70 bg-card/80 text-muted-foreground hover:border-primary/20 hover:text-foreground'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs font-extrabold">{benefit.label}</p>
+                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${benefit.enabled ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                              {benefit.enabled ? 'On' : 'Off'}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-[11px]">{benefit.key}</p>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>

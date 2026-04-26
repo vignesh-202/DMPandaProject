@@ -1,7 +1,7 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Calendar, Download, Loader2, RefreshCw, Clock3, UserCircle2, ChevronDown } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Calendar, Download, Loader2, RefreshCw, Clock3, UserCircle2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import Card from '../../components/ui/card';
 import Gauge from '../../components/ui/gauge';
@@ -39,14 +39,6 @@ const formatDateTime = (raw: string): string => {
 };
 
 const clampPercent = (value: number): number => Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
-
-const TRAFFIC_WINDOWS = [
-    { value: '24h', label: 'Last 24 hrs' },
-    { value: '7d', label: 'Last 7 days' },
-    { value: '14d', label: 'Last 14 days' },
-    { value: '21d', label: 'Last 21 days' },
-    { value: '30d', label: 'Last 30 days' }
-] as const;
 
 const statusClasses = (status: string): string => {
     const normalized = String(status || '').toLowerCase();
@@ -363,7 +355,9 @@ const AnalyticsView: React.FC = () => {
         activeAccount,
         planLimits,
         analyticsDateRange,
-        setAnalyticsDateRange
+        setAnalyticsDateRange,
+        analyticsCache,
+        setAnalyticsCache
     } = useDashboard();
     const { authenticatedFetch } = useAuth();
 
@@ -374,13 +368,18 @@ const AnalyticsView: React.FC = () => {
     const [downloadingCsv, setDownloadingCsv] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [pieProgress, setPieProgress] = useState(0);
-    const [trafficWindow, setTrafficWindow] = useState<(typeof TRAFFIC_WINDOWS)[number]['value']>('24h');
-    const [trafficMenuOpen, setTrafficMenuOpen] = useState(false);
-    const trafficMenuRef = useRef<HTMLDivElement | null>(null);
+    const analyticsCacheKey = useMemo(
+        () => `${String(activeAccountID || 'none')}:${analyticsDateRange.start}:${analyticsDateRange.end}:activity-log`,
+        [activeAccountID, analyticsDateRange.end, analyticsDateRange.start]
+    );
 
-    const fetchLogs = useCallback(async () => {
+    const fetchLogs = useCallback(async (force = false) => {
         if (!activeAccountID) {
             setLogs([]);
+            return;
+        }
+        if (!force && Array.isArray(analyticsCache?.[analyticsCacheKey]?.logs)) {
+            setLogs(analyticsCache[analyticsCacheKey].logs);
             return;
         }
         setLoadingLogs(true);
@@ -391,24 +390,47 @@ const AnalyticsView: React.FC = () => {
                 end_date: analyticsDateRange.end,
                 limit: '200'
             });
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automation-activity-log?${params.toString()}`);
+            let res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automation-activity-log?${params.toString()}`);
+            if (!res.ok) {
+                res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automation-activity-log?${params.toString()}`);
+            }
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
                 throw new Error(body?.error || 'Failed to fetch automation activity log.');
             }
             const data = await res.json();
-            setLogs(Array.isArray(data?.logs) ? data.logs : []);
+            const nextLogs = Array.isArray(data?.logs) ? data.logs : [];
+            setLogs(nextLogs);
+            setAnalyticsCache((prev) => ({
+                ...prev,
+                [analyticsCacheKey]: {
+                    ...(prev?.[analyticsCacheKey] || {}),
+                    logs: nextLogs,
+                    cached_at: Date.now()
+                }
+            }));
+        } catch (error) {
+            setLogs([]);
+            setAnalyticsCache((prev) => ({
+                ...prev,
+                [analyticsCacheKey]: {
+                    ...(prev?.[analyticsCacheKey] || {}),
+                    logs: [],
+                    cached_at: Date.now()
+                }
+            }));
+            throw error;
         } finally {
             setLoadingLogs(false);
         }
-    }, [activeAccountID, analyticsDateRange.end, analyticsDateRange.start, authenticatedFetch]);
+    }, [activeAccountID, analyticsCache, analyticsCacheKey, analyticsDateRange.end, analyticsDateRange.start, authenticatedFetch, setAnalyticsCache]);
 
     const fetchAll = useCallback(async (mode: 'initial' | 'refresh' = 'refresh') => {
         if (mode === 'initial') setInitialLoading(true);
         else setRefreshingAll(true);
         setError(null);
         try {
-            await fetchLogs();
+            await fetchLogs(mode === 'refresh');
         } catch (err: any) {
             setError(String(err?.message || 'Failed to load analytics.'));
         } finally {
@@ -427,19 +449,6 @@ const AnalyticsView: React.FC = () => {
         const id = window.setTimeout(() => setPieProgress(1), 80);
         return () => window.clearTimeout(id);
     }, [logs, initialLoading]);
-
-    useEffect(() => {
-        if (!trafficMenuOpen) return;
-
-        const handlePointerDown = (event: MouseEvent) => {
-            if (trafficMenuRef.current && !trafficMenuRef.current.contains(event.target as Node)) {
-                setTrafficMenuOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handlePointerDown);
-        return () => document.removeEventListener('mousedown', handlePointerDown);
-    }, [trafficMenuOpen]);
 
     const metrics = useMemo(() => {
         const total = logs.length;
@@ -543,10 +552,18 @@ const AnalyticsView: React.FC = () => {
     }, [logs, planLimits.daily_action_limit, planLimits.hourly_action_limit, planLimits.monthly_action_limit]);
 
     const trafficData = useMemo(() => {
-        const now = new Date();
-        if (trafficWindow === '24h') {
+        const start = new Date(`${analyticsDateRange.start}T00:00:00`);
+        const end = new Date(`${analyticsDateRange.end}T23:59:59.999`);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return [];
+        }
+
+        const rangeMs = Math.max(0, end.getTime() - start.getTime());
+        const rangeDays = Math.max(1, Math.ceil(rangeMs / (24 * 60 * 60 * 1000)));
+
+        if (rangeDays <= 1) {
             const buckets = Array.from({ length: 24 }, (_, idx) => {
-                const date = new Date(now.getTime() - (23 - idx) * 60 * 60 * 1000);
+                const date = new Date(start.getTime() + idx * 60 * 60 * 1000);
                 return {
                     label: date.toLocaleTimeString([], { hour: 'numeric' }),
                     count: 0
@@ -558,22 +575,17 @@ const AnalyticsView: React.FC = () => {
                 if (!raw) return;
                 const ts = new Date(raw).getTime();
                 if (Number.isNaN(ts)) return;
-                const diffHours = Math.floor((now.getTime() - ts) / (60 * 60 * 1000));
-                if (diffHours < 0 || diffHours > 23) return;
-                const idx = 23 - diffHours;
+                if (ts < start.getTime() || ts > end.getTime()) return;
+                const idx = Math.floor((ts - start.getTime()) / (60 * 60 * 1000));
                 if (buckets[idx]) buckets[idx].count += 1;
             });
 
             return buckets;
         }
 
-        const totalDays = Number(trafficWindow.replace('d', '')) || 7;
-        const endOfToday = new Date(now);
-        endOfToday.setHours(23, 59, 59, 999);
-        const buckets = Array.from({ length: totalDays }, (_, idx) => {
-            const date = new Date(endOfToday);
-            date.setHours(0, 0, 0, 0);
-            date.setDate(date.getDate() - (totalDays - 1 - idx));
+        const buckets = Array.from({ length: rangeDays }, (_, idx) => {
+            const date = new Date(start);
+            date.setDate(date.getDate() + idx);
             return {
                 label: date.toLocaleDateString([], { day: '2-digit', month: 'short' }),
                 count: 0,
@@ -592,9 +604,17 @@ const AnalyticsView: React.FC = () => {
         });
 
         return buckets.map(({ label, count }) => ({ label, count }));
-    }, [logs, trafficWindow]);
+    }, [analyticsDateRange.end, analyticsDateRange.start, logs]);
 
-    const selectedTrafficWindow = TRAFFIC_WINDOWS.find((item) => item.value === trafficWindow)?.label || 'Last 24 hrs';
+    const selectedTrafficWindow = useMemo(() => {
+        const start = new Date(`${analyticsDateRange.start}T00:00:00`);
+        const end = new Date(`${analyticsDateRange.end}T00:00:00`);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return 'Selected range';
+        }
+        const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1);
+        return days <= 1 ? 'Hourly activity for selected day' : `Daily activity for ${days} day${days === 1 ? '' : 's'}`;
+    }, [analyticsDateRange.end, analyticsDateRange.start]);
 
     const failureReasonSummary = useMemo(() => {
         const failedLogs = logs.filter((row) => String(row.status || '').toLowerCase() === 'failed');
@@ -729,93 +749,18 @@ const AnalyticsView: React.FC = () => {
                 />
             </div>
 
-            <DonutChartCard
-                eyebrow="Performance Split"
-                title="Automation Success vs Failure"
-                description="Hover any slice to inspect that outcome count in the center."
-                segments={performanceSegments}
-                progress={pieProgress}
-                defaultCenterTitle="Success Rate"
-                defaultCenterValue={`${metrics.successRate.toFixed(0)}%`}
-                defaultCenterCaption={`${formatNumber(metrics.total)} total logs`}
-            />
-
-            <DonutChartCard
-                eyebrow="Automation Mix"
-                title="Automation Count by Type"
-                description="A matching pie chart showing how your activity logs are distributed across automation types."
-                segments={automationTypeSegments}
-                progress={pieProgress}
-                defaultCenterTitle="Automation Types"
-                defaultCenterValue={formatNumber(automationTypeSegments.length)}
-                defaultCenterCaption={`${formatNumber(metrics.total)} total logs`}
-            />
-
             <Card className="p-6 border border-content rounded-3xl bg-card/95">
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">Automation Traffic</p>
                         <h2 className="mt-1 text-xl font-black text-foreground">{selectedTrafficWindow}</h2>
                         <p className="text-xs text-muted-foreground">
-                            {trafficWindow === '24h' ? 'Hourly automation activity volume.' : 'Daily automation activity volume.'}
+                            This chart now follows the same selected date range as the pie charts and automation log.
                         </p>
                     </div>
-                    <div ref={trafficMenuRef} className="w-full sm:max-w-[220px]">
-                        <span className="mb-2 inline-flex text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Period</span>
-                        <div className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setTrafficMenuOpen((current) => !current)}
-                                className="group relative flex h-11 w-full items-center justify-between overflow-hidden rounded-2xl border border-border/80 bg-background/90 px-3.5 text-left shadow-[0_12px_28px_-24px_rgba(15,23,42,0.7)] transition-all hover:border-primary/35 hover:bg-card dark:bg-slate-950/70 dark:hover:bg-slate-900/90"
-                            >
-                                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.08),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.10),transparent_36%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.10),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(129,140,248,0.12),transparent_36%)]" />
-                                <div className="relative min-w-0 pr-2">
-                                    <p className="truncate text-[11px] font-black uppercase tracking-[0.16em] text-foreground transition-colors group-hover:text-primary">
-                                        {selectedTrafficWindow}
-                                    </p>
-                                </div>
-                                <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-xl border border-border/70 bg-card/80 transition-colors group-hover:border-primary/35 dark:bg-slate-900/80">
-                                    <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${trafficMenuOpen ? 'rotate-180 text-primary' : ''}`} />
-                                </span>
-                            </button>
-                            {trafficMenuOpen && (
-                                <>
-                                    <div className="fixed inset-0 z-10" onClick={() => setTrafficMenuOpen(false)} />
-                                    <div className="absolute right-0 z-20 mt-2 w-full overflow-hidden rounded-[1.35rem] border border-border/80 bg-card/98 p-1.5 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.72)] backdrop-blur-xl">
-                                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.08),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_34%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.10),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(129,140,248,0.14),transparent_38%)]" />
-                                        <div className="relative space-y-1">
-                                            {TRAFFIC_WINDOWS.map((option) => {
-                                                const active = option.value === trafficWindow;
-
-                                                return (
-                                                    <button
-                                                        key={option.value}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setTrafficWindow(option.value);
-                                                            setTrafficMenuOpen(false);
-                                                        }}
-                                                        className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-all ${
-                                                            active
-                                                                ? 'bg-primary text-primary-foreground shadow-[0_18px_34px_-24px_rgba(99,102,241,0.9)]'
-                                                                : 'text-foreground hover:bg-background/80 hover:text-primary'
-                                                        }`}
-                                                    >
-                                                        <div>
-                                                            <p className="text-[10px] font-black uppercase tracking-[0.14em]">{option.label}</p>
-                                                            <p className={`mt-0.5 text-[9px] ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                                                                {option.value === '24h' ? 'Hourly activity view' : 'Daily activity view'}
-                                                            </p>
-                                                        </div>
-                                                        <span className={`h-2 w-2 rounded-full ${active ? 'bg-primary-foreground' : 'bg-primary/40'}`} />
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                    <div className="rounded-2xl border border-content/70 bg-background/70 px-4 py-3 text-right">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>
+                        <p className="mt-1 text-xs font-bold text-foreground">{analyticsDateRange.start} to {analyticsDateRange.end}</p>
                     </div>
                 </div>
                 <div className="h-[260px]">
@@ -854,6 +799,28 @@ const AnalyticsView: React.FC = () => {
                     </ResponsiveContainer>
                 </div>
             </Card>
+
+            <DonutChartCard
+                eyebrow="Performance Split"
+                title="Automation Success vs Failure"
+                description="Hover any slice to inspect that outcome count in the center."
+                segments={performanceSegments}
+                progress={pieProgress}
+                defaultCenterTitle="Success Rate"
+                defaultCenterValue={`${metrics.successRate.toFixed(0)}%`}
+                defaultCenterCaption={`${formatNumber(metrics.total)} total logs`}
+            />
+
+            <DonutChartCard
+                eyebrow="Automation Mix"
+                title="Automation Count by Type"
+                description="A matching pie chart showing how your activity logs are distributed across automation types."
+                segments={automationTypeSegments}
+                progress={pieProgress}
+                defaultCenterTitle="Automation Types"
+                defaultCenterValue={formatNumber(automationTypeSegments.length)}
+                defaultCenterCaption={`${formatNumber(metrics.total)} total logs`}
+            />
 
             <Card className="relative overflow-hidden p-0 border border-content rounded-3xl bg-gradient-to-br from-slate-500/10 via-zinc-500/5 to-sky-500/10">
                 <div className="absolute -right-12 -top-12 w-40 h-40 rounded-full bg-sky-500/20 blur-3xl" />

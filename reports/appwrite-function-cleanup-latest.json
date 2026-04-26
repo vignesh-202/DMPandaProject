@@ -1,0 +1,75 @@
+﻿{
+    "generated_at":  "2026-04-26T07:04:29.6992139Z",
+    "rows":  [
+                 {
+                     "function_id":  "audit-media-automations",
+                     "deployments_before":  1,
+                     "deployments_after":  1,
+                     "executions_before":  352,
+                     "executions_after":  347
+                 },
+                 {
+                     "function_id":  "cleanup-logs-chat-state",
+                     "deployments_before":  1,
+                     "deployments_after":  1,
+                     "executions_before":  63,
+                     "executions_after":  58
+                 },
+                 {
+                     "function_id":  "on-user-create",
+                     "deployments_before":  1,
+                     "deployments_after":  1,
+                     "executions_before":  7,
+                     "executions_after":  7
+                 },
+                 {
+                     "function_id":  "refresh-instagram-tokens",
+                     "deployments_before":  1,
+                     "deployments_after":  1,
+                     "executions_before":  6,
+                     "executions_after":  6
+                 },
+                 {
+                     "function_id":  "remind-link-instagram",
+                     "deployments_before":  1,
+                     "deployments_after":  1,
+                     "executions_before":  350,
+                     "executions_after":  345
+                 },
+                 {
+                     "function_id":  "remove-instagram",
+                     "deployments_before":  1,
+                     "deployments_after":  1,
+                     "executions_before":  7,
+                     "executions_after":  7
+                 },
+                 {
+                     "function_id":  "reset-user-action-budgets",
+                     "deployments_before":  1,
+                     "deployments_after":  1,
+                     "executions_before":  350,
+                     "executions_after":  345
+                 },
+                 {
+                     "function_id":  "subscription-manager",
+                     "deployments_before":  1,
+                     "deployments_after":  1,
+                     "executions_before":  143,
+                     "executions_after":  138
+                 },
+                 {
+                     "function_id":  "payment-reminders",
+                     "deployments_before":  1,
+                     "deployments_after":  1,
+                     "executions_before":  73,
+                     "executions_after":  68
+                 },
+                 {
+                     "function_id":  "inactive-user-cleanup",
+                     "deployments_before":  1,
+                     "deployments_after":  1,
+                     "executions_before":  6,
+                     "executions_after":  6
+                 }
+             ]
+}
