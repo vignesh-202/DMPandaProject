@@ -38,6 +38,15 @@ const TRAFFIC_WINDOWS = [
     { value: '30d', label: '30 days' }
 ] as const;
 
+const TRAFFIC_WINDOW_DETAILS: Record<(typeof TRAFFIC_WINDOWS)[number]['value'], string> = {
+    '24h': 'Hourly view',
+    '3d': 'Short trend',
+    '7d': 'Weekly view',
+    '14d': 'Biweekly view',
+    '21d': 'Growth pulse',
+    '30d': 'Monthly view'
+};
+
 type PieDatum = { name: string; value: number };
 
 const moneyFormatter = new Intl.NumberFormat('en-IN', {
@@ -95,6 +104,65 @@ const ChartTooltip = ({
                     </div>
                 ))}
             </div>
+        </div>
+    );
+};
+
+const GraphFilterDropdown = ({
+    value,
+    onChange
+}: {
+    value: (typeof TRAFFIC_WINDOWS)[number]['value'];
+    onChange: (next: (typeof TRAFFIC_WINDOWS)[number]['value']) => void;
+}) => {
+    const [open, setOpen] = useState(false);
+    const selected = TRAFFIC_WINDOWS.find((option) => option.value === value) || TRAFFIC_WINDOWS[0];
+
+    return (
+        <div className="relative min-w-[198px]">
+            <button
+                type="button"
+                onClick={() => setOpen((current) => !current)}
+                className="flex w-full items-center justify-between gap-3 rounded-[1.35rem] border border-primary/30 bg-[linear-gradient(135deg,rgba(56,189,248,0.18),rgba(99,102,241,0.16)_52%,rgba(15,23,42,0.06))] px-4 py-3 text-left shadow-[0_24px_44px_-30px_rgba(14,165,233,0.55)] backdrop-blur-xl transition-all hover:border-primary/45 hover:shadow-[0_26px_52px_-30px_rgba(99,102,241,0.45)]"
+            >
+                <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/80">Graph Window</p>
+                    <p className="mt-1 text-sm font-black text-foreground">{selected.label}</p>
+                    <p className="mt-1 text-[11px] font-medium text-muted-foreground">{TRAFFIC_WINDOW_DETAILS[selected.value]}</p>
+                </div>
+                <ChevronDown className={`h-4 w-4 shrink-0 text-primary transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+
+            {open && (
+                <div className="absolute right-0 top-[calc(100%+0.6rem)] z-30 w-full overflow-hidden rounded-[1.4rem] border border-border/70 bg-card/95 p-2 shadow-[0_30px_70px_-34px_rgba(15,23,42,0.52)] backdrop-blur-xl">
+                    {TRAFFIC_WINDOWS.map((option) => {
+                        const active = option.value === value;
+                        return (
+                            <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => {
+                                    onChange(option.value);
+                                    setOpen(false);
+                                }}
+                                className={`flex w-full items-center justify-between rounded-[1rem] px-3 py-3 text-left transition-colors ${
+                                    active
+                                        ? 'bg-primary text-primary-foreground shadow-[0_18px_36px_-24px_rgba(14,165,233,0.85)]'
+                                        : 'text-foreground hover:bg-background/80'
+                                }`}
+                            >
+                                <div>
+                                    <p className="text-sm font-black">{option.label}</p>
+                                    <p className={`mt-1 text-[11px] ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{TRAFFIC_WINDOW_DETAILS[option.value]}</p>
+                                </div>
+                                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${active ? 'border-primary-foreground/30 text-primary-foreground/90' : 'border-border/70 text-muted-foreground'}`}>
+                                    {option.value}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };
@@ -369,21 +437,7 @@ export const AnalyticsPage: React.FC = () => {
                                 </p>
                             </div>
                             <div className="flex flex-col gap-3 sm:items-end">
-                                <div className="group relative min-w-[174px] overflow-hidden rounded-[1.35rem] border border-primary/25 bg-[linear-gradient(135deg,rgba(56,189,248,0.16),rgba(99,102,241,0.12)_52%,rgba(15,23,42,0.04))] shadow-[0_24px_44px_-30px_rgba(14,165,233,0.55)] backdrop-blur-xl transition-all hover:border-primary/40 hover:shadow-[0_26px_52px_-30px_rgba(99,102,241,0.45)]">
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-[linear-gradient(90deg,transparent,rgba(15,23,42,0.06))]" />
-                                    <select
-                                        value={trafficWindow}
-                                        onChange={(e) => setTrafficWindow(e.target.value as (typeof TRAFFIC_WINDOWS)[number]['value'])}
-                                        className="relative z-10 w-full appearance-none bg-transparent px-4 py-3 pr-12 text-[11px] font-black uppercase tracking-[0.2em] text-foreground outline-none"
-                                    >
-                                        {TRAFFIC_WINDOWS.map((option) => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-primary transition-transform group-hover:translate-y-[-45%]" />
-                                </div>
+                                <GraphFilterDropdown value={trafficWindow} onChange={setTrafficWindow} />
                                 <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right">
                                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>
                                     <p className="mt-1 text-xs font-bold text-foreground">{selectedTrafficWindow}</p>
