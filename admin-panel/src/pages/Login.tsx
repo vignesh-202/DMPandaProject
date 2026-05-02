@@ -148,8 +148,8 @@ export const Login: React.FC = () => {
     }
 
     return (
-        <div className="h-screen overflow-hidden flex items-center justify-center bg-gray-50 dark:bg-neutral-950 px-3 pt-20 pb-4 sm:px-4 sm:pt-24 transition-colors duration-500">
-            <div className="w-full max-w-4xl mx-auto max-h-[calc(100vh-6rem)] sm:max-h-[calc(100vh-7rem)] bg-white dark:bg-neutral-900 shadow-2xl dark:shadow-black/40 rounded-2xl flex overflow-hidden transition-colors duration-500">
+        <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gray-50 dark:bg-neutral-950 px-3 py-20 sm:px-4 sm:py-24 transition-colors duration-500">
+            <div className="w-full max-w-4xl mx-auto my-4 bg-white dark:bg-neutral-900 shadow-2xl dark:shadow-black/40 rounded-2xl flex overflow-hidden transition-colors duration-500">
                 <div className="hidden md:flex w-1/2 bg-black dark:bg-neutral-800 text-white p-10 lg:p-12 flex-col justify-center">
                     <h2 className="text-3xl sm:text-4xl font-bold mb-4">
                         Automate Your DMs, Grow Your Brand
@@ -173,7 +173,7 @@ export const Login: React.FC = () => {
                     </ul>
                 </div>
 
-                <div className="w-full md:w-1/2 p-6 sm:p-7 md:p-8 lg:p-10 flex flex-col justify-center">
+                <div className="w-full md:w-1/2 p-6 sm:p-7 md:p-8 lg:p-10 flex flex-col justify-center overflow-y-auto">
                     <div className="text-center w-full">
                         <img src="/logo.png" alt="DM Panda Logo" className="mx-auto mb-3" style={{ maxHeight: '62px' }} />
                         <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Welcome Back!</h2>

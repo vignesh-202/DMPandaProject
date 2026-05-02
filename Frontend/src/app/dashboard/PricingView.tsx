@@ -109,7 +109,7 @@ const PricingView: React.FC = () => {
       )}
       <div className="mx-auto mb-20 max-w-7xl animate-in fade-in p-3 duration-500 sm:p-4 md:p-6 lg:p-8">
         <div className="mb-12 text-center">
-          <h1 className="mb-4 flex items-center justify-center gap-3 text-4xl font-black text-foreground">
+          <h1 className="mb-4 flex flex-wrap items-center justify-center gap-3 text-2xl sm:text-4xl font-black text-foreground">
             Upgrade Your Growth <Sparkles className="text-yellow-500" />
           </h1>
           <p className="mx-auto max-w-2xl text-muted-foreground">

@@ -2741,11 +2741,11 @@ const DMAutomationView: React.FC = () => {
 
                                             {editingAutomation.template_type === 'template_share_post' && (
                                                 <div className="space-y-6 animate-in zoom-in-95">
-                                                    <div id="field_media_id" className="bg-muted/30 p-8 rounded-[32px] border border-content space-y-8">
-                                                        <div className="flex items-center justify-between">
-                                                            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Select Media to Share</h3>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="flex bg-card p-1.5 rounded-2xl shadow-sm border border-content">
+                                                    <div id="field_media_id" className="bg-muted/30 p-4 sm:p-8 rounded-[32px] border border-content space-y-6 sm:space-y-8">
+                                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground shrink-0">Select Media to Share</h3>
+                                                            <div className="flex items-center gap-2 overflow-x-auto">
+                                                                <div className="flex bg-card p-1.5 rounded-2xl shadow-sm border border-content min-w-max">
                                                                     <button
                                                                         onClick={(e) => { e.preventDefault(); setMediaTab('post'); }}
                                                                         className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${mediaTab === 'post' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'text-muted-foreground hover:text-foreground'}`}
@@ -3165,7 +3165,7 @@ const DMAutomationView: React.FC = () => {
                         <MessageSquare className="w-4 h-4" />
                         <span className="text-[10px] font-black uppercase tracking-[0.3em]">Direct Messaging</span>
                     </div>
-                    <h1 className="text-4xl font-black text-foreground tracking-tight">DM Automation</h1>
+                    <h1 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight">DM Automation</h1>
                     <p className="text-muted-foreground font-medium max-w-xl">
                         Keywords-based responses. When a user sends a keyword, DMPanda replies automatically.
                     </p>

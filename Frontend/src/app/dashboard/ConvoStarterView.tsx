@@ -729,7 +729,7 @@ const ConvoStarterView: React.FC = () => {
                 <>
                     <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-end md:justify-between">
                         <div className="space-y-2">
-                            <h1 className="text-3xl font-black text-foreground tracking-tight">Convo Starters</h1>
+                            <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Convo Starters</h1>
                             <p className="text-sm font-medium text-muted-foreground">Help new visitors start a conversation. You can keep up to 4 quick starter prompts live on Instagram.</p>
                         </div>
                         <div className="flex flex-wrap items-center justify-end gap-3">

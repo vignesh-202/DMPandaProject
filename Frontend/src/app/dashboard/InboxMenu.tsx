@@ -1587,11 +1587,11 @@ const InboxMenu: React.FC = () => {
                                             {/* Task 11: Share Post Template - Design match with DMAutomationView */}
                                             {newItem.template_type === 'template_share_post' && !selectedTemplate && (
                                                 <div className="space-y-6 animate-in zoom-in-95">
-                                                    <div id="field_media_id" className="bg-gray-50 dark:bg-black/40 p-8 rounded-[32px] border border-content space-y-8">
-                                                        <div className="flex items-center justify-between">
-                                                            <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Select Media to Share</h3>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="flex bg-white dark:bg-gray-900 p-1.5 rounded-2xl shadow-sm border border-content">
+                                                    <div id="field_media_id" className="bg-gray-50 dark:bg-black/40 p-4 sm:p-8 rounded-[32px] border border-content space-y-6 sm:space-y-8">
+                                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                            <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 shrink-0">Select Media to Share</h3>
+                                                            <div className="flex items-center gap-2 overflow-x-auto">
+                                                                <div className="flex bg-white dark:bg-gray-900 p-1.5 rounded-2xl shadow-sm border border-content min-w-max">
                                                                     <button
                                                                         onClick={(e) => { e.preventDefault(); setSharePostContentType('posts'); }}
                                                                         className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${sharePostContentType === 'posts' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:text-gray-600'}`}

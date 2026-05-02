@@ -186,9 +186,9 @@ const MyPlanView: React.FC = () => {
         />
       )}
       <div className="mx-auto max-w-6xl space-y-8 p-3 sm:p-4 md:p-6 lg:p-8">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">My Subscription</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">My Subscription</h1>
             <p className="text-muted-foreground">Manage the active plan and review the next upgrades.</p>
           </div>
           <div className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${isExpired ? 'bg-destructive-muted/40 text-destructive' : 'bg-success-muted/60 text-success'}`}>
@@ -210,7 +210,7 @@ const MyPlanView: React.FC = () => {
             </div>
             <div className="relative">
               <span className="text-sm font-bold uppercase tracking-wider text-primary">Current Plan</span>
-              <h2 className="mt-2 mb-6 flex items-center gap-3 text-4xl font-black text-foreground">
+              <h2 className="mt-2 mb-6 flex items-center gap-3 text-2xl sm:text-4xl font-black text-foreground">
                 {currentPlanName}
                 <Zap className="fill-primary text-primary" size={28} />
               </h2>

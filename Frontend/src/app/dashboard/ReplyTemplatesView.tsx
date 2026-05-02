@@ -1060,9 +1060,9 @@ export default function ReplyTemplatesView() {
   return (
     <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">
+          <h1 className="text-2xl sm:text-3xl font-black text-foreground uppercase tracking-tight mb-2">
             Reply Templates
           </h1>
           <p className="text-sm text-muted-foreground">

@@ -497,7 +497,7 @@ const GlobalTriggersView: React.FC = () => {
                                 <Globe className="w-4 h-4" />
                                 <span className="text-[10px] font-black uppercase tracking-[0.3em]">Global Triggers</span>
                             </div>
-                            <h1 className="text-4xl font-black text-foreground tracking-tight">Global Triggers</h1>
+                            <h1 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight">Global Triggers</h1>
                             <p className="text-muted-foreground font-medium max-w-xl">
                                 Global triggers apply across all your content. When keywords are detected in comments, stories, or live sessions, DMPanda replies automatically.
                             </p>
