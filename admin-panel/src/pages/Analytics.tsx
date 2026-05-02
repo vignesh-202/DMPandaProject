@@ -122,7 +122,7 @@ const MetricCard = ({
 const InsightTile = ({ label, value, note }: { label: string; value: string; note: string }) => (
     <div className="rounded-[26px] border border-border/70 bg-background/60 px-5 py-5">
         <p className="text-[10px] font-black text-muted-foreground">{label}</p>
-        <p className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">{value}</p>
+        <p className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{value}</p>
         <p className="mt-2 text-sm text-muted-foreground">{note}</p>
     </div>
 );

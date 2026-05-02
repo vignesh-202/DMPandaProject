@@ -1511,7 +1511,7 @@ const DMAutomationView: React.FC = () => {
                 <div className="w-20 h-20 bg-primary rounded-[28%] flex items-center justify-center text-primary-foreground mb-6 shadow-2xl shadow-primary/20">
                     <MessageSquare className="w-10 h-10" />
                 </div>
-                <h2 className="text-3xl font-black text-foreground mb-3">Select Instagram Account</h2>
+                <h2 className="text-2xl sm:text-3xl font-black text-foreground mb-3">Select Instagram Account</h2>
                 <p className="text-muted-foreground max-w-md mb-8 font-medium">Keywords-based DM Automation requires an active Instagram Business link.</p>
 
             </div>

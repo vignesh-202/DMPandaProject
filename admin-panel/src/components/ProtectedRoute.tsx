@@ -24,7 +24,7 @@ export const ProtectedRoute: React.FC = () => {
                     <p className="mt-6 text-[10px] font-black text-muted-foreground">
                         Restricted
                     </p>
-                    <h1 className="mt-3 text-3xl font-extrabold text-foreground">Access Denied</h1>
+                    <h1 className="mt-3 text-2xl sm:text-3xl font-extrabold text-foreground">Access Denied</h1>
                     <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
                         Your account is signed in, but it does not have administrative privileges for this workspace.
                     </p>

@@ -421,7 +421,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
             <div className="bg-white dark:bg-black p-6 rounded-3xl h-full min-h-[500px] flex flex-col border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                     <div>
-                        <h2 className="text-3xl font-black text-black dark:text-white tracking-tight">{title}</h2>
+                        <h2 className="text-2xl sm:text-3xl font-black text-black dark:text-white tracking-tight">{title}</h2>
                         <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mt-2 flex items-center gap-1.5">
                             <span className={`w-1.5 h-1.5 rounded-full ${liveIsActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                             {isLoadingStats ? 'Checking live status' : liveIsActive ? 'Instagram Live is active right now' : 'No active live detected right now'}
@@ -584,7 +584,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                         </button>
                     )}
                     <div>
-                        <h2 className="text-3xl font-black text-black dark:text-white tracking-tight">{title}</h2>
+                        <h2 className="text-2xl sm:text-3xl font-black text-black dark:text-white tracking-tight">{title}</h2>
                         {type === 'story' && (
                             <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mt-2 flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
@@ -780,7 +780,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                         </div>
                                     </div>
                                 </div>
-                                <h3 className="text-3xl font-black text-gray-900 dark:text-white mb-4 text-center">
+                                <h3 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white mb-4 text-center">
                                     Ready to Automate
                                 </h3>
                                 <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-8 font-medium">

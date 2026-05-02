@@ -687,7 +687,7 @@ const AnalyticsView: React.FC = () => {
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">Analytics</p>
-                    <h1 className="text-3xl font-black text-foreground mt-1">
+                    <h1 className="text-2xl sm:text-3xl font-black text-foreground mt-1">
                         {activeAccount?.username ? `@${activeAccount.username}` : 'Instagram Account'}
                     </h1>
                 </div>

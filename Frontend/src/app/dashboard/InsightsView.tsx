@@ -143,7 +143,7 @@ const MetricCard = ({
     <div className="flex items-start justify-between gap-4 p-5">
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-        <p className="mt-3 text-3xl font-black tracking-tight text-foreground">{value}</p>
+        <p className="mt-3 text-2xl sm:text-3xl font-black tracking-tight text-foreground">{value}</p>
         <p className="mt-2 text-sm text-muted-foreground">{note}</p>
         {series && series.length > 1 ? (
           <div className="mt-4 flex items-end justify-between gap-3">

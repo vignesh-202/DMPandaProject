@@ -90,7 +90,7 @@ export const AutomationsPage: React.FC = () => {
                                     </div>
                                     <p className="text-right text-[10px] font-black text-muted-foreground">{card.label}</p>
                                 </div>
-                                <p className="mt-5 text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
+                                <p className="mt-5 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
                             </div>
                         ))}
                     </div>

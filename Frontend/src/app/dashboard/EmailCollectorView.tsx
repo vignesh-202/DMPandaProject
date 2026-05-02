@@ -11,7 +11,7 @@ const EmailCollectorView: React.FC = () => {
           <MailPlus className="w-4 h-4" />
           <span className="text-[10px] font-black uppercase tracking-widest">Email Collector</span>
         </div>
-        <h1 className="text-3xl font-black text-foreground">Email Collection in DMs</h1>
+        <h1 className="text-2xl sm:text-3xl font-black text-foreground">Email Collection in DMs</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Ask users for their email within the DM conversation and automatically add it to your mailing list
         </p>

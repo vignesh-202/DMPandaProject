@@ -1117,7 +1117,7 @@ const InboxMenu: React.FC = () => {
                 <>
                     <div className="flex flex-col gap-4 pb-6 md:pb-8 border-b border-border md:flex-row md:items-end md:justify-between">
                         <div className="space-y-2">
-                            <h1 className="text-3xl font-black text-foreground tracking-tight">Smart Inbox Control</h1>
+                            <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Smart Inbox Control</h1>
                             <p className="text-sm font-medium text-muted-foreground">Set your Instagram menu for quick support, links, and replies.</p>
                         </div>
                         <div className="flex flex-wrap items-center justify-end gap-3">

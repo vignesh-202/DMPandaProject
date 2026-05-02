@@ -219,7 +219,7 @@ export const Dashboard: React.FC = () => {
                             </div>
                             <p className="text-right text-[10px] font-black text-muted-foreground">{card.label}</p>
                         </div>
-                        <p className="mt-5 text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
+                        <p className="mt-5 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
                     </div>
                 ))}
             </section>
@@ -373,7 +373,7 @@ export const Dashboard: React.FC = () => {
                         </div>
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-4 py-4 text-center">
                             <p className="text-[10px] font-black text-muted-foreground">Tracked Profiles</p>
-                            <p className="mt-2 text-3xl font-extrabold text-foreground">{numberFormatter.format(totalPlanUsers)}</p>
+                            <p className="mt-2 text-2xl sm:text-3xl font-extrabold text-foreground">{numberFormatter.format(totalPlanUsers)}</p>
                         </div>
                         <div className="space-y-3">
                             {planDistribution.length === 0 ? (

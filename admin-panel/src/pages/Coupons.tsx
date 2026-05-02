@@ -762,7 +762,7 @@ export const CouponsPage: React.FC = () => {
                 ].map(([label, value]) => (
                     <div key={String(label)} className="glass-card rounded-[28px] p-6">
                         <p className="text-[10px] font-black text-muted-foreground">{label}</p>
-                        <p className="mt-4 text-3xl font-extrabold text-foreground">{value}</p>
+                        <p className="mt-4 text-2xl sm:text-3xl font-extrabold text-foreground">{value}</p>
                     </div>
                 ))}
             </div>
