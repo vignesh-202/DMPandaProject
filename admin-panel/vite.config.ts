@@ -11,6 +11,9 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0',
+    port: 5001,
+    allowedHosts: true,
     fs: {
       allow: [path.resolve(__dirname, '..')],
     },
