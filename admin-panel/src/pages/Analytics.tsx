@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import httpClient from '../lib/httpClient';
 import {
     AlertTriangle,
@@ -14,6 +14,7 @@ import {
     Tooltip,
     LineChart,
     Line,
+    ReferenceLine,
     BarChart,
     Bar,
     XAxis,
@@ -25,7 +26,6 @@ import {
 } from 'recharts';
 import AdminLoadingState from '../components/AdminLoadingState';
 import AdminGauge from '../components/ui/AdminGauge';
-import SelectField from '../components/ui/SelectField';
 
 const CHART_COLORS = ['#405DE6', '#833AB4', '#F56040', '#FCAF45', '#10B981', '#0EA5E9', '#FB7185'];
 const TRAFFIC_WINDOWS = [
@@ -238,6 +238,18 @@ export const AnalyticsPage: React.FC = () => {
     }, [trafficWindow]);
 
     const selectedTrafficWindow = TRAFFIC_WINDOWS.find((option) => option.value === trafficWindow)?.label || '30 days';
+    const trafficChartData = useMemo(() => {
+        const source = Array.isArray(data?.automation_traffic) ? data.automation_traffic : [];
+        return source.map((entry: any) => ({
+            ...entry,
+            value: Number(entry?.value || 0)
+        }));
+    }, [data?.automation_traffic]);
+    const trafficAverage = useMemo(() => {
+        if (!trafficChartData.length) return 0;
+        const total = trafficChartData.reduce((sum: number, row: { value: number }) => sum + Number(row.value || 0), 0);
+        return total / trafficChartData.length;
+    }, [trafficChartData]);
     const statusBreakdown = Array.isArray(data?.log_status_breakdown) ? data.log_status_breakdown : [];
     const statusTotal = statusBreakdown.reduce((sum: number, entry: PieDatum) => sum + Number(entry.value || 0), 0);
     const failedCount = statusBreakdown.find((entry: PieDatum) => String(entry.name).toLowerCase() === 'failed')?.value || 0;
@@ -294,17 +306,11 @@ export const AnalyticsPage: React.FC = () => {
                                 <p className="text-[10px] font-black text-muted-foreground">Active range</p>
                                 <p className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">{selectedTrafficWindow}</p>
                             </div>
-                            <SelectField
-                                label=""
-                                value={trafficWindow}
-                                onChange={(value) => setTrafficWindow(value as any)}
-                            >
-                                {TRAFFIC_WINDOWS.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </SelectField>
+                            <div className="rounded-[22px] border border-border/60 bg-card/80 px-4 py-4">
+                                <p className="text-[10px] font-black text-muted-foreground">Average Activity</p>
+                                <p className="mt-2 text-2xl font-extrabold text-foreground">{trafficAverage.toFixed(1)}</p>
+                                <p className="mt-1 text-[11px] font-semibold text-muted-foreground">Average actions per point</p>
+                            </div>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <div className="rounded-[22px] border border-border/60 bg-card/80 px-4 py-4">
                                     <p className="text-[10px] font-black text-muted-foreground">No IG Link</p>
@@ -353,24 +359,83 @@ export const AnalyticsPage: React.FC = () => {
             <section className="grid grid-cols-1 gap-7 2xl:grid-cols-[minmax(0,1.2fr)_380px]">
                 <div className="space-y-7">
                     <div className={`${surfaceClass} p-7 sm:p-8`}>
-                        <div className="mb-6">
-                            <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Automation traffic</h3>
-                            <p className="mt-1 text-[11px] font-black text-muted-foreground">{selectedTrafficWindow}</p>
+                        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                                <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Automation traffic</h3>
+                                <p className="mt-1 text-[11px] font-black text-muted-foreground">
+                                    Shared graph design with the user analytics view.
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-3 sm:items-end">
+                                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-2 py-2">
+                                    {TRAFFIC_WINDOWS.map((option) => {
+                                        const active = trafficWindow === option.value;
+                                        return (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => setTrafficWindow(option.value)}
+                                                className={`rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                                                    active
+                                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                                        : 'text-muted-foreground hover:bg-background hover:text-foreground'
+                                                }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>
+                                    <p className="mt-1 text-xs font-bold text-foreground">{selectedTrafficWindow}</p>
+                                    <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+                                        Average {trafficAverage.toFixed(1)} actions per point
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                         <div className="h-[340px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={Array.isArray(data?.automation_traffic) ? data.automation_traffic : []}>
+                                <LineChart data={trafficChartData}>
+                                    <defs>
+                                        <linearGradient id="adminTrafficGradient" x1="0" y1="0" x2="1" y2="0">
+                                            <stop offset="0%" stopColor="#22c55e" stopOpacity={0.2} />
+                                            <stop offset="50%" stopColor="#38bdf8" stopOpacity={0.4} />
+                                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0.7} />
+                                        </linearGradient>
+                                        <filter id="adminTrafficGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                            <feGaussianBlur stdDeviation="6" result="coloredBlur" />
+                                            <feMerge>
+                                                <feMergeNode in="coloredBlur" />
+                                                <feMergeNode in="SourceGraphic" />
+                                            </feMerge>
+                                        </filter>
+                                    </defs>
                                     <CartesianGrid strokeDasharray="4 4" stroke={chartGridStroke} vertical={false} />
                                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'currentColor' }} tickLine={false} axisLine={false} />
                                     <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'currentColor' }} tickLine={false} axisLine={false} />
                                     <Tooltip content={<ChartTooltip label="Traffic" formatter={(value) => `${numberFormatter.format(value)} events`} />} />
+                                    <ReferenceLine
+                                        y={trafficAverage}
+                                        stroke="rgba(148,163,184,0.95)"
+                                        strokeDasharray="6 6"
+                                        ifOverflow="extendDomain"
+                                        label={{
+                                            value: `Avg ${trafficAverage.toFixed(1)}`,
+                                            position: 'insideTopRight',
+                                            fill: '#94a3b8',
+                                            fontSize: 10
+                                        }}
+                                    />
                                     <Line
                                         type="monotone"
                                         dataKey="value"
-                                        stroke="#405DE6"
+                                        stroke="url(#adminTrafficGradient)"
                                         strokeWidth={3}
-                                        dot={{ r: 3, fill: '#405DE6' }}
+                                        dot={false}
                                         activeDot={{ r: 5 }}
+                                        filter="url(#adminTrafficGlow)"
                                     />
                                 </LineChart>
                             </ResponsiveContainer>

@@ -128,9 +128,9 @@ $functionVariables = @{
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
     )
     "cleanup-audit-job-locks" = @(
-        @{ key = "FUNCTION_APPWRITE_ENDPOINT"; value = $appwriteEndpoint; secret = $true }
-        @{ key = "FUNCTION_APPWRITE_PROJECT_ID"; value = $appwriteProjectId; secret = $true }
-        @{ key = "FUNCTION_APPWRITE_API_KEY"; value = $appwriteApiKey; secret = $true }
+        @{ key = "FUNCTION_APPWRITE_ENDPOINT"; value = $appwriteEndpoint; secret = $false }
+        @{ key = "FUNCTION_APPWRITE_PROJECT_ID"; value = $appwriteProjectId; secret = $false }
+        @{ key = "FUNCTION_APPWRITE_API_KEY"; value = $appwriteApiKey; secret = $false }
         @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
         @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
         @{ key = "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID" -Default (Get-EnvValue -Key "INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID" -Default "inactive_user_cleanup_audit")); secret = $false }
@@ -153,7 +153,7 @@ foreach ($targetFunctionId in $selectedFunctionIds) {
 
     $existingVariables = @()
     try {
-        $existingVariables = @((& $AppwriteCli functions list-variables --function-id $targetFunctionId --json | ConvertFrom-Json).variables)
+        $existingVariables = @((& $AppwriteCli functions list-variables --function-id $targetFunctionId --show-secrets --json | ConvertFrom-Json).variables)
     } catch {
         throw "Failed to list variables for function '$targetFunctionId'. Ensure the function exists before syncing variables."
     }
@@ -161,6 +161,25 @@ foreach ($targetFunctionId in $selectedFunctionIds) {
     foreach ($definition in $definitions) {
         $existing = $existingVariables | Where-Object { $_.key -eq $definition.key } | Select-Object -First 1
         if ($existing) {
+            if (($existing.secret -eq $true) -and (-not $definition.secret)) {
+                & $AppwriteCli functions delete-variable `
+                    --function-id $targetFunctionId `
+                    --variable-id $existing.'$id' | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to delete variable '$($definition.key)' for function '$targetFunctionId' before recreating it as non-secret."
+                }
+
+                & $AppwriteCli functions create-variable `
+                    --function-id $targetFunctionId `
+                    --key $definition.key `
+                    --value ([string]$definition.value) `
+                    --secret ($definition.secret.ToString().ToLower()) | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to recreate variable '$($definition.key)' for function '$targetFunctionId' as non-secret."
+                }
+                continue
+            }
+
             & $AppwriteCli functions update-variable `
                 --function-id $targetFunctionId `
                 --variable-id $existing.'$id' `
@@ -168,6 +187,25 @@ foreach ($targetFunctionId in $selectedFunctionIds) {
                 --value ([string]$definition.value) `
                 --secret ($definition.secret.ToString().ToLower()) | Out-Null
             if ($LASTEXITCODE -ne 0) {
+                if (-not $definition.secret) {
+                    & $AppwriteCli functions delete-variable `
+                        --function-id $targetFunctionId `
+                        --variable-id $existing.'$id' | Out-Null
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "Failed to delete variable '$($definition.key)' for function '$targetFunctionId' before recreating it as non-secret."
+                    }
+
+                    & $AppwriteCli functions create-variable `
+                        --function-id $targetFunctionId `
+                        --key $definition.key `
+                        --value ([string]$definition.value) `
+                        --secret ($definition.secret.ToString().ToLower()) | Out-Null
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "Failed to recreate variable '$($definition.key)' for function '$targetFunctionId' as non-secret."
+                    }
+                    continue
+                }
+
                 throw "Failed to update variable '$($definition.key)' for function '$targetFunctionId'"
             }
             continue

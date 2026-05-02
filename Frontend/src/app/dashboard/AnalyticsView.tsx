@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calendar, Download, Loader2, RefreshCw, Clock3, UserCircle2 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import Card from '../../components/ui/card';
 import Gauge from '../../components/ui/gauge';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
@@ -751,6 +751,12 @@ const AnalyticsView: React.FC = () => {
         return activeTrafficWindow.title;
     }, [activeTrafficWindow.title]);
 
+    const trafficAverage = useMemo(() => {
+        if (!trafficData.length) return 0;
+        const total = trafficData.reduce((sum, row) => sum + Number(row.count || 0), 0);
+        return total / trafficData.length;
+    }, [trafficData]);
+
     const failureReasonSummary = useMemo(() => {
         const failedLogs = visibleLogs.filter((row) => String(row.status || '').toLowerCase() === 'failed');
         const counts = new Map<string, number>();
@@ -819,7 +825,7 @@ const AnalyticsView: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">Analytics</p>
                     <h1 className="text-2xl sm:text-3xl font-black text-foreground mt-1">
@@ -827,29 +833,6 @@ const AnalyticsView: React.FC = () => {
                     </h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-content bg-card px-2 py-2">
-                        {([
-                            { key: '24h', label: '24H' },
-                            { key: '3d', label: '3D' },
-                            { key: '7d', label: '7D' }
-                        ] as const).map((preset) => {
-                            const active = selectedWindowPreset === preset.key;
-                            return (
-                                <button
-                                    key={preset.key}
-                                    type="button"
-                                    onClick={() => applyWindowPreset(preset.key)}
-                                    className={`rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                                        active
-                                            ? 'bg-primary text-primary-foreground shadow-sm'
-                                            : 'text-muted-foreground hover:bg-background hover:text-foreground'
-                                    }`}
-                                >
-                                    {preset.label}
-                                </button>
-                            );
-                        })}
-                    </div>
                     <div className="flex items-center gap-2 rounded-2xl border border-content bg-card px-3 py-2">
                         <Calendar className="w-4 h-4 text-muted-foreground" />
                         <input
@@ -916,14 +899,42 @@ const AnalyticsView: React.FC = () => {
                             Traffic charts follow the selected log range, while action usage gauges reflect live profile counters used for enforcement.
                         </p>
                     </div>
-                    <div className="rounded-2xl border border-content/70 bg-background/70 px-4 py-3 text-right">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>
-                        <p className="mt-1 text-xs font-bold text-foreground">{activeTrafficWindow.badge}</p>
-                        {selectedWindowPreset !== 'custom' && (
+                    <div className="flex flex-col gap-3 sm:items-end">
+                        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-content bg-background/70 px-2 py-2">
+                            {([
+                                { key: '24h', label: '24H' },
+                                { key: '3d', label: '3D' },
+                                { key: '7d', label: '7D' }
+                            ] as const).map((preset) => {
+                                const active = selectedWindowPreset === preset.key;
+                                return (
+                                    <button
+                                        key={preset.key}
+                                        type="button"
+                                        onClick={() => applyWindowPreset(preset.key)}
+                                        className={`rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                                            active
+                                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                                : 'text-muted-foreground hover:bg-background hover:text-foreground'
+                                        }`}
+                                    >
+                                        {preset.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div className="rounded-2xl border border-content/70 bg-background/70 px-4 py-3 text-right">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>
+                            <p className="mt-1 text-xs font-bold text-foreground">{activeTrafficWindow.badge}</p>
                             <p className="mt-1 text-[10px] font-medium text-muted-foreground">
-                                Source dates: {analyticsDateRange.start} to {analyticsDateRange.end}
+                                Average {trafficAverage.toFixed(1)} actions per {activeTrafficWindow.bucketMode === 'hourly' ? 'hour' : 'day'}
                             </p>
-                        )}
+                            {selectedWindowPreset !== 'custom' && (
+                                <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+                                    Source dates: {analyticsDateRange.start} to {analyticsDateRange.end}
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <div className="h-[260px]">
@@ -948,6 +959,18 @@ const AnalyticsView: React.FC = () => {
                             <Tooltip
                                 cursor={{ stroke: 'rgba(99,102,241,0.2)', strokeWidth: 2 }}
                                 content={<AnalyticsTooltip />}
+                            />
+                            <ReferenceLine
+                                y={trafficAverage}
+                                stroke="rgba(148,163,184,0.95)"
+                                strokeDasharray="6 6"
+                                ifOverflow="extendDomain"
+                                label={{
+                                    value: `Avg ${trafficAverage.toFixed(1)}`,
+                                    position: 'insideTopRight',
+                                    fill: '#94a3b8',
+                                    fontSize: 10
+                                }}
                             />
                             <Line
                                 type="monotone"
