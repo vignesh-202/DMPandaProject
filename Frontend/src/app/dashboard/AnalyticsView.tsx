@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Calendar, Download, Loader2, RefreshCw, Clock3, UserCircle2 } from 'lucide-react';
+import { Download, Loader2, RefreshCw, Clock3, UserCircle2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import Card from '../../components/ui/card';
 import Gauge from '../../components/ui/gauge';
@@ -26,7 +26,7 @@ interface ActivityLogItem {
     created_at: string;
 }
 
-type AnalyticsWindowPreset = 'custom' | '24h' | '3d' | '7d';
+type AnalyticsWindowPreset = '24h' | '3d' | '7d' | '14d' | '21d' | '30d';
 
 const formatNumber = (value: number): string => {
     if (!Number.isFinite(value)) return '0';
@@ -59,12 +59,15 @@ const formatDateInputLocal = (date: Date): string => {
     return `${year}-${month}-${day}`;
 };
 
-const buildPresetDateRange = (preset: Exclude<AnalyticsWindowPreset, 'custom'>): { start: string; end: string } => {
+const buildPresetDateRange = (preset: AnalyticsWindowPreset): { start: string; end: string } => {
     const now = new Date();
     const start = new Date(now);
     if (preset === '24h') start.setDate(start.getDate() - 1);
     if (preset === '3d') start.setDate(start.getDate() - 2);
     if (preset === '7d') start.setDate(start.getDate() - 6);
+    if (preset === '14d') start.setDate(start.getDate() - 13);
+    if (preset === '21d') start.setDate(start.getDate() - 20);
+    if (preset === '30d') start.setDate(start.getDate() - 29);
     return {
         start: formatDateInputLocal(start),
         end: formatDateInputLocal(now)
@@ -73,7 +76,7 @@ const buildPresetDateRange = (preset: Exclude<AnalyticsWindowPreset, 'custom'>):
 
 const matchesPresetRange = (
     range: { start: string; end: string },
-    preset: Exclude<AnalyticsWindowPreset, 'custom'>
+    preset: AnalyticsWindowPreset
 ): boolean => {
     const expected = buildPresetDateRange(preset);
     return range.start === expected.start && range.end === expected.end;
@@ -407,7 +410,7 @@ const AnalyticsView: React.FC = () => {
     const [downloadingCsv, setDownloadingCsv] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [pieProgress, setPieProgress] = useState(0);
-    const [selectedWindowPreset, setSelectedWindowPreset] = useState<AnalyticsWindowPreset>('custom');
+    const [selectedWindowPreset, setSelectedWindowPreset] = useState<AnalyticsWindowPreset>('30d');
     const analyticsCacheKey = useMemo(
         () => `${String(activeAccountID || 'none')}:${analyticsDateRange.start}:${analyticsDateRange.end}:activity-log`,
         [activeAccountID, analyticsDateRange.end, analyticsDateRange.start]
@@ -426,10 +429,23 @@ const AnalyticsView: React.FC = () => {
             setSelectedWindowPreset('7d');
             return;
         }
-        setSelectedWindowPreset('custom');
-    }, [analyticsDateRange]);
+        if (matchesPresetRange(analyticsDateRange, '14d')) {
+            setSelectedWindowPreset('14d');
+            return;
+        }
+        if (matchesPresetRange(analyticsDateRange, '21d')) {
+            setSelectedWindowPreset('21d');
+            return;
+        }
+        if (matchesPresetRange(analyticsDateRange, '30d')) {
+            setSelectedWindowPreset('30d');
+            return;
+        }
+        setSelectedWindowPreset('30d');
+        setAnalyticsDateRange(buildPresetDateRange('30d'));
+    }, [analyticsDateRange, setAnalyticsDateRange]);
 
-    const applyWindowPreset = useCallback((preset: Exclude<AnalyticsWindowPreset, 'custom'>) => {
+    const applyWindowPreset = useCallback((preset: AnalyticsWindowPreset) => {
         setSelectedWindowPreset(preset);
         setAnalyticsDateRange(buildPresetDateRange(preset));
     }, [setAnalyticsDateRange]);
@@ -576,15 +592,33 @@ const AnalyticsView: React.FC = () => {
                 bucketMode: 'daily' as const
             };
         }
+        if (selectedWindowPreset === '14d') {
+            return {
+                start: new Date(now.getTime() - (14 * DAY_MS)),
+                end: now,
+                title: 'Daily activity for last 14 days',
+                badge: 'Last 14 days',
+                bucketMode: 'daily' as const
+            };
+        }
+        if (selectedWindowPreset === '21d') {
+            return {
+                start: new Date(now.getTime() - (21 * DAY_MS)),
+                end: now,
+                title: 'Daily activity for last 21 days',
+                badge: 'Last 21 days',
+                bucketMode: 'daily' as const
+            };
+        }
 
         return {
-            start: new Date(`${analyticsDateRange.start}T00:00:00`),
-            end: new Date(`${analyticsDateRange.end}T23:59:59.999`),
-            title: 'Selected range',
-            badge: `${analyticsDateRange.start} to ${analyticsDateRange.end}`,
-            bucketMode: 'custom' as const
+            start: new Date(now.getTime() - (30 * DAY_MS)),
+            end: now,
+            title: 'Daily activity for last 30 days',
+            badge: 'Last 30 days',
+            bucketMode: 'daily' as const
         };
-    }, [analyticsDateRange.end, analyticsDateRange.start, selectedWindowPreset]);
+    }, [selectedWindowPreset]);
 
     const visibleLogs = useMemo(() => {
         const startMs = activeTrafficWindow.start.getTime();
@@ -833,22 +867,6 @@ const AnalyticsView: React.FC = () => {
                     </h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex items-center gap-2 rounded-2xl border border-content bg-card px-3 py-2">
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <input
-                            type="date"
-                            value={analyticsDateRange.start}
-                            onChange={(e) => setAnalyticsDateRange((prev) => ({ ...prev, start: e.target.value }))}
-                            className="bg-transparent text-xs font-bold text-foreground outline-none"
-                        />
-                        <span className="text-xs text-muted-foreground">to</span>
-                        <input
-                            type="date"
-                            value={analyticsDateRange.end}
-                            onChange={(e) => setAnalyticsDateRange((prev) => ({ ...prev, end: e.target.value }))}
-                            className="bg-transparent text-xs font-bold text-foreground outline-none"
-                        />
-                    </div>
                     <button
                         type="button"
                         onClick={() => fetchAll('refresh')}
@@ -900,28 +918,19 @@ const AnalyticsView: React.FC = () => {
                         </p>
                     </div>
                     <div className="flex flex-col gap-3 sm:items-end">
-                        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-content bg-background/70 px-2 py-2">
-                            {([
-                                { key: '24h', label: '24H' },
-                                { key: '3d', label: '3D' },
-                                { key: '7d', label: '7D' }
-                            ] as const).map((preset) => {
-                                const active = selectedWindowPreset === preset.key;
-                                return (
-                                    <button
-                                        key={preset.key}
-                                        type="button"
-                                        onClick={() => applyWindowPreset(preset.key)}
-                                        className={`rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                                            active
-                                                ? 'bg-primary text-primary-foreground shadow-sm'
-                                                : 'text-muted-foreground hover:bg-background hover:text-foreground'
-                                        }`}
-                                    >
-                                        {preset.label}
-                                    </button>
-                                );
-                            })}
+                        <div className="rounded-2xl border border-content bg-background/70 px-3 py-2">
+                            <select
+                                value={selectedWindowPreset}
+                                onChange={(e) => applyWindowPreset(e.target.value as AnalyticsWindowPreset)}
+                                className="bg-transparent text-[11px] font-black uppercase tracking-[0.18em] text-foreground outline-none"
+                            >
+                                <option value="24h">24 hours</option>
+                                <option value="3d">3 days</option>
+                                <option value="7d">7 days</option>
+                                <option value="14d">14 days</option>
+                                <option value="21d">21 days</option>
+                                <option value="30d">30 days</option>
+                            </select>
                         </div>
                         <div className="rounded-2xl border border-content/70 bg-background/70 px-4 py-3 text-right">
                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>
@@ -929,11 +938,9 @@ const AnalyticsView: React.FC = () => {
                             <p className="mt-1 text-[10px] font-medium text-muted-foreground">
                                 Average {trafficAverage.toFixed(1)} actions per {activeTrafficWindow.bucketMode === 'hourly' ? 'hour' : 'day'}
                             </p>
-                            {selectedWindowPreset !== 'custom' && (
-                                <p className="mt-1 text-[10px] font-medium text-muted-foreground">
-                                    Source dates: {analyticsDateRange.start} to {analyticsDateRange.end}
-                                </p>
-                            )}
+                            <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+                                Source dates: {analyticsDateRange.start} to {analyticsDateRange.end}
+                            </p>
                         </div>
                     </div>
                 </div>

@@ -30,6 +30,7 @@ import AdminGauge from '../components/ui/AdminGauge';
 const CHART_COLORS = ['#405DE6', '#833AB4', '#F56040', '#FCAF45', '#10B981', '#0EA5E9', '#FB7185'];
 const TRAFFIC_WINDOWS = [
     { value: '24h', label: '24 hrs' },
+    { value: '3d', label: '3 days' },
     { value: '7d', label: '7 days' },
     { value: '14d', label: '14 days' },
     { value: '21d', label: '21 days' },
@@ -367,24 +368,18 @@ export const AnalyticsPage: React.FC = () => {
                                 </p>
                             </div>
                             <div className="flex flex-col gap-3 sm:items-end">
-                                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-2 py-2">
-                                    {TRAFFIC_WINDOWS.map((option) => {
-                                        const active = trafficWindow === option.value;
-                                        return (
-                                            <button
-                                                key={option.value}
-                                                type="button"
-                                                onClick={() => setTrafficWindow(option.value)}
-                                                className={`rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                                                    active
-                                                        ? 'bg-primary text-primary-foreground shadow-sm'
-                                                        : 'text-muted-foreground hover:bg-background hover:text-foreground'
-                                                }`}
-                                            >
+                                <div className="rounded-2xl border border-border/70 bg-background/70 px-3 py-2">
+                                    <select
+                                        value={trafficWindow}
+                                        onChange={(e) => setTrafficWindow(e.target.value as (typeof TRAFFIC_WINDOWS)[number]['value'])}
+                                        className="bg-transparent text-[11px] font-black uppercase tracking-[0.18em] text-foreground outline-none"
+                                    >
+                                        {TRAFFIC_WINDOWS.map((option) => (
+                                            <option key={option.value} value={option.value}>
                                                 {option.label}
-                                            </button>
-                                        );
-                                    })}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right">
                                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>
