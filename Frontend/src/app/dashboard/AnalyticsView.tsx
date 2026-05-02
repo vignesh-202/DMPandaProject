@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Loader2, RefreshCw, Clock3, UserCircle2 } from 'lucide-react';
+import { Download, Loader2, RefreshCw, Clock3, UserCircle2, ChevronDown } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import Card from '../../components/ui/card';
 import Gauge from '../../components/ui/gauge';
@@ -918,11 +918,12 @@ const AnalyticsView: React.FC = () => {
                         </p>
                     </div>
                     <div className="flex flex-col gap-3 sm:items-end">
-                        <div className="rounded-2xl border border-content bg-background/70 px-3 py-2">
+                        <div className="group relative min-w-[174px] overflow-hidden rounded-[1.35rem] border border-primary/25 bg-[linear-gradient(135deg,rgba(56,189,248,0.16),rgba(99,102,241,0.12)_52%,rgba(15,23,42,0.04))] shadow-[0_24px_44px_-30px_rgba(14,165,233,0.55)] backdrop-blur-xl transition-all hover:border-primary/40 hover:shadow-[0_26px_52px_-30px_rgba(99,102,241,0.45)]">
+                            <div className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-[linear-gradient(90deg,transparent,rgba(15,23,42,0.06))]" />
                             <select
                                 value={selectedWindowPreset}
                                 onChange={(e) => applyWindowPreset(e.target.value as AnalyticsWindowPreset)}
-                                className="bg-transparent text-[11px] font-black uppercase tracking-[0.18em] text-foreground outline-none"
+                                className="relative z-10 w-full appearance-none bg-transparent px-4 py-3 pr-12 text-[11px] font-black uppercase tracking-[0.2em] text-foreground outline-none"
                             >
                                 <option value="24h">24 hours</option>
                                 <option value="3d">3 days</option>
@@ -931,6 +932,7 @@ const AnalyticsView: React.FC = () => {
                                 <option value="21d">21 days</option>
                                 <option value="30d">30 days</option>
                             </select>
+                            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-primary transition-transform group-hover:translate-y-[-45%]" />
                         </div>
                         <div className="rounded-2xl border border-content/70 bg-background/70 px-4 py-3 text-right">
                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>

@@ -106,8 +106,8 @@ $functionVariables = @{
         @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
         @{ key = "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID" -Default (Get-EnvValue -Key "INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID" -Default "inactive_user_cleanup_audit")); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
-        @{ key = "INACTIVE_CLEANUP_PROTECTED_EMAILS"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_PROTECTED_EMAILS"); secret = $false }
-        @{ key = "INACTIVE_CLEANUP_PROTECTED_EMAIL_DOMAINS"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_PROTECTED_EMAIL_DOMAINS"); secret = $false }
+        @{ key = "INACTIVE_CLEANUP_PROTECTED_EMAILS"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_PROTECTED_EMAILS"); secret = $false; optional = $true }
+        @{ key = "INACTIVE_CLEANUP_PROTECTED_EMAIL_DOMAINS"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_PROTECTED_EMAIL_DOMAINS"); secret = $false; optional = $true }
         @{ key = "INACTIVE_CLEANUP_BATCH_SIZE"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_BATCH_SIZE" -Default "50"); secret = $false }
     )
     "remind-link-instagram" = @(
@@ -160,6 +160,20 @@ foreach ($targetFunctionId in $selectedFunctionIds) {
 
     foreach ($definition in $definitions) {
         $existing = $existingVariables | Where-Object { $_.key -eq $definition.key } | Select-Object -First 1
+        $skipOptional = (($definition.ContainsKey("optional")) -and $definition.optional -and [string]::IsNullOrWhiteSpace([string]$definition.value))
+
+        if ($skipOptional) {
+            if ($existing) {
+                & $AppwriteCli functions delete-variable `
+                    --function-id $targetFunctionId `
+                    --variable-id $existing.'$id' | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to delete empty optional variable '$($definition.key)' for function '$targetFunctionId'."
+                }
+            }
+            continue
+        }
+
         if ($existing) {
             if (($existing.secret -eq $true) -and (-not $definition.secret)) {
                 & $AppwriteCli functions delete-variable `
