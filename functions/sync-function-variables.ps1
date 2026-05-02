@@ -70,6 +70,10 @@ if ([string]::IsNullOrWhiteSpace($databaseId)) {
     throw "APPWRITE_DATABASE_ID (or DATABASE_ID) must be set before syncing function variables."
 }
 
+$appwriteEndpoint = Get-EnvValue -Key "APPWRITE_ENDPOINT"
+$appwriteProjectId = Get-EnvValue -Key "APPWRITE_PROJECT_ID"
+$appwriteApiKey = Get-EnvValue -Key "APPWRITE_API_KEY"
+
 $functionVariables = @{
     "on-user-create" = @(
         @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
@@ -124,6 +128,9 @@ $functionVariables = @{
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
     )
     "cleanup-audit-job-locks" = @(
+        @{ key = "FUNCTION_APPWRITE_ENDPOINT"; value = $appwriteEndpoint; secret = $true }
+        @{ key = "FUNCTION_APPWRITE_PROJECT_ID"; value = $appwriteProjectId; secret = $true }
+        @{ key = "FUNCTION_APPWRITE_API_KEY"; value = $appwriteApiKey; secret = $true }
         @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
         @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
         @{ key = "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID" -Default (Get-EnvValue -Key "INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID" -Default "inactive_user_cleanup_audit")); secret = $false }

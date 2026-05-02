@@ -26,6 +26,8 @@ interface ActivityLogItem {
     created_at: string;
 }
 
+type AnalyticsWindowPreset = 'custom' | '24h' | '3d' | '7d';
+
 const formatNumber = (value: number): string => {
     if (!Number.isFinite(value)) return '0';
     return new Intl.NumberFormat().format(value);
@@ -46,6 +48,35 @@ const statusClasses = (status: string): string => {
     if (normalized === 'failed') return 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30';
     if (normalized === 'skipped') return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30';
     return 'bg-muted text-muted-foreground border-border';
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const formatDateInputLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const buildPresetDateRange = (preset: Exclude<AnalyticsWindowPreset, 'custom'>): { start: string; end: string } => {
+    const now = new Date();
+    const start = new Date(now);
+    if (preset === '24h') start.setDate(start.getDate() - 1);
+    if (preset === '3d') start.setDate(start.getDate() - 2);
+    if (preset === '7d') start.setDate(start.getDate() - 6);
+    return {
+        start: formatDateInputLocal(start),
+        end: formatDateInputLocal(now)
+    };
+};
+
+const matchesPresetRange = (
+    range: { start: string; end: string },
+    preset: Exclude<AnalyticsWindowPreset, 'custom'>
+): boolean => {
+    const expected = buildPresetDateRange(preset);
+    return range.start === expected.start && range.end === expected.end;
 };
 
 const AnalyticsTooltip = ({
@@ -376,10 +407,32 @@ const AnalyticsView: React.FC = () => {
     const [downloadingCsv, setDownloadingCsv] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [pieProgress, setPieProgress] = useState(0);
+    const [selectedWindowPreset, setSelectedWindowPreset] = useState<AnalyticsWindowPreset>('custom');
     const analyticsCacheKey = useMemo(
         () => `${String(activeAccountID || 'none')}:${analyticsDateRange.start}:${analyticsDateRange.end}:activity-log`,
         [activeAccountID, analyticsDateRange.end, analyticsDateRange.start]
     );
+
+    useEffect(() => {
+        if (matchesPresetRange(analyticsDateRange, '24h')) {
+            setSelectedWindowPreset('24h');
+            return;
+        }
+        if (matchesPresetRange(analyticsDateRange, '3d')) {
+            setSelectedWindowPreset('3d');
+            return;
+        }
+        if (matchesPresetRange(analyticsDateRange, '7d')) {
+            setSelectedWindowPreset('7d');
+            return;
+        }
+        setSelectedWindowPreset('custom');
+    }, [analyticsDateRange]);
+
+    const applyWindowPreset = useCallback((preset: Exclude<AnalyticsWindowPreset, 'custom'>) => {
+        setSelectedWindowPreset(preset);
+        setAnalyticsDateRange(buildPresetDateRange(preset));
+    }, [setAnalyticsDateRange]);
 
     const fetchLogs = useCallback(async (force = false) => {
         if (!activeAccountID) {
@@ -494,11 +547,65 @@ const AnalyticsView: React.FC = () => {
         return () => window.clearTimeout(id);
     }, [logs, initialLoading]);
 
+    const activeTrafficWindow = useMemo(() => {
+        const now = new Date();
+        if (selectedWindowPreset === '24h') {
+            return {
+                start: new Date(now.getTime() - DAY_MS),
+                end: now,
+                title: 'Hourly activity for last 24 hours',
+                badge: 'Last 24 hours',
+                bucketMode: 'hourly' as const
+            };
+        }
+        if (selectedWindowPreset === '3d') {
+            return {
+                start: new Date(now.getTime() - (3 * DAY_MS)),
+                end: now,
+                title: 'Daily activity for last 3 days',
+                badge: 'Last 3 days',
+                bucketMode: 'daily' as const
+            };
+        }
+        if (selectedWindowPreset === '7d') {
+            return {
+                start: new Date(now.getTime() - (7 * DAY_MS)),
+                end: now,
+                title: 'Daily activity for last 7 days',
+                badge: 'Last 7 days',
+                bucketMode: 'daily' as const
+            };
+        }
+
+        return {
+            start: new Date(`${analyticsDateRange.start}T00:00:00`),
+            end: new Date(`${analyticsDateRange.end}T23:59:59.999`),
+            title: 'Selected range',
+            badge: `${analyticsDateRange.start} to ${analyticsDateRange.end}`,
+            bucketMode: 'custom' as const
+        };
+    }, [analyticsDateRange.end, analyticsDateRange.start, selectedWindowPreset]);
+
+    const visibleLogs = useMemo(() => {
+        const startMs = activeTrafficWindow.start.getTime();
+        const endMs = activeTrafficWindow.end.getTime();
+        if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+            return logs;
+        }
+        return logs.filter((log) => {
+            const raw = log.sent_at || log.created_at;
+            if (!raw) return false;
+            const ts = new Date(raw).getTime();
+            if (Number.isNaN(ts)) return false;
+            return ts >= startMs && ts <= endMs;
+        });
+    }, [activeTrafficWindow.end, activeTrafficWindow.start, logs]);
+
     const metrics = useMemo(() => {
-        const total = logs.length;
-        const directSuccess = logs.filter((l) => String(l.status || '').toLowerCase() === 'success').length;
-        const failed = logs.filter((l) => String(l.status || '').toLowerCase() === 'failed').length;
-        const skipped = logs.filter((l) => String(l.status || '').toLowerCase() === 'skipped').length;
+        const total = visibleLogs.length;
+        const directSuccess = visibleLogs.filter((l) => String(l.status || '').toLowerCase() === 'success').length;
+        const failed = visibleLogs.filter((l) => String(l.status || '').toLowerCase() === 'failed').length;
+        const skipped = visibleLogs.filter((l) => String(l.status || '').toLowerCase() === 'skipped').length;
         const success = directSuccess;
         const effectiveSuccess = directSuccess + skipped;
         const successRate = total > 0 ? (effectiveSuccess / total) * 100 : 0;
@@ -513,7 +620,7 @@ const AnalyticsView: React.FC = () => {
             deliveryHealth: clampPercent(deliveryHealth),
             failurePressure: clampPercent(100 - failurePressure),
         };
-    }, [logs]);
+    }, [visibleLogs]);
 
     const performanceSegments = useMemo<DonutSegment[]>(() => ([
         { key: 'success', label: 'Success', value: metrics.success, color: 'rgb(34 197 94)' },
@@ -545,7 +652,7 @@ const AnalyticsView: React.FC = () => {
         };
         const counts = new Map<string, number>();
 
-        logs.forEach((log) => {
+        visibleLogs.forEach((log) => {
             const rawType = String(log.automation_type || '').trim().toLowerCase() || 'unknown';
             counts.set(rawType, (counts.get(rawType) || 0) + 1);
         });
@@ -558,7 +665,7 @@ const AnalyticsView: React.FC = () => {
                 value,
                 color: palette[index % palette.length]
             }));
-    }, [logs]);
+    }, [visibleLogs]);
 
     const actionLimitStats = useMemo(() => ({
         hour: {
@@ -586,16 +693,13 @@ const AnalyticsView: React.FC = () => {
     ]);
 
     const trafficData = useMemo(() => {
-        const start = new Date(`${analyticsDateRange.start}T00:00:00`);
-        const end = new Date(`${analyticsDateRange.end}T23:59:59.999`);
+        const start = activeTrafficWindow.start;
+        const end = activeTrafficWindow.end;
         if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
             return [];
         }
 
-        const rangeMs = Math.max(0, end.getTime() - start.getTime());
-        const rangeDays = Math.max(1, Math.ceil(rangeMs / (24 * 60 * 60 * 1000)));
-
-        if (rangeDays <= 1) {
+        if (activeTrafficWindow.bucketMode === 'hourly') {
             const buckets = Array.from({ length: 24 }, (_, idx) => {
                 const date = new Date(start.getTime() + idx * 60 * 60 * 1000);
                 return {
@@ -604,7 +708,7 @@ const AnalyticsView: React.FC = () => {
                 };
             });
 
-            logs.forEach((log) => {
+            visibleLogs.forEach((log) => {
                 const raw = log.sent_at || log.created_at;
                 if (!raw) return;
                 const ts = new Date(raw).getTime();
@@ -617,6 +721,9 @@ const AnalyticsView: React.FC = () => {
             return buckets;
         }
 
+        const rangeMs = Math.max(0, end.getTime() - start.getTime());
+        const rangeDays = Math.max(1, Math.ceil(rangeMs / DAY_MS));
+
         const buckets = Array.from({ length: rangeDays }, (_, idx) => {
             const date = new Date(start);
             date.setDate(date.getDate() + idx);
@@ -624,11 +731,11 @@ const AnalyticsView: React.FC = () => {
                 label: date.toLocaleDateString([], { day: '2-digit', month: 'short' }),
                 count: 0,
                 start: date.getTime(),
-                end: date.getTime() + (24 * 60 * 60 * 1000)
+                end: date.getTime() + DAY_MS
             };
         });
 
-        logs.forEach((log) => {
+        visibleLogs.forEach((log) => {
             const raw = log.sent_at || log.created_at;
             if (!raw) return;
             const ts = new Date(raw).getTime();
@@ -638,20 +745,14 @@ const AnalyticsView: React.FC = () => {
         });
 
         return buckets.map(({ label, count }) => ({ label, count }));
-    }, [analyticsDateRange.end, analyticsDateRange.start, logs]);
+    }, [activeTrafficWindow, visibleLogs]);
 
     const selectedTrafficWindow = useMemo(() => {
-        const start = new Date(`${analyticsDateRange.start}T00:00:00`);
-        const end = new Date(`${analyticsDateRange.end}T00:00:00`);
-        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-            return 'Selected range';
-        }
-        const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1);
-        return days <= 1 ? 'Hourly activity for selected day' : `Daily activity for ${days} day${days === 1 ? '' : 's'}`;
-    }, [analyticsDateRange.end, analyticsDateRange.start]);
+        return activeTrafficWindow.title;
+    }, [activeTrafficWindow.title]);
 
     const failureReasonSummary = useMemo(() => {
-        const failedLogs = logs.filter((row) => String(row.status || '').toLowerCase() === 'failed');
+        const failedLogs = visibleLogs.filter((row) => String(row.status || '').toLowerCase() === 'failed');
         const counts = new Map<string, number>();
         failedLogs.forEach((row) => {
             const reason = String(row.error_reason || '').trim() || 'Unknown failure reason';
@@ -661,7 +762,7 @@ const AnalyticsView: React.FC = () => {
             .map(([reason, count]) => ({ reason, count }))
             .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason))
             .slice(0, 8);
-    }, [logs]);
+    }, [visibleLogs]);
 
     const handleDownloadCsv = useCallback(async () => {
         if (!activeAccountID) return;
@@ -726,6 +827,29 @@ const AnalyticsView: React.FC = () => {
                     </h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-content bg-card px-2 py-2">
+                        {([
+                            { key: '24h', label: '24H' },
+                            { key: '3d', label: '3D' },
+                            { key: '7d', label: '7D' }
+                        ] as const).map((preset) => {
+                            const active = selectedWindowPreset === preset.key;
+                            return (
+                                <button
+                                    key={preset.key}
+                                    type="button"
+                                    onClick={() => applyWindowPreset(preset.key)}
+                                    className={`rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                                        active
+                                            ? 'bg-primary text-primary-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:bg-background hover:text-foreground'
+                                    }`}
+                                >
+                                    {preset.label}
+                                </button>
+                            );
+                        })}
+                    </div>
                     <div className="flex items-center gap-2 rounded-2xl border border-content bg-card px-3 py-2">
                         <Calendar className="w-4 h-4 text-muted-foreground" />
                         <input
@@ -794,7 +918,12 @@ const AnalyticsView: React.FC = () => {
                     </div>
                     <div className="rounded-2xl border border-content/70 bg-background/70 px-4 py-3 text-right">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>
-                        <p className="mt-1 text-xs font-bold text-foreground">{analyticsDateRange.start} to {analyticsDateRange.end}</p>
+                        <p className="mt-1 text-xs font-bold text-foreground">{activeTrafficWindow.badge}</p>
+                        {selectedWindowPreset !== 'custom' && (
+                            <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+                                Source dates: {analyticsDateRange.start} to {analyticsDateRange.end}
+                            </p>
+                        )}
                     </div>
                 </div>
                 <div className="h-[260px]">
@@ -920,11 +1049,11 @@ const AnalyticsView: React.FC = () => {
                     <div className="py-10 flex items-center justify-center">
                         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                     </div>
-                ) : logs.length === 0 ? (
+                ) : visibleLogs.length === 0 ? (
                     <p className="px-6 py-6 text-xs font-bold text-muted-foreground">No logs found for the selected date range.</p>
                 ) : (
                     <div className="p-4 sm:p-5 space-y-3 max-h-[620px] overflow-auto">
-                        {logs.map((row) => (
+                        {visibleLogs.map((row) => (
                             <div key={row.id} className="rounded-2xl border border-content/70 bg-card/80 backdrop-blur-sm px-4 py-3 shadow-sm hover:shadow-md transition-all">
                                 <div className="flex flex-wrap items-start justify-between gap-2">
                                     <div className="flex items-center gap-2.5">

@@ -20,6 +20,7 @@ def _env(key: str, default: str = "") -> str:
     }.get(key, key.replace("APPWRITE_", "APPWRITE_FUNCTION_"))
     return str(
         os.environ.get(key)
+        or os.environ.get(f"FUNCTION_{key}")
         or os.environ.get(runtime_key)
         or default
         or ""
