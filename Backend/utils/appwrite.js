@@ -35,8 +35,6 @@ module.exports = {
     Messaging,
     APPWRITE_DATABASE_ID: process.env.APPWRITE_DATABASE_ID || process.env.DATABASE_ID,
     USERS_COLLECTION_ID: 'users',
-    SETTINGS_COLLECTION_ID: 'settings',
-    ADMIN_SETTINGS_COLLECTION_ID: 'admin_settings',
     CAMPAIGNS_COLLECTION_ID: 'campaigns',
     EMAIL_CAMPAIGNS_COLLECTION_ID: 'email_campaigns',
     IG_ACCOUNTS_COLLECTION_ID: 'ig_accounts',
@@ -46,6 +44,7 @@ module.exports = {
     COUPONS_COLLECTION_ID: 'coupons',
     COUPON_REDEMPTIONS_COLLECTION_ID: 'coupon_redemptions',
     INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID: 'inactive_user_cleanup_audit',
+    SYSTEM_CONFIG_COLLECTION_ID: 'system_config',
     PROFILES_COLLECTION_ID: 'profiles',
     AUTOMATIONS_COLLECTION_ID: 'automations',
     REPLY_TEMPLATES_COLLECTION_ID: 'reply_templates',
@@ -59,7 +58,6 @@ module.exports = {
     AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID: 'automation_collected_emails',
     KEYWORDS_COLLECTION_ID: 'keywords',
     KEYWORD_INDEX_COLLECTION_ID: 'keyword_index',
-    ADMIN_AUDIT_LOGS_COLLECTION_ID: 'admin_audit_logs',
     // Function IDs
     FUNCTION_REMOVE_INSTAGRAM: process.env.FUNCTION_REMOVE_INSTAGRAM,
     FUNCTION_INACTIVE_USER_CLEANUP: process.env.FUNCTION_INACTIVE_USER_CLEANUP

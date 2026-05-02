@@ -6,9 +6,9 @@ import { cn } from '../lib/utils';
 
 type WatermarkPolicy = {
     enabled: boolean;
-    default_text: string;
-    enforcement_mode: 'inline_when_possible' | 'fallback_secondary_message';
-    allow_user_override: boolean;
+    type: 'text';
+    position: 'inline_when_possible' | 'secondary_message';
+    opacity: number;
     updated_at?: string | null;
 };
 
@@ -17,9 +17,9 @@ export const SettingsPage: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [policy, setPolicy] = useState<WatermarkPolicy>({
         enabled: true,
-        default_text: 'Automation made by DMPanda',
-        enforcement_mode: 'fallback_secondary_message',
-        allow_user_override: true
+        type: 'text',
+        position: 'secondary_message',
+        opacity: 1
     });
 
     useEffect(() => {
@@ -50,12 +50,12 @@ export const SettingsPage: React.FC = () => {
     };
 
     if (loading) {
-        return <AdminLoadingState title="Loading settings" description="Fetching platform-wide watermark and override policy settings." />;
+        return <AdminLoadingState title="Loading settings" description="Fetching platform-wide watermark policy settings." />;
     }
 
-    const enforcementOptions: Array<{ value: WatermarkPolicy['enforcement_mode']; label: string; description: string }> = [
+    const positionOptions: Array<{ value: WatermarkPolicy['position']; label: string; description: string }> = [
         {
-            value: 'fallback_secondary_message',
+            value: 'secondary_message',
             label: 'Secondary Message',
             description: 'Append the watermark as a follow-up message when inline insertion is not appropriate.'
         },
@@ -75,11 +75,11 @@ export const SettingsPage: React.FC = () => {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div>
                 <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-4xl">Global Settings</h1>
-                <p className="mt-2 text-gray-500 dark:text-neutral-400">Manage platform-wide watermark behavior with per-user override support.</p>
+                <p className="mt-2 text-gray-500 dark:text-neutral-400">Manage the shared watermark policy with safe fallback behavior.</p>
             </div>
 
             <div className="glass-card rounded-[32px] p-6 shadow-sm space-y-6">
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                     <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
                         <p className="text-sm font-semibold text-muted-foreground">Watermark policy</p>
                         <h2 className="mt-2 text-xl font-extrabold text-foreground">Global watermark enforcement</h2>
@@ -103,48 +103,45 @@ export const SettingsPage: React.FC = () => {
                     </div>
 
                     <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
-                        <p className="text-sm font-semibold text-muted-foreground">Override access</p>
-                        <h2 className="mt-2 text-xl font-extrabold text-foreground">Per-user exceptions</h2>
-                        <p className="mt-2 text-sm text-muted-foreground">Decide whether admins can override watermark behavior on individual users.</p>
-                        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <button type="button" className={booleanCardClass(policy.allow_user_override)} onClick={() => setPolicy((prev) => ({ ...prev, allow_user_override: true }))}>
-                                <span className="segmented-dot" />
-                                <div>
-                                    <p className="text-sm font-semibold text-foreground">Allowed</p>
-                                    <p className="mt-1 text-xs font-medium text-muted-foreground">Admins can disable watermarking or customize text per user when needed.</p>
-                                </div>
-                            </button>
-                            <button type="button" className={booleanCardClass(!policy.allow_user_override)} onClick={() => setPolicy((prev) => ({ ...prev, allow_user_override: false }))}>
-                                <span className="segmented-dot" />
-                                <div>
-                                    <p className="text-sm font-semibold text-foreground">Locked</p>
-                                    <p className="mt-1 text-xs font-medium text-muted-foreground">Keep the global rule authoritative with no per-user override.</p>
-                                </div>
-                            </button>
+                        <p className="text-sm font-semibold text-muted-foreground">Watermark type</p>
+                        <h2 className="mt-2 text-xl font-extrabold text-foreground">Rendering format</h2>
+                        <p className="mt-2 text-sm text-muted-foreground">The backend currently supports text watermarking.</p>
+                        <div className="mt-5 rounded-[22px] border border-border/70 bg-card/70 px-4 py-4">
+                            <p className="text-sm font-semibold text-foreground">Text watermark</p>
+                            <p className="mt-1 text-xs font-medium text-muted-foreground">Replies use the shared text watermark with per-user fallback logic.</p>
+                        </div>
+                    </div>
+
+                    <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
+                        <label className="text-sm font-semibold text-muted-foreground">Opacity</label>
+                        <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.05}
+                            value={policy.opacity}
+                            onChange={(e) => setPolicy((prev) => ({ ...prev, opacity: Number(e.target.value) }))}
+                            className="mt-4 w-full"
+                        />
+                        <div className="mt-3 flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                            <span>Subtle</span>
+                            <span>{Math.round(policy.opacity * 100)}%</span>
+                            <span>Strong</span>
                         </div>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-[1.1fr,0.9fr] gap-4">
                     <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
-                        <label className="text-sm font-semibold text-muted-foreground">Default watermark text</label>
-                        <textarea
-                            rows={5}
-                            value={policy.default_text}
-                            onChange={(e) => setPolicy((prev) => ({ ...prev, default_text: e.target.value }))}
-                            className="input-base mt-3 min-h-[8rem]"
-                        />
-                    </div>
-                    <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
-                        <label className="text-sm font-semibold text-muted-foreground">Enforcement mode</label>
+                        <label className="text-sm font-semibold text-muted-foreground">Placement strategy</label>
                         <div className="mt-3 space-y-3">
-                            {enforcementOptions.map((option) => {
-                                const active = policy.enforcement_mode === option.value;
+                            {positionOptions.map((option) => {
+                                const active = policy.position === option.value;
                                 return (
                                     <button
                                         key={option.value}
                                         type="button"
-                                        onClick={() => setPolicy((prev) => ({ ...prev, enforcement_mode: option.value }))}
+                                        onClick={() => setPolicy((prev) => ({ ...prev, position: option.value }))}
                                         className={cn('segmented-option w-full justify-start rounded-[22px] px-4 py-4 text-left', active ? 'is-active' : '')}
                                     >
                                         <span className="segmented-dot" />
@@ -155,6 +152,14 @@ export const SettingsPage: React.FC = () => {
                                     </button>
                                 );
                             })}
+                        </div>
+                    </div>
+                    <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
+                        <p className="text-sm font-semibold text-muted-foreground">Resolution order</p>
+                        <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+                            <p>1. Admin-configured system policy</p>
+                            <p>2. Plan-based behavior</p>
+                            <p>3. Environment default fallback</p>
                         </div>
                         <p className="mt-4 text-sm text-gray-500 dark:text-neutral-400">
                             updated: {policy.updated_at ? new Date(policy.updated_at).toLocaleString() : 'not saved yet'}

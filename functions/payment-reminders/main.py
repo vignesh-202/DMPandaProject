@@ -14,9 +14,6 @@ from email_template import render_email_html
 
 PAGE_SIZE = 100
 STALE_AFTER_HOURS = 24
-PAID_PLAN_ACTIVE_STATUSES = {"active", "trial"}
-
-
 def _env(key: str, default: str = "") -> str:
     runtime_key = {
         "APPWRITE_ENDPOINT": "APPWRITE_FUNCTION_API_ENDPOINT",
@@ -271,11 +268,10 @@ def _is_profile_currently_paid(profile, now):
     if not profile:
         return False
     plan_code = _normalize_plan_code(_obj_get(profile, "plan_code"))
-    plan_status = str(_obj_get(profile, "plan_status") or "").strip().lower()
-    expires_at = _parse_datetime(_obj_get(profile, "expires_at"))
-    if plan_code == "free" or plan_status not in PAID_PLAN_ACTIVE_STATUSES:
+    expiry_date = _parse_datetime(_obj_get(profile, "expiry_date"))
+    if plan_code == "free":
         return False
-    if expires_at and expires_at <= now:
+    if not expiry_date or expiry_date <= now:
         return False
     return True
 

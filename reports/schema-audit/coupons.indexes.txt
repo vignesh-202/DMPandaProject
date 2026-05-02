@@ -1,0 +1,26 @@
+﻿total  4
+ 
+indexes (4)
+  [1]
+    $id     1_121_idx_code_unique
+    key     idx_code_unique
+    type    unique
+    status  available
+
+  [2]
+    $id     1_121_idx_active_expiry
+    key     idx_active_expiry
+    type    key
+    status  available
+
+  [3]
+    $id     1_121_idx_coupons_code_search
+    key     idx_coupons_code_search
+    type    fulltext
+    status  available
+
+  [4]
+    $id     1_121_idx_coupons_active_expiry
+    key     idx_coupons_active_expiry
+    type    key
+    status  available

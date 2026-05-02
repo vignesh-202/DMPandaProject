@@ -18,37 +18,55 @@ DEFAULT_FREE_PLAN = "free"
 MAX_RETRIES = 3
 BENEFIT_KEYS = [
     "unlimited_contacts",
-    "post_comment_dm_automation",
+    "post_comment_dm_reply",
     "post_comment_reply_automation",
-    "reel_comment_dm_automation",
+    "reel_comment_dm_reply",
     "reel_comment_reply_automation",
-    "share_reel_to_dm",
-    "share_post_to_dm",
+    "share_reel_to_admin",
+    "share_post_to_admin",
     "super_profile",
+    "inbox_menu",
+    "collect_email",
+    "suggest_more",
+    "followers_only",
+    "comment_moderation",
+    "seen_typing",
     "welcome_message",
     "convo_starters",
-    "inbox_menu",
     "dm_automation",
     "story_automation",
-    "suggest_more",
-    "comment_moderation",
+    "no_watermark",
     "global_trigger",
     "mentions",
-    "collect_email",
     "instagram_live_automation",
     "priority_support",
-    "followers_only",
-    "seen_typing",
-    "no_watermark",
+    "once_per_user_24h",
 ]
 BENEFIT_STORAGE_KEYS = {
     "post_comment_reply_automation": "post_comment_reply",
     "reel_comment_reply_automation": "reel_comment_reply",
 }
+LEGACY_BENEFIT_STORAGE_KEYS = {
+    "post_comment_reply_automation": ["post_comment_reply"],
+    "reel_comment_reply_automation": ["reel_comment_reply"],
+    "post_comment_dm_reply": ["post_comment_dm_automation"],
+    "reel_comment_dm_reply": ["reel_comment_dm_automation"],
+    "share_reel_to_admin": ["share_reel_to_dm"],
+    "share_post_to_admin": ["share_post_to_dm"],
+}
 
 
 def _benefit_field(key):
     return f"benefit_{BENEFIT_STORAGE_KEYS.get(key, key)}"
+
+
+def _benefit_fields(key):
+    fields = [_benefit_field(key)]
+    for legacy_key in LEGACY_BENEFIT_STORAGE_KEYS.get(key, []):
+        legacy_field = f"benefit_{legacy_key}"
+        if legacy_field not in fields:
+            fields.append(legacy_field)
+    return fields
 
 VALID_SELF_TRANSACTION_STATUSES = {"success", "paid", "captured", "completed", "active"}
 NEGATIVE_SELF_TRANSACTION_STATUSES = {"refunded", "partially_refunded", "chargeback", "disputed", "void", "reversed", "cancelled", "canceled"}
@@ -162,7 +180,7 @@ def _normalize_plan_code(value):
 
 def _normalize_plan_source(value, fallback="self"):
     normalized = str(value or "").strip().lower()
-    if normalized in {"self", "admin"}:
+    if normalized in {"self", "admin", "payment", "system"}:
         return normalized
     return fallback
 
@@ -177,78 +195,6 @@ def _parse_json_object(value, fallback=None):
     except Exception:
         pass
     return {} if fallback is None else fallback
-
-
-def _snapshot_state(profile):
-    snapshot = _parse_json_object(_obj_get(profile, "paid_plan_snapshot_json"), None)
-    return snapshot if isinstance(snapshot, dict) else {}
-
-
-def _snapshot_runtime(profile):
-    runtime = _snapshot_state(profile).get("__rt")
-    return runtime if isinstance(runtime, dict) else {}
-
-
-def _snapshot_reminders(profile):
-    reminders = _snapshot_runtime(profile).get("r")
-    return reminders if isinstance(reminders, dict) else {}
-
-
-def _snapshot_last_expired(profile):
-    expired = _snapshot_runtime(profile).get("lx")
-    return expired if isinstance(expired, dict) else {}
-
-
-def _serialize_snapshot(snapshot):
-    return json.dumps(snapshot, separators=(",", ":")) if snapshot else None
-
-
-def _apply_snapshot_runtime(snapshot, *, reminders=None, last_expired=None):
-    current = snapshot.get("__rt")
-    runtime = current if isinstance(current, dict) else {}
-    next_runtime = dict(runtime)
-    if reminders is not None:
-        clean_reminders = {key: value for key, value in reminders.items() if value}
-        if clean_reminders:
-            next_runtime["r"] = clean_reminders
-        else:
-            next_runtime.pop("r", None)
-    if last_expired is not None:
-        clean_last = {key: value for key, value in last_expired.items() if value}
-        if clean_last:
-            next_runtime["lx"] = clean_last
-        else:
-            next_runtime.pop("lx", None)
-    if next_runtime:
-        snapshot["__rt"] = next_runtime
-    else:
-        snapshot.pop("__rt", None)
-    return snapshot
-
-
-def _active_snapshot(plan_code, plan_name, billing_cycle, status, expires_at, limits_payload, existing_snapshot=None):
-    snapshot = {
-        "plan_id": plan_code,
-        "plan_name": plan_name,
-        "billing_cycle": billing_cycle,
-        "status": status,
-        "expires": expires_at,
-        "limits": limits_payload,
-    }
-    runtime = _snapshot_runtime(existing_snapshot or {})
-    if runtime:
-        snapshot["__rt"] = runtime
-    return snapshot
-
-
-def _infer_plan_source(profile, user_doc):
-    profile_plan = _normalize_plan_code(_obj_get(profile, "plan_code"))
-    user_plan = _normalize_plan_code(_obj_get(user_doc or {}, "plan_id"))
-    profile_expiry = _to_iso(_parse_datetime(_obj_get(profile, "expires_at")))
-    user_expiry = _to_iso(_parse_datetime(_obj_get(user_doc or {}, "plan_expires_at")))
-    if profile_plan != user_plan or profile_expiry != user_expiry:
-        return "admin"
-    return "self"
 
 
 def _call_appwrite(client: Client, method: str, path: str, params=None):
@@ -363,10 +309,13 @@ def _load_pricing_map(client: Client, db_id: str, collection_id: str):
             if _normalize_boolean(_obj_get(item, "value")):
                 entitlements[feature_key] = True
         for benefit_key in BENEFIT_KEYS:
-            field = _benefit_field(benefit_key)
-            if field in row:
-                entitlements[benefit_key] = _normalize_boolean(_obj_get(row, field))
-            else:
+            matched = False
+            for field in _benefit_fields(benefit_key):
+                if field in row:
+                    entitlements[benefit_key] = _normalize_boolean(_obj_get(row, field))
+                    matched = True
+                    break
+            if not matched:
                 entitlements.setdefault(benefit_key, False)
         monthly_limit = _safe_int(_obj_get(row, "actions_per_month_limit"), 0)
         active_limit = _safe_int(_obj_get(row, "instagram_connections_limit"), 0)
@@ -389,21 +338,16 @@ def _load_pricing_map(client: Client, db_id: str, collection_id: str):
 
 
 def _resolve_limits_payload(profile, defaults):
-    limits_payload = _parse_json_object(_obj_get(profile, "limits_json"), {})
     active_limit = _safe_int(
-        limits_payload.get("instagram_connections_limit", _obj_get(profile, "instagram_connections_limit")),
+        _obj_get(profile, "instagram_connections_limit"),
         defaults["instagram_connections_limit"],
-    )
-    linked_limit = _safe_int(
-        limits_payload.get("instagram_link_limit", _obj_get(profile, "instagram_link_limit")),
-        defaults["instagram_link_limit"],
     )
     return {
         "instagram_connections_limit": active_limit,
-        "instagram_link_limit": linked_limit if linked_limit > 0 else active_limit,
-        "hourly_action_limit": _safe_int(limits_payload.get("hourly_action_limit", _obj_get(profile, "hourly_action_limit")), defaults["hourly_action_limit"]),
-        "daily_action_limit": _safe_int(limits_payload.get("daily_action_limit", _obj_get(profile, "daily_action_limit")), defaults["daily_action_limit"]),
-        "monthly_action_limit": _safe_int(limits_payload.get("monthly_action_limit", _obj_get(profile, "monthly_action_limit")), defaults["monthly_action_limit"]),
+        "active_account_limit": max(0, active_limit),
+        "hourly_action_limit": _safe_int(_obj_get(profile, "hourly_action_limit"), defaults["hourly_action_limit"]),
+        "daily_action_limit": _safe_int(_obj_get(profile, "daily_action_limit"), defaults["daily_action_limit"]),
+        "monthly_action_limit": _safe_int(_obj_get(profile, "monthly_action_limit"), defaults["monthly_action_limit"]),
     }
 
 
@@ -441,62 +385,39 @@ def _transaction_expiry(transaction, plan_defaults):
 def _self_subscription_from_transactions(transactions, pricing_map, now):
     ranked = []
     for transaction in transactions:
-        plan_code = _transaction_plan_code(transaction)
-        if plan_code == DEFAULT_FREE_PLAN or plan_code not in pricing_map:
+        status = str(_obj_get(transaction, "status") or "").strip().lower()
+        if status != "success":
             continue
         created_at = _transaction_created_at(transaction)
-        status = str(_obj_get(transaction, "status") or "").strip().lower()
-        ranked.append((created_at or datetime.min.replace(tzinfo=timezone.utc), status, plan_code, transaction))
+        ranked.append((created_at or datetime.min.replace(tzinfo=timezone.utc), transaction))
     ranked.sort(key=lambda item: item[0], reverse=True)
-    decisive = next((item for item in ranked if item[1] in VALID_SELF_TRANSACTION_STATUSES or item[1] in NEGATIVE_SELF_TRANSACTION_STATUSES), None)
+    decisive = ranked[0][1] if ranked else None
     if not decisive:
-        return {"plan_id": DEFAULT_FREE_PLAN, "plan_expires_at": None, "billing_cycle": None}
-    _, status, plan_code, transaction = decisive
-    if status in NEGATIVE_SELF_TRANSACTION_STATUSES:
-        return {"plan_id": DEFAULT_FREE_PLAN, "plan_expires_at": None, "billing_cycle": None}
-    expires = _transaction_expiry(transaction, pricing_map[plan_code])
-    if expires <= now:
-        return {"plan_id": DEFAULT_FREE_PLAN, "plan_expires_at": None, "billing_cycle": _transaction_billing_cycle(transaction)}
-    return {"plan_id": plan_code, "plan_expires_at": _to_iso(expires), "billing_cycle": _transaction_billing_cycle(transaction)}
+        return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None, "billing_cycle": None}
+    plan_code = _transaction_plan_code(decisive)
+    if plan_code == DEFAULT_FREE_PLAN or plan_code not in pricing_map:
+        return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None, "billing_cycle": None}
+    expiry_date = _parse_datetime(_obj_get(decisive, "expiry_date"))
+    if not expiry_date or expiry_date <= now:
+        return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None, "billing_cycle": _transaction_billing_cycle(decisive)}
+    return {"plan_id": plan_code, "expiry_date": _to_iso(expiry_date), "billing_cycle": _transaction_billing_cycle(decisive)}
 
 
-def _build_profile_patch_for_plan(profile, plan_defaults, *, plan_code, plan_name, plan_source, billing_cycle, expires_at, status, preserve_expired_snapshot=False):
+def _build_profile_patch_for_plan(profile, plan_defaults, *, plan_code, plan_name, plan_source, billing_cycle, expiry_date, status, preserve_expired_snapshot=False):
     limits_payload = _resolve_limits_payload(profile, plan_defaults if plan_code != DEFAULT_FREE_PLAN else plan_defaults)
-    existing_snapshot = _snapshot_state(profile)
+    _ = preserve_expired_snapshot
+    _ = billing_cycle
+    _ = status
     patch = {
         "plan_code": plan_code,
+        "plan_source": _normalize_plan_source(plan_source, "system" if plan_code == DEFAULT_FREE_PLAN else "payment"),
         "plan_name": plan_name,
-        "plan_status": status,
-        "billing_cycle": billing_cycle,
-        "expires_at": expires_at,
-        "limits_json": json.dumps(limits_payload),
-        "features_json": json.dumps(plan_defaults.get("entitlements") or {}),
-        "admin_override_json": _obj_get(profile, "admin_override_json"),
+        "expiry_date": expiry_date,
+        "instagram_connections_limit": limits_payload["instagram_connections_limit"],
         "hourly_action_limit": limits_payload["hourly_action_limit"],
         "daily_action_limit": limits_payload["daily_action_limit"],
         "monthly_action_limit": limits_payload["monthly_action_limit"],
     }
-    for benefit_key in BENEFIT_KEYS:
-        patch[_benefit_field(benefit_key)] = bool((plan_defaults.get("entitlements") or {}).get(benefit_key))
-    if plan_code != DEFAULT_FREE_PLAN:
-        patch["paid_plan_snapshot_json"] = _serialize_snapshot(
-            _active_snapshot(plan_code, plan_name, billing_cycle, status, expires_at, limits_payload, existing_snapshot)
-        )
-    elif preserve_expired_snapshot:
-        snapshot = existing_snapshot if isinstance(existing_snapshot, dict) else {}
-        patch["paid_plan_snapshot_json"] = _serialize_snapshot(
-            _apply_snapshot_runtime(
-                snapshot,
-                reminders={},
-                last_expired={
-                    "c": _normalize_plan_code(_obj_get(profile, "plan_code")),
-                    "n": str(_obj_get(profile, "plan_name") or "").strip() or None,
-                    "e": _obj_get(profile, "expires_at") or None,
-                },
-            )
-        )
-    else:
-        patch["paid_plan_snapshot_json"] = None
     return patch
 
 
@@ -510,9 +431,9 @@ def _downgrade_profile_to_free(client, db_id, profiles_collection, pricing_map, 
         free_defaults,
         plan_code=DEFAULT_FREE_PLAN,
         plan_name=free_defaults["plan_name"],
-        plan_source="self",
+        plan_source="system",
         billing_cycle=None,
-        expires_at=None,
+        expiry_date=None,
         status="inactive",
         preserve_expired_snapshot=preserve_expired_snapshot,
     )
@@ -527,29 +448,23 @@ def _restore_profile_from_self_memory(client, db_id, profiles_collection, pricin
     plan_defaults = pricing_map.get(plan_code)
     if not plan_defaults:
         return None
-    expires_at = _obj_get(self_memory, "plan_expires_at") or None
+    expiry_date = _obj_get(self_memory, "expiry_date") or None
     billing_cycle = str(_obj_get(self_memory, "billing_cycle") or "monthly").strip().lower()
     if billing_cycle not in {"monthly", "yearly"}:
         billing_cycle = "monthly"
     limits_payload = {
         "instagram_connections_limit": plan_defaults["instagram_connections_limit"],
-        "instagram_link_limit": plan_defaults["instagram_link_limit"],
+        "active_account_limit": plan_defaults["instagram_connections_limit"],
         "hourly_action_limit": plan_defaults["hourly_action_limit"],
         "daily_action_limit": plan_defaults["daily_action_limit"],
         "monthly_action_limit": plan_defaults["monthly_action_limit"],
     }
     patch = {
         "plan_code": plan_code,
+        "plan_source": "payment",
         "plan_name": plan_defaults["plan_name"],
-        "plan_status": "active",
-        "billing_cycle": billing_cycle,
-        "expires_at": expires_at,
-        "limits_json": json.dumps(limits_payload),
-        "features_json": json.dumps(plan_defaults.get("entitlements") or {}),
-        "paid_plan_snapshot_json": _serialize_snapshot(
-            _active_snapshot(plan_code, plan_defaults["plan_name"], billing_cycle, "active", expires_at, limits_payload, profile)
-        ),
-        "admin_override_json": None,
+        "expiry_date": expiry_date,
+        "instagram_connections_limit": limits_payload["instagram_connections_limit"],
         "hourly_action_limit": plan_defaults["hourly_action_limit"],
         "daily_action_limit": plan_defaults["daily_action_limit"],
         "monthly_action_limit": plan_defaults["monthly_action_limit"],
@@ -557,7 +472,7 @@ def _restore_profile_from_self_memory(client, db_id, profiles_collection, pricin
     return _update_document(client, db_id, profiles_collection, profile_id, patch)
 
 
-def _update_user_memory(client, db_id, users_collection, user_id, plan_id, expires_at):
+def _update_user_memory(client, db_id, users_collection, user_id, plan_id, expiry_date):
     return None
 
 
@@ -645,8 +560,7 @@ def _recompute_account_access(client: Client, db_id: str, profile, ig_accounts_c
     if not user_id:
         return 0
 
-    limits_payload = _parse_json_object(_obj_get(profile, "limits_json"), {})
-    limit = _safe_int(limits_payload.get("instagram_connections_limit", _obj_get(profile, "instagram_connections_limit")), 0)
+    limit = _safe_int(_obj_get(profile, "instagram_connections_limit"), 0)
     accounts = _list_all(client, db_id, ig_accounts_collection, [Query.equal("user_id", user_id)])
     ordered_active_accounts = [
         account for account in accounts
@@ -655,7 +569,6 @@ def _recompute_account_access(client: Client, db_id: str, profile, ig_accounts_c
     ]
     ordered_active_accounts.sort(key=lambda account: (
         str(_obj_get(account, "linked_at") or ""),
-        str(_obj_get(account, "$createdAt") or ""),
         str(_obj_get(account, "$id") or ""),
     ))
     default_window_ids = {
@@ -687,13 +600,14 @@ def _recompute_account_access(client: Client, db_id: str, profile, ig_accounts_c
                 access_reason = "override_enabled"
             else:
                 access_state = "active"
-                access_reason = None
+                access_reason = ""
         _update_document(
             client,
             db_id,
             ig_accounts_collection,
             account_id,
             {
+                "is_active": linked_active,
                 "plan_locked": plan_locked,
                 "effective_access": effective_access,
                 "access_state": access_state,
@@ -732,14 +646,13 @@ def _maybe_send_reminder(client, db_id, profiles_collection, profile, stage, anc
     if not profile_id or not user_id or not anchor_expiry:
         return
     field_map = {
-        "3d": "3d",
-        "day0": "d0",
-        "day1": "d1",
-        "repeat": "rp",
+        "3d": "expiry_reminder_3d_sent_at",
+        "day0": "expiry_reminder_day0_sent_at",
+        "day1": "expiry_reminder_day1_sent_at",
+        "repeat": "expiry_reminder_day1_sent_at",
     }
-    reminder_key = field_map[stage]
-    reminders = _snapshot_reminders(profile)
-    last_sent_value = reminders.get(reminder_key)
+    reminder_field = field_map[stage]
+    last_sent_value = _obj_get(profile, reminder_field)
     if last_sent_value:
         if stage != "repeat":
             summary["skipped_duplicate_reminders"] += 1
@@ -750,16 +663,11 @@ def _maybe_send_reminder(client, db_id, profiles_collection, profile, stage, anc
             return
 
     expiry_text = anchor_expiry.date().isoformat()
-    last_expired = _snapshot_last_expired(profile)
-    plan_name = str(_obj_get(profile, "plan_name") or last_expired.get("n") or _obj_get(_snapshot_state(profile), "plan_name") or "DM Panda Plan").strip()
+    plan_name = str(_obj_get(profile, "plan_name") or "DM Panda Plan").strip()
     subject, html = _build_email_content(stage, plan_name, expiry_text, _env("FRONTEND_ORIGIN"))
     _send_email(client, user_id, subject, html)
-    next_snapshot = _apply_snapshot_runtime(
-        _snapshot_state(profile),
-        reminders={**reminders, reminder_key: _to_iso(datetime.now(timezone.utc))},
-    )
     _update_document(client, db_id, profiles_collection, profile_id, {
-        "paid_plan_snapshot_json": _serialize_snapshot(next_snapshot)
+        reminder_field: _to_iso(datetime.now(timezone.utc))
     })
     summary["emails_sent"] += 1
 
@@ -816,34 +724,28 @@ def main(context):
             user_id = str(_obj_get(profile, "user_id", "") or "").strip()
             if not user_id:
                 continue
-            self_memory = _self_subscription_from_transactions(transactions_by_user.get(user_id, []), pricing_map, now)
             current_plan = _normalize_plan_code(_obj_get(profile, "plan_code"))
-            plan_source = _infer_plan_source(profile, self_memory)
-            expires_at = _parse_datetime(_obj_get(profile, "expires_at"))
+            plan_source = _normalize_plan_source(_obj_get(profile, "plan_source"), "system" if current_plan == DEFAULT_FREE_PLAN else "payment")
+            if current_plan == DEFAULT_FREE_PLAN:
+                continue
+            self_memory = _self_subscription_from_transactions(transactions_by_user.get(user_id, []), pricing_map, now)
+            expiry_date = _parse_datetime(_obj_get(profile, "expiry_date"))
             self_plan_id = _normalize_plan_code(_obj_get(self_memory, "plan_id"))
-            self_plan_expires = _parse_datetime(_obj_get(self_memory, "plan_expires_at"))
+            self_plan_expires = _parse_datetime(_obj_get(self_memory, "expiry_date"))
 
             try:
-                if current_plan != DEFAULT_FREE_PLAN and expires_at:
-                    days_until_expiry = (expires_at.date() - today).days
+                if expiry_date:
+                    days_until_expiry = (expiry_date.date() - today).days
                     if days_until_expiry == 3:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "3d", expires_at, summary)
+                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "3d", expiry_date, summary)
                     elif days_until_expiry == 0:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day0", expires_at, summary)
+                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day0", expiry_date, summary)
                     elif days_until_expiry == -1:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day1", expires_at, summary)
+                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day1", expiry_date, summary)
                     elif days_until_expiry <= -7 and abs(days_until_expiry) % 7 == 0:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "repeat", expires_at, summary)
+                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "repeat", expiry_date, summary)
 
-                if current_plan == DEFAULT_FREE_PLAN:
-                    last_expired = _snapshot_last_expired(profile)
-                    last_expired_at = _parse_datetime(last_expired.get("e"))
-                    if last_expired_at:
-                        days_since_expiry = (last_expired_at.date() - today).days
-                        if days_since_expiry <= -7 and abs(days_since_expiry) % 7 == 0:
-                            _maybe_send_reminder(client, db_id, profiles_collection, profile, "repeat", last_expired_at, summary)
-
-                if current_plan != DEFAULT_FREE_PLAN and expires_at and expires_at < now:
+                if expiry_date and expiry_date < now:
                     if plan_source == "admin" and self_plan_id != DEFAULT_FREE_PLAN and self_plan_expires and self_plan_expires > now:
                         restored = _restore_profile_from_self_memory(client, db_id, profiles_collection, pricing_map, profile, self_memory)
                         if restored:
@@ -859,9 +761,6 @@ def main(context):
                             summary["transaction_self_memory_expired"] += 1
                         _recompute_account_access(client, db_id, downgraded or profile)
                         continue
-
-                if current_plan == DEFAULT_FREE_PLAN and plan_source == "admin" and self_plan_id != DEFAULT_FREE_PLAN and self_plan_expires and self_plan_expires < now:
-                    summary["transaction_self_memory_expired"] += 1
             except Exception as error:
                 summary["failed"] += 1
                 context.error(json.dumps({

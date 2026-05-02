@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, ReactNode, useEffect, useCa
 import { useAuth } from './AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { buildLockedFeatureState, getFeatureLabel, hasPlanEntitlement, normalizeFeatureKey } from '../lib/planAccess';
+import { findPricingPlan, normalizePricingPayload, type PricingPlan } from '../lib/pricing';
 
 export type ViewType =
     | 'Overview'
@@ -104,6 +105,10 @@ interface DashboardContextProps {
         daily_action_limit?: number | null;
         monthly_action_limit?: number | null;
     };
+    planPureLimits: {
+        max_link_limit: number | null;
+        active_account_limit: number;
+    };
     accessState: {
         ban_mode?: string;
         ban_message?: string | null;
@@ -137,7 +142,7 @@ const VIEW_PATHS: Record<ViewType, string> = {
     'Inbox Menu': 'inbox-menu',
     'Welcome Message': 'welcome-message',
     'Convo Starter': 'convo-starter',
-    'Global Trigger': 'global-trigger',
+    'Global Trigger': 'global-triggers',
     'DM Automation': 'dm-automation',
     'Post Automation': 'post-automation',
     'Reel Automation': 'reel-automation',
@@ -161,6 +166,10 @@ const VIEW_PATHS: Record<ViewType, string> = {
     'Automation Not working?': 'automation-not-working'
 };
 
+const PATH_ALIASES: Record<string, string> = {
+    'global-trigger': 'global-triggers'
+};
+
 const PATH_TO_VIEW = Object.entries(VIEW_PATHS).reduce<Record<string, ViewType>>((acc, [view, path]) => {
     acc[path] = view as ViewType;
     return acc;
@@ -175,7 +184,23 @@ const getViewFromPathname = (pathname: string): ViewType => {
     const normalized = normalizeDashboardPathname(pathname);
     if (!normalized.startsWith(DASHBOARD_BASE_PATH)) return 'Overview';
     const suffix = normalized.slice(DASHBOARD_BASE_PATH.length).replace(/^\/+/, '');
-    return PATH_TO_VIEW[suffix] || 'Overview';
+    
+    const resolvedSuffix = PATH_ALIASES[suffix] || suffix;
+
+    // Exact match
+    if (PATH_TO_VIEW[resolvedSuffix]) {
+        return PATH_TO_VIEW[resolvedSuffix];
+    }
+    
+    // Subpath match
+    const segments = resolvedSuffix.split('/');
+    const firstSegment = segments[0] || '';
+    const resolvedFirstSegment = PATH_ALIASES[firstSegment] || firstSegment;
+    if (segments.length > 0 && PATH_TO_VIEW[resolvedFirstSegment]) {
+        return PATH_TO_VIEW[resolvedFirstSegment];
+    }
+
+    return PATH_TO_VIEW[resolvedSuffix] || 'Overview';
 };
 
 const getPathForView = (view: ViewType): string => {
@@ -223,12 +248,62 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     const [planFeatures, setPlanFeatures] = useState<string[]>([]);
     const [planEntitlements, setPlanEntitlements] = useState<Record<string, boolean>>({});
     const [planLimits, setPlanLimits] = useState<DashboardContextProps['planLimits']>({});
+    const [planPureLimits, setPlanPureLimits] = useState<DashboardContextProps['planPureLimits']>({
+        max_link_limit: null,
+        active_account_limit: 0
+    });
+    const [currentPlanIdentifier, setCurrentPlanIdentifier] = useState<string>('free');
     const [accessState, setAccessState] = useState<DashboardContextProps['accessState']>(authAccessState || null);
 
     const [isGlobalLoading, setIsGlobalLoading] = useState(true);
     const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
 
     const { authenticatedFetch } = useAuth();
+    const pricingPlansRef = useRef<PricingPlan[]>([]);
+    const currentPlanIdentifierRef = useRef<string>('free');
+
+    useEffect(() => {
+        currentPlanIdentifierRef.current = currentPlanIdentifier;
+    }, [currentPlanIdentifier]);
+
+    const resolveActiveAccountLimit = useCallback((limitsPayload: any): number => {
+        const value = Number(limitsPayload?.active_account_limit ?? limitsPayload?.instagram_connections_limit ?? 0);
+        if (!Number.isFinite(value)) return 0;
+        return Math.max(0, value);
+    }, []);
+
+    const applyPlanPureLimits = useCallback((plans: PricingPlan[], planIdentifier: string) => {
+        const normalizedPlans = Array.isArray(plans) ? plans : [];
+        const explicitLinkLimits = normalizedPlans
+            .map((plan) => Number(plan.instagram_link_limit))
+            .filter((value) => Number.isFinite(value) && value >= 0);
+        const fallbackConnectionLimits = normalizedPlans
+            .map((plan) => Number(plan.instagram_connections_limit))
+            .filter((value) => Number.isFinite(value) && value >= 0);
+        const maxLinkLimit = explicitLinkLimits.length > 0
+            ? Math.max(...explicitLinkLimits)
+            : (fallbackConnectionLimits.length > 0 ? Math.max(...fallbackConnectionLimits) : null);
+        const activePlan = findPricingPlan(normalizedPlans, planIdentifier);
+        if (!activePlan) {
+            // Keep identifier resolution as a no-op dependency until pricing/plan fetches settle.
+        }
+
+        setPlanPureLimits((previous) => ({
+            ...previous,
+            max_link_limit: maxLinkLimit == null ? null : Math.max(0, maxLinkLimit)
+        }));
+    }, []);
+
+    const refreshPricingPlanCatalog = useCallback(async () => {
+        const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/pricing`);
+        if (!response.ok) {
+            throw new Error('Failed to load pricing plans');
+        }
+        const payload = await response.json();
+        const plans = normalizePricingPayload(payload);
+        pricingPlansRef.current = plans;
+        applyPlanPureLimits(plans, currentPlanIdentifierRef.current);
+    }, [applyPlanPureLimits, authenticatedFetch]);
 
     const hasPlanFeature = useCallback((featureKey: string) => {
         if (hasPlanEntitlement(planEntitlements, featureKey)) return true;
@@ -263,8 +338,11 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
         setCurrentViewState((prev) => (prev === routeView ? prev : routeView));
 
-        if (normalizedPath.startsWith(DASHBOARD_BASE_PATH) && normalizedPath !== canonicalPath) {
-            navigate(canonicalPath, { replace: true });
+        if (normalizedPath.startsWith(DASHBOARD_BASE_PATH)) {
+            const isSubpath = canonicalPath !== DASHBOARD_BASE_PATH && normalizedPath.startsWith(`${canonicalPath}/`);
+            if (normalizedPath !== canonicalPath && !isSubpath) {
+                navigate(canonicalPath, { replace: true });
+            }
         }
     }, [location.pathname, navigate]);
 
@@ -274,25 +352,47 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
             throw new Error('Failed to load plan access');
         }
         const payload = await response.json();
+        const planIdentifier = String(payload?.plan_code || payload?.plan_id || payload?.assigned_plan_id || 'free').trim().toLowerCase() || 'free';
+        if (pricingPlansRef.current.length === 0) {
+            await refreshPricingPlanCatalog().catch(() => null);
+        }
+        const limitsPayload = payload?.limits && typeof payload.limits === 'object' ? payload.limits : {};
         setPlanFeatures(Array.isArray(payload?.details?.features) ? payload.details.features : []);
         setPlanEntitlements(payload?.entitlements && typeof payload.entitlements === 'object' ? payload.entitlements : {});
-        setPlanLimits(payload?.limits && typeof payload.limits === 'object' ? payload.limits : {});
+        setPlanLimits(limitsPayload);
+        setPlanPureLimits((previous) => ({
+            ...previous,
+            active_account_limit: resolveActiveAccountLimit(limitsPayload)
+        }));
+        setCurrentPlanIdentifier(planIdentifier);
+        applyPlanPureLimits(pricingPlansRef.current, planIdentifier);
         setAccessState(payload?.access_state || authAccessState || null);
-    }, [authAccessState, authenticatedFetch]);
+    }, [applyPlanPureLimits, authAccessState, authenticatedFetch, refreshPricingPlanCatalog, resolveActiveAccountLimit]);
 
     useEffect(() => {
         let cancelled = false;
         const loadPlanFeatures = async () => {
             try {
-                const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`);
-                if (!response.ok) {
+                const [planResponse] = await Promise.all([
+                    authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`),
+                    pricingPlansRef.current.length === 0 ? refreshPricingPlanCatalog().catch(() => null) : Promise.resolve()
+                ]);
+                if (!planResponse.ok) {
                     throw new Error('Failed to load plan access');
                 }
-                const payload = await response.json();
+                const payload = await planResponse.json();
+                const planIdentifier = String(payload?.plan_code || payload?.plan_id || payload?.assigned_plan_id || 'free').trim().toLowerCase() || 'free';
                 if (!cancelled) {
+                    const limitsPayload = payload?.limits && typeof payload.limits === 'object' ? payload.limits : {};
                     setPlanFeatures(Array.isArray(payload?.details?.features) ? payload.details.features : []);
                     setPlanEntitlements(payload?.entitlements && typeof payload.entitlements === 'object' ? payload.entitlements : {});
-                    setPlanLimits(payload?.limits && typeof payload.limits === 'object' ? payload.limits : {});
+                    setPlanLimits(limitsPayload);
+                    setPlanPureLimits((previous) => ({
+                        ...previous,
+                        active_account_limit: resolveActiveAccountLimit(limitsPayload)
+                    }));
+                    setCurrentPlanIdentifier(planIdentifier);
+                    applyPlanPureLimits(pricingPlansRef.current, planIdentifier);
                     setAccessState(payload?.access_state || authAccessState || null);
                 }
             } catch (_) {
@@ -300,6 +400,12 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                     setPlanFeatures([]);
                     setPlanEntitlements({});
                     setPlanLimits({});
+                    setPlanPureLimits((previous) => ({
+                        ...previous,
+                        active_account_limit: 0
+                    }));
+                    setCurrentPlanIdentifier('free');
+                    applyPlanPureLimits(pricingPlansRef.current, 'free');
                     setAccessState(authAccessState || null);
                 }
             }
@@ -308,7 +414,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             cancelled = true;
         };
-    }, [authAccessState, authenticatedFetch, user?.$id]);
+    }, [applyPlanPureLimits, authAccessState, authenticatedFetch, refreshPricingPlanCatalog, resolveActiveAccountLimit, user?.$id]);
 
     useEffect(() => {
         setAccessState((prev) => authAccessState || prev || null);
@@ -678,6 +784,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         planFeatures,
         planEntitlements,
         planLimits,
+        planPureLimits,
         accessState,
         refreshPlanAccess,
         refreshLinkedProfiles,

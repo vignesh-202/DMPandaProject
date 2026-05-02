@@ -1,0 +1,26 @@
+﻿total  4
+ 
+indexes (4)
+  [1]
+    $id     1_129_idx_campaign_created_at
+    key     idx_campaign_created_at
+    type    key
+    status  available
+
+  [2]
+    $id     1_129_idx_campaign_admin_created
+    key     idx_campaign_admin_created
+    type    key
+    status  available
+
+  [3]
+    $id     1_129_idx_campaign_message_id
+    key     idx_campaign_message_id
+    type    key
+    status  available
+
+  [4]
+    $id     1_129_idx_campaign_status_created
+    key     idx_campaign_status_created
+    type    key
+    status  available

@@ -1,0 +1,50 @@
+﻿total  8
+ 
+indexes (8)
+  [1]
+    $id     1_127_idx_gateway_order_unique
+    key     idx_gateway_order_unique
+    type    unique
+    status  available
+
+  [2]
+    $id     1_127_idx_gateway_payment
+    key     idx_gateway_payment
+    type    key
+    status  available
+
+  [3]
+    $id     1_127_idx_user_created_at
+    key     idx_user_created_at
+    type    key
+    status  available
+
+  [4]
+    $id     1_127_idx_user_status
+    key     idx_user_status
+    type    key
+    status  available
+
+  [5]
+    $id     1_127_idx_payment_attempt_status_created
+    key     idx_payment_attempt_status_created
+    type    key
+    status  available
+
+  [6]
+    $id     1_127_idx_payment_attempt_gateway_payment
+    key     idx_payment_attempt_gateway_payment
+    type    key
+    status  available
+
+  [7]
+    $id     1_127_idx_pay_att_user_status_created
+    key     idx_pay_att_user_status_created
+    type    key
+    status  available
+
+  [8]
+    $id     1_127_idx_pay_att_gateway_payment
+    key     idx_pay_att_gateway_payment
+    type    key
+    status  available

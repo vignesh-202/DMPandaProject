@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import time
@@ -7,12 +8,14 @@ from pathlib import Path
 from appwrite.client import AppwriteException, Client
 from appwrite.id import ID
 from appwrite.permission import Permission
+from appwrite.query import Query
 from appwrite.role import Role
 from appwrite.services.databases import Databases
 from dotenv import load_dotenv
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT_DIR / "docs" / "appwrite-schema-live.json"
+PLAN_FEATURES_PATH = ROOT_DIR / "shared" / "planFeatures.json"
 ENV_PATH = Path(__file__).resolve().with_name(".env")
 
 load_dotenv(ENV_PATH)
@@ -38,28 +41,29 @@ DEFAULT_COLLECTION_PERMISSIONS = [
 
 BENEFIT_KEYS = [
     "unlimited_contacts",
-    "post_comment_dm_automation",
+    "post_comment_dm_reply",
     "post_comment_reply_automation",
-    "reel_comment_dm_automation",
+    "reel_comment_dm_reply",
     "reel_comment_reply_automation",
-    "share_reel_to_dm",
-    "share_post_to_dm",
+    "share_reel_to_admin",
+    "share_post_to_admin",
     "super_profile",
+    "inbox_menu",
+    "collect_email",
+    "suggest_more",
+    "followers_only",
+    "once_per_user_24h",
+    "comment_moderation",
+    "seen_typing",
     "welcome_message",
     "convo_starters",
-    "inbox_menu",
     "dm_automation",
     "story_automation",
-    "suggest_more",
-    "comment_moderation",
+    "no_watermark",
     "global_trigger",
     "mentions",
-    "collect_email",
     "instagram_live_automation",
     "priority_support",
-    "followers_only",
-    "seen_typing",
-    "no_watermark",
 ]
 
 BENEFIT_STORAGE_KEYS = {
@@ -116,36 +120,6 @@ EMAIL_CAMPAIGNS_COLLECTION = {
         {"key": "idx_campaign_status_created", "type": "key", "attributes": ["status", "created_at"], "orders": []},
         {"key": "idx_campaign_admin_created", "type": "key", "attributes": ["admin_id", "created_at"], "orders": []},
         {"key": "idx_campaign_message_id", "type": "key", "attributes": ["appwrite_message_id"], "orders": []},
-    ],
-}
-
-AUTOMATION_COLLECTED_EMAILS_COLLECTION = {
-    "id": "automation_collected_emails",
-    "name": "Automation Collected Emails",
-    "enabled": True,
-    "documentSecurity": False,
-    "permissions": DEFAULT_COLLECTION_PERMISSIONS,
-    "attributes": [
-        {"key": "user_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
-        {"key": "account_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
-        {"key": "automation_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
-        {"key": "conversation_key", "type": "string", "size": 255, "required": True, "array": False, "default": None},
-        {"key": "sender_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
-        {"key": "recipient_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
-        {"key": "email", "type": "string", "size": 255, "required": True, "array": False, "default": None},
-        {"key": "normalized_email", "type": "string", "size": 255, "required": True, "array": False, "default": None},
-        {"key": "send_to", "type": "string", "size": 50, "required": False, "array": False, "default": None},
-        {"key": "sender_profile_url", "type": "string", "size": 500, "required": False, "array": False, "default": None},
-        {"key": "receiver_name", "type": "string", "size": 255, "required": False, "array": False, "default": None},
-        {"key": "automation_title", "type": "string", "size": 255, "required": False, "array": False, "default": None},
-        {"key": "automation_type", "type": "string", "size": 50, "required": False, "array": False, "default": None},
-        {"key": "collected_at", "type": "datetime", "required": True, "array": False, "default": None},
-        {"key": "updated_at", "type": "datetime", "required": True, "array": False, "default": None},
-    ],
-    "indexes": [
-        {"key": "idx_normalized_email", "type": "key", "attributes": ["normalized_email"], "orders": []},
-        {"key": "idx_account_collected_at", "type": "key", "attributes": ["account_id", "collected_at"], "orders": []},
-        {"key": "idx_automation_collected_at", "type": "key", "attributes": ["automation_id", "collected_at"], "orders": []},
     ],
 }
 
@@ -223,10 +197,33 @@ INACTIVE_USER_CLEANUP_AUDIT_COLLECTION = {
     ],
 }
 
+SYSTEM_CONFIG_COLLECTION = {
+    "id": "system_config",
+    "name": "System Config",
+    "enabled": True,
+    "documentSecurity": False,
+    "permissions": [
+        "read(\"label:admin\")",
+        "create(\"label:admin\")",
+        "update(\"label:admin\")",
+        "delete(\"label:admin\")",
+    ],
+    "attributes": [
+        {"key": "key", "type": "string", "size": 120, "required": True, "array": False, "default": None},
+        {"key": "enabled", "type": "boolean", "required": False, "array": False, "default": True},
+        {"key": "type", "type": "string", "size": 32, "required": False, "array": False, "default": "text"},
+        {"key": "position", "type": "string", "size": 64, "required": False, "array": False, "default": "secondary_message"},
+        {"key": "opacity", "type": "double", "required": False, "array": False, "default": 1.0, "min": 0.0, "max": 1.0},
+        {"key": "updated_by", "type": "string", "size": 255, "required": False, "array": False, "default": None},
+        {"key": "updated_at", "type": "datetime", "required": False, "array": False, "default": None},
+    ],
+    "indexes": [
+        {"key": "idx_system_config_key", "type": "unique", "attributes": ["key"], "orders": []},
+    ],
+}
+
 ADDITIONAL_ATTRIBUTES = {
     "users": [
-        {"key": "plan_id", "type": "string", "required": False, "array": False, "default": "free", "size": 32},
-        {"key": "plan_expires_at", "type": "datetime", "required": False, "array": False, "default": None},
         {"key": "kill_switch_enabled", "type": "boolean", "required": False, "array": False, "default": True},
         {"key": "last_active_at", "type": "datetime", "required": False, "array": False, "default": None},
         {"key": "cleanup_protected", "type": "boolean", "required": False, "array": False, "default": False},
@@ -234,35 +231,32 @@ ADDITIONAL_ATTRIBUTES = {
     ],
     "profiles": [
         {"key": "plan_code", "type": "string", "required": False, "array": False, "default": None, "size": 32},
+        {"key": "plan_source", "type": "string", "required": False, "array": False, "default": None, "size": 32},
         {"key": "plan_name", "type": "string", "required": False, "array": False, "default": None, "size": 100},
-        {
-            "key": "plan_status",
-            "type": "string",
-            "required": False,
-            "array": False,
-            "default": "inactive",
-            "elements": ["trial", "active", "inactive", "cancelled", "expired", "past_due"],
-        },
-        {
-            "key": "billing_cycle",
-            "type": "string",
-            "required": False,
-            "array": False,
-            "default": None,
-            "elements": ["monthly", "yearly"],
-        },
-        {"key": "expires_at", "type": "datetime", "required": False, "array": False, "default": None},
-        {"key": "limits_json", "type": "string", "required": False, "array": False, "default": None, "size": 1200},
+        {"key": "expiry_date", "type": "datetime", "required": False, "array": False, "default": None},
         {"key": "features_json", "type": "string", "required": False, "array": False, "default": None, "size": 600},
         {"key": "paid_plan_snapshot_json", "type": "string", "required": False, "array": False, "default": None, "size": 600},
         {"key": "admin_override_json", "type": "string", "required": False, "array": False, "default": None, "size": 140},
         {"key": "kill_switch_enabled", "type": "boolean", "required": False, "array": False, "default": True},
         *deepcopy(BENEFIT_ATTRIBUTES),
     ],
+    "transactions": [
+        {"key": "user_id", "type": "string", "required": False, "array": False, "default": None, "size": 255},
+        {"key": "plan_code", "type": "string", "required": False, "array": False, "default": None, "size": 32},
+        {"key": "expiry_date", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "created_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {
+            "key": "status",
+            "type": "string",
+            "required": False,
+            "array": False,
+            "default": "success",
+            "elements": ["created", "success", "paid", "captured", "completed", "failed", "cancelled", "expired", "refunded"],
+        },
+    ],
     "pricing": [
         {"key": "monthly_duration_days", "type": "integer", "required": False, "array": False, "default": 30, "min": 1, "max": 366},
         {"key": "yearly_duration_days", "type": "integer", "required": False, "array": False, "default": 364, "min": 1, "max": 366},
-        {"key": "instagram_link_limit", "type": "integer", "required": False, "array": False, "default": 0, "min": 0, "max": 1000},
         *deepcopy(BENEFIT_ATTRIBUTES),
     ],
     "ig_accounts": [
@@ -300,39 +294,24 @@ ADDITIONAL_ATTRIBUTES = {
             "elements": ["created", "paid", "failed", "cancelled", "expired"],
         },
     ],
-    "automations": [
-        {
-            "key": "plan_validation_state",
-            "type": "string",
-            "required": False,
-            "array": False,
-            "default": "valid",
-            "elements": ["valid", "invalid_due_to_plan"],
-        },
-        {
-            "key": "invalid_features",
-            "type": "string",
-            "required": False,
-            "array": False,
-            "default": None,
-            "size": 2000,
-        },
-    ],
 }
+
+REQUIRED_PROFILE_SUBSCRIPTION_ATTRIBUTES = (
+    "plan_code",
+    "expiry_date",
+    "plan_source",
+)
 
 ADDITIONAL_INDEXES = {
     "users": [
         {"key": "idx_users_email_search", "type": "fulltext", "attributes": ["email"], "orders": []},
         {"key": "idx_users_name_search", "type": "fulltext", "attributes": ["name"], "orders": []},
-        {"key": "idx_users_plan_id", "type": "key", "attributes": ["plan_id"], "orders": []},
-        {"key": "idx_users_plan_expiry", "type": "key", "attributes": ["plan_id", "plan_expires_at"], "orders": []},
         {"key": "idx_users_last_active", "type": "key", "attributes": ["last_active_at"], "orders": []},
-        {"key": "idx_users_cleanup_candidate", "type": "key", "attributes": ["cleanup_protected", "plan_id", "last_active_at"], "orders": []},
+        {"key": "idx_users_cleanup_candidate", "type": "key", "attributes": ["cleanup_protected", "last_active_at"], "orders": []},
     ],
     "profiles": [
-        {"key": "idx_profiles_expires_at", "type": "key", "attributes": ["expires_at"], "orders": []},
-        {"key": "idx_profiles_plan_cycle", "type": "key", "attributes": ["plan_code", "billing_cycle"], "orders": []},
-        {"key": "idx_profiles_plan_expiry", "type": "key", "attributes": ["plan_code", "expires_at"], "orders": []},
+        {"key": "idx_profiles_expiry_date", "type": "key", "attributes": ["expiry_date"], "orders": []},
+        {"key": "idx_profiles_plan_expiry", "type": "key", "attributes": ["plan_code", "expiry_date"], "orders": []},
     ],
     "ig_accounts": [
         {"key": "idx_ig_user_linked_at", "type": "key", "attributes": ["user_id", "linked_at"], "orders": []},
@@ -348,28 +327,16 @@ ADDITIONAL_INDEXES = {
         {"key": "idx_payment_attempt", "type": "key", "attributes": ["paymentAttemptId"], "orders": []},
         {"key": "idx_gateway_order", "type": "key", "attributes": ["gatewayOrderId"], "orders": []},
         {"key": "idx_transaction_id_unique", "type": "unique", "attributes": ["transactionId"], "orders": []},
+        {"key": "idx_transactions_user_id", "type": "key", "attributes": ["user_id"], "orders": []},
+        {"key": "idx_transactions_user_created_at", "type": "key", "attributes": ["user_id", "created_at"], "orders": []},
     ],
     "coupons": [
         {"key": "idx_coupons_code_search", "type": "fulltext", "attributes": ["code"], "orders": []},
         {"key": "idx_coupons_active_expiry", "type": "key", "attributes": ["active", "expires_at"], "orders": []},
     ],
-    "admin_audit_logs": [
-        {"key": "idx_target_user_created", "type": "key", "attributes": ["target_user_id", "created_at"], "orders": []},
-    ],
 }
 
-COLLECTION_OVERRIDES = {
-    "admin_audit_logs": {
-        "permissions": [
-            "read(\"label:admin\")",
-            "create(\"label:admin\")",
-            "update(\"label:admin\")",
-            "delete(\"label:admin\")",
-        ],
-        "documentSecurity": False,
-        "enabled": True,
-    }
-}
+COLLECTION_OVERRIDES = {}
 
 DEPRECATED_COLLECTIONS = {
     "subscription_reminder_events",
@@ -378,6 +345,10 @@ DEPRECATED_COLLECTIONS = {
     "payouts",
     "notification_throttles",
     "worker_locks",
+    "admin_audit_logs",
+    "admin_settings",
+    "automation_collected_emails",
+    "settings",
 }
 
 DEPRECATED_ATTRIBUTES = {
@@ -389,11 +360,30 @@ DEPRECATED_ATTRIBUTES = {
         "subscription_status",
     },
     "profiles": {
+        "plan_status",
+        "billing_cycle",
+        "expires_at",
+        "feature_overrides_json",
+        "limits_json",
+        "instagram_link_limit",
         "no_watermark_enabled",
+        "subscription_plan_id",
+        "subscription_expires",
+        "subscription_status",
+        "subscription_billing_cycle",
+    },
+    "transactions": {
+        "plan_expires_at",
     },
 }
 
-DEPRECATED_INDEXES = {}
+DEPRECATED_INDEXES = {
+    "profiles": {
+        "idx_profiles_subscription_expires",
+        "idx_profiles_expires_at",
+        "idx_profiles_plan_cycle",
+    },
+}
 
 
 def _filter_schema_items(collection_id, items, deprecated_items):
@@ -437,9 +427,9 @@ def load_schema_definitions():
     merged = {collection["id"]: deepcopy(collection) for collection in base}
     for extra in (
         EMAIL_CAMPAIGNS_COLLECTION,
-        AUTOMATION_COLLECTED_EMAILS_COLLECTION,
         JOB_LOCKS_COLLECTION,
         INACTIVE_USER_CLEANUP_AUDIT_COLLECTION,
+        SYSTEM_CONFIG_COLLECTION,
     ):
         if extra["id"] not in merged:
             merged[extra["id"]] = deepcopy(extra)
@@ -516,6 +506,98 @@ def list_indexes(databases, collection_id):
         return {index["key"]: index for index in collection.get("indexes", [])}
     except AppwriteException:
         return {}
+
+
+def print_schema_inventory(databases):
+    print("\n[INVENTORY] Collections, attributes, and indexes")
+    collections = list_collections(databases)
+    for collection_id in sorted(collections):
+        attributes = sorted(list_attributes(databases, collection_id).keys())
+        indexes = sorted(list_indexes(databases, collection_id).keys())
+        print(f" - {collection_id}")
+        print(f"   attributes: {', '.join(attributes) if attributes else '(none)'}")
+        print(f"   indexes: {', '.join(indexes) if indexes else '(none)'}")
+
+
+def report_schema_cleanup(databases, definitions):
+    print("\n[CLEANUP REPORT] Deprecated schema objects")
+    desired_collections = {definition["id"] for definition in definitions}
+    existing_collections = list_collections(databases)
+    deprecated_collection_hits = sorted(collection_id for collection_id in DEPRECATED_COLLECTIONS if collection_id in existing_collections)
+    extra_collection_hits = sorted(
+        collection_id
+        for collection_id in existing_collections
+        if collection_id not in desired_collections and collection_id not in DEPRECATED_COLLECTIONS
+    )
+
+    if deprecated_collection_hits:
+        for collection_id in deprecated_collection_hits:
+            print(f" - deprecated collection: {collection_id}")
+    else:
+        print(" - deprecated collections: none found")
+
+    if extra_collection_hits:
+        for collection_id in extra_collection_hits:
+            print(f" - unmanaged collection: {collection_id}")
+    else:
+        print(" - unmanaged collections: none found")
+
+    for collection_id, attribute_keys in sorted(DEPRECATED_ATTRIBUTES.items()):
+        existing_attributes = list_attributes(databases, collection_id)
+        matches = sorted(key for key in attribute_keys if key in existing_attributes)
+        if matches:
+            print(f" - deprecated attributes in {collection_id}: {', '.join(matches)}")
+
+    for collection_id, index_keys in sorted(DEPRECATED_INDEXES.items()):
+        existing_indexes = list_indexes(databases, collection_id)
+        matches = sorted(key for key in index_keys if key in existing_indexes)
+        if matches:
+            print(f" - deprecated indexes in {collection_id}: {', '.join(matches)}")
+
+
+def _delete_attribute_if_supported(databases, collection_id, key):
+    delete_attribute = getattr(databases, "delete_attribute", None)
+    if not callable(delete_attribute):
+        print(f" [WARN] Attribute deletion is not supported by this SDK: {collection_id}.{key}")
+        return
+    delete_attribute(DATABASE_ID, collection_id, key)
+
+
+def apply_schema_cleanup(databases):
+    print("\n[APPLY CLEANUP] Removing deprecated schema objects")
+    existing_collections = list_collections(databases)
+
+    for collection_id, index_keys in sorted(DEPRECATED_INDEXES.items()):
+        existing_indexes = list_indexes(databases, collection_id)
+        for key in sorted(index_keys):
+            if key not in existing_indexes:
+                continue
+            try:
+                print(f" [-] Deleting deprecated index '{collection_id}.{key}'...")
+                databases.delete_index(DATABASE_ID, collection_id, key)
+                wait_for_index(databases, collection_id, key, should_exist=False)
+            except AppwriteException as error:
+                print(f" [X] Failed deleting deprecated index '{collection_id}.{key}': {error}")
+
+    for collection_id, attribute_keys in sorted(DEPRECATED_ATTRIBUTES.items()):
+        existing_attributes = list_attributes(databases, collection_id)
+        for key in sorted(attribute_keys):
+            if key not in existing_attributes:
+                continue
+            try:
+                print(f" [-] Deleting deprecated attribute '{collection_id}.{key}'...")
+                _delete_attribute_if_supported(databases, collection_id, key)
+            except AppwriteException as error:
+                print(f" [X] Failed deleting deprecated attribute '{collection_id}.{key}': {error}")
+
+    for collection_id in sorted(DEPRECATED_COLLECTIONS):
+        if collection_id not in existing_collections:
+            continue
+        try:
+            print(f" [-] Deleting deprecated collection '{collection_id}'...")
+            databases.delete_collection(DATABASE_ID, collection_id)
+        except AppwriteException as error:
+            print(f" [X] Failed deleting deprecated collection '{collection_id}': {error}")
 
 
 def wait_for_attribute(databases, collection_id, key, timeout_seconds=45):
@@ -683,7 +765,13 @@ def update_attribute(databases, collection_id, attribute_definition):
     elements = attribute_definition.get("elements") or []
 
     if elements:
-        databases.update_enum_attribute(DATABASE_ID, collection_id, key, elements, required, default)
+        try:
+            databases.update_enum_attribute(DATABASE_ID, collection_id, key, elements, required, default)
+        except AppwriteException as error:
+            if required and "cannot set default value for required attribute" in str(error).lower():
+                databases.update_enum_attribute(DATABASE_ID, collection_id, key, elements, required, None)
+                return
+            raise
         return
 
     if attr_type == "string":
@@ -774,6 +862,16 @@ def ensure_attributes(databases, definition):
             print(f" [X] Failed creating '{collection_id}.{key}': {error}")
 
 
+def verify_required_attributes(databases, collection_id, required_keys):
+    existing = list_attributes(databases, collection_id)
+    missing = [key for key in required_keys if key not in existing]
+    if missing:
+        raise SystemExit(
+            f"Missing required attributes in '{collection_id}': {', '.join(missing)}"
+        )
+    print(f" [OK] Verified required attributes for '{collection_id}': {', '.join(required_keys)}")
+
+
 def ensure_indexes(databases, definition):
     collection_id = definition["id"]
     existing = list_indexes(databases, collection_id)
@@ -822,38 +920,119 @@ def ensure_indexes(databases, definition):
             print(f" [X] Failed creating index '{collection_id}.{key}': {error}")
 
 
-def ensure_admin_settings_seed(databases):
-    collection_id = "admin_settings"
-    try:
-        response = databases.list_documents(DATABASE_ID, collection_id)
-        documents = response.get("documents", [])
-        if documents:
-            print("[OK] admin_settings already has at least one document. Seed skipped.")
-            return
-        print("[+] Creating default admin_settings seed document...")
-        databases.create_document(
-            DATABASE_ID,
-            collection_id,
-            ID.unique(),
+def _titleize_feature_key(key):
+    return " ".join(part.capitalize() for part in str(key or "").replace("_", " ").split())
+
+
+def load_pricing_contract():
+    if not PLAN_FEATURES_PATH.exists():
+        raise SystemExit(f"Plan feature contract not found at {PLAN_FEATURES_PATH}")
+    with PLAN_FEATURES_PATH.open("r", encoding="utf-8") as handle:
+        contract = json.load(handle)
+    plan_catalog = contract.get("planCatalog") or {}
+    feature_labels = contract.get("featureLabels") or {}
+    benefit_keys = contract.get("benefitKeys") or BENEFIT_KEYS
+    required_plan_codes = ["free", "basic", "pro", "ultra"]
+    missing = [plan_code for plan_code in required_plan_codes if plan_code not in plan_catalog]
+    if missing:
+        raise SystemExit(f"Pricing contract missing plans: {', '.join(missing)}")
+    return {
+        "plan_catalog": plan_catalog,
+        "feature_labels": feature_labels,
+        "benefit_keys": benefit_keys,
+    }
+
+
+def build_pricing_seed_documents():
+    contract = load_pricing_contract()
+    feature_labels = contract["feature_labels"]
+    benefit_keys = contract["benefit_keys"]
+    documents = []
+    for plan_code in ("free", "basic", "pro", "ultra"):
+        definition = contract["plan_catalog"][plan_code]
+        enabled = set(definition.get("enabledFeatures") or [])
+        prices = definition.get("prices") or {}
+        limits = definition.get("limits") or {}
+        entitlements = {key: key in enabled for key in benefit_keys}
+        feature_items = [
             {
-                "default_text": "Automation made by DMPanda",
-                "enabled": True,
-                "enforcement_mode": "fallback_secondary_message",
-                "updated_by": "setup_appwrite.py",
-                "allow_user_override": True,
-                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            },
-        )
-    except AppwriteException as error:
-        print(f"[WARN] Could not seed admin_settings: {error}")
+                "key": key,
+                "label": feature_labels.get(key) or _titleize_feature_key(key),
+                "value": entitlements[key],
+            }
+            for key in benefit_keys
+        ]
+        payload = {
+            "name": definition.get("name") or _titleize_feature_key(plan_code),
+            "plan_code": plan_code,
+            "price_monthly_inr": int(prices.get("monthly_inr") or 0),
+            "price_yearly_inr": int(prices.get("yearly_inr") or 0),
+            "price_monthly_usd": int(prices.get("monthly_usd") or 0),
+            "price_yearly_usd": int(prices.get("yearly_usd") or 0),
+            "price_yearly_monthly_inr": int(prices.get("yearly_monthly_inr") or 0),
+            "price_yearly_monthly_usd": int(prices.get("yearly_monthly_usd") or 0),
+            "is_custom": bool(definition.get("is_custom", False)),
+            "is_popular": bool(definition.get("is_popular", False)),
+            "display_order": int(definition.get("display_order") or 0),
+            "button_text": str(definition.get("button_text") or "Choose Plan"),
+            "yearly_bonus": str(definition.get("yearly_bonus") or ""),
+            "features": json.dumps(
+                [feature_labels.get(key) or _titleize_feature_key(key) for key in benefit_keys if entitlements[key]]
+            ),
+            "comparison_json": json.dumps(feature_items),
+            "monthly_duration_days": 30,
+            "yearly_duration_days": 364,
+            "instagram_connections_limit": int(limits.get("instagram_connections_limit") or 0),
+            "instagram_link_limit": int(limits.get("instagram_link_limit") or limits.get("instagram_connections_limit") or 0),
+            "actions_per_hour_limit": int(limits.get("actions_per_hour_limit") or 0),
+            "actions_per_day_limit": int(limits.get("actions_per_day_limit") or 0),
+            "actions_per_month_limit": int(limits.get("actions_per_month_limit") or 0),
+        }
+        for key, enabled_value in entitlements.items():
+            payload[benefit_attribute_key(key)] = bool(enabled_value)
+        documents.append((plan_code, payload))
+    return documents
+
+
+def ensure_pricing_seed(databases):
+    collection_id = "pricing"
+    for plan_code, payload in build_pricing_seed_documents():
+        try:
+            response = databases.list_documents(
+                DATABASE_ID,
+                collection_id,
+                [Query.equal("plan_code", plan_code), Query.limit(1)],
+            )
+            existing = (response.get("documents") or [None])[0]
+            if existing:
+                databases.update_document(DATABASE_ID, collection_id, existing["$id"], payload)
+                print(f"[OK] Pricing plan '{plan_code}' aligned.")
+                continue
+            databases.create_document(DATABASE_ID, collection_id, plan_code, payload)
+            print(f"[+] Pricing plan '{plan_code}' seeded.")
+        except AppwriteException as error:
+            print(f"[X] Failed seeding pricing plan '{plan_code}': {error}")
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Provision Appwrite collections and pricing contract.")
+    parser.add_argument("--apply", action="store_true", help="Explicitly apply non-destructive schema provisioning.")
+    parser.add_argument("--inventory", action="store_true", help="Print the current collection, attribute, and index inventory.")
+    parser.add_argument("--cleanup-report", action="store_true", help="Print deprecated and unmanaged schema objects without deleting them.")
+    parser.add_argument("--apply-cleanup", action="store_true", help="Delete deprecated collections, attributes, and indexes.")
+    return parser.parse_args()
 
 
 def main():
+    args = parse_args()
     require_env()
     client = build_client()
     databases = Databases(client)
 
-    print("Starting non-destructive Appwrite provisioning...")
+    if args.apply:
+        print("Starting non-destructive Appwrite provisioning in explicit apply mode...")
+    else:
+        print("Starting non-destructive Appwrite provisioning...")
     ensure_database(databases)
 
     definitions = load_schema_definitions()
@@ -868,11 +1047,29 @@ def main():
     for definition in definitions:
         ensure_attributes(databases, definition)
 
+    verify_required_attributes(
+        databases,
+        "profiles",
+        REQUIRED_PROFILE_SUBSCRIPTION_ATTRIBUTES,
+    )
+
     for definition in definitions:
         ensure_indexes(databases, definition)
 
-    ensure_admin_settings_seed(databases)
-    print("\n[COMPLETE] Provisioning finished without deleting or overwriting existing data.")
+    if args.inventory:
+        print_schema_inventory(databases)
+
+    if args.cleanup_report or args.apply_cleanup:
+        report_schema_cleanup(databases, definitions)
+
+    if args.apply_cleanup:
+        apply_schema_cleanup(databases)
+
+    ensure_pricing_seed(databases)
+    if args.apply_cleanup:
+        print("\n[COMPLETE] Provisioning finished with deprecated schema cleanup applied.")
+    else:
+        print("\n[COMPLETE] Provisioning finished without deleting or overwriting existing data.")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,7 @@
+﻿total  1
+ 
+indexes (1)
+  $id     1_1_idx_user_id
+  key     idx_user_id
+  type    key
+  status  available

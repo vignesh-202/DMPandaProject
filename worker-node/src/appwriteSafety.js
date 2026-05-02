@@ -3,6 +3,7 @@ const TRANSIENT_TOKENS = ['fetch failed', 'socket hang up', 'etimedout', 'econnr
 const classifyAppwriteError = (error) => {
     const code = Number(error?.code || error?.response?.code || 0);
     const message = String(error?.message || '').trim().toLowerCase();
+    if (code === 409 || message.includes('already exists') || message.includes('already been taken')) return 'conflict';
     if (code === 401 || code === 403 || message.includes('permission')) return 'permission_issue';
     if (TRANSIENT_TOKENS.some((token) => message.includes(token))) return 'runtime_bug';
     if (message.includes('attribute') || message.includes('collection') || message.includes('schema')) return 'config_error';

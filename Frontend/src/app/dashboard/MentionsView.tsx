@@ -116,18 +116,19 @@ const MentionsView: React.FC = () => {
                 lastFetchedAccountIdRef.current = activeAccountID;
 
                 // If template_id exists, fetch the template
-                if (data.template_id) {
+                const templateId = String(data.template_id || '').trim();
+                if (templateId) {
                     try {
-                        if (templateCacheRef.current[data.template_id]) {
-                            setSelectedTemplate(templateCacheRef.current[data.template_id]);
+                        if (templateCacheRef.current[templateId]) {
+                            setSelectedTemplate(templateCacheRef.current[templateId]);
                             setShowTemplateSelector(false);
                         } else {
                             const templateRes = await authenticatedFetch(
-                                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${data.template_id}?account_id=${activeAccountID}`
+                                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${templateId}?account_id=${activeAccountID}`
                             );
                             if (templateRes.ok) {
                                 const templateData = await templateRes.json();
-                                templateCacheRef.current[data.template_id] = templateData;
+                                templateCacheRef.current[templateId] = templateData;
                                 setSelectedTemplate(templateData);
                                 setShowTemplateSelector(false);
                             }
@@ -377,18 +378,16 @@ const MentionsView: React.FC = () => {
                         />
                     </div>
 
-                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                <Lock className={`w-5 h-5 ${followersOnly ? 'text-primary' : 'text-muted-foreground'}`} />
-                            </div>
-                            <div>
-                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Followers Only</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">Reply only to followers and send a follow CTA to everyone else.</p>
-                            </div>
-                        </div>
-                        <ToggleSwitch isChecked={followersOnly} onChange={() => setFollowersOnly(!followersOnly)} variant="plain" />
-                    </div>
+                    <LockedFeatureToggle
+                        icon={<Lock className={`w-5 h-5 ${followersOnly ? 'text-primary' : 'text-muted-foreground'}`} />}
+                        title="Followers Only"
+                        description="Reply only to followers and send a follow CTA to everyone else."
+                        checked={followersOnly}
+                        onToggle={() => setFollowersOnly(!followersOnly)}
+                        locked={getPlanGate('followers_only').isLocked}
+                        note={getPlanGate('followers_only').note}
+                        onUpgrade={() => setCurrentView('My Plan')}
+                    />
 
                     {followersOnly && (
                         <div className="bg-card border border-content rounded-2xl p-6 space-y-3">
@@ -426,18 +425,16 @@ const MentionsView: React.FC = () => {
                         onUpgrade={() => setCurrentView('My Plan')}
                     />
 
-                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                <Calendar className={`w-5 h-5 ${oncePerUser ? 'text-primary' : 'text-muted-foreground'}`} />
-                            </div>
-                            <div>
-                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Once Per User (24h)</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">Send the mentions reply only once per user within 24 hours.</p>
-                            </div>
-                        </div>
-                        <ToggleSwitch isChecked={oncePerUser} onChange={() => setOncePerUser(!oncePerUser)} variant="plain" />
-                    </div>
+                    <LockedFeatureToggle
+                        icon={<Calendar className={`w-5 h-5 ${oncePerUser ? 'text-primary' : 'text-muted-foreground'}`} />}
+                        title="Once Per User (24h)"
+                        description="Send the mentions reply only once per user within 24 hours."
+                        checked={oncePerUser}
+                        onToggle={() => setOncePerUser(!oncePerUser)}
+                        locked={getPlanGate('once_per_user_24h').isLocked}
+                        note={getPlanGate('once_per_user_24h').note}
+                        onUpgrade={() => setCurrentView('My Plan')}
+                    />
 
                     <LockedFeatureToggle
                         icon={<Mail className={`w-5 h-5 ${collectEmailEnabled ? 'text-primary' : 'text-muted-foreground'}`} />}

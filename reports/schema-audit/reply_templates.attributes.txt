@@ -1,0 +1,65 @@
+﻿total  7
+ 
+attributes (7)
+  [1]
+    key       user_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       name
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [3]
+    key       template_data
+    type      string
+    status    available
+    required  true
+    array     false
+    size      12000
+    encrypt   false
+
+  [4]
+    key       automation_count
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [5]
+    key       name_normalized
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [6]
+    key       account_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [7]
+    key       template_type
+    type      string
+    status    available
+    required  true
+    array     false
+    format    enum

@@ -124,11 +124,7 @@ def _parse_json_object(value):
 def _recompute_account_access(client, db_id, user_id, profile_doc, dry_run=False):
     if not user_id:
         return 0
-    limits_payload = _parse_json_object(_obj_get(profile_doc, "limits_json"))
-    active_limit = _safe_int(
-        limits_payload.get("instagram_connections_limit", _obj_get(profile_doc, "instagram_connections_limit")),
-        0,
-    )
+    active_limit = _safe_int(_obj_get(profile_doc, "instagram_connections_limit"), 0)
     accounts = _list_by_queries(client, db_id, "ig_accounts", [Query.equal("user_id", str(user_id))])
     ordered_active = [
         account for account in accounts
@@ -138,7 +134,6 @@ def _recompute_account_access(client, db_id, user_id, profile_doc, dry_run=False
     ordered_active.sort(
         key=lambda account: (
             str(_obj_get(account, "linked_at") or ""),
-            str(_obj_get(account, "$createdAt") or ""),
             str(_obj_get(account, "$id") or ""),
         )
     )
@@ -174,7 +169,7 @@ def _recompute_account_access(client, db_id, user_id, profile_doc, dry_run=False
                 access_reason = "override_enabled"
             else:
                 access_state = "active"
-                access_reason = None
+                access_reason = ""
         if not dry_run:
             _call_appwrite(
                 client,
@@ -182,6 +177,7 @@ def _recompute_account_access(client, db_id, user_id, profile_doc, dry_run=False
                 f"/databases/{db_id}/collections/ig_accounts/documents/{account_id}",
                 {
                     "data": {
+                        "is_active": linked_active,
                         "plan_locked": plan_locked,
                         "effective_access": effective_access,
                         "access_state": access_state,

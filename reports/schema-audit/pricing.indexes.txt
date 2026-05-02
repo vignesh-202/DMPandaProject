@@ -1,0 +1,14 @@
+﻿total  2
+ 
+indexes (2)
+  [1]
+    $id     1_4_display_order_idx
+    key     display_order_idx
+    type    key
+    status  available
+
+  [2]
+    $id     1_4_plan_code_idx
+    key     plan_code_idx
+    type    unique
+    status  available

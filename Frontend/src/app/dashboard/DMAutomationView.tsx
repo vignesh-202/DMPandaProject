@@ -1,4 +1,4 @@
-﻿// DM Automation View Component
+// DM Automation View Component
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
@@ -10,6 +10,7 @@ import {
 import ModernCalendar from '../../components/ui/ModernCalendar';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
+import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import AutomationToast from '../../components/ui/AutomationToast';
 import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
@@ -27,7 +28,7 @@ import {
     CAROUSEL_TITLE_MAX,
     CAROUSEL_SUBTITLE_MAX,
 } from '../../lib/templateLimits';
-import { takeTransientState } from '../../lib/transientState';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
     buildPreviewAutomationFromTemplate,
     canBrowserRenderPreviewUrl,
@@ -156,7 +157,7 @@ const validateMediaUrl = async (url: string, type: string): Promise<{ valid: boo
 };
 
 const DMAutomationView: React.FC = () => {
-    const { activeAccountID, activeAccount, dmAutomations, setDmAutomations, automationInitialLoaded, setAutomationInitialLoaded, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, setCurrentView } = useDashboard();
+    const { activeAccountID, activeAccount, dmAutomations, setDmAutomations, automationInitialLoaded, setAutomationInitialLoaded, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, setCurrentView, getPlanGate } = useDashboard();
     const { authenticatedFetch, user } = useAuth();
     const [loading, setLoading] = useState(!automationInitialLoaded['dm']);
     const [saving, setSaving] = useState(false);
@@ -173,6 +174,8 @@ const DMAutomationView: React.FC = () => {
     const [originalAutomation, setOriginalAutomation] = useState<any>(null);
     const [preparing, setPreparing] = useState(false);
     useDashboardMainScrollLock(Boolean(editingAutomation || preparing));
+    const location = useLocation();
+    const navigate = useNavigate();
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
@@ -377,55 +380,7 @@ const DMAutomationView: React.FC = () => {
     }, [activeAccountID, selectedTemplateId, authenticatedFetch]);
 
     const handleCreate = () => {
-        setPreparing(true);
-        setTimeout(() => {
-            setEditingAutomation({
-                title: 'New Automation',
-                keyword: [],
-                keywords: [],
-                template_type: 'template_text',
-                template_content: '',
-                text: '',
-                buttons: [],
-                template_elements: [
-                    {
-                        title: '',
-                        subtitle: '',
-                        image_url: '',
-                        buttons: [{ title: '', url: '', type: 'web_url' }]
-                    }
-                ],
-                active: true,
-                is_active: true,
-                followers_only: false,
-                followers_only_message: FOLLOWERS_ONLY_MESSAGE_DEFAULT,
-                suggest_more_enabled: false,
-                once_per_user_24h: false,
-                collect_email_enabled: false,
-                collect_email_only_gmail: false,
-                seen_typing_enabled: false,
-                followers_only_primary_button_text: FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
-                followers_only_secondary_button_text: FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
-                collect_email_prompt_message: COLLECT_EMAIL_PROMPT_DEFAULT,
-                collect_email_fail_retry_message: COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
-                collect_email_success_reply_message: COLLECT_EMAIL_SUCCESS_DEFAULT,
-                case_sensitive: false,
-                is_global: false,
-                global_posts: false,
-                global_reels: false,
-                global_live: false,
-                global_stories: false
-            });
-            setOriginalAutomation(null);
-            setKeywordWarnings({});
-            setKeywordInput("");
-            setFieldErrors({});
-            setDuplicateErrorKeywords(new Set());
-            setSelectedTemplateId(null);
-            setSuccess(null);
-            setError(null);
-            setPreparing(false);
-        }, 600);
+        navigate('/dashboard/dm-automation/edit/new');
     };
 
     useEffect(() => {
@@ -549,15 +504,15 @@ const DMAutomationView: React.FC = () => {
 
     const openingRef = useRef<string | null>(null);
 
-    const handleEdit = async (auto: any) => {
-        if (!auto?.$id || openingRef.current === auto.$id) return;
-        openingRef.current = auto.$id;
+    const loadAutomation = async (targetId: string) => {
+        if (!targetId || openingRef.current === targetId) return;
+        openingRef.current = targetId;
         setPreparing(true);
         setError(null);
 
         try {
-            let targetAuto = auto;
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${auto.$id}?account_id=${activeAccountID}`);
+            let targetAuto: any = {};
+            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}`);
             if (!res.ok) {
                 if (res.status === 404) {
                     setError("Automation not found. It may have been deleted.");
@@ -569,7 +524,7 @@ const DMAutomationView: React.FC = () => {
                 throw new Error("Failed to load");
             }
             const freshAuto = await res.json();
-            targetAuto = freshAuto || auto;
+            targetAuto = freshAuto || {};
 
             let sid: string | null = null;
             if (targetAuto.template_id) {
@@ -660,13 +615,78 @@ const DMAutomationView: React.FC = () => {
         }
     };
 
+    const handleEdit = (auto: any) => {
+        navigate(`/dashboard/dm-automation/edit/${auto.$id}`);
+    };
+
     useEffect(() => {
         if (!activeAccountID) return;
-        const targetId = takeTransientState<string>('openAutomationId');
-        const targetType = takeTransientState<string>('openAutomationType');
-        if (!targetId || targetType !== 'dm') return;
-        handleEdit({ $id: targetId });
-    }, [activeAccountID]);
+        const match = location.pathname.match(/\/dashboard\/dm-automation\/edit\/([^/]+)/);
+        const targetId = match ? match[1] : null;
+
+        if (!targetId) {
+            if (editingAutomation || preparing) {
+                setEditingAutomation(null);
+                setOriginalAutomation(null);
+                setCollectorDestination(createCollectorDestinationState());
+                setKeywordWarnings({});
+                setFieldErrors({});
+                setDuplicateErrorKeywords(new Set());
+                setSelectedTemplateId(null);
+                setSelectedTemplateData(null);
+                setShowTemplateSelector(true);
+                setPreparing(false);
+            }
+            return;
+        }
+
+        if (targetId === 'new') {
+            if (editingAutomation && !editingAutomation.$id) return;
+            setPreparing(true);
+            setTimeout(() => {
+                const loaded = {
+                    title: 'New Automation',
+                    keyword: [],
+                    keywords: [],
+                    template_type: 'template_text',
+                    template_content: '',
+                    text: '',
+                    buttons: [],
+                    template_elements: [
+                        {
+                            title: '',
+                            subtitle: '',
+                            image_url: '',
+                            buttons: [{ title: '', url: '', type: 'web_url' }]
+                        }
+                    ],
+                    active: true,
+                    is_active: true,
+                    seen_typing_enabled: true,
+                    followers_only: false,
+                    case_sensitive: false,
+                    is_global: false,
+                    global_posts: true,
+                    global_reels: true,
+                    global_live: false,
+                    global_stories: false,
+                    automation_type: 'dm'
+                };
+                setEditingAutomation(loaded);
+                setOriginalAutomation(JSON.parse(JSON.stringify(loaded)));
+                setSelectedTemplateId(null);
+                setKeywordWarnings({});
+                setFieldErrors({});
+                setDuplicateErrorKeywords(new Set());
+                setPreparing(false);
+            }, 50);
+            return;
+        }
+
+        if (editingAutomation?.$id === targetId || openingRef.current === targetId) return;
+
+        loadAutomation(targetId);
+    }, [activeAccountID, location.pathname]);
 
     const [activeElementIdx, setActiveElementIdx] = useState(0);
 
@@ -964,6 +984,7 @@ const DMAutomationView: React.FC = () => {
                 setSuccess(editingAutomation.$id ? "Automation updated!" : "Automation published!");
                 setEditingAutomation(null);
                 fetchAutomations(true);
+                navigate('/dashboard/dm-automation', { replace: true });
             } else {
                 // Handle Multi-Field Errors (New Format)
                 if (data.fields) {
@@ -1035,16 +1056,8 @@ const DMAutomationView: React.FC = () => {
     };
 
     const resetEditorState = useCallback(() => {
-        setEditingAutomation(null);
-        setOriginalAutomation(null);
-        setCollectorDestination(createCollectorDestinationState());
-        setKeywordWarnings({});
-        setFieldErrors({});
-        setDuplicateErrorKeywords(new Set());
-        setSelectedTemplateId(null);
-        setSelectedTemplateData(null);
-        setShowTemplateSelector(true);
-    }, []);
+        navigate('/dashboard/dm-automation');
+    }, [navigate]);
 
     const handleBack = () => {
         if (hasDirtyChanges()) {
@@ -1711,38 +1724,33 @@ const DMAutomationView: React.FC = () => {
                                 </div>
 
                                 <div className="pt-4">
-                                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.followers_only ? 'ring-1 ring-primary/15' : ''}`}>
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-card rounded-2xl shadow-sm border border-primary/20">
-                                                <Power className={`w-5 h-5 transition-colors ${editingAutomation.followers_only ? 'text-primary' : 'text-muted-foreground'}`} />
-                                            </div>
-                                            <div>
-                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Followers Only Mode</p>
-                                                <p className="text-[10px] font-medium text-muted-foreground">Restricts this automation to only trigger for your existing followers.</p>
-                                            </div>
-                                        </div>
-                                        <ToggleSwitch
-                                            isChecked={editingAutomation.followers_only}
-                                            onChange={() => {
-                                                const nextFollowersOnly = !editingAutomation.followers_only;
-                                                setEditingAutomation({
-                                                    ...editingAutomation,
-                                                    followers_only: nextFollowersOnly,
-                                                    followers_only_message: nextFollowersOnly
-                                                        ? (editingAutomation.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
-                                                        : ''
+                                    <LockedFeatureToggle
+                                        icon={<Power className={`w-5 h-5 ${editingAutomation.followers_only ? 'text-primary' : 'text-gray-400'}`} />}
+                                        title="Followers Only Mode"
+                                        description="Restricts this automation to only trigger for your existing followers."
+                                        checked={editingAutomation.followers_only === true}
+                                        onToggle={() => {
+                                            const nextFollowersOnly = !editingAutomation.followers_only;
+                                            setEditingAutomation({
+                                                ...editingAutomation,
+                                                followers_only: nextFollowersOnly,
+                                                followers_only_message: nextFollowersOnly
+                                                    ? (editingAutomation.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
+                                                    : ''
+                                            });
+                                            if (!nextFollowersOnly) {
+                                                setFieldErrors((prev) => {
+                                                    const next = { ...prev };
+                                                    delete next['followers_only_message'];
+                                                    return next;
                                                 });
-                                                if (!nextFollowersOnly) {
-                                                    setFieldErrors((prev) => {
-                                                        const next = { ...prev };
-                                                        delete next['followers_only_message'];
-                                                        return next;
-                                                    });
-                                                }
-                                            }}
-                                            variant="plain"
-                                        />
-                                    </div>
+                                            }
+                                        }}
+                                        locked={getPlanGate('followers_only').isLocked}
+                                        note={getPlanGate('followers_only').note}
+                                        onUpgrade={() => setCurrentView('My Plan')}
+                                        activeIconClassName="text-primary"
+                                    />
                                 </div>
                                 {editingAutomation.followers_only && (
                                     <div className="mt-4 bg-card/50 p-4 rounded-2xl border border-primary/15 space-y-4">
@@ -1806,86 +1814,60 @@ const DMAutomationView: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div className={`mt-4 flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${(editingAutomation.suggest_more_enabled && suggestMoreSetup) ? 'ring-1 ring-primary/15' : ''}`}>
-                                    <div className="flex items-center gap-4">
-                                        <div className={`p-3 rounded-2xl shadow-sm border ${suggestMoreSetup
-                                            ? 'bg-white dark:bg-gray-900 border-yellow-100 dark:border-yellow-500/10'
-                                            : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                            }`}>
-                                            <Lightbulb className={`w-5 h-5 transition-colors ${editingAutomation.suggest_more_enabled && suggestMoreSetup ? 'text-yellow-500' : 'text-gray-400'}`} />
-                                        </div>
-                                        <div>
-                                            <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Suggest More</p>
-                                            <p className="text-[10px] font-medium text-muted-foreground">
-                                                {suggestMoreSetup
-                                                    ? 'Send your Suggest More template right after this DM reply.'
-                                                    : 'Setup Suggest More first to enable this option.'
-                                                }
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {suggestMoreSetup ? (
-                                        <ToggleSwitch
-                                            isChecked={editingAutomation.suggest_more_enabled === true}
-                                            onChange={() => setEditingAutomation({ ...editingAutomation, suggest_more_enabled: !(editingAutomation.suggest_more_enabled === true) })}
-                                            variant="plain"
-                                        />
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={() => setCurrentView('Suggest More')}
-                                            className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-yellow-500/20 transition-all"
-                                        >
-                                            Setup <ChevronRight className="w-3 h-3" />
-                                        </button>
-                                    )}
+                                <div className="mt-4">
+                                    <LockedFeatureToggle
+                                        icon={<Lightbulb className={`w-5 h-5 ${editingAutomation.suggest_more_enabled && suggestMoreSetup ? 'text-yellow-500' : 'text-gray-400'}`} />}
+                                        title="Suggest More"
+                                        description={suggestMoreSetup ? 'Send your Suggest More template right after this DM reply.' : 'Setup Suggest More first to enable this option.'}
+                                        checked={editingAutomation.suggest_more_enabled === true}
+                                        onToggle={() => setEditingAutomation({ ...editingAutomation, suggest_more_enabled: !(editingAutomation.suggest_more_enabled === true) })}
+                                        locked={getPlanGate('suggest_more').isLocked}
+                                        note={getPlanGate('suggest_more').note}
+                                        onUpgrade={() => setCurrentView('My Plan')}
+                                        activeIconClassName="text-yellow-500"
+                                        actionElement={!suggestMoreSetup ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setCurrentView('Suggest More')}
+                                                className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-yellow-500/20 transition-all"
+                                            >
+                                                Setup <ChevronRight className="w-3 h-3" />
+                                            </button>
+                                        ) : undefined}
+                                    />
                                 </div>
 
-                                <div className={`mt-4 flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.once_per_user_24h ? 'ring-1 ring-primary/15' : ''}`}>
-                                    <div className="flex items-center gap-4">
-                                        <div className={`p-3 rounded-2xl shadow-sm border ${editingAutomation.once_per_user_24h
-                                            ? 'bg-white dark:bg-gray-900 border-cyan-100 dark:border-cyan-500/10'
-                                            : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                            }`}>
-                                            <Calendar className={`w-5 h-5 ${editingAutomation.once_per_user_24h ? 'text-cyan-500' : 'text-gray-400'}`} />
-                                        </div>
-                                        <div>
-                                            <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Once Per User (24h)</p>
-                                            <p className="text-[10px] font-medium text-muted-foreground">Prevent the same person from retriggering this DM automation again for 24 hours.</p>
-                                        </div>
-                                    </div>
-                                    <ToggleSwitch
-                                        isChecked={editingAutomation.once_per_user_24h === true}
-                                        onChange={() => setEditingAutomation({ ...editingAutomation, once_per_user_24h: !(editingAutomation.once_per_user_24h === true) })}
-                                        variant="plain"
+                                <div className="mt-4">
+                                    <LockedFeatureToggle
+                                        icon={<Calendar className={`w-5 h-5 ${editingAutomation.once_per_user_24h ? 'text-cyan-500' : 'text-gray-400'}`} />}
+                                        title="Once Per User (24h)"
+                                        description="Prevent the same person from retriggering this DM automation again for 24 hours."
+                                        checked={editingAutomation.once_per_user_24h === true}
+                                        onToggle={() => setEditingAutomation({ ...editingAutomation, once_per_user_24h: !(editingAutomation.once_per_user_24h === true) })}
+                                        locked={getPlanGate('once_per_user_24h').isLocked}
+                                        note={getPlanGate('once_per_user_24h').note}
+                                        onUpgrade={() => setCurrentView('My Plan')}
+                                        activeIconClassName="text-cyan-500"
                                     />
                                 </div>
 
                                 <div className="mt-4 space-y-3">
-                                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.collect_email_enabled ? 'ring-1 ring-primary/15' : ''}`}>
-                                        <div className="flex items-center gap-4">
-                                            <div className={`p-3 rounded-2xl shadow-sm border ${editingAutomation.collect_email_enabled
-                                                ? 'bg-white dark:bg-gray-900 border-indigo-100 dark:border-indigo-500/10'
-                                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                                }`}>
-                                                <Mail className={`w-5 h-5 ${editingAutomation.collect_email_enabled ? 'text-indigo-500' : 'text-gray-400'}`} />
-                                            </div>
-                                            <div>
-                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Collect Email</p>
-                                                <p className="text-[10px] font-medium text-muted-foreground">Ask for an email before finishing this DM flow.</p>
-                                            </div>
-                                        </div>
-                                        <ToggleSwitch
-                                            isChecked={editingAutomation.collect_email_enabled === true}
-                                            onChange={() => setEditingAutomation({
-                                                ...editingAutomation,
-                                                collect_email_enabled: !(editingAutomation.collect_email_enabled === true),
-                                                collect_email_only_gmail: editingAutomation.collect_email_enabled ? false : editingAutomation.collect_email_only_gmail
-                                            })}
-                                            variant="plain"
-                                        />
-                                    </div>
-                                    {editingAutomation.collect_email_enabled && (
+                                    <LockedFeatureToggle
+                                        icon={<Mail className={`w-5 h-5 ${editingAutomation.collect_email_enabled ? 'text-indigo-500' : 'text-gray-400'}`} />}
+                                        title="Collect Email"
+                                        description="Ask for an email before finishing this DM flow."
+                                        checked={editingAutomation.collect_email_enabled === true}
+                                        onToggle={() => setEditingAutomation({
+                                            ...editingAutomation,
+                                            collect_email_enabled: !(editingAutomation.collect_email_enabled === true),
+                                            collect_email_only_gmail: editingAutomation.collect_email_enabled ? false : editingAutomation.collect_email_only_gmail
+                                        })}
+                                        locked={getPlanGate('collect_email').isLocked}
+                                        note={getPlanGate('collect_email').note}
+                                        onUpgrade={() => setCurrentView('My Plan')}
+                                        activeIconClassName="text-indigo-500"
+                                    />
+                                    {editingAutomation.collect_email_enabled && !getPlanGate('collect_email').isLocked && (
                                         <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
                                             <div className="flex items-center justify-between gap-4">
                                                 <div>
@@ -2024,25 +2006,17 @@ const DMAutomationView: React.FC = () => {
                                     )}
                                 </div>
 
-                                <div className={`mt-4 flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.seen_typing_enabled ? 'ring-1 ring-primary/15' : ''}`}>
-                                    <div className="flex items-center gap-4">
-                                        <div className={`p-3 rounded-2xl shadow-sm border ${editingAutomation.seen_typing_enabled
-                                            ? 'bg-white dark:bg-gray-900 border-violet-100 dark:border-violet-500/10'
-                                            : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                            }`}>
-                                            <MessageSquare className={`w-5 h-5 ${editingAutomation.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />
-                                        </div>
-                                        <div>
-                                            <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Seen + Typing Reaction</p>
-                                            <p className="text-[10px] font-medium text-muted-foreground">Keep the seen/typing preference with this DM rule.</p>
-                                        </div>
-                                    </div>
-                                    <ToggleSwitch
-                                        isChecked={editingAutomation.seen_typing_enabled === true}
-                                        onChange={() => setEditingAutomation({ ...editingAutomation, seen_typing_enabled: !(editingAutomation.seen_typing_enabled === true) })}
-                                        variant="plain"
-                                    />
-                                </div>
+                                <LockedFeatureToggle
+                                    icon={<MessageSquare className={`w-5 h-5 ${editingAutomation.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />}
+                                    title="Seen + Typing Reaction"
+                                    description="Keep the seen/typing preference with this DM rule."
+                                    checked={editingAutomation.seen_typing_enabled === true}
+                                    onToggle={() => setEditingAutomation({ ...editingAutomation, seen_typing_enabled: !(editingAutomation.seen_typing_enabled === true) })}
+                                    locked={getPlanGate('seen_typing').isLocked}
+                                    note={getPlanGate('seen_typing').note}
+                                    onUpgrade={() => setCurrentView('My Plan')}
+                                    activeIconClassName="text-violet-500"
+                                />
 
                             </div>
 
@@ -3161,7 +3135,7 @@ const DMAutomationView: React.FC = () => {
                             );
                         })()}
                     </AutomationPreviewPanel>
-                </div >
+                </div>
 
                 <ModernConfirmModal
                     isOpen={modalConfig.isOpen}
@@ -3176,8 +3150,7 @@ const DMAutomationView: React.FC = () => {
                     secondaryLabel={modalConfig.secondaryLabel}
                     oneButton={modalConfig.oneButton}
                 />
-
-            </div >
+            </div>
         );
     }
 
@@ -3243,9 +3216,9 @@ const DMAutomationView: React.FC = () => {
                                     </div>
                                 </div>
                             )}
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-6">
-                                    <div className="w-16 h-16 rounded-2xl bg-primary/10  flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+                                    <div className="w-16 h-16 shrink-0 rounded-2xl bg-primary/10  flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                                         {auto.template_type === 'template_text' && <FileText className="w-7 h-7" />}
                                         {auto.template_type === 'template_carousel' && <Smartphone className="w-7 h-7" />}
                                         {auto.template_type === 'template_buttons' && <MousePointerClick className="w-7 h-7" />}

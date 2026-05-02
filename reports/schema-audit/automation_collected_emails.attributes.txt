@@ -1,0 +1,133 @@
+﻿total  15
+ 
+attributes (15)
+  [1]
+    key       user_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       account_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [3]
+    key       automation_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [4]
+    key       conversation_key
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [5]
+    key       sender_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [6]
+    key       recipient_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [7]
+    key       email
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [8]
+    key       normalized_email
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [9]
+    key       send_to
+    type      string
+    status    available
+    required  false
+    array     false
+    size      50
+    encrypt   false
+
+  [10]
+    key       sender_profile_url
+    type      string
+    status    available
+    required  false
+    array     false
+    size      500
+    encrypt   false
+
+  [11]
+    key       receiver_name
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [12]
+    key       automation_title
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [13]
+    key       automation_type
+    type      string
+    status    available
+    required  false
+    array     false
+    size      50
+    encrypt   false
+
+  [14]
+    key       collected_at
+    type      datetime
+    status    available
+    required  true
+    array     false
+
+  [15]
+    key       updated_at
+    type      datetime
+    status    available
+    required  true
+    array     false

@@ -43,6 +43,20 @@ function rememberWelcomeReply(conversationKey, now = Date.now()) {
     recentWelcomeReplies.set(safeConversationKey, now + welcomeWindowMs);
 }
 
+const NON_RETRY_AUTOMATION_TYPES = new Set([
+    'invalid_due_to_plan',
+    'plan_feature_blocked',
+    'plan_downgrade_blocked',
+    'hourly_action_limit_reached',
+    'daily_action_limit_reached',
+    'monthly_action_limit_reached',
+    'kill_switch_disabled',
+    'soft_ban',
+    'hard_ban',
+    'account_access_blocked',
+    'plan_locked'
+]);
+
 let dispatcher = null;
 const hub = new WorkerHub({
     server,
@@ -62,6 +76,13 @@ const hub = new WorkerHub({
                 hub.releaseJob(job.assignedWorkerId, jobId);
             }
             if (handled === false) {
+                const normalizedAutomationType = String(automationType || '').trim().toLowerCase();
+                if (NON_RETRY_AUTOMATION_TYPES.has(normalizedAutomationType)) {
+                    store.markCompleted(jobId);
+                    console.warn(`Skipped non-retryable job ${jobId}: ${normalizedAutomationType}.`);
+                    dispatcher?.trigger();
+                    return;
+                }
                 const result = store.requeue(jobId, 'worker_reported_unhandled');
                 if (result.dropped) {
                     console.warn(`Dropped job ${jobId} after worker reported handled=false.`);

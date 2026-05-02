@@ -305,10 +305,8 @@
     gap: 0.4rem;
     border-radius: 9999px;
     padding: 0.35rem 0.7rem;
-    font-size: 0.625rem;
-    font-weight: 800;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
+    font-size: 0.7rem;
+    font-weight: 700;
   }
 
   .status-pill-success {
@@ -352,10 +350,8 @@
     background: rgb(var(--card) / 0.72);
     padding: 0.75rem 1rem;
     color: rgb(var(--foreground));
-    font-size: 0.75rem;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    font-size: 0.8rem;
+    font-weight: 700;
     transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
   }
 

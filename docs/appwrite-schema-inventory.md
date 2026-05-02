@@ -11,9 +11,8 @@ Generated from live Appwrite verification on `2026-04-22`.
 - Runtime truth for:
   - `plan_code`
   - `plan_name`
-  - `plan_status`
-  - `billing_cycle`
-  - `expires_at`
+  - `plan_source`
+  - `expiry_date`
   - `limits_json`
   - `features_json`
   - `paid_plan_snapshot_json`
@@ -25,10 +24,7 @@ Generated from live Appwrite verification on `2026-04-22`.
   - `monthly_actions_used`
   - window timestamps
 - Legacy mirrored fields still exist live and are transitional only:
-  - `subscription_plan_id`
-  - `subscription_status`
-  - `subscription_expires`
-  - `subscription_billing_cycle`
+  - none after cleanup
 
 ### `users`
 - Stores identity, moderation, and self-subscription memory:
@@ -101,6 +97,13 @@ Generated from live Appwrite verification on `2026-04-22`.
   - `users.referred_by`
   - `users.referral_code`
   - `profiles.no_watermark_enabled`
+  - `profiles.subscription_plan_id`
+  - `profiles.subscription_status`
+  - `profiles.subscription_expires`
+  - `profiles.subscription_billing_cycle`
+  - `profiles.plan_status`
+  - `profiles.billing_cycle`
+  - `profiles.expires_at`
 
 ## Verification Notes
 - Verified with Appwrite CLI:

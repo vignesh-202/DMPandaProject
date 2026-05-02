@@ -56,7 +56,7 @@ const ChartTooltip = ({
 
     return (
         <div className="rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
-            {label && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{label}</p>}
+            {label && <p className="text-[10px] font-black text-muted-foreground">{label}</p>}
             <div className="mt-2 space-y-2">
                 {payload.map((entry, index) => (
                     <div key={`${entry.name || 'value'}-${index}`} className="flex items-center justify-between gap-4 text-sm">
@@ -158,68 +158,70 @@ export const Dashboard: React.FC = () => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <section className={`${surfaceClass} overflow-hidden p-6 sm:p-8`}>
-                <div className="grid gap-8 xl:grid-cols-[minmax(0,1.2fr)_360px] xl:items-start">
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/75">Overview</p>
-                        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Platform Control</h1>
-                        <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-muted-foreground">
-                            Track growth, subscriptions, and automation health from one clean view.
-                        </p>
-                        <div className="mt-6 flex flex-wrap gap-3">
-                            <div className="status-pill status-pill-success">
-                                <span className="h-2 w-2 rounded-full bg-success" />
-                                Live data
+                <div className="flex flex-col gap-8">
+                    <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                        <div>
+                            <p className="text-[10px] font-black text-primary/75">Overview</p>
+                            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Platform Control</h1>
+                            <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-muted-foreground">
+                                Track growth, subscriptions, and automation health from one clean view.
+                            </p>
+                            <div className="mt-6 flex flex-wrap gap-3">
+                                <div className="status-pill status-pill-success">
+                                    <span className="h-2 w-2 rounded-full bg-success" />
+                                    Live data
+                                </div>
+                                <div className="status-pill border border-border bg-card text-foreground">
+                                    <ArrowUpRight className="h-3.5 w-3.5" />
+                                    {topPlan ? `${topPlan.name} leads plan mix` : 'Plan mix ready'}
+                                </div>
                             </div>
-                            <div className="status-pill border border-border bg-card text-foreground">
-                                <ArrowUpRight className="h-3.5 w-3.5" />
-                                {topPlan ? `${topPlan.name} leads plan mix` : 'Plan mix ready'}
+                        </div>
+
+                        <div className="w-full xl:w-96 shrink-0">
+                            <div className="rounded-[26px] border border-border/70 bg-background/70 p-5">
+                                <p className="text-[10px] font-black text-muted-foreground">Plan Leader</p>
+                                <p className="mt-3 text-2xl font-extrabold text-foreground">{topPlan?.name || 'No plan data'}</p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    {topPlan
+                                        ? `${numberFormatter.format(topPlan.value)} users are on the leading plan.`
+                                        : 'Plan distribution appears here after data is loaded.'}
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                    <div className="grid gap-4 sm:grid-cols-2">
                         <AdminGauge
                             label="Actions Per Hour"
-                            sublabel="Live pool draw vs system capacity"
+                            sublabel="Live pool draw vs capacity"
                             value={Number(metrics?.pool?.usage_last_hour || 0)}
                             max={Number(metrics?.pool?.capacity_per_hour || 0)}
                             helper={`${poolUsagePercent}% of the current hourly action pool is already allocated.`}
                         />
-
-                        <div className="rounded-[26px] border border-border/70 bg-background/70 p-5">
-                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Plan Leader</p>
-                            <p className="mt-3 text-2xl font-extrabold text-foreground">{topPlan?.name || 'No plan data'}</p>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                                {topPlan
-                                    ? `${numberFormatter.format(topPlan.value)} users are on the leading plan.`
-                                    : 'Plan distribution appears here after data is loaded.'}
-                            </p>
-                        </div>
+                        <AdminGauge
+                            label="Consumed Amount"
+                            sublabel="Usage vs working budget"
+                            value={consumedBudget}
+                            max={Math.max(totalMonthlyBudget, consumedBudget, 1)}
+                            helper="Computation-backed real current usage tracking."
+                        />
                     </div>
                 </div>
             </section>
 
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-7">
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
                 {overviewCards.map((card) => (
                     <div key={card.label} className={`${surfaceClass} px-5 py-5`}>
                         <div className="flex items-start justify-between gap-4">
                             <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl', card.tone)}>
                                 <card.icon className="h-5 w-5" />
                             </div>
-                            <p className="text-right text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{card.label}</p>
+                            <p className="text-right text-[10px] font-black text-muted-foreground">{card.label}</p>
                         </div>
                         <p className="mt-5 text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
                     </div>
                 ))}
-                <AdminGauge
-                    compact
-                    label="Consumed Amount"
-                    sublabel="Usage tracked against the current working budget"
-                    value={consumedBudget}
-                    max={Math.max(totalMonthlyBudget, consumedBudget, 1)}
-                    helper="This gauge stays computation-backed so the admin view reflects real current usage instead of a decorative placeholder."
-                    className="2xl:col-span-1"
-                />
             </section>
 
             <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_380px]">
@@ -227,7 +229,7 @@ export const Dashboard: React.FC = () => {
                     <div className="mb-6 flex items-center justify-between gap-4">
                         <div>
                             <h2 className="text-xl font-extrabold text-foreground">Revenue Pulse</h2>
-                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Last 30 days</p>
+                            <p className="mt-1 text-xs font-black text-muted-foreground">Last 30 days</p>
                         </div>
                         <div className="status-pill border border-border bg-background/70 text-foreground">
                             <BarChart3 className="h-3.5 w-3.5 text-primary" />
@@ -237,19 +239,19 @@ export const Dashboard: React.FC = () => {
 
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">30 day revenue</p>
+                            <p className="text-[10px] font-black text-muted-foreground">30 day revenue</p>
                             <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenueLast30Days)}</p>
                         </div>
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">7 day revenue</p>
+                            <p className="text-[10px] font-black text-muted-foreground">7 day revenue</p>
                             <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenueLast7Days)}</p>
                         </div>
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Avg / day</p>
+                            <p className="text-[10px] font-black text-muted-foreground">Avg / day</p>
                             <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(averageDailyRevenue)}</p>
                         </div>
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Revenue / paid user</p>
+                            <p className="text-[10px] font-black text-muted-foreground">Revenue / paid user</p>
                             <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenuePerPaidUser)}</p>
                         </div>
                     </div>
@@ -280,18 +282,18 @@ export const Dashboard: React.FC = () => {
                         </div>
                         <div>
                             <h2 className="text-xl font-extrabold text-foreground">Revenue Notes</h2>
-                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Quick read</p>
+                            <p className="mt-1 text-xs font-black text-muted-foreground">Quick read</p>
                         </div>
                     </div>
 
                     <div className="mt-6 space-y-4">
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Paid conversion</p>
+                            <p className="text-[10px] font-black text-muted-foreground">Paid conversion</p>
                             <p className="mt-2 text-2xl font-extrabold text-foreground">{paidConversionRate}%</p>
                             <p className="mt-1 text-sm text-muted-foreground">Share of users on paid plans.</p>
                         </div>
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Leading plan</p>
+                            <p className="text-[10px] font-black text-muted-foreground">Leading plan</p>
                             <p className="mt-2 text-2xl font-extrabold text-foreground">{topPlan?.name || 'No plan data'}</p>
                             <p className="mt-1 text-sm text-muted-foreground">
                                 {topPlan
@@ -300,7 +302,7 @@ export const Dashboard: React.FC = () => {
                             </p>
                         </div>
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Revenue signal</p>
+                            <p className="text-[10px] font-black text-muted-foreground">Revenue signal</p>
                             <p className="mt-2 text-2xl font-extrabold text-foreground">{revenueLast7Days >= averageDailyRevenue * 7 ? 'Ahead' : 'Steady'}</p>
                             <p className="mt-1 text-sm text-muted-foreground">
                                 {revenueLast7Days >= averageDailyRevenue * 7
@@ -317,7 +319,7 @@ export const Dashboard: React.FC = () => {
                     <div className="mb-6 flex items-center justify-between gap-4">
                         <div>
                             <h2 className="text-xl font-extrabold text-foreground">User Growth</h2>
-                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Last 7 days</p>
+                            <p className="mt-1 text-xs font-black text-muted-foreground">Last 7 days</p>
                         </div>
                         <div className="status-pill border border-border bg-background/70 text-foreground">
                             <TrendingUp className="h-3.5 w-3.5 text-primary" />
@@ -346,7 +348,7 @@ export const Dashboard: React.FC = () => {
                 <div className={`${surfaceClass} p-6 sm:p-7`}>
                     <div className="mb-5">
                         <h2 className="text-xl font-extrabold text-foreground">Plan Distribution</h2>
-                        <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">All user profiles</p>
+                        <p className="mt-1 text-xs font-black text-muted-foreground">All user profiles</p>
                     </div>
                     <div className="grid gap-5 xl:grid-cols-1">
                         <div className="mx-auto flex h-[220px] w-full max-w-[260px] items-center justify-center">
@@ -370,7 +372,7 @@ export const Dashboard: React.FC = () => {
                             </ResponsiveContainer>
                         </div>
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-4 py-4 text-center">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Tracked Profiles</p>
+                            <p className="text-[10px] font-black text-muted-foreground">Tracked Profiles</p>
                             <p className="mt-2 text-3xl font-extrabold text-foreground">{numberFormatter.format(totalPlanUsers)}</p>
                         </div>
                         <div className="space-y-3">
@@ -408,7 +410,7 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center justify-between border-b border-border/70 px-6 py-5 sm:px-7">
                         <div>
                             <h2 className="text-xl font-extrabold text-foreground">Recent Users</h2>
-                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Latest signups</p>
+                            <p className="mt-1 text-xs font-black text-muted-foreground">Latest signups</p>
                         </div>
                         <div className="status-pill border border-border bg-background/70 text-foreground">
                             <Users className="h-3.5 w-3.5 text-primary" />
@@ -439,20 +441,20 @@ export const Dashboard: React.FC = () => {
                         </div>
                         <div>
                             <h2 className="text-xl font-extrabold text-foreground">Operational Notes</h2>
-                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Quick review</p>
+                            <p className="mt-1 text-xs font-black text-muted-foreground">Quick review</p>
                         </div>
                     </div>
 
                     <div className="mt-6 space-y-4">
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Linked Account Coverage</p>
+                            <p className="text-[10px] font-black text-muted-foreground">Linked Account Coverage</p>
                             <p className="mt-2 text-2xl font-extrabold text-foreground">
                                 {numberFormatter.format(Number(metrics?.totals?.linked_instagram_accounts || 0))}
                             </p>
                             <p className="mt-1 text-sm text-muted-foreground">Instagram accounts connected across the workspace.</p>
                         </div>
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Conversion Snapshot</p>
+                            <p className="text-[10px] font-black text-muted-foreground">Conversion Snapshot</p>
                             <p className="mt-2 text-2xl font-extrabold text-foreground">
                                 {numberFormatter.format(Number(metrics?.totals?.paid_users || 0))}
                             </p>

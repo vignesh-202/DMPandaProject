@@ -1,0 +1,126 @@
+﻿total  15
+ 
+attributes (15)
+  [1]
+    key       name
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       email
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [3]
+    key       first_login
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [4]
+    key       last_login
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [5]
+    key       status
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum
+    default   active
+
+  [6]
+    key       ban_mode
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum
+    default   none
+
+  [7]
+    key       ban_reason
+    type      string
+    status    available
+    required  false
+    array     false
+    size      1000
+    encrypt   false
+
+  [8]
+    key       banned_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [9]
+    key       banned_by
+    type      string
+    status    available
+    required  false
+    array     false
+    size      36
+    encrypt   false
+
+  [10]
+    key       kill_switch_enabled
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   true
+
+  [11]
+    key       plan_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      32
+    default   free
+    encrypt   false
+
+  [12]
+    key       plan_expires_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [13]
+    key       last_active_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [14]
+    key       cleanup_protected
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   false
+
+  [15]
+    key       cleanup_state_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      4000
+    encrypt   false

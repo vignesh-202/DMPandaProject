@@ -15,8 +15,6 @@ const {
     TRANSACTIONS_COLLECTION_ID,
     AUTOMATIONS_COLLECTION_ID,
     LOGS_COLLECTION_ID,
-    ADMIN_SETTINGS_COLLECTION_ID,
-    ADMIN_AUDIT_LOGS_COLLECTION_ID,
     EMAIL_CAMPAIGNS_COLLECTION_ID
 } = require('../utils/appwrite');
 const { cleanupUserOwnedData } = require('../utils/userCleanup');
@@ -27,20 +25,20 @@ const {
     resolvePlanEntitlements,
     resolvePlanLimits,
     resolveUserPlanContext,
-    getUserSelfMemory,
     BENEFIT_KEYS,
     benefitFieldForKey,
     parseProfileConfig,
     normalizeBillingCycle,
-    normalizeSubscriptionStatus,
-    calculateSubscriptionExpiry,
-    buildPlanProfilePayload,
-    buildPaidPlanSnapshot
+    isValidPlanSource,
+    normalizePlanSource,
+    buildPlanProfilePayload
 } = require('../utils/planConfig');
 const {
     normalizeAccountAccess,
+    recomputeAccountAccessStateForUser,
     recomputeAccountAccessForUser
 } = require('../utils/accountAccess');
+const { updateAutomationPlanValidationForUser } = require('../utils/automationPlanAudit');
 const {
     normalizeBanMode,
     buildAccessState
@@ -48,22 +46,19 @@ const {
 const { setSessionCookie } = require('../utils/sessionContext');
 const { touchUserActivity } = require('../utils/userActivity');
 const { wrapAdminCampaignEmail } = require('../utils/emailTemplate');
+const {
+    DEFAULT_WATERMARK_POLICY,
+    readWatermarkPolicy,
+    saveWatermarkPolicy
+} = require('../utils/systemConfig');
 const sharedPlanFeatures = require('../../shared/planFeatures.json');
 
 const router = express.Router();
 
-const WATERMARK_POLICY_DOC_ID = 'global_watermark_policy';
-const DEFAULT_WATERMARK_POLICY = {
-    enabled: true,
-    default_text: 'Automation made by DMPanda',
-    enforcement_mode: 'fallback_secondary_message',
-    allow_user_override: true,
-    updated_by: null,
-    updated_at: null
-};
 const ADMIN_IMPERSONATION_TTL_MS = 2 * 60 * 1000;
 const ADMIN_IMPERSONATION_AUDIENCE = 'admin-dashboard-access';
 const usedAdminAccessTokens = new Map();
+const PLAN_SOURCE_DEBUG = String(process.env.DEBUG_PLAN_SOURCE || '').trim() === '1';
 
 const ok = (res, data, status = 200) => res.status(status).json({ success: true, data });
 const fail = (res, status, error, data = null) => res.status(status).json({
@@ -114,25 +109,12 @@ const writeAdminAuditLog = async (databases, {
     targetUserId = null,
     payload = null
 } = {}) => {
-    if (!databases || !adminId || !action) return null;
-
-    try {
-        return await databases.createDocument(
-            APPWRITE_DATABASE_ID,
-            ADMIN_AUDIT_LOGS_COLLECTION_ID,
-            getAdminAuditDocumentId(),
-            {
-                admin_id: String(adminId).trim(),
-                action: String(action).trim(),
-                target_user_id: targetUserId ? String(targetUserId).trim() : null,
-                payload: payload ? JSON.stringify(payload) : null,
-                created_at: new Date().toISOString()
-            }
-        );
-    } catch (error) {
-        console.warn('Admin audit log write failed:', error?.message || String(error));
-        return null;
-    }
+    void databases;
+    void adminId;
+    void action;
+    void targetUserId;
+    void payload;
+    return null;
 };
 
 const buildSignedAdminAccessToken = ({ adminId, targetUserId }) => {
@@ -548,20 +530,15 @@ const buildProfileRollbackPayload = (profile = null) => {
     return {
         user_id: String(profile.user_id || '').trim() || null,
         plan_code: profile.plan_code || null,
+        plan_source: profile.plan_source || null,
         plan_name: profile.plan_name || null,
-        plan_status: profile.plan_status || 'inactive',
-        billing_cycle: profile.billing_cycle || null,
-        expires_at: profile.expires_at || null,
-        limits_json: profile.limits_json || null,
-        features_json: profile.features_json || null,
-        paid_plan_snapshot_json: profile.paid_plan_snapshot_json || null,
-        admin_override_json: profile.admin_override_json || null,
+        expiry_date: profile.expiry_date || null,
         kill_switch_enabled: profile.kill_switch_enabled !== false,
-        instagram_link_limit: Number(profile.instagram_link_limit || 0),
+        instagram_connections_limit: Number(profile.instagram_connections_limit || 0),
         hourly_action_limit: Number(profile.hourly_action_limit || 0),
         daily_action_limit: Number(profile.daily_action_limit || 0),
         monthly_action_limit: Number(profile.monthly_action_limit || 0),
-        feature_overrides_json: profile.feature_overrides_json || null,
+        no_watermark: profile.no_watermark === true,
         credits: Number(profile.credits || 0),
         hourly_actions_used: Number(profile.hourly_actions_used || 0),
         daily_actions_used: Number(profile.daily_actions_used || 0),
@@ -597,25 +574,6 @@ const normalizeCouponBillingTargets = (value) => {
     ));
     return normalized.length > 0 ? normalized : ['monthly', 'yearly'];
 };
-const resolveAdminSubscriptionExpiry = ({
-    requestedExpiry = null,
-    requestedDurationDays = null,
-    billingCycle = 'monthly',
-    fallbackToDefaultThirtyDays = true
-} = {}) => {
-    const normalizedRequestedExpiry = normalizeCampaignDateTime(requestedExpiry);
-    if (normalizedRequestedExpiry) {
-        return normalizedRequestedExpiry;
-    }
-
-    const normalizedDurationDays = toFiniteNumber(requestedDurationDays, null);
-    if (normalizedDurationDays != null && normalizedDurationDays > 0) {
-        return calculateSubscriptionExpiry({ durationDays: normalizedDurationDays });
-    }
-
-    if (!fallbackToDefaultThirtyDays) return null;
-    return calculateSubscriptionExpiry({ billingCycle });
-};
 const resolvePlanDefaults = (plan) => resolvePlanLimits(plan, null);
 const buildLimitOverridePayload = (limits = {}) => {
     const payload = {};
@@ -635,46 +593,154 @@ const buildLimitOverridePayload = (limits = {}) => {
     }
     return payload;
 };
-const buildPlanSnapshot = (plan, subscriptionExpires = null, status = 'active', billingCycle = 'monthly') => {
-    if (!plan) return null;
-    return buildPaidPlanSnapshot({
-        plan,
-        billingCycle,
-        expires: subscriptionExpires,
-        status,
-        limits: resolvePlanDefaults(plan)
-    });
+const parseSubscriptionExpiryDate = (value) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString();
 };
-const inferBillingCycleFromExpiry = (expiresAt) => {
-    if (!expiresAt) return 'monthly';
-    const parsed = new Date(expiresAt);
-    if (Number.isNaN(parsed.getTime())) return 'monthly';
-    const remainingDays = Math.ceil((parsed.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-    return remainingDays > 180 ? 'yearly' : 'monthly';
+const deriveSubscriptionState = (planCode, expiryDate) => {
+    const normalizedPlanCode = normalizePlanCode(planCode || 'free') || 'free';
+    const normalizedExpiryDate = parseSubscriptionExpiryDate(expiryDate);
+    if (normalizedPlanCode === 'free' && !normalizedExpiryDate) {
+        return {
+            plan_code: 'free',
+            expiry_date: null,
+            is_active: false,
+            is_expired: false,
+            derived_status: 'inactive'
+        };
+    }
+    if (!normalizedExpiryDate) {
+        return {
+            plan_code: normalizedPlanCode,
+            expiry_date: null,
+            is_active: false,
+            is_expired: false,
+            derived_status: 'inactive'
+        };
+    }
+    const isActive = new Date(normalizedExpiryDate).getTime() > Date.now();
+    return {
+        plan_code: normalizedPlanCode,
+        expiry_date: normalizedExpiryDate,
+        is_active: isActive,
+        is_expired: !isActive,
+        derived_status: isActive ? 'active' : 'expired'
+    };
 };
-const resolveSelfSubscribedPlanRestore = async (databases, userId, _userDocument, pricingPlans) => {
-    const selfMemory = await getUserSelfMemory(databases, userId, null, pricingPlans);
-    const normalizedSelfPlanId = normalizePlanCode(selfMemory?.plan_id || 'free') || 'free';
-    const plan = pricingPlans.find((entry) => normalizePlanCode(entry.plan_code || entry.id) === normalizedSelfPlanId)
-        || pricingPlans.find((entry) => normalizePlanCode(entry.plan_code || entry.id) === 'free')
-        || null;
-    const nextPlanId = String(plan?.plan_code || plan?.id || 'free').trim() || 'free';
-    const nextExpires = nextPlanId === 'free' ? null : (selfMemory?.plan_expires_at || null);
-    const nextBillingCycle = nextPlanId === 'free'
-        ? null
-        : normalizeBillingCycle(selfMemory?.billing_cycle || inferBillingCycleFromExpiry(nextExpires));
+const buildAdminManagedExpiryDate = ({ durationMode = 'monthly', customExpiryDate = null, baseDate = null } = {}) => {
+    const mode = String(durationMode || 'monthly').trim().toLowerCase();
+    const parsedBaseDate = baseDate ? new Date(baseDate) : new Date();
+    const safeBaseDate = Number.isNaN(parsedBaseDate.getTime()) ? new Date() : parsedBaseDate;
+    if (mode === 'custom') {
+        return parseSubscriptionExpiryDate(customExpiryDate);
+    }
+    const next = new Date(safeBaseDate);
+    if (mode === 'yearly') {
+        next.setUTCFullYear(next.getUTCFullYear() + 1);
+    } else {
+        next.setUTCDate(next.getUTCDate() + 30);
+    }
+    return next.toISOString();
+};
+const resolveLatestValidTransactionRestore = async (databases, userId, pricingPlans) => {
+    const transactionsResponse = await databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
+        Query.equal('user_id', String(userId)),
+        Query.equal('status', 'success'),
+        Query.orderDesc('created_at'),
+        Query.limit(1)
+    ]).catch(() => ({ documents: [] }));
+    const latestTransaction = (Array.isArray(transactionsResponse?.documents) ? transactionsResponse.documents : [])[0] || null;
+    const planId = normalizePlanCode(
+        latestTransaction?.plan_code || latestTransaction?.planCode || latestTransaction?.planName || latestTransaction?.plan_name || 'free'
+    );
+    const expiryDate = parseSubscriptionExpiryDate(latestTransaction?.expiry_date || null);
+    if (latestTransaction && planId && planId !== 'free' && expiryDate && new Date(expiryDate).getTime() > Date.now()) {
+        const plan = pricingPlans.find((entry) => normalizePlanCode(entry.plan_code || entry.id) === planId) || null;
+        if (plan) {
+            return {
+                plan,
+                planId,
+                expiryDate
+            };
+        }
+    }
+    const freePlan = pricingPlans.find((entry) => normalizePlanCode(entry.plan_code || entry.id) === 'free') || null;
+    return {
+        plan: freePlan,
+        planId: 'free',
+        expiryDate: null
+    };
+};
+const RESET_PLAN_DURATION_DAYS = {
+    monthly: 30,
+    yearly: 364
+};
+const getResetTransactionPlanCode = (transaction) => normalizePlanCode(
+    transaction?.planCode || transaction?.plan_code || transaction?.planName || transaction?.plan_name || 'free'
+);
+const getResetTransactionCreatedAt = (transaction) => (
+    transaction?.transactionDate || transaction?.created_at || transaction?.$createdAt || null
+);
+const getResetTransactionBillingCycle = (transaction) => normalizeBillingCycle(
+    transaction?.billingCycle || transaction?.billing_cycle || 'monthly'
+);
+const resolveResetTransactionExpiry = (transaction, plan = null) => {
+    const directExpiry = parseSubscriptionExpiryDate(
+        transaction?.expiry_date || transaction?.plan_expires_at || null
+    );
+    if (directExpiry) {
+        return {
+            expiryDate: directExpiry,
+            source: transaction?.expiry_date ? 'expiry_date' : 'plan_expires_at',
+            computedFrom: null,
+            billingCycle: getResetTransactionBillingCycle(transaction),
+            durationDays: null
+        };
+    }
+
+    const transactionCreatedAt = getResetTransactionCreatedAt(transaction);
+    const parsedCreatedAt = transactionCreatedAt ? new Date(transactionCreatedAt) : null;
+    if (!parsedCreatedAt || Number.isNaN(parsedCreatedAt.getTime())) {
+        return {
+            expiryDate: null,
+            source: 'missing',
+            computedFrom: transactionCreatedAt || null,
+            billingCycle: getResetTransactionBillingCycle(transaction),
+            durationDays: null
+        };
+    }
+
+    const billingCycle = getResetTransactionBillingCycle(transaction);
+    const durationDays = billingCycle === 'yearly'
+        ? toFiniteNumber(plan?.yearly_duration_days, null) || RESET_PLAN_DURATION_DAYS.yearly
+        : toFiniteNumber(plan?.monthly_duration_days, null) || RESET_PLAN_DURATION_DAYS.monthly;
+    const computedExpiry = new Date(parsedCreatedAt);
+    computedExpiry.setUTCDate(computedExpiry.getUTCDate() + Math.max(1, Math.floor(Number(durationDays || 0))));
 
     return {
-        plan,
-        nextPlanId,
-        nextStatus: nextPlanId === 'free' ? 'inactive' : 'active',
-        nextExpires,
-        nextBillingCycle,
-        transaction_id: selfMemory?.transaction_id || null
+        expiryDate: parseSubscriptionExpiryDate(computedExpiry.toISOString()),
+        source: 'computed_from_billing',
+        computedFrom: parsedCreatedAt.toISOString(),
+        billingCycle,
+        durationDays
     };
+};
+const getLatestTransactionForUserReset = async (databases, userId) => {
+    const safeUserId = String(userId || '').trim();
+    if (!safeUserId) return null;
+    const response = await databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
+        Query.equal('userId', safeUserId),
+        Query.equal('status', 'success'),
+        Query.orderDesc('$createdAt'),
+        Query.limit(1)
+    ]).catch(() => ({ documents: [] }));
+    return (Array.isArray(response?.documents) ? response.documents : [])[0] || null;
 };
 const buildEffectivePlanResponse = async (databases, userId, userFallback = null) => {
     const context = await resolveUserPlanContext(databases, userId, userFallback);
+    const subscriptionState = deriveSubscriptionState(context.profile?.plan_code, context.profile?.expiry_date);
     return {
         profile: context.profile,
         effective_plan: {
@@ -682,12 +748,15 @@ const buildEffectivePlanResponse = async (databases, userId, userFallback = null
             plan_code: String(context.profile?.plan_code || context.subscriptionPlanId || 'free'),
             name: String(context.profile?.plan_name || context.subscriptionPlanId || 'Free Plan')
         },
-        plan_source: context.planSource || 'self',
+        plan_source: normalizePlanSource(context.profile?.plan_source || context.planSource || 'system', 'system'),
+        expiry_date: subscriptionState.expiry_date,
+        is_active: subscriptionState.is_active,
+        is_expired: subscriptionState.is_expired,
+        derived_status: subscriptionState.derived_status,
         self_plan: {
             id: String(context.selfPlanId || 'free'),
-            expires_at: context.selfPlanExpiresAt || null
+            expiry_date: context.selfExpiryDate || null
         },
-        subscription_billing_cycle: context.billingCycle || null,
         effective_limits: context.limits,
         effective_entitlements: context.entitlements
     };
@@ -902,9 +971,10 @@ const buildEmailCampaignAudience = async ({ databases, messaging }, rawFilters =
                 })
                 .filter(Boolean);
 
-            const currentPlan = normalizePlanCode(profile?.plan_code || 'free') || 'free';
-            const currentStatus = String(profile?.plan_status || 'inactive').trim().toLowerCase() || 'inactive';
-            const expiresAt = profile?.expires_at || null;
+            const subscriptionState = deriveSubscriptionState(profile?.plan_code, profile?.expiry_date);
+            const currentPlan = subscriptionState.plan_code;
+            const currentStatus = subscriptionState.derived_status;
+            const expiryDate = subscriptionState.expiry_date;
             const linkedInstagramAccounts = Number(linkedCounts[userId] || 0);
             const hasTransactions = userTransactions.length > 0;
             const hasPaidHistory = userTransactions.some((transaction) => transaction.planCode && transaction.planCode !== 'free' && transaction.amount > 0);
@@ -922,7 +992,7 @@ const buildEmailCampaignAudience = async ({ databases, messaging }, rawFilters =
                 created_at: user.$createdAt || null,
                 current_plan: currentPlan,
                 current_status: currentStatus,
-                subscription_expires: expiresAt,
+                expiry_date: expiryDate,
                 linked_instagram_accounts: linkedInstagramAccounts,
                 has_transactions: hasTransactions,
                 has_paid_history: hasPaidHistory,
@@ -953,10 +1023,7 @@ const buildEmailCampaignAudience = async ({ databases, messaging }, rawFilters =
         if (filters.plan_codes.length > 0 && !filters.plan_codes.includes(entry.current_plan)) return false;
 
         if (filters.subscription_status) {
-            const normalizedStatus = filters.subscription_status === 'expired'
-                ? (entry.subscription_expires && new Date(entry.subscription_expires).getTime() < now ? 'expired' : entry.current_status)
-                : entry.current_status;
-            if (normalizedStatus !== filters.subscription_status) return false;
+            if (entry.current_status !== filters.subscription_status) return false;
         }
 
         if (filters.linked_instagram === 'none' && entry.linked_instagram_accounts !== 0) return false;
@@ -986,7 +1053,7 @@ const buildEmailCampaignAudience = async ({ databases, messaging }, rawFilters =
             return new Date(b.last_subscription_at || 0).getTime() - new Date(a.last_subscription_at || 0).getTime();
         }
         if (filters.sort_by === 'expiring_soon') {
-            return new Date(a.subscription_expires || '9999-12-31').getTime() - new Date(b.subscription_expires || '9999-12-31').getTime();
+            return new Date(a.expiry_date || '9999-12-31').getTime() - new Date(b.expiry_date || '9999-12-31').getTime();
         }
         if (filters.sort_by === 'most_connected') {
             return Number(b.linked_instagram_accounts || 0) - Number(a.linked_instagram_accounts || 0);
@@ -1088,11 +1155,7 @@ const buildDashboardMetrics = async (databases) => {
     const totals = {
         total_users: users.length,
         linked_instagram_accounts: accounts.length,
-        paid_users: profiles.filter((profile) =>
-            String(profile.plan_status || '').toLowerCase() === 'active'
-            && String(profile.plan_code || '').trim()
-            && String(profile.plan_code || '').trim().toLowerCase() !== 'free'
-        ).length,
+        paid_users: profiles.filter((profile) => deriveSubscriptionState(profile.plan_code, profile.expiry_date).is_active).length,
         overall_success_rate: statusLogs.length > 0
             ? Math.round((successLogs.length / statusLogs.length) * 100)
             : 100,
@@ -1274,53 +1337,6 @@ const buildAnalyticsOverview = async (databases, options = {}) => {
                 sent_at: entry.sent_at || entry.$createdAt || null
             }))
     };
-};
-
-const readWatermarkPolicy = async (databases) => {
-    try {
-        const document = await databases.getDocument(
-            APPWRITE_DATABASE_ID,
-            ADMIN_SETTINGS_COLLECTION_ID,
-            WATERMARK_POLICY_DOC_ID
-        );
-        return {
-            enabled: document.enabled !== false,
-            default_text: String(document.default_text || DEFAULT_WATERMARK_POLICY.default_text),
-            enforcement_mode: String(document.enforcement_mode || DEFAULT_WATERMARK_POLICY.enforcement_mode),
-            allow_user_override: document.allow_user_override !== false,
-            updated_by: document.updated_by || null,
-            updated_at: document.updated_at || document.$updatedAt || null
-        };
-    } catch {
-        return { ...DEFAULT_WATERMARK_POLICY };
-    }
-};
-
-const saveWatermarkPolicy = async (databases, policy) => {
-    const payload = {
-        enabled: Boolean(policy.enabled),
-        default_text: String(policy.default_text || DEFAULT_WATERMARK_POLICY.default_text).trim() || DEFAULT_WATERMARK_POLICY.default_text,
-        enforcement_mode: String(policy.enforcement_mode || DEFAULT_WATERMARK_POLICY.enforcement_mode).trim() || DEFAULT_WATERMARK_POLICY.enforcement_mode,
-        allow_user_override: Boolean(policy.allow_user_override),
-        updated_by: policy.updated_by || null,
-        updated_at: policy.updated_at || new Date().toISOString()
-    };
-
-    try {
-        return await databases.updateDocument(
-            APPWRITE_DATABASE_ID,
-            ADMIN_SETTINGS_COLLECTION_ID,
-            WATERMARK_POLICY_DOC_ID,
-            payload
-        );
-    } catch {
-        return databases.createDocument(
-            APPWRITE_DATABASE_ID,
-            ADMIN_SETTINGS_COLLECTION_ID,
-            WATERMARK_POLICY_DOC_ID,
-            payload
-        );
-    }
 };
 
 router.get('/dashboard', loginRequired, adminRequired, async (req, res) => {
@@ -1759,20 +1775,18 @@ router.put('/settings/watermark', loginRequired, adminRequired, async (req, res)
         const { databases } = getServices();
         const nextPolicy = await saveWatermarkPolicy(databases, {
             enabled: req.body?.enabled !== false,
-            default_text: String(req.body?.default_text || DEFAULT_WATERMARK_POLICY.default_text),
-            enforcement_mode: ['inline_when_possible', 'fallback_secondary_message'].includes(String(req.body?.enforcement_mode || ''))
-                ? String(req.body.enforcement_mode)
-                : DEFAULT_WATERMARK_POLICY.enforcement_mode,
-            allow_user_override: req.body?.allow_user_override !== false,
+            type: String(req.body?.type || DEFAULT_WATERMARK_POLICY.type),
+            position: String(req.body?.position || DEFAULT_WATERMARK_POLICY.position),
+            opacity: req.body?.opacity,
             updated_by: req.user.$id,
             updated_at: new Date().toISOString()
         });
         return ok(res, {
             policy: {
                 enabled: nextPolicy.enabled !== false,
-                default_text: String(nextPolicy.default_text || DEFAULT_WATERMARK_POLICY.default_text),
-                enforcement_mode: String(nextPolicy.enforcement_mode || DEFAULT_WATERMARK_POLICY.enforcement_mode),
-                allow_user_override: nextPolicy.allow_user_override !== false,
+                type: String(nextPolicy.type || DEFAULT_WATERMARK_POLICY.type),
+                position: String(nextPolicy.position || DEFAULT_WATERMARK_POLICY.position),
+                opacity: Number(nextPolicy.opacity ?? DEFAULT_WATERMARK_POLICY.opacity),
                 updated_by: nextPolicy.updated_by || req.user.$id,
                 updated_at: nextPolicy.updated_at || new Date().toISOString()
             }
@@ -1887,11 +1901,10 @@ router.get('/users', loginRequired, adminRequired, async (req, res) => {
                         if (effectivePlan !== filters.plan) return false;
                     }
                     if (filters.subscription_status) {
-                        const effectiveStatus = String(
-                            user.profile?.plan_status
-                            || user.profile?.plan_status
-                            || ''
-                        ).toLowerCase();
+                        const effectiveStatus = deriveSubscriptionState(
+                            user.profile?.plan_code,
+                            user.profile?.expiry_date
+                        ).derived_status;
                         if (effectiveStatus !== filters.subscription_status) return false;
                     }
                     if (filters.ban_mode && String(user.ban_mode || 'none').toLowerCase() !== filters.ban_mode) {
@@ -1947,8 +1960,8 @@ router.get('/users/:userId', loginRequired, adminRequired, async (req, res) => {
         const userId = String(req.params.userId || '').trim();
         const user = await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
         const profile = await getProfileForUser(databases, userId);
-        const [instagramAccounts, effectivePlanResponse, transactionsResponse] = await Promise.all([
-            recomputeAccountAccessForUser(databases, userId, profile),
+        const [accountAccessState, effectivePlanResponse, transactionsResponse] = await Promise.all([
+            recomputeAccountAccessStateForUser(databases, userId, profile),
             buildEffectivePlanResponse(databases, userId, user),
             databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
                 Query.equal('userId', userId),
@@ -1956,8 +1969,10 @@ router.get('/users/:userId', loginRequired, adminRequired, async (req, res) => {
                 Query.orderDesc('$createdAt')
             ]).catch(() => ({ documents: [] }))
         ]);
+        const instagramAccounts = accountAccessState.accounts || [];
         const transactions = Array.isArray(transactionsResponse?.documents) ? transactionsResponse.documents : [];
         const successfulTransactions = transactions.filter(isSuccessfulTransaction);
+        const subscriptionState = deriveSubscriptionState(profile?.plan_code, profile?.expiry_date);
         const latestSubscribedPlan = successfulTransactions[0]
             ? {
                 plan_code: normalizePlanCode(successfulTransactions[0]?.planCode || successfulTransactions[0]?.plan_code || successfulTransactions[0]?.planName || successfulTransactions[0]?.plan_name),
@@ -1969,14 +1984,20 @@ router.get('/users/:userId', loginRequired, adminRequired, async (req, res) => {
             user,
             profile,
             access_state: buildAccessState(user),
-            linked_instagram_accounts: instagramAccounts.length,
+            linked_instagram_accounts: Number(accountAccessState.summary?.total_linked_accounts || 0),
             instagram_accounts: instagramAccounts,
+            total_linked_accounts: Number(accountAccessState.summary?.total_linked_accounts || 0),
+            max_allowed_accounts: Number(accountAccessState.summary?.max_allowed_accounts || 0),
+            active_account_limit: Number(accountAccessState.summary?.active_account_limit || 0),
             total_transactions: successfulTransactions.length,
             latest_subscribed_plan: latestSubscribedPlan,
-            plan_status_help: {
-                value: String(profile?.plan_status || 'inactive').trim() || 'inactive',
-                title: 'Plan status',
-                description: 'This is the live access lifecycle for the effective profile. Active allows paid access, inactive keeps the user on free access, and expired marks a paid term that has ended.'
+            subscription_summary: {
+                plan_code: subscriptionState.plan_code,
+                expiry_date: subscriptionState.expiry_date,
+                plan_source: profile?.plan_source || 'system',
+                derived_status: subscriptionState.derived_status,
+                is_active: subscriptionState.is_active,
+                is_expired: subscriptionState.is_expired
             },
             ...effectivePlanResponse
         });
@@ -1990,6 +2011,7 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
     try {
         const { databases } = getServices();
         const userId = String(req.params.userId || '').trim();
+        const incomingPlanSource = req.body?.plan_source;
         const userDocument = await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
         const existingProfile = await getProfileForUser(databases, userId);
         const action = String(req.body?.action || 'change_assigned_plan').trim().toLowerCase();
@@ -1999,18 +2021,21 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             || pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === 'free')
             || null;
         const profileConfig = parseProfileConfig(existingProfile);
-        const currentBillingCycle = normalizeBillingCycle(existingProfile?.billing_cycle || 'monthly');
 
         let nextPlan = currentPlan;
         let nextPlanId = String(currentPlan?.plan_code || currentPlan?.id || 'free').trim() || 'free';
-        let nextStatus = normalizeSubscriptionStatus(existingProfile?.plan_status || 'inactive');
-        let nextExpires = existingProfile?.expires_at || null;
-        let nextBillingCycle = currentBillingCycle;
-        let featureOverrides = req.body?.feature_overrides_json == null
-            ? profileConfig.feature_overrides
-            : parseAdminJsonObject(req.body.feature_overrides_json, {});
+        let nextExpiryDate = existingProfile?.expiry_date || null;
+        let nextPlanSource = 'admin';
+        let featureOverrides = profileConfig.feature_overrides;
         let limitOverrides = profileConfig.limit_overrides;
-        let paidPlanSnapshot = profileConfig.paid_plan_snapshot;
+
+        if (incomingPlanSource !== undefined) {
+            if (!isValidPlanSource(incomingPlanSource)) {
+                console.warn(`[admin] Ignoring invalid client-supplied plan_source "${incomingPlanSource}" for user ${userId}`);
+            } else if (PLAN_SOURCE_DEBUG) {
+                console.debug(`[admin] Ignoring client-supplied plan_source "${incomingPlanSource}" for user ${userId}`);
+            }
+        }
 
         if (action === 'change_assigned_plan') {
             const requestedPlanId = String(req.body?.plan_code || 'free').trim() || 'free';
@@ -2024,23 +2049,20 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             nextPlanId = requestedPlanCode === 'free'
                 ? 'free'
                 : String(nextPlan?.plan_code || nextPlan?.id || requestedPlanId).trim();
-            nextStatus = nextPlanId === 'free'
-                ? 'inactive'
-                : normalizeSubscriptionStatus(req.body?.plan_status || existingProfile?.plan_status || 'active');
-            nextBillingCycle = nextPlanId === 'free'
-                ? null
-                : normalizeBillingCycle(req.body?.billing_cycle || existingProfile?.billing_cycle || 'monthly');
-            nextExpires = nextPlanId === 'free'
-                ? null
-                : resolveAdminSubscriptionExpiry({
-                    requestedExpiry: req.body?.custom_expiry_date || req.body?.expires_at,
-                    requestedDurationDays: req.body?.duration_days,
-                    billingCycle: nextBillingCycle,
-                    fallbackToDefaultThirtyDays: true
+            nextPlanSource = 'admin';
+            nextExpiryDate = buildAdminManagedExpiryDate({
+                    durationMode: req.body?.duration_mode || 'monthly',
+                    customExpiryDate: req.body?.custom_expiry_date || null
                 });
-            paidPlanSnapshot = nextPlanId === 'free'
-                ? null
-                : buildPlanSnapshot(nextPlan, nextExpires, nextStatus, nextBillingCycle);
+            if (nextPlanId !== 'free' && !nextExpiryDate) {
+                return fail(res, 400, 'A valid custom expiry date is required.');
+            }
+            limitOverrides = buildLimitOverridePayload({
+                instagram_connections_limit: req.body?.instagram_connections_limit,
+                hourly_action_limit: req.body?.hourly_action_limit,
+                daily_action_limit: req.body?.daily_action_limit,
+                monthly_action_limit: req.body?.monthly_action_limit
+            });
         } else if (action === 'edit_custom_limits') {
             limitOverrides = buildLimitOverridePayload({
                 instagram_connections_limit: req.body?.instagram_connections_limit,
@@ -2067,17 +2089,13 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             limitOverrides = {};
             featureOverrides = {};
         } else if (action === 'reset_to_paid_snapshot_or_free') {
-            const restoredPlan = await resolveSelfSubscribedPlanRestore(databases, userId, userDocument, pricingPlans);
+            const restoredPlan = await resolveLatestValidTransactionRestore(databases, userId, pricingPlans);
             nextPlan = restoredPlan.plan;
-            nextPlanId = restoredPlan.nextPlanId;
-            nextStatus = restoredPlan.nextStatus;
-            nextExpires = restoredPlan.nextExpires;
-            nextBillingCycle = restoredPlan.nextBillingCycle;
+            nextPlanId = restoredPlan.planId;
+            nextExpiryDate = restoredPlan.expiryDate;
+            nextPlanSource = 'admin';
             limitOverrides = {};
             featureOverrides = {};
-            paidPlanSnapshot = nextPlanId === 'free'
-                ? null
-                : buildPlanSnapshot(nextPlan, nextExpires, nextStatus, nextBillingCycle || 'monthly');
         } else {
             return fail(res, 400, 'Unsupported profile action.');
         }
@@ -2086,15 +2104,12 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             currentProfile: existingProfile,
             plan: nextPlan,
             planId: nextPlanId,
-            billingCycle: nextBillingCycle,
-            subscriptionStatus: nextStatus,
-            subscriptionExpires: nextExpires,
+            planSource: nextPlanSource,
+            subscriptionStatus: nextPlanId === 'free' ? 'inactive' : 'active',
+            subscriptionExpires: nextExpiryDate,
             featureOverrides,
             limitOverrides,
             noWatermarkEnabled: req.body?.no_watermark,
-            paidPlanSnapshot: nextPlanId === 'free'
-                ? null
-                : (paidPlanSnapshot || buildPlanSnapshot(nextPlan, nextExpires, nextStatus, nextBillingCycle)),
             resetReminderState: action === 'change_assigned_plan' || action === 'reset_to_paid_snapshot_or_free',
             credits: existingProfile ? undefined : 0
         });
@@ -2108,6 +2123,7 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
         let profile;
         let user;
         let instagram_accounts;
+        let accountAccessState;
         const userUpdate = {};
         if (req.body?.kill_switch_enabled !== undefined) {
             userUpdate.kill_switch_enabled = req.body.kill_switch_enabled !== false;
@@ -2130,7 +2146,9 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             user = Object.keys(userUpdate).length > 0
                 ? await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, userUpdate)
                 : await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
-            instagram_accounts = await recomputeAccountAccessForUser(databases, userId, profile);
+            accountAccessState = await recomputeAccountAccessStateForUser(databases, userId, profile);
+            instagram_accounts = accountAccessState.accounts;
+            await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
         } catch (error) {
             if (profile?.$id && existingProfile?.$id && previousProfileSnapshot) {
                 await restoreProfileDocument(databases, existingProfile.$id, previousProfileSnapshot).catch(() => null);
@@ -2158,8 +2176,8 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             payload: {
                 action,
                 plan_code: payload.plan_code,
-                plan_status: payload.plan_status,
-                billing_cycle: payload.billing_cycle,
+                expiry_date: payload.expiry_date,
+                plan_source: payload.plan_source,
                 kill_switch_enabled: userUpdate.kill_switch_enabled,
                 cleanup_protected: userUpdate.cleanup_protected
             }
@@ -2169,12 +2187,16 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             force: true,
             clearCleanupState: true
         }).catch(() => null);
+        const updatedUserDocument = await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
 
         return ok(res, {
             profile,
-            user,
+            user: updatedUserDocument,
             instagram_accounts,
-            ...(await buildEffectivePlanResponse(databases, userId, user))
+            total_linked_accounts: Number(accountAccessState?.summary?.total_linked_accounts || 0),
+            max_allowed_accounts: Number(accountAccessState?.summary?.max_allowed_accounts || 0),
+            active_account_limit: Number(accountAccessState?.summary?.active_account_limit || 0),
+            ...(await buildEffectivePlanResponse(databases, userId, updatedUserDocument))
         });
     } catch (error) {
         console.error('Admin profile update error:', error?.message || String(error));
@@ -2225,30 +2247,51 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
     try {
         const { databases } = getServices();
         const userId = String(req.params.userId || '').trim();
-        const userDocument = await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
         const profile = await getProfileForUser(databases, userId);
         const pricingPlans = await listPricingPlans(databases);
         const action = String(req.body?.action || 'reset_to_paid_snapshot_or_free').trim().toLowerCase();
-        const currentPlanId = String(profile?.plan_code || 'free').trim() || 'free';
-        let nextPlan = pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === normalizePlanCode(currentPlanId))
-            || pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === 'free')
-            || null;
-        let nextPlanId = String(nextPlan?.plan_code || nextPlan?.id || 'free').trim() || 'free';
-        let nextStatus = normalizeSubscriptionStatus(profile?.plan_status || 'inactive');
-        let nextExpires = profile?.expires_at || null;
-        let nextBillingCycle = normalizeBillingCycle(profile?.billing_cycle || 'monthly');
+        const freePlan = pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === 'free')
+            || { plan_code: 'free', id: 'free', name: 'Free Plan' };
+        let nextPlan = freePlan;
+        let nextPlanId = 'free';
+        let nextExpiryDate = null;
+        let nextPlanSource = 'system';
         let limitOverrides = {};
         let featureOverrides = {};
 
         if (action === 'reset_to_assigned_defaults') {
-            // Keep the effective profile plan, but reapply pricing-defined defaults.
+            const currentPlanId = String(profile?.plan_code || 'free').trim() || 'free';
+            nextPlan = pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === normalizePlanCode(currentPlanId))
+                || freePlan;
+            nextPlanId = String(nextPlan?.plan_code || nextPlan?.id || 'free').trim() || 'free';
+            nextExpiryDate = profile?.expiry_date || null;
+            nextPlanSource = 'admin';
         } else {
-            const restoredPlan = await resolveSelfSubscribedPlanRestore(databases, userId, userDocument, pricingPlans);
-            nextPlan = restoredPlan.plan;
-            nextPlanId = restoredPlan.nextPlanId;
-            nextStatus = restoredPlan.nextStatus;
-            nextExpires = restoredPlan.nextExpires;
-            nextBillingCycle = restoredPlan.nextBillingCycle;
+            const latestTransaction = await getLatestTransactionForUserReset(databases, userId);
+            const now = new Date();
+            const latestTransactionPlanId = getResetTransactionPlanCode(latestTransaction) || 'free';
+            const matchedTransactionPlan = pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === latestTransactionPlanId) || null;
+            const latestTransactionExpiryDetails = resolveResetTransactionExpiry(latestTransaction, matchedTransactionPlan);
+            const latestTransactionExpiry = latestTransactionExpiryDetails.expiryDate;
+            const expiry = latestTransactionExpiry ? new Date(latestTransactionExpiry) : null;
+            const hasActiveLatestTransaction = Boolean(expiry && expiry > now);
+
+            if (latestTransaction && hasActiveLatestTransaction) {
+                nextPlan = matchedTransactionPlan
+                    || {
+                        plan_code: latestTransactionPlanId,
+                        id: latestTransactionPlanId,
+                        name: String(latestTransaction?.plan_name || latestTransaction?.planName || latestTransactionPlanId).trim() || 'Plan'
+                    };
+                nextPlanId = latestTransactionPlanId;
+                nextExpiryDate = latestTransactionExpiry;
+                nextPlanSource = 'admin';
+            } else {
+                nextPlan = freePlan;
+                nextPlanId = 'free';
+                nextExpiryDate = null;
+                nextPlanSource = 'system';
+            }
         }
 
         if (profile) {
@@ -2259,24 +2302,41 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
                         currentProfile: profile,
                         plan: nextPlan,
                         planId: nextPlanId,
-                        billingCycle: nextBillingCycle,
-                        subscriptionStatus: nextStatus,
-                        subscriptionExpires: nextExpires,
+                        planSource: nextPlanSource,
+                        subscriptionStatus: nextPlanId === 'free' ? 'inactive' : 'active',
+                        subscriptionExpires: nextExpiryDate,
                         featureOverrides,
                         limitOverrides,
-                        paidPlanSnapshot: nextPlanId === 'free'
-                            ? null
-                            : buildPlanSnapshot(nextPlan, nextExpires, nextStatus, nextBillingCycle),
                         resetReminderState: true
                     })
                 });
                 await recomputeAccountAccessForUser(databases, userId, updatedProfile);
+                await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
             } catch (error) {
                 if (previousProfileSnapshot) {
                     await restoreProfileDocument(databases, profile.$id, previousProfileSnapshot).catch(() => null);
                 }
                 throw error;
             }
+        } else if (action === 'reset_to_paid_snapshot_or_free') {
+            const createdProfile = await databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, userId, {
+                user_id: userId,
+                credits: 0,
+                ...buildPlanProfilePayload({
+                    currentProfile: { user_id: userId, credits: 0 },
+                    plan: nextPlan,
+                    planId: nextPlanId,
+                    planSource: nextPlanSource,
+                    subscriptionStatus: nextPlanId === 'free' ? 'inactive' : 'active',
+                    subscriptionExpires: nextExpiryDate,
+                    featureOverrides,
+                    limitOverrides,
+                    resetReminderState: true,
+                    credits: 0
+                })
+            });
+            await recomputeAccountAccessForUser(databases, userId, createdProfile);
+            await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
         }
         await writeAdminAuditLog(databases, {
             adminId: req.user.$id,
@@ -2285,7 +2345,8 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
             payload: {
                 action,
                 next_plan_id: nextPlanId,
-                next_status: nextStatus
+                next_expiry_date: nextExpiryDate,
+                next_plan_source: nextPlanSource
             }
         });
         await touchUserActivity(userId, {
@@ -2293,11 +2354,12 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
             force: true,
             clearCleanupState: true
         }).catch(() => null);
+        const updatedUserDocument = await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
         return ok(res, {
             message: action === 'reset_to_assigned_defaults'
                 ? 'Assigned plan defaults restored successfully.'
                 : 'Plan reset successfully.',
-            ...(await buildEffectivePlanResponse(databases, userId, userDocument))
+            ...(await buildEffectivePlanResponse(databases, userId, updatedUserDocument))
         });
     } catch (error) {
         console.error('Admin reset plan error:', error?.message || String(error));
@@ -2332,7 +2394,8 @@ router.patch('/users/:userId/instagram-accounts/:accountId', loginRequired, admi
 
         await databases.updateDocument(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, accountId, patch);
         const profile = await getProfileForUser(databases, userId);
-        const instagram_accounts = await recomputeAccountAccessForUser(databases, userId, profile);
+        const accountAccessState = await recomputeAccountAccessStateForUser(databases, userId, profile);
+        const instagram_accounts = accountAccessState.accounts;
 
         await writeAdminAuditLog(databases, {
             adminId: req.user.$id,
@@ -2345,7 +2408,10 @@ router.patch('/users/:userId/instagram-accounts/:accountId', loginRequired, admi
         });
 
         return ok(res, {
-            instagram_accounts
+            instagram_accounts,
+            total_linked_accounts: Number(accountAccessState.summary?.total_linked_accounts || 0),
+            max_allowed_accounts: Number(accountAccessState.summary?.max_allowed_accounts || 0),
+            active_account_limit: Number(accountAccessState.summary?.active_account_limit || 0)
         });
     } catch (error) {
         console.error('Admin instagram access update error:', error?.message || String(error));
@@ -2366,7 +2432,14 @@ router.delete('/users/:userId', loginRequired, adminRequired, async (req, res) =
             return fail(res, 400, 'You cannot delete the currently signed-in admin account from the admin panel.');
         }
 
-        await cleanupUserOwnedData(databases, userId);
+        await cleanupUserOwnedData(databases, userId, { retainFinancialRecords: false });
+        try {
+            if (typeof users.deleteSessions === 'function') {
+                await users.deleteSessions(userId);
+            }
+        } catch (sessionCleanupErr) {
+            console.warn(`Admin delete session invalidation failed for user ${userId}: ${sessionCleanupErr.message}`);
+        }
         await users.delete(userId);
 
         return ok(res, { message: 'User deleted successfully.' });
@@ -2430,6 +2503,30 @@ router.patch('/pricing/:planId', loginRequired, adminRequired, async (req, res) 
             }
         });
         const updated = await databases.updateDocument(APPWRITE_DATABASE_ID, PRICING_COLLECTION_ID, planId, payload);
+        const affectedProfiles = await databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
+            Query.equal('plan_code', payload.plan_code),
+            Query.limit(500)
+        ]).catch(() => ({ documents: [] }));
+        for (const profile of affectedProfiles.documents || []) {
+            const refreshedProfile = await databases.updateDocument(
+                APPWRITE_DATABASE_ID,
+                PROFILES_COLLECTION_ID,
+                profile.$id,
+                buildPlanProfilePayload({
+                    currentProfile: profile,
+                    plan: updated,
+                    planId: payload.plan_code,
+                    planSource: profile.plan_source || null,
+                    subscriptionStatus: normalizePlanCode(profile.plan_code || 'free') === 'free' ? 'inactive' : 'active',
+                    subscriptionExpires: profile.expiry_date,
+                    preserveUsage: true
+                })
+            ).catch(() => null);
+            if (refreshedProfile?.user_id) {
+                await recomputeAccountAccessForUser(databases, refreshedProfile.user_id, refreshedProfile).catch(() => null);
+                await updateAutomationPlanValidationForUser(databases, refreshedProfile.user_id).catch(() => null);
+            }
+        }
         return ok(res, { plan: normalizePlan(updated) });
     } catch (error) {
         console.error('Admin pricing update error:', error?.message || String(error));

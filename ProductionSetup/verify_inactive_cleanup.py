@@ -23,14 +23,15 @@ def assert_true(condition, message):
 def check_behavior(module):
     now = datetime(2026, 4, 24, 0, 0, tzinfo=timezone.utc)
 
-    paid_user = {"$id": "user-paid", "plan_id": "pro", "plan_expires_at": "2026-05-24T00:00:00Z"}
-    free_profile = {"plan_code": "free", "plan_status": "inactive", "expires_at": None}
-    paid_result = module._evaluate_user(paid_user, free_profile, None, now)
+    paid_user = {"$id": "user-paid"}
+    active_paid_profile = {"plan_code": "pro", "plan_source": "payment", "expiry_date": "2026-05-24T00:00:00Z"}
+    paid_result = module._evaluate_user(paid_user, active_paid_profile, None, now)
     assert_true(paid_result["decision"] == "skip_paid", "Active paid user should never be eligible for cleanup.")
+
+    free_profile = {"plan_code": "free", "plan_source": "system", "expiry_date": None}
 
     active_free_user = {
         "$id": "user-active",
-        "plan_id": "free",
         "last_active_at": "2026-04-20T00:00:00Z",
         "cleanup_state_json": None,
     }
@@ -39,7 +40,6 @@ def check_behavior(module):
 
     stale_free_user = {
         "$id": "user-stale",
-        "plan_id": "free",
         "last_active_at": "2025-09-01T00:00:00Z",
         "cleanup_state_json": None,
     }
@@ -49,7 +49,6 @@ def check_behavior(module):
 
     refreshed_user = {
         "$id": "user-reset",
-        "plan_id": "free",
         "last_active_at": "2026-04-24T00:00:00Z",
         "cleanup_state_json": json.dumps({
             "v": 1,
@@ -61,8 +60,8 @@ def check_behavior(module):
     reset_result = module._evaluate_user(refreshed_user, free_profile, None, now)
     assert_true(reset_result["decision"] == "skip_not_due", "Fresh activity should reset the deletion countdown.")
 
-    expired_paid_profile = {"plan_code": "pro", "plan_status": "expired", "expires_at": "2026-04-01T00:00:00Z"}
-    uncertain_result = module._evaluate_user({"$id": "user-uncertain", "plan_id": "free"}, expired_paid_profile, None, now)
+    expired_paid_profile = {"plan_code": "pro", "plan_source": "payment", "expiry_date": "2026-04-01T00:00:00Z"}
+    uncertain_result = module._evaluate_user({"$id": "user-uncertain"}, expired_paid_profile, None, now)
     assert_true(uncertain_result["decision"] == "skip_uncertain", "Uncertain non-free runtime state must fail closed.")
 
     assert_true(module._warning_key_for_days(30) == "30d", "30-day warning key mismatch.")

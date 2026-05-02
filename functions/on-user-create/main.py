@@ -9,38 +9,57 @@ from appwrite.id import ID
 
 BENEFIT_KEYS = [
     "unlimited_contacts",
-    "post_comment_dm_automation",
+    "post_comment_dm_reply",
     "post_comment_reply_automation",
-    "reel_comment_dm_automation",
+    "reel_comment_dm_reply",
     "reel_comment_reply_automation",
-    "share_reel_to_dm",
-    "share_post_to_dm",
+    "share_reel_to_admin",
+    "share_post_to_admin",
     "super_profile",
+    "inbox_menu",
+    "collect_email",
+    "suggest_more",
+    "followers_only",
+    "comment_moderation",
+    "seen_typing",
     "welcome_message",
     "convo_starters",
-    "inbox_menu",
     "dm_automation",
     "story_automation",
-    "suggest_more",
-    "comment_moderation",
+    "no_watermark",
     "global_trigger",
     "mentions",
-    "collect_email",
     "instagram_live_automation",
     "priority_support",
-    "followers_only",
-    "seen_typing",
-    "no_watermark",
+    "once_per_user_24h",
 ]
 
 BENEFIT_STORAGE_KEYS = {
     "post_comment_reply_automation": "post_comment_reply",
     "reel_comment_reply_automation": "reel_comment_reply",
 }
+LEGACY_BENEFIT_STORAGE_KEYS = {
+    "post_comment_reply_automation": ["post_comment_reply"],
+    "reel_comment_reply_automation": ["reel_comment_reply"],
+    "post_comment_dm_reply": ["post_comment_dm_automation"],
+    "reel_comment_dm_reply": ["reel_comment_dm_automation"],
+    "share_reel_to_admin": ["share_reel_to_dm"],
+    "share_post_to_admin": ["share_post_to_dm"],
+}
 
 
 def _benefit_field(key):
     return f"benefit_{BENEFIT_STORAGE_KEYS.get(key, key)}"
+
+
+def _benefit_value(document, key):
+    if _benefit_field(key) in document:
+        return _obj_get(document, _benefit_field(key))
+    for legacy_key in LEGACY_BENEFIT_STORAGE_KEYS.get(key, []):
+        legacy_field = f"benefit_{legacy_key}"
+        if legacy_field in document:
+            return _obj_get(document, legacy_field)
+    return False
 
 
 def _env(key, default=""):
@@ -135,16 +154,16 @@ def _load_free_plan_snapshot(client, db_id, pricing_collection_id):
         raise ValueError("Pricing collection does not contain a free plan row.")
 
     monthly_limit = _safe_int(_obj_get(free_plan, "actions_per_month_limit"), 0)
-    linked_limit = _safe_int(_obj_get(free_plan, "instagram_link_limit"), _safe_int(_obj_get(free_plan, "instagram_connections_limit"), 0))
+    active_limit = _safe_int(_obj_get(free_plan, "instagram_connections_limit"), 0)
     limits_snapshot = {
-        "instagram_connections_limit": _safe_int(_obj_get(free_plan, "instagram_connections_limit"), 0),
-        "instagram_link_limit": linked_limit,
+        "instagram_connections_limit": active_limit,
+        "active_account_limit": active_limit,
         "hourly_action_limit": _safe_int(_obj_get(free_plan, "actions_per_hour_limit"), 0),
         "daily_action_limit": _safe_int(_obj_get(free_plan, "actions_per_day_limit"), 0),
         "monthly_action_limit": monthly_limit if monthly_limit > 0 else None,
     }
     entitlements = {
-        key: bool(_obj_get(free_plan, _benefit_field(key)))
+        key: bool(_benefit_value(free_plan, key))
         for key in BENEFIT_KEYS
     }
     if not any(entitlements.values()):
@@ -159,15 +178,11 @@ def _load_free_plan_snapshot(client, db_id, pricing_collection_id):
                 entitlements[key] = bool(_obj_get(item, "value"))
     return {
         "plan_code": "free",
+        "plan_source": "system",
         "plan_name": str(_obj_get(free_plan, "name") or "Free Plan").strip() or "Free Plan",
-        "plan_status": "inactive",
-        "billing_cycle": None,
-        "expires_at": None,
-        "limits_json": json.dumps(limits_snapshot),
-        "features_json": json.dumps(entitlements),
-        "paid_plan_snapshot_json": None,
-        "admin_override_json": None,
+        "expiry_date": None,
         "kill_switch_enabled": True,
+        "instagram_connections_limit": limits_snapshot["instagram_connections_limit"],
         "hourly_action_limit": limits_snapshot["hourly_action_limit"],
         "daily_action_limit": limits_snapshot["daily_action_limit"],
         "monthly_action_limit": monthly_limit if monthly_limit > 0 else 0,
@@ -177,53 +192,8 @@ def _load_free_plan_snapshot(client, db_id, pricing_collection_id):
         "hourly_window_started_at": None,
         "daily_window_started_at": None,
         "monthly_window_started_at": None,
-        "feature_overrides_json": None,
-        **{_benefit_field(key): value for key, value in entitlements.items()},
     }
 
-
-def _default_free_plan_snapshot():
-    entitlements = {key: False for key in BENEFIT_KEYS}
-    for key in (
-        "unlimited_contacts",
-        "post_comment_dm_automation",
-        "reel_comment_dm_automation",
-        "super_profile",
-        "welcome_message",
-        "convo_starters",
-        "inbox_menu",
-    ):
-        entitlements[key] = True
-    limits_snapshot = {
-        "instagram_connections_limit": 3,
-        "instagram_link_limit": 3,
-        "hourly_action_limit": 100,
-        "daily_action_limit": 100,
-        "monthly_action_limit": 1000,
-    }
-    return {
-        "plan_code": "free",
-        "plan_name": "Free Plan",
-        "plan_status": "inactive",
-        "billing_cycle": None,
-        "expires_at": None,
-        "limits_json": json.dumps(limits_snapshot),
-        "features_json": json.dumps(entitlements, separators=(",", ":")),
-        "paid_plan_snapshot_json": None,
-        "admin_override_json": None,
-        "kill_switch_enabled": True,
-        "hourly_action_limit": limits_snapshot["hourly_action_limit"],
-        "daily_action_limit": limits_snapshot["daily_action_limit"],
-        "monthly_action_limit": limits_snapshot["monthly_action_limit"],
-        "hourly_actions_used": 0,
-        "daily_actions_used": 0,
-        "monthly_actions_used": 0,
-        "hourly_window_started_at": None,
-        "daily_window_started_at": None,
-        "monthly_window_started_at": None,
-        "feature_overrides_json": None,
-        **{_benefit_field(key): value for key, value in entitlements.items()},
-    }
 
 # This function is triggered by users.*.create event in Appwrite.
 # It creates a corresponding document in both 'users' and 'profiles' collections.
@@ -272,11 +242,7 @@ def main(context):
         client.set_project(project_id)
         client.set_key(api_key)
 
-        try:
-            free_plan_profile = _load_free_plan_snapshot(client, db_id, pricing_collection_id)
-        except Exception as pricing_error:
-            context.error(f"on-user-create: failed to load pricing free plan snapshot, using default fallback. error={pricing_error}")
-            free_plan_profile = _default_free_plan_snapshot()
+        free_plan_profile = _load_free_plan_snapshot(client, db_id, pricing_collection_id)
 
         # 1. Create Users document (idempotent)
         try:

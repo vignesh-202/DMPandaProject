@@ -39,10 +39,14 @@ const parseJsonObjectArray = (value) => {
 };
 
 const normalizePlanCode = (value) => String(value || '').trim().toLowerCase();
-const normalizePlanSource = (value, fallback = 'self') => {
+const VALID_PLAN_SOURCES = new Set(['payment', 'admin', 'system']);
+const PLAN_SOURCE_DEBUG = String(process.env.DEBUG_PLAN_SOURCE || '').trim() === '1';
+const isValidPlanSource = (value) => VALID_PLAN_SOURCES.has(String(value || '').trim().toLowerCase());
+const normalizePlanSource = (value, fallback = 'system') => {
     const normalized = String(value || '').trim().toLowerCase();
-    if (normalized === 'admin' || normalized === 'self') return normalized;
-    return fallback === 'admin' ? 'admin' : 'self';
+    if (VALID_PLAN_SOURCES.has(normalized)) return normalized;
+    const normalizedFallback = String(fallback || 'system').trim().toLowerCase();
+    return VALID_PLAN_SOURCES.has(normalizedFallback) ? normalizedFallback : 'system';
 };
 
 const normalizeFeatureKey = (value) => String(value || '')
@@ -53,53 +57,68 @@ const normalizeFeatureKey = (value) => String(value || '')
     .replace(/^_+|_+$/g, '');
 
 const DEFAULT_PLAN_FEATURES = Object.freeze({
-    version: '1.0.0',
+    version: '2.1.0',
     benefitFieldPrefix: 'benefit_',
     benefitKeys: [
         'unlimited_contacts',
-        'post_comment_dm_automation',
+        'post_comment_dm_reply',
         'post_comment_reply_automation',
-        'reel_comment_dm_automation',
+        'reel_comment_dm_reply',
         'reel_comment_reply_automation',
-        'share_reel_to_dm',
-        'share_post_to_dm',
+        'share_reel_to_admin',
+        'share_post_to_admin',
         'super_profile',
+        'inbox_menu',
+        'collect_email',
+        'suggest_more',
+        'followers_only',
+        'comment_moderation',
+        'seen_typing',
         'welcome_message',
         'convo_starters',
-        'inbox_menu',
         'dm_automation',
         'story_automation',
-        'suggest_more',
-        'comment_moderation',
+        'no_watermark',
         'global_trigger',
         'mentions',
-        'collect_email',
         'instagram_live_automation',
         'priority_support',
-        'followers_only',
-        'seen_typing',
-        'no_watermark'
+        'once_per_user_24h'
     ],
     benefitStorageKeys: {
         post_comment_reply_automation: 'post_comment_reply',
         reel_comment_reply_automation: 'reel_comment_reply'
     },
+    legacyBenefitStorageKeys: {
+        post_comment_reply_automation: ['post_comment_reply'],
+        reel_comment_reply_automation: ['reel_comment_reply'],
+        post_comment_dm_reply: ['post_comment_dm_automation'],
+        reel_comment_dm_reply: ['reel_comment_dm_automation'],
+        share_reel_to_admin: ['share_reel_to_dm'],
+        share_post_to_admin: ['share_post_to_dm']
+    },
     benefitAliases: {
-        post_comment_dm: 'post_comment_dm_automation',
+        post_comment_dm: 'post_comment_dm_reply',
+        post_comment_dm_automation: 'post_comment_dm_reply',
         post_comment_reply: 'post_comment_reply_automation',
-        reel_comment_dm: 'reel_comment_dm_automation',
+        reel_comment_dm: 'reel_comment_dm_reply',
+        reel_comment_dm_automation: 'reel_comment_dm_reply',
         reel_comment_reply: 'reel_comment_reply_automation',
+        share_reel_to_dm: 'share_reel_to_admin',
+        share_post_to_dm: 'share_post_to_admin',
         dm_automations: 'dm_automation',
+        auto_reply_dm_keywords: 'dm_automation',
+        story_mentions_custom_dm: 'mentions',
         mention: 'mentions',
         email_collector: 'collect_email',
         webhook_integrations: 'collect_email',
         seen_typing_indicator: 'seen_typing',
         no_watermark_branding: 'no_watermark',
+        once_per_user: 'once_per_user_24h',
         instagram_connections: 'instagram_connections_limit'
     },
     limitKeys: [
         'instagram_connections_limit',
-        'instagram_link_limit',
         'actions_per_hour_limit',
         'actions_per_day_limit',
         'actions_per_month_limit',
@@ -127,6 +146,9 @@ const BENEFIT_KEY_SET = new Set(BENEFIT_KEYS);
 const BENEFIT_FIELD_PREFIX = sharedPlanFeatures.benefitFieldPrefix || DEFAULT_PLAN_FEATURES.benefitFieldPrefix;
 const BENEFIT_ALIASES = Object.freeze(sharedPlanFeatures.benefitAliases || DEFAULT_PLAN_FEATURES.benefitAliases);
 const BENEFIT_STORAGE_KEYS = Object.freeze(sharedPlanFeatures.benefitStorageKeys || DEFAULT_PLAN_FEATURES.benefitStorageKeys);
+const LEGACY_BENEFIT_STORAGE_KEYS = Object.freeze(sharedPlanFeatures.legacyBenefitStorageKeys || DEFAULT_PLAN_FEATURES.legacyBenefitStorageKeys || {});
+const FEATURE_LABELS = Object.freeze(sharedPlanFeatures.featureLabels || {});
+const FEATURE_LAYER_MAP = Object.freeze(sharedPlanFeatures.featureLayerMap || {});
 
 const benefitFieldForKey = (key) => `${BENEFIT_FIELD_PREFIX}${BENEFIT_STORAGE_KEYS[key] || key}`;
 
@@ -162,16 +184,24 @@ const normalizeStoredLimit = (value) => {
     return numeric;
 };
 
+const getFeatureLabel = (key) => {
+    const normalizedKey = normalizeBenefitKey(key);
+    return FEATURE_LABELS[normalizedKey] || String(normalizedKey || key || '')
+        .split(/[_-]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+};
+
 const RESERVED_PROFILE_CONFIG_KEYS = new Set([
     '__feature_overrides',
-    '__limit_overrides',
-    '__paid_plan_snapshot'
+    '__limit_overrides'
 ]);
 const LIMIT_ENTITLEMENT_KEYS = new Set(sharedPlanFeatures.limitKeys || DEFAULT_PLAN_FEATURES.limitKeys);
 
 const DEFAULT_FREE_PROFILE_LIMITS = Object.freeze({
     instagram_connections_limit: 0,
-    instagram_link_limit: 0,
+    active_account_limit: 0,
     hourly_action_limit: 0,
     daily_action_limit: 0,
     monthly_action_limit: null
@@ -267,6 +297,14 @@ const extractBenefitAttributes = (document = {}) => BENEFIT_KEYS.reduce((acc, ke
         acc[key] = normalizeBooleanEntitlement(document[legacyField]);
     } else if (Object.prototype.hasOwnProperty.call(document || {}, key)) {
         acc[key] = normalizeBooleanEntitlement(document[key]);
+    } else {
+        for (const legacyStorageKey of LEGACY_BENEFIT_STORAGE_KEYS[key] || []) {
+            const alternateField = `${BENEFIT_FIELD_PREFIX}${legacyStorageKey}`;
+            if (Object.prototype.hasOwnProperty.call(document || {}, alternateField)) {
+                acc[key] = normalizeBooleanEntitlement(document[alternateField]);
+                break;
+            }
+        }
     }
     return acc;
 }, {});
@@ -325,6 +363,139 @@ const normalizePlanDocument = (plan) => {
         actions_per_month_limit: monthlyLimit,
         monthly_duration_days: toFiniteNumber(plan?.monthly_duration_days) || PLAN_DURATION_DAYS.monthly,
         yearly_duration_days: toFiniteNumber(plan?.yearly_duration_days) || PLAN_DURATION_DAYS.yearly
+    };
+};
+
+const getPlanFeatureItems = (features = {}) => BENEFIT_KEYS.map((key) => ({
+    key,
+    label: getFeatureLabel(key),
+    enabled: features?.[key] === true
+}));
+
+const buildAccountLimitEnvelope = ({
+    instagram_connections_limit,
+    instagram_link_limit
+} = {}) => {
+    const baseActiveLimit = Math.max(0, Number(toFiniteNumber(instagram_connections_limit) || 0));
+    const maxAllowedAccounts = Math.max(
+        0,
+        Number(toFiniteNumber(instagram_link_limit) ?? toFiniteNumber(instagram_connections_limit) ?? 0)
+    );
+    const activeAccountLimit = Math.max(0, Math.min(baseActiveLimit, maxAllowedAccounts));
+
+    return {
+        instagram_connections_limit: baseActiveLimit,
+        instagram_link_limit: maxAllowedAccounts,
+        active_account_limit: activeAccountLimit
+    };
+};
+
+const getPlanLimitsEnvelope = (limits = {}) => {
+    const accountEnvelope = buildAccountLimitEnvelope(limits);
+    const connections = Number(accountEnvelope.instagram_connections_limit || 0);
+    const linkLimit = Number(accountEnvelope.instagram_link_limit || connections || 0);
+    const hourly = Number(limits.hourly_action_limit ?? limits.actions_per_hour_limit ?? 0);
+    const daily = Number(limits.daily_action_limit ?? limits.actions_per_day_limit ?? 0);
+    const monthlyRaw = limits.monthly_action_limit ?? limits.actions_per_month_limit;
+    const monthly = monthlyRaw == null ? null : Number(monthlyRaw || 0);
+    return {
+        connections,
+        instagram_connections_limit: connections,
+        instagram_link_limit: linkLimit,
+        active_account_limit: accountEnvelope.active_account_limit,
+        per_hour: hourly,
+        per_day: daily,
+        per_month: monthly,
+        hourly_action_limit: hourly,
+        daily_action_limit: daily,
+        monthly_action_limit: monthly,
+        actions_per_hour_limit: hourly,
+        actions_per_day_limit: daily,
+        actions_per_month_limit: monthly
+    };
+};
+
+const buildPlanApiPayload = (plan, profile = null) => {
+    const normalized = normalizePlanDocument(plan || {});
+    const features = resolvePlanEntitlements(normalized, profile);
+    const resolvedLimits = resolvePlanLimits(normalized, profile);
+    const limits = getPlanLimitsEnvelope(resolvedLimits);
+    const featureItems = getPlanFeatureItems(features);
+    return {
+        id: normalized.id,
+        plan_code: normalized.plan_code,
+        name: normalized.name,
+        display_order: normalized.display_order,
+        button_text: normalized.button_text,
+        is_popular: normalized.is_popular,
+        is_custom: normalized.is_custom,
+        pricing: {
+            monthly: {
+                inr: normalized.price_monthly_inr,
+                usd: normalized.price_monthly_usd
+            },
+            yearly: {
+                inr: normalized.price_yearly_inr,
+                usd: normalized.price_yearly_usd
+            },
+            yearly_monthly_display: {
+                inr: normalized.price_yearly_monthly_inr,
+                usd: normalized.price_yearly_monthly_usd
+            }
+        },
+        duration_days: {
+            monthly: normalized.monthly_duration_days,
+            yearly: normalized.yearly_duration_days
+        },
+        limits,
+        features,
+        feature_items: featureItems,
+        feature_layer_map: FEATURE_LAYER_MAP,
+        yearly_bonus: normalized.yearly_bonus,
+        entitlements: features,
+        comparison: featureItems.map((item) => ({
+            key: item.key,
+            label: item.label,
+            value: item.enabled
+        })),
+        price_monthly_inr: normalized.price_monthly_inr,
+        price_monthly_usd: normalized.price_monthly_usd,
+        price_yearly_inr: normalized.price_yearly_inr,
+        price_yearly_usd: normalized.price_yearly_usd,
+        price_yearly_monthly_inr: normalized.price_yearly_monthly_inr,
+        price_yearly_monthly_usd: normalized.price_yearly_monthly_usd,
+        instagram_connections_limit: limits.instagram_connections_limit,
+        instagram_link_limit: limits.instagram_link_limit,
+        active_account_limit: limits.active_account_limit,
+        actions_per_hour_limit: limits.actions_per_hour_limit,
+        actions_per_day_limit: limits.actions_per_day_limit,
+        actions_per_month_limit: limits.actions_per_month_limit
+    };
+};
+
+const buildPricingComparison = (planPayloads = []) => BENEFIT_KEYS.map((key) => ({
+    key,
+    label: getFeatureLabel(key),
+    values: planPayloads.reduce((acc, plan) => {
+        acc[plan.plan_code || plan.id] = plan.features?.[key] === true;
+        return acc;
+    }, {})
+}));
+
+const buildPricingApiPayload = (plans = [], currencyPolicy = {}) => {
+    const payloadPlans = sortPlans(plans.map((plan) => buildPlanApiPayload(plan)));
+    return {
+        plans: payloadPlans,
+        comparison: buildPricingComparison(payloadPlans),
+        feature_layer_map: FEATURE_LAYER_MAP,
+        currency: {
+            country_code: currencyPolicy.countryCode || null,
+            default: currencyPolicy.defaultCurrency || 'USD',
+            allowed: currencyPolicy.allowedCurrencies || ['USD', 'INR']
+        },
+        country_code: currencyPolicy.countryCode || null,
+        default_currency: currencyPolicy.defaultCurrency || 'USD',
+        allowed_currencies: currencyPolicy.allowedCurrencies || ['USD', 'INR']
     };
 };
 
@@ -413,7 +584,7 @@ const listUserTransactions = async (databases, userId, limit = 250) => {
 const buildFreeSelfSubscriptionMemory = (extra = {}) => ({
     user: null,
     plan_id: 'free',
-    plan_expires_at: null,
+    expiry_date: null,
     billing_cycle: null,
     status: 'inactive',
     transaction: null,
@@ -426,61 +597,36 @@ const getUserSelfMemory = async (databases, userId, _userFallback = null, pricin
     if (!safeUserId) return buildFreeSelfSubscriptionMemory();
 
     const plans = Array.isArray(pricingPlans) ? pricingPlans : await listPricingPlans(databases);
-    const transactions = await listUserTransactions(databases, safeUserId).catch(() => []);
-    const ranked = transactions
-        .map((transaction) => {
-            const createdAt = getTransactionCreatedAt(transaction);
-            const createdTs = new Date(createdAt || 0).getTime();
-            const planId = getTransactionPlanId(transaction);
-            const status = normalizeTransactionStatus(transaction?.status);
-            const plan = findPlanByIdentifier(plans, planId);
-            return {
-                transaction,
-                createdTs: Number.isNaN(createdTs) ? 0 : createdTs,
-                planId,
-                status,
-                plan
-            };
-        })
-        .filter((entry) => entry.planId && entry.planId !== 'free' && entry.plan)
-        .sort((a, b) => b.createdTs - a.createdTs);
+    const response = await databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
+        Query.equal('user_id', safeUserId),
+        Query.equal('status', 'success'),
+        Query.orderDesc('created_at'),
+        Query.limit(1)
+    ]).catch(() => ({ documents: [] }));
+    const decisiveTransaction = (response.documents || [])[0] || null;
+    if (!decisiveTransaction) return buildFreeSelfSubscriptionMemory();
 
-    const decisive = ranked.find((entry) =>
-        VALID_SELF_SUBSCRIPTION_STATUSES.has(entry.status)
-        || NEGATIVE_SELF_SUBSCRIPTION_STATUSES.has(entry.status)
-    );
-
-    if (!decisive) return buildFreeSelfSubscriptionMemory();
-    if (NEGATIVE_SELF_SUBSCRIPTION_STATUSES.has(decisive.status)) {
+    const decisivePlanId = getTransactionPlanId(decisiveTransaction);
+    const decisivePlan = findPlanByIdentifier(plans, decisivePlanId);
+    const expiryDate = decisiveTransaction?.expiry_date || null;
+    if (!decisivePlan || !decisivePlanId || decisivePlanId === 'free' || isExpiredSubscription(decisivePlanId, expiryDate)) {
         return buildFreeSelfSubscriptionMemory({
-            transaction: decisive.transaction,
-            transaction_id: decisive.transaction?.$id || decisive.transaction?.transactionId || null,
-            status: decisive.status || 'inactive'
-        });
-    }
-    if (!VALID_SELF_SUBSCRIPTION_STATUSES.has(decisive.status)) {
-        return buildFreeSelfSubscriptionMemory();
-    }
-
-    const expiresAt = calculateTransactionExpiry(decisive.transaction, decisive.plan);
-    if (isExpiredSubscription(decisive.planId, expiresAt)) {
-        return buildFreeSelfSubscriptionMemory({
-            transaction: decisive.transaction,
-            transaction_id: decisive.transaction?.$id || decisive.transaction?.transactionId || null,
-            billing_cycle: getTransactionBillingCycle(decisive.transaction),
+            transaction: decisiveTransaction,
+            transaction_id: decisiveTransaction?.$id || decisiveTransaction?.transactionId || null,
+            billing_cycle: getTransactionBillingCycle(decisiveTransaction),
             status: 'expired'
         });
     }
 
     return {
         user: null,
-        plan_id: decisive.planId,
-        plan_expires_at: expiresAt,
-        billing_cycle: getTransactionBillingCycle(decisive.transaction),
+        plan_id: decisivePlanId,
+        expiry_date: expiryDate,
+        billing_cycle: getTransactionBillingCycle(decisiveTransaction),
         status: 'active',
-        transaction: decisive.transaction,
-        transaction_id: decisive.transaction?.$id || decisive.transaction?.transactionId || null,
-        plan: decisive.plan
+        transaction: decisiveTransaction,
+        transaction_id: decisiveTransaction?.$id || decisiveTransaction?.transactionId || null,
+        plan: decisivePlan
     };
 };
 
@@ -492,162 +638,61 @@ const isExpiredSubscription = (planId, expiresAt) => {
     return parsed.getTime() < Date.now();
 };
 
-const parseProfileConfig = (profile) => {
-    const parsed = parseJsonObject(profile?.feature_overrides_json, {});
-    const rawFeatureOverrides = parseJsonObject(parsed.__feature_overrides, {});
-    const rawLimitOverrides = parseJsonObject(parsed.__limit_overrides, {});
-    const paidPlanSnapshot = parseJsonObject(parsed.__paid_plan_snapshot, null);
-
-    const legacyFeatureOverrides = Object.entries(parsed).reduce((acc, [key, value]) => {
-        if (RESERVED_PROFILE_CONFIG_KEYS.has(key)) return acc;
-        acc[key] = value;
-        return acc;
-    }, {});
-
-    const featureOverrides = Object.entries({
-        ...legacyFeatureOverrides,
-        ...rawFeatureOverrides
-    }).reduce((acc, [key, value]) => {
-        const rawKey = String(key || '').trim();
-        if (!rawKey || rawKey.startsWith('__')) return acc;
-        const normalizedKey = normalizeFeatureKey(rawKey);
-        if (!normalizedKey || normalizedKey.startsWith('__')) return acc;
-        if (normalizedKey === 'paid_plan_snapshot' || normalizedKey === 'feature_overrides' || normalizedKey === 'limit_overrides') return acc;
-        acc[normalizedKey] = value;
-        return acc;
-    }, {});
-
-    return {
-        raw: parsed,
-        feature_overrides: featureOverrides,
-        limit_overrides: rawLimitOverrides,
-        paid_plan_snapshot: paidPlanSnapshot && typeof paidPlanSnapshot === 'object'
-            ? paidPlanSnapshot
-            : null
-    };
-};
+const parseProfileConfig = (_profile) => ({
+    raw: {},
+    feature_overrides: {},
+    limit_overrides: {}
+});
 
 const parseRuntimeLimits = (profile = null) => {
-    const parsed = parseJsonObject(profile?.limits_json, {});
-    const monthlyValue = normalizeStoredLimit(
-        parsed.monthly_action_limit
-        ?? profile?.monthly_action_limit
-    );
+    const monthlyValue = normalizeStoredLimit(profile?.monthly_action_limit);
+    const accountEnvelope = buildAccountLimitEnvelope({
+        instagram_connections_limit: toFiniteNumber(
+            profile?.instagram_connections_limit
+        ) ?? DEFAULT_FREE_PROFILE_LIMITS.instagram_connections_limit
+    });
 
     return {
-        instagram_connections_limit: toFiniteNumber(
-            parsed.instagram_connections_limit
-            ?? profile?.instagram_connections_limit
-        ) ?? DEFAULT_FREE_PROFILE_LIMITS.instagram_connections_limit,
-        instagram_link_limit: toFiniteNumber(
-            parsed.instagram_link_limit
-            ?? profile?.instagram_link_limit
-        ) ?? (
-            toFiniteNumber(parsed.instagram_connections_limit ?? profile?.instagram_connections_limit)
-            ?? DEFAULT_FREE_PROFILE_LIMITS.instagram_link_limit
-        ),
+        instagram_connections_limit: accountEnvelope.instagram_connections_limit,
+        instagram_link_limit: accountEnvelope.instagram_link_limit,
+        active_account_limit: accountEnvelope.active_account_limit,
         hourly_action_limit: toFiniteNumber(
-            parsed.hourly_action_limit
-            ?? profile?.hourly_action_limit
+            profile?.hourly_action_limit
         ) ?? DEFAULT_FREE_PROFILE_LIMITS.hourly_action_limit,
         daily_action_limit: toFiniteNumber(
-            parsed.daily_action_limit
-            ?? profile?.daily_action_limit
+            profile?.daily_action_limit
         ) ?? DEFAULT_FREE_PROFILE_LIMITS.daily_action_limit,
         monthly_action_limit: monthlyValue
     };
 };
 
 const parseRuntimeFeatures = (profile = null) => {
-    const parsed = parseJsonObject(profile?.features_json, null);
-    if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-        return parsed;
-    }
-
     return parseProfileConfig(profile).feature_overrides;
 };
 
-const parsePaidPlanSnapshot = (profile = null) => {
-    const direct = parseJsonObject(profile?.paid_plan_snapshot_json, null);
-    if (direct && typeof direct === 'object' && Object.keys(direct).length > 0) {
-        return direct;
+const getProfileBillingCycle = (profile = null, fallback = null) => {
+    if (profile?.billing_cycle) {
+        return normalizeBillingCycle(profile.billing_cycle);
     }
-    return parseProfileConfig(profile).paid_plan_snapshot;
-};
-
-const parseSnapshotRuntime = (snapshot = null) => {
-    const runtime = parseJsonObject(snapshot?.__rt, null);
-    return runtime && typeof runtime === 'object' ? runtime : {};
-};
-
-const serializeExpiredPlanRuntime = (snapshot = null) => {
-    if (!snapshot || typeof snapshot !== 'object') return null;
-    const planCode = normalizePlanCode(snapshot.plan_code || '');
-    const planName = String(snapshot.plan_name || '').trim() || null;
-    const expiresAt = toIsoDateTime(snapshot.expires_at || null);
-    const payload = {
-        c: planCode || null,
-        n: planName,
-        e: expiresAt
-    };
-    return Object.values(payload).some((value) => value) ? payload : null;
-};
-
-const applySnapshotRuntimeState = ({
-    currentProfile = null,
-    snapshot = null,
-    resetReminderState = false,
-    expiredPlanSnapshot = undefined
-} = {}) => {
-    const existingSnapshot = parseJsonObject(snapshot, null)
-        || ((resetReminderState === true || expiredPlanSnapshot !== undefined)
-            ? (parsePaidPlanSnapshot(currentProfile) || {})
-            : null);
-
-    if (!existingSnapshot || typeof existingSnapshot !== 'object') {
-        return null;
+    if (fallback) {
+        return normalizeBillingCycle(fallback);
     }
-
-    const nextSnapshot = { ...existingSnapshot };
-    const nextRuntime = { ...parseSnapshotRuntime(existingSnapshot) };
-
-    if (resetReminderState === true) {
-        delete nextRuntime.r;
-    }
-
-    if (expiredPlanSnapshot !== undefined) {
-        const serializedExpired = serializeExpiredPlanRuntime(expiredPlanSnapshot);
-        if (serializedExpired) {
-            nextRuntime.lx = serializedExpired;
-        } else {
-            delete nextRuntime.lx;
-        }
-    }
-
-    if (Object.keys(nextRuntime).length > 0) {
-        nextSnapshot.__rt = nextRuntime;
-    } else {
-        delete nextSnapshot.__rt;
-    }
-
-    return Object.keys(nextSnapshot).length > 0 ? nextSnapshot : null;
+    return null;
 };
 
 const getRuntimePlanIdentity = (profile = null) => ({
     plan_code: normalizePlanCode(profile?.plan_code || 'free') || 'free',
     plan_name: String(profile?.plan_name || 'Free Plan').trim() || 'Free Plan',
-    plan_status: normalizeSubscriptionStatus(profile?.plan_status || 'inactive'),
-    billing_cycle: profile?.billing_cycle
-        ? normalizeBillingCycle(profile.billing_cycle)
-        : null,
-    expires_at: profile?.expires_at || null
+    billing_cycle: getProfileBillingCycle(profile),
+    expiry_date: profile?.expiry_date || null,
+    plan_source: normalizePlanSource(profile?.plan_source, 'system')
 });
 
 const inferPlanSource = (profile = null, selfMemory = null) => {
     const profilePlan = normalizePlanCode(profile?.plan_code || 'free') || 'free';
     const userPlan = normalizePlanCode(selfMemory?.plan_id || 'free') || 'free';
-    const profileExpiry = toIsoDateTime(profile?.expires_at || null);
-    const userExpiry = toIsoDateTime(selfMemory?.plan_expires_at || null);
+    const profileExpiry = toIsoDateTime(profile?.expiry_date || null);
+    const userExpiry = toIsoDateTime(selfMemory?.expiry_date || null);
     if (profilePlan !== userPlan) return 'admin';
     if ((profileExpiry || null) !== (userExpiry || null)) return 'admin';
     return 'self';
@@ -681,6 +726,15 @@ const buildRuntimeFeatureSnapshot = ({
     return entitlements;
 };
 
+const compactRuntimeFeatureSnapshot = (features = {}) => Object.entries(features).reduce((acc, [key, value]) => {
+    const normalizedKey = normalizeBenefitKey(key);
+    if (!normalizedKey || !BENEFIT_KEY_SET.has(normalizedKey)) return acc;
+    if (value === true) {
+        acc[normalizedKey] = true;
+    }
+    return acc;
+}, {});
+
 const buildAdminOverrideSummary = ({
     featureOverrides = {},
     limitOverrides = {}
@@ -705,32 +759,12 @@ const buildAdminOverrideSummary = ({
 const buildProfileConfigPayload = ({
     currentProfile = null,
     featureOverrides,
-    limitOverrides,
-    paidPlanSnapshot
+    limitOverrides
 } = {}) => {
-    const existing = parseProfileConfig(currentProfile);
-    const nextFeatureOverrides = featureOverrides === undefined
-        ? existing.feature_overrides
-        : parseJsonObject(featureOverrides, {});
-    const nextLimitOverrides = limitOverrides === undefined
-        ? existing.limit_overrides
-        : parseJsonObject(limitOverrides, {});
-    const nextPaidPlanSnapshot = paidPlanSnapshot === undefined
-        ? existing.paid_plan_snapshot
-        : parseJsonObject(paidPlanSnapshot, null);
-    const payload = {};
-
-    if (Object.keys(nextFeatureOverrides).length > 0) {
-        payload.__feature_overrides = nextFeatureOverrides;
-    }
-    if (Object.keys(nextLimitOverrides).length > 0) {
-        payload.__limit_overrides = nextLimitOverrides;
-    }
-    if (nextPaidPlanSnapshot && typeof nextPaidPlanSnapshot === 'object' && Object.keys(nextPaidPlanSnapshot).length > 0) {
-        payload.__paid_plan_snapshot = nextPaidPlanSnapshot;
-    }
-
-    return Object.keys(payload).length > 0 ? JSON.stringify(payload) : null;
+    void currentProfile;
+    void featureOverrides;
+    void limitOverrides;
+    return null;
 };
 
 const resolvePlanEntitlements = (plan, profile = null) => {
@@ -738,13 +772,6 @@ const resolvePlanEntitlements = (plan, profile = null) => {
         acc[key] = Boolean(plan?.entitlements?.[key] === true);
         return acc;
     }, {});
-
-    const runtimeFeatures = parseJsonObject(profile?.features_json, null);
-    if (runtimeFeatures && typeof runtimeFeatures === 'object' && Object.keys(runtimeFeatures).length > 0) {
-        Object.assign(entitlements, normalizeBenefitMap(runtimeFeatures));
-    }
-
-    Object.assign(entitlements, extractBenefitAttributes(profile || {}));
 
     const overrides = parseProfileConfig(profile).feature_overrides;
 
@@ -758,41 +785,32 @@ const resolvePlanEntitlements = (plan, profile = null) => {
 };
 
 const resolvePlanLimits = (plan, profile = null) => {
-    const runtimeLimits = parseJsonObject(profile?.limits_json, null);
-    if (runtimeLimits && typeof runtimeLimits === 'object' && Object.keys(runtimeLimits).length > 0) {
-        return parseRuntimeLimits(profile);
-    }
-
     const hourlyPlanLimit = toFiniteNumber(plan?.actions_per_hour_limit);
     const dailyPlanLimit = toFiniteNumber(plan?.actions_per_day_limit);
     const monthlyPlanLimit = normalizeStoredLimit(plan?.actions_per_month_limit);
     const planActiveLimit = toFiniteNumber(plan?.instagram_connections_limit) || 0;
-    const planLinkedLimit = toFiniteNumber(plan?.instagram_link_limit);
-    const profileConfig = parseProfileConfig(profile);
-    const limitOverrides = profileConfig.limit_overrides;
     const profileMonthlyLimit = normalizeStoredLimit(
-        limitOverrides.monthly_action_limit ?? profile?.monthly_action_limit
+        profile?.monthly_action_limit
     );
     const profileHourlyLimit = toFiniteNumber(
-        limitOverrides.hourly_action_limit ?? profile?.hourly_action_limit
+        profile?.hourly_action_limit
     );
     const profileDailyLimit = toFiniteNumber(
-        limitOverrides.daily_action_limit ?? profile?.daily_action_limit
+        profile?.daily_action_limit
     );
     const profileConnectionsLimit = toFiniteNumber(
-        limitOverrides.instagram_connections_limit ?? profile?.instagram_connections_limit
+        profile?.instagram_connections_limit
     );
-    const profileLinkLimit = toFiniteNumber(
-        limitOverrides.instagram_link_limit ?? profile?.instagram_link_limit
-    );
-
-    return {
+    const accountEnvelope = buildAccountLimitEnvelope({
         instagram_connections_limit: profileConnectionsLimit != null
             ? profileConnectionsLimit
-            : planActiveLimit,
-        instagram_link_limit: profileLinkLimit != null
-            ? profileLinkLimit
-            : (planLinkedLimit != null ? planLinkedLimit : planActiveLimit),
+            : planActiveLimit
+    });
+
+    return {
+        instagram_connections_limit: accountEnvelope.instagram_connections_limit,
+        instagram_link_limit: accountEnvelope.instagram_link_limit,
+        active_account_limit: accountEnvelope.active_account_limit,
         hourly_action_limit: profileHourlyLimit != null
             ? profileHourlyLimit
             : (hourlyPlanLimit != null ? hourlyPlanLimit : 0),
@@ -823,6 +841,7 @@ const buildPaidPlanSnapshot = ({
         limits: {
             instagram_connections_limit: Number(resolvedLimits.instagram_connections_limit || 0),
             instagram_link_limit: Number(resolvedLimits.instagram_link_limit || 0),
+            active_account_limit: Number(resolvedLimits.active_account_limit || 0),
             hourly_action_limit: Number(resolvedLimits.hourly_action_limit || 0),
             daily_action_limit: Number(resolvedLimits.daily_action_limit || 0),
             monthly_action_limit: resolvedLimits.monthly_action_limit == null
@@ -836,6 +855,7 @@ const buildPlanProfilePayload = ({
     currentProfile = null,
     plan = null,
     planId = null,
+    planSource = null,
     billingCycle = null,
     subscriptionStatus = 'inactive',
     subscriptionExpires = null,
@@ -855,25 +875,26 @@ const buildPlanProfilePayload = ({
         : normalizeSubscriptionStatus(subscriptionStatus, 'active');
     const normalizedBillingCycle = isFreePlan
         ? null
-        : normalizeBillingCycle(billingCycle || currentProfile?.billing_cycle || 'monthly');
+        : getProfileBillingCycle(currentProfile, billingCycle || 'monthly');
     const normalizedExpires = isFreePlan ? null : toIsoDateTime(subscriptionExpires);
+    const requestedPlanSource = planSource ?? currentProfile?.plan_source ?? 'system';
+    const normalizedPlanSource = isValidPlanSource(requestedPlanSource)
+        ? normalizePlanSource(requestedPlanSource, 'system')
+        : undefined;
+    if (requestedPlanSource != null && String(requestedPlanSource).trim() && !isValidPlanSource(requestedPlanSource)) {
+        console.warn(`[plan-source] invalid source "${requestedPlanSource}" ignored during persistence`);
+    } else if (PLAN_SOURCE_DEBUG && normalizedPlanSource) {
+        console.debug(`[plan-source] persisting source "${normalizedPlanSource}"`);
+    }
     const defaults = resolvePlanLimits(plan, null);
-    const nextFeatureOverrides = featureOverrides === undefined
-        ? parseProfileConfig(currentProfile).feature_overrides
-        : parseJsonObject(featureOverrides, {});
-    const nextLimitOverrides = limitOverrides === undefined
-        ? parseProfileConfig(currentProfile).limit_overrides
-        : parseJsonObject(limitOverrides, {});
-    const resolvedNoWatermark = noWatermarkEnabled === undefined
-        ? Boolean(nextFeatureOverrides.no_watermark ?? defaults.no_watermark)
-        : Boolean(noWatermarkEnabled);
+    const nextLimitOverrides = parseJsonObject(limitOverrides, {});
+    void noWatermarkEnabled;
     const effectiveLimits = {
-        instagram_connections_limit: toFiniteNumber(nextLimitOverrides.instagram_connections_limit) != null
-            ? Number(nextLimitOverrides.instagram_connections_limit)
-            : Number(defaults.instagram_connections_limit || 0),
-        instagram_link_limit: toFiniteNumber(nextLimitOverrides.instagram_link_limit) != null
-            ? Number(nextLimitOverrides.instagram_link_limit)
-            : Number(defaults.instagram_link_limit || defaults.instagram_connections_limit || 0),
+        ...buildAccountLimitEnvelope({
+            instagram_connections_limit: toFiniteNumber(nextLimitOverrides.instagram_connections_limit) != null
+                ? Number(nextLimitOverrides.instagram_connections_limit)
+                : Number(defaults.instagram_connections_limit || 0)
+        }),
         hourly_action_limit: toFiniteNumber(nextLimitOverrides.hourly_action_limit) != null
             ? Number(nextLimitOverrides.hourly_action_limit)
             : Number(defaults.hourly_action_limit || 0),
@@ -888,60 +909,26 @@ const buildPlanProfilePayload = ({
                     : defaults.monthly_action_limit
             )
     };
-    const runtimeFeatures = buildRuntimeFeatureSnapshot({
-        plan,
-        featureOverrides: nextFeatureOverrides,
-        noWatermarkEnabled: resolvedNoWatermark
-    });
-    const adminOverrideSummary = buildAdminOverrideSummary({
-        featureOverrides: nextFeatureOverrides,
-        limitOverrides: nextLimitOverrides
-    });
     const shouldResetReminderState = resetReminderState === true;
-    const basePaidSnapshotPayload = paidPlanSnapshot === undefined
-        ? (isFreePlan ? null : (parsePaidPlanSnapshot(currentProfile) || null))
-        : parseJsonObject(paidPlanSnapshot, null);
-    const paidSnapshotPayload = applySnapshotRuntimeState({
-        currentProfile,
-        snapshot: basePaidSnapshotPayload,
-        resetReminderState: shouldResetReminderState,
-        expiredPlanSnapshot
-    }) || basePaidSnapshotPayload;
+    void shouldResetReminderState;
+    void paidPlanSnapshot;
+    void expiredPlanSnapshot;
 
     const payload = {
         user_id: String(currentProfile?.user_id || '').trim() || undefined,
         plan_code: normalizedPlanId,
+        plan_source: normalizedPlanSource,
         plan_name: String(plan?.name || currentProfile?.plan_name || normalizedPlanId || 'Free Plan').trim() || 'Free Plan',
-        plan_status: normalizedStatus,
-        billing_cycle: normalizedBillingCycle,
-        expires_at: normalizedExpires,
-        limits_json: JSON.stringify({
-            instagram_connections_limit: Number(effectiveLimits.instagram_connections_limit || 0),
-            instagram_link_limit: Number(effectiveLimits.instagram_link_limit || 0),
-            hourly_action_limit: Number(effectiveLimits.hourly_action_limit || 0),
-            daily_action_limit: Number(effectiveLimits.daily_action_limit || 0),
-            monthly_action_limit: effectiveLimits.monthly_action_limit == null
-                ? null
-                : Number(effectiveLimits.monthly_action_limit || 0)
-        }),
-        features_json: JSON.stringify(runtimeFeatures),
-        paid_plan_snapshot_json: paidSnapshotPayload ? JSON.stringify(paidSnapshotPayload) : null,
-        admin_override_json: adminOverrideSummary ? JSON.stringify(adminOverrideSummary) : null,
+        expiry_date: normalizedExpires,
         kill_switch_enabled: currentProfile?.kill_switch_enabled !== false,
-        instagram_link_limit: Number(effectiveLimits.instagram_link_limit || 0),
+        instagram_connections_limit: Number(effectiveLimits.instagram_connections_limit || 0),
         hourly_action_limit: Number(effectiveLimits.hourly_action_limit || 0),
         daily_action_limit: Number(effectiveLimits.daily_action_limit || 0),
-        monthly_action_limit: encodeProfileLimit(effectiveLimits.monthly_action_limit),
-        feature_overrides_json: buildProfileConfigPayload({
-            currentProfile,
-            featureOverrides: nextFeatureOverrides,
-            limitOverrides: nextLimitOverrides,
-            paidPlanSnapshot: paidSnapshotPayload
-        })
+        monthly_action_limit: encodeProfileLimit(effectiveLimits.monthly_action_limit)
     };
 
     BENEFIT_KEYS.forEach((key) => {
-        payload[benefitFieldForKey(key)] = runtimeFeatures[key] === true;
+        payload[benefitFieldForKey(key)] = undefined;
     });
 
     if (credits !== undefined) {
@@ -988,6 +975,7 @@ const upsertEffectiveProfile = async (databases, userId, currentProfile, plan, o
         currentProfile,
         plan,
         planId: options.planId || plan.plan_code || plan.id || 'free',
+        planSource: options.planSource || null,
         billingCycle: options.billingCycle || null,
         subscriptionStatus: options.subscriptionStatus || (normalizePlanCode(plan.plan_code || plan.id) === 'free' ? 'inactive' : 'active'),
         subscriptionExpires: options.subscriptionExpires || null,
@@ -1020,11 +1008,54 @@ const upsertEffectiveProfile = async (databases, userId, currentProfile, plan, o
 const resolveUserPlanContext = async (databases, userId, userFallback = null) => {
     const safeUserId = String(userId || userFallback?.$id || '').trim();
     const plans = await listPricingPlans(databases);
-    const [selfMemory, existingProfile] = await Promise.all([
-        getUserSelfMemory(databases, safeUserId, userFallback, plans),
-        getUserProfile(databases, safeUserId)
-    ]);
+    const existingProfile = await getUserProfile(databases, safeUserId);
     const freePlan = findPlanByIdentifier(plans, 'free') || normalizePlanDocument({ plan_code: 'free', name: 'Free Plan' });
+    const isAssignedFreePlan = existingProfile && (normalizePlanCode(existingProfile.plan_code || 'free') || 'free') === 'free';
+    const currentFreeExpiryDate = toIsoDateTime(existingProfile?.expiry_date || null);
+    const currentFreeExpiryMs = currentFreeExpiryDate ? new Date(currentFreeExpiryDate).getTime() : Number.NaN;
+    const hasActiveTemporaryFreeOverride = isAssignedFreePlan
+        && currentFreeExpiryDate
+        && !Number.isNaN(currentFreeExpiryMs)
+        && currentFreeExpiryMs > Date.now();
+
+    if (hasActiveTemporaryFreeOverride) {
+        const normalizedFreeProfile = (
+            existingProfile?.billing_cycle
+            || String(existingProfile?.plan_source || '').trim() !== 'admin'
+        )
+            ? await upsertEffectiveProfile(databases, safeUserId, existingProfile, freePlan, {
+                planId: 'free',
+                planSource: 'admin',
+                billingCycle: null,
+                subscriptionStatus: 'inactive',
+                subscriptionExpires: currentFreeExpiryDate
+            })
+            : {
+                ...existingProfile,
+                plan_code: 'free',
+                billing_cycle: null,
+                expiry_date: currentFreeExpiryDate,
+                plan_source: 'admin'
+            };
+
+        return {
+            profile: normalizedFreeProfile,
+            plans,
+            plan: freePlan,
+            planSource: 'admin',
+            subscriptionPlanId: 'free',
+            billingCycle: null,
+            entitlements: resolvePlanEntitlements(freePlan, normalizedFreeProfile),
+            limits: resolvePlanLimits(freePlan, normalizedFreeProfile),
+            selfPlanId: 'free',
+            selfExpiryDate: null,
+            selfUserDocument: null,
+            selfTransaction: null,
+            selfTransactionId: null
+        };
+    }
+
+    const selfMemory = await getUserSelfMemory(databases, safeUserId, userFallback, plans);
 
     let profile = existingProfile;
     let runtimeIdentity = getRuntimePlanIdentity(profile);
@@ -1032,13 +1063,99 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null) =>
     let effectivePlan = findPlanByIdentifier(plans, effectivePlanId) || freePlan;
     let planSource = inferPlanSource(profile, selfMemory);
     let billingCycle = runtimeIdentity.billing_cycle;
-    let subscriptionStatus = runtimeIdentity.plan_status;
-    let effectiveExpiresAt = runtimeIdentity.expires_at;
+    let effectiveExpiresAt = runtimeIdentity.expiry_date;
 
     const selfPlanId = normalizePlanCode(selfMemory.plan_id || 'free') || 'free';
-    const selfPlanExpiresAt = selfMemory.plan_expires_at || null;
-    const selfPlanExpired = isExpiredSubscription(selfPlanId, selfPlanExpiresAt);
+    const selfExpiryDate = selfMemory.expiry_date || null;
+    const selfPlanExpired = isExpiredSubscription(selfPlanId, selfExpiryDate);
     const effectivePlanExpired = isExpiredSubscription(effectivePlanId, effectiveExpiresAt);
+
+    if (isAssignedFreePlan) {
+        const normalizedFreeProfile = !currentFreeExpiryDate && String(existingProfile?.plan_source || '').trim() === 'admin'
+            ? {
+                ...(existingProfile || {}),
+                plan_code: 'free',
+                billing_cycle: null,
+                expiry_date: null,
+                plan_source: 'admin'
+            }
+            : null;
+
+        if (normalizedFreeProfile) {
+            return {
+                profile: normalizedFreeProfile,
+                plans,
+                plan: freePlan,
+                planSource: 'admin',
+                subscriptionPlanId: 'free',
+                billingCycle: null,
+                entitlements: resolvePlanEntitlements(freePlan, normalizedFreeProfile),
+                limits: resolvePlanLimits(freePlan, normalizedFreeProfile),
+                selfPlanId: selfPlanExpired ? 'free' : selfPlanId,
+                selfExpiryDate: selfPlanExpired ? null : selfExpiryDate,
+                selfUserDocument: selfMemory.user || null,
+                selfTransaction: selfMemory.transaction || null,
+                selfTransactionId: selfMemory.transaction_id || null
+            };
+        }
+
+        if (selfPlanId !== 'free' && !selfPlanExpired) {
+            const restoredPlan = findPlanByIdentifier(plans, selfPlanId) || freePlan;
+            const restoredProfile = await upsertEffectiveProfile(databases, safeUserId, existingProfile, restoredPlan, {
+                planId: selfPlanId,
+                planSource: 'payment',
+                billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfExpiryDate),
+                subscriptionStatus: 'active',
+                subscriptionExpires: selfExpiryDate,
+                paidPlanSnapshot: buildPaidPlanSnapshot({
+                    plan: restoredPlan,
+                    billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfExpiryDate),
+                    expires: selfExpiryDate,
+                    status: 'active'
+                })
+            });
+
+            return {
+                profile: restoredProfile,
+                plans,
+                plan: restoredPlan,
+                planSource: 'payment',
+                subscriptionPlanId: selfPlanId,
+                billingCycle: selfMemory.billing_cycle ? normalizeBillingCycle(selfMemory.billing_cycle) : null,
+                entitlements: resolvePlanEntitlements(restoredPlan, restoredProfile),
+                limits: resolvePlanLimits(restoredPlan, restoredProfile),
+                selfPlanId,
+                selfExpiryDate,
+                selfUserDocument: selfMemory.user || null,
+                selfTransaction: selfMemory.transaction || null,
+                selfTransactionId: selfMemory.transaction_id || null
+            };
+        }
+
+        const finalFreeProfile = await upsertEffectiveProfile(databases, safeUserId, existingProfile, freePlan, {
+            planId: 'free',
+            planSource: 'system',
+            billingCycle: null,
+            subscriptionStatus: 'inactive',
+            subscriptionExpires: null
+        });
+
+        return {
+            profile: finalFreeProfile,
+            plans,
+            plan: freePlan,
+            planSource: 'system',
+            subscriptionPlanId: 'free',
+            billingCycle: null,
+            entitlements: resolvePlanEntitlements(freePlan, finalFreeProfile),
+            limits: resolvePlanLimits(freePlan, finalFreeProfile),
+            selfPlanId: selfPlanExpired ? 'free' : selfPlanId,
+            selfExpiryDate: selfPlanExpired ? null : selfExpiryDate,
+            selfUserDocument: selfMemory.user || null,
+            selfTransaction: selfMemory.transaction || null,
+            selfTransactionId: selfMemory.transaction_id || null
+        };
+    }
 
     if (effectivePlanExpired) {
         const activeSelfPlan = selfPlanId !== 'free' && !selfPlanExpired
@@ -1048,19 +1165,21 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null) =>
         if (planSource === 'admin' && effectivePlanId !== 'free' && activeSelfPlan) {
             profile = await upsertEffectiveProfile(databases, safeUserId, profile, activeSelfPlan, {
                 planId: selfPlanId,
-                billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfPlanExpiresAt),
+                planSource: 'payment',
+                billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfExpiryDate),
                 subscriptionStatus: 'active',
-                subscriptionExpires: selfPlanExpiresAt,
+                subscriptionExpires: selfExpiryDate,
                 paidPlanSnapshot: buildPaidPlanSnapshot({
                     plan: activeSelfPlan,
-                    billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfPlanExpiresAt),
-                    expires: selfPlanExpiresAt,
+                    billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfExpiryDate),
+                    expires: selfExpiryDate,
                     status: 'active'
                 })
             });
         } else {
             profile = await upsertEffectiveProfile(databases, safeUserId, profile, freePlan, {
                 planId: 'free',
+                planSource: 'system',
                 billingCycle: null,
                 subscriptionStatus: 'inactive',
                 subscriptionExpires: null
@@ -1072,11 +1191,10 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null) =>
         planSource = inferPlanSource(profile, {
             ...selfMemory,
             plan_id: selfPlanExpired ? 'free' : selfPlanId,
-            plan_expires_at: selfPlanExpired ? null : selfPlanExpiresAt
+            expiry_date: selfPlanExpired ? null : selfExpiryDate
         });
         billingCycle = runtimeIdentity.billing_cycle;
-        subscriptionStatus = runtimeIdentity.plan_status;
-        effectiveExpiresAt = runtimeIdentity.expires_at;
+        effectiveExpiresAt = runtimeIdentity.expiry_date;
     }
 
     return {
@@ -1085,12 +1203,11 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null) =>
         plan: effectivePlan,
         planSource,
         subscriptionPlanId: effectivePlanId,
-        subscriptionStatus: normalizeSubscriptionStatus(subscriptionStatus),
         billingCycle: billingCycle ? normalizeBillingCycle(billingCycle) : null,
         entitlements: resolvePlanEntitlements(effectivePlan, profile),
         limits: resolvePlanLimits(effectivePlan, profile),
         selfPlanId: selfPlanExpired ? 'free' : selfPlanId,
-        selfPlanExpiresAt: selfPlanExpired ? null : selfPlanExpiresAt,
+        selfExpiryDate: selfPlanExpired ? null : selfExpiryDate,
         selfUserDocument: selfMemory.user || null,
         selfTransaction: selfMemory.transaction || null,
         selfTransactionId: selfMemory.transaction_id || null
@@ -1102,6 +1219,7 @@ module.exports = {
     parseJsonObject,
     parseJsonObjectArray,
     normalizePlanCode,
+    isValidPlanSource,
     normalizePlanSource,
     normalizeFeatureKey,
     normalizeBenefitKey,
@@ -1111,7 +1229,10 @@ module.exports = {
     BENEFIT_KEYS,
     BENEFIT_FIELD_PREFIX,
     BENEFIT_STORAGE_KEYS,
+    FEATURE_LABELS,
+    FEATURE_LAYER_MAP,
     benefitFieldForKey,
+    getFeatureLabel,
     VALID_SELF_SUBSCRIPTION_STATUSES,
     NEGATIVE_SELF_SUBSCRIPTION_STATUSES,
     IGNORED_SELF_SUBSCRIPTION_STATUSES,
@@ -1122,7 +1243,7 @@ module.exports = {
     calculateSubscriptionExpiry,
     parseRuntimeLimits,
     parseRuntimeFeatures,
-    parsePaidPlanSnapshot,
+    getProfileBillingCycle,
     getRuntimePlanIdentity,
     inferPlanSource,
     parseProfileConfig,
@@ -1135,6 +1256,11 @@ module.exports = {
     extractBenefitAttributes,
     normalizeBenefitMap,
     normalizePlanDocument,
+    getPlanFeatureItems,
+    getPlanLimitsEnvelope,
+    buildPlanApiPayload,
+    buildPricingComparison,
+    buildPricingApiPayload,
     listPricingPlans,
     findPlanByIdentifier,
     getPlanByIdentifier,

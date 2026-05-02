@@ -7,6 +7,7 @@ import {
     ChevronDown,
     ChevronLeft,
     ChevronRight,
+    ChevronUp,
     ExternalLink,
     Loader2,
     Search,
@@ -43,6 +44,16 @@ interface UsersResponse {
     };
 }
 
+interface PricingPlanOption {
+    id: string;
+    name: string;
+    plan_code: string;
+    instagram_connections_limit?: number;
+    actions_per_hour_limit?: number;
+    actions_per_day_limit?: number;
+    actions_per_month_limit?: number;
+}
+
 const getMinDateTimeInputValue = () => {
     const now = new Date();
     const year = String(now.getFullYear());
@@ -53,54 +64,50 @@ const getMinDateTimeInputValue = () => {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
-const parseFeatureOverrides = (raw: unknown): Record<string, any> => {
-    if (!raw) return {};
-    if (typeof raw === 'object' && !Array.isArray(raw)) return raw as Record<string, any>;
-    try {
-        const parsed = JSON.parse(String(raw || ''));
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-    } catch {
-        return {};
-    }
+const formatExpiryLabel = (value?: string | null) => {
+    if (!value) return 'No expiry';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? 'No expiry' : parsed.toLocaleString();
 };
 
-const surfaceClass = 'glass-card rounded-[32px] border border-border/80 bg-card/95 shadow-sm';
+const describeFreePlanMode = (planCode?: string | null, expiryDate?: string | null) => {
+    if (String(planCode || 'free').trim().toLowerCase() !== 'free') return null;
+    return expiryDate
+        ? `Temporary Free (expires on ${formatExpiryLabel(expiryDate)})`
+        : 'Permanent Free';
+};
 
-const SelectField = ({
-    label,
-    value,
-    onChange,
-    children,
-    hint
-}: {
-    label: string;
-    value: string;
-    onChange: (value: string) => void;
-    children: React.ReactNode;
-    hint?: string;
-}) => (
-    <div className="rounded-[24px] border border-border/70 bg-gradient-to-b from-background/80 to-card/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-        <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-        {hint ? <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">{hint}</p> : null}
-        <div className="relative mt-3">
-            <select
-                className="select-modern bg-card/90 text-foreground pr-11 shadow-sm"
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-            >
-                {children}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        </div>
-    </div>
-);
+const normalizePlanIdentifier = (value: unknown): string => String(value || '').trim().toLowerCase();
+
+const LIMIT_FIELDS = [
+    'instagram_connections_limit',
+    'hourly_action_limit',
+    'daily_action_limit',
+    'monthly_action_limit'
+] as const;
+type LimitField = (typeof LIMIT_FIELDS)[number];
+type PopupSectionKey = 'assignPlan' | 'limits' | 'instagram' | 'ban' | 'danger';
+
+const toComparableValue = (value: unknown) => String(value ?? '').trim();
+
+const surfaceClass = 'glass-card rounded-[32px] border border-border/80 bg-card/95 shadow-sm';
+const DEFAULT_POPUP_SECTION_STATE: Record<PopupSectionKey, boolean> = {
+    assignPlan: false,
+    limits: false,
+    instagram: false,
+    ban: false,
+    danger: false
+};
+
+// SelectField imported from shared UI component
+import { SelectField } from '../components/ui/SelectField';
 
 export const UsersPage: React.FC = () => {
     const navigate = useNavigate();
     const { userId } = useParams<{ userId: string }>();
 
     const [users, setUsers] = useState<UserRow[]>([]);
-    const [pricingPlans, setPricingPlans] = useState<Array<{ id: string; name: string; plan_code: string }>>([]);
+    const [pricingPlans, setPricingPlans] = useState<PricingPlanOption[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchInput, setSearchInput] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -122,6 +129,14 @@ export const UsersPage: React.FC = () => {
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailData, setDetailData] = useState<any>(null);
     const [profilePatch, setProfilePatch] = useState<any>({});
+    const [lastSyncedProfilePatch, setLastSyncedProfilePatch] = useState<any | null>(null);
+    const [limitDirtyFields, setLimitDirtyFields] = useState<Record<LimitField, boolean>>({
+        instagram_connections_limit: false,
+        hourly_action_limit: false,
+        daily_action_limit: false,
+        monthly_action_limit: false
+    });
+    const [planAutofillNotice, setPlanAutofillNotice] = useState<string | null>(null);
     const [banMode, setBanMode] = useState<'none' | 'soft' | 'hard'>('none');
     const [banReason, setBanReason] = useState('');
     const [saving, setSaving] = useState(false);
@@ -130,8 +145,23 @@ export const UsersPage: React.FC = () => {
     const [openingDashboard, setOpeningDashboard] = useState(false);
     const [isDeletingUser, setIsDeletingUser] = useState(false);
     const [showDeleteUserDialog, setShowDeleteUserDialog] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [showBanConfirmDialog, setShowBanConfirmDialog] = useState(false);
     const [notice, setNotice] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [popupSections, setPopupSections] = useState<Record<PopupSectionKey, boolean>>(DEFAULT_POPUP_SECTION_STATE);
+
+    useEffect(() => {
+        if (!notice) return;
+        const timer = window.setTimeout(() => setNotice(null), 4000);
+        return () => window.clearTimeout(timer);
+    }, [notice]);
+
+    useEffect(() => {
+        if (!errorMessage) return;
+        const timer = window.setTimeout(() => setErrorMessage(null), 4000);
+        return () => window.clearTimeout(timer);
+    }, [errorMessage]);
 
     useEffect(() => {
         const timer = window.setTimeout(() => {
@@ -177,6 +207,10 @@ export const UsersPage: React.FC = () => {
         }
     };
 
+    const resolvePlanTermMode = (planCode?: string | null, expiryDate?: string | null): 'monthly' | 'yearly' | 'custom' => (
+        expiryDate ? 'custom' : (String(planCode || 'free').toLowerCase() === 'free' ? 'custom' : 'monthly')
+    );
+
     const loadUserDetail = async (targetUserId: string) => {
         setDetailLoading(true);
         setErrorMessage(null);
@@ -184,29 +218,29 @@ export const UsersPage: React.FC = () => {
             const response = await httpClient.get(`/api/admin/users/${targetUserId}`);
             setDetailData(response.data);
             const profile = response.data?.profile || {};
-            const featureOverrides = parseFeatureOverrides(profile.feature_overrides_json);
-            const limits = parseFeatureOverrides(profile.limits_json);
-            setProfilePatch({
+            const resolvedTermMode = resolvePlanTermMode(profile.plan_code, profile.expiry_date);
+            const nextPatch = {
                 action: 'change_assigned_plan',
-                instagram_connections_limit: limits.instagram_connections_limit ?? response.data?.effective_limits?.instagram_connections_limit ?? '',
-                hourly_action_limit: limits.hourly_action_limit ?? profile.hourly_action_limit ?? '',
-                daily_action_limit: limits.daily_action_limit ?? profile.daily_action_limit ?? '',
-                monthly_action_limit: limits.monthly_action_limit ?? profile.monthly_action_limit ?? '',
-                no_watermark: featureOverrides.no_watermark === true,
-                feature_overrides_json: profile.feature_overrides_json || '',
-                watermark_text: String(featureOverrides?.watermark_text || '').trim(),
-                plan_code: profile.plan_code || profile.subscription_plan_id || 'free',
-                plan_status: profile.plan_status || profile.subscription_status || 'inactive',
-                billing_cycle: profile.billing_cycle || profile.subscription_billing_cycle || 'monthly',
-                duration_days: '',
-                custom_expiry_date: profile.expires_at ? String(profile.expires_at).slice(0, 16) : '',
+                instagram_connections_limit: resolveNumericField(profile.instagram_connections_limit, response.data?.effective_limits?.instagram_connections_limit),
+                hourly_action_limit: resolveNumericField(profile.hourly_action_limit, response.data?.effective_limits?.hourly_action_limit),
+                daily_action_limit: resolveNumericField(profile.daily_action_limit, response.data?.effective_limits?.daily_action_limit),
+                monthly_action_limit: resolveNumericField(profile.monthly_action_limit, response.data?.effective_limits?.monthly_action_limit),
+                no_watermark: profile.no_watermark === true,
+                plan_code: profile.plan_code || response.data?.effective_plan?.plan_code || 'free',
+                duration_mode: resolvedTermMode,
+                custom_expiry_date: profile.expiry_date ? String(profile.expiry_date).slice(0, 16) : '',
                 kill_switch_enabled: response.data?.user?.kill_switch_enabled !== false
+            };
+            setProfilePatch(nextPatch);
+            setPlanTermMode(resolvedTermMode);
+            setLastSyncedProfilePatch(buildTrackedSnapshot(nextPatch, resolvedTermMode));
+            setLimitDirtyFields({
+                instagram_connections_limit: false,
+                hourly_action_limit: false,
+                daily_action_limit: false,
+                monthly_action_limit: false
             });
-            setPlanTermMode(
-                profile.billing_cycle === 'yearly'
-                    ? 'yearly'
-                    : (profile.expires_at && !profile.billing_cycle ? 'custom' : 'monthly')
-            );
+            setPlanAutofillNotice(null);
             setBanMode(String(response.data?.user?.ban_mode || 'none') as 'none' | 'soft' | 'hard');
             setBanReason(response.data?.user?.ban_reason || '');
         } catch (error) {
@@ -228,8 +262,10 @@ export const UsersPage: React.FC = () => {
     useEffect(() => {
         if (!userId) {
             setDetailData(null);
+            setPopupSections(DEFAULT_POPUP_SECTION_STATE);
             return;
         }
+        setPopupSections(DEFAULT_POPUP_SECTION_STATE);
         void loadUserDetail(userId);
     }, [userId]);
 
@@ -239,53 +275,270 @@ export const UsersPage: React.FC = () => {
     );
 
     const closeModal = () => navigate('/users');
+    const togglePopupSection = (section: PopupSectionKey) => {
+        setPopupSections((prev) => ({
+            ...prev,
+            [section]: !prev[section]
+        }));
+    };
+    const resolveNumericField = (...values: unknown[]) => {
+        for (const value of values) {
+            if (value === null || value === undefined || value === '') continue;
+            return value;
+        }
+        return 0;
+    };
+    const resolvePlanOptionValue = (value: unknown, fallback: string = 'free'): string => {
+        const normalized = normalizePlanIdentifier(value);
+        if (!normalized) return normalizePlanIdentifier(fallback) || 'free';
+        if (normalized === 'free') return 'free';
+        const matchedPlan = pricingPlans.find((plan) => {
+            const code = normalizePlanIdentifier(plan.plan_code);
+            const id = normalizePlanIdentifier(plan.id);
+            return normalized === code || normalized === id;
+        });
+        if (!matchedPlan) return normalized;
+        return normalizePlanIdentifier(matchedPlan.plan_code || matchedPlan.id || normalized);
+    };
+    const currentPlanCode = String(detailData?.subscription_summary?.plan_code || detailData?.profile?.plan_code || 'free').trim().toLowerCase();
+    const currentExpiryDate = detailData?.subscription_summary?.expiry_date || detailData?.profile?.expiry_date || null;
+    const selectedPlanCode = resolvePlanOptionValue(profilePatch.plan_code || detailData?.subscription_summary?.plan_code || 'free');
+    const freePlanModeLabel = describeFreePlanMode(currentPlanCode, currentExpiryDate);
 
-    const applyProfileAction = async (
-        action: 'change_assigned_plan' | 'edit_custom_limits' | 'reset_to_assigned_defaults' | 'reset_to_paid_snapshot_or_free'
-    ) => {
+    const getPlanDefaults = (planCodeOrId: string) => {
+        const normalized = resolvePlanOptionValue(planCodeOrId, 'free');
+        const selectedPlan = pricingPlans.find((plan) => {
+            const code = normalizePlanIdentifier(plan.plan_code);
+            const id = normalizePlanIdentifier(plan.id);
+            return normalized === code || normalized === id;
+        });
+        if (!selectedPlan) return null;
+        return {
+            instagram_connections_limit: resolveNumericField(
+                selectedPlan.instagram_connections_limit,
+                (selectedPlan as any).instagram_link_limit,
+                0
+            ),
+            hourly_action_limit: resolveNumericField(
+                selectedPlan.actions_per_hour_limit,
+                (selectedPlan as any).hourly_action_limit,
+                0
+            ),
+            daily_action_limit: resolveNumericField(
+                selectedPlan.actions_per_day_limit,
+                (selectedPlan as any).daily_action_limit,
+                0
+            ),
+            monthly_action_limit: resolveNumericField(
+                selectedPlan.actions_per_month_limit,
+                (selectedPlan as any).monthly_action_limit,
+                0
+            )
+        };
+    };
+
+    const buildSyncedProfilePatch = (payload: any): any => {
+        const responseProfile = payload?.profile || {};
+        const responseLimits = payload?.effective_limits || {};
+        return {
+            action: 'change_assigned_plan',
+            instagram_connections_limit: resolveNumericField(
+                responseLimits?.instagram_connections_limit,
+                responseProfile?.instagram_connections_limit,
+                detailData?.profile?.instagram_connections_limit,
+                profilePatch?.instagram_connections_limit
+            ),
+            hourly_action_limit: resolveNumericField(
+                responseLimits?.hourly_action_limit,
+                responseProfile?.hourly_action_limit,
+                detailData?.profile?.hourly_action_limit,
+                profilePatch?.hourly_action_limit
+            ),
+            daily_action_limit: resolveNumericField(
+                responseLimits?.daily_action_limit,
+                responseProfile?.daily_action_limit,
+                detailData?.profile?.daily_action_limit,
+                profilePatch?.daily_action_limit
+            ),
+            monthly_action_limit: resolveNumericField(
+                responseLimits?.monthly_action_limit,
+                responseProfile?.monthly_action_limit,
+                detailData?.profile?.monthly_action_limit,
+                profilePatch?.monthly_action_limit
+            ),
+            no_watermark: responseProfile?.no_watermark === true,
+            plan_code: resolvePlanOptionValue(
+                responseProfile?.plan_code
+                || payload?.effective_plan?.plan_code
+                || profilePatch?.plan_code
+                || detailData?.profile?.plan_code
+                || 'free'
+            ),
+            duration_mode: resolvePlanTermMode(responseProfile?.plan_code, responseProfile?.expiry_date),
+            custom_expiry_date: responseProfile?.expiry_date ? String(responseProfile.expiry_date).slice(0, 16) : '',
+            kill_switch_enabled: payload?.user?.kill_switch_enabled !== false
+        };
+    };
+
+    const buildTrackedSnapshot = (patch: any, termMode: 'monthly' | 'yearly' | 'custom') => ({
+        plan_code: toComparableValue(patch?.plan_code || 'free'),
+        duration_mode: termMode,
+        custom_expiry_date: termMode === 'custom' ? toComparableValue(patch?.custom_expiry_date || '') : '',
+        instagram_connections_limit: toComparableValue(patch?.instagram_connections_limit),
+        hourly_action_limit: toComparableValue(patch?.hourly_action_limit),
+        daily_action_limit: toComparableValue(patch?.daily_action_limit),
+        monthly_action_limit: toComparableValue(patch?.monthly_action_limit),
+        no_watermark: patch?.no_watermark === true
+    });
+
+    const mergeDetailData = (payload: any) => {
+        setDetailData((prev: any) => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                ...(payload || {}),
+                user: payload?.user || prev.user,
+                profile: payload?.profile || prev.profile,
+                instagram_accounts: Array.isArray(payload?.instagram_accounts) ? payload.instagram_accounts : prev.instagram_accounts,
+                total_linked_accounts: payload?.total_linked_accounts ?? prev.total_linked_accounts,
+                max_allowed_accounts: payload?.max_allowed_accounts ?? prev.max_allowed_accounts,
+                active_account_limit: payload?.active_account_limit ?? prev.active_account_limit,
+                effective_limits: payload?.effective_limits || prev.effective_limits,
+                effective_plan: payload?.effective_plan || prev.effective_plan,
+                subscription_summary: payload?.subscription_summary || prev.subscription_summary
+            };
+        });
+    };
+
+    const handlePlanSelect = (nextPlanCode: string) => {
+        const defaults = getPlanDefaults(nextPlanCode);
+        setProfilePatch((prev: any) => {
+            const next = { ...prev, plan_code: resolvePlanOptionValue(nextPlanCode) };
+            if (!defaults) return next;
+            let preserved = false;
+            LIMIT_FIELDS.forEach((field) => {
+                if (limitDirtyFields[field]) {
+                    preserved = true;
+                    return;
+                }
+                next[field] = defaults[field];
+            });
+            setPlanAutofillNotice(preserved ? 'Some manually edited limits were preserved. Use "Restore Default Limits" to fully apply plan defaults.' : null);
+            return next;
+        });
+    };
+
+    const handleLimitChange = (key: LimitField, value: string) => {
+        setProfilePatch((prev: any) => ({ ...prev, [key]: value }));
+        setLimitDirtyFields((prev) => ({ ...prev, [key]: true }));
+    };
+
+    const restoreDefaultLimits = () => {
+        const defaults = getPlanDefaults(profilePatch.plan_code || 'free');
+        if (!defaults) {
+            setErrorMessage('Selected plan defaults are not available.');
+            return;
+        }
+        setProfilePatch((prev: any) => ({
+            ...prev,
+            ...defaults
+        }));
+        setLimitDirtyFields({
+            instagram_connections_limit: false,
+            hourly_action_limit: false,
+            daily_action_limit: false,
+            monthly_action_limit: false
+        });
+        setPlanAutofillNotice(null);
+        setNotice('Default limits restored for selected plan.');
+    };
+
+    const submitPlanAndLimits = async () => {
+        if (!selectedUser) return;
+        const rollbackPatch = { ...profilePatch };
+        const rollbackTermMode = planTermMode;
+        const rollbackDirtyFlags = { ...limitDirtyFields };
+        const rollbackNotice = planAutofillNotice;
+        setSaving(true);
+        setErrorMessage(null);
+        try {
+            const payload = { ...profilePatch, action: 'change_assigned_plan' } as Record<string, any>;
+            payload.duration_mode = planTermMode;
+            payload.custom_expiry_date = planTermMode === 'custom' ? (profilePatch.custom_expiry_date || '') : '';
+            delete payload.plan_source;
+            payload.no_watermark = payload.no_watermark === true;
+            payload.plan_code = resolvePlanOptionValue(payload.plan_code || profilePatch.plan_code || 'free');
+
+            const response = await httpClient.patch(`/api/admin/users/${selectedUser.$id}/profile`, payload);
+            const result = response.data?.data || {};
+            mergeDetailData(result);
+            if (result?.user?.ban_mode) {
+                setBanMode(String(result.user.ban_mode || 'none') as 'none' | 'soft' | 'hard');
+                setBanReason(String(result.user.ban_reason || ''));
+            }
+            const syncedPatch = buildSyncedProfilePatch(result);
+            const syncedTermMode = resolvePlanTermMode(syncedPatch.plan_code, result?.profile?.expiry_date || null);
+            setProfilePatch(syncedPatch);
+            setLastSyncedProfilePatch(buildTrackedSnapshot(syncedPatch, syncedTermMode));
+            setPlanTermMode(syncedTermMode);
+            setLimitDirtyFields({
+                instagram_connections_limit: false,
+                hourly_action_limit: false,
+                daily_action_limit: false,
+                monthly_action_limit: false
+            });
+            setPlanAutofillNotice(null);
+            setUsers((prev) => prev.map((entry) => entry.$id === selectedUser.$id ? {
+                ...entry,
+                ban_mode: result?.user?.ban_mode ?? entry.ban_mode,
+                ban_reason: result?.user?.ban_reason ?? entry.ban_reason,
+                linked_instagram_accounts: Number(result?.total_linked_accounts ?? entry.linked_instagram_accounts ?? 0)
+            } : entry));
+            await loadUserDetail(selectedUser.$id);
+            setNotice('Plan and limits updated.');
+        } catch (error: any) {
+            console.error('Failed to update plan and limits:', error);
+            setProfilePatch(rollbackPatch);
+            setPlanTermMode(rollbackTermMode);
+            setLimitDirtyFields(rollbackDirtyFlags);
+            setPlanAutofillNotice(rollbackNotice);
+            setErrorMessage(error?.response?.data?.error || 'Failed to save plan and limits.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const resetToDefaultPlan = async () => {
         if (!selectedUser) return;
         setSaving(true);
         setErrorMessage(null);
         try {
-            const payload = { ...profilePatch, action } as Record<string, any>;
-            if (action === 'change_assigned_plan') {
-                if (planTermMode === 'custom') {
-                    payload.billing_cycle = profilePatch.billing_cycle || 'monthly';
-                } else {
-                    payload.billing_cycle = planTermMode;
-                    payload.custom_expiry_date = '';
-                    payload.duration_days = '';
-                }
+            const response = await httpClient.post(`/api/admin/users/${selectedUser.$id}/reset-plan`, { action: 'reset_to_paid_snapshot_or_free' });
+            const result = response.data?.data || {};
+            if (result?.profile || result?.effective_limits) {
+                mergeDetailData(result);
+                const syncedPatch = buildSyncedProfilePatch(result);
+                const syncedTermMode = resolvePlanTermMode(syncedPatch.plan_code, result?.profile?.expiry_date || null);
+                setProfilePatch(syncedPatch);
+                setPlanTermMode(syncedTermMode);
+                setLastSyncedProfilePatch(buildTrackedSnapshot(syncedPatch, syncedTermMode));
+                setLimitDirtyFields({
+                    instagram_connections_limit: false,
+                    hourly_action_limit: false,
+                    daily_action_limit: false,
+                    monthly_action_limit: false
+                });
+                setUsers((prev) => prev.map((entry) => entry.$id === selectedUser.$id ? {
+                    ...entry,
+                    linked_instagram_accounts: Number(result?.total_linked_accounts ?? entry.linked_instagram_accounts ?? 0),
+                    profile: result?.profile || entry.profile
+                } : entry));
             }
-            const overrides = parseFeatureOverrides(payload.feature_overrides_json);
-            const watermarkText = String(payload.watermark_text || '').trim();
-            if (watermarkText) overrides.watermark_text = watermarkText;
-            else delete overrides.watermark_text;
-            if (payload.no_watermark === true) overrides.no_watermark = true;
-            else delete overrides.no_watermark;
-            payload.feature_overrides_json = Object.keys(overrides).length > 0 ? JSON.stringify(overrides) : '';
-            payload.no_watermark = payload.no_watermark === true;
-            delete payload.watermark_text;
-
-            if (action === 'reset_to_assigned_defaults' || action === 'reset_to_paid_snapshot_or_free') {
-                await httpClient.post(`/api/admin/users/${selectedUser.$id}/reset-plan`, { action });
-            } else {
-                await httpClient.patch(`/api/admin/users/${selectedUser.$id}/profile`, payload);
-            }
-
-            await Promise.all([fetchUsers(pagination.page), loadUserDetail(selectedUser.$id)]);
-            setNotice(
-                action === 'change_assigned_plan'
-                    ? 'Assigned plan updated.'
-                    : action === 'edit_custom_limits'
-                        ? 'Custom limits updated.'
-                        : action === 'reset_to_assigned_defaults'
-                            ? 'Default limits restored.'
-                            : 'Reset to default completed.'
-            );
-        } catch (error) {
-            console.error('Failed to update profile:', error);
-            setErrorMessage('Failed to update profile action.');
+            await loadUserDetail(selectedUser.$id);
+            setNotice('Reset to default plan completed.');
+        } catch (error: any) {
+            console.error('Failed to reset plan:', error);
+            setErrorMessage(error?.response?.data?.error || 'Failed to reset plan.');
         } finally {
             setSaving(false);
         }
@@ -296,16 +549,23 @@ export const UsersPage: React.FC = () => {
         setSaving(true);
         setErrorMessage(null);
         try {
-            await httpClient.post(`/api/admin/users/${selectedUser.$id}/ban`, {
+            const response = await httpClient.post(`/api/admin/users/${selectedUser.$id}/ban`, {
                 mode: banMode,
                 reason: banReason,
                 kill_switch_enabled: profilePatch.kill_switch_enabled !== false
             });
-            await Promise.all([fetchUsers(pagination.page), loadUserDetail(selectedUser.$id)]);
+            const result = response.data?.data || {};
+            mergeDetailData({ user: result.user || detailData?.user });
+            setUsers((prev) => prev.map((entry) => entry.$id === selectedUser.$id ? {
+                ...entry,
+                ban_mode: result?.user?.ban_mode ?? entry.ban_mode,
+                ban_reason: result?.user?.ban_reason ?? entry.ban_reason
+            } : entry));
+            setShowBanConfirmDialog(false);
             setNotice('Ban status updated.');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to update ban status:', error);
-            setErrorMessage('Failed to update ban status.');
+            setErrorMessage(error?.response?.data?.error || 'Failed to update ban status.');
         } finally {
             setSaving(false);
         }
@@ -317,7 +577,7 @@ export const UsersPage: React.FC = () => {
         setErrorMessage(null);
         try {
             const enabling = account.effective_access !== true;
-            await httpClient.patch(`/api/admin/users/${selectedUser.$id}/instagram-accounts/${account.$id}`, enabling
+            const response = await httpClient.patch(`/api/admin/users/${selectedUser.$id}/instagram-accounts/${account.$id}`, enabling
                 ? {
                     admin_disabled: false,
                     access_override_enabled: account.plan_locked === true
@@ -326,11 +586,20 @@ export const UsersPage: React.FC = () => {
                     admin_disabled: true,
                     access_override_enabled: false
                 });
-            await Promise.all([fetchUsers(pagination.page), loadUserDetail(selectedUser.$id)]);
+            const result = response.data?.data || {};
+            if (Array.isArray(result?.instagram_accounts)) {
+                mergeDetailData(result);
+                setUsers((prev) => prev.map((entry) => entry.$id === selectedUser.$id ? {
+                    ...entry,
+                    linked_instagram_accounts: Number(result?.total_linked_accounts ?? entry.linked_instagram_accounts ?? 0)
+                } : entry));
+            } else {
+                await loadUserDetail(selectedUser.$id);
+            }
             setNotice(enabling ? 'Instagram account access enabled.' : 'Instagram account access disabled.');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to update Instagram account access:', error);
-            setErrorMessage('Failed to update Instagram account access.');
+            setErrorMessage(error?.response?.data?.error || 'Failed to update Instagram account access.');
         } finally {
             setAccountToggleLoadingId(null);
         }
@@ -360,7 +629,10 @@ export const UsersPage: React.FC = () => {
 
     const deleteUser = async () => {
         if (!selectedUser) return;
-
+        if (deleteConfirmText.trim() !== 'DELETE') {
+            setErrorMessage('Type DELETE to confirm user deletion.');
+            return;
+        }
         setIsDeletingUser(true);
         setErrorMessage(null);
         setNotice(null);
@@ -370,6 +642,7 @@ export const UsersPage: React.FC = () => {
             await fetchUsers(Math.max(1, Math.min(pagination.page, pagination.total_pages)));
             setNotice('User deleted permanently.');
             setShowDeleteUserDialog(false);
+            setDeleteConfirmText('');
             closeModal();
         } catch (error: any) {
             console.error('Failed to delete user:', error);
@@ -379,6 +652,13 @@ export const UsersPage: React.FC = () => {
         }
     };
 
+    const trackedSnapshot = useMemo(() => buildTrackedSnapshot(profilePatch, planTermMode), [profilePatch, planTermMode]);
+    const hasPlanLimitChanges = useMemo(() => {
+        if (!lastSyncedProfilePatch) return false;
+        return Object.keys(trackedSnapshot).some((key) => trackedSnapshot[key as keyof typeof trackedSnapshot] !== lastSyncedProfilePatch[key as keyof typeof lastSyncedProfilePatch]);
+    }, [lastSyncedProfilePatch, trackedSnapshot]);
+    const isSaveDisabled = saving || isDeletingUser || !hasPlanLimitChanges;
+
     if (loading && users.length === 0) {
         return <AdminLoadingState title="Loading users" description="Preparing user records, subscription details, and moderation controls." />;
     }
@@ -387,7 +667,7 @@ export const UsersPage: React.FC = () => {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Users</p>
+                    <p className="text-[10px] font-black text-muted-foreground">Users</p>
                     <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">User Management</h1>
                     <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
                         Search, filter, and manage individual users with audited plan controls and direct dashboard access.
@@ -405,7 +685,7 @@ export const UsersPage: React.FC = () => {
                 </div>
             </div>
 
-            {(notice || errorMessage) && (
+            {!userId && (notice || errorMessage) && (
                 <div className={cn(
                     'rounded-[24px] border px-5 py-4 text-sm font-semibold',
                     errorMessage
@@ -428,8 +708,8 @@ export const UsersPage: React.FC = () => {
                     {pricingPlans
                         .filter((plan) => String(plan.plan_code || plan.id).trim().toLowerCase() !== 'free')
                         .map((plan) => (
-                        <option key={plan.id} value={plan.plan_code || plan.id}>{plan.name}</option>
-                    ))}
+                            <option key={plan.id} value={plan.plan_code || plan.id}>{plan.name}</option>
+                        ))}
                 </SelectField>
                 <SelectField
                     label="Subscription"
@@ -490,11 +770,11 @@ export const UsersPage: React.FC = () => {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-border/70 bg-background/40">
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">User</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Plan</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">IG Accounts</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Ban</th>
-                                <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Action</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-muted-foreground">User</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-muted-foreground">Plan</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-muted-foreground">IG Accounts</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-muted-foreground">Ban</th>
+                                <th className="px-6 py-4 text-right text-[10px] font-black text-muted-foreground">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/60">
@@ -525,7 +805,7 @@ export const UsersPage: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-5 text-xs font-bold text-foreground">
-                                            {user.profile?.plan_code || user.profile?.subscription_plan_id || 'free'}
+                                            {user.profile?.plan_code || 'free'}
                                         </td>
                                         <td className="px-6 py-5 text-xs font-bold text-foreground">
                                             {user.linked_instagram_accounts ?? 0}
@@ -585,7 +865,20 @@ export const UsersPage: React.FC = () => {
             {userId && (
                 <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
                     <button type="button" className="absolute inset-0" aria-label="Close user manager" onClick={closeModal} />
-                    <section className={`${surfaceClass} custom-scrollbar relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-6xl overflow-y-auto p-6 sm:p-7`}>
+                    <div className="relative z-10 w-full max-w-6xl">
+                        {(notice || errorMessage) && (
+                            <div
+                                className={cn(
+                                    'pointer-events-none absolute right-3 top-3 z-30 max-w-[calc(100%-1.5rem)] rounded-xl border px-4 py-3 text-xs font-semibold shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-top-2 sm:right-4 sm:top-4 sm:max-w-md sm:text-sm',
+                                    errorMessage
+                                        ? 'border-destructive/25 bg-destructive text-destructive-foreground'
+                                        : 'border-success/25 bg-success text-success-foreground'
+                                )}
+                            >
+                                {errorMessage || notice}
+                            </div>
+                        )}
+                        <section className={`${surfaceClass} custom-scrollbar relative max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 sm:p-7`}>
                         {detailLoading ? (
                             <AdminLoadingState title="Loading user details" description="Fetching profile overrides, account links, and moderation state." className="min-h-[320px]" />
                         ) : (
@@ -595,7 +888,7 @@ export const UsersPage: React.FC = () => {
                                         <button
                                             type="button"
                                             onClick={closeModal}
-                                            className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-muted-foreground transition hover:text-foreground"
+                                            className="inline-flex items-center gap-2 text-xs font-black text-muted-foreground transition hover:text-foreground"
                                         >
                                             <ArrowLeft className="h-4 w-4" />
                                             Back to users
@@ -623,145 +916,281 @@ export const UsersPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                     {[
                                         ['Effective Plan', detailData?.effective_plan?.name || 'Free'],
-                                        ['Latest plan', detailData?.latest_subscribed_plan?.plan_name || 'Free'],
-                                        ['IG Connections', detailData?.effective_limits?.instagram_connections_limit ?? 0],
+                                        ['Linked Accounts', detailData?.total_linked_accounts ?? 0],
                                         ['Transactions', detailData?.total_transactions ?? 0]
                                     ].map(([label, value]) => (
                                         <div key={String(label)} className="rounded-[24px] border border-border/70 bg-background/50 p-5">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+                                            <p className="text-[10px] font-black text-muted-foreground">{label}</p>
                                             <p className="mt-3 text-2xl font-extrabold text-foreground">{String(value)}</p>
                                         </div>
                                     ))}
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                                    <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
-                                        <h3 className="text-sm font-bold text-foreground">Assigned plan</h3>
-                                        <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
-                                            Set the user&apos;s current assigned plan and expiry window here.
-                                        </p>
-                                        <div className="mt-4 space-y-3">
-                                            <SelectField
-                                                label="Assigned plan"
-                                                hint="Choose the canonical plan for this user."
-                                                value={profilePatch.plan_code || 'free'}
-                                                onChange={(value) => setProfilePatch((prev: any) => ({ ...prev, plan_code: value }))}
-                                            >
-                                                <option value="free">Free Plan</option>
-                                                {pricingPlans
-                                                    .filter((plan) => String(plan.plan_code || plan.id).trim().toLowerCase() !== 'free')
-                                                    .map((plan) => (
-                                                    <option key={plan.id} value={plan.plan_code || plan.id}>{plan.name}</option>
+                                <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
+                                    <button
+                                        type="button"
+                                        onClick={() => togglePopupSection('assignPlan')}
+                                        className="flex w-full items-start justify-between gap-3 text-left"
+                                    >
+                                        <div>
+                                            <h3 className="text-sm font-bold text-foreground">Assign plan</h3>
+                                            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                                Plan selection can auto-fill untouched limits. Manually edited limits stay preserved unless you restore defaults.
+                                            </p>
+                                        </div>
+                                        {popupSections.assignPlan ? <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" /> : <ChevronDown className="mt-0.5 h-4 w-4 text-muted-foreground" />}
+                                    </button>
+                                    {popupSections.assignPlan ? <div className="mt-4 space-y-3">
+                                        <SelectField
+                                            label="Assigned plan"
+                                            hint="Choose the canonical plan for this user."
+                                            value={selectedPlanCode || 'free'}
+                                            onChange={handlePlanSelect}
+                                        >
+                                            <option value="free">Free Plan</option>
+                                            {pricingPlans
+                                                .filter((plan) => normalizePlanIdentifier(plan.plan_code || plan.id) !== 'free')
+                                                .map((plan) => (
+                                                    <option key={plan.id} value={resolvePlanOptionValue(plan.plan_code || plan.id)}>{plan.name}</option>
                                                 ))}
-                                            </SelectField>
-                                            <SelectField
-                                                label="Plan status"
-                                                hint={detailData?.plan_status_help?.description || 'Set the live access lifecycle for this user.'}
-                                                value={profilePatch.plan_status || 'inactive'}
-                                                onChange={(value) => setProfilePatch((prev: any) => ({ ...prev, plan_status: value }))}
-                                            >
-                                                <option value="inactive">Inactive</option>
-                                                <option value="active">Active</option>
-                                                <option value="expired">Expired</option>
-                                            </SelectField>
-                                            <div className="rounded-[24px] border border-border/70 bg-background/55 p-4">
-                                                <p className="text-xs font-semibold text-muted-foreground">Plan term</p>
-                                                <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">Choose monthly, yearly, or a custom expiry date.</p>
-                                                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                                    {([
-                                                        ['monthly', 'Monthly'],
-                                                        ['yearly', 'Yearly'],
-                                                        ['custom', 'Custom date']
-                                                    ] as const).map(([mode, label]) => (
-                                                        <button
-                                                            key={mode}
-                                                            type="button"
-                                                            onClick={() => setPlanTermMode(mode)}
-                                                            className={cn('segmented-option justify-center', planTermMode === mode ? 'is-active' : '')}
-                                                        >
-                                                            {label}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                                {planTermMode === 'custom' ? (
-                                                    <input
-                                                        type="datetime-local"
-                                                        className="input-base mt-3"
-                                                        value={profilePatch.custom_expiry_date ?? ''}
-                                                        onChange={(event) => setProfilePatch((prev: any) => ({ ...prev, custom_expiry_date: event.target.value }))}
-                                                        min={getMinDateTimeInputValue()}
-                                                    />
-                                                ) : null}
-                                            </div>
-                                            <button onClick={() => applyProfileAction('change_assigned_plan')} className="btn-primary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
-                                                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                                                Save assigned plan
-                                            </button>
+                                        </SelectField>
+                                        <div className="rounded-[20px] border border-border/70 bg-card/70 px-4 py-4">
+                                            <p className="text-xs font-semibold text-muted-foreground">Source</p>
+                                            <p className="mt-2 text-sm font-bold text-foreground">
+                                                {String(detailData?.subscription_summary?.plan_source || detailData?.plan_source || 'system').replace(/^./, (char: string) => char.toUpperCase())}
+                                            </p>
+                                            <p className="mt-1 text-xs font-medium text-muted-foreground">
+                                                Read-only. Subscription source is controlled by the backend.
+                                            </p>
                                         </div>
-                                    </div>
-
-                                    <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
-                                        <h3 className="text-sm font-bold text-foreground">Custom limits and watermark</h3>
-                                        <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
-                                            These profile-level settings change runtime behavior without editing pricing defaults.
-                                        </p>
-                                        <div className="mt-4 space-y-3">
-                                            {[
-                                                ['instagram_connections_limit', 'Instagram connections'],
-                                                ['hourly_action_limit', 'Hourly actions'],
-                                                ['daily_action_limit', 'Daily actions'],
-                                                ['monthly_action_limit', 'Monthly actions']
-                                            ].map(([key, label]) => (
-                                                <div key={key}>
-                                                    <label className="text-xs font-semibold text-muted-foreground">{label}</label>
-                                                    <input
-                                                        className="input-base mt-2"
-                                                        value={profilePatch[key] ?? ''}
-                                                        onChange={(event) => setProfilePatch((prev: any) => ({ ...prev, [key]: event.target.value }))}
-                                                    />
+                                        <div className="rounded-[24px] border border-border/70 bg-background/55 p-4">
+                                            <p className="text-xs font-semibold text-muted-foreground">Derived subscription state</p>
+                                            <p className="mt-1 text-xs font-medium text-muted-foreground">
+                                                Plan code: {detailData?.subscription_summary?.plan_code || detailData?.profile?.plan_code || 'free'}
+                                            </p>
+                                            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                                <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-3">
+                                                    <p className="text-[10px] font-black text-muted-foreground">Source</p>
+                                                    <p className="mt-2 text-sm font-bold text-foreground">{detailData?.subscription_summary?.plan_source || detailData?.plan_source || 'system'}</p>
                                                 </div>
-                                            ))}
-                                            <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-4">
-                                                <p className="text-xs font-semibold text-muted-foreground">Watermark override</p>
-                                                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                    <button
-                                                        type="button"
-                                                        className={cn('segmented-option min-h-[84px] flex-col items-start rounded-[20px] p-4 text-left', !profilePatch.no_watermark ? 'is-active' : '')}
-                                                        onClick={() => setProfilePatch((prev: any) => ({ ...prev, no_watermark: false }))}
-                                                    >
-                                                        <span className="segmented-dot" />
-                                                        <div>
-                                                            <p className="text-sm font-semibold text-foreground">Watermark on</p>
-                                                            <p className="mt-1 text-xs font-medium text-muted-foreground">Keep the shared watermark active for this user.</p>
-                                                        </div>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className={cn('segmented-option min-h-[84px] flex-col items-start rounded-[20px] p-4 text-left', profilePatch.no_watermark ? 'is-active' : '')}
-                                                        onClick={() => setProfilePatch((prev: any) => ({ ...prev, no_watermark: true }))}
-                                                    >
-                                                        <span className="segmented-dot" />
-                                                        <div>
-                                                            <p className="text-sm font-semibold text-foreground">Watermark off</p>
-                                                            <p className="mt-1 text-xs font-medium text-muted-foreground">Allow replies without the shared watermark.</p>
-                                                        </div>
-                                                    </button>
+                                                <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-3">
+                                                    <p className="text-[10px] font-black text-muted-foreground">Status</p>
+                                                    <p className="mt-2 text-sm font-bold text-foreground">{detailData?.subscription_summary?.derived_status || detailData?.derived_status || 'inactive'}</p>
+                                                </div>
+                                                <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-3">
+                                                    <p className="text-[10px] font-black text-muted-foreground">Expiry</p>
+                                                    <p className="mt-2 text-sm font-bold text-foreground">
+                                                        {formatExpiryLabel(detailData?.subscription_summary?.expiry_date || detailData?.expiry_date || null)}
+                                                    </p>
                                                 </div>
                                             </div>
-                                            <button onClick={() => applyProfileAction('edit_custom_limits')} className="btn-primary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
-                                                Save limits and watermark
-                                            </button>
+                                            {freePlanModeLabel ? <p className="mt-3 text-xs font-semibold text-muted-foreground">{freePlanModeLabel}</p> : null}
                                         </div>
-                                    </div>
+                                        <div className="rounded-[24px] border border-border/70 bg-background/55 p-4">
+                                            <p className="text-xs font-semibold text-muted-foreground">Plan term</p>
+                                            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                                Choose monthly, yearly, or a custom expiry date.
+                                                {selectedPlanCode === 'free' ? ' Leave the custom date blank to keep the user on Permanent Free.' : ''}
+                                            </p>
+                                            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                                {([
+                                                    ['monthly', 'Monthly'],
+                                                    ['yearly', 'Yearly'],
+                                                    ['custom', 'Custom date']
+                                                ] as const).map(([mode, label]) => (
+                                                    <button
+                                                        key={mode}
+                                                        type="button"
+                                                        onClick={() => setPlanTermMode(mode)}
+                                                        className={cn('segmented-option justify-center', planTermMode === mode ? 'is-active' : '')}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            {planTermMode === 'custom' ? (
+                                                <input
+                                                    type="datetime-local"
+                                                    className="input-base mt-3"
+                                                    value={profilePatch.custom_expiry_date ?? ''}
+                                                    onChange={(event) => setProfilePatch((prev: any) => ({ ...prev, custom_expiry_date: event.target.value }))}
+                                                    min={getMinDateTimeInputValue()}
+                                                />
+                                            ) : null}
+                                        </div>
+                                        <button onClick={() => void resetToDefaultPlan()} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
+                                            Reset to Default Plan
+                                        </button>
+                                    </div> : null}
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                                    <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
-                                        <h3 className="text-sm font-bold text-foreground">Ban controls</h3>
-                                        <div className="mt-4 flex flex-wrap gap-3">
+                                <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
+                                    <button
+                                        type="button"
+                                        onClick={() => togglePopupSection('limits')}
+                                        className="flex w-full items-start justify-between gap-3 text-left"
+                                    >
+                                        <div>
+                                            <h3 className="text-sm font-bold text-foreground">Limits</h3>
+                                            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                                Edit limits for this user. Save applies both plan and limits together.
+                                            </p>
+                                        </div>
+                                        {popupSections.limits ? <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" /> : <ChevronDown className="mt-0.5 h-4 w-4 text-muted-foreground" />}
+                                    </button>
+                                    {popupSections.limits ? <div className="mt-4 space-y-3">
+                                        <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-4 text-xs text-muted-foreground">
+                                            <p>Active account limit: <span className="font-semibold text-foreground">{detailData?.active_account_limit ?? detailData?.effective_limits?.active_account_limit ?? 0}</span></p>
+                                            {(detailData?.max_allowed_accounts ?? 0) !== (detailData?.active_account_limit ?? detailData?.effective_limits?.active_account_limit ?? 0) ? (
+                                                <p className="mt-1">Current linked capacity: {detailData?.max_allowed_accounts ?? 0} linked accounts.</p>
+                                            ) : null}
+                                        </div>
+                                        {[
+                                            ['instagram_connections_limit', 'Plan active limit'],
+                                            ['hourly_action_limit', 'Hourly actions'],
+                                            ['daily_action_limit', 'Daily actions'],
+                                            ['monthly_action_limit', 'Monthly actions']
+                                        ].map(([key, label]) => (
+                                            <div key={key}>
+                                                <label className="text-xs font-semibold text-muted-foreground">{label}</label>
+                                                <input
+                                                    className="input-base mt-2"
+                                                    value={profilePatch[key] ?? ''}
+                                                    onChange={(event) => handleLimitChange(key as LimitField, event.target.value)}
+                                                />
+                                            </div>
+                                        ))}
+                                        {planAutofillNotice ? (
+                                            <div className="rounded-[18px] border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs font-semibold text-amber-700">
+                                                {planAutofillNotice}
+                                            </div>
+                                        ) : null}
+                                        <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-4">
+                                            <p className="text-xs font-semibold text-muted-foreground">Watermark override</p>
+                                            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                <button
+                                                    type="button"
+                                                    className={cn('segmented-option min-h-[84px] flex-col items-start rounded-[20px] p-4 text-left', !profilePatch.no_watermark ? 'is-active' : '')}
+                                                    onClick={() => setProfilePatch((prev: any) => ({ ...prev, no_watermark: false }))}
+                                                >
+                                                    <span className="segmented-dot" />
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-foreground">Watermark on</p>
+                                                        <p className="mt-1 text-xs font-medium text-muted-foreground">Keep the shared watermark active for this user.</p>
+                                                    </div>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={cn('segmented-option min-h-[84px] flex-col items-start rounded-[20px] p-4 text-left', profilePatch.no_watermark ? 'is-active' : '')}
+                                                    onClick={() => setProfilePatch((prev: any) => ({ ...prev, no_watermark: true }))}
+                                                >
+                                                    <span className="segmented-dot" />
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-foreground">Watermark off</p>
+                                                        <p className="mt-1 text-xs font-medium text-muted-foreground">Allow replies without the shared watermark.</p>
+                                                    </div>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            <button onClick={restoreDefaultLimits} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
+                                                Restore Default Limits
+                                            </button>
+                                            <button onClick={() => void submitPlanAndLimits()} className="btn-primary w-full px-4 py-3 text-[10px] disabled:opacity-60" disabled={isSaveDisabled}>
+                                                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                                                Save Plan & Limits
+                                            </button>
+                                        </div>
+                                    </div> : null}
+                                </div>
+
+                                <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
+                                    <button
+                                        type="button"
+                                        onClick={() => togglePopupSection('instagram')}
+                                        className="flex w-full items-start justify-between gap-3 text-left"
+                                    >
+                                        <div>
+                                            <h3 className="text-sm font-bold text-foreground">Instagram accounts</h3>
+                                            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                                Linked accounts only. Toggle active state while respecting backend locking rules.
+                                            </p>
+                                        </div>
+                                        {popupSections.instagram ? <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" /> : <ChevronDown className="mt-0.5 h-4 w-4 text-muted-foreground" />}
+                                    </button>
+                                    {popupSections.instagram ? <div className="mt-4 space-y-3">
+                                        {(detailData?.instagram_accounts || []).map((acc: any) => {
+                                            const isActive = acc.is_active === true || acc.effective_access === true;
+                                            const accessLabel = acc.status !== 'active'
+                                                ? 'Unlinked'
+                                                : isActive
+                                                    ? 'Active'
+                                                    : acc.access_state === 'plan_locked'
+                                                        ? 'Locked by plan limit'
+                                                        : 'Disabled by admin';
+                                            return (
+                                                <div key={acc.$id} className="flex flex-col gap-3 rounded-[18px] border border-border/70 bg-background/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                                    <div className="min-w-0">
+                                                        <p className="truncate text-sm font-bold text-foreground">{acc.username || acc.ig_user_id || acc.account_id}</p>
+                                                        <p className="mt-1 text-xs text-muted-foreground">
+                                                            {accessLabel}
+                                                            {acc.access_reason ? ` - ${String(acc.access_reason).replace(/_/g, ' ')}` : ''}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        role="switch"
+                                                        aria-checked={isActive}
+                                                        disabled={accountToggleLoadingId === acc.$id || acc.status !== 'active'}
+                                                        onClick={() => void toggleInstagramAccountAccess(acc)}
+                                                        className="inline-flex items-center gap-3 disabled:opacity-60"
+                                                    >
+                                                        {accountToggleLoadingId === acc.$id ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <Shield className="h-4 w-4 text-muted-foreground" />}
+                                                        <span
+                                                            className={cn(
+                                                                'relative h-7 w-12 rounded-full transition-colors',
+                                                                isActive ? 'bg-success/70' : 'bg-muted'
+                                                            )}
+                                                        >
+                                                            <span
+                                                                className={cn(
+                                                                    'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform',
+                                                                    isActive ? 'left-6' : 'left-1'
+                                                                )}
+                                                            />
+                                                        </span>
+                                                        <span className="text-xs font-semibold text-foreground">
+                                                            {isActive ? 'Active' : 'Locked'}
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                        {(!detailData?.instagram_accounts || detailData.instagram_accounts.length === 0) && (
+                                            <p className="text-xs text-muted-foreground">No linked accounts</p>
+                                        )}
+                                    </div> : null}
+                                </div>
+
+                                <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
+                                    <button
+                                        type="button"
+                                        onClick={() => togglePopupSection('ban')}
+                                        className="flex w-full items-start justify-between gap-3 text-left"
+                                    >
+                                        <div>
+                                            <h3 className="text-sm font-bold text-foreground">Ban</h3>
+                                            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                                Banning can disable access and stop automation processing depending on selected mode.
+                                            </p>
+                                        </div>
+                                        {popupSections.ban ? <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" /> : <ChevronDown className="mt-0.5 h-4 w-4 text-muted-foreground" />}
+                                    </button>
+                                    {popupSections.ban ? <div className="mt-4 space-y-3">
+                                        <div className="flex flex-wrap gap-3">
                                             {(['none', 'soft', 'hard'] as const).map((mode) => (
                                                 <button
                                                     key={mode}
@@ -774,13 +1203,13 @@ export const UsersPage: React.FC = () => {
                                             ))}
                                         </div>
                                         <input
-                                            className="input-base mt-3"
+                                            className="input-base"
                                             placeholder="Ban reason"
                                             value={banReason}
                                             onChange={(event) => setBanReason(event.target.value)}
                                         />
-                                        <div className="mt-3 rounded-[18px] border border-border/70 bg-card/70 px-4 py-4">
-                                                <p className="text-xs font-semibold text-muted-foreground">Kill switch</p>
+                                        <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-4">
+                                            <p className="text-xs font-semibold text-muted-foreground">Kill switch</p>
                                             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                                 <button
                                                     type="button"
@@ -806,115 +1235,96 @@ export const UsersPage: React.FC = () => {
                                                 </button>
                                             </div>
                                         </div>
-                                        <button onClick={saveBan} className="btn-primary mt-3 w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
+                                        <button onClick={() => setShowBanConfirmDialog(true)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-destructive px-4 py-3 text-[10px] font-black text-white transition hover:bg-destructive/90 disabled:opacity-60" disabled={saving || isDeletingUser}>
                                             <Ban className="h-4 w-4" />
-                                            Save ban and kill switch
+                                            Ban User
                                         </button>
-                                    </div>
-
-                                    <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
-                                        <h3 className="text-sm font-bold text-foreground">Resets and linked accounts</h3>
-                                        <div className="mt-4 space-y-3">
-                                            <div className="rounded-[20px] border border-border/70 bg-card/70 p-4">
-                                                <button onClick={() => applyProfileAction('reset_to_assigned_defaults')} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
-                                                    Restore Default limits
-                                                </button>
-                                                <p className="mt-2 text-xs text-muted-foreground">
-                                                    Reapply the selected plan defaults while keeping the current user record intact.
-                                                </p>
-                                            </div>
-                                            <div className="rounded-[20px] border border-border/70 bg-card/70 p-4">
-                                                <button onClick={() => applyProfileAction('reset_to_paid_snapshot_or_free')} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
-                                                    Reset to default
-                                                </button>
-                                                <p className="mt-2 text-xs text-muted-foreground">
-                                                    Restore the latest paid self-subscription snapshot, or fall back to free when none exists.
-                                                </p>
-                                            </div>
-                                            <div className="rounded-[20px] border border-border/70 bg-card/70 p-4">
-                                                <p className="text-xs font-semibold text-muted-foreground">Linked Instagram accounts</p>
-                                                <div className="mt-3 space-y-3">
-                                                    {(detailData?.instagram_accounts || []).map((acc: any) => {
-                                                        const accessLabel = acc.status !== 'active'
-                                                            ? 'Unlinked'
-                                                            : acc.effective_access === true
-                                                                ? (acc.access_state === 'override_enabled' ? 'Override enabled' : 'Enabled')
-                                                                : acc.access_state === 'plan_locked'
-                                                                    ? 'Plan locked'
-                                                                    : 'Admin disabled';
-                                                        return (
-                                                            <div key={acc.$id} className="flex flex-col gap-3 rounded-[18px] border border-border/70 bg-background/70 p-4 sm:flex-row sm:items-center sm:justify-between">
-                                                                <div className="min-w-0">
-                                                                    <p className="truncate text-sm font-bold text-foreground">{acc.username || acc.ig_user_id || acc.account_id}</p>
-                                                                    <p className="mt-1 text-xs text-muted-foreground">
-                                                                        {accessLabel}
-                                                                        {acc.access_reason ? ` - ${String(acc.access_reason).replace(/_/g, ' ')}` : ''}
-                                                                    </p>
-                                                                </div>
-                                                                <button
-                                                                    type="button"
-                                                                    role="switch"
-                                                                    aria-checked={acc.effective_access === true}
-                                                                    disabled={accountToggleLoadingId === acc.$id || acc.status !== 'active'}
-                                                                    onClick={() => void toggleInstagramAccountAccess(acc)}
-                                                                    className="inline-flex items-center gap-3 disabled:opacity-60"
-                                                                >
-                                                                    {accountToggleLoadingId === acc.$id ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <Shield className="h-4 w-4 text-muted-foreground" />}
-                                                                    <span
-                                                                        className={cn(
-                                                                            'relative h-7 w-12 rounded-full transition-colors',
-                                                                            acc.effective_access === true ? 'bg-success/70' : 'bg-muted'
-                                                                        )}
-                                                                    >
-                                                                        <span
-                                                                            className={cn(
-                                                                                'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform',
-                                                                                acc.effective_access === true ? 'left-6' : 'left-1'
-                                                                            )}
-                                                                        />
-                                                                    </span>
-                                                                    <span className="text-xs font-semibold text-foreground">
-                                                                        {acc.effective_access === true ? 'Enabled' : 'Disabled'}
-                                                                    </span>
-                                                                </button>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    {(!detailData?.instagram_accounts || detailData.instagram_accounts.length === 0) && (
-                                                        <p className="text-xs text-muted-foreground">No linked accounts</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    </div> : null}
                                 </div>
 
-                                <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-end">
+                                <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
                                     <button
-                                        onClick={() => setShowDeleteUserDialog(true)}
-                                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-destructive disabled:opacity-60"
-                                        disabled={saving || isDeletingUser}
+                                        type="button"
+                                        onClick={() => togglePopupSection('danger')}
+                                        className="flex w-full items-center justify-between gap-3 text-left"
                                     >
-                                        {isDeletingUser ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                        Delete User
+                                        <h3 className="text-sm font-bold text-foreground">Delete user</h3>
+                                        {popupSections.danger ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                                     </button>
+                                    {popupSections.danger ? (
+                                        <div className="mt-4 border-t border-border/70 pt-4">
+                                            <button
+                                                onClick={() => {
+                                                    setDeleteConfirmText('');
+                                                    setShowDeleteUserDialog(true);
+                                                }}
+                                                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-[10px] font-black text-destructive disabled:opacity-60"
+                                                disabled={saving || isDeletingUser}
+                                            >
+                                                {isDeletingUser ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                                Delete User
+                                            </button>
+                                        </div>
+                                    ) : null}
                                 </div>
                             </div>
                         )}
                     </section>
                 </div>
+                </div>
             )}
+
+            <ConfirmDialog
+                open={showBanConfirmDialog}
+                title="Confirm ban action?"
+                description={(
+                    <div className="space-y-2">
+                        <p>This will apply the selected ban mode and kill-switch state immediately.</p>
+                        <p className="font-semibold text-foreground">Mode: {banMode} | Kill switch: {profilePatch.kill_switch_enabled === false ? 'Disabled' : 'Enabled'}</p>
+                        {banReason ? <p>Reason: {banReason}</p> : null}
+                    </div>
+                )}
+                confirmLabel="Confirm Ban User"
+                cancelLabel="Cancel"
+                tone="danger"
+                loading={saving}
+                onCancel={() => {
+                    if (!saving) {
+                        setShowBanConfirmDialog(false);
+                    }
+                }}
+                onConfirm={() => {
+                    void saveBan();
+                }}
+            />
+
             <ConfirmDialog
                 open={showDeleteUserDialog}
                 title="Delete user permanently?"
-                description={selectedUser ? `This will permanently delete ${selectedUser.email || selectedUser.name || 'this user'} and remove their dashboard access. This action cannot be undone.` : ''}
+                description={(
+                    <div className="space-y-3">
+                        <p>{selectedUser ? `This will permanently delete ${selectedUser.email || selectedUser.name || 'this user'} and remove their dashboard access. This action cannot be undone.` : ''}</p>
+                        <div>
+                            <label className="text-xs font-semibold text-muted-foreground">Type DELETE to confirm</label>
+                            <input
+                                className="input-base mt-2"
+                                value={deleteConfirmText}
+                                onChange={(event) => setDeleteConfirmText(event.target.value)}
+                                placeholder="DELETE"
+                                autoComplete="off"
+                            />
+                        </div>
+                    </div>
+                )}
                 confirmLabel="Delete User"
                 cancelLabel="Keep User"
                 tone="danger"
                 loading={isDeletingUser}
+                confirmDisabled={deleteConfirmText.trim() !== 'DELETE'}
                 onCancel={() => {
                     if (!isDeletingUser) {
                         setShowDeleteUserDialog(false);
+                        setDeleteConfirmText('');
                     }
                 }}
                 onConfirm={() => {

@@ -1,0 +1,20 @@
+﻿total  3
+ 
+indexes (3)
+  [1]
+    $id     1_165_idx_job_lock_key
+    key     idx_job_lock_key
+    type    unique
+    status  available
+
+  [2]
+    $id     1_165_idx_job_name_window
+    key     idx_job_name_window
+    type    key
+    status  available
+
+  [3]
+    $id     1_165_idx_job_lock_expiry
+    key     idx_job_lock_expiry
+    type    key
+    status  available

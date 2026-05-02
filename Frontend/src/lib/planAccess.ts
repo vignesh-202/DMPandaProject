@@ -67,7 +67,7 @@ export const getAutomationRequiredFeatures = ({
     }
 
     if (isShareTrigger) {
-        required.add(resolveCanonicalFeatureKey(shareTriggerFeatureMap[type] || 'share_post_to_dm'));
+        required.add(resolveCanonicalFeatureKey(shareTriggerFeatureMap[type] || 'share_post_to_admin'));
     }
 
     return Array.from(required).filter(Boolean);

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, CheckCircle2, Copy, Loader2, PencilLine, Plus, RefreshCcw, Search, SlidersHorizontal, TicketPercent } from 'lucide-react';
 import httpClient from '../lib/httpClient';
 import AdminLoadingState from '../components/AdminLoadingState';
+import { cn } from '../lib/utils';
 
 type CouponRecord = {
     id: string;
@@ -247,6 +248,18 @@ export const CouponsPage: React.FC = () => {
         loadCoupons();
     }, []);
 
+    useEffect(() => {
+        if (!notice) return;
+        const timer = window.setTimeout(() => setNotice(null), 4000);
+        return () => window.clearTimeout(timer);
+    }, [notice]);
+
+    useEffect(() => {
+        if (!error) return;
+        const timer = window.setTimeout(() => setError(null), 4000);
+        return () => window.clearTimeout(timer);
+    }, [error]);
+
     const availablePlans = Array.isArray(data.available_plans) ? data.available_plans : [];
     const coupons = Array.isArray(data.coupons) ? data.coupons : [];
     const redemptions = Array.isArray(data.redemptions) ? data.redemptions : [];
@@ -451,7 +464,7 @@ export const CouponsPage: React.FC = () => {
 
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                    <label className="text-[10px] font-black text-muted-foreground">
                         {editingId ? 'Coupon Code' : Number(form.bulk_count || 1) > 1 ? 'Coupon Prefix' : 'Coupon Code'}
                     </label>
                     <input
@@ -462,7 +475,7 @@ export const CouponsPage: React.FC = () => {
                     />
                 </div>
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Discount Type</label>
+                    <label className="text-[10px] font-black text-muted-foreground">Discount Type</label>
                     <div className="segmented-control mt-2">
                         {[
                             { value: 'percent', label: 'Percent' },
@@ -484,7 +497,7 @@ export const CouponsPage: React.FC = () => {
                     </div>
                 </div>
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Value</label>
+                    <label className="text-[10px] font-black text-muted-foreground">Value</label>
                     <input
                         type="number"
                         min="0"
@@ -496,7 +509,7 @@ export const CouponsPage: React.FC = () => {
                     />
                 </div>
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Expiry</label>
+                    <label className="text-[10px] font-black text-muted-foreground">Expiry</label>
                     <input
                         type="datetime-local"
                         value={form.expires_at}
@@ -505,7 +518,7 @@ export const CouponsPage: React.FC = () => {
                     />
                 </div>
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Billing cycle targeting</label>
+                    <label className="text-[10px] font-black text-muted-foreground">Billing cycle targeting</label>
                     <div className="segmented-control mt-2">
                         {[
                             { value: 'monthly', label: 'Monthly' },
@@ -527,7 +540,7 @@ export const CouponsPage: React.FC = () => {
                     </div>
                 </div>
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Total Usage Limit</label>
+                    <label className="text-[10px] font-black text-muted-foreground">Total Usage Limit</label>
                     <input
                         type="number"
                         min="0"
@@ -540,7 +553,7 @@ export const CouponsPage: React.FC = () => {
                 </div>
                 {!editingId && (
                     <div>
-                        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Bulk Quantity</label>
+                        <label className="text-[10px] font-black text-muted-foreground">Bulk Quantity</label>
                         <input
                             type="number"
                             min="1"
@@ -633,8 +646,8 @@ export const CouponsPage: React.FC = () => {
                                 type="button"
                                 onClick={() => togglePlan(plan.id)}
                                 className={active
-                                    ? 'rounded-2xl bg-ig-gradient px-4 py-3 text-left text-xs font-black uppercase tracking-[0.14em] text-white shadow-card'
-                                    : 'rounded-2xl border border-border bg-card px-4 py-3 text-left text-xs font-black uppercase tracking-[0.14em] text-foreground'}
+                                    ? 'rounded-2xl bg-ig-gradient px-4 py-3 text-left text-xs font-black text-white shadow-card'
+                                    : 'rounded-2xl border border-border bg-card px-4 py-3 text-left text-xs font-black text-foreground'}
                             >
                                 <span className="block">{plan.name}</span>
                                 <span className={`mt-1 block text-[10px] ${active ? 'text-white/70' : 'text-muted-foreground'}`}>
@@ -647,7 +660,7 @@ export const CouponsPage: React.FC = () => {
             </div>
 
             <div className="mt-5">
-                <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">User IDs</label>
+                <label className="text-[10px] font-black text-muted-foreground">User IDs</label>
                 <textarea
                     rows={4}
                     value={form.user_ids}
@@ -700,7 +713,7 @@ export const CouponsPage: React.FC = () => {
         <div className="animate-in fade-in slide-in-from-bottom-4 space-y-8 duration-700">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Billing Operations</p>
+                    <p className="text-[10px] font-black text-muted-foreground">Billing Operations</p>
                     <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
                         {editorMode ? editorTitle : 'Coupons & Redemptions'}
                     </h1>
@@ -728,7 +741,10 @@ export const CouponsPage: React.FC = () => {
             </div>
 
             {(error || notice) && (
-                <div className={`glass-card rounded-[24px] px-5 py-4 text-sm ${error ? 'border-destructive/25 text-destructive' : 'border-success/25 text-success'}`}>
+                <div className={cn(
+                    'glass-card rounded-[24px] px-5 py-4 text-sm animate-in fade-in slide-in-from-top-2 duration-300',
+                    error ? 'border-destructive/25 text-destructive' : 'border-success/25 text-success'
+                )}>
                     <div className="inline-flex items-center gap-2 font-semibold">
                         {error ? null : <CheckCircle2 className="h-4 w-4" />}
                         {error || notice}
@@ -745,7 +761,7 @@ export const CouponsPage: React.FC = () => {
                     ['Revenue', revenueLabel]
                 ].map(([label, value]) => (
                     <div key={String(label)} className="glass-card rounded-[28px] p-6">
-                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{label}</p>
+                        <p className="text-[10px] font-black text-muted-foreground">{label}</p>
                         <p className="mt-4 text-3xl font-extrabold text-foreground">{value}</p>
                     </div>
                 ))}
@@ -758,7 +774,7 @@ export const CouponsPage: React.FC = () => {
 
                     <div className="space-y-6">
                         <div className="glass-card rounded-[32px] p-6">
-                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Workflow</p>
+                            <p className="text-[10px] font-black text-muted-foreground">Workflow</p>
                             <h2 className="mt-3 text-2xl font-extrabold text-foreground">Coupon publishing guide</h2>
                             <div className="mt-5 space-y-4 text-sm text-muted-foreground">
                                 <p>Use a clear code or prefix, confirm the discount type, then decide whether the coupon should be reusable or single-use.</p>
@@ -770,7 +786,7 @@ export const CouponsPage: React.FC = () => {
                         <div className="glass-card rounded-[32px] p-6">
                             <div className="flex items-center justify-between gap-4">
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Overview</p>
+                                    <p className="text-[10px] font-black text-muted-foreground">Overview</p>
                                     <h2 className="mt-3 text-2xl font-extrabold text-foreground">Current coupon health</h2>
                                 </div>
                                 <span className="status-pill status-pill-success">{data?.stats?.active_coupons || 0} active</span>
@@ -782,7 +798,7 @@ export const CouponsPage: React.FC = () => {
                                     ['Revenue', revenueLabel]
                                 ].map(([label, value]) => (
                                     <div key={String(label)} className="rounded-[24px] border border-border/80 bg-background/40 px-4 py-4">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+                                        <p className="text-[10px] font-black text-muted-foreground">{label}</p>
                                         <p className="mt-2 text-xl font-extrabold text-foreground">{value}</p>
                                     </div>
                                 ))}
@@ -814,7 +830,7 @@ export const CouponsPage: React.FC = () => {
                                             className="input-base pl-10"
                                         />
                                     </div>
-                                    <div className="inline-flex items-center gap-2 rounded-2xl border border-border/80 bg-card/70 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                    <div className="inline-flex items-center gap-2 rounded-2xl border border-border/80 bg-card/70 px-4 py-3 text-xs font-black text-muted-foreground">
                                         <SlidersHorizontal className="h-4 w-4" />
                                         Live filters
                                     </div>
@@ -822,7 +838,7 @@ export const CouponsPage: React.FC = () => {
 
                                 <div className="mt-4 grid gap-4 xl:grid-cols-2">
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Status</p>
+                                        <p className="text-[10px] font-black text-muted-foreground">Status</p>
                                         <div className="segmented-control-panel mt-2">
                                             {[
                                                 { value: 'all', label: 'All' },
@@ -846,7 +862,7 @@ export const CouponsPage: React.FC = () => {
                                     </div>
 
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Discount</p>
+                                        <p className="text-[10px] font-black text-muted-foreground">Discount</p>
                                         <div className="segmented-control-panel mt-2">
                                             {[
                                                 { value: 'all', label: 'All' },
@@ -870,7 +886,7 @@ export const CouponsPage: React.FC = () => {
                                     </div>
 
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Timing</p>
+                                        <p className="text-[10px] font-black text-muted-foreground">Timing</p>
                                         <div className="segmented-control-panel mt-2">
                                             {[
                                                 { value: 'all', label: 'Any Date' },
@@ -896,7 +912,7 @@ export const CouponsPage: React.FC = () => {
                                     </div>
 
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Sort</p>
+                                        <p className="text-[10px] font-black text-muted-foreground">Sort</p>
                                         <div className="segmented-control-panel mt-2">
                                             {[
                                                 { value: 'recent', label: 'Recent' },
@@ -1028,7 +1044,7 @@ export const CouponsPage: React.FC = () => {
                                         </div>
                                         <div className="text-right">
                                             <p className="text-sm font-extrabold text-foreground">{item.final_amount}</p>
-                                            <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                            <p className="mt-1 text-[10px] font-black text-muted-foreground">
                                                 {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Unknown'}
                                             </p>
                                         </div>

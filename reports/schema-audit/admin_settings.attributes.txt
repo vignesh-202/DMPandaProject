@@ -1,0 +1,54 @@
+﻿total  6
+ 
+attributes (6)
+  [1]
+    key       default_text
+    type      string
+    status    available
+    required  false
+    array     false
+    size      512
+    default   Automation made by DMPanda
+    encrypt   false
+
+  [2]
+    key       enabled
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   true
+
+  [3]
+    key       enforcement_mode
+    type      string
+    status    available
+    required  false
+    array     false
+    size      64
+    default   fallback_secondary_message
+    encrypt   false
+
+  [4]
+    key       updated_by
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [5]
+    key       allow_user_override
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   true
+
+  [6]
+    key       updated_at
+    type      datetime
+    status    available
+    required  false
+    array     false

@@ -1,0 +1,222 @@
+﻿total  36
+ 
+attributes (25)
+  [1]
+    key       user_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       account_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [3]
+    key       template_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [4]
+    key       title
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [5]
+    key       followers_only
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   false
+
+  [6]
+    key       is_active
+    type      boolean
+    status    available
+    required  true
+    array     false
+
+  [7]
+    key       media_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      100
+    encrypt   false
+
+  [8]
+    key       keyword
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [9]
+    key       use_latest_post
+    type      boolean
+    status    available
+    required  false
+    array     false
+
+  [10]
+    key       template_content
+    type      string
+    status    available
+    required  false
+    array     false
+    size      3000
+    encrypt   false
+
+  [11]
+    key       buttons
+    type      string
+    status    available
+    required  false
+    array     false
+    size      2000
+    default   []
+    encrypt   false
+
+  [12]
+    key       template_elements
+    type      string
+    status    available
+    required  false
+    array     false
+    size      2000
+    default   []
+    encrypt   false
+
+  [13]
+    key       replies
+    type      string
+    status    available
+    required  false
+    array     false
+    size      2000
+    default   []
+    encrypt   false
+
+  [14]
+    key       media_url
+    type      string
+    status    available
+    required  false
+    array     false
+    size      500
+    encrypt   false
+
+  [15]
+    key       comment_reply
+    type      string
+    status    available
+    required  false
+    array     false
+    size      1000
+    encrypt   false
+
+  [16]
+    key       title_normalized
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [17]
+    key       followers_only_message
+    type      string
+    status    available
+    required  false
+    array     false
+    size      300
+    default   Please follow this account first, then send your message again.
+    encrypt   false
+
+  [18]
+    key       suggest_more_enabled
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   false
+
+  [19]
+    key       private_reply_enabled
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   true
+
+  [20]
+    key       automation_type
+    type      string
+    status    available
+    required  true
+    array     false
+    format    enum
+
+  [21]
+    key       keyword_match_type
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum
+    default   exact
+
+  [22]
+    key       trigger_type
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum
+    default   keywords
+
+  [23]
+    key       template_type
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum
+
+  [24]
+    key       menu_item_type
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum
+
+  [25]
+    key       menu_item_order
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0

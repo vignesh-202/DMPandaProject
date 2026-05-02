@@ -1,0 +1,26 @@
+﻿total  4
+ 
+indexes (4)
+  [1]
+    $id     1_27_idx_user_id
+    key     idx_user_id
+    type    key
+    status  available
+
+  [2]
+    $id     1_27_idx_account_id
+    key     idx_account_id
+    type    key
+    status  available
+
+  [3]
+    $id     1_27_idx_account_name_norm
+    key     idx_account_name_norm
+    type    key
+    status  available
+
+  [4]
+    $id     1_27_idx_template_type
+    key     idx_template_type
+    type    key
+    status  available

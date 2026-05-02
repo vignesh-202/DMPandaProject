@@ -1,0 +1,218 @@
+﻿total  54
+ 
+attributes (25)
+  [1]
+    key       user_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       hourly_action_limit
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [3]
+    key       daily_action_limit
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [4]
+    key       monthly_action_limit
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [5]
+    key       hourly_actions_used
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [6]
+    key       daily_actions_used
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [7]
+    key       monthly_actions_used
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [8]
+    key       hourly_window_started_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [9]
+    key       daily_window_started_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [10]
+    key       monthly_window_started_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [11]
+    key       feature_overrides_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      12000
+    encrypt   false
+
+  [12]
+    key       plan_code
+    type      string
+    status    available
+    required  false
+    array     false
+    size      32
+    encrypt   false
+
+  [13]
+    key       plan_name
+    type      string
+    status    available
+    required  false
+    array     false
+    size      100
+    encrypt   false
+
+  [14]
+    key       kill_switch_enabled
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   true
+
+  [15]
+    key       limits_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      1200
+    encrypt   false
+
+  [16]
+    key       features_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      600
+    encrypt   false
+
+  [17]
+    key       paid_plan_snapshot_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      600
+    encrypt   false
+
+  [18]
+    key       admin_override_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      140
+    encrypt   false
+
+  [19]
+    key       instagram_link_limit
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       0
+    max       1000
+    default   0
+
+  [20]
+    key       expiry_reminder_3d_sent_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [21]
+    key       expiry_reminder_day0_sent_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [22]
+    key       expiry_reminder_day1_sent_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [23]
+    key       last_expired_plan_code
+    type      string
+    status    available
+    required  false
+    array     false
+    size      32
+    encrypt   false
+
+  [24]
+    key       last_expired_plan_expires_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [25]
+    key       benefit_unlimited_contacts
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   false

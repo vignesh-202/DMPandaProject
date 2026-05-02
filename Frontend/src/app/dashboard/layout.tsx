@@ -361,20 +361,22 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         </div>
 
         {/* Sidebar Content */}
-        <Sidebar
-          isCollapsed={!isSidebarOpen}
-          onItemClick={() => {
-            if (window.innerWidth < 1024) {
-              setIsSidebarOpen(false);
-            }
-          }}
-        />
+        <div className="flex min-h-0 flex-1">
+          <Sidebar
+            isCollapsed={!isSidebarOpen}
+            onItemClick={() => {
+              if (window.innerWidth < 1024) {
+                setIsSidebarOpen(false);
+              }
+            }}
+          />
+        </div>
       </aside>
 
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
         {/* Header */}
-        <header className="ig-topline sticky top-0 z-[160] flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-3 py-3 shadow-sm sm:px-6">
+        <header className="ig-topline sticky top-0 z-[160] flex min-h-16 items-center justify-between gap-3 border-b border-border bg-card px-3 py-2 shadow-sm sm:px-6 sm:py-3">
           {/* Left Side - Mobile Menu + Breadcrumb */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
@@ -410,7 +412,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
 
           {/* Right Side - Notifications + Profile */}
-          <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <div ref={notificationMenuRef} className="relative">
               <button
                 type="button"
@@ -607,7 +609,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         <div className="relative flex-1 min-h-0">
           <main
             ref={mainRef}
-            className="h-full overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 lg:p-5"
+            className="h-full overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6"
             data-dashboard-section-scroll-root
           >
             <div className="animate-fadeIn relative min-h-full">

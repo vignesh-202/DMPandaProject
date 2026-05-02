@@ -1,0 +1,38 @@
+﻿total  6
+ 
+indexes (6)
+  [1]
+    $id     1_3_idx_users_email_search
+    key     idx_users_email_search
+    type    fulltext
+    status  available
+
+  [2]
+    $id     1_3_idx_users_name_search
+    key     idx_users_name_search
+    type    fulltext
+    status  available
+
+  [3]
+    $id     1_3_idx_users_plan_id
+    key     idx_users_plan_id
+    type    key
+    status  available
+
+  [4]
+    $id     1_3_idx_users_plan_expiry
+    key     idx_users_plan_expiry
+    type    key
+    status  available
+
+  [5]
+    $id     1_3_idx_users_last_active
+    key     idx_users_last_active
+    type    key
+    status  available
+
+  [6]
+    $id     1_3_idx_users_cleanup_candidate
+    key     idx_users_cleanup_candidate
+    type    key
+    status  available

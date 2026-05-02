@@ -11,6 +11,7 @@ interface LockedFeatureToggleProps {
     note: string;
     onUpgrade: () => void;
     activeIconClassName?: string;
+    actionElement?: React.ReactNode;
 }
 
 const LockedFeatureToggle: React.FC<LockedFeatureToggleProps> = ({
@@ -22,7 +23,8 @@ const LockedFeatureToggle: React.FC<LockedFeatureToggleProps> = ({
     locked,
     note,
     onUpgrade,
-    activeIconClassName = 'text-primary'
+    activeIconClassName = 'text-primary',
+    actionElement
 }) => (
     <div className={`rounded-[28px] border p-5 transition-all ${locked ? 'border-amber-300/70 bg-amber-50/80 dark:border-amber-500/30 dark:bg-amber-500/10' : 'border-content/70 bg-muted/40 hover:bg-muted/55'} ${checked && !locked ? 'ring-1 ring-primary/15' : ''}`}>
         <div className="flex items-center justify-between gap-4">
@@ -43,6 +45,8 @@ const LockedFeatureToggle: React.FC<LockedFeatureToggleProps> = ({
                 >
                     Upgrade
                 </button>
+            ) : actionElement ? (
+                actionElement
             ) : (
                 <ToggleSwitch
                     isChecked={checked}

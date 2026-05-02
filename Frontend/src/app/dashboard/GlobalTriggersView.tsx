@@ -1,4 +1,4 @@
-﻿// Global Triggers View - DM Automation Style
+// Global Triggers View - DM Automation Style
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
@@ -16,7 +16,7 @@ import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview'
 import AutomationEditor from '../../components/dashboard/AutomationEditor';
 import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
 import AutomationToast from '../../components/ui/AutomationToast';
-import { takeTransientState } from '../../lib/transientState';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 import {
@@ -53,6 +53,8 @@ const GlobalTriggersView: React.FC = () => {
     const [showLeaveModal, setShowLeaveModal] = useState(false);
     const saveHandlerRef = useRef<() => Promise<boolean>>(async () => true);
     useDashboardMainScrollLock(Boolean(editingTrigger || isPreparingEditor));
+    const location = useLocation();
+    const navigate = useNavigate();
 
     const primeEditorResources = useCallback(async () => {
         if (!activeAccountID) return;
@@ -154,46 +156,45 @@ const GlobalTriggersView: React.FC = () => {
     }, [activeAccountID, authenticatedFetch, replyTemplatesList, selectedTemplateId]);
 
     const handleCreateNew = useCallback(async () => {
-        setEditorLoadingMessage('Opening global trigger editor');
-        setIsPreparingEditor(true);
-        try {
-            await primeEditorResources();
-            setEditingTrigger({
-                title: '',
-                keyword: [],
-                template_type: 'template_text',
-                template_content: '',
-                followers_only: false
-            });
-            setPrefetchedTemplate(null);
-            setPreviewTemplate(null);
-            setEditorDirty(false);
-            setShowLeaveModal(false);
-            setSelectedTemplateId('');
-            setHasUnsavedChanges(false);
-        } finally {
-            setIsPreparingEditor(false);
-        }
-    }, [primeEditorResources, setHasUnsavedChanges]);
+        navigate('/dashboard/global-triggers/edit/new');
+    }, [navigate]);
 
-    const handleEdit = useCallback(async (trigger: any) => {
-        setEditorLoadingMessage('Loading global trigger');
+    const loadTrigger = useCallback(async (targetId: string, preloadedTrigger?: any) => {
+        setEditorLoadingMessage(targetId === 'new' ? 'Opening global trigger editor' : 'Loading global trigger');
         setIsPreparingEditor(true);
         try {
             await primeEditorResources();
-            let resolvedTrigger = trigger;
+            if (targetId === 'new') {
+                setEditingTrigger({
+                    title: '',
+                    keyword: [],
+                    template_type: 'template_text',
+                    template_content: '',
+                    followers_only: false
+                });
+                setPrefetchedTemplate(null);
+                setPreviewTemplate(null);
+                setEditorDirty(false);
+                setShowLeaveModal(false);
+                setSelectedTemplateId('');
+                setHasUnsavedChanges(false);
+                return;
+            }
+
+            let resolvedTrigger = preloadedTrigger || { $id: targetId };
             let resolvedTemplate: ReplyTemplate | null = null;
 
-            if (trigger?.$id) {
-                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${trigger.$id}?account_id=${activeAccountID}`);
+            if (!preloadedTrigger && targetId) {
+                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}`);
                 if (res.ok) {
                     resolvedTrigger = await res.json();
                 }
             }
 
-            if (resolvedTrigger?.template_id) {
+            const resolvedTemplateId = String(resolvedTrigger?.template_id || '').trim();
+            if (resolvedTemplateId) {
                 const templateRes = await authenticatedFetch(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${resolvedTrigger.template_id}?account_id=${activeAccountID}`
+                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${resolvedTemplateId}?account_id=${activeAccountID}`
                 );
                 if (templateRes.ok) {
                     resolvedTemplate = await templateRes.json();
@@ -208,12 +209,16 @@ const GlobalTriggersView: React.FC = () => {
             }
             setEditorDirty(false);
             setShowLeaveModal(false);
-            setSelectedTemplateId(resolvedTrigger.template_id || resolvedTemplate?.id || '');
+            setSelectedTemplateId(String(resolvedTrigger?.template_id || '').trim() || resolvedTemplate?.id || '');
             setHasUnsavedChanges(false);
         } finally {
             setIsPreparingEditor(false);
         }
     }, [activeAccountID, authenticatedFetch, primeEditorResources, setHasUnsavedChanges]);
+
+    const handleEdit = useCallback((trigger: any) => {
+        navigate(`/dashboard/global-triggers/edit/${trigger.$id}`, { state: { trigger } });
+    }, [navigate]);
 
     useEffect(() => {
         if (editingTrigger) {
@@ -223,36 +228,40 @@ const GlobalTriggersView: React.FC = () => {
 
     useEffect(() => {
         if (!activeAccountID) return;
-        const targetId = takeTransientState<string>('openAutomationId');
-        const targetType = takeTransientState<string>('openAutomationType');
-        if (!targetId || (targetType !== 'global' && targetType !== 'global_trigger')) return;
+        const match = location.pathname.match(/\/dashboard\/global-triggers\/edit\/([^/]+)/);
+        const targetId = match ? match[1] : null;
 
-        const existing = (globalTriggers || []).find((t: any) => t.$id === targetId);
-        if (existing) {
-            void handleEdit(existing);
+        if (!targetId) {
+            if (editingTrigger || isPreparingEditor) {
+                setEditingTrigger(null);
+                setEditorDirty(false);
+                setShowLeaveModal(false);
+                setPrefetchedTemplate(null);
+                setPreviewTemplate(null);
+                setSelectedTemplateId('');
+                setHasUnsavedChanges(false);
+                setIsPreparingEditor(false);
+            }
             return;
         }
 
-        (async () => {
-            try {
-                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    void handleEdit(data);
-                }
-            } catch (_) { }
-        })();
-    }, [activeAccountID, authenticatedFetch, globalTriggers, handleEdit]);
+        if (targetId === 'new') {
+            if (editingTrigger && !editingTrigger.$id) return;
+            loadTrigger(targetId);
+            return;
+        }
+
+        if (editingTrigger?.$id === targetId) return;
+
+        const stateTrigger = location.state?.trigger;
+        const existing = stateTrigger || (globalTriggers || []).find((t: any) => t.$id === targetId);
+
+        loadTrigger(targetId, existing);
+    }, [activeAccountID, location.pathname, location.state, globalTriggers, editingTrigger, loadTrigger, isPreparingEditor, setHasUnsavedChanges]);
 
     const handleClose = useCallback(() => {
-        setEditingTrigger(null);
-        setEditorDirty(false);
-        setShowLeaveModal(false);
-        setPrefetchedTemplate(null);
-        setPreviewTemplate(null);
-        setSelectedTemplateId('');
-        setHasUnsavedChanges(false);
-    }, [setHasUnsavedChanges]);
+        navigate('/dashboard/global-triggers');
+    }, [navigate]);
 
     const requestClose = useCallback(() => {
         if (editorDirty) {
@@ -262,12 +271,13 @@ const GlobalTriggersView: React.FC = () => {
         handleClose();
     }, [editorDirty, handleClose]);
 
-    const handleSave = useCallback(async () => {
-        // AutomationEditor performs the actual save.
-        // Here we just refresh and close the editor after success.
-        handleClose();
-        fetchTriggers(true);
-    }, [handleClose, fetchTriggers]);
+    const handleSave = useCallback(async (savedAutomation?: any) => {
+        await fetchTriggers(true);
+        const savedId = String(savedAutomation?.automation_id || savedAutomation?.$id || editingTrigger?.$id || '').trim();
+        if (savedId && location.pathname.endsWith('/edit/new')) {
+            navigate(`/dashboard/global-triggers/edit/${savedId}`, { replace: true });
+        }
+    }, [editingTrigger?.$id, fetchTriggers, location.pathname, navigate]);
 
     const handleToggleActive = async (trigger: any) => {
         setTogglingIds((s) => new Set(s).add(trigger.$id));
@@ -389,6 +399,7 @@ const GlobalTriggersView: React.FC = () => {
                                     <AutomationEditor
                                         type="global"
                                         isStandalone={false}
+                                        autoCloseOnSave={false}
                                         useParentLayout
                                         activeAccountID={activeAccountID}
                                         authenticatedFetch={authenticatedFetch}

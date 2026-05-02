@@ -1,0 +1,26 @@
+﻿total  4
+ 
+indexes (4)
+  [1]
+    $id     1_122_idx_coupon
+    key     idx_coupon
+    type    key
+    status  available
+
+  [2]
+    $id     1_122_idx_coupon_user
+    key     idx_coupon_user
+    type    key
+    status  available
+
+  [3]
+    $id     1_122_idx_user_created
+    key     idx_user_created
+    type    key
+    status  available
+
+  [4]
+    $id     1_122_idx_payment_attempt
+    key     idx_payment_attempt
+    type    key
+    status  available

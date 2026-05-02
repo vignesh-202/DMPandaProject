@@ -21,7 +21,7 @@ export const ProtectedRoute: React.FC = () => {
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
                         <div className="h-4 w-4 rounded-full bg-destructive" />
                     </div>
-                    <p className="mt-6 text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">
+                    <p className="mt-6 text-[10px] font-black text-muted-foreground">
                         Restricted
                     </p>
                     <h1 className="mt-3 text-3xl font-extrabold text-foreground">Access Denied</h1>

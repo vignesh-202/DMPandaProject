@@ -1,0 +1,26 @@
+﻿total  4
+ 
+indexes (4)
+  [1]
+    $id     1_13_automation_id_idx
+    key     automation_id_idx
+    type    key
+    status  available
+
+  [2]
+    $id     1_13_idx_account_keyword_norm
+    key     idx_account_keyword_norm
+    type    key
+    status  available
+
+  [3]
+    $id     1_13_idx_account_type
+    key     idx_account_type
+    type    key
+    status  available
+
+  [4]
+    $id     1_13_idx_lookup_type
+    key     idx_lookup_type
+    type    unique
+    status  available

@@ -64,7 +64,7 @@ export const AuthCallback: React.FC = () => {
         return (
             <div className="flex min-h-screen items-center justify-center px-6">
                 <div className="glass-card ig-topline w-full max-w-lg rounded-[32px] p-10 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Authentication Error</p>
+                    <p className="text-[10px] font-black text-muted-foreground">Authentication Error</p>
                     <h1 className="mt-3 text-3xl font-extrabold text-foreground">Google sign-in failed</h1>
                     <p className="mt-3 text-sm text-muted-foreground">{error}</p>
                 </div>

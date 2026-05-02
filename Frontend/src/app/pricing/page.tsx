@@ -140,9 +140,12 @@ const PricingPage: React.FC = () => {
           <div className="py-12 text-center text-gray-500 dark:text-gray-500">Loading pricing...</div>
         ) : (
           <div className="mb-16 grid grid-cols-1 gap-4 sm:mb-24 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4 lg:gap-8">
-            {plans.map((plan, index) => {
-              const visibleFeatures = allExpanded ? plan.features : plan.features.slice(0, 6);
-              const hasMoreFeatures = plan.features.length > 6;
+            {plans.map((plan) => {
+              const allFeatures = plan.feature_items
+                ? plan.feature_items.map((item) => ({ key: item.key || item.label, label: item.label || item.key, enabled: item.enabled }))
+                : plan.features.map((f) => ({ key: f, label: f, enabled: true }));
+              const visibleFeatures = allExpanded ? allFeatures : allFeatures.slice(0, 6);
+              const hasMoreFeatures = allFeatures.length > 6;
               const isPopular = plan.is_popular;
               const price = getPlanBigPrice(plan, currency, isYearly);
               const billedTotal = getPlanBilledTotal(plan, currency, isYearly);
@@ -150,7 +153,7 @@ const PricingPage: React.FC = () => {
 
               return (
                 <div
-                  key={index}
+                  key={plan.id || plan.plan_code}
                   className={`relative flex flex-col rounded-3xl p-6 transition-all duration-300 sm:p-8 ${
                     isPopular
                       ? 'z-10 scale-[1.02] bg-gray-900 text-white shadow-2xl ring-1 ring-gray-800 sm:scale-105 dark:bg-gradient-to-b dark:from-purple-500/20 dark:to-blue-500/10 dark:ring-purple-500/20'
@@ -200,12 +203,12 @@ const PricingPage: React.FC = () => {
                   </div>
 
                   <div className="flex-grow space-y-3 sm:space-y-4">
-                    {visibleFeatures.map((feature, i) => (
-                      <div key={i} className="flex items-start gap-3 text-sm">
-                        <div className={`mt-0.5 ${isPopular ? 'text-green-400' : 'text-green-600 dark:text-green-400'}`}>
-                          <Check size={16} strokeWidth={3} />
+                    {visibleFeatures.map((feature) => (
+                      <div key={`${plan.id || plan.plan_code}-${feature.key}`} className={`flex items-start gap-3 text-sm ${!feature.enabled ? 'opacity-50' : ''}`}>
+                        <div className={`mt-0.5 ${feature.enabled ? (isPopular ? 'text-green-400' : 'text-green-600 dark:text-green-400') : 'text-gray-400'}`}>
+                          {feature.enabled ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={3} />}
                         </div>
-                        <span>{feature}</span>
+                        <span className={feature.enabled ? '' : 'line-through decoration-gray-400'}>{feature.label}</span>
                       </div>
                     ))}
                   </div>
@@ -267,14 +270,14 @@ const PricingPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-white/[0.06]">
                   {comparisonRows.map((row) => (
-                    <tr key={row.key} className="transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                    <tr key={`comp-row-${row.key}`} className="transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                       <td className="sticky left-0 bg-white p-4 text-sm font-medium text-gray-900 hover:bg-gray-50 dark:bg-neutral-950 dark:text-gray-200 dark:hover:bg-white/[0.02] sm:p-6">
                         {row.label}
                       </td>
-                      {plans.map((plan) => {
+                      {plans.map((plan, planIdx) => {
                         const value = row.values[plan.plan_code || plan.id];
                         return (
-                          <td key={`${row.key}-${plan.id}`} className="p-4 text-center text-sm text-gray-600 dark:text-gray-400 sm:p-6">
+                          <td key={`comp-cell-${row.key}-${planIdx}`} className="p-4 text-center text-sm text-gray-600 dark:text-gray-400 sm:p-6">
                             {typeof value === 'boolean'
                               ? (value ? <Check className="mx-auto text-green-500" size={20} /> : <X className="mx-auto text-gray-300 dark:text-gray-600" size={20} />)
                               : (value == null || value === '' ? '-' : String(value))}

@@ -1,0 +1,43 @@
+﻿total  5
+ 
+attributes (5)
+  [1]
+    key       job_name
+    type      string
+    status    available
+    required  true
+    array     false
+    size      120
+    encrypt   false
+
+  [2]
+    key       run_window
+    type      string
+    status    available
+    required  true
+    array     false
+    size      120
+    encrypt   false
+
+  [3]
+    key       lock_key
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [4]
+    key       expires_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [5]
+    key       created_at
+    type      datetime
+    status    available
+    required  true
+    array     false

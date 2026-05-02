@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MessageSquare, Plus, RefreshCw, AlertCircle, Trash2, CheckCircle2, Instagram, MessageCircle, Loader2, Pencil, Image as ImageIcon, Reply, ArrowLeft, X, HelpCircle, List, Calendar, ChevronDown, Film, Globe, PlusSquare, Edit, LayoutGrid, GripVertical, Lock, Sparkles, Mail } from 'lucide-react';
 import Card from '../../components/ui/card';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
@@ -11,6 +11,7 @@ import AutomationToast from '../../components/ui/AutomationToast';
 import { useDashboard, ViewType } from '../../contexts/DashboardContext';
 import { useAuth } from '../../contexts/AuthContext';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
+import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import { takeTransientState } from '../../lib/transientState';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 
@@ -136,7 +137,8 @@ const ConvoStarterView: React.FC = () => {
         setSaveUnsavedChanges,
         setDiscardUnsavedChanges,
         currentView,
-        setCurrentView
+        setCurrentView,
+        getPlanGate
     } = useDashboard();
     const { authenticatedFetch } = useAuth();
 
@@ -841,28 +843,22 @@ const ConvoStarterView: React.FC = () => {
                                 </div>
 
                                 <div className="space-y-4 pt-6 border-t border-content">
-                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                                <Lock className={`w-5 h-5 ${newItem.followers_only ? 'text-primary' : 'text-muted-foreground'}`} />
-                                            </div>
-                                            <div>
-                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Followers Only</p>
-                                                <p className="text-[10px] font-medium text-muted-foreground">Gate this starter until the sender follows the account.</p>
-                                            </div>
-                                        </div>
-                                        <ToggleSwitch
-                                            isChecked={Boolean(newItem.followers_only)}
-                                            onChange={() => setNewItem({
-                                                ...newItem,
-                                                followers_only: !newItem.followers_only,
-                                                followers_only_message: !newItem.followers_only
-                                                    ? (newItem.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
-                                                    : ''
-                                            })}
-                                            variant="plain"
-                                        />
-                                    </div>
+                                    <LockedFeatureToggle
+                                        icon={<Lock className={`w-5 h-5 ${newItem.followers_only ? 'text-primary' : 'text-muted-foreground'}`} />}
+                                        title="Followers Only"
+                                        description="Gate this starter until the sender follows the account."
+                                        checked={Boolean(newItem.followers_only)}
+                                        onToggle={() => setNewItem({
+                                            ...newItem,
+                                            followers_only: !newItem.followers_only,
+                                            followers_only_message: !newItem.followers_only
+                                                ? (newItem.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
+                                                : ''
+                                        })}
+                                        locked={getPlanGate('followers_only').isLocked}
+                                        note={getPlanGate('followers_only').note}
+                                        onUpgrade={() => setCurrentView('My Plan')}
+                                    />
 
                                     {newItem.followers_only && (
                                         <div className="bg-card border border-content rounded-2xl p-6 space-y-4">
@@ -904,57 +900,49 @@ const ConvoStarterView: React.FC = () => {
                                         </div>
                                     )}
 
-                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                                <Sparkles className={`w-5 h-5 ${newItem.suggest_more_enabled ? 'text-primary' : 'text-muted-foreground'}`} />
-                                            </div>
-                                            <div>
-                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Suggest More</p>
-                                                <p className="text-[10px] font-medium text-muted-foreground">Send your Suggest More template after this conversation starter reply.</p>
-                                            </div>
-                                        </div>
-                                        <ToggleSwitch isChecked={Boolean(newItem.suggest_more_enabled)} onChange={() => setNewItem({ ...newItem, suggest_more_enabled: !newItem.suggest_more_enabled })} variant="plain" />
-                                    </div>
+                                    <LockedFeatureToggle
+                                        icon={<Sparkles className={`w-5 h-5 ${newItem.suggest_more_enabled ? 'text-primary' : 'text-muted-foreground'}`} />}
+                                        title="Suggest More"
+                                        description="Send your Suggest More template after this conversation starter reply."
+                                        checked={Boolean(newItem.suggest_more_enabled)}
+                                        onToggle={() => setNewItem({ ...newItem, suggest_more_enabled: !newItem.suggest_more_enabled })}
+                                        locked={getPlanGate('suggest_more').isLocked}
+                                        note={getPlanGate('suggest_more').note}
+                                        onUpgrade={() => setCurrentView('My Plan')}
+                                    />
 
-                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                                <Calendar className={`w-5 h-5 ${newItem.once_per_user_24h ? 'text-primary' : 'text-muted-foreground'}`} />
-                                            </div>
-                                            <div>
-                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Once Per User (24h)</p>
-                                                <p className="text-[10px] font-medium text-muted-foreground">Prevent the same person from triggering this starter again for 24 hours.</p>
-                                            </div>
-                                        </div>
-                                        <ToggleSwitch isChecked={Boolean(newItem.once_per_user_24h)} onChange={() => setNewItem({ ...newItem, once_per_user_24h: !newItem.once_per_user_24h })} variant="plain" />
-                                    </div>
+                                    <LockedFeatureToggle
+                                        icon={<Calendar className={`w-5 h-5 ${newItem.once_per_user_24h ? 'text-primary' : 'text-muted-foreground'}`} />}
+                                        title="Once Per User (24h)"
+                                        description="Prevent the same person from triggering this starter again for 24 hours."
+                                        checked={Boolean(newItem.once_per_user_24h)}
+                                        onToggle={() => setNewItem({ ...newItem, once_per_user_24h: !newItem.once_per_user_24h })}
+                                        locked={getPlanGate('once_per_user_24h').isLocked}
+                                        note={getPlanGate('once_per_user_24h').note}
+                                        onUpgrade={() => setCurrentView('My Plan')}
+                                    />
 
-                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                                <Mail className={`w-5 h-5 ${newItem.collect_email_enabled ? 'text-primary' : 'text-muted-foreground'}`} />
-                                            </div>
-                                            <div>
-                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Collect Email</p>
-                                                <p className="text-[10px] font-medium text-muted-foreground">Require a valid email before the main reply continues.</p>
-                                            </div>
-                                        </div>
-                                        <ToggleSwitch isChecked={Boolean(newItem.collect_email_enabled)} onChange={() => setNewItem({ ...newItem, collect_email_enabled: !newItem.collect_email_enabled })} variant="plain" />
-                                    </div>
+                                    <LockedFeatureToggle
+                                        icon={<Mail className={`w-5 h-5 ${newItem.collect_email_enabled ? 'text-primary' : 'text-muted-foreground'}`} />}
+                                        title="Collect Email"
+                                        description="Require a valid email before the main reply continues."
+                                        checked={Boolean(newItem.collect_email_enabled)}
+                                        onToggle={() => setNewItem({ ...newItem, collect_email_enabled: !newItem.collect_email_enabled })}
+                                        locked={getPlanGate('collect_email').isLocked}
+                                        note={getPlanGate('collect_email').note}
+                                        onUpgrade={() => setCurrentView('My Plan')}
+                                    />
 
-                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                                <MessageSquare className={`w-5 h-5 ${newItem.seen_typing_enabled ? 'text-primary' : 'text-muted-foreground'}`} />
-                                            </div>
-                                            <div>
-                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Seen + Typing Reaction</p>
-                                                <p className="text-[10px] font-medium text-muted-foreground">Store the seen and typing preference with this starter.</p>
-                                            </div>
-                                        </div>
-                                        <ToggleSwitch isChecked={Boolean(newItem.seen_typing_enabled)} onChange={() => setNewItem({ ...newItem, seen_typing_enabled: !newItem.seen_typing_enabled })} variant="plain" />
-                                    </div>
+                                    <LockedFeatureToggle
+                                        icon={<MessageSquare className={`w-5 h-5 ${newItem.seen_typing_enabled ? 'text-primary' : 'text-muted-foreground'}`} />}
+                                        title="Seen + Typing Reaction"
+                                        description="Store the seen and typing preference with this starter."
+                                        checked={Boolean(newItem.seen_typing_enabled)}
+                                        onToggle={() => setNewItem({ ...newItem, seen_typing_enabled: !newItem.seen_typing_enabled })}
+                                        locked={getPlanGate('seen_typing').isLocked}
+                                        note={getPlanGate('seen_typing').note}
+                                        onUpgrade={() => setCurrentView('My Plan')}
+                                    />
                                 </div>
 
                                 <div className={`space-y-6 pt-6 border-t ${validationErrors.template ? 'border-destructive' : 'border-content'}`}>

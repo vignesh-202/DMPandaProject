@@ -10,10 +10,13 @@ const StreamerClient = require('./src/streamer-client');
 const app = express();
 const port = process.env.PORT || 3001;
 const verifyToken = process.env.META_VERIFY_TOKEN || '';
+const workerWebhookSecret = String(process.env.WORKER_WEBHOOK_SHARED_SECRET || '').trim();
+const logRequestBodies = String(process.env.WORKER_LOG_REQUESTS || '').trim().toLowerCase() === 'true';
+const jsonBodyLimit = String(process.env.WORKER_JSON_BODY_LIMIT || '512kb').trim() || '512kb';
 
 app.use(cors());
 app.use(morgan('dev'));
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: jsonBodyLimit }));
 
 const worker = new DMWorker();
 const streamerClient = new StreamerClient({ worker });
@@ -55,6 +58,12 @@ function redactObject(value, seen = new WeakSet()) {
 }
 
 function logRequestDetails(req) {
+    if (!logRequestBodies) {
+        console.log('--- Incoming Request ---');
+        console.log('Method:', req.method);
+        console.log('URL:', req.originalUrl);
+        return;
+    }
     console.log('--- Incoming Request ---');
     console.log('Method:', req.method);
     console.log('URL:', req.originalUrl);
@@ -66,15 +75,31 @@ function logRequestDetails(req) {
 function sendLoggedJson(res, statusCode, payload) {
     console.log('--- Outgoing Response ---');
     console.log('Status:', statusCode);
-    console.log('Payload:', redactObject(payload));
+    if (logRequestBodies) {
+        console.log('Payload:', redactObject(payload));
+    }
     return res.status(statusCode).json(payload);
 }
 
 function sendLoggedText(res, statusCode, text) {
     console.log('--- Outgoing Response ---');
     console.log('Status:', statusCode);
-    console.log('Payload:', text);
+    if (logRequestBodies) {
+        console.log('Payload:', text);
+    }
     return res.status(statusCode).send(text);
+}
+
+function isAuthorizedInternalWorkerRequest(req) {
+    if (!workerWebhookSecret) return true;
+    const headerSecret = String(req.headers['x-worker-secret'] || '').trim();
+    if (headerSecret && headerSecret === workerWebhookSecret) return true;
+    const authHeader = String(req.headers.authorization || '').trim();
+    if (authHeader.toLowerCase().startsWith('bearer ')) {
+        const token = authHeader.slice(7).trim();
+        if (token && token === workerWebhookSecret) return true;
+    }
+    return false;
 }
 
 // Health check endpoint
@@ -123,7 +148,7 @@ app.post('/webhook', async (req, res) => {
     }
 
     try {
-        const success = await worker.processMessage(req.body);
+        const success = await worker.processWebhook(req.body, { throwOnError: false });
         return sendLoggedJson(res, 200, { success });
     } catch (error) {
         console.error('Error in /webhook:', error);
@@ -141,9 +166,15 @@ app.post('/process-webhook', async (req, res) => {
             message: 'Send internal webhook jobs to the streamer master instead of a worker slave.'
         });
     }
+    if (!isAuthorizedInternalWorkerRequest(req)) {
+        return sendLoggedJson(res, 401, {
+            error: 'unauthorized_worker_request',
+            message: 'Missing or invalid worker shared secret.'
+        });
+    }
 
     try {
-        const success = await worker.processMessage(req.body);
+        const success = await worker.processWebhook(req.body, { throwOnError: false });
         return sendLoggedJson(res, 200, { success });
     } catch (error) {
         console.error('Error in /process-webhook:', error);
@@ -151,7 +182,23 @@ app.post('/process-webhook', async (req, res) => {
     }
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
     console.log(`Worker node listening at http://localhost:${port}`);
     streamerClient.start();
 });
+
+const gracefulShutdown = (signal) => {
+    console.log(`Received ${signal}. Shutting down worker node...`);
+    streamerClient.stop();
+    server.close(() => {
+        console.log('Worker HTTP server closed.');
+        process.exit(0);
+    });
+    setTimeout(() => {
+        console.warn('Forced shutdown after timeout.');
+        process.exit(1);
+    }, 10_000).unref();
+};
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

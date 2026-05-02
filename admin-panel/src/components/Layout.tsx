@@ -108,7 +108,7 @@ export const Layout: React.FC = () => {
                 aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
                 title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             >
-                <span className="pl-3 text-[11px] font-black uppercase tracking-[0.18em] text-foreground">
+                <span className="pl-3 text-[11px] font-black text-foreground">
                     {theme === 'light' ? 'Light' : 'Dark'}
                 </span>
                 <span
@@ -157,7 +157,7 @@ export const Layout: React.FC = () => {
                         <>
                             <div className="min-w-0">
                                 <p className="font-display text-[1.2rem] font-extrabold tracking-tight text-foreground">DM Panda</p>
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">admin panel</p>
+                                <p className="text-[10px] font-black text-muted-foreground">admin panel</p>
                             </div>
                             <button
                                 type="button"
@@ -251,7 +251,7 @@ export const Layout: React.FC = () => {
                     <div className="relative flex items-center gap-3 pr-12">
                                 <div>
                                     <h2 className="font-display text-[1.2rem] font-extrabold tracking-tight text-foreground">DM Panda</h2>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">admin panel</p>
+                                    <p className="text-[10px] font-black text-muted-foreground">admin panel</p>
                                 </div>
                                 <button
                                     type="button"
@@ -292,7 +292,7 @@ export const Layout: React.FC = () => {
                                 />
                                 <div className="flex-1 overflow-hidden">
                                     <p className="truncate text-sm font-bold tracking-tight text-foreground">{user?.name || 'Administrator'}</p>
-                                    <p className="truncate text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground">Active Now</p>
+                                    <p className="truncate text-[10px] font-medium text-muted-foreground">Active Now</p>
                                 </div>
                                 <button
                                     onClick={handleLogout}
@@ -321,7 +321,7 @@ export const Layout: React.FC = () => {
                                 </button>
                             </div>
                             <div className="min-w-0">
-                                <p className="truncate text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground sm:tracking-[0.28em]">Admin Panel</p>
+                                <p className="truncate text-[10px] font-black text-muted-foreground sm:tracking-[0.28em]">Admin Panel</p>
                                 <h2 className="mt-1 truncate text-base font-extrabold text-foreground sm:text-lg">{headerMeta.title}</h2>
                             </div>
                         </div>
@@ -336,7 +336,7 @@ export const Layout: React.FC = () => {
                         </div>
                     </div>
                 </header>
-                <div className="custom-scrollbar mx-auto min-h-0 max-w-[1480px] flex-1 overflow-x-hidden overflow-y-auto px-4 pb-10 pt-5 sm:px-6 sm:pb-12 sm:pt-7 lg:px-8">
+                <div className="custom-scrollbar relative mx-auto min-h-0 w-full max-w-[1480px] flex-1 overflow-x-clip overflow-y-auto px-4 pb-10 pt-5 sm:px-6 sm:pb-12 sm:pt-7 lg:px-8">
                     <Outlet />
                 </div>
                 <div className="pointer-events-none absolute inset-0 z-[120]" data-admin-section-overlay-root />

@@ -18,8 +18,6 @@ PAGE_SIZE = 100
 MAX_RETRIES = 3
 DEFAULT_BATCH_SIZE = 50
 DEFAULT_FREE_PLAN = "free"
-ACTIVE_PLAN_STATUSES = {"active", "trial"}
-
 
 def _env(key: str, default: str = "") -> str:
     runtime_key = {
@@ -205,10 +203,6 @@ def _serialize_json_object(value):
 
 def _normalize_plan_code(value):
     return str(value or "").strip().lower() or DEFAULT_FREE_PLAN
-
-
-def _normalize_plan_status(value):
-    return str(value or "").strip().lower()
 
 
 def _hash_value(value: str) -> str:
@@ -503,7 +497,7 @@ def _latest_success_transaction_at(client: Client, db_id: str, collection_id: st
 def _latest_self_subscription_from_transactions(client: Client, db_id: str, collection_id: str, user_id: str, now):
     safe_user_id = str(user_id or "").strip()
     if not safe_user_id:
-        return {"plan_id": DEFAULT_FREE_PLAN, "expires_at": None}
+        return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None}
     transactions = _list_all(
         client,
         db_id,
@@ -533,44 +527,30 @@ def _latest_self_subscription_from_transactions(client: Client, db_id: str, coll
     ranked.sort(key=lambda item: item[0], reverse=True)
     decisive = next((item for item in ranked if item[1] in {"success", "paid", "captured", "completed", "active", "refunded", "partially_refunded", "chargeback", "disputed", "void", "reversed", "cancelled", "canceled"}), None)
     if not decisive:
-        return {"plan_id": DEFAULT_FREE_PLAN, "expires_at": None}
+        return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None}
     created_at, status, plan_code, row = decisive
     if status in {"refunded", "partially_refunded", "chargeback", "disputed", "void", "reversed", "cancelled", "canceled"}:
-        return {"plan_id": DEFAULT_FREE_PLAN, "expires_at": None}
-    cycle = str(_obj_get(row, "billingCycle") or _obj_get(row, "billing_cycle") or "monthly").strip().lower()
-    days = 364 if cycle == "yearly" else 30
-    expires_at = created_at + timedelta(days=days)
-    if expires_at <= now:
-        return {"plan_id": DEFAULT_FREE_PLAN, "expires_at": expires_at}
-    return {"plan_id": plan_code, "expires_at": expires_at}
+        return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None}
+    expiry_date = _parse_datetime(_obj_get(row, "expiry_date"))
+    if not expiry_date:
+        return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None}
+    if expiry_date <= now:
+        return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": expiry_date}
+    return {"plan_id": plan_code, "expiry_date": expiry_date}
 
 
 def _evaluate_user(user_doc, profile_doc, latest_tx_at, now, self_subscription=None):
     if not profile_doc:
         return {"decision": "skip_uncertain", "reason": "missing_profile"}
 
-    self_subscription = self_subscription or {}
-    self_plan_id = _normalize_plan_code(_obj_get(self_subscription, "plan_id"))
-    self_plan_expires = _obj_get(self_subscription, "expires_at")
-    if self_plan_id != DEFAULT_FREE_PLAN:
-        if not self_plan_expires:
-            return {"decision": "skip_uncertain", "reason": "transaction_self_plan_missing_expiry"}
-        if self_plan_expires > now:
-            return {"decision": "skip_paid", "reason": "valid_transaction_self_subscription"}
-
     profile_plan = _normalize_plan_code(_obj_get(profile_doc, "plan_code"))
-    profile_status = _normalize_plan_status(_obj_get(profile_doc, "plan_status"))
-    profile_expires = _parse_datetime(_obj_get(profile_doc, "expires_at"))
+    profile_expires = _parse_datetime(_obj_get(profile_doc, "expiry_date"))
     if profile_plan != DEFAULT_FREE_PLAN:
-        if profile_status in ACTIVE_PLAN_STATUSES:
-            if not profile_expires:
-                return {"decision": "skip_uncertain", "reason": "runtime_paid_missing_expiry"}
-            if profile_expires > now:
-                return {"decision": "skip_paid", "reason": "runtime_paid_profile"}
-        return {"decision": "skip_uncertain", "reason": "runtime_profile_not_free"}
-
-    if profile_status in ACTIVE_PLAN_STATUSES:
-        return {"decision": "skip_uncertain", "reason": "free_profile_marked_active"}
+        if not profile_expires:
+            return {"decision": "skip_uncertain", "reason": "runtime_paid_missing_expiry"}
+        if profile_expires > now:
+            return {"decision": "skip_paid", "reason": "runtime_paid_profile"}
+        return {"decision": "skip_uncertain", "reason": "runtime_profile_expired_non_free"}
 
     activity_at = _activity_anchor(user_doc, latest_tx_at)
     if not activity_at:
@@ -735,7 +715,6 @@ def _delete_user_data(client: Client, db_id: str, collections: dict, user_doc):
                 summary["deleted"][collection_id] = summary["deleted"].get(collection_id, 0) + deleted
 
     user_scoped = [
-        collections["settings"],
         collections["campaigns"],
         collections["automations"],
         collections["reply_templates"],
@@ -748,11 +727,9 @@ def _delete_user_data(client: Client, db_id: str, collections: dict, user_doc):
         collections["ig_accounts"],
         collections["payment_attempts"],
         collections["coupon_redemptions"],
-        collections["admin_audit_logs"],
     ]
     for collection_id in user_scoped:
-        user_field = "target_user_id" if collection_id == collections["admin_audit_logs"] else "user_id"
-        deleted = _delete_by_field(client, db_id, collection_id, user_field, user_id)
+        deleted = _delete_by_field(client, db_id, collection_id, "user_id", user_id)
         if deleted:
             summary["deleted"][collection_id] = summary["deleted"].get(collection_id, 0) + deleted
 
@@ -818,7 +795,6 @@ def main(context):
         protected_domains = _parse_csv_set(_env("INACTIVE_CLEANUP_PROTECTED_EMAIL_DOMAINS"))
 
         collections = {
-            "settings": _env("SETTINGS_COLLECTION_ID", "settings"),
             "campaigns": _env("CAMPAIGNS_COLLECTION_ID", "campaigns"),
             "profiles": profiles_collection,
             "automations": _env("AUTOMATIONS_COLLECTION_ID", "automations"),
@@ -831,7 +807,6 @@ def main(context):
             "automation_collect_destinations": _env("AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID", "automation_collect_destinations"),
             "automation_collected_emails": _env("AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID", "automation_collected_emails"),
             "logs": _env("LOGS_COLLECTION_ID", "logs"),
-            "admin_audit_logs": _env("ADMIN_AUDIT_LOGS_COLLECTION_ID", "admin_audit_logs"),
             "keywords": _env("KEYWORDS_COLLECTION_ID", "keywords"),
             "keyword_index": _env("KEYWORD_INDEX_COLLECTION_ID", "keyword_index"),
             "ig_accounts": _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts"),

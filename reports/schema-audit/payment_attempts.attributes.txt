@@ -1,0 +1,150 @@
+﻿total  17
+ 
+attributes (17)
+  [1]
+    key       user_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       plan_code
+    type      string
+    status    available
+    required  true
+    array     false
+    size      32
+    encrypt   false
+
+  [3]
+    key       plan_name
+    type      string
+    status    available
+    required  true
+    array     false
+    size      100
+    encrypt   false
+
+  [4]
+    key       billing_cycle
+    type      string
+    status    available
+    required  true
+    array     false
+    format    enum
+
+  [5]
+    key       currency
+    type      string
+    status    available
+    required  true
+    array     false
+    size      3
+    encrypt   false
+
+  [6]
+    key       base_amount
+    type      double
+    status    available
+    required  true
+    array     false
+    min       -1.7976931348623157e+308
+    max       1.7976931348623157e+308
+
+  [7]
+    key       discount_amount
+    type      double
+    status    available
+    required  false
+    array     false
+    min       -1.7976931348623157e+308
+    max       1.7976931348623157e+308
+    default   0
+
+  [8]
+    key       final_amount
+    type      double
+    status    available
+    required  true
+    array     false
+    min       -1.7976931348623157e+308
+    max       1.7976931348623157e+308
+
+  [9]
+    key       coupon_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [10]
+    key       coupon_code
+    type      string
+    status    available
+    required  false
+    array     false
+    size      64
+    encrypt   false
+
+  [11]
+    key       status
+    type      string
+    status    available
+    required  true
+    array     false
+    format    enum
+
+  [12]
+    key       gateway_order_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [13]
+    key       gateway_payment_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [14]
+    key       gateway_receipt
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [15]
+    key       created_at
+    type      datetime
+    status    available
+    required  true
+    array     false
+
+  [16]
+    key       verified_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [17]
+    key       meta_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      12000
+    encrypt   false

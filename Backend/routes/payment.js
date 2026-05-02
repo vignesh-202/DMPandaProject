@@ -17,6 +17,8 @@ const { buildTransactionReceipt } = require('../utils/transactionReceipt');
 const {
     normalizePlanCode,
     normalizePlanDocument,
+    buildPlanApiPayload,
+    buildPricingApiPayload,
     listPricingPlans,
     getPlanByIdentifier,
     resolvePlanEntitlements,
@@ -24,7 +26,9 @@ const {
     resolveUserPlanContext,
     encodeProfileLimit,
     parseProfileConfig,
+    getProfileBillingCycle,
     normalizeBillingCycle,
+    normalizePlanSource,
     resolvePlanDurationDays,
     calculateSubscriptionExpiry,
     buildPlanProfilePayload,
@@ -32,6 +36,7 @@ const {
 } = require('../utils/planConfig');
 const { loadUserAccessState } = require('../utils/accessControl');
 const { recomputeAccountAccessForUser } = require('../utils/accountAccess');
+const { updateAutomationPlanValidationForUser } = require('../utils/automationPlanAudit');
 const { touchUserActivity } = require('../utils/userActivity');
 
 const router = express.Router();
@@ -43,9 +48,6 @@ const razorpay = (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET)
     ? new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET })
     : null;
 
-const PRICING_CACHE_TTL_MS = 60 * 1000;
-
-const pricingCache = new Map();
 const pricingInflightRequests = new Map();
 
 const isTransientFetchError = (error) => {
@@ -268,54 +270,33 @@ const describeError = (error) => {
     return parts.join(' | ') || 'Unknown error';
 };
 
-const getPricingCacheKey = ({ countryCode, currency }) => {
+const getPricingRequestKey = ({ countryCode, currency }) => {
     const normalizedCountry = String(countryCode || 'unknown').trim().toUpperCase() || 'UNKNOWN';
     const normalizedCurrency = normalizeCurrency(currency || 'USD');
     return `${normalizedCountry}:${normalizedCurrency}`;
 };
 
-const getCachedPricingPayload = async (currencyPolicy) => {
-    const cacheKey = getPricingCacheKey(currencyPolicy);
-    const now = Date.now();
-    const cached = pricingCache.get(cacheKey);
+const getLivePricingPayload = async (currencyPolicy) => {
+    const requestKey = getPricingRequestKey(currencyPolicy);
 
-    if (cached && cached.expiresAt > now) {
-        return { payload: cached.payload, cacheStatus: 'hit' };
-    }
-
-    if (pricingInflightRequests.has(cacheKey)) {
-        const payload = await pricingInflightRequests.get(cacheKey);
+    if (pricingInflightRequests.has(requestKey)) {
+        const payload = await pricingInflightRequests.get(requestKey);
         return { payload, cacheStatus: 'shared' };
     }
 
     const request = (async () => {
         const databases = getDatabases();
         const plans = await listPricingPlans(databases);
-        const payload = {
-            plans,
-            country_code: currencyPolicy.countryCode,
-            default_currency: currencyPolicy.defaultCurrency,
-            allowed_currencies: currencyPolicy.allowedCurrencies
-        };
-        pricingCache.set(cacheKey, {
-            payload,
-            expiresAt: now + PRICING_CACHE_TTL_MS
-        });
-        return payload;
+        return buildPricingApiPayload(plans, currencyPolicy);
     })();
 
-    pricingInflightRequests.set(cacheKey, request);
+    pricingInflightRequests.set(requestKey, request);
 
     try {
         const payload = await request;
-        return { payload, cacheStatus: 'miss' };
-    } catch (error) {
-        if (cached?.payload) {
-            return { payload: cached.payload, cacheStatus: 'stale' };
-        }
-        throw error;
+        return { payload, cacheStatus: 'live' };
     } finally {
-        pricingInflightRequests.delete(cacheKey);
+        pricingInflightRequests.delete(requestKey);
     }
 };
 
@@ -716,6 +697,7 @@ const ensureUserProfileDocument = async (
         currentProfile: existingProfile,
         plan,
         planId: plan?.plan_code || plan?.id || 'free',
+        planSource: 'payment',
         billingCycle: options.billingCycle || 'monthly',
         subscriptionStatus: 'active',
         subscriptionExpires,
@@ -758,6 +740,7 @@ const finalizePlanPurchase = async ({
         status: 'active',
         limits: {
             instagram_connections_limit: Number(resolvePlanLimits(plan).instagram_connections_limit || 0),
+            instagram_link_limit: Number(resolvePlanLimits(plan).instagram_link_limit || resolvePlanLimits(plan).instagram_connections_limit || 0),
             hourly_action_limit: Number(planLimits.hourly_action_limit || 0),
             daily_action_limit: Number(planLimits.daily_action_limit || 0),
             monthly_action_limit: planLimits.monthly_action_limit == null
@@ -790,6 +773,7 @@ const finalizePlanPurchase = async ({
     );
     const runtimeContext = await resolveUserPlanContext(databases, userId);
     await recomputeAccountAccessForUser(databases, userId, runtimeContext.profile);
+    await updateAutomationPlanValidationForUser(databases, userId, runtimeContext).catch(() => null);
     await touchUserActivity(userId, {
         databases,
         force: true,
@@ -834,9 +818,9 @@ const finalizePlanPurchase = async ({
             {
                 ...(runtimeContext.profile || {}),
                 self_plan_id: runtimeContext.selfPlanId,
-                self_plan_expires_at: runtimeContext.selfPlanExpiresAt
+                self_expiry_date: runtimeContext.selfExpiryDate
             },
-            runtimeContext.subscriptionStatus || 'active',
+            null,
             runtimeContext.subscriptionPlanId || subscriptionPlanId,
             null,
             runtimeContext.planSource || 'self'
@@ -1040,12 +1024,21 @@ const buildPricingQuote = ({ plan, billingCycle, currency, coupon }) => {
     };
 };
 
-const buildUserPlanPayload = (plan, profile, subscriptionStatus, subscriptionPlanId, accessState = null, planSource = null) => {
+const buildUserPlanPayload = (plan, profile, _subscriptionStatus, subscriptionPlanId, accessState = null, planSource = null) => {
     const normalizedPlan = normalizePlanDocument(plan || {});
     const entitlements = resolvePlanEntitlements(normalizedPlan, profile);
     const limits = resolvePlanLimits(normalizedPlan, profile);
+    const apiPlan = buildPlanApiPayload(normalizedPlan, profile);
     const profileConfig = parseProfileConfig(profile);
     const planName = String(profile?.plan_name || normalizedPlan.name || 'Free Plan').trim() || 'Free Plan';
+    const normalizedPlanId = String(subscriptionPlanId || normalizedPlan.plan_code || normalizedPlan.id || 'free').trim() || 'free';
+    const isFreePlan = normalizePlanCode(normalizedPlanId) === 'free';
+    const rawExpiry = profile?.expiry_date || null;
+    const parsedExpiry = rawExpiry ? new Date(rawExpiry) : null;
+    const hasValidExpiry = parsedExpiry && !Number.isNaN(parsedExpiry.getTime());
+    const normalizedExpiry = hasValidExpiry ? parsedExpiry.toISOString() : null;
+    const isActive = !isFreePlan && Boolean(hasValidExpiry && parsedExpiry.getTime() > Date.now());
+    const isExpired = !isFreePlan && Boolean(hasValidExpiry && parsedExpiry.getTime() <= Date.now());
     const derivedFeatures = normalizedPlan.features && normalizedPlan.features.length > 0
         ? normalizedPlan.features
         : Object.entries(entitlements || {})
@@ -1056,30 +1049,27 @@ const buildUserPlanPayload = (plan, profile, subscriptionStatus, subscriptionPla
                 .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
                 .join(' '));
     return {
-        plan_id: subscriptionPlanId || normalizedPlan.plan_code || normalizedPlan.id || 'free',
-        assigned_plan_id: profile?.plan_code || subscriptionPlanId || normalizedPlan.plan_code || normalizedPlan.id || 'free',
-        plan_source: String(planSource || 'self').trim() || 'self',
+        plan_id: normalizedPlanId,
+        assigned_plan_id: profile?.plan_code || normalizedPlanId,
+        plan_source: normalizePlanSource(profile?.plan_source || planSource || 'system', 'system'),
+        plan_code: String(profile?.plan_code || normalizedPlanId).trim() || 'free',
+        expiry_date: normalizedExpiry,
         self_plan_id: profile?.self_plan_id || undefined,
-        self_plan_expires_at: profile?.self_plan_expires_at || undefined,
-        status: String(subscriptionStatus || 'inactive'),
-        expires: profile?.expires_at || null,
-        billing_cycle: profile?.billing_cycle || null,
+        self_expiry_date: profile?.self_expiry_date || undefined,
+        is_active: isActive,
+        is_expired: isExpired,
+        billing_cycle: getProfileBillingCycle(profile),
         access_state: accessState,
         entitlements,
+        features: entitlements,
+        feature_items: apiPlan.feature_items,
+        feature_layer_map: apiPlan.feature_layer_map,
         custom_feature_overrides: profileConfig.feature_overrides,
         custom_limit_overrides: profileConfig.limit_overrides,
-        paid_plan_snapshot: (() => {
-            try {
-                return profile?.paid_plan_snapshot_json
-                    ? JSON.parse(profile.paid_plan_snapshot_json)
-                    : profileConfig.paid_plan_snapshot;
-            } catch {
-                return profileConfig.paid_plan_snapshot;
-            }
-        })(),
         details: {
             name: planName,
             features: derivedFeatures,
+            feature_items: apiPlan.feature_items,
             comparison: normalizedPlan.comparison,
             price_monthly_inr: normalizedPlan.price_monthly_inr,
             price_monthly_usd: normalizedPlan.price_monthly_usd,
@@ -1090,8 +1080,10 @@ const buildUserPlanPayload = (plan, profile, subscriptionStatus, subscriptionPla
             yearly_bonus: normalizedPlan.yearly_bonus
         },
         limits: {
+            ...apiPlan.limits,
             instagram_connections_limit: Number(limits.instagram_connections_limit || 0),
             instagram_link_limit: Number(limits.instagram_link_limit || limits.instagram_connections_limit || 0),
+            active_account_limit: Number(limits.active_account_limit || limits.instagram_connections_limit || 0),
             hourly_action_limit: Number(limits.hourly_action_limit || 0),
             daily_action_limit: Number(limits.daily_action_limit || 0),
             monthly_action_limit: limits.monthly_action_limit == null ? null : Number(limits.monthly_action_limit)
@@ -1464,10 +1456,9 @@ router.get('/my-plan', loginRequired, async (req, res) => {
             profile,
             plan,
             subscriptionPlanId,
-            subscriptionStatus,
             planSource,
             selfPlanId,
-            selfPlanExpiresAt
+            selfExpiryDate
         } = await retryAppwriteOperation(() => resolveUserPlanContext(databases, req.user.$id, req.user));
         const { accessState } = await loadUserAccessState(databases, req.user.$id, {
             userDocument: req.userDocument || null
@@ -1475,8 +1466,8 @@ router.get('/my-plan', loginRequired, async (req, res) => {
         return res.json(buildUserPlanPayload(plan, {
             ...(profile || {}),
             self_plan_id: selfPlanId,
-            self_plan_expires_at: selfPlanExpiresAt
-        }, subscriptionStatus, subscriptionPlanId, accessState, planSource));
+            self_expiry_date: selfExpiryDate
+        }, null, subscriptionPlanId, accessState, planSource));
     } catch (error) {
         console.error('Get my plan error:', error?.message || String(error));
         return res.status(500).json({ error: 'Failed to fetch plan details.' });
@@ -1579,7 +1570,7 @@ router.get('/transactions/:transactionId/pdf', loginRequired, async (req, res) =
 router.get('/pricing', async (req, res) => {
     try {
         const currencyPolicy = resolveRequestCurrency(req, req.query?.currency);
-        const { payload, cacheStatus } = await getCachedPricingPayload(currencyPolicy);
+        const { payload, cacheStatus } = await getLivePricingPayload(currencyPolicy);
         res.setHeader('Cache-Control', 'public, max-age=60');
         res.setHeader('X-Pricing-Cache', cacheStatus);
         return res.json(payload);

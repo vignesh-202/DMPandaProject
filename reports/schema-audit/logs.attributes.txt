@@ -1,0 +1,98 @@
+﻿total  11
+ 
+attributes (11)
+  [1]
+    key       account_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       recipient_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [3]
+    key       automation_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [4]
+    key       automation_type
+    type      string
+    status    available
+    required  false
+    array     false
+    size      50
+    encrypt   false
+
+  [5]
+    key       event_type
+    type      string
+    status    available
+    required  true
+    array     false
+    size      50
+    encrypt   false
+
+  [6]
+    key       source
+    type      string
+    status    available
+    required  false
+    array     false
+    size      50
+    encrypt   false
+
+  [7]
+    key       message
+    type      string
+    status    available
+    required  false
+    array     false
+    size      2000
+    encrypt   false
+
+  [8]
+    key       payload
+    type      string
+    status    available
+    required  false
+    array     false
+    size      20000
+    encrypt   false
+
+  [9]
+    key       sent_at
+    type      datetime
+    status    available
+    required  true
+    array     false
+
+  [10]
+    key       status
+    type      string
+    status    available
+    required  true
+    array     false
+    format    enum
+
+  [11]
+    key       sender_name
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false

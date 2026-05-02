@@ -1,0 +1,74 @@
+﻿total  12
+ 
+indexes (12)
+  [1]
+    $id     1_12_idx_user_id
+    key     idx_user_id
+    type    key
+    status  available
+
+  [2]
+    $id     1_12_idx_account_id
+    key     idx_account_id
+    type    key
+    status  available
+
+  [3]
+    $id     1_12_idx_template_id
+    key     idx_template_id
+    type    key
+    status  available
+
+  [4]
+    $id     1_12_idx_account_keyword
+    key     idx_account_keyword
+    type    key
+    status  available
+
+  [5]
+    $id     1_12_idx_account_type
+    key     idx_account_type
+    type    key
+    status  available
+
+  [6]
+    $id     1_12_idx_account_type_active
+    key     idx_account_type_active
+    type    key
+    status  available
+
+  [7]
+    $id     1_12_idx_account_type_title_norm
+    key     idx_account_type_title_norm
+    type    unique
+    status  available
+
+  [8]
+    $id     1_12_idx_account_type_order
+    key     idx_account_type_order
+    type    key
+    status  available
+
+  [9]
+    $id     1_12_idx_account_type_media_active
+    key     idx_account_type_media_active
+    type    key
+    status  available
+
+  [10]
+    $id     1_12_idx_account_type_media
+    key     idx_account_type_media
+    type    key
+    status  available
+
+  [11]
+    $id     1_12_idx_account_type_story_scope_active
+    key     idx_account_type_story_scope_active
+    type    key
+    status  available
+
+  [12]
+    $id     1_12_idx_user_account_type
+    key     idx_user_account_type
+    type    key
+    status  available

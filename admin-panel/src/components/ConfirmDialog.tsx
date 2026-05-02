@@ -11,6 +11,7 @@ interface ConfirmDialogProps {
     cancelLabel?: string;
     tone?: 'danger' | 'warning';
     loading?: boolean;
+    confirmDisabled?: boolean;
     onCancel: () => void;
     onConfirm: () => void;
 }
@@ -36,6 +37,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     cancelLabel = 'Cancel',
     tone = 'danger',
     loading = false,
+    confirmDisabled = false,
     onCancel,
     onConfirm
 }) => {
@@ -94,7 +96,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                             <Icon className="h-6 w-6" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Confirmation Required</p>
+                            <p className="text-[10px] font-black text-muted-foreground">Confirmation Required</p>
                             <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">{title}</h2>
                             <div className="mt-3 text-sm leading-6 text-muted-foreground">
                                 {description}
@@ -114,8 +116,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                         <button
                             type="button"
                             onClick={onConfirm}
-                            disabled={loading}
-                            className={cn('inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] transition disabled:opacity-60', toneConfig.confirm)}
+                            disabled={loading || confirmDisabled}
+                            className={cn('inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-[10px] font-black transition disabled:opacity-60', toneConfig.confirm)}
                         >
                             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                             {confirmLabel}

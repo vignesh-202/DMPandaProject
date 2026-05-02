@@ -1,0 +1,36 @@
+﻿total  4
+ 
+attributes (4)
+  [1]
+    key       account_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       recipient_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [3]
+    key       state_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      20000
+    encrypt   false
+
+  [4]
+    key       last_seen_at
+    type      datetime
+    status    available
+    required  true
+    array     false

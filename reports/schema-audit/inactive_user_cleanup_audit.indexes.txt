@@ -1,0 +1,20 @@
+﻿total  3
+ 
+indexes (3)
+  [1]
+    $id     1_166_idx_cleanup_audit_user_created
+    key     idx_cleanup_audit_user_created
+    type    key
+    status  available
+
+  [2]
+    $id     1_166_idx_cleanup_audit_action_created
+    key     idx_cleanup_audit_action_created
+    type    key
+    status  available
+
+  [3]
+    $id     1_166_idx_cleanup_audit_schedule
+    key     idx_cleanup_audit_schedule
+    type    key
+    status  available

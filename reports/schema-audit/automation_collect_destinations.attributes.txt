@@ -1,0 +1,71 @@
+﻿total  8
+ 
+attributes (8)
+  [1]
+    key       automation_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       account_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [3]
+    key       destination_type
+    type      string
+    status    available
+    required  true
+    array     false
+    format    enum
+
+  [4]
+    key       destination_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [5]
+    key       sheet_link
+    type      string
+    status    available
+    required  false
+    array     false
+    size      2048
+    encrypt   false
+
+  [6]
+    key       webhook_url
+    type      string
+    status    available
+    required  false
+    array     false
+    size      500
+    encrypt   false
+
+  [7]
+    key       destination_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      4000
+    encrypt   false
+
+  [8]
+    key       updated_at
+    type      datetime
+    status    available
+    required  false
+    array     false

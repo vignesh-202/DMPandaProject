@@ -371,7 +371,6 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
 
     const hasAnyContent = mediaItems.length > 0;
     const hasAnyAutomation = automationsSet.length > 0;
-
     // Loading message based on type
     const loadingMessage =
         type === 'reel'
@@ -387,7 +386,9 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
     const loadingSubMessage = `Fetching your ${type === 'mention' ? 'mentions' : `${type}s`} from Instagram...`;
 
     // Full-screen loading state for API data loading (wrapper ensures min height so overlay centers in section)
-    if (loading) {
+    const isActuallyLoading = loading || (type === 'live' && loadingLiveAutomations && liveAutomations.length === 0);
+
+    if (isActuallyLoading) {
         return (
             <div className="relative min-h-[calc(100dvh-6rem)] w-full">
                 <LoadingOverlay

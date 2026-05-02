@@ -26,15 +26,18 @@ const {
     sendWebhookPayload
 } = require('../utils/emailCollectors');
 const {
+    buildPlanApiPayload,
     resolveUserPlanContext,
     normalizeFeatureKey
 } = require('../utils/planConfig');
 const sharedPlanFeatures = require('../../shared/planFeatures.json');
+const { evaluateActionRateLimit } = require('../../shared/actionRateLimiter');
 const { Databases, Query, ID, Permission, Role, ExecutionMethod } = require('node-appwrite');
 const { buildAccessDeniedPayload } = require('../utils/accessControl');
 const {
     isLinkedAccountActive,
     normalizeAccountAccess,
+    recomputeAccountAccessStateForUser,
     recomputeAccountAccessForUser
 } = require('../utils/accountAccess');
 
@@ -114,9 +117,9 @@ const LEGACY_GATED_AUTOMATION_FEATURES = Object.freeze({
 const LEGACY_AUTOMATION_TYPE_FEATURES = Object.freeze({
     dm: 'dm_automation',
     global: 'global_trigger',
-    comment: 'post_comment_dm_automation',
-    post: 'post_comment_dm_automation',
-    reel: 'reel_comment_dm_automation',
+    comment: 'post_comment_dm_reply',
+    post: 'post_comment_dm_reply',
+    reel: 'reel_comment_dm_reply',
     story: 'story_automation',
     live: 'instagram_live_automation',
     mention: 'mentions',
@@ -160,7 +163,33 @@ const loadUserPlanAccess = async (databases, userId) => {
     return {
         entitlements: planContext.entitlements || {},
         limits: planContext.limits || {},
-        plan: planContext.plan || null
+        plan: planContext.plan || null,
+        profile: planContext.profile || null
+    };
+};
+
+const buildPlanEnvelope = async (databases, userId, account = null) => {
+    const access = await loadUserPlanAccess(databases, userId);
+    return {
+        plan: buildPlanApiPayload(access.plan, access.profile),
+        limits: access.limits || {},
+        features: access.entitlements || {},
+        access_state: account ? normalizeAccountAccess(account) : null,
+        locked_features: []
+    };
+};
+
+const enforceActionRateCapacity = async (databases, userId, payload = {}) => {
+    if (payload?.is_active === false) return null;
+    const planContext = await resolveUserPlanContext(databases, userId);
+    const gate = evaluateActionRateLimit(planContext.profile || {});
+    if (!gate.blocked) return null;
+    return {
+        error: 'Your current plan action limit has been reached.',
+        field: 'subscription',
+        code: gate.code,
+        limits: gate.limits,
+        usage: gate.usage
     };
 };
 
@@ -190,7 +219,7 @@ const collectLockedAutomationFeatures = (payload) => {
         }
         if (String(source.template_type || '').trim() === 'template_share_post') {
             const latestType = String(source.latest_post_type || '').trim().toLowerCase();
-            locked.push(latestType === 'reel' ? 'share_reel_to_dm' : 'share_post_to_dm');
+            locked.push(latestType === 'reel' ? 'share_reel_to_admin' : 'share_post_to_admin');
         }
         return Array.from(new Set(locked));
     }
@@ -203,7 +232,7 @@ const collectLockedAutomationFeatures = (payload) => {
         || source.share_to_admin_enabled === true
         || String(source.template_type || '').trim() === 'template_share_post';
     if (isShareTrigger) {
-        locked.push(SHARE_TRIGGER_FEATURES[automationType] || 'share_post_to_dm');
+        locked.push(SHARE_TRIGGER_FEATURES[automationType] || 'share_post_to_admin');
     }
     return Array.from(new Set(locked));
 };
@@ -747,6 +776,7 @@ const serializeIgAccount = (account) => {
         status: account.status || 'active',
         linked_at: account.linked_at,
         token_expires_at: account.token_expires_at,
+        is_active: access.is_active,
         admin_disabled: access.admin_disabled,
         plan_locked: access.plan_locked,
         access_override_enabled: access.access_override_enabled,
@@ -1059,7 +1089,11 @@ const resolveReplyTemplateAccount = async (databases, userId, templateDoc, reque
     }
 
     templateDoc.account_id = resolvedAccountId;
-    return { accountId: resolvedAccountId, accounts };
+    const accountDocument = requestedAccount
+        || storedAccount
+        || accounts.documents.find((account) => getIgProfessionalAccountId(account) === resolvedAccountId)
+        || null;
+    return { accountId: resolvedAccountId, accountDocument, accounts };
 };
 
 const ensureKeywordConstraints = async (databases, { accountId, automationId, automationType, keywords }) => {
@@ -2026,16 +2060,28 @@ router.get('/account/ig-accounts', loginRequired, async (req, res) => {
 
         const profileContext = await resolveUserPlanContext(databases, req.user.$id);
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
-        const recomputedAccounts = await recomputeAccountAccessForUser(
+        const accountAccessState = await recomputeAccountAccessStateForUser(
             databases,
             req.user.$id,
             profileContext.profile,
             accounts.documents || []
         );
+        const recomputedAccounts = accountAccessState.accounts || [];
 
         const safeAccounts = recomputedAccounts.map(serializeIgAccount);
+        const planPayload = buildPlanApiPayload(profileContext.plan, profileContext.profile);
 
-        res.json({ ig_accounts: safeAccounts });
+        res.json({
+            ig_accounts: safeAccounts,
+            plan: planPayload,
+            limits: planPayload.limits,
+            features: planPayload.features,
+            access_state: profileContext.accessState || null,
+            total_linked_accounts: Number(accountAccessState.summary?.total_linked_accounts || 0),
+            max_allowed_accounts: Number(accountAccessState.summary?.max_allowed_accounts || 0),
+            active_account_limit: Number(accountAccessState.summary?.active_account_limit || 0),
+            locked_features: []
+        });
     } catch (err) {
         console.error(`Fetch IG Accounts Error: ${err.message}`);
         res.status(500).json({ error: 'Failed to fetch Instagram accounts.' });
@@ -2480,12 +2526,13 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
         const databases = new Databases(serverClient);
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const profileContext = await resolveUserPlanContext(databases, req.user.$id);
-        const recomputedAccounts = await recomputeAccountAccessForUser(
+        const accountAccessState = await recomputeAccountAccessStateForUser(
             databases,
             req.user.$id,
             profileContext.profile,
             accounts.documents || []
         );
+        const recomputedAccounts = accountAccessState.accounts || [];
         const igAccount = recomputedAccounts.find(a => matchesIgAccountIdentifier(a, account_id));
         if (!igAccount) return res.status(404).json({ error: 'Account not found' });
         if (igAccount.effective_access !== true) {
@@ -2574,8 +2621,11 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 monthly_action_limit: monthlyLimit
             },
             account_link_metrics: {
-                linked_accounts: recomputedAccounts.length,
-                accounts_allowed: instagramLimit
+                linked_accounts: Number(accountAccessState.summary?.total_linked_accounts || 0),
+                accounts_allowed: instagramLimit,
+                total_linked_accounts: Number(accountAccessState.summary?.total_linked_accounts || 0),
+                max_allowed_accounts: Number(accountAccessState.summary?.max_allowed_accounts || instagramLimit || 0),
+                active_account_limit: Number(effectiveLimits.active_account_limit || effectiveLimits.instagram_connections_limit || 0)
             }
         });
     } catch (err) {
@@ -2875,7 +2925,8 @@ router.get('/instagram/automations', loginRequired, async (req, res) => {
             }
             return String(doc?.story_scope || 'shown').toLowerCase() === 'shown';
         });
-        const { entitlements } = await loadUserPlanAccess(databases, req.user.$id);
+        const planAccess = await loadUserPlanAccess(databases, req.user.$id);
+        const { entitlements } = planAccess;
 
         const summaryMode = summary === '1' || summary === 'true';
 
@@ -2936,7 +2987,15 @@ router.get('/instagram/automations', loginRequired, async (req, res) => {
             };
         });
 
-        res.json({ automations });
+        const planPayload = buildPlanApiPayload(planAccess.plan);
+        res.json({
+            automations,
+            plan: planPayload,
+            limits: planPayload.limits,
+            features: planPayload.features,
+            access_state: req.accessState || null,
+            locked_features: []
+        });
     } catch (err) {
         console.error(`Fetch Automations Error: ${err.message}`);
         res.status(500).json({ error: 'Failed to fetch automations' });
@@ -2961,13 +3020,22 @@ router.get('/instagram/automations/:id', loginRequired, async (req, res) => {
         if (String(parsed.automation_type || '').toLowerCase() === 'story') {
             parsed.story_scope = 'shown';
         }
-        const { entitlements } = await loadUserPlanAccess(databases, req.user.$id);
+        const planAccess = await loadUserPlanAccess(databases, req.user.$id);
+        const { entitlements } = planAccess;
         const invalidFeatures = collectLockedAutomationFeatures(parsed)
             .filter((featureKey) => !hasPlanEntitlement(entitlements, featureKey));
         parsed.plan_validation_state = invalidFeatures.length > 0 ? 'invalid_due_to_plan' : 'valid';
         parsed.invalid_features = invalidFeatures;
 
-        res.json(parsed);
+        const planPayload = buildPlanApiPayload(planAccess.plan);
+        res.json({
+            ...parsed,
+            plan: planPayload,
+            limits: planPayload.limits,
+            features: planPayload.features,
+            access_state: req.accessState || null,
+            locked_features: invalidFeatures
+        });
     } catch (err) {
         if (Number(err?.code) === 404) {
             console.warn(`Get Automation Warning: ${err.message}`);
@@ -2996,6 +3064,10 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
         });
         if (featureAccessError) {
             return res.status(403).json(featureAccessError);
+        }
+        const rateCapacityError = await enforceActionRateCapacity(databases, req.user.$id, body);
+        if (rateCapacityError) {
+            return res.status(403).json(rateCapacityError);
         }
         const keywordInfo = getKeywordInfo(body);
         const keywordArray = KEYWORD_TYPES.has(automationType) ? keywordInfo.keywords : [];
@@ -3142,6 +3214,10 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
             keyword: nextKeywords.join(','),
             keywords: nextKeywords
         };
+        const rateCapacityError = await enforceActionRateCapacity(databases, req.user.$id, candidate);
+        if (rateCapacityError) {
+            return res.status(403).json(rateCapacityError);
+        }
         const validationErrors = validateAutomationPayload(candidate);
         if (validationErrors.length > 0) {
             return res.status(400).json({ error: 'Validation failed', details: validationErrors });
@@ -3246,10 +3322,19 @@ router.get('/instagram/automations/:id/email-collector-destination', loginRequir
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
         const automation = await getOwnedAutomationDocument(databases, req.user.$id, req.params.id);
+        const featureAccessError = await enforceAutomationFeatureAccess(
+            databases,
+            req.user.$id,
+            automation,
+            { requireFeature: 'collect_email' }
+        );
+        if (featureAccessError) return res.status(403).json(featureAccessError);
         const destinationDoc = await loadCollectorDestinationDocument(databases, automation);
+        const planEnvelope = await buildPlanEnvelope(databases, req.user.$id);
 
         res.json({
-            destination: normalizeCollectorDestinationResponse(destinationDoc)
+            destination: normalizeCollectorDestinationResponse(destinationDoc),
+            ...planEnvelope
         });
     } catch (error) {
         console.error(`Get Email Collector Destination Error: ${error.message}`);
@@ -3267,6 +3352,13 @@ router.put('/instagram/automations/:id/email-collector-destination', loginRequir
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
         const { automation } = await getOwnedAutomationDocumentWithAccess(databases, req.user.$id, req.params.id);
+        const featureAccessError = await enforceAutomationFeatureAccess(
+            databases,
+            req.user.$id,
+            automation,
+            { requireFeature: 'collect_email' }
+        );
+        if (featureAccessError) return res.status(403).json(featureAccessError);
         const existingDocument = await loadCollectorDestinationDocument(databases, automation);
 
         const destinationType = normalizeCollectorDestinationType(req.body?.destination_type);
@@ -3333,6 +3425,13 @@ router.post('/instagram/automations/:id/email-collector-destination/verify', log
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
         const { automation } = await getOwnedAutomationDocumentWithAccess(databases, req.user.$id, req.params.id);
+        const featureAccessError = await enforceAutomationFeatureAccess(
+            databases,
+            req.user.$id,
+            automation,
+            { requireFeature: 'collect_email' }
+        );
+        if (featureAccessError) return res.status(403).json(featureAccessError);
         const existingDocument = await loadCollectorDestinationDocument(databases, automation);
         if (!existingDocument) {
             return res.status(400).json({ error: 'Save the destination before verifying it' });
@@ -3482,7 +3581,8 @@ router.get('/instagram/reply-templates', loginRequired, async (req, res) => {
             return t;
         });
 
-        res.json({ templates });
+        const planEnvelope = await buildPlanEnvelope(databases, req.user.$id, account);
+        res.json({ templates, ...planEnvelope });
     } catch (err) {
         console.error(`Fetch Templates Error: ${err.message}`, err);
         res.status(500).json({ error: 'Failed to fetch templates', details: err.message });
@@ -3512,6 +3612,7 @@ router.get('/instagram/reply-templates/:id', loginRequired, async (req, res) => 
             )
         ).get(doc.$id) || [];
 
+        const planEnvelope = await buildPlanEnvelope(databases, req.user.$id, resolvedAccount.accountDocument || null);
         res.json({
             id: doc.$id,
             name: doc.name,
@@ -3519,7 +3620,8 @@ router.get('/instagram/reply-templates/:id', loginRequired, async (req, res) => 
             template_type: doc.template_type,
             template_data: templateData,
             linked_automations: linkedAutomations,
-            automation_count: linkedAutomations.length
+            automation_count: linkedAutomations.length,
+            ...planEnvelope
         });
     } catch (err) {
         console.error(`Get Template Error: ${err.message}`);
@@ -3982,13 +4084,15 @@ router.get('/instagram/inbox-menu', loginRequired, async (req, res) => {
             status = 'ig_only';
         }
 
+        const planEnvelope = await buildPlanEnvelope(databases, req.user.$id, igAccount);
         res.json({
             ig_menu: igMenu,
             db_menu: dbMenu,
             is_synced: status === 'match',
             status,
             issue: null,
-            account_id
+            account_id,
+            ...planEnvelope
         });
     } catch (err) {
         console.error(`Inbox Menu Error: ${err.message}`);
@@ -4296,13 +4400,15 @@ router.get('/instagram/convo-starters', loginRequired, async (req, res) => {
             status = 'ig_only';
         }
 
+        const planEnvelope = await buildPlanEnvelope(databases, req.user.$id, igAccount);
         res.json({
             ig_starters: igStarters,
             db_starters: dbStarters,
             is_synced: status === 'match',
             status,
             issue: null,
-            account_id
+            account_id,
+            ...planEnvelope
         });
     } catch (err) {
         console.error(`Convo Starters Error: ${err.message}`);
@@ -4529,6 +4635,7 @@ router.get('/instagram/mentions-config', loginRequired, async (req, res) => {
         const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
         if (!account) return res.status(404).json({ error: 'Account not found or unauthorized' });
         const normalizedAccountId = getIgProfessionalAccountId(account);
+        const planEnvelope = await buildPlanEnvelope(databases, req.user.$id, account);
 
         const result = await listMentionsDocuments(databases, {
             userId: req.user.$id,
@@ -4554,10 +4661,11 @@ router.get('/instagram/mentions-config', loginRequired, async (req, res) => {
                 collect_email_prompt_message: String(doc.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT).trim(),
                 collect_email_fail_retry_message: String(doc.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT).trim(),
                 collect_email_success_reply_message: String(doc.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT).trim(),
-                seen_typing_enabled: Boolean(doc.seen_typing_enabled)
+                seen_typing_enabled: Boolean(doc.seen_typing_enabled),
+                ...planEnvelope
             });
         } else {
-            res.json({ is_setup: false, is_active: false });
+            res.json({ is_setup: false, is_active: false, ...planEnvelope });
         }
     } catch (err) {
         if (!isMissingCollectionError(err)) {
@@ -4715,6 +4823,8 @@ router.get('/super-profile', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'super_profile' });
+        if (featureAccessError) return res.status(403).json(featureAccessError);
 
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
@@ -4731,6 +4841,7 @@ router.get('/super-profile', loginRequired, async (req, res) => {
             const baseUrl = (process.env.FRONTEND_ORIGIN || '').replace(/\/+$/, '');
             const publicPath = `/superprofile/${slug}`;
 
+            const planEnvelope = await buildPlanEnvelope(databases, req.user.$id, igAccount);
             res.json({
                 id: doc.$id,
                 slug,
@@ -4739,7 +4850,8 @@ router.get('/super-profile', loginRequired, async (req, res) => {
                 is_active: doc.is_active || false,
                 public_url: `${baseUrl}${publicPath}`,
                 created_at: doc.$createdAt,
-                updated_at: doc.$updatedAt
+                updated_at: doc.$updatedAt,
+                ...planEnvelope
             });
         } else {
             res.status(404).json({ error: 'Super profile not found' });
@@ -4758,6 +4870,8 @@ router.post('/super-profile', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'super_profile' });
+        if (featureAccessError) return res.status(403).json(featureAccessError);
 
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
@@ -4807,6 +4921,8 @@ router.patch('/super-profile', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'super_profile' });
+        if (featureAccessError) return res.status(403).json(featureAccessError);
 
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const igAccount = accounts.documents.find(a => matchesIgAccountIdentifier(a, account_id));
@@ -4918,10 +5034,18 @@ router.get('/instagram/suggest-more', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const featureAccessError = await enforceAutomationFeatureAccess(
+            databases,
+            req.user.$id,
+            {},
+            { requireFeature: 'suggest_more' }
+        );
+        if (featureAccessError) return res.status(403).json(featureAccessError);
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const account = accounts.documents.find((doc) => matchesIgAccountIdentifier(doc, account_id));
         if (!account) return res.status(404).json({ error: 'Account not found or unauthorized' });
         const normalizedAccountId = getIgProfessionalAccountId(account);
+        const planEnvelope = await buildPlanEnvelope(databases, req.user.$id, account);
 
         const result = await listSuggestMoreDocuments(databases, {
             userId: req.user.$id,
@@ -4935,10 +5059,11 @@ router.get('/instagram/suggest-more', loginRequired, async (req, res) => {
                 is_setup: true,
                 is_active: doc.is_active || false,
                 template_id: doc.template_id || null,
-                doc_id: doc.$id
+                doc_id: doc.$id,
+                ...planEnvelope
             });
         } else {
-            res.json({ is_setup: false, is_active: false });
+            res.json({ is_setup: false, is_active: false, ...planEnvelope });
         }
     } catch (err) {
         console.error(`Suggest More Error: ${err.message}`);
@@ -5041,6 +5166,13 @@ router.get('/instagram/comment-moderation', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const featureAccessError = await enforceAutomationFeatureAccess(
+            databases,
+            req.user.$id,
+            {},
+            { requireFeature: 'comment_moderation' }
+        );
+        if (featureAccessError) return res.status(403).json(featureAccessError);
 
         // Verify account ownership
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
@@ -5049,6 +5181,7 @@ router.get('/instagram/comment-moderation', loginRequired, async (req, res) => {
             return res.status(404).json({ error: 'Account not found or unauthorized' });
         }
         const targetAccountId = getIgProfessionalAccountId(account);
+        const planEnvelope = await buildPlanEnvelope(databases, req.user.$id, account);
 
         const result = await listCommentModerationDocuments(databases, {
             userId: req.user.$id,
@@ -5070,10 +5203,11 @@ router.get('/instagram/comment-moderation', loginRequired, async (req, res) => {
             res.json({
                 rules: rules,
                 is_active: doc?.is_active !== undefined ? doc.is_active : true,
-                doc_id: doc?.$id || null
+                doc_id: doc?.$id || null,
+                ...planEnvelope
             });
         } else {
-            res.json({ rules: [], is_active: true });
+            res.json({ rules: [], is_active: true, ...planEnvelope });
         }
     } catch (err) {
         console.error(`Get Comment Moderation Error: ${err.message}`, err);

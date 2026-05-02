@@ -26,8 +26,12 @@ export type PricingPlan = {
   button_text: string;
   yearly_bonus: string;
   features: string[];
+  feature_items?: Array<{ key: string; label: string; enabled: boolean }>;
+  feature_flags?: Record<string, boolean>;
   comparison: PricingComparisonItem[];
+  limits?: Record<string, number | null>;
   instagram_connections_limit: number | null;
+  instagram_link_limit?: number | null;
   actions_per_hour_limit: number | null;
   actions_per_day_limit: number | null;
   actions_per_month_limit: number | null;
@@ -55,27 +59,40 @@ const parseObjectArray = (value: unknown): PricingComparisonItem[] => {
   }
 };
 
+const toNullableNumber = (...values: unknown[]): number | null => {
+  const found = values.find((value) => value !== null && value !== undefined && value !== '');
+  if (found === undefined) return null;
+  const numeric = Number(found);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
 export const normalizePlan = (raw: any): PricingPlan => ({
   id: String(raw?.id ?? raw?.$id ?? ''),
   plan_code: String(raw?.plan_code ?? '').trim().toLowerCase(),
   name: String(raw?.name ?? 'Plan'),
-  price_monthly_inr: Number(raw?.price_monthly_inr ?? 0),
-  price_monthly_usd: Number(raw?.price_monthly_usd ?? 0),
-  price_yearly_inr: Number(raw?.price_yearly_inr ?? 0),
-  price_yearly_usd: Number(raw?.price_yearly_usd ?? 0),
-  price_yearly_monthly_inr: Number(raw?.price_yearly_monthly_inr ?? 0),
-  price_yearly_monthly_usd: Number(raw?.price_yearly_monthly_usd ?? 0),
+  price_monthly_inr: Number(raw?.pricing?.monthly?.inr ?? raw?.price_monthly_inr ?? 0),
+  price_monthly_usd: Number(raw?.pricing?.monthly?.usd ?? raw?.price_monthly_usd ?? 0),
+  price_yearly_inr: Number(raw?.pricing?.yearly?.inr ?? raw?.price_yearly_inr ?? 0),
+  price_yearly_usd: Number(raw?.pricing?.yearly?.usd ?? raw?.price_yearly_usd ?? 0),
+  price_yearly_monthly_inr: Number(raw?.pricing?.yearly_monthly_display?.inr ?? raw?.price_yearly_monthly_inr ?? 0),
+  price_yearly_monthly_usd: Number(raw?.pricing?.yearly_monthly_display?.usd ?? raw?.price_yearly_monthly_usd ?? 0),
   is_custom: Boolean(raw?.is_custom),
   is_popular: Boolean(raw?.is_popular),
   display_order: Number(raw?.display_order ?? 0),
   button_text: String(raw?.button_text ?? 'Choose Plan'),
   yearly_bonus: String(raw?.yearly_bonus ?? ''),
-  features: parseStringArray(raw?.features),
+  features: Array.isArray(raw?.feature_items)
+    ? raw.feature_items.filter((item: any) => item?.enabled === true).map((item: any) => String(item.label || item.key || '').trim()).filter(Boolean)
+    : parseStringArray(raw?.features),
+  feature_items: Array.isArray(raw?.feature_items) ? raw.feature_items : undefined,
+  feature_flags: raw?.features && typeof raw.features === 'object' && !Array.isArray(raw.features) ? raw.features : undefined,
   comparison: parseObjectArray(raw?.comparison ?? raw?.comparison_json),
-  instagram_connections_limit: raw?.instagram_connections_limit == null ? null : Number(raw.instagram_connections_limit),
-  actions_per_hour_limit: raw?.actions_per_hour_limit == null ? null : Number(raw.actions_per_hour_limit),
-  actions_per_day_limit: raw?.actions_per_day_limit == null ? null : Number(raw.actions_per_day_limit),
-  actions_per_month_limit: raw?.actions_per_month_limit == null ? null : Number(raw.actions_per_month_limit)
+  limits: raw?.limits,
+  instagram_connections_limit: toNullableNumber(raw?.limits?.instagram_connections_limit, raw?.limits?.connections, raw?.instagram_connections_limit),
+  instagram_link_limit: toNullableNumber(raw?.limits?.instagram_link_limit, raw?.instagram_link_limit),
+  actions_per_hour_limit: toNullableNumber(raw?.limits?.actions_per_hour_limit, raw?.limits?.per_hour, raw?.actions_per_hour_limit),
+  actions_per_day_limit: toNullableNumber(raw?.limits?.actions_per_day_limit, raw?.limits?.per_day, raw?.actions_per_day_limit),
+  actions_per_month_limit: toNullableNumber(raw?.limits?.actions_per_month_limit, raw?.limits?.per_month, raw?.actions_per_month_limit)
 });
 
 export const normalizePricingPayload = (payload: any): PricingPlan[] => {
@@ -234,14 +251,25 @@ export const buildPricingComparisonRows = (plans: PricingPlan[]): PricingCompari
       existing.values[planKey] = row.value(plan);
     });
 
-    plan.comparison.forEach((item) => {
-      const key = String(item.key || item.label || '').trim();
-      const label = String(item.label || item.key || '').trim();
-      if (!key || !label) return;
-      const existing = rows.get(key) || { key, label, values: {} };
-      existing.values[planKey] = item.value;
-      rows.set(key, existing);
-    });
+    if (Array.isArray(plan.feature_items) && plan.feature_items.length > 0) {
+      plan.feature_items.forEach((item) => {
+        const key = String(item.key || item.label || '').trim();
+        const label = String(item.label || item.key || '').trim();
+        if (!key || !label) return;
+        const existing = rows.get(key) || { key, label, values: {} };
+        existing.values[planKey] = Boolean(item.enabled);
+        rows.set(key, existing);
+      });
+    } else if (Array.isArray(plan.comparison) && plan.comparison.length > 0) {
+      plan.comparison.forEach((item) => {
+        const key = String(item.key || item.label || '').trim();
+        const label = String(item.label || item.key || '').trim();
+        if (!key || !label) return;
+        const existing = rows.get(key) || { key, label, values: {} };
+        existing.values[planKey] = item.value;
+        rows.set(key, existing);
+      });
+    }
   });
 
   return Array.from(rows.values());

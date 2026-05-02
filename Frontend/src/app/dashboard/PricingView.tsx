@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, CreditCard, Sparkles } from 'lucide-react';
+import { Check, CreditCard, Sparkles, X } from 'lucide-react';
 import Card from '../../components/ui/card';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import { useAuth } from '../../contexts/AuthContext';
@@ -159,6 +159,7 @@ const PricingView: React.FC = () => {
               { label: 'Actions / hour', value: formatPlanLimit(plan.actions_per_hour_limit) },
               { label: 'Actions / day', value: formatPlanLimit(plan.actions_per_day_limit) },
               { label: 'Actions / month', value: formatPlanLimit(plan.actions_per_month_limit) },
+              { label: 'Once Per User / 24h', value: 'Included' },
               { label: 'Contacts', value: 'Unlimited' }
             ];
             return (
@@ -198,14 +199,19 @@ const PricingView: React.FC = () => {
                 </div>
 
                 <div className="mb-8 flex-grow space-y-4">
-                  {plan.features.map((feature, i) => (
-                    <div key={`${plan.id}-${i}`} className="flex items-start gap-3 text-sm">
-                      <div className="mt-0.5 flex-shrink-0 text-green-500">
-                        <Check size={16} strokeWidth={3} />
+                  {(() => {
+                    const allFeatures = plan.feature_items
+                      ? plan.feature_items.map((item) => ({ label: item.label || item.key, enabled: item.enabled }))
+                      : plan.features.map((f) => ({ label: f, enabled: true }));
+                    return allFeatures.map((feature, i) => (
+                      <div key={`${plan.id}-${i}`} className={`flex items-start gap-3 text-sm ${!feature.enabled ? 'opacity-50' : ''}`}>
+                        <div className={`mt-0.5 flex-shrink-0 ${feature.enabled ? 'text-green-500' : 'text-muted-foreground'}`}>
+                          {feature.enabled ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={3} />}
+                        </div>
+                        <span className={`text-muted-foreground ${!feature.enabled ? 'line-through decoration-muted-foreground' : ''}`}>{feature.label}</span>
                       </div>
-                      <span className="text-muted-foreground">{feature}</span>
-                    </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
 
                 <button

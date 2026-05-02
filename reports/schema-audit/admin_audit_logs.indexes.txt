@@ -1,0 +1,20 @@
+﻿total  3
+ 
+indexes (3)
+  [1]
+    $id     1_123_idx_admin_created
+    key     idx_admin_created
+    type    key
+    status  available
+
+  [2]
+    $id     1_123_idx_action_created
+    key     idx_action_created
+    type    key
+    status  available
+
+  [3]
+    $id     1_123_idx_target_user_created
+    key     idx_target_user_created
+    type    key
+    status  available

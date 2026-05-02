@@ -1,0 +1,55 @@
+﻿total  6
+ 
+attributes (6)
+  [1]
+    key       slug
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       is_active
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   true
+
+  [3]
+    key       user_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [4]
+    key       account_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [5]
+    key       buttons
+    type      string
+    status    available
+    required  false
+    array     false
+    size      6000
+    encrypt   false
+
+  [6]
+    key       template_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false

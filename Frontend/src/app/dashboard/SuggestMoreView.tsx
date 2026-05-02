@@ -73,18 +73,19 @@ const SuggestMoreView: React.FC = () => {
                 lastFetchedAccountIdRef.current = activeAccountID;
 
                 // If template_id exists, fetch the template
-                if (data.template_id) {
+                const templateId = String(data.template_id || '').trim();
+                if (templateId) {
                     try {
-                        if (templateCacheRef.current[data.template_id]) {
-                            setSelectedTemplate(templateCacheRef.current[data.template_id]);
+                        if (templateCacheRef.current[templateId]) {
+                            setSelectedTemplate(templateCacheRef.current[templateId]);
                             setShowTemplateSelector(false);
                         } else {
                             const templateRes = await authenticatedFetch(
-                                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${data.template_id}?account_id=${activeAccountID}`
+                                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${templateId}?account_id=${activeAccountID}`
                             );
                             if (templateRes.ok) {
                                 const templateData = await templateRes.json();
-                                templateCacheRef.current[data.template_id] = templateData;
+                                templateCacheRef.current[templateId] = templateData;
                                 setSelectedTemplate(templateData);
                                 setShowTemplateSelector(false);
                             }

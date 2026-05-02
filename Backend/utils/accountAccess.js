@@ -4,14 +4,8 @@ const {
     IG_ACCOUNTS_COLLECTION_ID
 } = require('./appwrite');
 
-const parseJsonObject = (value, fallback = {}) => {
-    try {
-        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback;
-    } catch {
-        return fallback;
-    }
-};
+const ACCOUNT_ACCESS_CACHE_TTL_MS = 5000;
+const accountAccessCache = new Map();
 
 const isTransientFetchError = (error) => {
     const message = String(error?.message || '').trim().toLowerCase();
@@ -63,18 +57,11 @@ const toBoolean = (value, fallback = false) => {
 };
 
 const getProfileLimits = (profile = null) => {
-    const parsed = parseJsonObject(profile?.limits_json, {});
-    const activeLimit = toFiniteNumber(
-        parsed.instagram_connections_limit
-        ?? profile?.instagram_connections_limit
-    ) ?? 0;
-    const linkedLimit = toFiniteNumber(
-        parsed.instagram_link_limit
-        ?? profile?.instagram_link_limit
-    );
+    const baseLimit = Math.max(0, Number(toFiniteNumber(profile?.instagram_connections_limit) || 0));
     return {
-        instagram_connections_limit: activeLimit,
-        instagram_link_limit: linkedLimit != null ? linkedLimit : activeLimit
+        instagram_connections_limit: baseLimit,
+        active_account_limit: baseLimit,
+        max_allowed_accounts: baseLimit
     };
 };
 
@@ -85,7 +72,7 @@ const isLinkedAccountActive = (account = null) => {
 };
 
 const getAccountOrderValue = (account = null) => {
-    const raw = account?.linked_at || account?.$createdAt || account?.$updatedAt || '';
+    const raw = account?.linked_at || '';
     const parsed = new Date(raw).getTime();
     return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
 };
@@ -93,8 +80,6 @@ const getAccountOrderValue = (account = null) => {
 const compareAccountsByLinkedOrder = (left, right) => {
     const delta = getAccountOrderValue(left) - getAccountOrderValue(right);
     if (delta !== 0) return delta;
-    const createdDelta = new Date(left?.$createdAt || 0).getTime() - new Date(right?.$createdAt || 0).getTime();
-    if (!Number.isNaN(createdDelta) && createdDelta !== 0) return createdDelta;
     return String(left?.$id || '').localeCompare(String(right?.$id || ''));
 };
 
@@ -105,7 +90,7 @@ const normalizeAccountAccess = (account = null) => {
     const linkedActive = isLinkedAccountActive(account);
 
     let accessState = 'active';
-    let accessReason = null;
+    let accessReason = '';
     let effectiveAccess = linkedActive;
 
     if (!linkedActive) {
@@ -127,6 +112,7 @@ const normalizeAccountAccess = (account = null) => {
     }
 
     return {
+        is_active: linkedActive,
         admin_disabled: adminDisabled,
         plan_locked: planLocked,
         access_override_enabled: accessOverrideEnabled,
@@ -155,12 +141,75 @@ const buildAccountAccessPatch = (account, nextFields) => {
     return patch;
 };
 
-const recomputeAccountAccessForUser = async (databases, userId, profile = null, accounts = null) => {
+const cloneAccountAccessState = (state) => ({
+    ...state,
+    limits: { ...(state?.limits || {}) },
+    summary: { ...(state?.summary || {}) },
+    default_window_ids: Array.isArray(state?.default_window_ids) ? [...state.default_window_ids] : [],
+    accounts: Array.isArray(state?.accounts)
+        ? state.accounts.map((account) => ({ ...account }))
+        : []
+});
+
+const buildAccountAccessCacheSignature = (profile = null, accounts = []) => JSON.stringify({
+    instagram_connections_limit: profile?.instagram_connections_limit ?? null,
+    accounts: (Array.isArray(accounts) ? accounts : [])
+        .map((account) => ({
+            id: String(account?.$id || '').trim(),
+            linked_at: String(account?.linked_at || '').trim(),
+            status: String(account?.status || '').trim(),
+            is_active: toBoolean(account?.is_active, String(account?.status || 'active').trim().toLowerCase() === 'active'),
+            admin_disabled: toBoolean(account?.admin_disabled, false),
+            access_override_enabled: toBoolean(account?.access_override_enabled, false),
+            plan_locked: toBoolean(account?.plan_locked, false),
+            effective_access: toBoolean(account?.effective_access, false),
+            access_state: String(account?.access_state || '').trim(),
+            access_reason: String(account?.access_reason || '').trim()
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id))
+});
+
+const readAccountAccessCache = (userId, signature) => {
+    const cached = accountAccessCache.get(userId);
+    if (!cached) return null;
+    if (cached.expiresAt <= Date.now() || cached.signature !== signature) {
+        accountAccessCache.delete(userId);
+        return null;
+    }
+    return cloneAccountAccessState(cached.value);
+};
+
+const writeAccountAccessCache = (userId, signature, value) => {
+    accountAccessCache.set(userId, {
+        signature,
+        expiresAt: Date.now() + ACCOUNT_ACCESS_CACHE_TTL_MS,
+        value: cloneAccountAccessState(value)
+    });
+};
+
+const recomputeAccountAccessStateForUser = async (databases, userId, profile = null, accounts = null) => {
     const safeUserId = String(userId || '').trim();
-    if (!safeUserId) return [];
+    if (!safeUserId) {
+        return {
+            accounts: [],
+            summary: {
+                total_linked_accounts: 0,
+                max_allowed_accounts: 0,
+                active_account_limit: 0
+            },
+            limits: getProfileLimits(profile),
+            default_window_ids: []
+        };
+    }
 
     const docs = Array.isArray(accounts) ? accounts : await listUserInstagramAccounts(databases, safeUserId);
-    const limit = Math.max(0, Number(getProfileLimits(profile).instagram_connections_limit || 0));
+    const limitState = getProfileLimits(profile);
+    const signature = buildAccountAccessCacheSignature(profile, docs);
+    const cached = readAccountAccessCache(safeUserId, signature);
+    if (cached) {
+        return cached;
+    }
+    const limit = Math.max(0, Number(limitState.active_account_limit || 0));
     const orderedLinkedActiveAccounts = docs
         .filter((account) => isLinkedAccountActive(account))
         .slice()
@@ -225,21 +274,38 @@ const recomputeAccountAccessForUser = async (databases, userId, profile = null, 
         }
     }
 
-    return nextAccounts
+    const normalizedAccounts = nextAccounts
         .slice()
         .sort(compareAccountsByLinkedOrder)
         .map((account) => ({
             ...account,
             ...normalizeAccountAccess(account)
         }));
+    const state = {
+        accounts: normalizedAccounts,
+        summary: {
+            total_linked_accounts: orderedLinkedActiveAccounts.length,
+            max_allowed_accounts: Number(limitState.max_allowed_accounts || 0),
+            active_account_limit: Number(limitState.active_account_limit || 0)
+        },
+        limits: limitState,
+        default_window_ids: Array.from(defaultWindowIds)
+    };
+    writeAccountAccessCache(safeUserId, signature, state);
+    return state;
+};
+
+const recomputeAccountAccessForUser = async (databases, userId, profile = null, accounts = null) => {
+    const state = await recomputeAccountAccessStateForUser(databases, userId, profile, accounts);
+    return state.accounts;
 };
 
 module.exports = {
-    parseJsonObject,
     getProfileLimits,
     isLinkedAccountActive,
     normalizeAccountAccess,
     listUserInstagramAccounts,
+    recomputeAccountAccessStateForUser,
     recomputeAccountAccessForUser,
     compareAccountsByLinkedOrder
 };

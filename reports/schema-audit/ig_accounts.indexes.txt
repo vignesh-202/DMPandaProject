@@ -1,0 +1,44 @@
+﻿total  7
+ 
+indexes (7)
+  [1]
+    $id     1_8_idx_ig_user_id
+    key     idx_ig_user_id
+    type    unique
+    status  available
+
+  [2]
+    $id     1_8_idx_user_id
+    key     idx_user_id
+    type    key
+    status  available
+
+  [3]
+    $id     1_8_idx_account_id
+    key     idx_account_id
+    type    unique
+    status  available
+
+  [4]
+    $id     1_8_idx_user_ig_user
+    key     idx_user_ig_user
+    type    key
+    status  available
+
+  [5]
+    $id     1_8_idx_ig_user_linked_at
+    key     idx_ig_user_linked_at
+    type    key
+    status  available
+
+  [6]
+    $id     1_8_idx_ig_user_effective_access
+    key     idx_ig_user_effective_access
+    type    key
+    status  available
+
+  [7]
+    $id     1_8_idx_ig_user_admin_plan_lock
+    key     idx_ig_user_admin_plan_lock
+    type    key
+    status  available

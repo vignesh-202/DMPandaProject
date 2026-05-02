@@ -7,6 +7,7 @@ import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import ModernCalendar from '../../components/ui/ModernCalendar';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
+import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 
 import { useDashboard } from '../../contexts/DashboardContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -95,7 +96,7 @@ interface InboxMenuData {
 }
 
 const InboxMenu: React.FC = () => {
-    const { activeAccountID, activeAccount, inboxMenuData, setInboxMenuData, fetchInboxMenu, inboxMenuLoading, dmAutomations, setCurrentView } = useDashboard();
+    const { activeAccountID, activeAccount, inboxMenuData, setInboxMenuData, fetchInboxMenu, inboxMenuLoading, dmAutomations, setCurrentView, getPlanGate } = useDashboard();
     const { authenticatedFetch } = useAuth();
 
     // Check if there are any issues with the menu configuration
@@ -823,9 +824,10 @@ const InboxMenu: React.FC = () => {
             await primeEditorResources();
 
             let resolvedTemplate: ReplyTemplate | null = null;
-            if (item?.template_id && activeAccountID) {
+            const itemTemplateId = String(item?.template_id || '').trim();
+            if (itemTemplateId && activeAccountID) {
                 const templateResponse = await authenticatedFetch(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${item.template_id}?account_id=${activeAccountID}`
+                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${itemTemplateId}?account_id=${activeAccountID}`
                 );
                 if (templateResponse.ok) {
                     resolvedTemplate = await templateResponse.json();
@@ -1432,22 +1434,17 @@ const InboxMenu: React.FC = () => {
                                                 </div>
                                             ) : (
                                                 <div className="space-y-8 animate-in fade-in slide-in-from-top-2">
-                                                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${newItem.followers_only ? 'ring-1 ring-primary/15' : ''}`}>
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-blue-50 dark:border-blue-500/10">
-                                                                <Power className={`w-5 h-5 transition-colors ${newItem.followers_only ? 'text-blue-500' : 'text-gray-400'}`} />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-0.5">Followers Only Mode</p>
-                                                                <p className="text-[10px] font-medium text-gray-400">Only followers can trigger this auto reply menu item.</p>
-                                                            </div>
-                                                        </div>
-                                                        <ToggleSwitch
-                                                            isChecked={newItem.followers_only || false}
-                                                            onChange={() => setNewItem({ ...newItem, followers_only: !newItem.followers_only })}
-                                                            variant="plain"
-                                                        />
-                                                    </div>
+                                                                                                        <LockedFeatureToggle
+                                                        icon={<Power className={`w-5 h-5 ${newItem.followers_only ? 'text-blue-500' : 'text-gray-400'}`} />}
+                                                        title="Followers Only Mode"
+                                                        description="Only followers can trigger this auto reply menu item."
+                                                        checked={newItem.followers_only === true}
+                                                        onToggle={() => setNewItem({ ...newItem, followers_only: !newItem.followers_only })}
+                                                        locked={getPlanGate('followers_only').isLocked}
+                                                        note={getPlanGate('followers_only').note}
+                                                        onUpgrade={() => setCurrentView('My Plan')}
+                                                        activeIconClassName="text-blue-500"
+                                                    />
 
                                                     <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
                                                         <div className="flex items-center gap-4">
@@ -1475,25 +1472,17 @@ const InboxMenu: React.FC = () => {
                                                         <ToggleSwitch isChecked={false} onChange={() => { }} variant="plain" disabled />
                                                     </div>
 
-                                                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${newItem.seen_typing_enabled ? 'ring-1 ring-primary/15' : ''}`}>
-                                                        <div className="flex items-center gap-4">
-                                                            <div className={`p-3 rounded-2xl shadow-sm border ${newItem.seen_typing_enabled
-                                                                ? 'bg-white dark:bg-gray-900 border-violet-100 dark:border-violet-500/10'
-                                                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                                                }`}>
-                                                                <MessageSquare className={`w-5 h-5 ${newItem.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-0.5">Seen + Typing</p>
-                                                                <p className="text-[10px] font-medium text-gray-400">Store the seen and typing reaction with this inbox menu reply item.</p>
-                                                            </div>
-                                                        </div>
-                                                        <ToggleSwitch
-                                                            isChecked={newItem.seen_typing_enabled === true}
-                                                            onChange={() => setNewItem({ ...newItem, seen_typing_enabled: !(newItem.seen_typing_enabled === true) })}
-                                                            variant="plain"
-                                                        />
-                                                    </div>
+                                                    <LockedFeatureToggle
+                                                        icon={<MessageSquare className={`w-5 h-5 ${newItem.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />}
+                                                        title="Seen + Typing"
+                                                        description="Store the seen and typing reaction with this inbox menu reply item."
+                                                        checked={newItem.seen_typing_enabled === true}
+                                                        onToggle={() => setNewItem({ ...newItem, seen_typing_enabled: !(newItem.seen_typing_enabled === true) })}
+                                                        locked={getPlanGate('seen_typing').isLocked}
+                                                        note={getPlanGate('seen_typing').note}
+                                                        onUpgrade={() => setCurrentView('My Plan')}
+                                                        activeIconClassName="text-violet-500"
+                                                    />
 
                                                     {/* Template Selector */}
                                                     <div className="space-y-3">

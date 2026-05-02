@@ -32,8 +32,9 @@ export const AdminGauge: React.FC<AdminGaugeProps> = ({
       className
     )}>
       <div className="flex h-full flex-col">
-        <div className="pr-10">
-          {sublabel ? <p className="text-xs font-medium leading-5 text-muted-foreground">{sublabel}</p> : null}
+        <div className="pr-10 min-h-[52px]">
+          <h3 className="text-sm font-bold text-foreground">{label}</h3>
+          {sublabel ? <p className="text-xs font-medium leading-5 text-muted-foreground mt-1">{sublabel}</p> : null}
         </div>
         <div className="flex flex-1 items-center justify-center px-2 pt-3">
           <Gauge
@@ -41,10 +42,16 @@ export const AdminGauge: React.FC<AdminGaugeProps> = ({
             max={safeMax}
             size="lg"
             syncId="dashboard-gauges"
-            updatedText={updatedText}
-            label={label}
+            updatedText={helper ? '' : updatedText}
           />
         </div>
+        {helper && (
+          <div className="mt-auto pt-4">
+            <p className="text-center text-[10px] font-medium leading-4 text-muted-foreground sm:text-xs">
+              {helper}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

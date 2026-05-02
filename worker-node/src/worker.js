@@ -1,8 +1,10 @@
+const crypto = require('crypto');
 const AppwriteClient = require('./appwrite');
 const InstagramAPI = require('./instagram');
 const AutomationMatcher = require('./matcher');
 const TemplateRenderer = require('./renderer');
 const sharedPlanFeatures = require('../../shared/planFeatures.json');
+const { evaluateActionRateLimit } = require('../../shared/actionRateLimiter');
 const { planWatermark, resolveWatermarkPolicy } = require('./watermark');
 const { deliverCollectedEmail } = require('./emailDestinations');
 
@@ -11,6 +13,14 @@ const DEFAULT_COLLECT_EMAIL_PROMPT = '📧 Could you share your best email so we
 const DEFAULT_COLLECT_EMAIL_FAIL_RETRY = '⚠️ That email looks invalid. Please send a valid email like name@example.com.';
 const DEFAULT_COLLECT_EMAIL_SUCCESS = 'Perfect, thank you! Your email has been saved ✅';
 const AUTOMATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const EVENT_DEDUPE_TTL_MS = Math.max(
+    60_000,
+    Number(process.env.WORKER_EVENT_DEDUPE_TTL_MS || 60 * 60 * 1000) || (60 * 60 * 1000)
+);
+const PROCESSING_LOCK_TTL_MS = Math.max(
+    30_000,
+    Number(process.env.WORKER_EVENT_PROCESSING_LOCK_TTL_MS || 5 * 60 * 1000) || (5 * 60 * 1000)
+);
 const getTriggerType = (automation) => String(automation?.trigger_type || 'keywords').trim().toLowerCase();
 const isKeywordTrigger = (automation) => getTriggerType(automation) === 'keywords';
 const isAllCommentsTrigger = (automation) => getTriggerType(automation) === 'all_comments';
@@ -29,9 +39,9 @@ const LEGACY_TOGGLE_FEATURE_MAP = Object.freeze({
 const LEGACY_AUTOMATION_TYPE_FEATURE_MAP = Object.freeze({
     dm: 'dm_automation',
     global: 'global_trigger',
-    comment: 'post_comment_dm_automation',
-    post: 'post_comment_dm_automation',
-    reel: 'reel_comment_dm_automation',
+    comment: 'post_comment_dm_reply',
+    post: 'post_comment_dm_reply',
+    reel: 'reel_comment_dm_reply',
     story: 'story_automation',
     live: 'instagram_live_automation',
     mention: 'mentions',
@@ -67,6 +77,131 @@ class DMWorker {
         );
         this.localWelcomeCooldown = new Map();
         this.localConversationStates = new Map();
+        this.localProcessedEvents = new Map();
+    }
+
+    _hashToken(value, length = 24) {
+        const digest = crypto
+            .createHash('sha256')
+            .update(String(value || '').trim())
+            .digest('hex');
+        return digest.slice(0, Math.max(8, Math.min(64, Number(length || 24))));
+    }
+
+    _cleanupProcessedEvents(now = Date.now()) {
+        if (!(this.localProcessedEvents instanceof Map)) {
+            this.localProcessedEvents = new Map();
+        }
+        for (const [key, expiresAt] of this.localProcessedEvents.entries()) {
+            if (!Number.isFinite(expiresAt) || expiresAt <= now) {
+                this.localProcessedEvents.delete(key);
+            }
+        }
+    }
+
+    _rememberProcessedEvent(meta, ttlMs = EVENT_DEDUPE_TTL_MS) {
+        const eventKey = String(meta?.eventKey || '').trim();
+        const accountId = String(meta?.accountId || '').trim();
+        const eventType = String(meta?.eventType || 'message').trim() || 'message';
+        if (!eventKey || !accountId) return;
+        this._cleanupProcessedEvents();
+        const compositeKey = `${accountId}:${eventType}:${eventKey}`;
+        this.localProcessedEvents.set(compositeKey, Date.now() + Math.max(30_000, Number(ttlMs || EVENT_DEDUPE_TTL_MS)));
+    }
+
+    _wasProcessedRecently(meta) {
+        const eventKey = String(meta?.eventKey || '').trim();
+        const accountId = String(meta?.accountId || '').trim();
+        const eventType = String(meta?.eventType || 'message').trim() || 'message';
+        if (!eventKey || !accountId) return false;
+        this._cleanupProcessedEvents();
+        const compositeKey = `${accountId}:${eventType}:${eventKey}`;
+        const expiresAt = Number(this.localProcessedEvents.get(compositeKey) || 0);
+        return Number.isFinite(expiresAt) && expiresAt > Date.now();
+    }
+
+    _extractEventMetaFromWebhook(webhookData, options = {}) {
+        const optionMeta = options?.meta && typeof options.meta === 'object' ? options.meta : {};
+        const safeOptionMeta = options && typeof options === 'object' ? options : {};
+        const mergedMeta = { ...safeOptionMeta, ...optionMeta };
+        const entry = webhookData?.entry?.[0];
+        const messaging = entry?.messaging?.[0];
+        const change = entry?.changes?.[0];
+
+        let eventType = String(mergedMeta.eventType || '').trim().toLowerCase();
+        let accountId = String(mergedMeta.accountId || mergedMeta.recipientId || '').trim();
+        let recipientId = String(mergedMeta.recipientId || '').trim();
+        let senderId = String(mergedMeta.senderId || '').trim();
+        let conversationKey = String(mergedMeta.conversationKey || '').trim();
+        let eventKey = String(mergedMeta.eventKey || '').trim();
+
+        if (messaging && typeof messaging === 'object') {
+            eventType = eventType || (messaging?.postback
+                ? (messaging?.postback?.referral || messaging?.postback?.context ? 'share_referral' : 'postback')
+                : 'message');
+            recipientId = recipientId || String(messaging?.recipient?.id || entry?.id || '').trim();
+            senderId = senderId || String(messaging?.sender?.id || '').trim();
+            accountId = accountId || recipientId;
+            conversationKey = conversationKey || (senderId && recipientId ? `${recipientId}:${senderId}` : '');
+            eventKey = eventKey || String(
+                messaging?.message?.mid
+                || messaging?.postback?.mid
+                || messaging?.postback?.payload
+                || messaging?.postback?.title
+                || ''
+            ).trim();
+        } else if (change && typeof change === 'object') {
+            const field = String(change?.field || '').trim().toLowerCase();
+            const value = change?.value || {};
+            if (!eventType) {
+                if (field === 'comments' || field === 'live_comments') eventType = 'comment';
+                else if (field === 'mentions' || field === 'story_mentions' || field.includes('mention')) eventType = 'mention';
+            }
+            recipientId = recipientId || String(value?.recipient?.id || entry?.id || '').trim();
+            senderId = senderId || String(
+                value?.from?.id
+                || value?.sender?.id
+                || value?.user?.id
+                || value?.author?.id
+                || value?.mentioned_by?.id
+                || value?.user_id
+                || value?.sender_id
+                || ''
+            ).trim();
+            accountId = accountId || recipientId;
+            conversationKey = conversationKey || (senderId && recipientId ? `${recipientId}:${senderId}` : '');
+            if (!eventKey) {
+                const entityId = String(
+                    value?.id
+                    || value?.comment_id
+                    || value?.mention_id
+                    || value?.media_id
+                    || value?.message
+                    || ''
+                ).trim();
+                if (entityId) {
+                    eventKey = `${eventType || 'event'}:${recipientId}:${senderId}:${entityId}`;
+                }
+            }
+        }
+
+        if (!eventKey && conversationKey) {
+            const rawPayload = JSON.stringify({
+                conversationKey,
+                text: String(messaging?.message?.text || messaging?.postback?.payload || '').trim(),
+                timestamp: String(messaging?.timestamp || '').trim()
+            });
+            eventKey = `fallback:${this._hashToken(rawPayload, 32)}`;
+        }
+
+        return {
+            eventType: eventType || 'message',
+            accountId: accountId || recipientId || '',
+            recipientId: recipientId || accountId || '',
+            senderId: senderId || '',
+            conversationKey: conversationKey || '',
+            eventKey: eventKey || ''
+        };
     }
 
     async _getAutomationDefaults() {
@@ -96,44 +231,19 @@ class DMWorker {
     }
 
     _getActionLimitGate(profile) {
-        const parsedLimits = (() => {
-            try {
-                const parsed = typeof profile?.limits_json === 'string' ? JSON.parse(profile.limits_json) : profile?.limits_json;
-                return parsed && typeof parsed === 'object' ? parsed : {};
-            } catch {
-                return {};
-            }
-        })();
-        const hourlyLimit = Number(parsedLimits.hourly_action_limit ?? profile?.hourly_action_limit ?? 0);
-        const dailyLimit = Number(parsedLimits.daily_action_limit ?? profile?.daily_action_limit ?? 0);
-        const monthlyLimit = Number(parsedLimits.monthly_action_limit ?? profile?.monthly_action_limit ?? 0);
-        const hourlyUsed = Number(profile?.hourly_actions_used || 0);
-        const dailyUsed = Number(profile?.daily_actions_used || 0);
-        const monthlyUsed = Number(profile?.monthly_actions_used || 0);
-
-        if (hourlyLimit > 0 && hourlyUsed >= hourlyLimit) {
-            return { blocked: true, reason: 'hourly_action_limit_reached', stage: 'hourly_limit' };
-        }
-        if (dailyLimit > 0 && dailyUsed >= dailyLimit) {
-            return { blocked: true, reason: 'daily_action_limit_reached', stage: 'daily_limit' };
-        }
-        if (monthlyLimit > 0 && monthlyUsed >= monthlyLimit) {
-            return { blocked: true, reason: 'monthly_action_limit_reached', stage: 'monthly_limit' };
-        }
-        return { blocked: false, reason: null, stage: null };
+        const gate = evaluateActionRateLimit(profile || {});
+        return {
+            blocked: gate.blocked,
+            reason: gate.code,
+            stage: gate.stage,
+            limits: gate.limits,
+            usage: gate.usage
+        };
     }
 
     _getProfileFeatures(profile) {
-        const parsed = (() => {
-            try {
-                const value = typeof profile?.features_json === 'string' ? JSON.parse(profile.features_json) : profile?.features_json;
-                return value && typeof value === 'object' ? value : {};
-            } catch {
-                return {};
-            }
-        })();
-        const features = { ...parsed };
-        let hasExplicitFeatures = Object.keys(parsed).length > 0;
+        const features = { ...(profile?.__plan_features || {}) };
+        let hasExplicitFeatures = Object.keys(features).length > 0;
         Object.keys(profile || {}).forEach((key) => {
             if (key.startsWith('benefit_')) {
                 hasExplicitFeatures = true;
@@ -169,7 +279,7 @@ class DMWorker {
             }
             if (String(automation?.template_type || '').trim() === 'template_share_post') {
                 const latestType = String(automation?.latest_post_type || '').trim().toLowerCase();
-                required.push(latestType === 'reel' ? 'share_reel_to_dm' : 'share_post_to_dm');
+                required.push(latestType === 'reel' ? 'share_reel_to_admin' : 'share_post_to_admin');
             }
             return Array.from(new Set(required.map((feature) => resolveCanonicalFeatureKey(feature)).filter(Boolean)));
         }
@@ -181,7 +291,7 @@ class DMWorker {
             || automation?.share_to_admin_enabled === true
             || String(automation?.template_type || '').trim() === 'template_share_post';
         if (isShareTrigger) {
-            required.push(SHARE_TRIGGER_FEATURE_MAP[type] || 'share_post_to_dm');
+            required.push(SHARE_TRIGGER_FEATURE_MAP[type] || 'share_post_to_admin');
         }
         return Array.from(new Set(required.map((feature) => resolveCanonicalFeatureKey(feature)).filter(Boolean)));
     }
@@ -254,6 +364,28 @@ class DMWorker {
         });
     }
 
+    async _recordSuccessfulAction(userId) {
+        if (!userId || typeof this.appwrite.incrementActionUsage !== 'function') return;
+        await this.appwrite.incrementActionUsage(userId).catch((error) => {
+            console.warn('Failed to increment action usage:', error?.message || error);
+        });
+    }
+
+    _resolveActionUserId(...candidates) {
+        for (const candidate of candidates) {
+            const safe = String(candidate || '').trim();
+            if (safe) return safe;
+        }
+        return '';
+    }
+
+    async _recordAutomationLog(entry = {}) {
+        if (typeof this.appwrite.createAutomationLog !== 'function') return;
+        await this.appwrite.createAutomationLog(entry).catch((error) => {
+            console.warn('Failed to record automation log:', error?.message || error);
+        });
+    }
+
     async _getFreshExecutionGateState(userId, igAccount = null) {
         const { accessState, profile } = await this.appwrite.getExecutionState(userId);
         if (!profile) {
@@ -267,6 +399,7 @@ class DMWorker {
                 actionLimitGate: { blocked: true, reason: 'execution_state_uncertain', stage: 'execution_state' }
             };
         }
+        const resolvedPlanCode = String(profile?.plan_code || profile?.__plan_code || 'free').trim().toLowerCase() || 'free';
         if (accessState?.ban_mode === 'hard' || accessState?.ban_mode === 'soft') {
             return {
                 accessState,
@@ -280,6 +413,13 @@ class DMWorker {
         }
         const actionLimitGate = this._getActionLimitGate(profile);
         if (actionLimitGate.blocked) {
+            return {
+                accessState,
+                profile,
+                actionLimitGate
+            };
+        }
+        if (resolvedPlanCode === 'free') {
             return {
                 accessState,
                 profile,
@@ -315,7 +455,14 @@ class DMWorker {
         };
     }
 
-    async sendRenderedTemplate(instagram, senderId, template, context, watermarkPolicy) {
+    async sendRenderedTemplate(instagram, senderId, template, context, watermarkPolicy, options = {}) {
+        const actionUserId = this._resolveActionUserId(
+            options?.actionUserId,
+            options?.fallbackActionUserId
+        );
+        const logContext = options?.logContext && typeof options.logContext === 'object'
+            ? options.logContext
+            : null;
         const renderedTemplate = TemplateRenderer.render(template, context);
         const watermarkPlan = planWatermark({
             templateType: template.type,
@@ -328,13 +475,49 @@ class DMWorker {
             template.type,
             watermarkPlan.primaryPayload
         );
+        if (success && actionUserId) {
+            await this._recordSuccessfulAction(actionUserId);
+        }
+        if (logContext?.accountId) {
+            await this._recordAutomationLog({
+                accountId: logContext.accountId,
+                recipientId: logContext.recipientId || senderId,
+                senderName: logContext.senderName || senderId,
+                automationId: logContext.automationId || null,
+                automationType: logContext.automationType || null,
+                eventType: logContext.eventType || 'message',
+                source: logContext.source || 'worker_node',
+                message: success
+                    ? `Sent ${String(template?.type || 'template').trim() || 'template'} reply`
+                    : `Failed to send ${String(template?.type || 'template').trim() || 'template'} reply`,
+                payload: watermarkPlan.primaryPayload,
+                status: success ? 'success' : 'failed'
+            });
+        }
 
         if (success && watermarkPlan.secondaryPayload) {
-            await instagram.sendMessage(
+            const secondarySent = await instagram.sendMessage(
                 senderId,
                 'template_text',
                 watermarkPlan.secondaryPayload
             );
+            if (secondarySent && actionUserId) {
+                await this._recordSuccessfulAction(actionUserId);
+            }
+            if (logContext?.accountId) {
+                await this._recordAutomationLog({
+                    accountId: logContext.accountId,
+                    recipientId: logContext.recipientId || senderId,
+                    senderName: logContext.senderName || senderId,
+                    automationId: logContext.automationId || null,
+                    automationType: logContext.automationType || null,
+                    eventType: logContext.eventType || 'message',
+                    source: logContext.source || 'worker_node',
+                    message: secondarySent ? 'Sent watermark follow-up' : 'Failed watermark follow-up',
+                    payload: watermarkPlan.secondaryPayload,
+                    status: secondarySent ? 'success' : 'failed'
+                });
+            }
         }
 
         return success;
@@ -357,13 +540,14 @@ class DMWorker {
         });
     }
 
-    async _sendWatermarkedText(instagram, senderId, text, watermarkPolicy) {
+    async _sendWatermarkedText(instagram, senderId, text, watermarkPolicy, options = {}) {
         return this.sendRenderedTemplate(
             instagram,
             senderId,
             { type: 'template_text', payload: { text: String(text || '').trim() } },
             {},
-            watermarkPolicy
+            watermarkPolicy,
+            options
         );
     }
 
@@ -390,9 +574,27 @@ class DMWorker {
         messageText,
         automation,
         automationAccountIds,
-        watermarkPolicy
+        watermarkPolicy,
+        ownerUserId = null,
+        eventType = 'message',
+        accountId = null
     }) {
+        const actionUserId = this._resolveActionUserId(automation?.user_id, ownerUserId);
         if (automation?.suggest_more_enabled !== true) return false;
+        if (actionUserId) {
+            const executionState = await this.appwrite.getExecutionState(actionUserId);
+            if (!this._hasPlanFeature(executionState?.profile, 'suggest_more')) {
+                this._logBlockedFeatures({
+                    userId: actionUserId,
+                    accountId: automation?.account_id || null,
+                    automation,
+                    missingFeatures: ['suggest_more'],
+                    reason: 'plan_feature_blocked',
+                    eventType: 'suggest_more_feature_locked'
+                });
+                return false;
+            }
+        }
 
         const suggestMoreAutomation = await this.appwrite.getActiveConfigAutomation(
             automationAccountIds,
@@ -420,7 +622,19 @@ class DMWorker {
                 recipient_id: recipientId,
                 message_text: String(messageText || '').trim()
             },
-            watermarkPolicy
+            watermarkPolicy,
+            {
+                actionUserId,
+                logContext: {
+                    accountId: accountId || suggestMoreAutomation.account_id || automation?.account_id || null,
+                    recipientId: senderId,
+                    senderName: senderId,
+                    automationId: suggestMoreAutomation.$id || null,
+                    automationType: suggestMoreAutomation.automation_type || 'suggest_more',
+                    eventType,
+                    source: 'worker_node'
+                }
+            }
         );
 
         return true;
@@ -435,10 +649,31 @@ class DMWorker {
         automationAccountIds,
         watermarkPolicy,
         chainState = null,
-        commentId = null
+        commentId = null,
+        ownerUserId = null,
+        eventType = 'message',
+        accountId = null
     }) {
+        const resolvedActionUserId = this._resolveActionUserId(automation?.user_id, ownerUserId);
         if (commentId && automation?.comment_reply) {
-            await instagram.replyToComment(commentId, automation.comment_reply);
+            const commentReplySent = await instagram.replyToComment(commentId, automation.comment_reply);
+            if (commentReplySent && resolvedActionUserId) {
+                await this._recordSuccessfulAction(resolvedActionUserId);
+            }
+            if (accountId) {
+                await this._recordAutomationLog({
+                    accountId,
+                    recipientId: senderId,
+                    senderName: senderId,
+                    automationId: automation?.$id || null,
+                    automationType: automation?.automation_type || 'comment',
+                    eventType: 'comment',
+                    source: 'worker_node_comment_reply',
+                    message: commentReplySent ? 'Sent public comment reply' : 'Failed public comment reply',
+                    payload: { comment_id: commentId, text: String(automation.comment_reply || '').trim() },
+                    status: commentReplySent ? 'success' : 'failed'
+                });
+            }
         }
 
         const template = await this._resolveAutomationTemplate(automation, automation.account_id);
@@ -456,7 +691,20 @@ class DMWorker {
                 recipient_id: recipientId,
                 message_text: String(messageText || '').trim()
             },
-            watermarkPolicy
+            watermarkPolicy,
+            {
+                actionUserId: automation?.user_id,
+                fallbackActionUserId: ownerUserId,
+                logContext: {
+                    accountId,
+                    recipientId: senderId,
+                    senderName: senderId,
+                    automationId: automation?.$id || null,
+                    automationType: automation?.automation_type || 'dm',
+                    eventType,
+                    source: 'worker_node'
+                }
+            }
         );
 
         if (success) {
@@ -467,7 +715,10 @@ class DMWorker {
                 messageText,
                 automation,
                 automationAccountIds,
-                watermarkPolicy
+                watermarkPolicy,
+                ownerUserId,
+                eventType,
+                accountId
             });
         }
 
@@ -719,10 +970,30 @@ class DMWorker {
             payload: `followers_only_retry:${String(automation?.$id || '').trim()}`
         });
 
-        return instagram.sendMessage(senderId, 'template_buttons', {
+        const sent = await instagram.sendMessage(senderId, 'template_buttons', {
             text: promptText,
             buttons
         });
+        const actionUserId = this._resolveActionUserId(automation?.user_id, igAccount?.user_id);
+        if (sent) {
+            await this._recordSuccessfulAction(actionUserId);
+        }
+        const accountId = String(igAccount?.ig_user_id || igAccount?.account_id || '').trim();
+        if (accountId) {
+            await this._recordAutomationLog({
+                accountId,
+                recipientId: senderId,
+                senderName: senderId,
+                automationId: automation?.$id || null,
+                automationType: automation?.automation_type || 'dm',
+                eventType: 'message',
+                source: 'worker_node_followers_only',
+                message: sent ? 'Sent followers-only prompt' : 'Failed followers-only prompt',
+                payload: { text: promptText, buttons },
+                status: sent ? 'success' : 'failed'
+            });
+        }
+        return sent;
     }
 
     async _handlePendingEmailCollection({
@@ -740,9 +1011,12 @@ class DMWorker {
 
         const validation = this._validateCollectedEmail(messageText, pendingEmail.collectEmailOnlyGmail === true);
         if (!validation.valid) {
-            await instagram.sendMessage(senderId, 'template_text', {
+            const retrySent = await instagram.sendMessage(senderId, 'template_text', {
                 text: pendingEmail.failRetryMessage || DEFAULT_COLLECT_EMAIL_FAIL_RETRY
             });
+            if (retrySent) {
+                await this._recordSuccessfulAction(userId);
+            }
             return {
                 handled: true,
                 automationType: pendingEmail.automationType || 'dm'
@@ -758,6 +1032,22 @@ class DMWorker {
             return {
                 handled: false,
                 automationType: pendingEmail.automationType || 'dm'
+            };
+        }
+        const executionState = await this.appwrite.getExecutionState(userId);
+        if (!this._hasPlanFeature(executionState?.profile, 'collect_email')) {
+            await this._clearConversationState(accountId, conversationKey);
+            this._logBlockedFeatures({
+                userId,
+                accountId,
+                automation,
+                missingFeatures: ['collect_email'],
+                reason: 'plan_feature_blocked',
+                eventType: 'pending_email_feature_locked'
+            });
+            return {
+                handled: false,
+                automationType: 'invalid_due_to_plan'
             };
         }
 
@@ -827,7 +1117,19 @@ class DMWorker {
             instagram,
             senderId,
             pendingEmail.successReplyMessage || DEFAULT_COLLECT_EMAIL_SUCCESS,
-            watermarkPolicy
+            watermarkPolicy,
+            {
+                actionUserId: userId,
+                logContext: {
+                    accountId,
+                    recipientId: senderId,
+                    senderName: senderId,
+                    automationId: pendingEmail.automationId || null,
+                    automationType: pendingEmail.automationType || 'dm',
+                    eventType: pendingEmail.sourceEventType || 'message',
+                    source: 'worker_node'
+                }
+            }
         );
 
         const template = await this._resolveAutomationTemplate(automation, automation.account_id);
@@ -837,7 +1139,7 @@ class DMWorker {
             }
             const chainState = { preReplyHintsSent: false };
             await this._maybeSendSeenTypingPrelude(instagram, senderId, automation, chainState);
-            await this.sendRenderedTemplate(
+            const sent = await this.sendRenderedTemplate(
                 instagram,
                 senderId,
                 template,
@@ -846,7 +1148,19 @@ class DMWorker {
                     recipient_id: recipientId,
                     message_text: pendingEmail.originalMessageText || String(messageText || '').trim()
                 },
-                watermarkPolicy
+                watermarkPolicy,
+                {
+                    actionUserId: userId,
+                    logContext: {
+                        accountId,
+                        recipientId: senderId,
+                        senderName: senderId,
+                        automationId: automation?.$id || null,
+                        automationType: automation?.automation_type || pendingEmail.automationType || 'dm',
+                        eventType: pendingEmail.sourceEventType || 'message',
+                        source: 'worker_node'
+                    }
+                }
             );
 
             await this._sendSuggestMoreFollowUp({
@@ -856,7 +1170,10 @@ class DMWorker {
                 messageText: pendingEmail.originalMessageText || String(messageText || '').trim(),
                 automation,
                 automationAccountIds: [accountId],
-                watermarkPolicy
+                watermarkPolicy,
+                ownerUserId: userId,
+                eventType: pendingEmail.sourceEventType || 'message',
+                accountId
             });
         }
 
@@ -980,7 +1297,7 @@ class DMWorker {
         return result;
     }
 
-    async _processCommentEvent(webhookData) {
+    async _processCommentEvent(webhookData, options = {}) {
         const commentEvent = this._extractCommentEvent(webhookData);
         if (!commentEvent?.recipientId || !commentEvent?.senderId || !commentEvent?.text) {
             return false;
@@ -1028,7 +1345,7 @@ class DMWorker {
             : [matches.primary || matches.global].filter(Boolean);
 
         if (candidates.length === 0) {
-            if (this._hasRecentWelcomeReply(conversationKey)) {
+            if (this._hasRecentWelcomeReply(conversationKey, options)) {
                 return { handled: true, automationType: 'welcome_message' };
             }
             const welcomeAutomation = await this.appwrite.getActiveConfigAutomation(automationAccountIds, 'welcome_message');
@@ -1100,6 +1417,7 @@ class DMWorker {
             });
 
                 if (promptSent) {
+                    await this._recordSuccessfulAction(igAccount.user_id);
                     await this._saveConversationState({
                         userId: igAccount.user_id,
                         accountId: primaryAccountId,
@@ -1140,7 +1458,10 @@ class DMWorker {
                 automationAccountIds,
                 watermarkPolicy,
                 chainState,
-                commentId: commentEvent.commentId || null
+                commentId: commentEvent.commentId || null,
+                ownerUserId: igAccount.user_id,
+                eventType: 'comment',
+                accountId: primaryAccountId
             });
 
             handled = handled || success === true;
@@ -1173,7 +1494,7 @@ class DMWorker {
         };
     }
 
-    async _processMentionEvent(webhookData) {
+    async _processMentionEvent(webhookData, options = {}) {
         const mentionEvent = this._extractMentionEvent(webhookData);
         if (!mentionEvent?.recipientId || !mentionEvent?.senderId) {
             return false;
@@ -1208,7 +1529,7 @@ class DMWorker {
             matchedAutomation = AutomationMatcher.matchDM(mentionEvent.text, globalAutomations);
         }
         if (!matchedAutomation) {
-            if (this._hasRecentWelcomeReply(conversationKey)) {
+            if (this._hasRecentWelcomeReply(conversationKey, options)) {
                 return { handled: true, automationType: 'welcome_message' };
             }
             matchedAutomation = await this.appwrite.getActiveConfigAutomation(automationAccountIds, 'welcome_message');
@@ -1260,6 +1581,7 @@ class DMWorker {
             });
 
             if (promptSent) {
+                await this._recordSuccessfulAction(igAccount.user_id);
                 await this._saveConversationState({
                     userId: igAccount.user_id,
                     accountId: primaryAccountId,
@@ -1297,7 +1619,10 @@ class DMWorker {
             automation: matchedAutomation,
             automationAccountIds,
             watermarkPolicy,
-            chainState: { preReplyHintsSent: false }
+            chainState: { preReplyHintsSent: false },
+            ownerUserId: igAccount.user_id,
+            eventType: 'mention',
+            accountId: primaryAccountId
         });
 
         let nextConversationState = this._normalizeConversationState(conversationState);
@@ -1343,9 +1668,9 @@ class DMWorker {
                 if (change) {
                     const changeField = String(change?.field || '').trim().toLowerCase();
                     if (changeField === 'mentions' || changeField === 'story_mentions') {
-                        return this._processMentionEvent(webhookData);
+                        return this._processMentionEvent(webhookData, options);
                     }
-                    return this._processCommentEvent(webhookData);
+                    return this._processCommentEvent(webhookData, options);
                 }
                 console.log('Not a messaging event, skipping.');
                 return false;
@@ -1546,6 +1871,7 @@ class DMWorker {
                 });
 
                 if (promptSent) {
+                    await this._recordSuccessfulAction(igAccount.user_id);
                     let nextConversationState = this._normalizeConversationState(conversationState);
                     nextConversationState.pendingEmail = {
                         automationId: String(matchedAutomation.$id || '').trim() || null,
@@ -1600,7 +1926,19 @@ class DMWorker {
                 senderId,
                 template,
                 context,
-                watermarkPolicy
+                watermarkPolicy,
+                {
+                    actionUserId: igAccount.user_id,
+                    logContext: {
+                        accountId: primaryAccountId,
+                        recipientId: senderId,
+                        senderName: senderId,
+                        automationId: matchedAutomation.$id || null,
+                        automationType,
+                        eventType: String(options?.meta?.eventType || 'message').trim() || 'message',
+                        source: 'worker_node'
+                    }
+                }
             );
 
             let nextConversationState = this._normalizeConversationState(conversationState);
@@ -1620,7 +1958,10 @@ class DMWorker {
                     messageText: inboundText,
                     automation: matchedAutomation,
                     automationAccountIds,
-                    watermarkPolicy
+                    watermarkPolicy,
+                    ownerUserId: igAccount.user_id,
+                    eventType: String(options?.meta?.eventType || 'message').trim() || 'message',
+                    accountId: primaryAccountId
                 });
             }
 
@@ -1649,12 +1990,62 @@ class DMWorker {
             };
         } catch (error) {
             console.error('Error in DMWorker.processMessage:', error);
+            if (options?.throwOnError === true) {
+                throw error;
+            }
             return false;
         }
     }
 
     async processWebhook(webhookData, options = {}) {
-        return this.processMessage(webhookData, options);
+        const meta = this._extractEventMetaFromWebhook(webhookData, options);
+        const shouldClaim = Boolean(
+            meta?.eventKey
+            && meta?.accountId
+            && typeof this.appwrite?.claimProcessingEvent === 'function'
+            && typeof this.appwrite?.finalizeProcessingEvent === 'function'
+        );
+
+        if (this._wasProcessedRecently(meta)) {
+            return { handled: true, duplicate: true, automationType: 'duplicate_event' };
+        }
+
+        let claim = null;
+        if (shouldClaim) {
+            claim = await this.appwrite.claimProcessingEvent(meta, {
+                processingTtlMs: PROCESSING_LOCK_TTL_MS,
+                dedupeTtlMs: EVENT_DEDUPE_TTL_MS
+            });
+            if (!claim?.claimed) {
+                this._rememberProcessedEvent(meta, EVENT_DEDUPE_TTL_MS);
+                return { handled: true, duplicate: true, automationType: 'duplicate_event' };
+            }
+        }
+
+        try {
+            const result = await this.processMessage(webhookData, {
+                ...options,
+                meta,
+                throwOnError: options?.throwOnError !== false
+            });
+            this._rememberProcessedEvent(meta, EVENT_DEDUPE_TTL_MS);
+            if (claim?.claimed) {
+                await this.appwrite.finalizeProcessingEvent(claim, {
+                    status: 'completed',
+                    dedupeTtlMs: EVENT_DEDUPE_TTL_MS
+                });
+            }
+            return result;
+        } catch (error) {
+            if (claim?.claimed) {
+                await this.appwrite.finalizeProcessingEvent(claim, {
+                    status: 'failed',
+                    error: error?.message || error,
+                    dedupeTtlMs: 1000
+                });
+            }
+            throw error;
+        }
     }
 }
 

@@ -8,7 +8,7 @@ import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
 import { ArrowLeft } from 'lucide-react';
-import { takeTransientState } from '../../lib/transientState';
+import { useLocation, useNavigate } from 'react-router-dom';
 import AutomationToast from '../../components/ui/AutomationToast';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import { prefetchReplyTemplates, ReplyTemplate } from '../../components/dashboard/TemplateSelector';
@@ -32,6 +32,9 @@ const ReelAutomationView: React.FC = () => {
   const saveHandlerRef = React.useRef<() => Promise<boolean>>(async () => true);
   useDashboardMainScrollLock(Boolean(selectedMedia || isPreparingEditor));
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const handleTemplatesLoaded = useCallback((templates: ReplyTemplate[]) => {
     setReplyTemplatesList((current) => {
       const merged = new Map(current.map((template) => [template.id, template]));
@@ -54,68 +57,22 @@ const ReelAutomationView: React.FC = () => {
   }, [activeAccountID, authenticatedFetch]);
 
   const handleDeletedAutomationFallback = useCallback(() => {
-    setSelectedMedia(null);
-    setEditorDirty(false);
-    setShowLeaveModal(false);
-    setSelectedTemplateId('');
-    setPrefetchedAutomation(null);
-    setPrefetchedTemplate(null);
-    setHasUnsavedChanges(false);
+    navigate('/dashboard/reel-automation');
     setMediaRefreshKey((value) => value + 1);
     setError('Automation not found. It may have been deleted.');
-  }, [setHasUnsavedChanges]);
+  }, [navigate]);
 
   const handleCreateAutomation = useCallback(async (media: any) => {
-    const isEditingExisting = Boolean(media?.automation_id);
-    setEditorLoadingMessage(isEditingExisting ? 'Loading reel automation' : 'Opening reel automation');
-    setIsPreparingEditor(true);
-    try {
-      let resolvedAutomation: any = null;
-      let resolvedTemplate: ReplyTemplate | null = null;
-      if (isEditingExisting && media?.automation_id) {
-        await primeEditorResources();
-        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${media.automation_id}?account_id=${activeAccountID}&type=reel`);
-        if (!res.ok) {
-          if (res.status === 404) {
-            handleDeletedAutomationFallback();
-            return;
-          }
-          throw new Error('Failed to load automation.');
-        }
-        resolvedAutomation = await res.json();
-        if (resolvedAutomation?.template_id) {
-          const templateRes = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${resolvedAutomation.template_id}?account_id=${activeAccountID}`);
-          if (templateRes.ok) {
-            resolvedTemplate = await templateRes.json();
-          }
-        }
-      } else {
-        void primeEditorResources();
-      }
-      setPrefetchedAutomation(resolvedAutomation);
-      setPrefetchedTemplate(resolvedTemplate);
-      setSelectedMedia(media);
-      setEditorDirty(false);
-      setShowLeaveModal(false);
-      setSelectedTemplateId('');
-      setError(null);
-      setSuccess(null);
-    } catch (_) {
-      setError('Could not open automation.');
-    } finally {
-      setIsPreparingEditor(false);
+    if (media?.automation_id) {
+      navigate(`/dashboard/reel-automation/edit/${media.automation_id}`, { state: { media } });
+      return;
     }
-  }, [activeAccountID, authenticatedFetch, handleDeletedAutomationFallback, primeEditorResources]);
+    navigate(`/dashboard/reel-automation/create/${media.id}`, { state: { media } });
+  }, [navigate]);
 
   const closeEditor = useCallback(() => {
-    setSelectedMedia(null);
-    setEditorDirty(false);
-    setShowLeaveModal(false);
-    setSelectedTemplateId('');
-    setPrefetchedAutomation(null);
-    setPrefetchedTemplate(null);
-    setHasUnsavedChanges(false);
-  }, [setHasUnsavedChanges]);
+    navigate('/dashboard/reel-automation');
+  }, [navigate]);
 
   const requestClose = useCallback(() => {
     if (editorDirty) {
@@ -131,15 +88,9 @@ const ReelAutomationView: React.FC = () => {
   };
 
   const handleSave = useCallback(() => {
-    setSelectedMedia(null);
-    setEditorDirty(false);
-    setShowLeaveModal(false);
-    setSelectedTemplateId('');
-    setPrefetchedAutomation(null);
-    setPrefetchedTemplate(null);
-    setHasUnsavedChanges(false);
+    navigate('/dashboard/reel-automation');
     setSuccess('Automation saved successfully!');
-  }, [setHasUnsavedChanges]);
+  }, [navigate]);
 
   // Track unsaved changes when automation editor is open
   useEffect(() => {
@@ -159,51 +110,77 @@ const ReelAutomationView: React.FC = () => {
 
   useEffect(() => {
     if (!activeAccountID) return;
-    const targetId = takeTransientState<string>('openAutomationId');
-    const targetType = takeTransientState<string>('openAutomationType');
-    if (!targetId || (targetType || '').toLowerCase() !== 'reel') return;
+    const editMatch = location.pathname.match(/\/dashboard\/reel-automation\/edit\/([^/]+)/);
+    const createMatch = location.pathname.match(/\/dashboard\/reel-automation\/create\/([^/]+)/);
+    const targetId = editMatch ? editMatch[1] : (createMatch ? createMatch[1] : null);
+    const isCreateRoute = Boolean(createMatch);
+
+    if (!targetId) {
+        setSelectedMedia(null);
+        setEditorDirty(false);
+        setShowLeaveModal(false);
+        setSelectedTemplateId('');
+        setPrefetchedAutomation(null);
+        setPrefetchedTemplate(null);
+        setHasUnsavedChanges(false);
+        setIsPreparingEditor(false);
+        return;
+    }
+
+    const stateMedia = location.state?.media;
+    const isEditingExisting = !isCreateRoute && (stateMedia ? Boolean(stateMedia.automation_id) : true);
+    
+    if (selectedMedia && (selectedMedia.automation_id === targetId || selectedMedia.id === targetId)) {
+        return;
+    }
 
     (async () => {
-      setEditorLoadingMessage('Loading reel automation');
+      setEditorLoadingMessage(isEditingExisting ? 'Loading reel automation' : 'Opening reel automation');
       setIsPreparingEditor(true);
       try {
-        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}&type=reel`);
-        if (res.ok) {
-          const data = await res.json();
-          const mediaId = data.media_id || data.mediaId || data.media?.id;
-          if (!mediaId) {
-            setError('Could not open automation: media not found.');
-            return;
-          }
-          await primeEditorResources();
-          let resolvedTemplate: ReplyTemplate | null = null;
-          if (data.template_id) {
-            const templateRes = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${data.template_id}?account_id=${activeAccountID}`);
-            if (templateRes.ok) {
-              resolvedTemplate = await templateRes.json();
+        let resolvedAutomation: any = null;
+        let resolvedTemplate: ReplyTemplate | null = null;
+        let mediaId = targetId;
+
+        if (isEditingExisting) {
+            await primeEditorResources();
+            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}&type=reel`);
+            if (!res.ok) {
+                if (res.status === 404) {
+                    handleDeletedAutomationFallback();
+                    return;
+                }
+                throw new Error('Failed to load automation.');
             }
-          }
-          setPrefetchedAutomation(data);
-          setPrefetchedTemplate(resolvedTemplate);
-          setSelectedMedia({
-            id: mediaId,
-            automation_id: targetId,
-            caption: data.caption || data.media_caption || ''
-          });
+            resolvedAutomation = await res.json();
+            mediaId = resolvedAutomation.media_id || resolvedAutomation.mediaId || resolvedAutomation.media?.id || targetId;
+
+            const resolvedTemplateId = String(resolvedAutomation?.template_id || '').trim();
+            if (resolvedTemplateId) {
+                const templateRes = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${resolvedTemplateId}?account_id=${activeAccountID}`);
+                if (templateRes.ok) {
+                    resolvedTemplate = await templateRes.json();
+                }
+            }
         } else {
-          if (res.status === 404) {
-            handleDeletedAutomationFallback();
-            return;
-          }
-          setError('Could not open automation.');
+            void primeEditorResources();
         }
+
+        setPrefetchedAutomation(resolvedAutomation);
+        setPrefetchedTemplate(resolvedTemplate);
+        setSelectedMedia(stateMedia || {
+            id: mediaId,
+            automation_id: resolvedAutomation ? targetId : undefined,
+            caption: resolvedAutomation?.caption || resolvedAutomation?.media_caption || ''
+        });
+        setEditorDirty(false);
       } catch (_) {
         setError('Could not open automation.');
       } finally {
         setIsPreparingEditor(false);
       }
     })();
-  }, [activeAccountID, authenticatedFetch, handleDeletedAutomationFallback, primeEditorResources]);
+  }, [activeAccountID, authenticatedFetch, handleDeletedAutomationFallback, primeEditorResources, location.pathname, location.state, selectedMedia]);
 
   useEffect(() => {
     if (selectedMedia) {

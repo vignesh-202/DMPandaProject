@@ -176,27 +176,63 @@ class StreamerClient {
     _validateAssignedJob(jobId, payload, meta) {
         const requiredFields = ['eventType', 'accountId', 'recipientId', 'senderId', 'conversationKey', 'eventKey'];
         if (!payload || typeof payload !== 'object' || !meta || typeof meta !== 'object') {
-            return { valid: false, reason: 'invalid_job_payload', missing: requiredFields };
+            const derived = this._extractDerivedMeta(payload);
+            if (!derived) {
+                return { valid: false, reason: 'invalid_job_payload', missing: requiredFields };
+            }
+            const missing = requiredFields.filter((field) => !String(derived[field] || '').trim());
+            if (missing.length > 0) {
+                return { valid: false, reason: 'invalid_job_payload', missing, derived };
+            }
+            return { valid: true, derived, effectiveMeta: derived };
         }
         const derived = this._extractDerivedMeta(payload);
         if (!derived) {
             return { valid: false, reason: 'invalid_job_payload', missing: requiredFields };
         }
 
-        const missing = requiredFields.filter((field) => !String(meta[field] || '').trim());
+        const readMetaField = (field) => {
+            const aliases = {
+                eventType: ['eventType', 'event_type'],
+                accountId: ['accountId', 'account_id'],
+                recipientId: ['recipientId', 'recipient_id'],
+                senderId: ['senderId', 'sender_id'],
+                conversationKey: ['conversationKey', 'conversation_key'],
+                eventKey: ['eventKey', 'event_key']
+            };
+            const keys = aliases[field] || [field];
+            for (const key of keys) {
+                const value = String(meta?.[key] || '').trim();
+                if (value) return value;
+            }
+            return '';
+        };
+
+        const effectiveMeta = {};
+        const mismatched = [];
+        const missing = [];
+        for (const field of requiredFields) {
+            const metaValue = readMetaField(field);
+            const derivedValue = String(derived[field] || '').trim();
+            if (metaValue && derivedValue && metaValue !== derivedValue) {
+                mismatched.push(field);
+            }
+            const resolved = metaValue || derivedValue;
+            if (!resolved) {
+                missing.push(field);
+            } else {
+                effectiveMeta[field] = resolved;
+            }
+        }
+
         if (missing.length > 0) {
             return { valid: false, reason: 'invalid_job_payload', missing, derived };
         }
-
-        const mismatched = requiredFields.filter((field) => {
-            const derivedValue = String(derived[field] || '').trim();
-            return derivedValue && String(meta[field] || '').trim() !== derivedValue;
-        });
         if (mismatched.length > 0) {
             return { valid: false, reason: 'invalid_job_payload', mismatched, derived };
         }
 
-        return { valid: true, derived };
+        return { valid: true, derived, effectiveMeta };
     }
 
     async _handleMessage(data) {
@@ -227,7 +263,8 @@ class StreamerClient {
     async _handleAssignedJob(message) {
         const jobId = String(message.jobId || '').trim();
         const payload = message.payload;
-        const meta = message.meta && typeof message.meta === 'object' ? message.meta : null;
+        const rawMeta = message.meta && typeof message.meta === 'object' ? message.meta : null;
+        const meta = rawMeta || {};
         const validation = this._validateAssignedJob(jobId, payload, meta);
         if (!jobId || !validation.valid) {
             this.logger.warn(JSON.stringify({
@@ -279,7 +316,7 @@ class StreamerClient {
         });
 
         try {
-            const result = await this.worker.processWebhook(payload, meta);
+            const result = await this.worker.processWebhook(payload, validation.effectiveMeta || meta);
             const handled = result === true || result?.handled === true;
             this._send({
                 type: 'job.completed',

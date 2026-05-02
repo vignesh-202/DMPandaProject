@@ -76,16 +76,17 @@ const WelcomeMessageView: React.FC = () => {
                 suggest_more_enabled: Boolean(automation?.suggest_more_enabled)
             }));
 
-            if (automation?.template_id) {
-                if (templateCacheRef.current[automation.template_id]) {
-                    setSelectedTemplate(templateCacheRef.current[automation.template_id]);
+            const templateId = String(automation?.template_id || '').trim();
+            if (templateId) {
+                if (templateCacheRef.current[templateId]) {
+                    setSelectedTemplate(templateCacheRef.current[templateId]);
                 } else {
                     const templateRes = await authenticatedFetch(
-                        `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${automation.template_id}?account_id=${activeAccountID}`
+                        `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${templateId}?account_id=${activeAccountID}`
                     );
                     if (templateRes.ok) {
                         const templateData = await templateRes.json();
-                        templateCacheRef.current[automation.template_id] = templateData;
+                        templateCacheRef.current[templateId] = templateData;
                         setSelectedTemplate(templateData);
                         setShowTemplateSelector(false);
                     } else {
@@ -270,22 +271,16 @@ const WelcomeMessageView: React.FC = () => {
                         </p>
                     </div>
 
-                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-card rounded-2xl shadow-sm">
-                                <Lock className={`w-5 h-5 ${followersOnly ? 'text-primary' : 'text-muted-foreground'}`} />
-                            </div>
-                            <div>
-                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Followers Only</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">Gate the welcome message until the user follows the account.</p>
-                            </div>
-                        </div>
-                        <ToggleSwitch
-                            isChecked={followersOnly}
-                            onChange={() => setFollowersOnly(!followersOnly)}
-                            variant="plain"
-                        />
-                    </div>
+                    <LockedFeatureToggle
+                        icon={<Lock className={`w-5 h-5 ${followersOnly ? 'text-primary' : 'text-muted-foreground'}`} />}
+                        title="Followers Only"
+                        description="Gate the welcome message until the user follows the account."
+                        checked={followersOnly}
+                        onToggle={() => setFollowersOnly(!followersOnly)}
+                        locked={getPlanGate('followers_only').isLocked}
+                        note={getPlanGate('followers_only').note}
+                        onUpgrade={() => setCurrentView('My Plan')}
+                    />
 
                     {followersOnly && (
                         <div className="bg-card border border-content rounded-2xl p-6 space-y-3">

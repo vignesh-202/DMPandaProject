@@ -1,0 +1,14 @@
+﻿total  2
+ 
+indexes (2)
+  [1]
+    $id     1_118_idx_account_recipient
+    key     idx_account_recipient
+    type    unique
+    status  available
+
+  [2]
+    $id     1_118_idx_last_seen_at
+    key     idx_last_seen_at
+    type    key
+    status  available

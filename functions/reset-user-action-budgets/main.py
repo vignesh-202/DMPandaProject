@@ -24,19 +24,10 @@ def _obj_get(value, key, default=None):
 
 
 def _parse_limits(profile: dict):
-    raw = _obj_get(profile, "limits_json")
-    parsed = {}
-    if isinstance(raw, dict):
-        parsed = raw
-    elif raw:
-        try:
-            parsed = json.loads(str(raw))
-        except Exception:
-            parsed = {}
     return {
-        "hourly_action_limit": _safe_int(parsed.get("hourly_action_limit", _obj_get(profile, "hourly_action_limit")), 0),
-        "daily_action_limit": _safe_int(parsed.get("daily_action_limit", _obj_get(profile, "daily_action_limit")), 0),
-        "monthly_action_limit": _safe_int(parsed.get("monthly_action_limit", _obj_get(profile, "monthly_action_limit")), 0),
+        "hourly_action_limit": _safe_int(_obj_get(profile, "hourly_action_limit"), 0),
+        "daily_action_limit": _safe_int(_obj_get(profile, "daily_action_limit"), 0),
+        "monthly_action_limit": _safe_int(_obj_get(profile, "monthly_action_limit"), 0),
     }
 
 

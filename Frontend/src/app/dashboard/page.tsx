@@ -216,8 +216,8 @@ const DashboardContent: React.FC = () => {
   const viewFeatureMap: Partial<Record<typeof currentView, string>> = {
     'DM Automation': 'dm_automation',
     'Story Automation': 'story_automation',
-    'Post Automation': 'post_comment_dm_automation',
-    'Reel Automation': 'reel_comment_dm_automation',
+    'Post Automation': 'post_comment_dm_reply',
+    'Reel Automation': 'reel_comment_dm_reply',
     'Live Automation': 'instagram_live_automation',
     'Mentions': 'mentions',
     'Email Collector': 'collect_email',
@@ -237,6 +237,9 @@ const DashboardContent: React.FC = () => {
           <Lock className="mx-auto h-7 w-7 text-muted-foreground" />
           <h2 className="mt-4 text-2xl font-bold text-foreground">Feature locked</h2>
           <p className="mt-3 text-sm text-muted-foreground">This section is not included in your current plan.</p>
+          <button onClick={() => setCurrentView('My Plan')} className="mt-6 inline-flex shrink-0 items-center justify-center rounded-2xl border border-amber-400 bg-amber-300 px-6 py-3 text-xs font-black uppercase tracking-[0.18em] text-amber-950 shadow-sm transition hover:bg-amber-200">
+            Upgrade Plan
+          </button>
         </div>
       </div>
     );
@@ -244,6 +247,10 @@ const DashboardContent: React.FC = () => {
 
   // Dashboard View
   if (currentView === 'Overview') {
+    if (!overviewReady) {
+      return <PageLoader title="Loading Dashboard" description="Preparing your metrics..." />;
+    }
+
     const gaugeData = [
       {
         label: 'Hourly Action Limit',

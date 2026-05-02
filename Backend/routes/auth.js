@@ -17,6 +17,8 @@ const {
     buildAccessDeniedPayload
 } = require('../utils/accessControl');
 const { ensureUserActivityDocument } = require('../utils/userActivity');
+const { resolveUserPlanContext } = require('../utils/planConfig');
+const { recomputeAccountAccessStateForUser } = require('../utils/accountAccess');
 
 const processedOAuthSecrets = new Map(); // Cache for duplicate prevention
 
@@ -356,20 +358,31 @@ router.get('/api/me', loginRequired, async (req, res) => {
         const { IG_ACCOUNTS_COLLECTION_ID } = require('../utils/appwrite');
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const planContext = await resolveUserPlanContext(databases, user.$id, user);
 
         const igAccounts = await databases.listDocuments(
             process.env.APPWRITE_DATABASE_ID,
             IG_ACCOUNTS_COLLECTION_ID,
             [Query.equal('user_id', user.$id)]
         );
+        const accountAccessState = await recomputeAccountAccessStateForUser(
+            databases,
+            user.$id,
+            planContext.profile,
+            igAccounts.documents || []
+        );
+        const normalizedAccounts = accountAccessState.accounts || [];
 
-        user.hasLinkedInstagram = igAccounts.total > 0;
+        user.hasLinkedInstagram = Number(accountAccessState.summary?.total_linked_accounts || 0) > 0;
         user.access_state = req.accessState || null;
-        if (igAccounts.total > 0) {
-            const primaryIg = igAccounts.documents[0];
+        user.total_linked_accounts = Number(accountAccessState.summary?.total_linked_accounts || 0);
+        user.max_allowed_accounts = Number(accountAccessState.summary?.max_allowed_accounts || 0);
+        user.active_account_limit = Number(accountAccessState.summary?.active_account_limit || 0);
+        if (normalizedAccounts.length > 0) {
+            const primaryIg = normalizedAccounts[0];
             user.instagram_username = primaryIg.username;
             user.instagram_profile_pic_url = primaryIg.profile_picture_url;
-            user.ig_accounts = igAccounts.documents;
+            user.ig_accounts = normalizedAccounts;
         } else {
             user.instagram_username = null;
             user.instagram_profile_pic_url = null;

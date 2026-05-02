@@ -206,7 +206,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return false;
       }
     } catch (error) {
-      console.error('[AuthContext] Error during checkAuth:', error);
       // Don't remove token on network errors - keep it for retry
       // But return false to indicate check failed
       return false;
@@ -270,6 +269,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return sessionValidationPromiseRef.current;
   }, [applyFrontendHeaders]);
 
+  const applyForbiddenAccessState = useCallback((payload: any) => {
+    const deniedAccessState = payload?.access_state || payload?.data?.access_state || payload?.data?.accessState || null;
+    if (!deniedAccessState || typeof deniedAccessState !== 'object') {
+      return;
+    }
+
+    setAccessState(deniedAccessState);
+
+    const shouldForceLogout = deniedAccessState?.is_hard_banned === true
+      || deniedAccessState?.dashboard_allowed === false
+      || deniedAccessState?.login_allowed === false;
+
+    if (!shouldForceLogout) {
+      return;
+    }
+
+    const denyMessage = payload?.message || payload?.error || payload?.data?.error || deniedAccessState?.ban_message || 'Your account has been blocked.';
+    setUser(null);
+    setIsAuthenticated(false);
+    setAuthHint(false);
+    writeAuthHint(false);
+    setIsVerified(false);
+    setHasPassword(false);
+    setHasLinkedInstagram(false);
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams({
+        popup_reason: 'hard_ban',
+        message: String(denyMessage)
+      });
+      window.location.replace(`/login?${params.toString()}`);
+    }
+  }, []);
+
   // Authenticated Fetch Helper - Does NOT auto-logout on password validation 401 errors
   const authenticatedFetch = useCallback(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const headers = applyFrontendHeaders(init);
@@ -278,8 +311,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const url = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : String(input));
     const shouldCoalesce = method === 'GET' && !init?.body && !init?.signal;
 
+    const fetchWithRetry = async (url: RequestInfo | URL, options: RequestInit, retries: number = 2): Promise<Response> => {
+      let lastError: any;
+      const reqMethod = (options.method || 'GET').toUpperCase();
+      const isIdempotent = ['GET', 'HEAD', 'OPTIONS'].includes(reqMethod);
+      const actualRetries = isIdempotent ? retries : 0;
+
+      for (let i = 0; i <= actualRetries; i++) {
+        try {
+          const response = await fetch(url, options);
+          if ((response.status >= 500 || response.status === 429) && i < actualRetries) {
+             const delay = Math.min(1000 * Math.pow(2, i), 5000);
+             await new Promise(r => setTimeout(r, delay));
+             continue;
+          }
+          return response;
+        } catch (error) {
+          lastError = error;
+          if (i < actualRetries) {
+             const delay = Math.min(1000 * Math.pow(2, i), 5000);
+             await new Promise(r => setTimeout(r, delay));
+             continue;
+          }
+        }
+      }
+      if (lastError) throw lastError;
+      throw new Error('Fetch failed');
+    };
+
     const performFetch = async () => {
-      const response = await fetch(input, { ...init, headers, credentials: 'include' });
+      const response = await fetchWithRetry(input, { ...init, headers, credentials: 'include' });
       const body = await response.arrayBuffer();
       const clonedHeaders = new Headers();
       response.headers.forEach((value, key) => clonedHeaders.set(key, value));
@@ -316,10 +377,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         }
 
+        if (response.status === 403) {
+          try {
+            const text = new TextDecoder().decode(payload.body);
+            const parsed = text ? JSON.parse(text) : null;
+            applyForbiddenAccessState(parsed);
+          } catch {
+            // Ignore parse failures and preserve caller response handling.
+          }
+        }
+
         return response;
       }
 
-      const response = await fetch(input, { ...init, headers, credentials: 'include' });
+      const response = await fetchWithRetry(input, { ...init, headers, credentials: 'include' });
 
       // Only log out after confirming the session is actually gone.
       if (response.status === 401) {
@@ -332,12 +403,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
 
+      if (response.status === 403) {
+        try {
+          const parsed = await response.clone().json();
+          applyForbiddenAccessState(parsed);
+        } catch {
+          // Ignore parse failures and preserve caller response handling.
+        }
+      }
+
       return response;
     } catch (error) {
       throw error;
     }
-  }, [applyFrontendHeaders, logout, validateActiveSession]);
-
+  }, [applyFrontendHeaders, applyForbiddenAccessState, logout, validateActiveSession]);
   // Session Polling - Disabled to prevent auto-refreshing
   // useEffect(() => {
   //   if (!isAuthenticated) return;

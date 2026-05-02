@@ -21,7 +21,7 @@ const AutomationTooltip = ({
 
     return (
         <div className="rounded-[20px] border border-border/80 bg-card/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+            <p className="text-[10px] font-black text-muted-foreground">{label}</p>
             <p className="mt-2 text-sm font-bold text-foreground">{numberFormatter.format(Number(payload[0]?.value || 0))} automations</p>
         </div>
     );
@@ -74,7 +74,7 @@ export const AutomationsPage: React.FC = () => {
             <section className={`${surfaceClass} overflow-hidden p-6 sm:p-8`}>
                 <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_360px] xl:items-start">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/75">Automation</p>
+                        <p className="text-[10px] font-black text-primary/75">Automation</p>
                         <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Automation Control</h1>
                         <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-muted-foreground">
                             Review automation volume, active coverage, and the latest rule updates in one clear workspace.
@@ -88,7 +88,7 @@ export const AutomationsPage: React.FC = () => {
                                     <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl', card.tone)}>
                                         <card.icon className="h-5 w-5" />
                                     </div>
-                                    <p className="text-right text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{card.label}</p>
+                                    <p className="text-right text-[10px] font-black text-muted-foreground">{card.label}</p>
                                 </div>
                                 <p className="mt-5 text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
                             </div>
@@ -102,7 +102,7 @@ export const AutomationsPage: React.FC = () => {
                     <div className="mb-5 flex items-center justify-between gap-4">
                         <div>
                             <h2 className="text-xl font-extrabold text-foreground">Type Mix</h2>
-                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Current count</p>
+                            <p className="mt-1 text-xs font-black text-muted-foreground">Current count</p>
                         </div>
                         <div className="status-pill border border-border bg-background/70 text-foreground">
                             <Layers3 className="h-3.5 w-3.5 text-primary" />
@@ -138,7 +138,7 @@ export const AutomationsPage: React.FC = () => {
                     <div className="flex items-center justify-between border-b border-border/70 px-6 py-5 sm:px-7">
                         <div>
                             <h2 className="text-xl font-extrabold text-foreground">Recent Updates</h2>
-                            <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Latest changes</p>
+                            <p className="mt-1 text-xs font-black text-muted-foreground">Latest changes</p>
                         </div>
                         <div className="status-pill border border-border bg-background/70 text-foreground">
                             <Clock3 className="h-3.5 w-3.5 text-primary" />
@@ -157,7 +157,7 @@ export const AutomationsPage: React.FC = () => {
                                             <div className="flex flex-wrap items-center gap-3">
                                                 <p className="truncate text-sm font-bold text-foreground">{item.title || 'Untitled automation'}</p>
                                                 <span className={cn(
-                                                    'rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
+                                                    'rounded-full px-2.5 py-1 text-[10px] font-black',
                                                     item.is_active ? 'bg-success-muted/80 text-success' : 'bg-muted text-muted-foreground'
                                                 )}>
                                                     {item.is_active ? 'Active' : 'Paused'}
@@ -183,7 +183,7 @@ export const AutomationsPage: React.FC = () => {
                 <div className="mb-5 flex items-center justify-between gap-4">
                     <div>
                         <h2 className="text-xl font-extrabold text-foreground">Automation Activity Trend</h2>
-                        <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-muted-foreground">Main automation overview</p>
+                        <p className="mt-1 text-xs font-black text-muted-foreground">Main automation overview</p>
                     </div>
                     <div className="status-pill border border-border bg-background/70 text-foreground">
                         <TrendingUp className="h-3.5 w-3.5 text-primary" />

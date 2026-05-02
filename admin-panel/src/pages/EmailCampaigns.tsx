@@ -17,6 +17,7 @@ import httpClient from '../lib/httpClient';
 import AdminLoadingState from '../components/AdminLoadingState';
 import { cn } from '../lib/utils';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { SelectField } from '../components/ui/SelectField';
 
 type Segment = 'all' | 'current_paid' | 'current_free' | 'active' | 'expired' | 'never_paid';
 type CampaignView = 'list' | 'create';
@@ -173,6 +174,18 @@ export const EmailCampaignsPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
+    if (!error) return;
+    const timer = window.setTimeout(() => setError(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [error]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       if (view !== 'create') return;
       setCampaignPage(1);
@@ -278,7 +291,7 @@ export const EmailCampaignsPage: React.FC = () => {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 xl:-mx-2 2xl:-mx-4">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-[10px] font-black text-muted-foreground">
             <Mail className="h-3.5 w-3.5" />
             Email Campaigns
           </div>
@@ -315,7 +328,7 @@ export const EmailCampaignsPage: React.FC = () => {
 
       {(notice || error) && (
         <div className={cn(
-          'rounded-[28px] border px-5 py-4 text-sm font-medium shadow-sm',
+          'rounded-[28px] border px-5 py-4 text-sm font-medium shadow-sm animate-in fade-in slide-in-from-top-2 duration-300',
           notice
             ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
             : 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300'
@@ -327,7 +340,7 @@ export const EmailCampaignsPage: React.FC = () => {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {topMetrics.map(([label, value]) => (
           <div key={String(label)} className={`${surfaceClass} p-5`}>
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{label}</p>
+            <p className="text-[10px] font-black text-muted-foreground">{label}</p>
             <p className="mt-4 text-3xl font-extrabold tracking-tight text-foreground">{value}</p>
           </div>
         ))}
@@ -337,7 +350,7 @@ export const EmailCampaignsPage: React.FC = () => {
         <section className={surfaceClass}>
           <div className="flex flex-col gap-4 border-b border-border/70 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Sent campaigns</p>
+              <p className="text-[10px] font-black text-muted-foreground">Sent campaigns</p>
               <h2 className="mt-2 text-2xl font-extrabold text-foreground">Delivery activity</h2>
               <p className="mt-1 text-sm text-muted-foreground">Only already-sent campaigns are shown here.</p>
             </div>
@@ -366,7 +379,7 @@ export const EmailCampaignsPage: React.FC = () => {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">
                       <p className="truncate text-lg font-extrabold text-foreground">{campaign.subject}</p>
-                      <span className="rounded-full border border-border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                      <span className="rounded-full border border-border px-2.5 py-1 text-[10px] font-black text-muted-foreground">
                         {campaign.status}
                       </span>
                     </div>
@@ -381,14 +394,14 @@ export const EmailCampaignsPage: React.FC = () => {
                         ['Failed', campaign.failed_total || 0]
                       ].map(([label, value]) => (
                         <div key={String(label)} className="rounded-[22px] border border-border/70 bg-background/55 px-4 py-4">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+                          <p className="text-[10px] font-black text-muted-foreground">{label}</p>
                           <p className="mt-2 text-2xl font-extrabold text-foreground">{value}</p>
                         </div>
                       ))}
                     </div>
                   </div>
                   <div className="rounded-[24px] border border-border/70 bg-background/55 px-4 py-4 text-xs text-muted-foreground">
-                    <p className="font-black uppercase tracking-[0.18em] text-foreground">Message ID</p>
+                    <p className="font-black text-foreground">Message ID</p>
                     <p className="mt-2 break-all">{campaign.appwrite_message_id || 'Not available'}</p>
                     <button
                       type="button"
@@ -439,7 +452,7 @@ export const EmailCampaignsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => void returnToList()}
-              className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-muted-foreground transition hover:text-foreground"
+              className="inline-flex items-center gap-2 text-xs font-black text-muted-foreground transition hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to list
@@ -450,7 +463,7 @@ export const EmailCampaignsPage: React.FC = () => {
             <section className={`${surfaceClass} p-6 sm:p-7`}>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Campaign setup</p>
+                  <p className="text-[10px] font-black text-muted-foreground">Campaign setup</p>
                   <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">
                     {step === 'segment' ? 'Choose the exact segment.' : 'Write the email content.'}
                   </h2>
@@ -464,7 +477,7 @@ export const EmailCampaignsPage: React.FC = () => {
                 <div className="mt-6 space-y-5">
                   <div className="flex items-center justify-between gap-3 rounded-[24px] border border-border/70 bg-background/55 px-4 py-4">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Live audience</p>
+                      <p className="text-[10px] font-black text-muted-foreground">Live audience</p>
                       <p className="mt-2 text-2xl font-extrabold text-foreground">{matchingRecipients}</p>
                     </div>
                     <button
@@ -502,17 +515,13 @@ export const EmailCampaignsPage: React.FC = () => {
                       placeholder="Search name, email, or plan"
                       className="input-base"
                     />
-                    <select
-                      value={filters.sort_by}
-                      onChange={(event) => setFilters((current) => ({ ...current, sort_by: event.target.value as CampaignFilters['sort_by'] }))}
-                      className="select-modern"
-                    >
+                    <SelectField label="Sort By" value={filters.sort_by} onChange={(val) => setFilters((current) => ({ ...current, sort_by: val as CampaignFilters['sort_by'] }))}>
                       <option value="newest">Newest signup</option>
                       <option value="oldest">Oldest signup</option>
                       <option value="recent_subscription">Recent subscription</option>
                       <option value="expiring_soon">Expiring soon</option>
                       <option value="most_connected">Most connected</option>
-                    </select>
+                    </SelectField>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -541,29 +550,29 @@ export const EmailCampaignsPage: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
-                    <select value={filters.linked_instagram} onChange={(event) => setFilters((current) => ({ ...current, linked_instagram: event.target.value as CampaignFilters['linked_instagram'] }))} className="select-modern">
+                    <SelectField label="Instagram Link" value={filters.linked_instagram} onChange={(val) => setFilters((current) => ({ ...current, linked_instagram: val as CampaignFilters['linked_instagram'] }))}>
                       <option value="any">Any IG depth</option>
                       <option value="none">No linked IG</option>
                       <option value="connected">At least one IG</option>
                       <option value="multi">Two or more IG</option>
-                    </select>
-                    <select value={filters.has_transactions} onChange={(event) => setFilters((current) => ({ ...current, has_transactions: event.target.value as CampaignFilters['has_transactions'] }))} className="select-modern">
+                    </SelectField>
+                    <SelectField label="Transaction Status" value={filters.has_transactions} onChange={(val) => setFilters((current) => ({ ...current, has_transactions: val as CampaignFilters['has_transactions'] }))}>
                       <option value="any">Any payment history</option>
                       <option value="yes">Has payments</option>
                       <option value="no">No payments</option>
-                    </select>
-                    <select value={filters.subscription_status} onChange={(event) => setFilters((current) => ({ ...current, subscription_status: event.target.value as CampaignFilters['subscription_status'] }))} className="select-modern">
+                    </SelectField>
+                    <SelectField label="Subscription Status" value={filters.subscription_status} onChange={(val) => setFilters((current) => ({ ...current, subscription_status: val as CampaignFilters['subscription_status'] }))}>
                       <option value="">Any status</option>
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                       <option value="expired">Expired</option>
-                    </select>
-                    <select value={filters.ban_mode} onChange={(event) => setFilters((current) => ({ ...current, ban_mode: event.target.value as CampaignFilters['ban_mode'] }))} className="select-modern">
+                    </SelectField>
+                    <SelectField label="Ban Mode" value={filters.ban_mode} onChange={(val) => setFilters((current) => ({ ...current, ban_mode: val as CampaignFilters['ban_mode'] }))}>
                       <option value="">Any moderation state</option>
                       <option value="none">Clear</option>
                       <option value="soft">Soft ban</option>
                       <option value="hard">Hard ban</option>
-                    </select>
+                    </SelectField>
                   </div>
 
                   <div className="flex justify-end">
@@ -581,17 +590,17 @@ export const EmailCampaignsPage: React.FC = () => {
               ) : (
                 <div className="mt-6 space-y-4">
                   <div className="rounded-[24px] border border-border/70 bg-background/55 px-4 py-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Selected audience</p>
+                    <p className="text-[10px] font-black text-muted-foreground">Selected audience</p>
                     <p className="mt-2 text-2xl font-extrabold text-foreground">{matchingRecipients}</p>
                     <p className="mt-1 text-sm text-muted-foreground">Recipients will be resolved from the current segment filters at send time.</p>
                   </div>
 
                   <input value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Campaign subject" className="input-base" />
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <select value={format} onChange={(event) => setFormat(event.target.value as 'html' | 'text')} className="select-modern">
+                    <SelectField label="Email Format" value={format} onChange={(val) => setFormat(val as 'html' | 'text')}>
                       <option value="html">Rich HTML</option>
                       <option value="text">Plain text</option>
-                    </select>
+                    </SelectField>
                     <input type="datetime-local" value={toDateTimeLocal(scheduledAt)} onChange={(event) => setScheduledAt(event.target.value)} className="input-base" />
                   </div>
                   <textarea value={content} onChange={(event) => setContent(event.target.value)} rows={10} className="input-base min-h-[18rem] resize-y py-4" />
@@ -618,7 +627,7 @@ export const EmailCampaignsPage: React.FC = () => {
               <div className={`${surfaceClass} p-6 sm:p-7`}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Match Snapshot</p>
+                    <p className="text-[10px] font-black text-muted-foreground">Match Snapshot</p>
                     <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">Current audience</h2>
                   </div>
                   <Users className="h-5 w-5 text-primary" />
@@ -631,7 +640,7 @@ export const EmailCampaignsPage: React.FC = () => {
                     ['Connected IG', data?.matching_summary?.connected_instagram_users || 0]
                   ].map(([label, value]) => (
                     <div key={String(label)} className="rounded-[24px] border border-border bg-background px-4 py-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+                      <p className="text-[10px] font-black text-muted-foreground">{label}</p>
                       <p className="mt-3 text-2xl font-extrabold tracking-tight text-foreground">{value}</p>
                     </div>
                   ))}
@@ -641,7 +650,7 @@ export const EmailCampaignsPage: React.FC = () => {
               <div className={`${surfaceClass} p-6 sm:p-7`}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Recipient Preview</p>
+                    <p className="text-[10px] font-black text-muted-foreground">Recipient Preview</p>
                     <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">Sample recipients</h2>
                   </div>
                   <CalendarRange className="h-5 w-5 text-primary" />
@@ -674,7 +683,7 @@ export const EmailCampaignsPage: React.FC = () => {
               <div className={`${surfaceClass} p-6 sm:p-7`}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Last delivery</p>
+                    <p className="text-[10px] font-black text-muted-foreground">Last delivery</p>
                     <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">Most recent campaign</h2>
                   </div>
                   <CheckCircle2 className="h-5 w-5 text-primary" />

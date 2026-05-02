@@ -1,0 +1,26 @@
+﻿total  4
+ 
+indexes (4)
+  [1]
+    $id     1_117_idx_account_sent_at
+    key     idx_account_sent_at
+    type    key
+    status  available
+
+  [2]
+    $id     1_117_idx_account_recipient_event_sent
+    key     idx_account_recipient_event_sent
+    type    key
+    status  available
+
+  [3]
+    $id     1_117_idx_account_automation_sent
+    key     idx_account_automation_sent
+    type    key
+    status  available
+
+  [4]
+    $id     1_117_idx_account_status_sent
+    key     idx_account_status_sent
+    type    key
+    status  available

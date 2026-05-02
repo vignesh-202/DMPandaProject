@@ -1,0 +1,108 @@
+﻿total  12
+ 
+attributes (12)
+  [1]
+    key       code
+    type      string
+    status    available
+    required  true
+    array     false
+    size      64
+    encrypt   false
+
+  [2]
+    key       type
+    type      string
+    status    available
+    required  true
+    array     false
+    format    enum
+
+  [3]
+    key       currency
+    type      string
+    status    available
+    required  false
+    array     false
+    size      3
+    encrypt   false
+
+  [4]
+    key       active
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   true
+
+  [5]
+    key       expires_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [6]
+    key       usage_limit
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [7]
+    key       usage_per_user
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   1
+
+  [8]
+    key       plan_ids
+    type      string
+    status    available
+    required  false
+    array     true
+    size      255
+    encrypt   false
+
+  [9]
+    key       user_ids
+    type      string
+    status    available
+    required  false
+    array     true
+    size      255
+    encrypt   false
+
+  [10]
+    key       metadata
+    type      string
+    status    available
+    required  false
+    array     false
+    size      2000
+    encrypt   false
+
+  [11]
+    key       value
+    type      double
+    status    available
+    required  true
+    array     false
+    min       -1.7976931348623157e+308
+    max       1.7976931348623157e+308
+
+  [12]
+    key       billing_cycle_targets
+    type      string
+    status    available
+    required  false
+    array     true
+    size      32
+    encrypt   false

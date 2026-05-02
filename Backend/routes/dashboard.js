@@ -5,67 +5,22 @@ const {
     getAppwriteClient,
     USERS_COLLECTION_ID,
     CAMPAIGNS_COLLECTION_ID,
-    SETTINGS_COLLECTION_ID,
     PROFILES_COLLECTION_ID,
     LOGS_COLLECTION_ID,
     IG_ACCOUNTS_COLLECTION_ID
 } = require('../utils/appwrite');
-const { Databases, Query, Permission, Role, ID } = require('node-appwrite');
-const { parseRuntimeLimits } = require('../utils/planConfig');
+const { Databases, Query, ID } = require('node-appwrite');
+const {
+    buildPlanApiPayload,
+    parseRuntimeLimits,
+    resolveUserPlanContext
+} = require('../utils/planConfig');
+const { loadUserAccessState } = require('../utils/accessControl');
 
-const findUserSettingsDocument = async (databases, userId) => {
-    const lookups = [
-        [Query.equal('$id', userId), Query.limit(1)],
-        [Query.equal('user_id', userId), Query.limit(1)]
-    ];
-
-    for (const queries of lookups) {
-        const response = await databases.listDocuments(
-            process.env.APPWRITE_DATABASE_ID,
-            SETTINGS_COLLECTION_ID,
-            queries
-        );
-
-        if (response.total > 0) {
-            return response.documents[0];
-        }
-    }
-
-    return null;
-};
-
-const ensureUserSettings = async (databases, userId) => {
-    const existingSettings = await findUserSettingsDocument(databases, userId);
-    if (existingSettings) {
-        if (!existingSettings.user_id) {
-            await databases.updateDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                SETTINGS_COLLECTION_ID,
-                existingSettings.$id,
-                { user_id: userId }
-            );
-            return { ...existingSettings, user_id: userId };
-        }
-        return existingSettings;
-    }
-
-    const serverClient = getAppwriteClient({ useApiKey: true });
-    const serverDatabases = new Databases(serverClient);
-    return serverDatabases.createDocument(
-        process.env.APPWRITE_DATABASE_ID,
-        SETTINGS_COLLECTION_ID,
-        userId,
-        {
-            user_id: userId,
-            dark_mode: false,
-            notification_preference: 'email'
-        },
-        [
-            Permission.read(Role.user(userId)),
-            Permission.update(Role.user(userId))
-        ]
-    );
-};
+const getDefaultUserSettings = () => ({
+    dark_mode: false,
+    notification_preference: 'email'
+});
 
 const getDateRangeQueries = (startDate, endDate) => {
     const queries = [];
@@ -158,16 +113,16 @@ router.get('/dashboard', loginRequired, async (req, res) => {
             // If collection doesn't exist or permissions fail, return empty list
         }
 
-        let userSettings = {};
-        try {
-            userSettings = await ensureUserSettings(databases, userId);
-        } catch (settingsErr) {
-            console.error(`Error fetching settings: ${settingsErr.message}`);
-            userSettings = {};
-        }
+        const userSettings = getDefaultUserSettings();
 
         const activeCampaignsCount = campaignsData.filter(c => c.status === 'active').length;
         const overview = await calculateDashboardOverview(userId);
+        const serverDatabases = new Databases(getAppwriteClient({ useApiKey: true }));
+        const [planContext, accessContext] = await Promise.all([
+            resolveUserPlanContext(serverDatabases, userId, req.user),
+            loadUserAccessState(serverDatabases, userId, { userDocument: req.userDocument || null })
+        ]);
+        const planPayload = buildPlanApiPayload(planContext.plan, planContext.profile);
 
         const dashboardData = {
             active_campaigns: activeCampaignsCount,
@@ -179,7 +134,12 @@ router.get('/dashboard', loginRequired, async (req, res) => {
             user_settings: {
                 dark_mode: userSettings.dark_mode || false,
                 notification_preference: userSettings.notification_preference || 'email'
-            }
+            },
+            plan: planPayload,
+            limits: planPayload.limits,
+            features: planPayload.features,
+            access_state: accessContext.accessState,
+            locked_features: []
         };
 
         res.json(dashboardData);
@@ -191,46 +151,12 @@ router.get('/dashboard', loginRequired, async (req, res) => {
 });
 
 router.get('/settings', loginRequired, async (req, res) => {
-    try {
-        const databases = new Databases(req.appwriteClient);
-        const userSettings = await ensureUserSettings(databases, req.user.$id);
-        res.json({
-            dark_mode: Boolean(userSettings.dark_mode),
-            notification_preference: userSettings.notification_preference || 'email'
-        });
-    } catch (err) {
-        console.error(`Get Settings Error: ${err.message}`);
-        res.status(500).json({ error: 'Failed to fetch settings.' });
-    }
+    res.json(getDefaultUserSettings());
 });
 
 // Update Settings
 router.post('/settings', loginRequired, async (req, res) => {
-    try {
-        const userId = req.user.$id;
-        const data = req.body;
-        const updateData = {};
-
-        if (typeof data.dark_mode !== 'undefined') updateData.dark_mode = data.dark_mode;
-        if (data.notification_preference) updateData.notification_preference = data.notification_preference;
-
-        if (Object.keys(updateData).length === 0) return res.status(400).json({ error: 'No settings provided' });
-
-        const databases = new Databases(req.appwriteClient);
-        const settingsDoc = await ensureUserSettings(databases, userId);
-        await databases.updateDocument(
-            process.env.APPWRITE_DATABASE_ID,
-            SETTINGS_COLLECTION_ID,
-            settingsDoc.$id,
-            updateData
-        );
-
-        res.json({ message: 'Settings updated' });
-
-    } catch (err) {
-        console.error(`Update Settings Error: ${err.message}`);
-        res.status(500).json({ error: 'Failed to update settings' });
-    }
+    res.json({ message: 'Settings are now static defaults and no longer persisted.' });
 });
 
 module.exports = router;

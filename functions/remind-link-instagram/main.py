@@ -20,7 +20,6 @@ RETRY_SLEEP_SECONDS = 0.2
 SIGNUP_REMINDER_DELAY_HOURS = 24
 EXPIRY_REMINDER_LEAD_DAYS = 3
 ACTIVE_ACCOUNT_STATUSES = {"active"}
-INACTIVE_SUBSCRIPTION_STATUSES = {"inactive", "cancelled", "expired", "past_due"}
 SIGNUP_PREF_KEY = "ig_link_signup_reminder_sent_at"
 EXPIRING_PREF_KEY = "ig_link_expiring_reminder_for"
 EXPIRING_SENT_AT_PREF_KEY = "ig_link_expiring_reminder_sent_at"
@@ -141,7 +140,7 @@ def _get_accounts_by_user_id(rows: list[dict]) -> dict:
 def _build_expiry_marker(expires_at, fallback_status: str = "") -> str:
     if expires_at:
         return expires_at.isoformat()
-    safe_status = _normalize_subscription_status(fallback_status)
+    safe_status = str(fallback_status or "").strip().lower()
     return f"status:{safe_status}" if safe_status else ""
 
 
@@ -157,18 +156,20 @@ def _resolve_reminder_type(
     if _has_active_instagram_connection(user_accounts):
         return None
 
+    plan_code = str(_obj_get(profile_doc, "plan_code", "free") or "free").strip().lower() or "free"
+    if plan_code == "free":
+        return None
     created_at = _parse_iso_datetime(_obj_get(user_doc, "$createdAt", ""))
-    expires_at = _parse_iso_datetime(_obj_get(profile_doc, "expires_at"))
-    subscription_status = _normalize_subscription_status(_obj_get(profile_doc, "plan_status"))
+    expires_at = _parse_iso_datetime(_obj_get(profile_doc, "expiry_date"))
 
     if expires_at:
-        expiry_marker = _build_expiry_marker(expires_at, subscription_status)
-        if now >= expires_at or subscription_status in INACTIVE_SUBSCRIPTION_STATUSES:
+        expiry_marker = _build_expiry_marker(expires_at, "")
+        if now >= expires_at:
             if str(_obj_get(prefs, EXPIRED_PREF_KEY, "") or "").strip() != expiry_marker:
                 return "expired"
 
         expiring_window_start = expires_at - timedelta(days=expiry_reminder_lead_days)
-        if expiring_window_start <= now < expires_at and subscription_status not in INACTIVE_SUBSCRIPTION_STATUSES:
+        if expiring_window_start <= now < expires_at:
             if str(_obj_get(prefs, EXPIRING_PREF_KEY, "") or "").strip() != expiry_marker:
                 return "expiring"
 
@@ -379,12 +380,11 @@ def main(context):
                     continue
 
                 user_name = str(_obj_get(user_doc, "name", "there") or "there").strip() or "there"
-                expires_at = _parse_iso_datetime(_obj_get(profile_doc, "expires_at"))
-                subscription_status = _normalize_subscription_status(_obj_get(profile_doc, "plan_status"))
+                expires_at = _parse_iso_datetime(_obj_get(profile_doc, "expiry_date"))
 
                 if not dry_run:
                     _send_reminder_email(messaging, user_id, reminder_type, user_name, expires_at)
-                    updated_prefs = _build_updated_prefs(prefs, reminder_type, now, expires_at, subscription_status)
+                    updated_prefs = _build_updated_prefs(prefs, reminder_type, now, expires_at, "")
                     _with_retry(lambda: users.update_prefs(user_id=user_id, prefs=updated_prefs))
                 counts[f"{reminder_type}_reminded"] += 1
             except Exception as err:  # noqa: BLE001

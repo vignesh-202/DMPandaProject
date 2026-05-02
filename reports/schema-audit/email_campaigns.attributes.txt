@@ -1,0 +1,134 @@
+﻿total  15
+ 
+attributes (15)
+  [1]
+    key       admin_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       appwrite_message_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [3]
+    key       subject
+    type      string
+    status    available
+    required  true
+    array     false
+    size      500
+    encrypt   false
+
+  [4]
+    key       target_total
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [5]
+    key       queued_total
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [6]
+    key       delivered_total
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [7]
+    key       failed_total
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+    default   0
+
+  [8]
+    key       scheduled_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [9]
+    key       sent_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [10]
+    key       created_at
+    type      datetime
+    status    available
+    required  true
+    array     false
+
+  [11]
+    key       updated_at
+    type      datetime
+    status    available
+    required  true
+    array     false
+
+  [12]
+    key       segment_key
+    type      string
+    status    available
+    required  false
+    array     false
+    size      120
+    default   all
+    encrypt   false
+
+  [13]
+    key       filters_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      20000
+    encrypt   false
+
+  [14]
+    key       metrics_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      20000
+    encrypt   false
+
+  [15]
+    key       status
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum
+    default   sent

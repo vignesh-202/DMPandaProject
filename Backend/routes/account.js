@@ -168,7 +168,14 @@ router.delete('/delete', loginRequired, async (req, res) => {
             console.warn(`Temporary delete-account session cleanup failed: ${cleanupErr.message}`);
         }
 
-        await cleanupUserOwnedData(databases, userId);
+        await cleanupUserOwnedData(databases, userId, { retainFinancialRecords: false });
+        try {
+            if (typeof users.deleteSessions === 'function') {
+                await users.deleteSessions(userId);
+            }
+        } catch (sessionCleanupErr) {
+            console.warn(`Delete-account session invalidation failed for user ${userId}: ${sessionCleanupErr.message}`);
+        }
         await users.delete(userId);
         clearSessionCookie(res, getAppContextFromRequest(req));
 

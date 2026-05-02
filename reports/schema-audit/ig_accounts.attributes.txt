@@ -1,0 +1,164 @@
+﻿total  19
+ 
+attributes (19)
+  [1]
+    key       user_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       ig_user_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [3]
+    key       username
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [4]
+    key       profile_picture_url
+    type      string
+    status    available
+    required  false
+    array     false
+    size      2048
+    encrypt   false
+
+  [5]
+    key       access_token
+    type      string
+    status    available
+    required  true
+    array     false
+    size      1024
+    encrypt   false
+
+  [6]
+    key       token_expires_at
+    type      datetime
+    status    available
+    required  true
+    array     false
+
+  [7]
+    key       permissions
+    type      string
+    status    available
+    required  false
+    array     false
+    size      1024
+    encrypt   false
+
+  [8]
+    key       linked_at
+    type      datetime
+    status    available
+    required  false
+    array     false
+
+  [9]
+    key       name
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [10]
+    key       account_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [11]
+    key       is_active
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   true
+
+  [12]
+    key       ig_scoped_id
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [13]
+    key       status
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum
+    default   active
+
+  [14]
+    key       admin_disabled
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   false
+
+  [15]
+    key       plan_locked
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   false
+
+  [16]
+    key       access_override_enabled
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   false
+
+  [17]
+    key       effective_access
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   true
+
+  [18]
+    key       access_state
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum
+    default   active
+
+  [19]
+    key       access_reason
+    type      string
+    status    available
+    required  false
+    array     false
+    size      120
+    encrypt   false

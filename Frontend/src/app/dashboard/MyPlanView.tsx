@@ -4,14 +4,16 @@ import { useAuth } from '../../contexts/AuthContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
 import { PricingPlan, formatMoney, getPaidCheckoutPlans, getPlanBigPrice, normalizePricingPayload } from '../../lib/pricing';
-import { formatShortDate } from '../../lib/date';
 import PlanCheckoutModal from '../../components/dashboard/PlanCheckoutModal';
 
 type UserPlan = {
   plan_id: string;
+  plan_code: string;
   assigned_plan_id?: string;
-  status: string;
-  expires: string | null;
+  plan_source?: string | null;
+  expiry_date: string | null;
+  is_active: boolean;
+  is_expired: boolean;
   access_state?: {
     automation_locked?: boolean;
     ban_message?: string | null;
@@ -117,7 +119,35 @@ const MyPlanView: React.FC = () => {
   }, [authenticatedFetch]);
 
   const currentPlanName = String(plan?.details?.name || 'Free Plan');
-  const isExpired = plan?.status === 'expired' || Boolean(plan?.expires && new Date(plan.expires) < new Date());
+  const formattedExpiryDate = useMemo(() => {
+    if (!plan?.expiry_date) return null;
+    const parsed = new Date(plan.expiry_date);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }, [plan?.expiry_date]);
+  const isTemporaryFree = plan?.plan_code === 'free' && Boolean(formattedExpiryDate);
+  const isPermanentFree = plan?.plan_code === 'free' && !formattedExpiryDate;
+  const isExpired = Boolean(plan?.is_expired);
+  const statusLabel = isExpired
+    ? 'Expired'
+    : isTemporaryFree
+      ? 'Temporary Free'
+      : isPermanentFree
+        ? 'Permanent Free'
+        : plan?.is_active
+          ? 'Active'
+          : 'Inactive';
+  const expiryLabel = isTemporaryFree
+    ? `Temporary Free (expires on ${formattedExpiryDate})`
+    : formattedExpiryDate
+      ? `Valid until ${formattedExpiryDate}`
+      : plan?.plan_code === 'free'
+        ? 'Permanent Free'
+        : 'No expiry';
   const renderLimitValue = (value?: number | null) => {
     if (value == null) return 'Unlimited';
     return String(value);
@@ -163,7 +193,7 @@ const MyPlanView: React.FC = () => {
           </div>
           <div className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${isExpired ? 'bg-destructive-muted/40 text-destructive' : 'bg-success-muted/60 text-success'}`}>
             <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-destructive' : 'bg-success'}`} />
-            {isExpired ? 'Expired' : 'Active'}
+            {statusLabel}
           </div>
         </div>
 
@@ -189,7 +219,7 @@ const MyPlanView: React.FC = () => {
                 <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-2 text-muted-foreground">
                   <Calendar size={18} />
                   <span className="text-sm">
-                    {plan?.expires ? `Valid until ${formatShortDate(plan.expires)}` : 'No expiry on record'}
+                    {expiryLabel}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-2 text-muted-foreground">

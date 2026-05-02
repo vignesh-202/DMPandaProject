@@ -25,6 +25,7 @@ import {
 } from 'recharts';
 import AdminLoadingState from '../components/AdminLoadingState';
 import AdminGauge from '../components/ui/AdminGauge';
+import SelectField from '../components/ui/SelectField';
 
 const CHART_COLORS = ['#405DE6', '#833AB4', '#F56040', '#FCAF45', '#10B981', '#0EA5E9', '#FB7185'];
 const TRAFFIC_WINDOWS = [
@@ -75,7 +76,7 @@ const ChartTooltip = ({
 
     return (
         <div className="rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
-            {label && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{label}</p>}
+            {label && <p className="text-[10px] font-black text-muted-foreground">{label}</p>}
             <div className="mt-2 space-y-2">
                 {payload.map((entry, index) => (
                     <div key={`${entry.name || 'value'}-${index}`} className="flex items-center justify-between gap-4 text-sm">
@@ -112,7 +113,7 @@ const MetricCard = ({
             <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${accent}`}>
                 <Icon className="h-5 w-5" />
             </div>
-            <p className="text-right text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{label}</p>
+            <p className="text-right text-[10px] font-black text-muted-foreground">{label}</p>
         </div>
         <p className="mt-7 text-[2rem] font-extrabold tracking-tight text-foreground">{value}</p>
     </div>
@@ -120,7 +121,7 @@ const MetricCard = ({
 
 const InsightTile = ({ label, value, note }: { label: string; value: string; note: string }) => (
     <div className="rounded-[26px] border border-border/70 bg-background/60 px-5 py-5">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+        <p className="text-[10px] font-black text-muted-foreground">{label}</p>
         <p className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">{value}</p>
         <p className="mt-2 text-sm text-muted-foreground">{note}</p>
     </div>
@@ -145,9 +146,9 @@ const PieSummaryCard = ({
             <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">{title}</h3>
-                    <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">{subtitle}</p>
+                    <p className="mt-1 text-[11px] font-black text-muted-foreground">{subtitle}</p>
                 </div>
-                <span className="inline-flex w-fit rounded-full border border-border/70 bg-background/60 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                <span className="inline-flex w-fit rounded-full border border-border/70 bg-background/60 px-3 py-1 text-[10px] font-black text-muted-foreground">
                     Total {formatter ? formatter(totalValue) : numberFormatter.format(totalValue)}
                 </span>
             </div>
@@ -269,7 +270,7 @@ export const AnalyticsPage: React.FC = () => {
             <section className={`${surfaceClass} overflow-hidden p-7 sm:p-9`}>
                 <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_380px] xl:items-start">
                     <div className="space-y-5">
-                        <div className="inline-flex rounded-full border border-primary/20 bg-gradient-to-r from-primary/12 to-transparent px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-primary">
+                        <div className="inline-flex rounded-full border border-primary/20 bg-gradient-to-r from-primary/12 to-transparent px-3 py-1 text-[10px] font-black text-primary">
                             Admin Analytics
                         </div>
                         <div>
@@ -287,32 +288,30 @@ export const AnalyticsPage: React.FC = () => {
                     </div>
 
                     <div className="rounded-[30px] border border-border/70 bg-background/70 p-5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Window</p>
+                        <p className="text-[10px] font-black text-muted-foreground">Window</p>
                         <div className="mt-4 space-y-4">
                             <div className="rounded-[22px] border border-primary/20 bg-gradient-to-r from-primary/12 via-primary/5 to-transparent px-4 py-4">
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>
+                                <p className="text-[10px] font-black text-muted-foreground">Active range</p>
                                 <p className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">{selectedTrafficWindow}</p>
                             </div>
-                            <div className="relative">
-                                <select
-                                    value={trafficWindow}
-                                    onChange={(event) => setTrafficWindow(event.target.value as (typeof TRAFFIC_WINDOWS)[number]['value'])}
-                                    className="select-modern h-12 bg-card text-sm font-semibold tracking-[0.02em]"
-                                >
-                                    {TRAFFIC_WINDOWS.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            <SelectField
+                                label=""
+                                value={trafficWindow}
+                                onChange={(value) => setTrafficWindow(value as any)}
+                            >
+                                {TRAFFIC_WINDOWS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </SelectField>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <div className="rounded-[22px] border border-border/60 bg-card/80 px-4 py-4">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">No IG Link</p>
+                                    <p className="text-[10px] font-black text-muted-foreground">No IG Link</p>
                                     <p className="mt-2 text-2xl font-extrabold text-foreground">{numberFormatter.format(Number(noLinkedUsers || 0))}</p>
                                 </div>
                                 <div className="rounded-[22px] border border-border/60 bg-card/80 px-4 py-4">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Latest Revenue</p>
+                                    <p className="text-[10px] font-black text-muted-foreground">Latest Revenue</p>
                                     <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(latestRevenue)}</p>
                                 </div>
                             </div>
@@ -356,7 +355,7 @@ export const AnalyticsPage: React.FC = () => {
                     <div className={`${surfaceClass} p-7 sm:p-8`}>
                         <div className="mb-6">
                             <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Automation traffic</h3>
-                            <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">{selectedTrafficWindow}</p>
+                            <p className="mt-1 text-[11px] font-black text-muted-foreground">{selectedTrafficWindow}</p>
                         </div>
                         <div className="h-[340px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -381,7 +380,7 @@ export const AnalyticsPage: React.FC = () => {
                     <div className={`${surfaceClass} p-7 sm:p-8`}>
                         <div className="mb-6">
                             <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Revenue trend</h3>
-                            <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">Last 30 days</p>
+                            <p className="mt-1 text-[11px] font-black text-muted-foreground">Last 30 days</p>
                         </div>
                         <div className="h-[340px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -401,7 +400,7 @@ export const AnalyticsPage: React.FC = () => {
                     <div className={`${surfaceClass} p-7`}>
                         <div className="mb-5">
                             <h3 className="text-[1.45rem] font-extrabold tracking-tight text-foreground">Signals</h3>
-                            <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">Quick read</p>
+                            <p className="mt-1 text-[11px] font-black text-muted-foreground">Quick read</p>
                         </div>
                         <div className="space-y-4">
                             <InsightTile label="Success Rate" value={`${deliverySuccessRate}%`} note="Success plus skipped events" />
@@ -413,7 +412,7 @@ export const AnalyticsPage: React.FC = () => {
                     <div className={`${surfaceClass} p-7`}>
                         <div className="mb-5">
                             <h3 className="text-[1.45rem] font-extrabold tracking-tight text-foreground">Recent failures</h3>
-                            <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">Latest events</p>
+                            <p className="mt-1 text-[11px] font-black text-muted-foreground">Latest events</p>
                         </div>
                         <div className="space-y-3">
                             {(Array.isArray(data?.recent_failures) ? data.recent_failures : []).length === 0 ? (
@@ -425,7 +424,7 @@ export const AnalyticsPage: React.FC = () => {
                                     <div className="flex flex-col gap-3">
                                         <div className="flex items-start justify-between gap-4">
                                             <p className="text-sm font-bold text-foreground">{item.event_type}</p>
-                                            <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                            <span className="shrink-0 text-[10px] font-black text-muted-foreground">
                                                 {formatShortDate(item.sent_at || 0)}
                                             </span>
                                         </div>

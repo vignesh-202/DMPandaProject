@@ -1533,12 +1533,33 @@ def admin_dashboard_api():
         users = users_response['documents']
         total_users = users_response['total']
         
+        now = datetime.datetime.now(datetime.timezone.utc)
+
+        def _parse_expiry_date(value):
+            if not value:
+                return None
+            try:
+                return datetime.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            except Exception:
+                return None
+
+        def _is_active_paid_subscription(user_doc):
+            plan_code = str(user_doc.get('plan_code') or 'free').strip().lower()
+            expiry_date = _parse_expiry_date(user_doc.get('expiry_date'))
+            if plan_code == 'free' or expiry_date is None:
+                return False
+            return expiry_date > now
+
+        # DEPRECATED - DO NOT USE FOR SUBSCRIPTION LOGIC:
+        # `subscription_plan_id` is intentionally ignored here.
+        # Subscription state must come only from `plan_code` + `expiry_date`.
+
         # 2. Paid Users & MRR
         paid_users = 0
         mrr = 0
         for u in users:
-            plan = u.get('subscription_plan_id')
-            if plan:
+            plan = str(u.get('plan_code') or 'free').strip().lower()
+            if _is_active_paid_subscription(u):
                 paid_users += 1
                 if plan == 'premium_monthly':
                     mrr += 29
@@ -1546,7 +1567,6 @@ def admin_dashboard_api():
                     mrr += (299 / 12)
         
         # 3. New Users (24h)
-        now = datetime.datetime.now(datetime.timezone.utc)
         one_day_ago = now - datetime.timedelta(days=1)
         new_users_24h = 0
         
@@ -1586,7 +1606,7 @@ def admin_dashboard_api():
                     'email': u.get('email', 'N/A'),
                     'status': 'Active' if u.get('status') else 'Inactive',
                     'joined_at': u.get('$createdAt', ''),
-                    'amount': '$29.00' if u.get('subscription_plan_id') else '$0.00'
+                    'amount': '$29.00' if _is_active_paid_subscription(u) else '$0.00'
                 } for u in sorted(users, key=lambda x: x.get('$createdAt', ''), reverse=True)[:5]
             ]
         }

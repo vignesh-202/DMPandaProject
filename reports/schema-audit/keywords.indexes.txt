@@ -1,0 +1,32 @@
+﻿total  5
+ 
+indexes (5)
+  [1]
+    $id     1_15_automation_id_idx
+    key     automation_id_idx
+    type    key
+    status  available
+
+  [2]
+    $id     1_15_idx_account_active
+    key     idx_account_active
+    type    key
+    status  available
+
+  [3]
+    $id     1_15_idx_automation_keyword_norm
+    key     idx_automation_keyword_norm
+    type    unique
+    status  available
+
+  [4]
+    $id     1_15_idx_account_keyword_norm_all
+    key     idx_account_keyword_norm_all
+    type    key
+    status  available
+
+  [5]
+    $id     1_15_idx_account_type_keyword_norm
+    key     idx_account_type_keyword_norm
+    type    unique
+    status  available

@@ -1,0 +1,225 @@
+﻿total  50
+ 
+attributes (25)
+  [1]
+    key       name
+    type      string
+    status    available
+    required  true
+    array     false
+    size      100
+    encrypt   false
+
+  [2]
+    key       price_monthly_inr
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+
+  [3]
+    key       price_yearly_inr
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+
+  [4]
+    key       price_monthly_usd
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+
+  [5]
+    key       price_yearly_usd
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+
+  [6]
+    key       is_custom
+    type      boolean
+    status    available
+    required  false
+    array     false
+
+  [7]
+    key       is_popular
+    type      boolean
+    status    available
+    required  false
+    array     false
+
+  [8]
+    key       features
+    type      string
+    status    available
+    required  false
+    array     false
+    size      10000
+    encrypt   false
+
+  [9]
+    key       display_order
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+
+  [10]
+    key       button_text
+    type      string
+    status    available
+    required  false
+    array     false
+    size      100
+    encrypt   false
+
+  [11]
+    key       yearly_bonus
+    type      string
+    status    available
+    required  false
+    array     false
+    size      100
+    encrypt   false
+
+  [12]
+    key       plan_code
+    type      string
+    status    available
+    required  false
+    array     false
+    size      32
+    encrypt   false
+
+  [13]
+    key       instagram_connections_limit
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+
+  [14]
+    key       actions_per_hour_limit
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+
+  [15]
+    key       actions_per_day_limit
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+
+  [16]
+    key       actions_per_month_limit
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       -9223372036854775808
+    max       9223372036854775807
+
+  [17]
+    key       comparison_json
+    type      string
+    status    available
+    required  false
+    array     false
+    size      20000
+    encrypt   false
+
+  [18]
+    key       price_yearly_monthly_inr
+    type      double
+    status    available
+    required  false
+    array     false
+    min       -1.7976931348623157e+308
+    max       1.7976931348623157e+308
+    default   0
+
+  [19]
+    key       price_yearly_monthly_usd
+    type      double
+    status    available
+    required  false
+    array     false
+    min       -1.7976931348623157e+308
+    max       1.7976931348623157e+308
+    default   0
+
+  [20]
+    key       monthly_duration_days
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       1
+    max       366
+    default   30
+
+  [21]
+    key       yearly_duration_days
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       1
+    max       366
+    default   364
+
+  [22]
+    key       instagram_link_limit
+    type      integer
+    status    available
+    required  false
+    array     false
+    min       0
+    max       1000
+    default   0
+
+  [23]
+    key       benefit_unlimited_contacts
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   false
+
+  [24]
+    key       benefit_post_comment_dm_automation
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   false
+
+  [25]
+    key       benefit_reel_comment_dm_automation
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   false

@@ -1,0 +1,20 @@
+﻿total  3
+ 
+indexes (3)
+  [1]
+    $id     1_14_idx_user_id
+    key     idx_user_id
+    type    unique
+    status  available
+
+  [2]
+    $id     1_14_idx_profiles_expiry_date
+    key     idx_profiles_expiry_date
+    type    key
+    status  available
+
+  [3]
+    $id     1_14_idx_profiles_plan_expiry
+    key     idx_profiles_plan_expiry
+    type    key
+    status  available

@@ -1,0 +1,20 @@
+﻿total  3
+ 
+indexes (3)
+  [1]
+    $id     1_149_idx_normalized_email
+    key     idx_normalized_email
+    type    key
+    status  available
+
+  [2]
+    $id     1_149_idx_account_collected_at
+    key     idx_account_collected_at
+    type    key
+    status  available
+
+  [3]
+    $id     1_149_idx_automation_collected_at
+    key     idx_automation_collected_at
+    type    key
+    status  available

@@ -1,10 +1,24 @@
+const crypto = require('crypto');
 const { Client, Databases, Query, ID } = require('node-appwrite');
 require('dotenv').config();
 const { withAppwriteRetry } = require('./appwriteSafety');
+const { buildActionUsageIncrementPatch } = require('../../shared/actionRateLimiter');
+const sharedPlanFeatures = require('../../shared/planFeatures.json');
 
 const CHAT_STATES_COLLECTION_ID = process.env.CHAT_STATES_COLLECTION_ID || 'chat_states';
 const AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID = process.env.AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID || 'automation_collect_destinations';
-const AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID = process.env.AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID || 'automation_collected_emails';
+const PRICING_COLLECTION_ID = process.env.PRICING_COLLECTION_ID || 'pricing';
+const SYSTEM_CONFIG_COLLECTION_ID = process.env.SYSTEM_CONFIG_COLLECTION_ID || 'system_config';
+const LOGS_COLLECTION_ID = process.env.LOGS_COLLECTION_ID || 'logs';
+const WATERMARK_POLICY_DOCUMENT_ID = 'watermark_policy';
+const PLAN_BENEFIT_KEYS = Object.freeze(sharedPlanFeatures.benefitKeys || []);
+const PLAN_BENEFIT_STORAGE_KEYS = Object.freeze(sharedPlanFeatures.benefitStorageKeys || {});
+const LEGACY_PLAN_BENEFIT_STORAGE_KEYS = Object.freeze(sharedPlanFeatures.legacyBenefitStorageKeys || {});
+const benefitFieldForKey = (key) => `benefit_${PLAN_BENEFIT_STORAGE_KEYS[key] || key}`;
+const benefitFieldsForKey = (key) => [
+    benefitFieldForKey(key),
+    ...(LEGACY_PLAN_BENEFIT_STORAGE_KEYS[key] || []).map((legacyKey) => `benefit_${legacyKey}`)
+];
 
 class AppwriteClient {
     constructor() {
@@ -19,6 +33,15 @@ class AppwriteClient {
         this._automationDefaultsExpiresAt = 0;
         this._chatStatesSchemaCache = null;
         this._chatStatesSchemaExpiresAt = 0;
+        this._pricingCache = null;
+        this._pricingExpiresAt = 0;
+        this._watermarkPolicyCache = null;
+        this._watermarkPolicyExpiresAt = 0;
+        this.workerInstanceId = String(
+            process.env.WORKER_INSTANCE_ID
+            || process.env.HOSTNAME
+            || `worker-${process.pid}`
+        ).trim();
     }
 
     normalizeAccountIds(accountIds) {
@@ -58,6 +81,19 @@ class AppwriteClient {
             recipientId: String(recipientId || '').trim(),
             senderId: String(rest.join(':') || '').trim()
         };
+    }
+
+    _hashToken(value, length = 32) {
+        const digest = crypto
+            .createHash('sha256')
+            .update(String(value || '').trim())
+            .digest('hex');
+        return digest.slice(0, Math.max(8, Math.min(64, Number(length || 32))));
+    }
+
+    _buildEventLockDocumentId({ accountId, eventKey, eventType = 'message' }) {
+        const token = `${String(accountId || '').trim()}|${String(eventType || 'message').trim()}|${String(eventKey || '').trim()}`;
+        return `evt_${this._hashToken(token, 32)}`;
     }
 
     async _getChatStatesSchema() {
@@ -425,6 +461,54 @@ class AppwriteClient {
         }
     }
 
+    async _listPricingPlans() {
+        const now = Date.now();
+        if (this._pricingCache && this._pricingExpiresAt > now) {
+            return this._pricingCache;
+        }
+        const response = await withAppwriteRetry(() => this.databases.listDocuments(
+            this.databaseId,
+            PRICING_COLLECTION_ID,
+            [Query.limit(100)]
+        ), {
+            operationName: 'list_pricing_plans',
+            context: {}
+        });
+        const documents = Array.isArray(response?.documents) ? response.documents : [];
+        this._pricingCache = documents;
+        this._pricingExpiresAt = now + (60 * 1000);
+        return documents;
+    }
+
+    async _getPricingPlan(planCode) {
+        const normalizedPlanCode = String(planCode || '').trim().toLowerCase() || 'free';
+        const plans = await this._listPricingPlans();
+        return plans.find((plan) => String(plan?.plan_code || plan?.name || '').trim().toLowerCase() === normalizedPlanCode) || null;
+    }
+
+    async _hydrateProfilePlan(profile) {
+        if (!profile || typeof profile !== 'object') return profile;
+        const plan = await this._getPricingPlan(profile.plan_code);
+        if (!plan) return profile;
+        const hydrated = { ...profile };
+        hydrated.__plan_code = String(plan.plan_code || profile.plan_code || 'free').trim().toLowerCase() || 'free';
+        if (hydrated.__plan_code === 'free') {
+            hydrated.expiry_date = null;
+        }
+        hydrated.__plan_features = {};
+        PLAN_BENEFIT_KEYS.forEach((key) => {
+            const enabled = benefitFieldsForKey(key).some((field) => plan?.[field] === true);
+            hydrated[benefitFieldForKey(key)] = enabled;
+            hydrated.__plan_features[key] = enabled;
+        });
+        hydrated.instagram_link_limit = Number(plan.instagram_link_limit || plan.instagram_connections_limit || 0);
+        hydrated.instagram_connections_limit = Number(plan.instagram_connections_limit || 0);
+        hydrated.hourly_action_limit = Number(plan.actions_per_hour_limit || 0);
+        hydrated.daily_action_limit = Number(plan.actions_per_day_limit || 0);
+        hydrated.monthly_action_limit = Number(plan.actions_per_month_limit || 0);
+        return hydrated;
+    }
+
     async getProfile(userId) {
         try {
             const response = await withAppwriteRetry(() => this.databases.listDocuments(
@@ -435,11 +519,26 @@ class AppwriteClient {
                 operationName: 'get_profile',
                 context: { user_id: userId }
             });
-            return response.documents[0] || null;
+            return this._hydrateProfilePlan(response.documents[0] || null);
         } catch (error) {
             console.error(`Error fetching profile ${userId}:`, error);
             return null;
         }
+    }
+
+    async incrementActionUsage(userId) {
+        const profile = await this.getProfile(userId);
+        if (!profile?.$id) return null;
+        const patch = buildActionUsageIncrementPatch(profile);
+        return withAppwriteRetry(() => this.databases.updateDocument(
+            this.databaseId,
+            process.env.PROFILES_COLLECTION_ID || 'profiles',
+            profile.$id,
+            patch
+        ), {
+            operationName: 'increment_action_usage',
+            context: { user_id: userId, profile_id: profile.$id }
+        });
     }
 
     async getUser(userId) {
@@ -534,25 +633,45 @@ class AppwriteClient {
     }
 
     async getWatermarkPolicy() {
+        const now = Date.now();
+        if (this._watermarkPolicyCache && this._watermarkPolicyExpiresAt > now) {
+            return { ...this._watermarkPolicyCache };
+        }
+
+        const fallback = {
+            enabled: String(process.env.DEFAULT_WATERMARK_ENABLED || 'true').trim().toLowerCase() !== 'false',
+            type: 'text',
+            position: ['inline_when_possible', 'secondary_message'].includes(String(process.env.DEFAULT_WATERMARK_POSITION || '').trim().toLowerCase())
+                ? String(process.env.DEFAULT_WATERMARK_POSITION).trim().toLowerCase()
+                : 'secondary_message',
+            opacity: Number.isFinite(Number(process.env.DEFAULT_WATERMARK_OPACITY))
+                ? Math.max(0, Math.min(1, Number(process.env.DEFAULT_WATERMARK_OPACITY)))
+                : 1
+        };
+
         try {
             const document = await this.databases.getDocument(
                 this.databaseId,
-                process.env.ADMIN_SETTINGS_COLLECTION_ID || 'admin_settings',
-                'global_watermark_policy'
+                SYSTEM_CONFIG_COLLECTION_ID,
+                WATERMARK_POLICY_DOCUMENT_ID
             );
-            return {
+            const policy = {
                 enabled: document.enabled !== false,
-                default_text: document.default_text || 'Automation made by DMPanda',
-                enforcement_mode: document.enforcement_mode || 'fallback_secondary_message',
-                allow_user_override: document.allow_user_override !== false
+                type: 'text',
+                position: ['inline_when_possible', 'secondary_message'].includes(String(document.position || '').trim().toLowerCase())
+                    ? String(document.position).trim().toLowerCase()
+                    : fallback.position,
+                opacity: Number.isFinite(Number(document.opacity))
+                    ? Math.max(0, Math.min(1, Number(document.opacity)))
+                    : fallback.opacity
             };
+            this._watermarkPolicyCache = policy;
+            this._watermarkPolicyExpiresAt = now + (30 * 1000);
+            return { ...policy };
         } catch (_) {
-            return {
-                enabled: true,
-                default_text: 'Automation made by DMPanda',
-                enforcement_mode: 'fallback_secondary_message',
-                allow_user_override: true
-            };
+            this._watermarkPolicyCache = fallback;
+            this._watermarkPolicyExpiresAt = now + (30 * 1000);
+            return { ...fallback };
         }
     }
 
@@ -700,6 +819,246 @@ class AppwriteClient {
         }
     }
 
+    async claimProcessingEvent({
+        eventType = 'message',
+        accountId,
+        conversationKey = '',
+        senderId = '',
+        recipientId = '',
+        eventKey
+    }, options = {}) {
+        const safeEventKey = String(eventKey || '').trim();
+        const safeAccountId = String(accountId || '').trim();
+        if (!safeEventKey || !safeAccountId) {
+            return { claimed: true, bypassed: true, reason: 'missing_event_identity' };
+        }
+
+        const schema = await this._getChatStatesSchema();
+        const now = Date.now();
+        const nowIso = new Date(now).toISOString();
+        const processingTtlMs = Math.max(30_000, Number(options.processingTtlMs || 5 * 60 * 1000) || (5 * 60 * 1000));
+        const dedupeTtlMs = Math.max(processingTtlMs, Number(options.dedupeTtlMs || 60 * 60 * 1000) || (60 * 60 * 1000));
+        const eventConversationKey = `event:${String(eventType || 'message').trim()}:${safeEventKey}`;
+        const lockRecipientId = `evt_${this._hashToken(`${String(eventType || 'message').trim()}:${safeEventKey}`, 24)}`;
+        const documentId = this._buildEventLockDocumentId({
+            eventType,
+            accountId: safeAccountId,
+            eventKey: safeEventKey
+        });
+        const expiresAtIso = new Date(now + processingTtlMs).toISOString();
+        const stateJson = JSON.stringify({
+            type: 'event_lock',
+            status: 'processing',
+            event_type: String(eventType || 'message').trim() || 'message',
+            event_key: safeEventKey,
+            owner: this.workerInstanceId,
+            updated_at: nowIso
+        });
+
+        const payload = {};
+        if (schema.attributeKeys.has('user_id') && options.userId) payload.user_id = String(options.userId || '').trim();
+        if (schema.attributeKeys.has('account_id')) payload.account_id = safeAccountId;
+        if (schema.attributeKeys.has('conversation_key')) payload.conversation_key = eventConversationKey;
+        if (schema.attributeKeys.has('sender_id')) payload.sender_id = String(senderId || '').trim();
+        if (schema.attributeKeys.has('recipient_id')) payload.recipient_id = lockRecipientId;
+        if (schema.attributeKeys.has('state_json')) payload.state_json = stateJson;
+        if (schema.attributeKeys.has('updated_at')) payload.updated_at = nowIso;
+        if (schema.attributeKeys.has('expires_at')) payload.expires_at = expiresAtIso;
+        if (schema.attributeKeys.has('last_seen_at')) payload.last_seen_at = nowIso;
+        if (schema.requiredKeys.has('last_seen_at') && !payload.last_seen_at) payload.last_seen_at = nowIso;
+
+        try {
+            await withAppwriteRetry(() => this.databases.createDocument(
+                this.databaseId,
+                CHAT_STATES_COLLECTION_ID,
+                documentId,
+                payload
+            ), {
+                operationName: 'claim_processing_event',
+                context: {
+                    event_type: eventType,
+                    account_id: safeAccountId
+                }
+            });
+            return {
+                claimed: true,
+                eventType,
+                eventKey: safeEventKey,
+                accountId: safeAccountId,
+                documentId,
+                conversationKey: eventConversationKey,
+                dedupeUntil: new Date(now + dedupeTtlMs).toISOString()
+            };
+        } catch (error) {
+            const code = Number(error?.code || error?.response?.code || 0);
+            if (code !== 409) {
+                throw error;
+            }
+        }
+
+        const resolveExistingLock = async () => {
+            const queries = [Query.equal('account_id', safeAccountId), Query.limit(1)];
+            if (schema.attributeKeys.has('conversation_key')) {
+                queries.push(Query.equal('conversation_key', eventConversationKey));
+            } else if (schema.attributeKeys.has('recipient_id')) {
+                queries.push(Query.equal('recipient_id', lockRecipientId));
+            }
+            const response = await withAppwriteRetry(() => this.databases.listDocuments(
+                this.databaseId,
+                CHAT_STATES_COLLECTION_ID,
+                queries
+            ), {
+                operationName: 'find_processing_event_lock',
+                context: { event_type: eventType, account_id: safeAccountId }
+            });
+            return response.documents?.[0] || null;
+        };
+
+        let existing = null;
+        try {
+            existing = await resolveExistingLock();
+        } catch (error) {
+            console.warn('Failed to locate existing processing lock after conflict:', error?.message || error);
+            return {
+                claimed: false,
+                duplicate: true,
+                reason: 'conflict_without_lock_lookup',
+                eventType,
+                eventKey: safeEventKey,
+                accountId: safeAccountId
+            };
+        }
+
+        if (!existing) {
+            return {
+                claimed: false,
+                duplicate: true,
+                reason: 'conflict_without_existing_doc',
+                eventType,
+                eventKey: safeEventKey,
+                accountId: safeAccountId
+            };
+        }
+
+        const existingState = this._parseJson(existing?.state_json, {});
+        const existingExpiresAt = Date.parse(String(existing?.expires_at || ''));
+        const isLockLive = Number.isFinite(existingExpiresAt) && existingExpiresAt > now;
+        const completed = String(existingState?.status || '').trim().toLowerCase() === 'completed';
+
+        if (completed || isLockLive) {
+            return {
+                claimed: false,
+                duplicate: true,
+                reason: completed ? 'already_completed' : 'processing_in_progress',
+                eventType,
+                eventKey: safeEventKey,
+                accountId: safeAccountId,
+                documentId: String(existing?.$id || '').trim() || documentId
+            };
+        }
+
+        const existingDocumentId = String(existing?.$id || '').trim() || documentId;
+        const takeoverStateJson = JSON.stringify({
+            type: 'event_lock',
+            status: 'processing',
+            event_type: String(eventType || 'message').trim() || 'message',
+            event_key: safeEventKey,
+            owner: this.workerInstanceId,
+            taken_over: true,
+            updated_at: nowIso
+        });
+        const takeoverPatch = {};
+        if (schema.attributeKeys.has('state_json')) takeoverPatch.state_json = takeoverStateJson;
+        if (schema.attributeKeys.has('updated_at')) takeoverPatch.updated_at = nowIso;
+        if (schema.attributeKeys.has('expires_at')) takeoverPatch.expires_at = expiresAtIso;
+        if (schema.attributeKeys.has('last_seen_at')) takeoverPatch.last_seen_at = nowIso;
+        if (schema.attributeKeys.has('sender_id') && senderId) takeoverPatch.sender_id = String(senderId || '').trim();
+        if (schema.attributeKeys.has('recipient_id')) takeoverPatch.recipient_id = lockRecipientId;
+
+        try {
+            await withAppwriteRetry(() => this.databases.updateDocument(
+                this.databaseId,
+                CHAT_STATES_COLLECTION_ID,
+                existingDocumentId,
+                takeoverPatch
+            ), {
+                operationName: 'takeover_processing_event_lock',
+                context: {
+                    event_type: eventType,
+                    account_id: safeAccountId
+                }
+            });
+            return {
+                claimed: true,
+                takenOver: true,
+                eventType,
+                eventKey: safeEventKey,
+                accountId: safeAccountId,
+                documentId: existingDocumentId,
+                conversationKey: eventConversationKey,
+                dedupeUntil: new Date(now + dedupeTtlMs).toISOString()
+            };
+        } catch (error) {
+            return {
+                claimed: false,
+                duplicate: true,
+                reason: 'takeover_failed',
+                eventType,
+                eventKey: safeEventKey,
+                accountId: safeAccountId
+            };
+        }
+    }
+
+    async finalizeProcessingEvent(claim = {}, { status = 'completed', error = null, dedupeTtlMs = 60 * 60 * 1000 } = {}) {
+        const documentId = String(claim?.documentId || '').trim();
+        if (!documentId) return false;
+
+        const schema = await this._getChatStatesSchema();
+        const now = Date.now();
+        const nowIso = new Date(now).toISOString();
+        const normalizedStatus = status === 'failed' ? 'failed' : 'completed';
+        const patch = {};
+        if (schema.attributeKeys.has('state_json')) {
+            patch.state_json = JSON.stringify({
+                type: 'event_lock',
+                status: normalizedStatus,
+                event_type: String(claim?.eventType || 'message').trim() || 'message',
+                event_key: String(claim?.eventKey || '').trim(),
+                owner: this.workerInstanceId,
+                error: error ? String(error).slice(0, 500) : null,
+                updated_at: nowIso
+            });
+        }
+        if (schema.attributeKeys.has('updated_at')) patch.updated_at = nowIso;
+        if (schema.attributeKeys.has('last_seen_at')) patch.last_seen_at = nowIso;
+        if (schema.attributeKeys.has('expires_at')) {
+            const ttl = normalizedStatus === 'completed'
+                ? Math.max(60_000, Number(dedupeTtlMs || 60 * 60 * 1000) || (60 * 60 * 1000))
+                : 1000;
+            patch.expires_at = new Date(now + ttl).toISOString();
+        }
+
+        try {
+            await withAppwriteRetry(() => this.databases.updateDocument(
+                this.databaseId,
+                CHAT_STATES_COLLECTION_ID,
+                documentId,
+                patch
+            ), {
+                operationName: 'finalize_processing_event',
+                context: {
+                    event_type: claim?.eventType || 'message',
+                    account_id: claim?.accountId || ''
+                }
+            });
+            return true;
+        } catch (error) {
+            console.warn('Failed to finalize processing event lock:', error?.message || error);
+            return false;
+        }
+    }
+
     async getEmailCollectorDestination(automationId, accountId) {
         try {
             const response = await this.databases.listDocuments(
@@ -739,97 +1098,9 @@ class AppwriteClient {
     }
 
     async ensureCollectedEmailsCollection() {
-        if (this._collectedEmailsCollectionReady === true) {
-            return true;
-        }
-
-        try {
-            await this.databases.getCollection(this.databaseId, AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID);
-            this._collectedEmailsCollectionReady = true;
-            return true;
-        } catch (error) {
-            const missing = String(error?.message || '').includes('Collection with the requested ID could not be found.')
-                || Number(error?.code) === 404;
-            if (!missing) {
-                console.warn('Collected emails collection lookup failed:', error?.message || error);
-                return false;
-            }
-        }
-
-        try {
-            await this.databases.createCollection(
-                this.databaseId,
-                AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID,
-                'Automation Collected Emails'
-            );
-
-            const attributes = [
-                ['user_id', 255, true],
-                ['account_id', 255, true],
-                ['automation_id', 255, true],
-                ['conversation_key', 255, true],
-                ['sender_id', 255, true],
-                ['recipient_id', 255, true],
-                ['email', 255, true],
-                ['normalized_email', 255, true],
-                ['send_to', 50, false],
-                ['sender_profile_url', 500, false],
-                ['receiver_name', 255, false],
-                ['automation_title', 255, false],
-                ['automation_type', 50, false]
-            ];
-
-            for (const [key, size, required] of attributes) {
-                await this.databases.createStringAttribute(
-                    this.databaseId,
-                    AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID,
-                    key,
-                    size,
-                    required
-                );
-            }
-
-            await this.databases.createDatetimeAttribute(
-                this.databaseId,
-                AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID,
-                'collected_at',
-                true
-            );
-            await this.databases.createDatetimeAttribute(
-                this.databaseId,
-                AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID,
-                'updated_at',
-                true
-            );
-
-            await this.databases.createIndex(
-                this.databaseId,
-                AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID,
-                'idx_normalized_email',
-                'key',
-                ['normalized_email']
-            );
-            await this.databases.createIndex(
-                this.databaseId,
-                AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID,
-                'idx_account_collected_at',
-                'key',
-                ['account_id', 'collected_at']
-            );
-            await this.databases.createIndex(
-                this.databaseId,
-                AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID,
-                'idx_automation_collected_at',
-                'key',
-                ['automation_id', 'collected_at']
-            );
-
-            this._collectedEmailsCollectionReady = true;
-            return true;
-        } catch (error) {
-            console.warn('Collected emails collection create failed:', error?.message || error);
-            return false;
-        }
+        // Collected emails are routed to external destinations (Google Sheets / APIs).
+        // Keep this as a compatibility no-op to avoid recreating DB storage.
+        return false;
     }
 
     async recordCollectedEmail({
@@ -847,42 +1118,82 @@ class AppwriteClient {
         automationTitle = '',
         automationType = ''
     }) {
-        try {
-            const collectionReady = await this.ensureCollectedEmailsCollection();
-            if (!collectionReady) {
-                return false;
-            }
+        await this.ensureCollectedEmailsCollection();
+        return true;
+    }
 
-            await this.databases.createDocument(
-                this.databaseId,
-                AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID,
-                ID.unique(),
-                {
-                    user_id: String(userId || '').trim(),
-                    account_id: String(accountId || '').trim(),
-                    automation_id: String(automationId || '').trim(),
-                    conversation_key: String(conversationKey || '').trim(),
-                    sender_id: String(senderId || '').trim(),
-                    recipient_id: String(recipientId || '').trim(),
-                    email: String(email || '').trim(),
-                    normalized_email: String(normalizedEmail || '').trim(),
-                    send_to: String(sendTo || 'everyone').trim() || 'everyone',
-                    sender_profile_url: String(senderProfileUrl || '').trim(),
-                    receiver_name: String(receiverName || '').trim(),
-                    automation_title: String(automationTitle || '').trim(),
-                    automation_type: String(automationType || '').trim(),
-                    collected_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                }
-            );
-            return true;
-        } catch (error) {
-            console.warn(
-                `Collected email save failed for ${String(accountId || '').trim()}:${String(conversationKey || '').trim()}:`,
-                error?.message || error
-            );
-            return false;
+    async createAutomationLog({
+        accountId,
+        recipientId = null,
+        senderName = null,
+        automationId = null,
+        automationType = null,
+        eventType = 'message',
+        source = 'worker_node',
+        message = null,
+        payload = null,
+        status = 'success',
+        sentAt = new Date().toISOString()
+    } = {}) {
+        const safeAccountId = String(accountId || '').trim();
+        if (!safeAccountId) return null;
+
+        const safeStatus = ['success', 'failed', 'skipped'].includes(String(status || '').trim().toLowerCase())
+            ? String(status || '').trim().toLowerCase()
+            : 'failed';
+        const safeEventType = String(eventType || 'message').trim().toLowerCase() || 'message';
+
+        let serializedPayload = null;
+        if (payload !== null && payload !== undefined) {
+            try {
+                serializedPayload = typeof payload === 'string'
+                    ? payload
+                    : JSON.stringify(payload);
+            } catch (_) {
+                serializedPayload = null;
+            }
         }
+        if (serializedPayload && serializedPayload.length > 20000) {
+            serializedPayload = serializedPayload.slice(0, 20000);
+        }
+
+        const document = {
+            account_id: safeAccountId,
+            event_type: safeEventType.slice(0, 50),
+            source: String(source || 'worker_node').trim().slice(0, 50) || 'worker_node',
+            message: message ? String(message).trim().slice(0, 2000) : null,
+            payload: serializedPayload,
+            sent_at: String(sentAt || new Date().toISOString()).trim() || new Date().toISOString(),
+            status: safeStatus
+        };
+
+        if (recipientId) {
+            document.recipient_id = String(recipientId).trim().slice(0, 255);
+        }
+        if (senderName) {
+            document.sender_name = String(senderName).trim().slice(0, 255);
+        }
+        if (automationId) {
+            document.automation_id = String(automationId).trim().slice(0, 255);
+        }
+        if (automationType) {
+            document.automation_type = String(automationType).trim().slice(0, 50);
+        }
+
+        return withAppwriteRetry(() => this.databases.createDocument(
+            this.databaseId,
+            LOGS_COLLECTION_ID,
+            ID.unique(),
+            document
+        ), {
+            operationName: 'create_automation_log',
+            context: {
+                account_id: safeAccountId,
+                automation_id: document.automation_id || null,
+                status: safeStatus,
+                event_type: safeEventType
+            }
+        });
     }
 }
 

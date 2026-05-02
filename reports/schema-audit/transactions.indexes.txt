@@ -1,0 +1,56 @@
+﻿total  9
+ 
+indexes (9)
+  [1]
+    $id     1_2_idx_transaction_id_unique
+    key     idx_transaction_id_unique
+    type    unique
+    status  available
+
+  [2]
+    $id     1_2_idx_gateway_payment_unique
+    key     idx_gateway_payment_unique
+    type    unique
+    status  available
+
+  [3]
+    $id     1_2_idx_gateway_order
+    key     idx_gateway_order
+    type    key
+    status  available
+
+  [4]
+    $id     1_2_idx_user_transaction_date
+    key     idx_user_transaction_date
+    type    key
+    status  available
+
+  [5]
+    $id     1_2_idx_user_status
+    key     idx_user_status
+    type    key
+    status  available
+
+  [6]
+    $id     1_2_idx_payment_attempt
+    key     idx_payment_attempt
+    type    key
+    status  available
+
+  [7]
+    $id     1_2_idx_user_status_transaction_date
+    key     idx_user_status_transaction_date
+    type    key
+    status  available
+
+  [8]
+    $id     1_2_idx_transactions_user_id
+    key     idx_transactions_user_id
+    type    key
+    status  available
+
+  [9]
+    $id     1_2_idx_transactions_user_created_at
+    key     idx_transactions_user_created_at
+    type    key
+    status  available

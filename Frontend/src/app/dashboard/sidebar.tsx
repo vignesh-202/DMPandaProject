@@ -43,9 +43,12 @@ interface SidebarProps {
 
 const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
   const { hasLinkedInstagram } = useAuth();
-  const { currentView, setCurrentView, igAccounts, setActiveAccountID, activeAccountID, activeAccount, hasUnsavedChanges, setHasUnsavedChanges, saveUnsavedChanges, discardUnsavedChanges, accessState, hasPlanFeature, planLimits } = useDashboard();
+  const { currentView, setCurrentView, igAccounts, setActiveAccountID, activeAccountID, activeAccount, hasUnsavedChanges, setHasUnsavedChanges, saveUnsavedChanges, discardUnsavedChanges, accessState, hasPlanFeature, planPureLimits } = useDashboard();
   const hasAnyLinkedAccount = (igAccounts?.length || 0) > 0;
-  const accountLimit = Number(planLimits?.instagram_link_limit || planLimits?.instagram_connections_limit || 0);
+  const accountLimit = typeof planPureLimits?.max_link_limit === 'number'
+    ? planPureLimits.max_link_limit
+    : null;
+  const activeLimit = Number(planPureLimits?.active_account_limit || 0);
   const linkedAccountCount = igAccounts?.length || 0;
   const hasAutomationAccountAccess = !!hasLinkedInstagram || hasAnyLinkedAccount;
   const automationLockedByBan = accessState?.automation_locked === true;
@@ -92,8 +95,8 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
   const handleNavigation = (viewName: ViewType) => {
     const viewFeatureMap: Partial<Record<ViewType, string>> = {
       'DM Automation': 'dm_automation',
-      'Post Automation': 'post_comment_dm_automation',
-      'Reel Automation': 'reel_comment_dm_automation',
+      'Post Automation': 'post_comment_dm_reply',
+      'Reel Automation': 'reel_comment_dm_reply',
       'Story Automation': 'story_automation',
       'Live Automation': 'instagram_live_automation',
       'Mentions': 'mentions',
@@ -238,8 +241,8 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
 
   const viewFeatureMap: Partial<Record<ViewType, string>> = {
     'DM Automation': 'dm_automation',
-    'Post Automation': 'post_comment_dm_automation',
-    'Reel Automation': 'reel_comment_dm_automation',
+    'Post Automation': 'post_comment_dm_reply',
+    'Reel Automation': 'reel_comment_dm_reply',
     'Story Automation': 'story_automation',
     'Live Automation': 'instagram_live_automation',
     'Mentions': 'mentions',
@@ -255,9 +258,9 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
 
   return (
     <>
-      <div className="flex flex-col h-full">
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 py-2">
+        <nav className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 py-2">
           {menuSections.map((section, sectionIndex) => (
             <div key={sectionIndex} className={cn(sectionIndex > 0 && "mt-4")}>
               {/* Section Title */}
@@ -317,7 +320,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
         </nav>
 
         {/* Account Switcher - Fixed at bottom, lifted upward with modern design */}
-        <div className="px-2 sm:px-3 pt-3 pb-6 sm:pb-7 border-t border-sidebar-border flex-shrink-0 mt-auto relative mb-[3.25rem]" ref={profileMenuRef}>
+        <div className="px-2 sm:px-3 pt-2.5 pb-3 sm:pb-4 border-t border-sidebar-border flex-shrink-0 mt-auto relative" ref={profileMenuRef}>
           {/* Flyout Menu */}
           <div className={cn(
             "ig-topline absolute bottom-full mb-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-[100] transition-all duration-200",
@@ -340,11 +343,12 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                   {igAccounts.map((account) => {
                     const isSelected = activeAccountID === account.ig_user_id;
                     const isInactive = account.status !== 'active' || account.effective_access === false;
-                    const accountSubtitle = account.status !== 'active'
-                      ? 'Re-authorize'
-                      : account.effective_access === false
-                        ? (account.access_state === 'plan_locked' ? 'Plan locked' : 'Access disabled')
-                        : 'Connected';
+                    const isPlanLocked = account.plan_locked === true;
+
+                    let accountSubtitle = 'Connected';
+                    if (account.status !== 'active') accountSubtitle = 'Re-authorize';
+                    else if (isPlanLocked) accountSubtitle = 'Plan Locked';
+                    else if (account.effective_access === false) accountSubtitle = 'Unavailable';
 
                     return (
                       <button
@@ -384,12 +388,19 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                         {/* Account Info */}
                         {!isCollapsed && (
                           <div className="flex-1 min-w-0 text-left">
-                            <p className={cn(
-                              "text-xs font-medium truncate",
-                              isInactive ? "text-muted-foreground" : "text-foreground"
-                            )}>
-                              @{account.username}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className={cn(
+                                "text-xs font-medium truncate",
+                                isInactive ? "text-muted-foreground" : "text-foreground"
+                              )}>
+                                @{account.username}
+                              </p>
+                              {isPlanLocked && (
+                                <span className="flex-shrink-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                                  Locked
+                                </span>
+                              )}
+                            </div>
                             <p className={cn(
                               "text-2xs font-medium uppercase tracking-wide",
                               account.status === 'active' && account.effective_access !== false ? "text-success" : "text-muted-foreground"
@@ -429,11 +440,12 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
               <div className="mt-2 pt-2 border-t border-border">
                 {!isCollapsed && (
                   <div className="mb-2 px-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                      {linkedAccountCount} / {accountLimit || 0} accounts linked
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground flex justify-between">
+                      <span>Linked</span>
+                      <span>{linkedAccountCount} / {accountLimit == null ? '...' : accountLimit}</span>
                     </p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      Active automation access still follows your plan limit.
+                    <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground font-medium">
+                      Only {activeLimit} accounts are active
                     </p>
                   </div>
                 )}
@@ -538,9 +550,11 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                     {activeAccount
                       ? (activeAccount.status !== 'active'
                         ? 'Unlinked'
-                        : activeAccount.effective_access === false
-                          ? (activeAccount.access_state === 'plan_locked' ? 'Plan locked' : 'Access disabled')
-                          : 'Connected')
+                        : activeAccount.plan_locked === true
+                            ? 'Plan Locked'
+                            : activeAccount.effective_access === false
+                              ? 'Unavailable'
+                              : 'Connected')
                       : 'Connect now'}
                   </p>
                 </div>

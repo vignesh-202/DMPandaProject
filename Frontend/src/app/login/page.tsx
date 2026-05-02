@@ -196,9 +196,9 @@ const LoginPage: React.FC = () => {
 
             <form onSubmit={handleEmailPasswordSubmit} className="space-y-4">
               {!isLoginView && (
-                <Input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500" />
+                <Input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500" />
               )}
-              <Input id="email-input" type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500" />
+              <Input id="email-input" type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username email" className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500" />
 
               <Input
                 type="password"
@@ -206,6 +206,7 @@ const LoginPage: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete={isLoginView ? 'current-password' : 'new-password'}
                 className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500"
               />
 
@@ -219,6 +220,7 @@ const LoginPage: React.FC = () => {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
+                      autoComplete="new-password"
                       className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500"
                     />
                     {confirmPassword && (

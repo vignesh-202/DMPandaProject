@@ -1,8 +1,13 @@
 const DEFAULT_WATERMARK_POLICY = {
-    enabled: true,
-    default_text: 'Automation made by DMPanda',
-    enforcement_mode: 'fallback_secondary_message',
-    allow_user_override: true
+    enabled: String(process.env.DEFAULT_WATERMARK_ENABLED || 'true').trim().toLowerCase() !== 'false',
+    type: 'text',
+    position: ['inline_when_possible', 'secondary_message'].includes(String(process.env.DEFAULT_WATERMARK_POSITION || '').trim().toLowerCase())
+        ? String(process.env.DEFAULT_WATERMARK_POSITION).trim().toLowerCase()
+        : 'secondary_message',
+    opacity: Number.isFinite(Number(process.env.DEFAULT_WATERMARK_OPACITY))
+        ? Math.max(0, Math.min(1, Number(process.env.DEFAULT_WATERMARK_OPACITY)))
+        : 1,
+    default_text: String(process.env.DEFAULT_WATERMARK_TEXT || 'Automation made by DMPanda').trim() || 'Automation made by DMPanda'
 };
 
 const hasWatermark = (textValue, watermarkText) =>
@@ -16,41 +21,33 @@ const appendWatermark = (textValue, watermarkText) => {
     return `${base}\n\n${suffix}`;
 };
 
-const parseFeatureOverrides = (value) => {
-    if (!value) return {};
-    if (typeof value === 'object' && !Array.isArray(value)) return value;
-    try {
-        const parsed = JSON.parse(String(value));
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-    } catch {
-        return {};
-    }
-};
-
 const resolveWatermarkPolicy = ({ globalPolicy, profile }) => {
-    const basePolicy = {
-        ...DEFAULT_WATERMARK_POLICY,
-        ...(globalPolicy && typeof globalPolicy === 'object' ? globalPolicy : {})
-    };
-    const runtimeFeatures = parseFeatureOverrides(profile?.features_json);
-    const featureOverrides = parseFeatureOverrides(profile?.feature_overrides_json);
+    const adminPolicy = globalPolicy && typeof globalPolicy === 'object'
+        ? globalPolicy
+        : null;
+    const runtimeFeatures = { ...(profile?.__plan_features || {}) };
     if (profile?.benefit_no_watermark === true) {
         runtimeFeatures.no_watermark = true;
     }
+    if (profile?.no_watermark === true) {
+        runtimeFeatures.no_watermark = true;
+    }
+
+    const planFallbackPolicy = {
+        ...DEFAULT_WATERMARK_POLICY,
+        enabled: runtimeFeatures.no_watermark === true ? false : DEFAULT_WATERMARK_POLICY.enabled
+    };
+    const basePolicy = {
+        ...planFallbackPolicy,
+        ...(adminPolicy || {})
+    };
 
     if (!basePolicy.enabled) {
         return { ...basePolicy, enabled: false };
     }
 
-    if (basePolicy.allow_user_override && runtimeFeatures.no_watermark === true) {
+    if (runtimeFeatures.no_watermark === true) {
         return { ...basePolicy, enabled: false };
-    }
-
-    if (basePolicy.allow_user_override && String(featureOverrides.watermark_text || '').trim()) {
-        return {
-            ...basePolicy,
-            default_text: String(featureOverrides.watermark_text).trim()
-        };
     }
 
     return basePolicy;
@@ -81,7 +78,7 @@ const planWatermark = ({ templateType, payload, policy }) => {
         if (hasWatermark(safePayload.text, watermarkText)) {
             return { primaryPayload: safePayload, secondaryPayload: null, mode: 'none' };
         }
-        const result = activePolicy.enforcement_mode === 'inline_when_possible'
+        const result = activePolicy.position === 'inline_when_possible'
             ? inlineIfFits(safePayload.text, 1000)
             : { inline: false, value: safePayload.text };
         if (result.inline) {
@@ -102,7 +99,7 @@ const planWatermark = ({ templateType, payload, policy }) => {
         if (hasWatermark(safePayload.text, watermarkText)) {
             return { primaryPayload: safePayload, secondaryPayload: null, mode: 'none' };
         }
-        const result = activePolicy.enforcement_mode === 'inline_when_possible'
+        const result = activePolicy.position === 'inline_when_possible'
             ? inlineIfFits(safePayload.text, 640)
             : { inline: false, value: safePayload.text };
         if (result.inline) {
@@ -127,7 +124,7 @@ const planWatermark = ({ templateType, payload, policy }) => {
             if (hasWatermark(baseText, watermarkText)) {
                 return { primaryPayload: safePayload, secondaryPayload: null, mode: 'none' };
             }
-            const result = activePolicy.enforcement_mode === 'inline_when_possible'
+            const result = activePolicy.position === 'inline_when_possible'
                 ? inlineIfFits(baseText, 80)
                 : { inline: false, value: baseText };
             if (result.inline) {

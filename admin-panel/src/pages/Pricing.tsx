@@ -71,7 +71,7 @@ const numericFields: Array<{ key: keyof PricingPlan; label: string }> = [
 
 const StatTile = ({ label, value }: { label: string; value: string }) => (
   <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+    <p className="text-[10px] font-black text-muted-foreground">{label}</p>
     <p className="mt-2 text-2xl font-extrabold text-foreground">{value}</p>
   </div>
 );
@@ -90,7 +90,7 @@ const TogglePill = ({
   <button
     type="button"
     onClick={onChange}
-    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.18em] transition ${
+    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black transition ${
       checked
         ? 'border-primary/40 bg-primary/10 text-primary'
         : 'border-border bg-background/70 text-muted-foreground hover:border-primary/20 hover:text-foreground'
@@ -118,7 +118,7 @@ const SummaryMetric = ({
         <Icon className="h-5 w-5" />
       </div>
       <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+        <p className="text-[10px] font-black text-muted-foreground">{label}</p>
         <p className="mt-1 text-sm font-extrabold text-foreground">{value}</p>
       </div>
     </div>
@@ -137,7 +137,7 @@ const FeatureRow = ({
   onRemove: () => void;
 }) => (
   <div className="flex items-center gap-3 rounded-[22px] border border-border/70 bg-card/80 px-4 py-3">
-    <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+    <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-black text-primary">
       {String(index + 1).padStart(2, '0')}
     </span>
     <input
@@ -297,7 +297,7 @@ export const PricingPage: React.FC = () => {
       <section className={`${surfaceClass} overflow-hidden p-7 sm:p-9`}>
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_420px] xl:items-start">
           <div className="space-y-5">
-            <div className="inline-flex rounded-full border border-primary/20 bg-gradient-to-r from-primary/12 to-transparent px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-primary">
+            <div className="inline-flex rounded-full border border-primary/20 bg-gradient-to-r from-primary/12 to-transparent px-3 py-1 text-[10px] font-black text-primary">
               Pricing Control
             </div>
             <div>
@@ -329,16 +329,16 @@ export const PricingPage: React.FC = () => {
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-center gap-3">
                       <h2 className="text-[1.7rem] font-extrabold tracking-tight text-foreground">{plan.name}</h2>
-                      <span className="rounded-full border border-border/70 bg-background/60 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                      <span className="rounded-full border border-border/70 bg-background/60 px-3 py-1 text-[10px] font-black text-muted-foreground">
                         {plan.plan_code || 'no code'}
                       </span>
                       {plan.is_popular && (
-                        <span className="rounded-full border border-primary/20 bg-gradient-to-r from-primary/15 to-primary/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
+                        <span className="rounded-full border border-primary/20 bg-gradient-to-r from-primary/15 to-primary/5 px-3 py-1 text-[10px] font-black text-primary">
                           Popular
                         </span>
                       )}
                       {plan.is_custom && (
-                        <span className="rounded-full border border-warning/30 bg-warning-muted/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-warning-foreground">
+                        <span className="rounded-full border border-warning/30 bg-warning-muted/70 px-3 py-1 text-[10px] font-black text-warning-foreground">
                           Custom
                         </span>
                       )}
@@ -388,7 +388,7 @@ export const PricingPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => togglePlan(plan.id)}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background/70 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-foreground transition hover:border-primary/30 hover:text-primary"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background/70 px-4 py-3 text-xs font-black text-foreground transition hover:border-primary/30 hover:text-primary"
                     >
                       {isExpanded ? 'Collapse' : 'Advanced'}
                       <ChevronDown className={`h-4 w-4 transition ${isExpanded ? 'rotate-180' : ''}`} />
@@ -396,7 +396,7 @@ export const PricingPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => savePlan(plan)}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-[rgb(64,93,230)] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-primary/20 transition hover:opacity-95"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-[rgb(64,93,230)] px-4 py-3 text-xs font-black text-white shadow-lg shadow-primary/20 transition hover:opacity-95"
                     >
                       {savingId === plan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Save plan
@@ -410,7 +410,7 @@ export const PricingPage: React.FC = () => {
                   <div className="grid gap-7 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="rounded-[24px] border border-border/70 bg-background/60 p-4">
-                        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Plan name</label>
+                        <label className="text-[10px] font-black text-muted-foreground">Plan name</label>
                         <input
                           value={plan.name || ''}
                           onChange={(event) => updatePlan(plan.id, 'name', event.target.value)}
@@ -418,7 +418,7 @@ export const PricingPage: React.FC = () => {
                         />
                       </div>
                       <div className="rounded-[24px] border border-border/70 bg-background/60 p-4">
-                        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Plan code</label>
+                        <label className="text-[10px] font-black text-muted-foreground">Plan code</label>
                         <input
                           value={plan.plan_code || ''}
                           onChange={(event) => updatePlan(plan.id, 'plan_code', event.target.value)}
@@ -426,7 +426,7 @@ export const PricingPage: React.FC = () => {
                         />
                       </div>
                       <div className="rounded-[24px] border border-border/70 bg-background/60 p-4">
-                        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">CTA text</label>
+                        <label className="text-[10px] font-black text-muted-foreground">CTA text</label>
                         <input
                           value={plan.button_text || ''}
                           onChange={(event) => updatePlan(plan.id, 'button_text', event.target.value)}
@@ -441,20 +441,20 @@ export const PricingPage: React.FC = () => {
                           <Sparkles className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Plan snapshot</p>
+                          <p className="text-[10px] font-black text-muted-foreground">Plan snapshot</p>
                           <p className="mt-1 text-sm font-extrabold text-foreground">{plan.button_text || 'Choose Plan'}</p>
                         </div>
                       </div>
 
                       <div className="mt-5 grid gap-3 sm:grid-cols-2">
                         <div className="rounded-[20px] border border-border/60 bg-card/80 px-4 py-4">
-                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Annual monthly</p>
+                          <p className="text-[10px] font-black text-muted-foreground">Annual monthly</p>
                           <p className="mt-2 text-sm font-extrabold text-foreground">
                             {inrFormatter.format(Number(plan.price_yearly_monthly_inr || 0))} / {usdFormatter.format(Number(plan.price_yearly_monthly_usd || 0))}
                           </p>
                         </div>
                         <div className="rounded-[20px] border border-border/60 bg-card/80 px-4 py-4">
-                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Monthly actions</p>
+                          <p className="text-[10px] font-black text-muted-foreground">Monthly actions</p>
                           <p className="mt-2 text-sm font-extrabold text-foreground">{plan.actions_per_month_limit || 0}</p>
                         </div>
                       </div>
@@ -464,7 +464,7 @@ export const PricingPage: React.FC = () => {
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {numericFields.map((field) => (
                       <div key={String(field.key)} className="rounded-[24px] border border-border/70 bg-background/60 p-4">
-                        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{field.label}</label>
+                        <label className="text-[10px] font-black text-muted-foreground">{field.label}</label>
                         <input
                           type="number"
                           value={Number(plan[field.key] || 0)}
@@ -478,18 +478,18 @@ export const PricingPage: React.FC = () => {
                   <div className="rounded-[30px] border border-border/70 bg-background/60 p-5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Plan features</p>
+                        <p className="text-[10px] font-black text-muted-foreground">Plan features</p>
                         <p className="mt-1 text-sm text-muted-foreground">Edit each feature separately or switch to bulk text mode.</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="rounded-full border border-border/70 bg-card/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                        <span className="rounded-full border border-border/70 bg-card/80 px-3 py-1 text-[10px] font-black text-muted-foreground">
                           {cleanFeatures.length} saved
                         </span>
                         <div className="inline-flex rounded-2xl border border-border/70 bg-card/80 p-1">
                           <button
                             type="button"
                             onClick={() => setFeatureEditorMode((current) => ({ ...current, [plan.id]: 'list' }))}
-                            className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] transition ${
+                            className={`rounded-xl px-3 py-2 text-[10px] font-black transition ${
                               (featureEditorMode[plan.id] || 'list') === 'list'
                                 ? 'bg-primary text-primary-foreground shadow-sm'
                                 : 'text-muted-foreground hover:text-foreground'
@@ -500,7 +500,7 @@ export const PricingPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setFeatureEditorMode((current) => ({ ...current, [plan.id]: 'text' }))}
-                            className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] transition ${
+                            className={`rounded-xl px-3 py-2 text-[10px] font-black transition ${
                               (featureEditorMode[plan.id] || 'list') === 'text'
                                 ? 'bg-primary text-primary-foreground shadow-sm'
                                 : 'text-muted-foreground hover:text-foreground'
@@ -513,7 +513,7 @@ export const PricingPage: React.FC = () => {
                           type="button"
                           onClick={() => addFeature(plan.id)}
                           disabled={(featureEditorMode[plan.id] || 'list') === 'text'}
-                          className="inline-flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-primary transition hover:bg-primary hover:text-primary-foreground"
+                          className="inline-flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-2.5 text-xs font-black text-primary transition hover:bg-primary hover:text-primary-foreground"
                         >
                           <Plus className="h-4 w-4" />
                           Add feature
@@ -551,10 +551,10 @@ export const PricingPage: React.FC = () => {
                   <div className="rounded-[30px] border border-border/70 bg-background/60 p-5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Plan benefits</p>
+                        <p className="text-[10px] font-black text-muted-foreground">Plan benefits</p>
                         <p className="mt-1 text-sm text-muted-foreground">Turn each runtime entitlement on or off for this plan.</p>
                       </div>
-                      <span className="rounded-full border border-border/70 bg-card/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                      <span className="rounded-full border border-border/70 bg-card/80 px-3 py-1 text-[10px] font-black text-muted-foreground">
                         {(plan.benefits || []).filter((benefit) => benefit.enabled).length} enabled
                       </span>
                     </div>

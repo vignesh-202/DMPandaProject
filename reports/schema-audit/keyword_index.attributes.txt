@@ -1,0 +1,46 @@
+﻿total  5
+ 
+attributes (5)
+  [1]
+    key       account_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       automation_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [3]
+    key       keyword_hash
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [4]
+    key       keyword_normalized
+    type      string
+    status    available
+    required  false
+    array     false
+    size      255
+    encrypt   false
+
+  [5]
+    key       automation_type
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum

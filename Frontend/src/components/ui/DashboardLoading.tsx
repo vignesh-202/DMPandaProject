@@ -1,10 +1,13 @@
 import React from 'react';
-import LoadingSpinner from './LoadingSpinner';
+import LoadingOverlay from './LoadingOverlay';
 
 const DashboardLoading: React.FC = () => (
-  <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background">
-    <LoadingSpinner text="Preparing your dashboard..." />
-  </div>
+  <LoadingOverlay 
+    variant="page-blocking" 
+    message="Preparing your dashboard" 
+    subMessage="Loading workspace configuration and syncing with Instagram..." 
+    className="z-[200]"
+  />
 );
 
 export default DashboardLoading;

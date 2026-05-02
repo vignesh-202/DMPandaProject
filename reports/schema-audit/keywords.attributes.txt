@@ -1,0 +1,72 @@
+﻿total  8
+ 
+attributes (8)
+  [1]
+    key       keyword
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [2]
+    key       account_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [3]
+    key       automation_id
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [4]
+    key       is_active
+    type      boolean
+    status    available
+    required  false
+    array     false
+    default   true
+
+  [5]
+    key       keyword_normalized
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [6]
+    key       keyword_hash
+    type      string
+    status    available
+    required  true
+    array     false
+    size      255
+    encrypt   false
+
+  [7]
+    key       automation_type
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum
+
+  [8]
+    key       match_type
+    type      string
+    status    available
+    required  false
+    array     false
+    format    enum
+    default   exact

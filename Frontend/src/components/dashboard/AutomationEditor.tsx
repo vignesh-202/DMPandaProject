@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
     FileText, Smartphone, Image as ImageIcon, Reply, Save, Loader2, X, Instagram,
     MessageSquare, AlertCircle, CheckCircle2, Trash2, HelpCircle, Power, Globe,
@@ -100,7 +101,7 @@ function _mergeReplyTemplate(templateType: string, templateData: Record<string, 
 interface AutomationEditorProps {
     type: 'dm' | 'comment' | 'share' | 'mention' | 'global' | 'posts' | 'reel' | 'story' | 'live';
     onClose: () => void;
-    onSave: () => void;
+    onSave: (savedAutomation?: any) => void;
     authenticatedFetch: any;
     activeAccountID: string;
     automationId?: string;
@@ -121,18 +122,36 @@ interface AutomationEditorProps {
     showActionCancel?: boolean;
     saveButtonLabel?: string;
     registerSaveHandler?: (handler: () => Promise<boolean>) => void;
+    autoCloseOnSave?: boolean;
 }
 
 const AutomationEditor: React.FC<AutomationEditorProps> = ({
-    type, onClose, onSave, authenticatedFetch, activeAccountID, onDelete, automationId, mediaId, isStandalone, titleOverride, onChange, onTemplateSelect, onTemplatesLoaded, useParentLayout, variant = 'modal', existingTitles: _existingTitles, actionBarLeft, initialAutomationData, initialSelectedTemplate, showActionCancel = true, saveButtonLabel, registerSaveHandler
+    type, onClose, onSave, authenticatedFetch, activeAccountID, onDelete, automationId, mediaId, isStandalone, titleOverride, onChange, onTemplateSelect, onTemplatesLoaded, useParentLayout, variant = 'modal', existingTitles: _existingTitles, actionBarLeft, initialAutomationData, initialSelectedTemplate, showActionCancel = true, saveButtonLabel, registerSaveHandler, autoCloseOnSave = true
 }) => {
     const { activeAccount, setCurrentView, hasPlanFeature, getPlanGate } = useDashboard();
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [showMobilePreviewModal, setShowMobilePreviewModal] = useState(false);
     const [isPlanInvalid, setIsPlanInvalid] = useState(false);
     const [planInvalidFeatures, setPlanInvalidFeatures] = useState<string[]>([]);
     const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+
+    // Automatically close mobile preview on large screens and ensure scroll position is reset
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 1024) {
+                setShowMobilePreviewModal(false);
+                // When switching to desktop, ensure we scroll to top so the user doesn't stay 
+                // in the middle of a long form without realizing the preview is now visible on the right.
+                document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' });
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const [automation, setAutomation] = useState<any>({
         title: '',
         trigger_type: type === 'global' ? 'keywords' : 'keywords', // 'keywords', 'all_comments', 'share_to_admin'
@@ -874,8 +893,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 const nextSnapshot = serializeAutomationState(payload);
                 setBaselineSnapshot(nextSnapshot);
                 setSuccess(automation.$id ? "Automation updated successfully!" : "Automation activated successfully!");
-                onSave();
-                if (!isStandalone) {
+                onSave(data);
+                if (!isStandalone && autoCloseOnSave) {
                     setTimeout(() => {
                         onClose();
                     }, 1500);
@@ -891,7 +910,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         } finally {
             setSaving(false);
         }
-    }, [activeAccountID, authenticatedFetch, automation, collectorDestination, isStandalone, mediaId, onClose, onSave, persistCollectorDestination, selectedTemplate, titleOverride, type]);
+    }, [activeAccountID, authenticatedFetch, autoCloseOnSave, automation, collectorDestination, isStandalone, mediaId, onClose, onSave, persistCollectorDestination, selectedTemplate, titleOverride, type]);
 
     useEffect(() => {
         registerSaveHandler?.(handleSave);
@@ -1057,38 +1076,33 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 )}
 
                 {/* 2. Followers Only Toggle */}
-                <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${automation.followers_only ? 'ring-1 ring-primary/15' : ''}`}>
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-blue-50 dark:border-blue-500/10">
-                            <Power className={`w-5 h-5 transition-colors ${automation.followers_only ? 'text-blue-500' : 'text-gray-400'}`} />
-                        </div>
-                        <div>
-                            <p className="mb-0.5 text-[11px] font-black uppercase tracking-[0.15em] text-foreground">Followers Only Mode</p>
-                            <p className="text-[10px] font-medium text-muted-foreground">Restricts this automation to only trigger for your existing followers.</p>
-                        </div>
-                    </div>
-                    <ToggleSwitch
-                        isChecked={automation.followers_only || false}
-                        onChange={() => {
-                            const nextFollowersOnly = !automation.followers_only;
-                            setAutomation({
-                                ...automation,
-                                followers_only: nextFollowersOnly,
-                                followers_only_message: nextFollowersOnly
-                                    ? (automation.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
-                                    : ''
+                <LockedFeatureToggle
+                    icon={<Power className={`w-5 h-5 ${automation.followers_only ? 'text-blue-500' : 'text-gray-400'}`} />}
+                    title="Followers Only Mode"
+                    description="Restricts this automation to only trigger for your existing followers."
+                    checked={automation.followers_only || false}
+                    onToggle={() => {
+                        const nextFollowersOnly = !automation.followers_only;
+                        setAutomation({
+                            ...automation,
+                            followers_only: nextFollowersOnly,
+                            followers_only_message: nextFollowersOnly
+                                ? (automation.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
+                                : ''
+                        });
+                        if (!nextFollowersOnly && fieldErrors['followers_only_message']) {
+                            setFieldErrors((prev: any) => {
+                                const next = { ...prev };
+                                delete next['followers_only_message'];
+                                return next;
                             });
-                            if (!nextFollowersOnly && fieldErrors['followers_only_message']) {
-                                setFieldErrors((prev: any) => {
-                                    const next = { ...prev };
-                                    delete next['followers_only_message'];
-                                    return next;
-                                });
-                            }
-                        }}
-                        variant="plain"
-                    />
-                </div>
+                        }
+                    }}
+                    locked={getPlanGate('followers_only').isLocked}
+                    note={getPlanGate('followers_only').note}
+                    onUpgrade={() => setCurrentView('My Plan')}
+                    activeIconClassName="text-blue-500"
+                />
                 {automation.followers_only && (
                     <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-blue-100 dark:border-blue-500/10 space-y-4">
                         <div className="flex justify-between items-center px-1 mb-2">
@@ -1151,73 +1165,50 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
                 {/* 2.5. Suggest More Toggle */}
                 {
-                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${(automation.suggest_more_enabled && !suggestMoreLocked) ? 'ring-1 ring-primary/15' : ''}`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-2xl shadow-sm border ${suggestMoreSetup
-                                ? 'bg-white dark:bg-gray-900 border-yellow-50 dark:border-yellow-500/10'
-                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                }`}>
-                                <Lightbulb className={`w-5 h-5 transition-colors ${automation.suggest_more_enabled && suggestMoreSetup ? 'text-yellow-500' : 'text-gray-400'
-                                    }`} />
-                            </div>
-                            <div>
-                                <p className={`text-[11px] font-black uppercase tracking-[0.15em] mb-0.5 ${suggestMoreSetup ? 'text-gray-900 dark:text-white' : 'text-gray-500'
-                                    }`}>Include Suggest More</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">
-                                    {suggestMoreLocked
-                                        ? 'Upgrade your plan to enable Suggest More on this automation.'
-                                        : suggestMoreSetup
-                                        ? 'Add "Suggest More" button after this automation reply.'
-                                        : 'Setup Suggest More first to enable this feature.'
-                                    }
-                                </p>
-                            </div>
-                        </div>
-                        {suggestMoreSetup && !suggestMoreLocked ? (
-                            <ToggleSwitch
-                                isChecked={automation.suggest_more_enabled || false}
-                                onChange={() => setAutomation({ ...automation, suggest_more_enabled: !automation.suggest_more_enabled })}
-                                variant="plain"
-                            />
-                        ) : (
+                    <LockedFeatureToggle
+                        icon={<Lightbulb className={`w-5 h-5 ${automation.suggest_more_enabled && suggestMoreSetup ? 'text-yellow-500' : 'text-gray-400'}`} />}
+                        title="Include Suggest More"
+                        description={suggestMoreSetup ? 'Add "Suggest More" button after this automation reply.' : 'Setup Suggest More first to enable this feature.'}
+                        checked={automation.suggest_more_enabled || false}
+                        onToggle={() => {
+                            if (!suggestMoreSetup) {
+                                onClose();
+                                setCurrentView('Suggest More');
+                                return;
+                            }
+                            setAutomation({ ...automation, suggest_more_enabled: !automation.suggest_more_enabled })
+                        }}
+                        locked={getPlanGate('suggest_more').isLocked}
+                        note={getPlanGate('suggest_more').note}
+                        onUpgrade={() => setCurrentView('My Plan')}
+                        activeIconClassName="text-yellow-500"
+                        actionElement={!suggestMoreSetup && !getPlanGate('suggest_more').isLocked ? (
                             <button
                                 type="button"
                                 onClick={() => {
-                                    if (suggestMoreLocked) {
-                                        setCurrentView('My Plan');
-                                        return;
-                                    }
                                     onClose();
                                     setCurrentView('Suggest More');
                                 }}
                                 className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-yellow-500/20 transition-all"
                             >
-                                {suggestMoreLocked ? 'Upgrade' : 'Setup'} <ExternalLink className="w-3 h-3" />
+                                Setup <ExternalLink className="w-3 h-3" />
                             </button>
-                        )}
-                    </div>
+                        ) : undefined}
+                    />
                 }
 
                 {supportsOncePerUser && (
-                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${automation.once_per_user_24h ? 'ring-1 ring-primary/15' : ''}`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-2xl shadow-sm border ${automation.once_per_user_24h
-                                ? 'bg-white dark:bg-gray-900 border-cyan-100 dark:border-cyan-500/10'
-                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                }`}>
-                                <Calendar className={`w-5 h-5 ${automation.once_per_user_24h ? 'text-cyan-500' : 'text-gray-400'}`} />
-                            </div>
-                            <div>
-                                <p className="mb-0.5 text-[11px] font-black uppercase tracking-[0.15em] text-foreground">Once Per User (24h)</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">Prevent the same person from retriggering this automation again for 24 hours.</p>
-                            </div>
-                        </div>
-                        <ToggleSwitch
-                            isChecked={automation.once_per_user_24h === true}
-                            onChange={() => setAutomation({ ...automation, once_per_user_24h: !(automation.once_per_user_24h === true) })}
-                            variant="plain"
-                        />
-                    </div>
+                    <LockedFeatureToggle
+                        icon={<Calendar className={`w-5 h-5 ${automation.once_per_user_24h ? 'text-cyan-500' : 'text-gray-400'}`} />}
+                        title="Once Per User (24h)"
+                        description="Prevent the same person from retriggering this automation again for 24 hours."
+                        checked={automation.once_per_user_24h === true}
+                        onToggle={() => setAutomation({ ...automation, once_per_user_24h: !(automation.once_per_user_24h === true) })}
+                        locked={getPlanGate('once_per_user_24h').isLocked}
+                        note={getPlanGate('once_per_user_24h').note}
+                        onUpgrade={() => setCurrentView('My Plan')}
+                        activeIconClassName="text-cyan-500"
+                    />
                 )}
 
                 {supportsCollectEmail && (
@@ -1695,7 +1686,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     const suggestMoreLocked = !hasPlanFeature('suggest_more');
     const collectEmailGate = getPlanGate('collect_email');
     const seenTypingGate = getPlanGate('seen_typing');
-    const shareToAdminGate = getPlanGate(type === 'reel' ? 'share_reel_to_dm' : 'share_post_to_dm', 'Upgrade your plan to unlock Share To Admin.');
+    const shareToAdminGate = getPlanGate(type === 'reel' ? 'share_reel_to_admin' : 'share_post_to_admin', 'Upgrade your plan to unlock Share To Admin.');
     const commentReplyGate = getPlanGate(type === 'reel' ? 'reel_comment_reply_automation' : 'post_comment_reply_automation', 'Upgrade your plan to unlock public comment replies.');
     const collectEmailLocked = collectEmailGate.isLocked;
     const seenTypingLocked = seenTypingGate.isLocked;
@@ -1746,27 +1737,55 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         </div>
     );
 
+    const renderMobilePreviewToggle = () => (
+        <>
+            <button
+                onClick={() => setShowMobilePreviewModal(true)}
+                className="lg:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] flex h-14 items-center justify-center gap-2 rounded-full bg-primary px-8 font-bold text-primary-foreground shadow-2xl transition-all hover:scale-105 active:scale-95 border border-white/20 whitespace-nowrap"
+            >
+                <Smartphone className="w-5 h-5" />
+                <span>Live Preview</span>
+            </button>
+            {showMobilePreviewModal && createPortal(
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-background/90 p-4 backdrop-blur-xl lg:hidden">
+                    <div className="relative w-full max-w-[360px]">
+                        <button
+                            onClick={() => setShowMobilePreviewModal(false)}
+                            className="absolute -right-2 -top-12 flex h-10 w-10 items-center justify-center rounded-full bg-muted/80 text-foreground shadow-lg transition-all hover:bg-muted z-[10010]"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                        {renderPreview()}
+                    </div>
+                </div>,
+                document.body
+            )}
+        </>
+    );
+
     const effectiveVariant = isStandalone ? 'card' : (useParentLayout && type === 'global' ? 'embedded' : variant);
 
     if (effectiveVariant === 'card') {
         return (
-            <div className="w-full overflow-hidden rounded-2xl border border-content bg-card shadow-2xl">
-                <div className="flex items-center justify-between border-b border-border/70 p-8">
+            <div className="w-full overflow-hidden rounded-2xl border border-content bg-card shadow-2xl relative">
+                <div className="flex items-center justify-between border-b border-border/70 p-4 sm:p-6 md:p-8">
                     <div>
-                        <h2 className="text-2xl font-black text-black dark:text-white uppercase tracking-tight">{titleOverride || "Configure Automation"}</h2>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Type: {type.replace('_', ' ')}</p>
+                        <h2 className="text-xl sm:text-2xl font-black text-black dark:text-white uppercase tracking-tight">{titleOverride || "Configure Automation"}</h2>
+                        <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Type: {type.replace('_', ' ')}</p>
                     </div>
-                    <button onClick={onClose} className="rounded-2xl bg-muted/40 p-3 text-muted-foreground transition-all hover:bg-muted hover:text-foreground">
+                    <button onClick={onClose} className="rounded-2xl bg-muted/40 p-2 sm:p-3 text-muted-foreground transition-all hover:bg-muted hover:text-foreground">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-                <div className="grid max-h-[calc(100vh-160px)] grid-cols-1 gap-0 overflow-hidden lg:grid-cols-2 lg:min-h-0">
-                    <div className="min-h-0 overflow-y-auto p-8">
+                <div className="grid grid-cols-1 gap-0 lg:grid-cols-2 lg:max-h-[calc(100vh-160px)] lg:min-h-0 lg:overflow-hidden">
+                    <div className="p-4 sm:p-6 md:p-8 lg:min-h-0 lg:overflow-y-auto">
                         {renderActionBar()}
                         {renderForm()}
                     </div>
-                    <div className="min-h-0 overflow-hidden border-t border-border/70 lg:border-l lg:border-t-0">
-                        {renderPreview()}
+                    <div className="hidden lg:flex items-center justify-center border-t border-border/70 p-4 sm:p-6 md:p-8 lg:min-h-0 lg:border-l lg:border-t-0 lg:overflow-hidden">
+                        <div className="w-full max-w-[320px] lg:max-w-none">
+                            {renderPreview()}
+                        </div>
                     </div>
                 </div>
                 <ModernConfirmModal
@@ -1779,13 +1798,14 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     confirmLabel={modalConfig.confirmLabel}
                     cancelLabel={modalConfig.cancelLabel}
                 />
+                {renderMobilePreviewToggle()}
             </div>
         );
     }
 
     if (effectiveVariant === 'embedded') {
         return (
-            <div className="w-full">
+            <div className="w-full relative">
                 {renderActionBar()}
                 {renderForm()}
                 <ModernConfirmModal
@@ -1798,32 +1818,36 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     confirmLabel={modalConfig.confirmLabel}
                     cancelLabel={modalConfig.cancelLabel}
                 />
+                {renderMobilePreviewToggle()}
             </div>
         );
     }
 
     // Default 'modal' variant
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="w-full max-w-4xl overflow-hidden rounded-[40px] border border-content bg-card shadow-2xl animate-in zoom-in-95 duration-300">
-                <div className="flex items-center justify-between border-b border-border/70 p-8">
+        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto">
+            <div className="w-full sm:max-w-4xl sm:overflow-hidden sm:rounded-[40px] border-0 sm:border border-content bg-card sm:shadow-2xl animate-in zoom-in-95 duration-300 min-h-[100dvh] sm:min-h-0 relative">
+                <div className="flex items-center justify-between border-b border-border/70 p-4 sm:p-8 sticky top-0 bg-card z-10">
                     <div>
-                        <h2 className="text-2xl font-black text-black dark:text-white uppercase tracking-tight">{titleOverride || "Configure Automation"}</h2>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Type: {type.replace('_', ' ')}</p>
+                        <h2 className="text-xl sm:text-2xl font-black text-black dark:text-white uppercase tracking-tight">{titleOverride || "Configure Automation"}</h2>
+                        <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Type: {type.replace('_', ' ')}</p>
                     </div>
-                    <button onClick={onClose} className="rounded-2xl bg-muted/40 p-3 text-muted-foreground transition-all hover:bg-muted hover:text-foreground">
+                    <button onClick={onClose} className="rounded-2xl bg-muted/40 p-2 sm:p-3 text-muted-foreground transition-all hover:bg-muted hover:text-foreground">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-                <div className="grid max-h-[78vh] grid-cols-1 gap-0 overflow-hidden lg:grid-cols-2 lg:min-h-0">
-                    <div className="min-h-0 overflow-y-auto p-8">
+                <div className="grid grid-cols-1 gap-0 lg:grid-cols-2 lg:max-h-[78vh] lg:min-h-0 lg:overflow-hidden">
+                    <div className="p-4 sm:p-8 lg:min-h-0 lg:overflow-y-auto">
                         {renderActionBar()}
                         {renderForm()}
                     </div>
-                    <div className="min-h-0 overflow-hidden border-t border-border/70 lg:border-l lg:border-t-0">
-                        {renderPreview()}
+                    <div className="hidden lg:flex items-center justify-center border-t border-border/70 p-4 sm:p-8 lg:min-h-0 lg:border-l lg:border-t-0 lg:overflow-hidden bg-muted/10 lg:bg-transparent">
+                        <div className="w-full max-w-[320px] lg:max-w-none">
+                            {renderPreview()}
+                        </div>
                     </div>
                 </div>
+                {renderMobilePreviewToggle()}
             </div>
             <ModernConfirmModal
                 isOpen={modalConfig.isOpen}
