@@ -2581,17 +2581,9 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
         const dailyLimit = Number(effectiveLimits.daily_action_limit || 0);
         const monthlyLimit = Number(effectiveLimits.monthly_action_limit || 0);
         const instagramLimit = Number(effectiveLimits.instagram_link_limit || effectiveLimits.instagram_connections_limit || 0);
-        const now = Date.now();
-        const countInWindow = (windowMs) => logs.reduce((count, entry) => {
-            const raw = entry.sent_at || entry.created_at;
-            if (!raw) return count;
-            const ts = new Date(raw).getTime();
-            if (Number.isNaN(ts)) return count;
-            return ts >= now - windowMs ? count + 1 : count;
-        }, 0);
-        const hourlyUsage = countInWindow(60 * 60 * 1000);
-        const dailyUsage = countInWindow(24 * 60 * 60 * 1000);
-        const monthlyUsage = countInWindow(30 * 24 * 60 * 60 * 1000);
+        const hourlyUsage = Number(profileContext.profile?.hourly_actions_used || 0);
+        const dailyUsage = Number(profileContext.profile?.daily_actions_used || 0);
+        const monthlyUsage = Number(profileContext.profile?.monthly_actions_used || 0);
 
         res.json({
             reply_templates: templatesResult.status === 'fulfilled' ? templatesResult.value.total : 0,
@@ -2610,7 +2602,8 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 daily_actions_used: dailyUsage,
                 daily_action_limit: dailyLimit,
                 monthly_actions_used: monthlyUsage,
-                monthly_action_limit: monthlyLimit
+                monthly_action_limit: monthlyLimit,
+                usage_source: 'profile_counters'
             },
             action_window_metrics: {
                 hourly_actions_used: hourlyUsage,
@@ -2618,7 +2611,8 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 daily_actions_used: dailyUsage,
                 daily_action_limit: dailyLimit,
                 monthly_actions_used: monthlyUsage,
-                monthly_action_limit: monthlyLimit
+                monthly_action_limit: monthlyLimit,
+                usage_source: 'profile_counters'
             },
             account_link_metrics: {
                 linked_accounts: Number(accountAccessState.summary?.total_linked_accounts || 0),
@@ -5301,5 +5295,4 @@ router.post('/instagram/comment-moderation', loginRequired, async (req, res) => 
 
 
 module.exports = router;
-
 

@@ -20,6 +20,17 @@
     "schedule": "0 */6 * * *"
   },
   {
+    "functionId": "cleanup-audit-job-locks",
+    "name": "cleanup-audit-job-locks",
+    "runtime": "python-3.9",
+    "path": "cleanup-audit-job-locks",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite python-dotenv requests",
+    "timeout": 900,
+    "schedule": "30 */6 * * *",
+    "scopes": ["documents.read", "documents.write"]
+  },
+  {
     "functionId": "on-user-create",
     "name": "on-user-create",
     "runtime": "python-3.9",

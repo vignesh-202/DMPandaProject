@@ -4,7 +4,7 @@ const InstagramAPI = require('./instagram');
 const AutomationMatcher = require('./matcher');
 const TemplateRenderer = require('./renderer');
 const sharedPlanFeatures = require('../../shared/planFeatures.json');
-const { evaluateActionRateLimit } = require('../../shared/actionRateLimiter');
+const { evaluateActionRateLimit, normalizeActionLimits } = require('../../shared/actionRateLimiter');
 const { planWatermark, resolveWatermarkPolicy } = require('./watermark');
 const { deliverCollectedEmail } = require('./emailDestinations');
 
@@ -364,10 +364,78 @@ class DMWorker {
         });
     }
 
-    async _recordSuccessfulAction(userId) {
-        if (!userId || typeof this.appwrite.incrementActionUsage !== 'function') return;
-        await this.appwrite.incrementActionUsage(userId).catch((error) => {
-            console.warn('Failed to increment action usage:', error?.message || error);
+    _trackMetaApiAction(tracker, userId) {
+        if (!tracker || !(tracker.counts instanceof Map)) return;
+        const safeUserId = String(userId || '').trim();
+        if (!safeUserId) return;
+        tracker.counts.set(safeUserId, Number(tracker.counts.get(safeUserId) || 0) + 1);
+    }
+
+    _initializeMetaApiBudget(tracker, userId, profile) {
+        if (!tracker || !(tracker.budgets instanceof Map)) return;
+        const safeUserId = String(userId || '').trim();
+        if (!safeUserId || tracker.budgets.has(safeUserId)) return;
+        const limits = normalizeActionLimits(profile || {});
+        const usage = {
+            hourly_actions_used: Number(profile?.hourly_actions_used || 0),
+            daily_actions_used: Number(profile?.daily_actions_used || 0),
+            monthly_actions_used: Number(profile?.monthly_actions_used || 0)
+        };
+        tracker.budgets.set(safeUserId, { limits, usage });
+    }
+
+    _canConsumeMetaApiAction(tracker, userId, amount = 1) {
+        const safeUserId = String(userId || '').trim();
+        if (!tracker || !(tracker.budgets instanceof Map) || !safeUserId) {
+            return { allowed: false, code: 'execution_state_uncertain', reason: 'missing_meta_api_budget_tracker' };
+        }
+        const budget = tracker.budgets.get(safeUserId);
+        if (!budget) {
+            return { allowed: false, code: 'execution_state_uncertain', reason: 'missing_meta_api_budget_state' };
+        }
+
+        const pending = Number(tracker.counts.get(safeUserId) || 0);
+        const delta = Math.max(1, Number(amount || 1));
+        const nextHourly = Number(budget.usage.hourly_actions_used || 0) + pending + delta;
+        const nextDaily = Number(budget.usage.daily_actions_used || 0) + pending + delta;
+        const nextMonthly = Number(budget.usage.monthly_actions_used || 0) + pending + delta;
+
+        if (Number(budget.limits.hourly_action_limit || 0) > 0 && nextHourly > Number(budget.limits.hourly_action_limit || 0)) {
+            return { allowed: false, code: 'hourly_action_limit_reached', reason: 'meta_api_hourly_limit_reached' };
+        }
+        if (Number(budget.limits.daily_action_limit || 0) > 0 && nextDaily > Number(budget.limits.daily_action_limit || 0)) {
+            return { allowed: false, code: 'daily_action_limit_reached', reason: 'meta_api_daily_limit_reached' };
+        }
+        if (budget.limits.monthly_action_limit != null && Number(budget.limits.monthly_action_limit || 0) > 0 && nextMonthly > Number(budget.limits.monthly_action_limit || 0)) {
+            return { allowed: false, code: 'monthly_action_limit_reached', reason: 'meta_api_monthly_limit_reached' };
+        }
+
+        return { allowed: true, code: null, reason: null };
+    }
+
+    async _flushMetaApiActionUsage(tracker) {
+        if (!tracker || tracker.flushed === true || !(tracker.counts instanceof Map)) return;
+        tracker.flushed = true;
+        if (typeof this.appwrite.incrementActionUsage !== 'function') return;
+
+        for (const [userId, count] of tracker.counts.entries()) {
+            const safeUserId = String(userId || '').trim();
+            const safeCount = Math.max(0, Number(count || 0));
+            if (!safeUserId || safeCount <= 0) continue;
+            await this.appwrite.incrementActionUsage(safeUserId, safeCount).catch((error) => {
+                console.warn('Failed to increment Meta API action usage:', error?.message || error);
+            });
+        }
+    }
+
+    _createInstagramClient(accessToken, userId, tracker = null, profile = null) {
+        const safeUserId = String(userId || '').trim();
+        this._initializeMetaApiBudget(tracker, safeUserId, profile);
+        return new InstagramAPI(accessToken, {
+            onBeforeRequest: async () => this._canConsumeMetaApiAction(tracker, safeUserId, 1),
+            onRequestComplete: async () => {
+                this._trackMetaApiAction(tracker, safeUserId);
+            }
         });
     }
 
@@ -456,10 +524,6 @@ class DMWorker {
     }
 
     async sendRenderedTemplate(instagram, senderId, template, context, watermarkPolicy, options = {}) {
-        const actionUserId = this._resolveActionUserId(
-            options?.actionUserId,
-            options?.fallbackActionUserId
-        );
         const logContext = options?.logContext && typeof options.logContext === 'object'
             ? options.logContext
             : null;
@@ -475,9 +539,6 @@ class DMWorker {
             template.type,
             watermarkPlan.primaryPayload
         );
-        if (success && actionUserId) {
-            await this._recordSuccessfulAction(actionUserId);
-        }
         if (logContext?.accountId) {
             await this._recordAutomationLog({
                 accountId: logContext.accountId,
@@ -501,9 +562,6 @@ class DMWorker {
                 'template_text',
                 watermarkPlan.secondaryPayload
             );
-            if (secondarySent && actionUserId) {
-                await this._recordSuccessfulAction(actionUserId);
-            }
             if (logContext?.accountId) {
                 await this._recordAutomationLog({
                     accountId: logContext.accountId,
@@ -654,12 +712,8 @@ class DMWorker {
         eventType = 'message',
         accountId = null
     }) {
-        const resolvedActionUserId = this._resolveActionUserId(automation?.user_id, ownerUserId);
         if (commentId && automation?.comment_reply) {
             const commentReplySent = await instagram.replyToComment(commentId, automation.comment_reply);
-            if (commentReplySent && resolvedActionUserId) {
-                await this._recordSuccessfulAction(resolvedActionUserId);
-            }
             if (accountId) {
                 await this._recordAutomationLog({
                     accountId,
@@ -974,10 +1028,6 @@ class DMWorker {
             text: promptText,
             buttons
         });
-        const actionUserId = this._resolveActionUserId(automation?.user_id, igAccount?.user_id);
-        if (sent) {
-            await this._recordSuccessfulAction(actionUserId);
-        }
         const accountId = String(igAccount?.ig_user_id || igAccount?.account_id || '').trim();
         if (accountId) {
             await this._recordAutomationLog({
@@ -1014,9 +1064,6 @@ class DMWorker {
             const retrySent = await instagram.sendMessage(senderId, 'template_text', {
                 text: pendingEmail.failRetryMessage || DEFAULT_COLLECT_EMAIL_FAIL_RETRY
             });
-            if (retrySent) {
-                await this._recordSuccessfulAction(userId);
-            }
             return {
                 handled: true,
                 automationType: pendingEmail.automationType || 'dm'
@@ -1321,7 +1368,7 @@ class DMWorker {
             return { handled: false, automationType: actionLimitGate.reason };
         }
 
-        const instagram = new InstagramAPI(igAccount.access_token);
+        const instagram = this._createInstagramClient(igAccount.access_token, igAccount.user_id, options?.metaApiUsageTracker, profile);
         const primaryAccountId = String(igAccount.ig_user_id || igAccount.account_id || commentEvent.recipientId).trim() || String(commentEvent.recipientId || '').trim();
         const automationAccountIds = this.getAutomationAccountIds(igAccount, primaryAccountId);
         const conversationKey = `${commentEvent.recipientId}:${commentEvent.senderId}`;
@@ -1417,7 +1464,6 @@ class DMWorker {
             });
 
                 if (promptSent) {
-                    await this._recordSuccessfulAction(igAccount.user_id);
                     await this._saveConversationState({
                         userId: igAccount.user_id,
                         accountId: primaryAccountId,
@@ -1517,7 +1563,7 @@ class DMWorker {
             return { handled: false, automationType: actionLimitGate.reason };
         }
 
-        const instagram = new InstagramAPI(igAccount.access_token);
+        const instagram = this._createInstagramClient(igAccount.access_token, igAccount.user_id, options?.metaApiUsageTracker, profile);
         const primaryAccountId = String(igAccount.ig_user_id || igAccount.account_id || mentionEvent.recipientId).trim() || String(mentionEvent.recipientId || '').trim();
         const automationAccountIds = this.getAutomationAccountIds(igAccount, primaryAccountId);
         const conversationKey = `${mentionEvent.recipientId}:${mentionEvent.senderId}`;
@@ -1581,7 +1627,6 @@ class DMWorker {
             });
 
             if (promptSent) {
-                await this._recordSuccessfulAction(igAccount.user_id);
                 await this._saveConversationState({
                     userId: igAccount.user_id,
                     accountId: primaryAccountId,
@@ -1733,7 +1778,7 @@ class DMWorker {
                 return false;
             }
 
-            const instagram = new InstagramAPI(accessToken);
+            const instagram = this._createInstagramClient(accessToken, igAccount.user_id, options?.metaApiUsageTracker, profile);
             const conversationState = await this._getConversationState(primaryAccountId, conversationKey);
 
             const pendingEmailResult = await this._handlePendingEmailCollection({
@@ -1871,7 +1916,6 @@ class DMWorker {
                 });
 
                 if (promptSent) {
-                    await this._recordSuccessfulAction(igAccount.user_id);
                     let nextConversationState = this._normalizeConversationState(conversationState);
                     nextConversationState.pendingEmail = {
                         automationId: String(matchedAutomation.$id || '').trim() || null,
@@ -2022,12 +2066,16 @@ class DMWorker {
             }
         }
 
+        const metaApiUsageTracker = options?.metaApiUsageTracker || { counts: new Map(), flushed: false };
+
         try {
             const result = await this.processMessage(webhookData, {
                 ...options,
                 meta,
+                metaApiUsageTracker,
                 throwOnError: options?.throwOnError !== false
             });
+            await this._flushMetaApiActionUsage(metaApiUsageTracker);
             this._rememberProcessedEvent(meta, EVENT_DEDUPE_TTL_MS);
             if (claim?.claimed) {
                 await this.appwrite.finalizeProcessingEvent(claim, {
@@ -2037,6 +2085,7 @@ class DMWorker {
             }
             return result;
         } catch (error) {
+            await this._flushMetaApiActionUsage(metaApiUsageTracker);
             if (claim?.claimed) {
                 await this.appwrite.finalizeProcessingEvent(claim, {
                     status: 'failed',

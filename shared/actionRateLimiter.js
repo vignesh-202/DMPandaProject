@@ -46,11 +46,14 @@ const evaluateActionRateLimit = (profile = {}) => {
     return { allowed: true, blocked: false, code: null, stage: null, limits, usage };
 };
 
-const buildActionUsageIncrementPatch = (profile = {}) => ({
-    hourly_actions_used: numberOrZero(profile.hourly_actions_used) + 1,
-    daily_actions_used: numberOrZero(profile.daily_actions_used) + 1,
-    monthly_actions_used: numberOrZero(profile.monthly_actions_used) + 1
-});
+const buildActionUsageIncrementPatch = (profile = {}, incrementBy = 1) => {
+    const delta = Math.max(0, numberOrZero(incrementBy));
+    return {
+        hourly_actions_used: numberOrZero(profile.hourly_actions_used) + delta,
+        daily_actions_used: numberOrZero(profile.daily_actions_used) + delta,
+        monthly_actions_used: numberOrZero(profile.monthly_actions_used) + delta
+    };
+};
 
 module.exports = {
     normalizeActionLimits,

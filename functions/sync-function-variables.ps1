@@ -123,6 +123,13 @@ $functionVariables = @{
         @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
     )
+    "cleanup-audit-job-locks" = @(
+        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
+        @{ key = "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID" -Default (Get-EnvValue -Key "INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID" -Default "inactive_user_cleanup_audit")); secret = $false }
+        @{ key = "INACTIVE_CLEANUP_AUDIT_RETENTION_DAYS"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_AUDIT_RETENTION_DAYS" -Default "90"); secret = $false }
+        @{ key = "JOB_LOCKS_RETENTION_HOURS"; value = (Get-EnvValue -Key "JOB_LOCKS_RETENTION_HOURS" -Default "24"); secret = $false }
+    )
 }
 
 $selectedFunctionIds = if ([string]::IsNullOrWhiteSpace($FunctionId)) {

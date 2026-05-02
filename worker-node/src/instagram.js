@@ -1,14 +1,80 @@
 const axios = require('axios');
 
 class InstagramAPI {
-    constructor(accessToken) {
+    constructor(accessToken, options = {}) {
         this.accessToken = accessToken;
         this.apiVersion = process.env.IG_API_VERSION || 'v24.0';
         this.baseUrl = `https://graph.instagram.com/${this.apiVersion}`;
+        this.onBeforeRequest = typeof options?.onBeforeRequest === 'function'
+            ? options.onBeforeRequest
+            : null;
+        this.onRequestComplete = typeof options?.onRequestComplete === 'function'
+            ? options.onRequestComplete
+            : null;
+    }
+
+    async _ensureRequestAllowed(details = {}) {
+        if (!this.onBeforeRequest) return;
+        const decision = await this.onBeforeRequest(details);
+        if (decision === false || decision?.allowed === false) {
+            const error = new Error(decision?.reason || 'meta_api_action_limit_reached');
+            error.code = decision?.code || 'meta_api_action_limit_reached';
+            throw error;
+        }
+    }
+
+    async _notifyRequestComplete(details = {}) {
+        if (!this.onRequestComplete) return;
+        try {
+            await this.onRequestComplete(details);
+        } catch (error) {
+            console.warn('Failed to record Meta API request usage:', error?.message || error);
+        }
+    }
+
+    async _post(path, data, params, meta = {}) {
+        let success = false;
+        try {
+            await this._ensureRequestAllowed({
+                method: 'POST',
+                path,
+                ...meta
+            });
+            const response = await axios.post(`${this.baseUrl}${path}`, data, { params });
+            success = response.status >= 200 && response.status < 300;
+            return response;
+        } finally {
+            await this._notifyRequestComplete({
+                method: 'POST',
+                path,
+                success,
+                ...meta
+            });
+        }
+    }
+
+    async _get(path, params, meta = {}) {
+        let success = false;
+        try {
+            await this._ensureRequestAllowed({
+                method: 'GET',
+                path,
+                ...meta
+            });
+            const response = await axios.get(`${this.baseUrl}${path}`, { params });
+            success = response.status >= 200 && response.status < 300;
+            return response;
+        } finally {
+            await this._notifyRequestComplete({
+                method: 'GET',
+                path,
+                success,
+                ...meta
+            });
+        }
     }
 
     async sendMessage(recipientId, messageType, payload) {
-        const url = `${this.baseUrl}/me/messages`;
         const params = { access_token: this.accessToken };
 
         const messageData = {
@@ -17,7 +83,11 @@ class InstagramAPI {
         };
 
         try {
-            const response = await axios.post(url, messageData, { params });
+            const response = await this._post('/me/messages', messageData, params, {
+                requestType: 'send_message',
+                recipientId: String(recipientId || '').trim(),
+                messageType: String(messageType || '').trim()
+            });
             if (response.status === 200) {
                 console.info(`Message sent successfully: ${response.data.message_id}`);
                 return true;
@@ -170,13 +240,15 @@ class InstagramAPI {
         const safeMessage = String(message || '').trim();
         if (!safeCommentId || !safeMessage) return false;
 
-        const url = `${this.baseUrl}/${safeCommentId}/replies`;
         const params = {
             access_token: this.accessToken
         };
 
         try {
-            const response = await axios.post(url, { message: safeMessage }, { params });
+            const response = await this._post(`/${safeCommentId}/replies`, { message: safeMessage }, params, {
+                requestType: 'reply_to_comment',
+                commentId: safeCommentId
+            });
             return response.status >= 200 && response.status < 300;
         } catch (error) {
             console.error(
@@ -192,14 +264,17 @@ class InstagramAPI {
         const safeAction = String(action || '').trim().toLowerCase();
         if (!safeRecipientId || !safeAction) return false;
 
-        const url = `${this.baseUrl}/me/messages`;
         const params = { access_token: this.accessToken };
 
         try {
-            const response = await axios.post(url, {
+            const response = await this._post('/me/messages', {
                 recipient: { id: safeRecipientId },
                 sender_action: safeAction
-            }, { params });
+            }, params, {
+                requestType: 'sender_action',
+                recipientId: safeRecipientId,
+                senderAction: safeAction
+            });
             return response.status >= 200 && response.status < 300;
         } catch (error) {
             console.warn(
@@ -220,14 +295,16 @@ class InstagramAPI {
 
     async getUserProfile(igScopedId) {
         const fields = 'name,username,is_user_follow_business,is_business_follow_user';
-        const url = `${this.baseUrl}/${igScopedId}`;
         const params = {
             fields,
             access_token: this.accessToken
         };
 
         try {
-            const response = await axios.get(url, { params });
+            const response = await this._get(`/${igScopedId}`, params, {
+                requestType: 'get_user_profile',
+                targetUserId: String(igScopedId || '').trim()
+            });
             return response.data || null;
         } catch (error) {
             console.error(

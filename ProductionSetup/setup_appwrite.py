@@ -345,10 +345,6 @@ DEPRECATED_COLLECTIONS = {
     "payouts",
     "notification_throttles",
     "worker_locks",
-    "admin_audit_logs",
-    "admin_settings",
-    "automation_collected_emails",
-    "settings",
 }
 
 DEPRECATED_ATTRIBUTES = {
@@ -360,30 +356,11 @@ DEPRECATED_ATTRIBUTES = {
         "subscription_status",
     },
     "profiles": {
-        "plan_status",
-        "billing_cycle",
-        "expires_at",
-        "feature_overrides_json",
-        "limits_json",
-        "instagram_link_limit",
         "no_watermark_enabled",
-        "subscription_plan_id",
-        "subscription_expires",
-        "subscription_status",
-        "subscription_billing_cycle",
-    },
-    "transactions": {
-        "plan_expires_at",
     },
 }
 
-DEPRECATED_INDEXES = {
-    "profiles": {
-        "idx_profiles_subscription_expires",
-        "idx_profiles_expires_at",
-        "idx_profiles_plan_cycle",
-    },
-}
+DEPRECATED_INDEXES = {}
 
 
 def _filter_schema_items(collection_id, items, deprecated_items):

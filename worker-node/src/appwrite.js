@@ -526,10 +526,10 @@ class AppwriteClient {
         }
     }
 
-    async incrementActionUsage(userId) {
+    async incrementActionUsage(userId, incrementBy = 1) {
         const profile = await this.getProfile(userId);
         if (!profile?.$id) return null;
-        const patch = buildActionUsageIncrementPatch(profile);
+        const patch = buildActionUsageIncrementPatch(profile, incrementBy);
         return withAppwriteRetry(() => this.databases.updateDocument(
             this.databaseId,
             process.env.PROFILES_COLLECTION_ID || 'profiles',
@@ -537,7 +537,7 @@ class AppwriteClient {
             patch
         ), {
             operationName: 'increment_action_usage',
-            context: { user_id: userId, profile_id: profile.$id }
+            context: { user_id: userId, profile_id: profile.$id, increment_by: incrementBy }
         });
     }
 
@@ -1198,5 +1198,4 @@ class AppwriteClient {
 }
 
 module.exports = AppwriteClient;
-
 

@@ -362,6 +362,14 @@ const AnalyticsView: React.FC = () => {
     const { authenticatedFetch } = useAuth();
 
     const [logs, setLogs] = useState<ActivityLogItem[]>([]);
+    const [actionUsageMetrics, setActionUsageMetrics] = useState({
+        hourly_actions_used: 0,
+        hourly_action_limit: 0,
+        daily_actions_used: 0,
+        daily_action_limit: 0,
+        monthly_actions_used: 0,
+        monthly_action_limit: 0,
+    });
     const [loadingLogs, setLoadingLogs] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [refreshingAll, setRefreshingAll] = useState(false);
@@ -425,19 +433,55 @@ const AnalyticsView: React.FC = () => {
         }
     }, [activeAccountID, analyticsCache, analyticsCacheKey, analyticsDateRange.end, analyticsDateRange.start, authenticatedFetch, setAnalyticsCache]);
 
+    const fetchActionUsageMetrics = useCallback(async () => {
+        if (!activeAccountID) {
+            setActionUsageMetrics({
+                hourly_actions_used: 0,
+                hourly_action_limit: 0,
+                daily_actions_used: 0,
+                daily_action_limit: 0,
+                monthly_actions_used: 0,
+                monthly_action_limit: 0,
+            });
+            return;
+        }
+
+        const params = new URLSearchParams({
+            account_id: String(activeAccountID),
+        });
+        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/dashboard/counts?${params.toString()}`);
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body?.error || 'Failed to fetch action usage metrics.');
+        }
+        const data = await res.json();
+        const nextMetrics = data?.action_window_metrics || data?.gauge_metrics || {};
+        setActionUsageMetrics({
+            hourly_actions_used: Number(nextMetrics.hourly_actions_used || 0),
+            hourly_action_limit: Number(nextMetrics.hourly_action_limit || 0),
+            daily_actions_used: Number(nextMetrics.daily_actions_used || 0),
+            daily_action_limit: Number(nextMetrics.daily_action_limit || 0),
+            monthly_actions_used: Number(nextMetrics.monthly_actions_used || 0),
+            monthly_action_limit: Number(nextMetrics.monthly_action_limit || 0),
+        });
+    }, [activeAccountID, authenticatedFetch]);
+
     const fetchAll = useCallback(async (mode: 'initial' | 'refresh' = 'refresh') => {
         if (mode === 'initial') setInitialLoading(true);
         else setRefreshingAll(true);
         setError(null);
         try {
-            await fetchLogs(mode === 'refresh');
+            await Promise.all([
+                fetchLogs(mode === 'refresh'),
+                fetchActionUsageMetrics()
+            ]);
         } catch (err: any) {
             setError(String(err?.message || 'Failed to load analytics.'));
         } finally {
             if (mode === 'initial') setInitialLoading(false);
             else setRefreshingAll(false);
         }
-    }, [fetchLogs]);
+    }, [fetchActionUsageMetrics, fetchLogs]);
 
     useEffect(() => {
         fetchAll('initial');
@@ -516,40 +560,30 @@ const AnalyticsView: React.FC = () => {
             }));
     }, [logs]);
 
-    const actionLimitStats = useMemo(() => {
-        const now = Date.now();
-        const hourMs = 60 * 60 * 1000;
-        const dayMs = 24 * hourMs;
-        const monthMs = 30 * dayMs;
-        const safeLogs = Array.isArray(logs) ? logs : [];
-
-        const countInWindow = (windowMs: number) => safeLogs.reduce((count, log) => {
-            const raw = log.sent_at || log.created_at;
-            if (!raw) return count;
-            const ts = new Date(raw).getTime();
-            if (Number.isNaN(ts)) return count;
-            return ts >= now - windowMs ? count + 1 : count;
-        }, 0);
-
-        const hourlyLimit = Number(planLimits.hourly_action_limit || 0);
-        const dailyLimit = Number(planLimits.daily_action_limit || 0);
-        const monthlyLimit = Number(planLimits.monthly_action_limit || 0);
-
-        return {
-            hour: {
-                value: countInWindow(hourMs),
-                max: Math.max(hourlyLimit, 1)
-            },
-            day: {
-                value: countInWindow(dayMs),
-                max: Math.max(dailyLimit, 1)
-            },
-            month: {
-                value: countInWindow(monthMs),
-                max: Math.max(monthlyLimit, 1)
-            }
-        };
-    }, [logs, planLimits.daily_action_limit, planLimits.hourly_action_limit, planLimits.monthly_action_limit]);
+    const actionLimitStats = useMemo(() => ({
+        hour: {
+            value: Number(actionUsageMetrics.hourly_actions_used || 0),
+            max: Math.max(Number(actionUsageMetrics.hourly_action_limit || planLimits.hourly_action_limit || 0), 1)
+        },
+        day: {
+            value: Number(actionUsageMetrics.daily_actions_used || 0),
+            max: Math.max(Number(actionUsageMetrics.daily_action_limit || planLimits.daily_action_limit || 0), 1)
+        },
+        month: {
+            value: Number(actionUsageMetrics.monthly_actions_used || 0),
+            max: Math.max(Number(actionUsageMetrics.monthly_action_limit || planLimits.monthly_action_limit || 0), 1)
+        }
+    }), [
+        actionUsageMetrics.daily_action_limit,
+        actionUsageMetrics.daily_actions_used,
+        actionUsageMetrics.hourly_action_limit,
+        actionUsageMetrics.hourly_actions_used,
+        actionUsageMetrics.monthly_action_limit,
+        actionUsageMetrics.monthly_actions_used,
+        planLimits.daily_action_limit,
+        planLimits.hourly_action_limit,
+        planLimits.monthly_action_limit
+    ]);
 
     const trafficData = useMemo(() => {
         const start = new Date(`${analyticsDateRange.start}T00:00:00`);
@@ -677,7 +711,7 @@ const AnalyticsView: React.FC = () => {
             <LoadingOverlay
                 variant="fullscreen"
                 message="Loading Analytics"
-                subMessage="Preparing activity logs and action-limit insights..."
+                subMessage="Preparing activity logs and current usage counters..."
             />
         );
     }
@@ -730,22 +764,22 @@ const AnalyticsView: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 <ActionLimitGaugeCard
-                    label="Hourly Action Limit"
+                    label="Hourly Action Usage"
                     value={actionLimitStats.hour.value}
                     max={actionLimitStats.hour.max}
-                    updatedText={`${actionLimitStats.hour.value}/${actionLimitStats.hour.max} in last hour`}
+                    updatedText={`${actionLimitStats.hour.value}/${actionLimitStats.hour.max} current hour window`}
                 />
                 <ActionLimitGaugeCard
-                    label="Daily Action Limit"
+                    label="Daily Action Usage"
                     value={actionLimitStats.day.value}
                     max={actionLimitStats.day.max}
-                    updatedText={`${actionLimitStats.day.value}/${actionLimitStats.day.max} in last 24h`}
+                    updatedText={`${actionLimitStats.day.value}/${actionLimitStats.day.max} current day window`}
                 />
                 <ActionLimitGaugeCard
-                    label="Monthly Action Limit"
+                    label="Monthly Action Usage"
                     value={actionLimitStats.month.value}
                     max={actionLimitStats.month.max}
-                    updatedText={`${actionLimitStats.month.value}/${actionLimitStats.month.max} in last 30d`}
+                    updatedText={`${actionLimitStats.month.value}/${actionLimitStats.month.max} current month window`}
                 />
             </div>
 
@@ -755,7 +789,7 @@ const AnalyticsView: React.FC = () => {
                         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">Automation Traffic</p>
                         <h2 className="mt-1 text-xl font-black text-foreground">{selectedTrafficWindow}</h2>
                         <p className="text-xs text-muted-foreground">
-                            This chart now follows the same selected date range as the pie charts and automation log.
+                            Traffic charts follow the selected log range, while action usage gauges reflect live profile counters used for enforcement.
                         </p>
                     </div>
                     <div className="rounded-2xl border border-content/70 bg-background/70 px-4 py-3 text-right">

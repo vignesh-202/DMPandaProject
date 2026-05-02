@@ -253,22 +253,22 @@ const DashboardContent: React.FC = () => {
 
     const gaugeData = [
       {
-        label: 'Hourly Action Limit',
+        label: 'Hourly Action Usage',
         value: gaugeMetrics.hourly_actions_used,
         max: Math.max(gaugeMetrics.hourly_action_limit, 1),
-        updatedText: `${gaugeMetrics.hourly_actions_used}/${Math.max(gaugeMetrics.hourly_action_limit, 1)} in last hour`
+        updatedText: `${gaugeMetrics.hourly_actions_used}/${Math.max(gaugeMetrics.hourly_action_limit, 1)} current hour window`
       },
       {
-        label: 'Daily Action Limit',
+        label: 'Daily Action Usage',
         value: gaugeMetrics.daily_actions_used,
         max: Math.max(gaugeMetrics.daily_action_limit, 1),
-        updatedText: `${gaugeMetrics.daily_actions_used}/${Math.max(gaugeMetrics.daily_action_limit, 1)} in last 24h`
+        updatedText: `${gaugeMetrics.daily_actions_used}/${Math.max(gaugeMetrics.daily_action_limit, 1)} current day window`
       },
       {
-        label: 'Monthly Action Limit',
+        label: 'Monthly Action Usage',
         value: gaugeMetrics.monthly_actions_used,
         max: Math.max(gaugeMetrics.monthly_action_limit, 1),
-        updatedText: `${gaugeMetrics.monthly_actions_used}/${Math.max(gaugeMetrics.monthly_action_limit, 1)} in last 30d`
+        updatedText: `${gaugeMetrics.monthly_actions_used}/${Math.max(gaugeMetrics.monthly_action_limit, 1)} current month window`
       },
     ];
 
