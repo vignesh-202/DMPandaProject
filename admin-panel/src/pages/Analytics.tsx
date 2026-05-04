@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import httpClient from '../lib/httpClient';
 import {
     AlertTriangle,
@@ -116,10 +116,22 @@ const GraphFilterDropdown = ({
     onChange: (next: (typeof TRAFFIC_WINDOWS)[number]['value']) => void;
 }) => {
     const [open, setOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement | null>(null);
     const selected = TRAFFIC_WINDOWS.find((option) => option.value === value) || TRAFFIC_WINDOWS[0];
 
+    useEffect(() => {
+        const handlePointerDown = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handlePointerDown);
+        return () => document.removeEventListener('mousedown', handlePointerDown);
+    }, []);
+
     return (
-        <div className="relative min-w-[198px]">
+        <div ref={dropdownRef} className="relative min-w-[198px]">
             <button
                 type="button"
                 onClick={() => setOpen((current) => !current)}
@@ -284,23 +296,31 @@ const PieSummaryCard = ({
 
 export const AnalyticsPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<any>(null);
     const [trafficWindow, setTrafficWindow] = useState<(typeof TRAFFIC_WINDOWS)[number]['value']>('30d');
+    const hasLoadedOnceRef = useRef(false);
 
     useEffect(() => {
         const load = async () => {
             try {
-                setLoading(true);
+                if (!hasLoadedOnceRef.current) {
+                    setLoading(true);
+                } else {
+                    setRefreshing(true);
+                }
                 setError(null);
                 const response = await httpClient.get('/api/admin/analytics/overview', {
                     params: { window: trafficWindow }
                 });
                 setData(response.data);
+                hasLoadedOnceRef.current = true;
             } catch (err: any) {
                 setError(err?.response?.data?.error || 'Failed to load analytics.');
             } finally {
                 setLoading(false);
+                setRefreshing(false);
             }
         };
 
@@ -372,10 +392,13 @@ export const AnalyticsPage: React.FC = () => {
                     <div className="rounded-[30px] border border-border/70 bg-background/70 p-5">
                         <p className="text-[10px] font-black text-muted-foreground">Window</p>
                         <div className="mt-4 space-y-4">
-                            <div className="rounded-[22px] border border-primary/20 bg-gradient-to-r from-primary/12 via-primary/5 to-transparent px-4 py-4">
-                                <p className="text-[10px] font-black text-muted-foreground">Active range</p>
-                                <p className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">{selectedTrafficWindow}</p>
-                            </div>
+                        <div className="rounded-[22px] border border-primary/20 bg-gradient-to-r from-primary/12 via-primary/5 to-transparent px-4 py-4">
+                            <p className="text-[10px] font-black text-muted-foreground">Active range</p>
+                            <p className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">{selectedTrafficWindow}</p>
+                            {refreshing ? (
+                                <p className="mt-2 text-[11px] font-semibold text-primary">Refreshing data...</p>
+                            ) : null}
+                        </div>
                             <div className="rounded-[22px] border border-border/60 bg-card/80 px-4 py-4">
                                 <p className="text-[10px] font-black text-muted-foreground">Average Activity</p>
                                 <p className="mt-2 text-2xl font-extrabold text-foreground">{trafficAverage.toFixed(1)}</p>
@@ -444,6 +467,9 @@ export const AnalyticsPage: React.FC = () => {
                                     <p className="mt-1 text-[10px] font-medium text-muted-foreground">
                                         Average {trafficAverage.toFixed(1)} actions per point
                                     </p>
+                                    {refreshing ? (
+                                        <p className="mt-1 text-[10px] font-semibold text-primary">Updating charts and metrics...</p>
+                                    ) : null}
                                 </div>
                             </div>
                         </div>

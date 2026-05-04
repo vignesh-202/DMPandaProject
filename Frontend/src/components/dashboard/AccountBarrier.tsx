@@ -6,20 +6,29 @@ import { Button } from '../ui/button';
 const AccountBarrier: React.FC = () => {
   const { activeAccount, setCurrentView } = useDashboard();
 
-  const isUnlinked = activeAccount && activeAccount.status !== 'active';
-  const isAccessLocked = activeAccount && activeAccount.status === 'active' && activeAccount.effective_access === false;
-  const title = isUnlinked
-    ? 'Account Re-authorization Required'
-    : isAccessLocked
-      ? 'Account Access Restricted'
-      : 'No Instagram Account Linked';
-  const description = isUnlinked
-    ? `Your link with @${activeAccount.username} has expired or been disconnected. Re-authorize now to continue using our automation suite.`
-    : isAccessLocked
-      ? (activeAccount.access_state === 'plan_locked'
-        ? `@${activeAccount.username} is still linked, but your current plan does not cover this account right now. You can manage or unlink it in Account Settings.`
-        : `@${activeAccount.username} is linked, but automation access is disabled for this account. You can review the status in Account Settings.`)
-      : 'To access our powerful automation tools and analytics, you need to link your Instagram professional account first.';
+  const isAdminDisabled = activeAccount?.admin_status === 'inactive' || activeAccount?.disabled_by_admin === true;
+  const isUserInactive = activeAccount?.status === 'inactive' || activeAccount?.disabled_by_user === true;
+  const isInactive = activeAccount && (isAdminDisabled || isUserInactive);
+  const isPlanLocked = activeAccount && activeAccount.plan_locked === true;
+  const isAutomationLocked = activeAccount && activeAccount.effective_access === false;
+  const title = isInactive
+    ? 'Automation Paused For This Account'
+    : isPlanLocked
+      ? 'Plan Limit Reached'
+      : isAutomationLocked
+        ? 'Automation Access Restricted'
+        : 'No Instagram Account Linked';
+  const description = isInactive
+    ? (isAdminDisabled
+      ? `@${activeAccount.username} is still linked, but an admin has disabled this account. Automation is paused until support or an admin reactivates it. You can still review the account in settings and analytics.`
+      : isUserInactive
+        ? `@${activeAccount.username} is still linked, but you have turned it inactive. Automation is paused until you turn the account active again. You can still review the account in settings and analytics.`
+        : `@${activeAccount.username} is still linked, but this account is inactive. Automation is paused until it becomes active again. You can still review the account in settings and analytics.`)
+    : isPlanLocked
+      ? `@${activeAccount.username} is still linked, but your current plan only allows automation on a limited number of active accounts. You can keep using the account view, but automation sections stay locked until your plan or active account order changes.`
+      : isAutomationLocked
+        ? `@${activeAccount.username} is linked, but automation access is disabled for this account right now. You can still review the account while automation remains locked.`
+        : 'To access our automation tools and analytics, you need to link your Instagram professional account first.';
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center animate-fadeIn">
@@ -51,10 +60,10 @@ const AccountBarrier: React.FC = () => {
           onClick={() => setCurrentView('Account Settings')}
           size="lg"
           className="flex-1"
-          leftIcon={isUnlinked ? <Settings className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          leftIcon={(isInactive || isPlanLocked || isAutomationLocked) ? <Settings className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           rightIcon={<ChevronRight className="w-4 h-4" />}
         >
-          {isUnlinked ? 'Go to Settings' : 'Link Account'}
+          {(isInactive || isPlanLocked || isAutomationLocked) ? 'Go to Settings' : 'Link Account'}
         </Button>
       </div>
 

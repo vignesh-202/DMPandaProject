@@ -219,7 +219,7 @@ class AppwriteClient {
             if (normalizedAccountIds.length === 0) return [];
             if (normalizedTypes.length === 0) return [];
 
-            const response = await withAppwriteRetry(() => this.databases.listDocuments(
+            let response = await withAppwriteRetry(() => this.databases.listDocuments(
                 this.databaseId,
                 process.env.AUTOMATIONS_COLLECTION_ID,
                 [
@@ -231,7 +231,25 @@ class AppwriteClient {
                 operationName: 'get_active_automations',
                 context: { account_ids: normalizedAccountIds, automation_types: normalizedTypes }
             });
-            return response.documents.map((document) => this._normalizeAutomation(document));
+            let documents = response.documents || [];
+
+            if (documents.length === 0) {
+                response = await withAppwriteRetry(() => this.databases.listDocuments(
+                    this.databaseId,
+                    process.env.AUTOMATIONS_COLLECTION_ID,
+                    [
+                        Query.equal('account_id', normalizedAccountIds),
+                        Query.equal('automation_type', normalizedTypes),
+                        Query.limit(200)
+                    ]
+                ), {
+                    operationName: 'get_active_automations_legacy_fallback',
+                    context: { account_ids: normalizedAccountIds, automation_types: normalizedTypes }
+                });
+                documents = (response.documents || []).filter((document) => this._toBoolean(document?.is_active, true));
+            }
+
+            return documents.map((document) => this._normalizeAutomation(document));
         } catch (error) {
             console.error(`Error fetching automations for ${JSON.stringify(accountIds)}:`, error);
             return [];
@@ -243,7 +261,7 @@ class AppwriteClient {
             const normalizedAccountIds = this.normalizeAccountIds(accountIds);
             if (normalizedAccountIds.length === 0) return null;
 
-            const response = await withAppwriteRetry(() => this.databases.listDocuments(
+            let response = await withAppwriteRetry(() => this.databases.listDocuments(
                 this.databaseId,
                 process.env.AUTOMATIONS_COLLECTION_ID,
                 [
@@ -256,7 +274,25 @@ class AppwriteClient {
                 operationName: 'get_active_config_automation',
                 context: { account_ids: normalizedAccountIds, automation_type: automationType }
             });
-            return response.documents[0] ? this._normalizeAutomation(response.documents[0]) : null;
+            let document = response.documents[0] || null;
+
+            if (!document) {
+                response = await withAppwriteRetry(() => this.databases.listDocuments(
+                    this.databaseId,
+                    process.env.AUTOMATIONS_COLLECTION_ID,
+                    [
+                        Query.equal('account_id', normalizedAccountIds),
+                        Query.equal('automation_type', String(automationType || '').trim()),
+                        Query.limit(25)
+                    ]
+                ), {
+                    operationName: 'get_active_config_automation_legacy_fallback',
+                    context: { account_ids: normalizedAccountIds, automation_type: automationType }
+                });
+                document = (response.documents || []).find((entry) => this._toBoolean(entry?.is_active, true)) || null;
+            }
+
+            return document ? this._normalizeAutomation(document) : null;
         } catch (error) {
             console.error(
                 `Error fetching ${automationType} config automation for ${JSON.stringify(accountIds)}:`,
@@ -299,24 +335,109 @@ class AppwriteClient {
     }
 
     _normalizeAccountAccess(account = null) {
-        const adminDisabled = this._toBoolean(account?.admin_disabled, false);
-        const planLocked = this._toBoolean(account?.plan_locked, false);
-        const accessOverrideEnabled = this._toBoolean(account?.access_override_enabled, false);
-        const linkedActive = this._toBoolean(account?.is_active, String(account?.status || 'active').trim().toLowerCase() === 'active')
-            && String(account?.status || 'active').trim().toLowerCase() === 'active';
-        const effectiveAccess = linkedActive && !adminDisabled && (!planLocked || accessOverrideEnabled);
-        const accessState = !linkedActive
-            ? 'inactive'
-            : (adminDisabled ? 'admin_disabled' : ((planLocked && !accessOverrideEnabled) ? 'plan_locked' : (accessOverrideEnabled ? 'override_enabled' : 'active')));
+        const normalizedStatus = String(account?.status || 'active').trim().toLowerCase() || 'active';
+        const normalizedAdminStatus = String(account?.admin_status || 'active').trim().toLowerCase() || 'active';
+        const adminActive = normalizedAdminStatus === 'active';
+        const userActive = normalizedStatus === 'active';
+        const linkedActive = adminActive && userActive;
+        const effectiveAccess = linkedActive;
+        const accessReason = !adminActive ? 'admin_inactive' : (!userActive ? 'inactive' : null);
+        const accessState = linkedActive ? 'active' : 'inactive';
 
         return {
             ...account,
-            admin_disabled: adminDisabled,
-            plan_locked: planLocked,
-            access_override_enabled: accessOverrideEnabled,
+            status: normalizedStatus,
+            admin_status: normalizedAdminStatus,
             effective_access: effectiveAccess,
             access_state: accessState,
-            access_reason: effectiveAccess ? (accessOverrideEnabled ? 'override_enabled' : null) : accessState
+            access_reason: effectiveAccess ? null : accessReason,
+            is_active: linkedActive,
+            admin_is_active: adminActive,
+            user_is_active: userActive,
+            disabled_by_admin: !adminActive,
+            disabled_by_user: !userActive
+        };
+    }
+
+    _getAccountSortKey(account = null) {
+        return [
+            String(account?.linked_at || '').trim(),
+            String(account?.$id || '').trim()
+        ];
+    }
+
+    async getIGAccountsForUser(userId) {
+        const safeUserId = String(userId || '').trim();
+        if (!safeUserId) return [];
+
+        try {
+            const response = await withAppwriteRetry(() => this.databases.listDocuments(
+                this.databaseId,
+                process.env.IG_ACCOUNTS_COLLECTION_ID,
+                [
+                    Query.equal('user_id', safeUserId),
+                    Query.limit(100)
+                ]
+            ), {
+                operationName: 'get_ig_accounts_for_user',
+                context: { user_id: safeUserId }
+            });
+
+            return (response.documents || []).map((document) => this._normalizeAccountAccess(document));
+        } catch (error) {
+            console.error(`Error fetching IG accounts for user ${safeUserId}:`, error);
+            return [];
+        }
+    }
+
+    async getAccountExecutionAccess(userId, account = null, profile = null) {
+        const safeAccountId = String(account?.$id || '').trim();
+        const normalizedStatus = String(account?.status || 'active').trim().toLowerCase() || 'active';
+        const normalizedAdminStatus = String(account?.admin_status || 'active').trim().toLowerCase() || 'active';
+        const adminActive = normalizedAdminStatus === 'active';
+        const userActive = normalizedStatus === 'active';
+        const linkedActive = adminActive && userActive;
+        if (!safeAccountId) {
+            return {
+                admin_active: adminActive,
+                user_active: userActive,
+                linked_active: linkedActive,
+                plan_locked: false,
+                effective_access: linkedActive,
+                access_reason: !adminActive ? 'admin_inactive' : (linkedActive ? null : (normalizedStatus || 'inactive'))
+            };
+        }
+
+        const activeLimit = Math.max(0, Number(profile?.instagram_connections_limit || 0) || 0);
+        const accounts = await this.getIGAccountsForUser(userId);
+        const activeAccounts = accounts
+            .filter((item) => {
+                const itemStatus = String(item?.status || 'active').trim().toLowerCase() || 'active';
+                const itemAdminStatus = String(item?.admin_status || 'active').trim().toLowerCase() || 'active';
+                return itemStatus === 'active' && itemAdminStatus === 'active';
+            })
+            .sort((left, right) => {
+                const [leftLinkedAt, leftId] = this._getAccountSortKey(left);
+                const [rightLinkedAt, rightId] = this._getAccountSortKey(right);
+                if (leftLinkedAt !== rightLinkedAt) return leftLinkedAt.localeCompare(rightLinkedAt);
+                return leftId.localeCompare(rightId);
+            });
+
+        const allowedIds = new Set(
+            activeAccounts
+                .slice(0, activeLimit)
+                .map((item) => String(item?.$id || '').trim())
+                .filter(Boolean)
+        );
+        const planLocked = linkedActive && !allowedIds.has(safeAccountId);
+
+        return {
+            admin_active: adminActive,
+            user_active: userActive,
+            linked_active: linkedActive,
+            plan_locked: planLocked,
+            effective_access: linkedActive && !planLocked,
+            access_reason: !adminActive ? 'admin_inactive' : (!userActive ? (normalizedStatus || 'inactive') : (planLocked ? 'plan_locked' : null))
         };
     }
 
@@ -350,7 +471,12 @@ class AppwriteClient {
                 payload = {
                     media_id: data.media_id || data.post_id || '',
                     media_url: data.media_url || data.thumbnail_url || '',
-                    media_type: 'image'
+                    media_type: 'image',
+                    linked_media_url: data.linked_media_url || '',
+                    permalink: data.permalink || '',
+                    use_latest_post: data.use_latest_post === true,
+                    latest_post_type: String(data.latest_post_type || 'post').trim() || 'post',
+                    caption: data.caption || ''
                 };
                 break;
             case 'template_url':
@@ -438,7 +564,12 @@ class AppwriteClient {
                     payload: {
                         media_id: String(automation.media_id || '').trim(),
                         media_url: String(automation.media_url || automation.thumbnail_url || '').trim(),
-                        media_type: 'image'
+                        media_type: 'image',
+                        linked_media_url: String(automation.linked_media_url || '').trim(),
+                        permalink: String(automation.permalink || '').trim(),
+                        use_latest_post: automation.use_latest_post === true,
+                        latest_post_type: String(automation.latest_post_type || 'post').trim() || 'post',
+                        caption: String(automation.caption || '').trim()
                     }
                 };
             case 'template_url':
@@ -1198,4 +1329,3 @@ class AppwriteClient {
 }
 
 module.exports = AppwriteClient;
-

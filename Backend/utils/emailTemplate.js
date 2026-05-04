@@ -4,14 +4,15 @@ const DEFAULT_EYEBROW = 'DM Panda';
 const DEFAULT_PREHEADER = 'Important update from DM Panda.';
 
 const COLORS = {
-    canvas: '#f4f7fb',
+    canvas: '#eef2f7',
     card: '#ffffff',
-    border: '#dbe4f0',
+    border: '#d7deea',
     ink: '#0f172a',
     muted: '#475569',
     subtle: '#64748b',
     accent: '#f97316',
     accentDark: '#ea580c',
+    accentSoft: '#fff3e8',
     infoBg: '#eff6ff',
     infoBorder: '#bfdbfe',
     infoText: '#1d4ed8',
@@ -48,6 +49,28 @@ const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, ''
 const buildLogoUrl = (frontendOrigin = '') => {
     const base = trimTrailingSlash(frontendOrigin);
     return base ? `${base}/images/logo.png` : '';
+};
+
+const renderHtmlFooter = ({
+    supportEmail = SUPPORT_EMAIL,
+    supportNote = '',
+    footerNote = '',
+    dashboardUrl = ''
+} = {}) => {
+    const lines = [
+        supportNote || `Need a hand? Contact ${supportEmail}.`,
+        'You are receiving this email because you use DM Panda or recently interacted with your account settings, billing, or automation activity.'
+    ];
+
+    return `
+        <div style="border-top:1px solid ${COLORS.border};padding-top:18px;color:${COLORS.subtle};font-size:13px;line-height:1.7;">
+            <p style="margin:0 0 8px;">${escapeHtml(lines[0])}</p>
+            <p style="margin:0 0 8px;">${escapeHtml(lines[1])}</p>
+            ${dashboardUrl ? `<p style="margin:0 0 8px;"><a href="${escapeHtml(dashboardUrl)}" style="color:${COLORS.accentDark};text-decoration:none;font-weight:700;">Open your DM Panda dashboard</a></p>` : ''}
+            ${footerNote ? `<p style="margin:0 0 8px;">${escapeHtml(footerNote)}</p>` : ''}
+            <p style="margin:0;">DM Panda, Instagram automation and lead capture for growing teams.</p>
+        </div>
+    `;
 };
 
 const renderParagraphs = (paragraphs = []) => paragraphs
@@ -103,8 +126,8 @@ const renderSummary = (rows = []) => {
 const renderPrimaryButton = (label = '', url = '') => {
     if (!String(label || '').trim() || !String(url || '').trim()) return '';
     return `
-        <div style="margin:24px 0 14px;">
-            <a href="${escapeHtml(url)}" style="display:inline-block;padding:14px 22px;background:${COLORS.accent};border-radius:14px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">
+        <div style="margin:28px 0 16px;">
+            <a href="${escapeHtml(url)}" style="display:inline-block;padding:14px 22px;background:${COLORS.accent};border:1px solid ${COLORS.accentDark};border-radius:999px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">
                 ${escapeHtml(label)}
             </a>
         </div>
@@ -144,21 +167,10 @@ const renderEmailLayout = ({
 } = {}) => {
     const logoUrl = buildLogoUrl(frontendOrigin);
     const logoMarkup = logoUrl
-        ? `<img src="${escapeHtml(logoUrl)}" alt="${BRAND_NAME}" width="56" height="56" style="display:block;border-radius:16px;background:#ffffff;padding:6px;object-fit:contain;" />`
-        : `<div style="display:inline-block;border-radius:16px;background:#ffffff;padding:12px 14px;color:${COLORS.ink};font-size:18px;font-weight:900;letter-spacing:0.02em;">DM Panda</div>`;
+        ? `<img src="${escapeHtml(logoUrl)}" alt="${BRAND_NAME}" width="52" height="52" style="display:block;border-radius:14px;background:#ffffff;padding:6px;object-fit:contain;border:1px solid rgba(255,255,255,0.16);" />`
+        : `<div style="display:inline-block;border-radius:14px;background:#ffffff;padding:12px 14px;color:${COLORS.ink};font-size:18px;font-weight:900;letter-spacing:0.02em;">DM Panda</div>`;
     const dashboardUrl = frontendOrigin ? `${trimTrailingSlash(frontendOrigin)}/dashboard` : '';
-    const resolvedSupportNote = String(supportNote || '').trim()
-        || `Need help? Contact ${supportEmail}.`;
-    const footerLines = [
-        escapeHtml(resolvedSupportNote),
-        dashboardUrl
-            ? `<div style="margin-top:8px;"><a href="${escapeHtml(dashboardUrl)}" style="color:${COLORS.accentDark};text-decoration:none;font-weight:700;">Open DM Panda dashboard</a></div>`
-            : '',
-        footerNote
-            ? `<div style="margin-top:10px;">${escapeHtml(footerNote)}</div>`
-            : '',
-        `<div style="margin-top:12px;">DM Panda, Instagram automation and lead capture for growing teams.</div>`
-    ].join('');
+    const resolvedSupportNote = String(supportNote || '').trim();
 
     return `
 <!doctype html>
@@ -172,35 +184,39 @@ const renderEmailLayout = ({
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
       ${escapeHtml(preheader)}
     </div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${COLORS.canvas};padding:28px 12px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${COLORS.canvas};padding:24px 12px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:24px;overflow:hidden;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:28px;overflow:hidden;box-shadow:0 18px 48px rgba(15,23,42,0.08);">
             <tr>
-              <td style="padding:28px 32px 24px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 58%,#334155 100%);">
+              <td style="padding:30px 32px 26px;background:linear-gradient(135deg,#0f172a 0%,#162033 42%,#22314b 100%);">
                 ${logoMarkup}
-                <p style="margin:18px 0 8px;color:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">${escapeHtml(eyebrow)}</p>
-                <h1 style="margin:0;color:#ffffff;font-size:30px;line-height:1.2;">${escapeHtml(title)}</h1>
+                <div style="margin-top:18px;display:inline-block;padding:7px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#e2e8f0;font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;">${escapeHtml(eyebrow)}</div>
+                <h1 style="margin:16px 0 0;color:#ffffff;font-size:31px;line-height:1.2;">${escapeHtml(title)}</h1>
+                <p style="margin:10px 0 0;color:#cbd5e1;font-size:14px;line-height:1.7;">Clear updates from DM Panda, designed to be easy to scan on any device.</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:30px 32px 34px;">
-                ${greeting ? `<p style="margin:0 0 16px;color:${COLORS.ink};font-size:15px;font-weight:700;">${escapeHtml(greeting)}</p>` : ''}
-                ${intro ? `<p style="margin:0 0 18px;color:${COLORS.ink};font-size:16px;line-height:1.7;">${escapeHtml(intro)}</p>` : ''}
+              <td style="padding:30px 32px 18px;">
+                ${greeting ? `<p style="margin:0 0 14px;color:${COLORS.ink};font-size:15px;font-weight:700;">${escapeHtml(greeting)}</p>` : ''}
+                ${intro ? `<p style="margin:0 0 22px;color:${COLORS.ink};font-size:16px;line-height:1.75;">${escapeHtml(intro)}</p>` : ''}
                 ${callouts.map((callout) => renderCallout(callout)).join('')}
                 ${renderSummary(summaryRows)}
                 ${renderParagraphs(paragraphs)}
                 ${renderList(bullets)}
-                ${bodyHtml}
+                ${bodyHtml ? `<div style="margin:0 0 8px;padding:20px 22px;background:${COLORS.accentSoft};border:1px solid #fed7aa;border-radius:22px;color:${COLORS.ink};font-size:15px;line-height:1.75;">${bodyHtml}</div>` : ''}
                 ${renderPrimaryButton(ctaLabel, ctaUrl)}
                 ${renderSecondaryLinks(secondaryLinks)}
               </td>
             </tr>
             <tr>
               <td style="padding:0 32px 28px;">
-                <div style="border-top:1px solid ${COLORS.border};padding-top:18px;color:${COLORS.subtle};font-size:13px;line-height:1.7;">
-                  ${footerLines}
-                </div>
+                ${renderHtmlFooter({
+                    supportEmail,
+                    supportNote: resolvedSupportNote,
+                    footerNote,
+                    dashboardUrl
+                })}
               </td>
             </tr>
           </table>
@@ -247,7 +263,8 @@ const buildPlainTextEmail = ({
     if (ctaLabel && ctaUrl) {
         lines.push(`${ctaLabel}: ${ctaUrl}`, '');
     }
-    lines.push(supportNote || `Need help? Contact ${SUPPORT_EMAIL}.`);
+    lines.push(supportNote || `Need a hand? Contact ${SUPPORT_EMAIL}.`);
+    lines.push('You are receiving this email because you use DM Panda or recently interacted with your account settings, billing, or automation activity.');
     if (footerNote) lines.push(footerNote);
     lines.push('DM Panda');
     return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();

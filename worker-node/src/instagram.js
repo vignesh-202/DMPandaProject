@@ -314,6 +314,28 @@ class InstagramAPI {
             return null;
         }
     }
+
+    async getRecentMedia(limit = 8) {
+        const params = {
+            fields: 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp',
+            access_token: this.accessToken,
+            limit: Math.max(1, Math.min(Number(limit || 8), 12))
+        };
+
+        try {
+            const response = await this._get('/me/media', params, {
+                requestType: 'get_recent_media',
+                limit: params.limit
+            });
+            return Array.isArray(response.data?.data) ? response.data.data : [];
+        } catch (error) {
+            console.error(
+                'Failed to fetch recent Instagram media:',
+                error.response ? error.response.data : error.message
+            );
+            return [];
+        }
+    }
 }
 
 module.exports = InstagramAPI;

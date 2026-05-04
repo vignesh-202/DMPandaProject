@@ -179,8 +179,11 @@ const DashboardContent: React.FC = () => {
   ];
 
   const needsAccount = protectedViews.includes(currentView);
-  const isAccountActive = activeAccount && activeAccount.status === 'active';
-  const isAccountAccessible = isAccountActive && activeAccount?.effective_access !== false;
+  const hasSelectedAccount = Boolean(activeAccountID);
+  const accountAutomationLocked = Boolean(
+    activeAccount
+    && (activeAccount.status !== 'active' || activeAccount?.effective_access === false)
+  );
   const automationLockedViews = [
     'DM Automation', 'Story Automation', 'Post Automation', 'Reel Automation', 'Live Automation',
     'Mentions', 'Email Collector', 'Welcome Message', 'Suggest More', 'Convo Starter',
@@ -201,7 +204,7 @@ const DashboardContent: React.FC = () => {
             <X className="h-6 w-6" />
           </div>
           <h2 className="text-2xl font-bold text-foreground">{lockTitle}</h2>
-          <p className="mt-3 text-sm text-muted-foreground">
+          <p className="mt-3 break-words whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
             {lockMessage}
           </p>
         </div>
@@ -209,7 +212,11 @@ const DashboardContent: React.FC = () => {
     );
   }
 
-  if (needsAccount && (!activeAccountID || !isAccountAccessible)) {
+  if (needsAccount && !hasSelectedAccount) {
+    return <AccountBarrier />;
+  }
+
+  if (automationLockedViews.includes(currentView) && accountAutomationLocked) {
     return <AccountBarrier />;
   }
 
@@ -449,7 +456,7 @@ const DashboardPage = () => {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="mt-4 text-sm text-muted-foreground">
+            <p className="mt-4 break-words whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
               {accessState?.ban_message || 'An admin has placed this account under a soft ban. You can still open the dashboard, but automation actions are paused until the soft ban is removed.'}
             </p>
           </div>

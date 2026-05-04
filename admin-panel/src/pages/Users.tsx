@@ -147,6 +147,10 @@ export const UsersPage: React.FC = () => {
     const [showDeleteUserDialog, setShowDeleteUserDialog] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [showBanConfirmDialog, setShowBanConfirmDialog] = useState(false);
+    const [banConfirmText, setBanConfirmText] = useState('');
+    const [showDeleteInstagramDialog, setShowDeleteInstagramDialog] = useState(false);
+    const [deleteInstagramConfirmText, setDeleteInstagramConfirmText] = useState('');
+    const [pendingDeleteInstagramAccount, setPendingDeleteInstagramAccount] = useState<any | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [popupSections, setPopupSections] = useState<Record<PopupSectionKey, boolean>>(DEFAULT_POPUP_SECTION_STATE);
@@ -576,16 +580,10 @@ export const UsersPage: React.FC = () => {
         setAccountToggleLoadingId(account.$id);
         setErrorMessage(null);
         try {
-            const enabling = account.effective_access !== true;
-            const response = await httpClient.patch(`/api/admin/users/${selectedUser.$id}/instagram-accounts/${account.$id}`, enabling
-                ? {
-                    admin_disabled: false,
-                    access_override_enabled: account.plan_locked === true
-                }
-                : {
-                    admin_disabled: true,
-                    access_override_enabled: false
-                });
+            const enabling = String(account?.admin_status || '').trim().toLowerCase() !== 'active';
+            const response = await httpClient.patch(`/api/admin/users/${selectedUser.$id}/instagram-accounts/${account.$id}`, {
+                status: enabling ? 'active' : 'inactive'
+            });
             const result = response.data?.data || {};
             if (Array.isArray(result?.instagram_accounts)) {
                 mergeDetailData(result);
@@ -596,10 +594,38 @@ export const UsersPage: React.FC = () => {
             } else {
                 await loadUserDetail(selectedUser.$id);
             }
-            setNotice(enabling ? 'Instagram account access enabled.' : 'Instagram account access disabled.');
+            setNotice(enabling ? 'Instagram account activated.' : 'Instagram account deactivated.');
         } catch (error: any) {
             console.error('Failed to update Instagram account access:', error);
             setErrorMessage(error?.response?.data?.error || 'Failed to update Instagram account access.');
+        } finally {
+            setAccountToggleLoadingId(null);
+        }
+    };
+
+    const deleteInstagramAccount = async () => {
+        if (!selectedUser || !pendingDeleteInstagramAccount?.$id) return;
+        if (deleteInstagramConfirmText.trim() !== 'REMOVE') {
+            setErrorMessage('Type REMOVE to confirm Instagram account deletion.');
+            return;
+        }
+
+        setAccountToggleLoadingId(pendingDeleteInstagramAccount.$id);
+        setErrorMessage(null);
+        try {
+            await httpClient.post(`/api/admin/users/${selectedUser.$id}/instagram-accounts/${pendingDeleteInstagramAccount.$id}/delete`);
+            await loadUserDetail(selectedUser.$id);
+            setUsers((prev) => prev.map((entry) => entry.$id === selectedUser.$id ? {
+                ...entry,
+                linked_instagram_accounts: Math.max(0, Number(entry.linked_instagram_accounts || 0) - 1)
+            } : entry));
+            setShowDeleteInstagramDialog(false);
+            setDeleteInstagramConfirmText('');
+            setPendingDeleteInstagramAccount(null);
+            setNotice('Instagram account deleted permanently.');
+        } catch (error: any) {
+            console.error('Failed to delete Instagram account:', error);
+            setErrorMessage(error?.response?.data?.error || 'Failed to delete Instagram account.');
         } finally {
             setAccountToggleLoadingId(null);
         }
@@ -1123,49 +1149,63 @@ export const UsersPage: React.FC = () => {
                                     </button>
                                     {popupSections.instagram ? <div className="mt-4 space-y-3">
                                         {(detailData?.instagram_accounts || []).map((acc: any) => {
-                                            const isActive = acc.is_active === true || acc.effective_access === true;
-                                            const accessLabel = acc.status !== 'active'
-                                                ? 'Unlinked'
-                                                : isActive
-                                                    ? 'Active'
-                                                    : acc.access_state === 'plan_locked'
+                                            const isAdminActive = String(acc.admin_status || 'active').trim().toLowerCase() === 'active';
+                                            const isUserActive = String(acc.status || 'active').trim().toLowerCase() === 'active';
+                                            const accessLabel = !isAdminActive
+                                                ? 'Admin inactive'
+                                                : !isUserActive
+                                                    ? 'User inactive'
+                                                    : acc.plan_locked === true
                                                         ? 'Locked by plan limit'
-                                                        : 'Disabled by admin';
+                                                        : 'Active';
                                             return (
                                                 <div key={acc.$id} className="flex flex-col gap-3 rounded-[18px] border border-border/70 bg-background/70 p-4 sm:flex-row sm:items-center sm:justify-between">
                                                     <div className="min-w-0">
                                                         <p className="truncate text-sm font-bold text-foreground">{acc.username || acc.ig_user_id || acc.account_id}</p>
                                                         <p className="mt-1 text-xs text-muted-foreground">
                                                             {accessLabel}
-                                                            {acc.access_reason ? ` - ${String(acc.access_reason).replace(/_/g, ' ')}` : ''}
+                                                            {acc.plan_locked === true && isAdminActive && isUserActive ? ' - over plan active-account limit' : ''}
                                                         </p>
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        role="switch"
-                                                        aria-checked={isActive}
-                                                        disabled={accountToggleLoadingId === acc.$id || acc.status !== 'active'}
-                                                        onClick={() => void toggleInstagramAccountAccess(acc)}
-                                                        className="inline-flex items-center gap-3 disabled:opacity-60"
-                                                    >
-                                                        {accountToggleLoadingId === acc.$id ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <Shield className="h-4 w-4 text-muted-foreground" />}
-                                                        <span
-                                                            className={cn(
-                                                                'relative h-7 w-12 rounded-full transition-colors',
-                                                                isActive ? 'bg-success/70' : 'bg-muted'
-                                                            )}
+                                                    <div className="flex items-center gap-3">
+                                                        <button
+                                                            type="button"
+                                                            role="switch"
+                                                            aria-checked={isAdminActive}
+                                                            disabled={accountToggleLoadingId === acc.$id}
+                                                            onClick={() => void toggleInstagramAccountAccess(acc)}
+                                                            className="inline-flex items-center gap-3 disabled:opacity-60"
                                                         >
+                                                            {accountToggleLoadingId === acc.$id ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <Shield className="h-4 w-4 text-muted-foreground" />}
                                                             <span
                                                                 className={cn(
-                                                                    'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform',
-                                                                    isActive ? 'left-6' : 'left-1'
+                                                                    'relative h-7 w-12 rounded-full transition-colors',
+                                                                    isAdminActive ? 'bg-success/70' : 'bg-muted'
                                                                 )}
-                                                            />
-                                                        </span>
-                                                        <span className="text-xs font-semibold text-foreground">
-                                                            {isActive ? 'Active' : 'Locked'}
-                                                        </span>
-                                                    </button>
+                                                            >
+                                                                <span
+                                                                    className={cn(
+                                                                        'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform',
+                                                                        isAdminActive ? 'left-6' : 'left-1'
+                                                                    )}
+                                                                />
+                                                            </span>
+                                                            <span className="text-xs font-semibold text-foreground">
+                                                                {isAdminActive ? 'Active' : 'Inactive'}
+                                                            </span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setPendingDeleteInstagramAccount(acc);
+                                                                setDeleteInstagramConfirmText('');
+                                                                setShowDeleteInstagramDialog(true);
+                                                            }}
+                                                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10 text-destructive transition hover:bg-destructive/15"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             );
                                         })}
@@ -1235,7 +1275,7 @@ export const UsersPage: React.FC = () => {
                                                 </button>
                                             </div>
                                         </div>
-                                        <button onClick={() => setShowBanConfirmDialog(true)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-destructive px-4 py-3 text-[10px] font-black text-white transition hover:bg-destructive/90 disabled:opacity-60" disabled={saving || isDeletingUser}>
+                                        <button onClick={() => { setBanConfirmText(''); setShowBanConfirmDialog(true); }} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-destructive px-4 py-3 text-[10px] font-black text-white transition hover:bg-destructive/90 disabled:opacity-60" disabled={saving || isDeletingUser}>
                                             <Ban className="h-4 w-4" />
                                             Ban User
                                         </button>
@@ -1282,19 +1322,70 @@ export const UsersPage: React.FC = () => {
                         <p>This will apply the selected ban mode and kill-switch state immediately.</p>
                         <p className="font-semibold text-foreground">Mode: {banMode} | Kill switch: {profilePatch.kill_switch_enabled === false ? 'Disabled' : 'Enabled'}</p>
                         {banReason ? <p>Reason: {banReason}</p> : null}
+                        <div>
+                            <label className="text-xs font-semibold text-muted-foreground">Type BAN to confirm</label>
+                            <input
+                                className="input-base mt-2"
+                                value={banConfirmText}
+                                onChange={(event) => setBanConfirmText(event.target.value)}
+                                placeholder="BAN"
+                                autoComplete="off"
+                            />
+                        </div>
                     </div>
                 )}
                 confirmLabel="Confirm Ban User"
                 cancelLabel="Cancel"
                 tone="danger"
                 loading={saving}
+                confirmDisabled={banConfirmText.trim() !== 'BAN'}
                 onCancel={() => {
                     if (!saving) {
                         setShowBanConfirmDialog(false);
+                        setBanConfirmText('');
                     }
                 }}
                 onConfirm={() => {
                     void saveBan();
+                }}
+            />
+
+            <ConfirmDialog
+                open={showDeleteInstagramDialog}
+                title="Delete linked Instagram account?"
+                description={(
+                    <div className="space-y-3">
+                        <p>
+                            {pendingDeleteInstagramAccount
+                                ? `This will permanently remove @${pendingDeleteInstagramAccount.username || pendingDeleteInstagramAccount.ig_user_id || pendingDeleteInstagramAccount.account_id} and delete its related automation data.`
+                                : 'This will permanently remove the linked Instagram account and related data.'}
+                        </p>
+                        <div>
+                            <label className="text-xs font-semibold text-muted-foreground">Type REMOVE to confirm</label>
+                            <input
+                                className="input-base mt-2"
+                                value={deleteInstagramConfirmText}
+                                onChange={(event) => setDeleteInstagramConfirmText(event.target.value)}
+                                placeholder="REMOVE"
+                                autoComplete="off"
+                            />
+                        </div>
+                    </div>
+                )}
+                confirmLabel="Delete Instagram Account"
+                cancelLabel="Keep Account"
+                tone="danger"
+                loading={accountToggleLoadingId === pendingDeleteInstagramAccount?.$id}
+                confirmDisabled={deleteInstagramConfirmText.trim() !== 'REMOVE'}
+                onCancel={() => {
+                    if (accountToggleLoadingId !== pendingDeleteInstagramAccount?.$id) {
+                        setShowDeleteInstagramDialog(false);
+                        setDeleteInstagramConfirmText('');
+                        setPendingDeleteInstagramAccount(null);
+                    }
+                }}
+                onConfirm={() => {
+                    void deleteInstagramAccount();
                 }}
             />
 

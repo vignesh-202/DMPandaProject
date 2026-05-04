@@ -65,10 +65,20 @@ const getProfileLimits = (profile = null) => {
     };
 };
 
+const normalizeLinkedAccountStatus = (value, fallback = 'active') => {
+    const normalized = String(value || fallback).trim().toLowerCase();
+    return normalized || fallback;
+};
+
+const isAdminLinkedAccountActive = (account = null) =>
+    normalizeLinkedAccountStatus(account?.admin_status, 'active') === 'active';
+
+const isUserLinkedAccountActive = (account = null) =>
+    normalizeLinkedAccountStatus(account?.status, 'active') === 'active';
+
 const isLinkedAccountActive = (account = null) => {
     if (!account) return false;
-    const status = String(account.status || 'active').trim().toLowerCase();
-    return toBoolean(account.is_active, status === 'active') && status === 'active';
+    return isAdminLinkedAccountActive(account) && isUserLinkedAccountActive(account);
 };
 
 const getAccountOrderValue = (account = null) => {
@@ -84,38 +94,40 @@ const compareAccountsByLinkedOrder = (left, right) => {
 };
 
 const normalizeAccountAccess = (account = null) => {
-    const adminDisabled = toBoolean(account?.admin_disabled, false);
-    const planLocked = toBoolean(account?.plan_locked, false);
-    const accessOverrideEnabled = toBoolean(account?.access_override_enabled, false);
+    const planLocked = toBoolean(account?.__plan_locked, false);
     const linkedActive = isLinkedAccountActive(account);
+    const normalizedStatus = normalizeLinkedAccountStatus(account?.status, 'active');
+    const normalizedAdminStatus = normalizeLinkedAccountStatus(account?.admin_status, 'active');
+    const adminActive = normalizedAdminStatus === 'active';
+    const userActive = normalizedStatus === 'active';
 
     let accessState = 'active';
     let accessReason = '';
     let effectiveAccess = linkedActive;
 
-    if (!linkedActive) {
+    if (!adminActive) {
+        accessState = 'inactive';
+        accessReason = 'admin_inactive';
+        effectiveAccess = false;
+    } else if (!userActive) {
         accessState = 'inactive';
         accessReason = 'inactive';
         effectiveAccess = false;
-    } else if (adminDisabled) {
-        accessState = 'admin_disabled';
-        accessReason = 'admin_disabled';
-        effectiveAccess = false;
-    } else if (planLocked && !accessOverrideEnabled) {
+    } else if (planLocked) {
         accessState = 'plan_locked';
         accessReason = 'plan_locked';
         effectiveAccess = false;
-    } else if (accessOverrideEnabled) {
-        accessState = 'override_enabled';
-        accessReason = 'override_enabled';
-        effectiveAccess = true;
     }
 
     return {
+        status: normalizedStatus,
+        admin_status: normalizedAdminStatus,
         is_active: linkedActive,
-        admin_disabled: adminDisabled,
+        admin_is_active: adminActive,
+        user_is_active: userActive,
+        disabled_by_admin: !adminActive,
+        disabled_by_user: !userActive,
         plan_locked: planLocked,
-        access_override_enabled: accessOverrideEnabled,
         effective_access: effectiveAccess,
         access_state: accessState,
         access_reason: accessReason
@@ -157,14 +169,8 @@ const buildAccountAccessCacheSignature = (profile = null, accounts = []) => JSON
         .map((account) => ({
             id: String(account?.$id || '').trim(),
             linked_at: String(account?.linked_at || '').trim(),
-            status: String(account?.status || '').trim(),
-            is_active: toBoolean(account?.is_active, String(account?.status || 'active').trim().toLowerCase() === 'active'),
-            admin_disabled: toBoolean(account?.admin_disabled, false),
-            access_override_enabled: toBoolean(account?.access_override_enabled, false),
-            plan_locked: toBoolean(account?.plan_locked, false),
-            effective_access: toBoolean(account?.effective_access, false),
-            access_state: String(account?.access_state || '').trim(),
-            access_reason: String(account?.access_reason || '').trim()
+            status: normalizeLinkedAccountStatus(account?.status, 'active'),
+            admin_status: normalizeLinkedAccountStatus(account?.admin_status, 'active')
         }))
         .sort((left, right) => left.id.localeCompare(right.id))
 });
@@ -222,56 +228,22 @@ const recomputeAccountAccessStateForUser = async (databases, userId, profile = n
             .filter(Boolean)
     );
 
-    const updates = [];
     const nextAccounts = [];
 
     for (const account of docs) {
         const accountId = String(account?.$id || '').trim();
         const linkedActive = isLinkedAccountActive(account);
-        const adminDisabled = toBoolean(account?.admin_disabled, false);
-        const accessOverrideEnabled = toBoolean(account?.access_override_enabled, false);
         const withinDefaultWindow = defaultWindowIds.has(accountId);
-        const nextPlanLocked = linkedActive && !withinDefaultWindow && !accessOverrideEnabled;
+        const nextPlanLocked = linkedActive && !withinDefaultWindow;
         const normalized = normalizeAccountAccess({
             ...account,
-            admin_disabled: adminDisabled,
-            access_override_enabled: accessOverrideEnabled,
-            plan_locked: nextPlanLocked
+            __plan_locked: nextPlanLocked
         });
-        const patch = buildAccountAccessPatch(account, {
-            plan_locked: nextPlanLocked,
-            access_state: normalized.access_state,
-            access_reason: normalized.access_reason,
-            effective_access: normalized.effective_access
-        });
-
-        if (Object.keys(patch).length > 0) {
-            updates.push(
-                retryAppwriteOperation(() => databases.updateDocument(
-                    APPWRITE_DATABASE_ID,
-                    IG_ACCOUNTS_COLLECTION_ID,
-                    account.$id,
-                    patch
-                ))
-            );
-        }
-
         nextAccounts.push({
             ...account,
-            ...patch,
-            admin_disabled: adminDisabled,
-            access_override_enabled: accessOverrideEnabled
+            __plan_locked: nextPlanLocked,
+            ...normalized
         });
-    }
-
-    if (updates.length > 0) {
-        const results = await Promise.allSettled(updates);
-        const failures = results.filter((result) => result.status === 'rejected');
-        if (failures.length > 0) {
-            const error = new Error(`Failed to recompute Instagram account access for ${failures.length} account(s).`);
-            error.failures = failures.map((result) => result.reason?.message || String(result.reason || 'unknown'));
-            throw error;
-        }
     }
 
     const normalizedAccounts = nextAccounts
@@ -284,7 +256,7 @@ const recomputeAccountAccessStateForUser = async (databases, userId, profile = n
     const state = {
         accounts: normalizedAccounts,
         summary: {
-            total_linked_accounts: orderedLinkedActiveAccounts.length,
+            total_linked_accounts: docs.length,
             max_allowed_accounts: Number(limitState.max_allowed_accounts || 0),
             active_account_limit: Number(limitState.active_account_limit || 0)
         },
@@ -302,7 +274,10 @@ const recomputeAccountAccessForUser = async (databases, userId, profile = null, 
 
 module.exports = {
     getProfileLimits,
+    isAdminLinkedAccountActive,
+    isUserLinkedAccountActive,
     isLinkedAccountActive,
+    normalizeLinkedAccountStatus,
     normalizeAccountAccess,
     listUserInstagramAccounts,
     recomputeAccountAccessStateForUser,

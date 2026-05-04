@@ -591,6 +591,168 @@ test('appwrite automation reads normalize legacy special meta toggles', async ()
     assert.equal(automation.comment_reply, '');
 });
 
+test('appwrite active automation lookup falls back to legacy records without is_active', async () => {
+    const client = new AppwriteClient();
+    let callCount = 0;
+    client.databases = {
+        async listDocuments() {
+            callCount += 1;
+            if (callCount === 1) {
+                return { documents: [] };
+            }
+            return {
+                documents: [
+                    {
+                        $id: 'auto-legacy-dm',
+                        account_id: 'acct-1',
+                        automation_type: 'dm',
+                        title: 'Legacy DM'
+                    }
+                ]
+            };
+        }
+    };
+
+    const automations = await client.getActiveAutomations(['acct-1'], ['dm']);
+    assert.equal(callCount, 2);
+    assert.equal(automations.length, 1);
+    assert.equal(automations[0].$id, 'auto-legacy-dm');
+});
+
+test('appwrite config automation lookup falls back to legacy records without is_active', async () => {
+    const client = new AppwriteClient();
+    let callCount = 0;
+    client.databases = {
+        async listDocuments() {
+            callCount += 1;
+            if (callCount === 1) {
+                return { documents: [] };
+            }
+            return {
+                documents: [
+                    {
+                        $id: 'auto-welcome-legacy',
+                        account_id: 'acct-1',
+                        automation_type: 'welcome_message',
+                        title: 'Welcome Message'
+                    }
+                ]
+            };
+        }
+    };
+
+    const automation = await client.getActiveConfigAutomation(['acct-1'], 'welcome_message');
+    assert.equal(callCount, 2);
+    assert.equal(automation.$id, 'auto-welcome-legacy');
+});
+
+test('instagram client bootstraps a missing meta api tracker', async () => {
+    const worker = Object.create(DMWorker.prototype);
+    worker._trackMetaApiAction = DMWorker.prototype._trackMetaApiAction;
+    worker._initializeMetaApiBudget = DMWorker.prototype._initializeMetaApiBudget;
+    worker._canConsumeMetaApiAction = DMWorker.prototype._canConsumeMetaApiAction;
+    worker._ensureMetaApiUsageTracker = DMWorker.prototype._ensureMetaApiUsageTracker;
+
+    const profile = {
+        limits_json: JSON.stringify({
+            hourly_action_limit: 100,
+            daily_action_limit: 100,
+            monthly_action_limit: 100
+        }),
+        hourly_actions_used: 0,
+        daily_actions_used: 0,
+        monthly_actions_used: 0
+    };
+
+    const instagram = DMWorker.prototype._createInstagramClient.call(
+        worker,
+        'token',
+        'user-1',
+        null,
+        profile
+    );
+
+    const decision = await instagram.onBeforeRequest({ method: 'GET', path: '/test' });
+    assert.deepEqual(decision, { allowed: true, code: null, reason: null });
+});
+
+test('share post templates resolve latest media id before sending', async () => {
+    const worker = Object.create(DMWorker.prototype);
+    worker._resolveSharePostPayload = DMWorker.prototype._resolveSharePostPayload;
+    worker._isReelMedia = DMWorker.prototype._isReelMedia;
+
+    const instagram = {
+        async getRecentMedia() {
+            return [
+                { id: 'media-post-1', media_type: 'IMAGE', permalink: 'https://instagram.com/p/1' }
+            ];
+        },
+        async sendMessage(recipientId, messageType, payload) {
+            assert.equal(recipientId, 'sender-1');
+            assert.equal(messageType, 'template_share_post');
+            assert.equal(payload.media_id, 'media-post-1');
+            return true;
+        }
+    };
+
+    const success = await DMWorker.prototype.sendRenderedTemplate.call(
+        worker,
+        instagram,
+        'sender-1',
+        {
+            type: 'template_share_post',
+            payload: {
+                media_id: '',
+                use_latest_post: true,
+                latest_post_type: 'post',
+                permalink: 'https://instagram.com/p/fallback'
+            }
+        },
+        {},
+        { enabled: false }
+    );
+
+    assert.equal(success, true);
+});
+
+test('share post templates fall back to text when no media id can be resolved', async () => {
+    const worker = Object.create(DMWorker.prototype);
+    worker._resolveSharePostPayload = DMWorker.prototype._resolveSharePostPayload;
+    worker._isReelMedia = DMWorker.prototype._isReelMedia;
+
+    const instagram = {
+        async getRecentMedia() {
+            return [];
+        },
+        async sendMessage(recipientId, messageType, payload) {
+            assert.equal(recipientId, 'sender-1');
+            assert.equal(messageType, 'template_text');
+            assert.match(payload.text, /https:\/\/instagram\.com\/p\/fallback/);
+            return true;
+        }
+    };
+
+    const success = await DMWorker.prototype.sendRenderedTemplate.call(
+        worker,
+        instagram,
+        'sender-1',
+        {
+            type: 'template_share_post',
+            payload: {
+                media_id: '',
+                use_latest_post: true,
+                latest_post_type: 'post',
+                caption: 'Latest post',
+                permalink: 'https://instagram.com/p/fallback'
+            }
+        },
+        {},
+        { enabled: false }
+    );
+
+    assert.equal(success, true);
+});
+
 test('chat state reads and writes support legacy schema without conversation_key', async () => {
     const client = new AppwriteClient();
     const calls = {

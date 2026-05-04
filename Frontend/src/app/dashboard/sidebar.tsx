@@ -52,6 +52,9 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
   const linkedAccountCount = igAccounts?.length || 0;
   const hasAutomationAccountAccess = !!hasLinkedInstagram || hasAnyLinkedAccount;
   const automationLockedByBan = accessState?.automation_locked === true;
+  const automationLockedBySelectedAccount = Boolean(
+    activeAccount && (activeAccount.status !== 'active' || activeAccount.effective_access === false)
+  );
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -185,13 +188,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
   };
 
   const completeAccountSwitch = (account: any) => {
-    if (account.status !== 'active' || account.effective_access === false) {
-      setCurrentView('Account Settings');
-      setProfileMenuOpen(false);
-      onItemClick?.();
-      return;
-    }
-    setActiveAccountID(account.ig_user_id);
+    setActiveAccountID(account.ig_user_id || account.id);
     setProfileMenuOpen(false);
     onItemClick?.();
   };
@@ -277,7 +274,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                   const isActive = currentView === item.name;
                   const requiredFeature = viewFeatureMap[item.name];
                   const lockedByPlan = requiredFeature ? !hasPlanFeature(requiredFeature) : false;
-                  const lockedByAutomationAccess = section.title === 'Automation' && automationLockedByBan;
+                  const lockedByAutomationAccess = section.title === 'Automation' && (automationLockedByBan || automationLockedBySelectedAccount);
                   const isLocked = lockedByPlan || lockedByAutomationAccess;
 
                   return (
@@ -341,18 +338,23 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
               {igAccounts && igAccounts.length > 0 ? (
                 <div className="max-h-[56vh] sm:max-h-[62vh] overflow-y-auto custom-scrollbar space-y-0.5 px-1 pr-0.5">
                   {igAccounts.map((account) => {
-                    const isSelected = activeAccountID === account.ig_user_id;
+                    const accountKey = account.ig_user_id || account.id;
+                    const isSelected = activeAccountID === accountKey;
                     const isInactive = account.status !== 'active' || account.effective_access === false;
                     const isPlanLocked = account.plan_locked === true;
+                    const isAdminDisabled = account.admin_status === 'inactive' || account.disabled_by_admin === true;
+                    const isUserInactive = account.status === 'inactive' || account.disabled_by_user === true;
 
                     let accountSubtitle = 'Connected';
-                    if (account.status !== 'active') accountSubtitle = 'Re-authorize';
+                    if (isAdminDisabled) accountSubtitle = 'Admin Disabled';
+                    else if (isUserInactive) accountSubtitle = 'Inactive';
+                    else if (account.status !== 'active') accountSubtitle = 'Inactive';
                     else if (isPlanLocked) accountSubtitle = 'Plan Locked';
                     else if (account.effective_access === false) accountSubtitle = 'Unavailable';
 
                     return (
                       <button
-                        key={account.ig_user_id || account.id}
+                        key={accountKey}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleAccountSwitch(account);
@@ -419,7 +421,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                               handleNavigation('Account Settings');
                               setProfileMenuOpen(false);
                             }}
-                            title="Re-authorize account"
+                            title="Open account settings"
                           >
                             <RefreshCw className="w-4 h-4" />
                           </div>
@@ -508,7 +510,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                     "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full",
                     "border-2 border-card shadow-md",
                     "transition-all duration-300",
-                    activeAccount.status === 'active'
+                    activeAccount.status === 'active' && activeAccount.admin_status !== 'inactive' && activeAccount.disabled_by_admin !== true
                       ? "bg-success group-hover:shadow-success/50"
                       : "bg-muted-foreground/40"
                   )} />
@@ -548,8 +550,10 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                     "transition-colors duration-300"
                   )}>
                     {activeAccount
-                      ? (activeAccount.status !== 'active'
-                        ? 'Unlinked'
+                      ? ((activeAccount.admin_status === 'inactive' || activeAccount.disabled_by_admin === true)
+                        ? 'Admin Disabled'
+                        : activeAccount.status !== 'active'
+                          ? 'Inactive'
                         : activeAccount.plan_locked === true
                             ? 'Plan Locked'
                             : activeAccount.effective_access === false

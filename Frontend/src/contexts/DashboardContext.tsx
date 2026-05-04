@@ -50,6 +50,7 @@ interface DashboardContextProps {
     setDiscardUnsavedChanges: React.Dispatch<React.SetStateAction<() => void>>;
     // Accounts
     igAccounts: any[];
+    setIgAccounts: React.Dispatch<React.SetStateAction<any[]>>;
     fetchIgAccounts: () => Promise<void>;
     isLoadingAccounts: boolean;
     setIsLoadingAccounts: (loading: boolean) => void;
@@ -465,10 +466,8 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     const fetchStats = useCallback(async (accountId: string, accountsOverride?: any[]) => {
         const sourceAccounts = accountsOverride || igAccountsRef.current;
         const account = sourceAccounts.find(a => a.ig_user_id === accountId || a.id === accountId);
-
-        if (account?.status !== 'active' || account?.effective_access === false) {
+        if (!account) {
             setActiveAccountStats(null);
-            lastFetchedStatsAccountID.current = null;
             return;
         }
 
@@ -539,7 +538,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                     // We also set lastFetchedStatsAccountID immediately to prevent the useEffect watcher from double-fetching.
                     if (initialTargetID) {
                         const targetAcc = accounts.find((a: any) => a.ig_user_id === initialTargetID || a.id === initialTargetID);
-                        if (targetAcc && targetAcc.status === 'active' && targetAcc.effective_access !== false) {
+                        if (targetAcc) {
                             // Pre-set the ref so the useEffect hook sees it as 'already fetched'
                             lastFetchedStatsAccountID.current = initialTargetID;
                             await fetchStats(initialTargetID, accounts);
@@ -742,6 +741,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         discardUnsavedChanges,
         setDiscardUnsavedChanges,
         igAccounts,
+        setIgAccounts,
         fetchIgAccounts,
         isLoadingAccounts: isLoadingAccounts,
         setIsLoadingAccounts,

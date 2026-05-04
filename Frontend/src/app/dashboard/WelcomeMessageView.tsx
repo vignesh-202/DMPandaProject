@@ -142,6 +142,7 @@ const WelcomeMessageView: React.FC = () => {
                 title: 'Welcome Message',
                 template_id: selectedTemplate.id,
                 template_type: selectedTemplate.template_type,
+                is_active: true,
                 followers_only: followersOnly,
                 followers_only_message: followersOnly ? followersOnlyMessage : '',
                 followers_only_primary_button_text: followersOnlyPrimaryButtonText,

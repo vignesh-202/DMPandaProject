@@ -124,69 +124,13 @@ def _parse_json_object(value):
 def _recompute_account_access(client, db_id, user_id, profile_doc, dry_run=False):
     if not user_id:
         return 0
-    active_limit = _safe_int(_obj_get(profile_doc, "instagram_connections_limit"), 0)
     accounts = _list_by_queries(client, db_id, "ig_accounts", [Query.equal("user_id", str(user_id))])
-    ordered_active = [
-        account for account in accounts
-        if _obj_get(account, "is_active", True) is not False
-        and str(_obj_get(account, "status") or "active").strip().lower() == "active"
-    ]
-    ordered_active.sort(
-        key=lambda account: (
-            str(_obj_get(account, "linked_at") or ""),
-            str(_obj_get(account, "$id") or ""),
-        )
+    return sum(
+        1
+        for account in accounts
+        if str(_obj_get(account, "status") or "active").strip().lower() == "active"
+        and str(_obj_get(account, "admin_status") or "active").strip().lower() == "active"
     )
-    default_window_ids = {
-        str(_obj_get(account, "$id", "") or "").strip()
-        for account in ordered_active[:max(0, active_limit)]
-    }
-
-    updated = 0
-    for account in accounts:
-        account_id = str(_obj_get(account, "$id", "") or "").strip()
-        if not account_id:
-            continue
-        linked_active = (
-            _obj_get(account, "is_active", True) is not False
-            and str(_obj_get(account, "status") or "active").strip().lower() == "active"
-        )
-        admin_disabled = _obj_get(account, "admin_disabled", False) is True
-        access_override_enabled = _obj_get(account, "access_override_enabled", False) is True
-        plan_locked = bool(linked_active and account_id not in default_window_ids and not access_override_enabled)
-        effective_access = bool(linked_active and not admin_disabled and (not plan_locked or access_override_enabled))
-        access_state = "inactive"
-        access_reason = "inactive"
-        if linked_active:
-            if admin_disabled:
-                access_state = "admin_disabled"
-                access_reason = "admin_disabled"
-            elif plan_locked and not access_override_enabled:
-                access_state = "plan_locked"
-                access_reason = "plan_locked"
-            elif access_override_enabled:
-                access_state = "override_enabled"
-                access_reason = "override_enabled"
-            else:
-                access_state = "active"
-                access_reason = ""
-        if not dry_run:
-            _call_appwrite(
-                client,
-                "patch",
-                f"/databases/{db_id}/collections/ig_accounts/documents/{account_id}",
-                {
-                    "data": {
-                        "is_active": linked_active,
-                        "plan_locked": plan_locked,
-                        "effective_access": effective_access,
-                        "access_state": access_state,
-                        "access_reason": access_reason,
-                    }
-                },
-            )
-        updated += 1
-    return updated
 
 
 # Handle Instagram account unlink (soft delete) and delete (hard delete with cascade).
@@ -240,7 +184,7 @@ def main(context):
                     client,
                     "patch",
                     f"/databases/{db_id}/collections/{IG_ACCOUNTS_COLLECTION}/documents/{account_doc_id}",
-                    {"data": {"is_active": False, "status": "unlinked", "effective_access": False, "access_state": "inactive", "access_reason": "inactive"}},
+                    {"data": {"status": "inactive"}},
                 )
                 _recompute_account_access(client, db_id, user_id, profile, dry_run=False)
             context.log(f"Account unlinked: {account_doc_id}")

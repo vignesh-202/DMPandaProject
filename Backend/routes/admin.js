@@ -3,6 +3,7 @@ const express = require('express');
 const { Databases, Query, Users, ID } = require('node-appwrite');
 const { loginRequired } = require('../middleware/auth');
 const {
+    Functions,
     getAppwriteClient,
     Messaging,
     APPWRITE_DATABASE_ID,
@@ -15,7 +16,8 @@ const {
     TRANSACTIONS_COLLECTION_ID,
     AUTOMATIONS_COLLECTION_ID,
     LOGS_COLLECTION_ID,
-    EMAIL_CAMPAIGNS_COLLECTION_ID
+    EMAIL_CAMPAIGNS_COLLECTION_ID,
+    FUNCTION_REMOVE_INSTAGRAM
 } = require('../utils/appwrite');
 const { cleanupUserOwnedData } = require('../utils/userCleanup');
 const {
@@ -2378,21 +2380,14 @@ router.patch('/users/:userId/instagram-accounts/:accountId', loginRequired, admi
             return fail(res, 404, 'Instagram account not found.');
         }
 
-        const patch = {};
-        if (req.body?.admin_disabled !== undefined) {
-            patch.admin_disabled = req.body.admin_disabled === true;
-        }
-        if (req.body?.access_override_enabled !== undefined) {
-            patch.access_override_enabled = req.body.access_override_enabled === true;
-        }
-        if (patch.admin_disabled === true) {
-            patch.access_override_enabled = false;
-        }
-        if (Object.keys(patch).length === 0) {
-            return fail(res, 400, 'No account access changes were provided.');
+        const nextStatus = String(req.body?.status || '').trim().toLowerCase();
+        if (!['active', 'inactive'].includes(nextStatus)) {
+            return fail(res, 400, 'A valid Instagram account status is required.');
         }
 
-        await databases.updateDocument(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, accountId, patch);
+        await databases.updateDocument(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, accountId, {
+            admin_status: nextStatus
+        });
         const profile = await getProfileForUser(databases, userId);
         const accountAccessState = await recomputeAccountAccessStateForUser(databases, userId, profile);
         const instagram_accounts = accountAccessState.accounts;
@@ -2403,7 +2398,7 @@ router.patch('/users/:userId/instagram-accounts/:accountId', loginRequired, admi
             targetUserId: userId,
             payload: {
                 account_id: accountId,
-                ...patch
+                admin_status: nextStatus
             }
         });
 
@@ -2416,6 +2411,45 @@ router.patch('/users/:userId/instagram-accounts/:accountId', loginRequired, admi
     } catch (error) {
         console.error('Admin instagram access update error:', error?.message || String(error));
         return fail(res, 500, 'Failed to update Instagram account access.');
+    }
+});
+
+router.post('/users/:userId/instagram-accounts/:accountId/delete', loginRequired, adminRequired, async (req, res) => {
+    try {
+        const { databases } = getServices();
+        const userId = String(req.params.userId || '').trim();
+        const accountId = String(req.params.accountId || '').trim();
+        const account = await databases.getDocument(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, accountId);
+
+        if (String(account?.user_id || '').trim() !== userId) {
+            return fail(res, 404, 'Instagram account not found.');
+        }
+
+        const functions = new Functions(getAppwriteClient({ useApiKey: true }));
+        const execution = await functions.createExecution(
+            FUNCTION_REMOVE_INSTAGRAM,
+            JSON.stringify({ action: 'delete', account_doc_id: accountId }),
+            false
+        );
+
+        if (execution.status === 'failed') {
+            throw new Error(`Function execution failed: ${execution.response || execution.errors || 'Unknown failure'}`);
+        }
+
+        await writeAdminAuditLog(databases, {
+            adminId: req.user.$id,
+            action: 'instagram_account_delete',
+            targetUserId: userId,
+            payload: {
+                account_id: accountId,
+                username: String(account?.username || '').trim() || null
+            }
+        });
+
+        return ok(res, { message: 'Instagram account deleted successfully.' });
+    } catch (error) {
+        console.error('Admin instagram delete error:', error?.message || String(error));
+        return fail(res, 500, 'Failed to delete Instagram account.');
     }
 });
 

@@ -47,14 +47,18 @@ def main(context):
 
         db_id = os.environ['APPWRITE_DATABASE_ID']
 
-        # Get all active accounts
+        # Refresh tokens for all still-linked accounts so user/admin inactive accounts
+        # can be reactivated without forcing an unnecessary reconnect.
         result = _list_documents(client, db_id, 'ig_accounts', queries=[
-            Query.equal('is_active', True),
             Query.limit(100)
         ])
-        
-        accounts = result['documents']
-        context.log(f"Found {len(accounts)} active accounts to refresh.")
+
+        accounts = [
+            account
+            for account in result['documents']
+            if str(account.get('status') or 'active').strip().lower() in {'active', 'inactive'}
+        ]
+        context.log(f"Found {len(accounts)} linked accounts to refresh.")
 
         refreshed_count = 0
         error_count = 0

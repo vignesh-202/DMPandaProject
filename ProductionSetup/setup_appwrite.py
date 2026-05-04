@@ -260,19 +260,22 @@ ADDITIONAL_ATTRIBUTES = {
         *deepcopy(BENEFIT_ATTRIBUTES),
     ],
     "ig_accounts": [
-        {"key": "admin_disabled", "type": "boolean", "required": False, "array": False, "default": False},
-        {"key": "plan_locked", "type": "boolean", "required": False, "array": False, "default": False},
-        {"key": "access_override_enabled", "type": "boolean", "required": False, "array": False, "default": False},
-        {"key": "effective_access", "type": "boolean", "required": False, "array": False, "default": True},
         {
-            "key": "access_state",
+            "key": "status",
             "type": "string",
             "required": False,
             "array": False,
             "default": "active",
-            "elements": ["active", "inactive", "admin_disabled", "plan_locked", "override_enabled"],
+            "elements": ["active", "inactive"],
         },
-        {"key": "access_reason", "type": "string", "required": False, "array": False, "default": None, "size": 120},
+        {
+            "key": "admin_status",
+            "type": "string",
+            "required": False,
+            "array": False,
+            "default": "active",
+            "elements": ["active", "inactive"],
+        },
     ],
     "coupons": [
         {
@@ -315,8 +318,6 @@ ADDITIONAL_INDEXES = {
     ],
     "ig_accounts": [
         {"key": "idx_ig_user_linked_at", "type": "key", "attributes": ["user_id", "linked_at"], "orders": []},
-        {"key": "idx_ig_user_effective_access", "type": "key", "attributes": ["user_id", "effective_access"], "orders": []},
-        {"key": "idx_ig_user_admin_plan_lock", "type": "key", "attributes": ["user_id", "admin_disabled", "plan_locked"], "orders": []},
     ],
     "payment_attempts": [
         {"key": "idx_payment_attempt_status_created", "type": "key", "attributes": ["status", "created_at"], "orders": []},
@@ -339,12 +340,15 @@ ADDITIONAL_INDEXES = {
 COLLECTION_OVERRIDES = {}
 
 DEPRECATED_COLLECTIONS = {
+    "admin_audit_logs",
+    "admin_settings",
     "subscription_reminder_events",
     "affiliate_profiles",
     "referrals",
     "payouts",
     "notification_throttles",
     "worker_locks",
+    "settings",
 }
 
 DEPRECATED_ATTRIBUTES = {
@@ -358,9 +362,23 @@ DEPRECATED_ATTRIBUTES = {
     "profiles": {
         "no_watermark_enabled",
     },
+    "ig_accounts": {
+        "admin_disabled",
+        "plan_locked",
+        "access_override_enabled",
+        "effective_access",
+        "access_state",
+        "access_reason",
+        "is_active",
+    },
 }
 
-DEPRECATED_INDEXES = {}
+DEPRECATED_INDEXES = {
+    "ig_accounts": {
+        "idx_ig_user_effective_access",
+        "idx_ig_user_admin_plan_lock",
+    }
+}
 
 
 def _filter_schema_items(collection_id, items, deprecated_items):

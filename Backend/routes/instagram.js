@@ -32,7 +32,7 @@ const {
 } = require('../utils/planConfig');
 const sharedPlanFeatures = require('../../shared/planFeatures.json');
 const { evaluateActionRateLimit } = require('../../shared/actionRateLimiter');
-const { Databases, Query, ID, Permission, Role, ExecutionMethod } = require('node-appwrite');
+const { Account, Databases, Query, ID, Permission, Role, ExecutionMethod, Users } = require('node-appwrite');
 const { buildAccessDeniedPayload } = require('../utils/accessControl');
 const {
     isLinkedAccountActive,
@@ -767,19 +767,24 @@ const listOwnedIgAccounts = async (databases, appUserId, extraQueries = []) => {
 
 const serializeIgAccount = (account) => {
     const access = normalizeAccountAccess(account);
+    const normalizedStatus = String(account?.status || 'active').trim().toLowerCase() || 'active';
+    const normalizedAdminStatus = String(account?.admin_status || 'active').trim().toLowerCase() || 'active';
     return {
         id: account.$id,
         ig_user_id: getIgProfessionalAccountId(account),
         username: account.username,
         name: account.name || '',
         profile_picture_url: account.profile_picture_url,
-        status: account.status || 'active',
+        status: normalizedStatus,
+        admin_status: normalizedAdminStatus,
         linked_at: account.linked_at,
         token_expires_at: account.token_expires_at,
+        disabled_by_admin: access.disabled_by_admin === true,
+        disabled_by_user: access.disabled_by_user === true,
+        admin_is_active: access.admin_is_active === true,
+        user_is_active: access.user_is_active === true,
         is_active: access.is_active,
-        admin_disabled: access.admin_disabled,
         plan_locked: access.plan_locked,
-        access_override_enabled: access.access_override_enabled,
         effective_access: access.effective_access,
         access_state: access.access_state,
         access_reason: access.access_reason
@@ -1686,6 +1691,10 @@ const buildAutomationDocumentData = ({
     const title = toSafeString(source.title, 255);
     const titleNormalized = normalizeTitle(title);
     const followersOnly = source.followers_only === true;
+    const normalizedAutomationType = String(automationType || '').trim().toLowerCase();
+    const defaultIsActive = normalizedAutomationType === 'welcome_message'
+        ? true
+        : (source.is_active !== undefined ? source.is_active : true);
 
     return {
         keywordArray,
@@ -1696,7 +1705,7 @@ const buildAutomationDocumentData = ({
             automation_type: automationType,
             title,
             title_normalized: titleNormalized,
-            is_active: source.is_active !== undefined ? source.is_active : true,
+            is_active: defaultIsActive,
             keyword: keywordArray.join(','),
             keywords: JSON.stringify(keywordArray),
             keyword_match_type: toSafeString(source.keyword_match_type || 'exact', 50),
@@ -1993,7 +2002,7 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                         token_expires_at: tokenExpiresAt,
                         permissions: permissionsText,
                         status: 'active',
-                        is_active: true,
+                        admin_status: String(existingAccount?.admin_status || 'active').trim().toLowerCase() || 'active',
                         linked_at: new Date().toISOString(),
                     }
                 );
@@ -2030,12 +2039,8 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                     token_expires_at: tokenExpiresAt,
                     permissions: permissionsText,
                     linked_at: new Date().toISOString(),
-                    admin_disabled: false,
-                    plan_locked: false,
-                    access_override_enabled: false,
-                    effective_access: true,
-                    access_state: 'active',
-                    access_reason: null
+                    status: 'active',
+                    admin_status: 'active'
                 },
                 [
                     Permission.read(Role.user(user.$id))
@@ -2106,27 +2111,102 @@ const unlinkIgAccountHandler = async (req, res) => {
             return res.status(404).json({ error: 'Account not found.' });
         }
 
-        const functions = new Functions(serverClient);
-        const execution = await functions.createExecution(
-            FUNCTION_REMOVE_INSTAGRAM,
-            JSON.stringify({ action: 'unlink', account_doc_id: accountId }),
-            false // async
-        );
-
-        if (execution.status === 'failed') {
-            throw new Error("Function execution failed: " + execution.response);
+        const nextStatus = String(req.body?.status || '').trim().toLowerCase();
+        if (!['active', 'inactive'].includes(nextStatus)) {
+            return res.status(400).json({ error: 'A valid account status is required.' });
         }
 
-        res.json({ message: 'Instagram account unlink initiated.' });
+        await databases.updateDocument(
+            process.env.APPWRITE_DATABASE_ID,
+            IG_ACCOUNTS_COLLECTION_ID,
+            accountId,
+            {
+                status: nextStatus
+            }
+        );
+        const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const recomputedAccounts = await recomputeAccountAccessForUser(
+            databases,
+            req.user.$id,
+            profileContext.profile,
+            accounts.documents || []
+        );
+        res.json({
+            message: nextStatus === 'active' ? 'Instagram account activated successfully.' : 'Instagram account disabled successfully.',
+            ig_accounts: recomputedAccounts.map(serializeIgAccount)
+        });
 
     } catch (err) {
         if (err.code === 404) return res.status(404).json({ error: 'Account not found.' });
         console.error(`Unlink IG Error: ${err.message}`);
-        res.status(500).json({ error: 'Failed to unlink account.' });
+        res.status(500).json({ error: 'Failed to deactivate account.' });
     }
 };
 
-router.delete('/account/ig-accounts/:accountId', loginRequired, unlinkIgAccountHandler);
+router.patch('/account/ig-accounts/:accountId/status', loginRequired, unlinkIgAccountHandler);
+
+const isInvalidPasswordError = (error) => {
+    const message = String(error?.message || '').toLowerCase();
+    return error?.code === 401
+        || message.includes('invalid credentials')
+        || message.includes('invalid password')
+        || (message.includes('password') && message.includes('invalid'));
+};
+
+router.post('/account/ig-accounts/:accountId/delete', loginRequired, async (req, res) => {
+    const { password } = req.body || {};
+    if (!password) return res.status(400).json({ error: 'Password is required to delete this Instagram account.' });
+
+    try {
+        const { accountId } = req.params;
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+        const account = await databases.getDocument(
+            process.env.APPWRITE_DATABASE_ID,
+            IG_ACCOUNTS_COLLECTION_ID,
+            accountId
+        );
+
+        if (!isOwnedIgAccount(account, req.user.$id)) {
+            return res.status(404).json({ error: 'Account not found.' });
+        }
+
+        const tempClient = getAppwriteClient();
+        const tempAccount = new Account(tempClient);
+        const validationSession = await tempAccount.createEmailPasswordSession(String(req.user.email || '').trim().toLowerCase(), password);
+
+        try {
+            await tempAccount.deleteSession('current');
+        } catch (_) {
+            try {
+                const usersClient = getAppwriteClient({ useApiKey: true });
+                const users = new Users(usersClient);
+                await users.deleteSession(req.user.$id, validationSession.$id).catch(() => null);
+            } catch (_) {
+                // Best effort cleanup only.
+            }
+        }
+
+        const functions = new Functions(serverClient);
+        const execution = await functions.createExecution(
+            FUNCTION_REMOVE_INSTAGRAM,
+            JSON.stringify({ action: 'delete', account_doc_id: accountId }),
+            false
+        );
+
+        if (execution.status === 'failed') {
+            throw new Error(`Function execution failed: ${execution.response || execution.errors || 'Unknown failure'}`);
+        }
+
+        return res.json({ message: 'Instagram account and related data deleted successfully.' });
+    } catch (err) {
+        if (err.code === 404) return res.status(404).json({ error: 'Account not found.' });
+        if (isInvalidPasswordError(err)) return res.status(401).json({ error: 'Invalid password.' });
+        console.error(`Delete IG Error: ${err.message}`);
+        return res.status(500).json({ error: 'Failed to delete Instagram account.' });
+    }
+});
 
 // Relink without OAuth when a valid token already exists.
 router.post('/account/ig-accounts/relink/:accountId', loginRequired, async (req, res) => {
@@ -2160,7 +2240,6 @@ router.post('/account/ig-accounts/relink/:accountId', loginRequired, async (req,
             accountId,
             {
                 status: 'active',
-                is_active: true,
                 linked_at: new Date().toISOString()
             }
         );
@@ -2181,9 +2260,6 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
         const { account_id } = req.query;
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'super_profile' });
-        if (featureAccessError) return res.status(403).json(featureAccessError);
-
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const profileContext = await resolveUserPlanContext(databases, req.user.$id);
         const recomputedAccounts = await recomputeAccountAccessForUser(
@@ -2197,11 +2273,8 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
 
         const account = account_id
             ? recomputedAccounts.find((doc) => matchesIgAccountIdentifier(doc, account_id))
-            : recomputedAccounts.find((doc) => doc.effective_access === true) || recomputedAccounts[0];
+            : recomputedAccounts[0];
         if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
-        if (account.effective_access !== true) {
-            return res.status(403).json(buildInstagramAccountAccessError(account));
-        }
         const accessToken = account.access_token;
 
         // Fetch profile info, stories, live status, and media (for reel count) in parallel
@@ -2326,11 +2399,8 @@ router.get('/instagram/insights', loginRequired, async (req, res) => {
 
         const account = account_id
             ? recomputedAccounts.find((doc) => matchesIgAccountIdentifier(doc, account_id))
-            : recomputedAccounts.find((doc) => doc.effective_access === true) || recomputedAccounts[0];
+            : recomputedAccounts[0];
         if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
-        if (account.effective_access !== true) {
-            return res.status(403).json(buildInstagramAccountAccessError(account));
-        }
 
         const insights = await fetchRichInstagramInsights({
             accessToken: account.access_token,
@@ -2365,11 +2435,8 @@ router.get('/instagram/insights-summary', loginRequired, async (req, res) => {
 
         const account = req.query?.account_id
             ? recomputedAccounts.find((doc) => matchesIgAccountIdentifier(doc, req.query.account_id))
-            : recomputedAccounts.find((doc) => doc.effective_access === true) || recomputedAccounts[0];
+            : recomputedAccounts[0];
         if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
-        if (account.effective_access !== true) {
-            return res.status(403).json(buildInstagramAccountAccessError(account));
-        }
 
         const richInsights = await fetchRichInstagramInsights({
             accessToken: account.access_token,
@@ -2535,9 +2602,6 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
         const recomputedAccounts = accountAccessState.accounts || [];
         const igAccount = recomputedAccounts.find(a => matchesIgAccountIdentifier(a, account_id));
         if (!igAccount) return res.status(404).json({ error: 'Account not found' });
-        if (igAccount.effective_access !== true) {
-            return res.status(403).json(buildInstagramAccountAccessError(igAccount));
-        }
         const normalizedAccountId = getIgProfessionalAccountId(igAccount);
         const userId = req.user.$id;
         const ownedAccounts = { documents: recomputedAccounts };
@@ -5295,4 +5359,3 @@ router.post('/instagram/comment-moderation', loginRequired, async (req, res) => 
 
 
 module.exports = router;
-

@@ -6,14 +6,15 @@ BRAND_NAME = "DM Panda"
 DEFAULT_PREHEADER = "Important update from DM Panda."
 
 COLORS = {
-    "canvas": "#f4f7fb",
+    "canvas": "#eef2f7",
     "card": "#ffffff",
-    "border": "#dbe4f0",
+    "border": "#d7deea",
     "ink": "#0f172a",
     "muted": "#475569",
     "subtle": "#64748b",
     "accent": "#f97316",
     "accent_dark": "#ea580c",
+    "accent_soft": "#fff3e8",
     "info_bg": "#eff6ff",
     "info_border": "#bfdbfe",
     "info_text": "#1d4ed8",
@@ -50,6 +51,25 @@ def trim_trailing_slash(value=""):
 def build_logo_url(frontend_origin=""):
     base = trim_trailing_slash(frontend_origin)
     return f"{base}/images/logo.png" if base else ""
+
+
+def render_html_footer(*, support_email=SUPPORT_EMAIL, support_note="", footer_note="", dashboard_url=""):
+    lines = [
+        support_note or f"Need a hand? Contact {support_email}.",
+        "You are receiving this email because you use DM Panda or recently interacted with your account settings, billing, or automation activity.",
+    ]
+    return (
+        f'<div style="border-top:1px solid {COLORS["border"]};padding-top:18px;color:{COLORS["subtle"]};font-size:13px;line-height:1.7;">'
+        f'<p style="margin:0 0 8px;">{escape_html(lines[0])}</p>'
+        f'<p style="margin:0 0 8px;">{escape_html(lines[1])}</p>'
+        + (
+            f'<p style="margin:0 0 8px;"><a href="{escape_html(dashboard_url)}" style="color:{COLORS["accent_dark"]};text-decoration:none;font-weight:700;">Open your DM Panda dashboard</a></p>'
+            if dashboard_url else ""
+        )
+        + (f'<p style="margin:0 0 8px;">{escape_html(footer_note)}</p>' if footer_note else "")
+        + '<p style="margin:0;">DM Panda, Instagram automation and lead capture for growing teams.</p>'
+        + "</div>"
+    )
 
 
 def render_paragraphs(paragraphs):
@@ -124,8 +144,8 @@ def render_button(label="", url=""):
     if not str(label or "").strip() or not str(url or "").strip():
         return ""
     return (
-        '<div style="margin:24px 0 14px;">'
-        f'<a href="{escape_html(url)}" style="display:inline-block;padding:14px 22px;background:{COLORS["accent"]};border-radius:14px;'
+        '<div style="margin:28px 0 16px;">'
+        f'<a href="{escape_html(url)}" style="display:inline-block;padding:14px 22px;background:{COLORS["accent"]};border:1px solid {COLORS["accent_dark"]};border-radius:999px;'
         'color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">'
         f"{escape_html(label)}</a></div>"
     )
@@ -152,17 +172,12 @@ def render_email_html(*, title, preheader=DEFAULT_PREHEADER, eyebrow=BRAND_NAME,
                       frontend_origin="", support_email=SUPPORT_EMAIL):
     logo_url = build_logo_url(frontend_origin)
     logo_html = (
-        f'<img src="{escape_html(logo_url)}" alt="{BRAND_NAME}" width="56" height="56" style="display:block;border-radius:16px;background:#ffffff;padding:6px;object-fit:contain;" />'
+        f'<img src="{escape_html(logo_url)}" alt="{BRAND_NAME}" width="52" height="52" style="display:block;border-radius:14px;background:#ffffff;padding:6px;object-fit:contain;border:1px solid rgba(255,255,255,0.16);" />'
         if logo_url
-        else f'<div style="display:inline-block;border-radius:16px;background:#ffffff;padding:12px 14px;color:{COLORS["ink"]};font-size:18px;font-weight:900;letter-spacing:0.02em;">DM Panda</div>'
+        else f'<div style="display:inline-block;border-radius:14px;background:#ffffff;padding:12px 14px;color:{COLORS["ink"]};font-size:18px;font-weight:900;letter-spacing:0.02em;">DM Panda</div>'
     )
-    dashboard_url = f"{trim_trailing_slash(frontend_origin)}/dashboard" if trim_trailing_slash(frontend_origin) else ""
-    footer_html = (
-        f'{escape_html(support_note or f"Need help? Contact {support_email}.")}'
-        + (f'<div style="margin-top:8px;"><a href="{escape_html(dashboard_url)}" style="color:{COLORS["accent_dark"]};text-decoration:none;font-weight:700;">Open DM Panda dashboard</a></div>' if dashboard_url else "")
-        + (f'<div style="margin-top:10px;">{escape_html(footer_note)}</div>' if footer_note else "")
-        + '<div style="margin-top:12px;">DM Panda, Instagram automation and lead capture for growing teams.</div>'
-    )
+    trimmed_frontend_origin = trim_trailing_slash(frontend_origin)
+    dashboard_url = f"{trimmed_frontend_origin}/dashboard" if trimmed_frontend_origin else ""
     return f"""<!doctype html>
 <html lang="en">
   <head>
@@ -172,35 +187,39 @@ def render_email_html(*, title, preheader=DEFAULT_PREHEADER, eyebrow=BRAND_NAME,
   </head>
   <body style="margin:0;padding:0;background:{COLORS["canvas"]};font-family:Arial,Helvetica,sans-serif;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">{escape_html(preheader)}</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:{COLORS["canvas"]};padding:28px 12px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:{COLORS["canvas"]};padding:24px 12px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:{COLORS["card"]};border:1px solid {COLORS["border"]};border-radius:24px;overflow:hidden;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:{COLORS["card"]};border:1px solid {COLORS["border"]};border-radius:28px;overflow:hidden;box-shadow:0 18px 48px rgba(15,23,42,0.08);">
             <tr>
-              <td style="padding:28px 32px 24px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 58%,#334155 100%);">
+              <td style="padding:30px 32px 26px;background:linear-gradient(135deg,#0f172a 0%,#162033 42%,#22314b 100%);">
                 {logo_html}
-                <p style="margin:18px 0 8px;color:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">{escape_html(eyebrow)}</p>
-                <h1 style="margin:0;color:#ffffff;font-size:30px;line-height:1.2;">{escape_html(title)}</h1>
+                <div style="margin-top:18px;display:inline-block;padding:7px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#e2e8f0;font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;">{escape_html(eyebrow)}</div>
+                <h1 style="margin:16px 0 0;color:#ffffff;font-size:31px;line-height:1.2;">{escape_html(title)}</h1>
+                <p style="margin:10px 0 0;color:#cbd5e1;font-size:14px;line-height:1.7;">Clear updates from DM Panda, designed to be easy to scan on any device.</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:30px 32px 34px;">
-                {f'<p style="margin:0 0 16px;color:{COLORS["ink"]};font-size:15px;font-weight:700;">{escape_html(greeting)}</p>' if greeting else ''}
-                {f'<p style="margin:0 0 18px;color:{COLORS["ink"]};font-size:16px;line-height:1.7;">{escape_html(intro)}</p>' if intro else ''}
+              <td style="padding:30px 32px 18px;">
+                {f'<p style="margin:0 0 14px;color:{COLORS["ink"]};font-size:15px;font-weight:700;">{escape_html(greeting)}</p>' if greeting else ''}
+                {f'<p style="margin:0 0 22px;color:{COLORS["ink"]};font-size:16px;line-height:1.75;">{escape_html(intro)}</p>' if intro else ''}
                 {"".join(render_callout(**callout) for callout in (callouts or []))}
                 {render_summary(summary_rows)}
                 {render_paragraphs(paragraphs)}
                 {render_bullets(bullets)}
-                {body_html}
+                {f'<div style="margin:0 0 8px;padding:20px 22px;background:{COLORS["accent_soft"]};border:1px solid #fed7aa;border-radius:22px;color:{COLORS["ink"]};font-size:15px;line-height:1.75;">{body_html}</div>' if body_html else ''}
                 {render_button(cta_label, cta_url)}
                 {render_secondary_links(secondary_links)}
               </td>
             </tr>
             <tr>
               <td style="padding:0 32px 28px;">
-                <div style="border-top:1px solid {COLORS["border"]};padding-top:18px;color:{COLORS["subtle"]};font-size:13px;line-height:1.7;">
-                  {footer_html}
-                </div>
+                {render_html_footer(
+                    support_email=support_email,
+                    support_note=support_note,
+                    footer_note=footer_note,
+                    dashboard_url=dashboard_url
+                )}
               </td>
             </tr>
           </table>
@@ -236,7 +255,8 @@ def build_plain_text_email(*, title, greeting="Hello,", intro="", paragraphs=Non
         lines.extend([str(body_text).strip(), ""])
     if str(cta_label or "").strip() and str(cta_url or "").strip():
         lines.extend([f"{cta_label}: {cta_url}", ""])
-    lines.append(support_note or f"Need help? Contact {SUPPORT_EMAIL}.")
+    lines.append(support_note or f"Need a hand? Contact {SUPPORT_EMAIL}.")
+    lines.append("You are receiving this email because you use DM Panda or recently interacted with your account settings, billing, or automation activity.")
     if footer_note:
         lines.append(footer_note)
     lines.append(BRAND_NAME)

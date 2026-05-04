@@ -188,7 +188,7 @@ const LoginPage: React.FC = () => {
             {hardBanMessage && (
               <div className="mb-4 rounded-xl border border-red-300 bg-red-100 px-4 py-3 text-left shadow-sm dark:border-red-500/40 dark:bg-red-950/40">
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-700 dark:text-red-300">Account Blocked</p>
-                <p className="mt-2 text-sm font-medium text-red-800 dark:text-red-200">{hardBanMessage}</p>
+                <p className="mt-2 break-words whitespace-pre-wrap text-sm font-medium leading-6 text-red-800 dark:text-red-200">{hardBanMessage}</p>
               </div>
             )}
             {error && <p className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-3 rounded-md mb-4">{error}</p>}

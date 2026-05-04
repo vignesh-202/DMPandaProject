@@ -416,7 +416,7 @@ class DMWorker {
     async _flushMetaApiActionUsage(tracker) {
         if (!tracker || tracker.flushed === true || !(tracker.counts instanceof Map)) return;
         tracker.flushed = true;
-        if (typeof this.appwrite.incrementActionUsage !== 'function') return;
+        if (!this.appwrite || typeof this.appwrite.incrementActionUsage !== 'function') return;
 
         for (const [userId, count] of tracker.counts.entries()) {
             const safeUserId = String(userId || '').trim();
@@ -428,13 +428,28 @@ class DMWorker {
         }
     }
 
+    _ensureMetaApiUsageTracker(tracker = null) {
+        const safeTracker = tracker && typeof tracker === 'object' ? tracker : {};
+        if (!(safeTracker.counts instanceof Map)) {
+            safeTracker.counts = new Map();
+        }
+        if (!(safeTracker.budgets instanceof Map)) {
+            safeTracker.budgets = new Map();
+        }
+        if (typeof safeTracker.flushed !== 'boolean') {
+            safeTracker.flushed = false;
+        }
+        return safeTracker;
+    }
+
     _createInstagramClient(accessToken, userId, tracker = null, profile = null) {
         const safeUserId = String(userId || '').trim();
-        this._initializeMetaApiBudget(tracker, safeUserId, profile);
+        const safeTracker = this._ensureMetaApiUsageTracker(tracker);
+        this._initializeMetaApiBudget(safeTracker, safeUserId, profile);
         return new InstagramAPI(accessToken, {
-            onBeforeRequest: async () => this._canConsumeMetaApiAction(tracker, safeUserId, 1),
+            onBeforeRequest: async () => this._canConsumeMetaApiAction(safeTracker, safeUserId, 1),
             onRequestComplete: async () => {
-                this._trackMetaApiAction(tracker, safeUserId);
+                this._trackMetaApiAction(safeTracker, safeUserId);
             }
         });
     }
@@ -467,7 +482,6 @@ class DMWorker {
                 actionLimitGate: { blocked: true, reason: 'execution_state_uncertain', stage: 'execution_state' }
             };
         }
-        const resolvedPlanCode = String(profile?.plan_code || profile?.__plan_code || 'free').trim().toLowerCase() || 'free';
         if (accessState?.ban_mode === 'hard' || accessState?.ban_mode === 'soft') {
             return {
                 accessState,
@@ -479,19 +493,53 @@ class DMWorker {
                 }
             };
         }
-        const actionLimitGate = this._getActionLimitGate(profile);
-        if (actionLimitGate.blocked) {
+        const accountExecutionAccess = typeof this.appwrite?.getAccountExecutionAccess === 'function'
+            ? await this.appwrite.getAccountExecutionAccess(userId, igAccount, profile)
+            : {
+                admin_active: String(igAccount?.admin_status || 'active').trim().toLowerCase() === 'active',
+                user_active: String(igAccount?.status || 'active').trim().toLowerCase() === 'active',
+                linked_active: String(igAccount?.admin_status || 'active').trim().toLowerCase() === 'active'
+                    && String(igAccount?.status || 'active').trim().toLowerCase() === 'active',
+                plan_locked: false,
+                effective_access: String(igAccount?.admin_status || 'active').trim().toLowerCase() === 'active'
+                    && String(igAccount?.status || 'active').trim().toLowerCase() === 'active',
+                access_reason: String(igAccount?.admin_status || 'active').trim().toLowerCase() !== 'active'
+                    ? 'admin_inactive'
+                    : (String(igAccount?.status || 'active').trim().toLowerCase() === 'active'
+                        ? null
+                        : (String(igAccount?.status || 'active').trim().toLowerCase() || 'inactive'))
+            };
+        if (!igAccount) {
             return {
                 accessState,
                 profile,
-                actionLimitGate
+                actionLimitGate: {
+                    blocked: true,
+                    reason: 'execution_state_uncertain',
+                    stage: 'account'
+                }
             };
         }
-        if (resolvedPlanCode === 'free') {
+        if (accountExecutionAccess.admin_active === false) {
             return {
                 accessState,
                 profile,
-                actionLimitGate
+                actionLimitGate: {
+                    blocked: true,
+                    reason: 'admin_inactive',
+                    stage: 'account_admin'
+                }
+            };
+        }
+        if (accountExecutionAccess.user_active === false) {
+            return {
+                accessState,
+                profile,
+                actionLimitGate: {
+                    blocked: true,
+                    reason: 'inactive',
+                    stage: 'account_user'
+                }
             };
         }
         if (accessState?.kill_switch_enabled === false) {
@@ -505,21 +553,33 @@ class DMWorker {
                 }
             };
         }
-        if (!igAccount || igAccount.effective_access !== true) {
+        if (accountExecutionAccess.plan_locked) {
             return {
                 accessState,
                 profile,
                 actionLimitGate: {
                     blocked: true,
-                    reason: igAccount ? (igAccount.access_reason || 'account_access_blocked') : 'execution_state_uncertain',
-                    stage: 'automation_active'
+                    reason: 'plan_locked',
+                    stage: 'plan'
                 }
+            };
+        }
+        const actionLimitGate = this._getActionLimitGate(profile);
+        if (actionLimitGate.blocked) {
+            return {
+                accessState,
+                profile,
+                actionLimitGate
             };
         }
         return {
             accessState,
             profile,
-            actionLimitGate
+            actionLimitGate: {
+                blocked: false,
+                reason: null,
+                stage: null
+            }
         };
     }
 
@@ -528,15 +588,21 @@ class DMWorker {
             ? options.logContext
             : null;
         const renderedTemplate = TemplateRenderer.render(template, context);
+        if (String(renderedTemplate?.type || template?.type || '').trim() === 'template_share_post') {
+            renderedTemplate.payload = await this._resolveSharePostPayload(instagram, renderedTemplate.payload);
+            if (!renderedTemplate.payload?.media_id) {
+                renderedTemplate.type = 'template_text';
+            }
+        }
         const watermarkPlan = planWatermark({
-            templateType: template.type,
+            templateType: renderedTemplate.type,
             payload: renderedTemplate.payload,
             policy: watermarkPolicy
         });
 
         const success = await instagram.sendMessage(
             senderId,
-            template.type,
+            renderedTemplate.type,
             watermarkPlan.primaryPayload
         );
         if (logContext?.accountId) {
@@ -549,8 +615,8 @@ class DMWorker {
                 eventType: logContext.eventType || 'message',
                 source: logContext.source || 'worker_node',
                 message: success
-                    ? `Sent ${String(template?.type || 'template').trim() || 'template'} reply`
-                    : `Failed to send ${String(template?.type || 'template').trim() || 'template'} reply`,
+                    ? `Sent ${String(renderedTemplate?.type || 'template').trim() || 'template'} reply`
+                    : `Failed to send ${String(renderedTemplate?.type || 'template').trim() || 'template'} reply`,
                 payload: watermarkPlan.primaryPayload,
                 status: success ? 'success' : 'failed'
             });
@@ -607,6 +673,60 @@ class DMWorker {
             watermarkPolicy,
             options
         );
+    }
+
+    _isReelMedia(item = {}) {
+        const productType = String(item?.media_product_type || '').trim().toUpperCase();
+        if (productType === 'REELS') return true;
+        const mediaType = String(item?.media_type || '').trim().toUpperCase();
+        return mediaType === 'VIDEO';
+    }
+
+    async _resolveSharePostPayload(instagram, payload = {}) {
+        const normalizedPayload = payload && typeof payload === 'object'
+            ? { ...payload }
+            : {};
+        const explicitMediaId = String(normalizedPayload.media_id || normalizedPayload.post_id || '').trim();
+        if (explicitMediaId) {
+            normalizedPayload.media_id = explicitMediaId;
+            return normalizedPayload;
+        }
+
+        if (normalizedPayload.use_latest_post === true && typeof instagram?.getRecentMedia === 'function') {
+            const latestTargetType = String(normalizedPayload.latest_post_type || 'post').trim().toLowerCase() === 'reel'
+                ? 'reel'
+                : 'post';
+            const recentMedia = await instagram.getRecentMedia(8);
+            const matchedMedia = recentMedia.find((item) => {
+                const isReel = this._isReelMedia(item);
+                return latestTargetType === 'reel' ? isReel : !isReel;
+            });
+
+            if (matchedMedia?.id) {
+                normalizedPayload.media_id = String(matchedMedia.id).trim();
+                normalizedPayload.media_url = String(
+                    matchedMedia.media_url || matchedMedia.thumbnail_url || normalizedPayload.media_url || ''
+                ).trim();
+                normalizedPayload.linked_media_url = String(
+                    matchedMedia.media_url || matchedMedia.thumbnail_url || normalizedPayload.linked_media_url || ''
+                ).trim();
+                normalizedPayload.permalink = String(matchedMedia.permalink || normalizedPayload.permalink || '').trim();
+                normalizedPayload.caption = String(matchedMedia.caption || normalizedPayload.caption || '').trim();
+                return normalizedPayload;
+            }
+        }
+
+        const fallbackUrl = String(
+            normalizedPayload.permalink
+            || normalizedPayload.linked_media_url
+            || normalizedPayload.media_url
+            || ''
+        ).trim();
+        const fallbackCaption = String(normalizedPayload.caption || '').trim();
+        return {
+            text: [fallbackCaption, fallbackUrl].filter(Boolean).join('\n\n').trim() || 'Open this Instagram post.',
+            url: fallbackUrl
+        };
     }
 
     async _maybeSendSeenTypingPrelude(instagram, senderId, automation, chainState = null) {
@@ -1424,6 +1544,17 @@ class DMWorker {
                 lastAutomationType = 'invalid_due_to_plan';
                 continue;
             }
+            const creditGate = this._getActionLimitGate(profile);
+            if (creditGate.blocked) {
+                this._logAutomationDecision('comment', {
+                    user_id: igAccount.user_id,
+                    account_id: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
+                    gate_stage: creditGate.stage,
+                    reason: creditGate.reason,
+                    ban_mode: accessState?.ban_mode || 'none'
+                });
+                return { handled: false, automationType: creditGate.reason };
+            }
 
             if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
                 continue;
@@ -1596,6 +1727,17 @@ class DMWorker {
                 eventType: 'mention_feature_locked'
             });
             return { handled: false, automationType: 'invalid_due_to_plan' };
+        }
+        const creditGate = this._getActionLimitGate(profile);
+        if (creditGate.blocked) {
+            this._logAutomationDecision('mention', {
+                user_id: igAccount.user_id,
+                account_id: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
+                gate_stage: creditGate.stage,
+                reason: creditGate.reason,
+                ban_mode: accessState?.ban_mode || 'none'
+            });
+            return { handled: false, automationType: creditGate.reason };
         }
         if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(conversationState, matchedAutomation.$id)) {
             return { handled: true, automationType };
@@ -1862,6 +2004,20 @@ class DMWorker {
                 return {
                     handled: false,
                     automationType: 'invalid_due_to_plan'
+                };
+            }
+            const creditGate = this._getActionLimitGate(profile);
+            if (creditGate.blocked) {
+                this._logAutomationDecision('dm', {
+                    user_id: igAccount.user_id,
+                    account_id: igAccount.$id || igAccount.account_id || igAccount.ig_user_id || null,
+                    gate_stage: creditGate.stage,
+                    reason: creditGate.reason,
+                    ban_mode: accessState?.ban_mode || 'none'
+                });
+                return {
+                    handled: false,
+                    automationType: creditGate.reason
                 };
             }
 

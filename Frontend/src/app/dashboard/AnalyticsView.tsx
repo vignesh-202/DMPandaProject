@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Loader2, RefreshCw, Clock3, UserCircle2, ChevronDown } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import Card from '../../components/ui/card';
@@ -47,6 +47,14 @@ const formatDateTime = (raw: string): string => {
     const dt = new Date(raw);
     if (Number.isNaN(dt.getTime())) return '-';
     return dt.toLocaleString();
+};
+
+const escapeCsvValue = (value: unknown): string => {
+    const text = String(value ?? '');
+    if (/[",\n]/.test(text)) {
+        return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
 };
 
 const clampPercent = (value: number): number => Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
@@ -127,10 +135,22 @@ const GraphFilterDropdown = ({
     onChange: (next: AnalyticsWindowPreset) => void;
 }) => {
     const [open, setOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement | null>(null);
     const selected = TRAFFIC_WINDOW_OPTIONS.find((option) => option.value === value) || TRAFFIC_WINDOW_OPTIONS[0];
 
+    useEffect(() => {
+        const handlePointerDown = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handlePointerDown);
+        return () => document.removeEventListener('mousedown', handlePointerDown);
+    }, []);
+
     return (
-        <div className="relative min-w-[198px]">
+        <div ref={dropdownRef} className="relative min-w-[198px]">
             <button
                 type="button"
                 onClick={() => setOpen((current) => !current)}
@@ -479,6 +499,7 @@ const AnalyticsView: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [pieProgress, setPieProgress] = useState(0);
     const [selectedWindowPreset, setSelectedWindowPreset] = useState<AnalyticsWindowPreset>('30d');
+    const hasLoadedOnceRef = useRef(false);
     const analyticsCacheKey = useMemo(
         () => `${String(activeAccountID || 'none')}:${analyticsDateRange.start}:${analyticsDateRange.end}:activity-log`,
         [activeAccountID, analyticsDateRange.end, analyticsDateRange.start]
@@ -615,13 +636,17 @@ const AnalyticsView: React.FC = () => {
         } catch (err: any) {
             setError(String(err?.message || 'Failed to load analytics.'));
         } finally {
-            if (mode === 'initial') setInitialLoading(false);
-            else setRefreshingAll(false);
+            if (mode === 'initial') {
+                setInitialLoading(false);
+                hasLoadedOnceRef.current = true;
+            } else {
+                setRefreshingAll(false);
+            }
         }
     }, [fetchActionUsageMetrics, fetchLogs]);
 
     useEffect(() => {
-        fetchAll('initial');
+        void fetchAll(hasLoadedOnceRef.current ? 'refresh' : 'initial');
     }, [fetchAll]);
 
     useEffect(() => {
@@ -873,25 +898,25 @@ const AnalyticsView: React.FC = () => {
     }, [visibleLogs]);
 
     const handleDownloadCsv = useCallback(async () => {
-        if (!activeAccountID) return;
+        if (!activeAccountID || visibleLogs.length === 0) return;
         setDownloadingCsv(true);
         setError(null);
         try {
-            const params = new URLSearchParams({
-                account_id: String(activeAccountID),
-                start_date: analyticsDateRange.start,
-                end_date: analyticsDateRange.end,
-                limit: '5000'
-            });
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automation-activity-log/csv?${params.toString()}`);
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body?.error || 'Failed to export automation activity log CSV.');
-            }
-            const blob = await res.blob();
+            const header = ['Sent At', 'Event Type', 'Automation Type', 'Status', 'Recipient ID', 'Message', 'Error Reason'];
+            const rows = visibleLogs.map((row) => ([
+                row.sent_at || row.created_at || '',
+                row.event_type || '',
+                row.automation_type || '',
+                row.status || '',
+                row.recipient_id || '',
+                row.message || '',
+                row.error_reason || ''
+            ].map(escapeCsvValue).join(',')));
+            const csv = [header.join(','), ...rows].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
-            const fileName = `automation_activity_log_${activeAccountID}_${analyticsDateRange.start}_${analyticsDateRange.end}.csv`;
+            const fileName = `automation_activity_log_${activeAccountID}_${selectedWindowPreset}_${analyticsDateRange.start}_${analyticsDateRange.end}.csv`;
             link.href = url;
             link.download = fileName;
             document.body.appendChild(link);
@@ -903,7 +928,7 @@ const AnalyticsView: React.FC = () => {
         } finally {
             setDownloadingCsv(false);
         }
-    }, [activeAccountID, analyticsDateRange.end, analyticsDateRange.start, authenticatedFetch]);
+    }, [activeAccountID, analyticsDateRange.end, analyticsDateRange.start, selectedWindowPreset, visibleLogs]);
 
     if (!activeAccountID) {
         return (
@@ -915,7 +940,7 @@ const AnalyticsView: React.FC = () => {
         );
     }
 
-    if (initialLoading || (loadingLogs && !logs.length)) {
+    if ((initialLoading && !hasLoadedOnceRef.current) || (loadingLogs && !logs.length && !hasLoadedOnceRef.current)) {
         return (
             <LoadingOverlay
                 variant="fullscreen"
@@ -1084,7 +1109,7 @@ const AnalyticsView: React.FC = () => {
                             </div>
                             <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-wider">
                                 <span className="rounded-full border border-content bg-card/80 px-2.5 py-1 text-muted-foreground">
-                                    Total: {formatNumber(metrics.total)}
+                                    Filtered total: {formatNumber(metrics.total)}
                                 </span>
                                 <span className="rounded-full border border-green-500/40 bg-green-500/10 px-2.5 py-1 text-green-700 dark:text-green-300">
                                     Success: {formatNumber(metrics.success)}
