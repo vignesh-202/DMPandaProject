@@ -427,7 +427,7 @@ export const AnalyticsPage: React.FC = () => {
                 </div>
             )}
 
-            <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {metricCards.map((item) => (
                     <MetricCard
                         key={item.label}

@@ -1149,7 +1149,7 @@ export default function ReplyTemplatesView() {
             return (
               <div
                 key={t.id}
-                className={`bg-card rounded-2xl border-2 border-border hover:border-primary transition-all shadow-sm hover:shadow-xl group ${viewMode === 'list' ? 'p-4 flex items-center gap-4' : 'p-6'
+                className={`bg-card rounded-2xl border-2 border-border hover:border-primary transition-all shadow-sm hover:shadow-xl group ${viewMode === 'list' ? 'p-4 flex flex-col sm:flex-row sm:items-center gap-4' : 'p-6'
                   }`}
               >
                 {viewMode === 'list' ? (

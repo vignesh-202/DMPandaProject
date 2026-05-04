@@ -548,9 +548,9 @@ const GlobalTriggersView: React.FC = () => {
                                                 </div>
                                             </div>
                                         )}
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-6">
-                                                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                            <div className="flex items-center gap-4 sm:gap-6">
+                                                <div className="w-16 h-16 shrink-0 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                                                     {t === 'template_text' && <FileText className="w-7 h-7" />}
                                                     {t === 'template_carousel' && <Smartphone className="w-7 h-7" />}
                                                     {t === 'template_buttons' && <MousePointerClick className="w-7 h-7" />}
@@ -593,7 +593,7 @@ const GlobalTriggersView: React.FC = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-3 shrink-0">
                                                 <button
                                                     onClick={() => void handleEdit(trigger)}
                                                     className="p-3 bg-muted/40 text-muted-foreground hover:text-primary rounded-xl transition-all"

@@ -237,7 +237,7 @@ export const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
                             <p className="text-[10px] font-black text-muted-foreground">30 day revenue</p>
                             <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenueLast30Days)}</p>

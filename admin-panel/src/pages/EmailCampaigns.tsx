@@ -337,7 +337,7 @@ export const EmailCampaignsPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {topMetrics.map(([label, value]) => (
           <div key={String(label)} className={`${surfaceClass} p-5`}>
             <p className="text-[10px] font-black text-muted-foreground">{label}</p>

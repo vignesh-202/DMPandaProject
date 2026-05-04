@@ -2020,7 +2020,7 @@ const InboxMenu: React.FC = () => {
                             </div>
 
                             {/* Real-time Preview Section - Desktop only, sticky on xl */}
-                            <AutomationPreviewPanel>
+                            <AutomationPreviewPanel showMobileTrigger={false}>
                                 <SharedMobilePreview
                                     mode="menu"
                                     items={(isEditing ? editingMenu : currentDisplayMenu) as any}

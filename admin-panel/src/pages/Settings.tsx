@@ -79,7 +79,7 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             <div className="glass-card rounded-[32px] p-6 shadow-sm space-y-6">
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
                         <p className="text-sm font-semibold text-muted-foreground">Watermark policy</p>
                         <h2 className="mt-2 text-xl font-extrabold text-foreground">Global watermark enforcement</h2>
