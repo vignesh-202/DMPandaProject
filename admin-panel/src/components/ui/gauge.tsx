@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { cn } from '../../lib/utils';
 
 interface GaugeProps {
@@ -12,8 +12,31 @@ interface GaugeProps {
   className?: string;
 }
 
-// Global sync state for coordinated animations
-const syncState: { [key: string]: { startTime: number; animating: boolean } } = {};
+// Global sync state for coordinated intro animations
+const syncState: Record<string, { startTime: number; expiresAt: number; active: boolean }> = {};
+
+const INTRO_DURATION_MS = 2400;
+const VALUE_UPDATE_DURATION_MS = 700;
+const VISIBILITY_THRESHOLD = 0.35;
+
+const easeInOutCubic = (progress: number): number => {
+  if (progress <= 0.5) {
+    return 4 * progress * progress * progress;
+  }
+  return 1 - Math.pow(-2 * progress + 2, 3) / 2;
+};
+
+const getIntroPercent = (progress: number, targetPercent: number): number => {
+  if (progress <= 0.4) {
+    return easeInOutCubic(progress / 0.4) * 100;
+  }
+
+  if (progress <= 0.78) {
+    return (1 - easeInOutCubic((progress - 0.4) / 0.38)) * 100;
+  }
+
+  return easeInOutCubic((progress - 0.78) / 0.22) * targetPercent;
+};
 
 const Gauge: React.FC<GaugeProps> = ({
   value,
@@ -26,47 +49,138 @@ const Gauge: React.FC<GaugeProps> = ({
   className
 }) => {
   const [animatedPercent, setAnimatedPercent] = useState(0);
-  const requestRef = useRef<number>(0);
-  const mountedRef = useRef(true);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const requestRef = useRef<number | null>(null);
+  const mountedRef = useRef(false);
+  const currentPercentRef = useRef(0);
+  const introPlayedRef = useRef(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const prefersReducedMotion = useRef(false);
+  const id = useId();
 
   // Normalize target value
   const targetValue = Math.min(Math.max(value, 0), max);
   const targetPercent = max > 0 ? (targetValue / max) * 100 : 0;
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     mountedRef.current = true;
-    const duration = 1500;
-    const syncKey = syncId || 'default';
-
-    if (!syncState[syncKey] || !syncState[syncKey].animating) {
-      syncState[syncKey] = { startTime: performance.now(), animating: true };
+    if (typeof window !== 'undefined') {
+      prefersReducedMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
-    const startTime = syncState[syncKey].startTime;
 
-    const animate = (now: number) => {
-      if (!mountedRef.current) return;
-      const elapsed = now - startTime;
-
-      if (elapsed < duration) {
-        const progress = elapsed / duration;
-        // Cubic ease out
-        const eased = 1 - Math.pow(1 - progress, 3);
-        const newPercent = eased * targetPercent;
-        // Update state on every frame - useLayoutEffect ensures synchronous updates
-        setAnimatedPercent(newPercent);
-        requestRef.current = requestAnimationFrame(animate);
-      } else {
-        setAnimatedPercent(targetPercent);
-        if (syncState[syncKey]) syncState[syncKey].animating = false;
-      }
-    };
-
-    requestRef.current = requestAnimationFrame(animate);
     return () => {
       mountedRef.current = false;
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      if (requestRef.current !== null) {
+        cancelAnimationFrame(requestRef.current);
+      }
     };
-  }, [targetPercent, syncId]);
+  }, []);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting && entry.intersectionRatio >= VISIBILITY_THRESHOLD);
+      },
+      {
+        threshold: [0, VISIBILITY_THRESHOLD, 0.6],
+      }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    currentPercentRef.current = animatedPercent;
+  }, [animatedPercent]);
+
+  useEffect(() => {
+    if (!mountedRef.current || !isVisible) return;
+
+    if (requestRef.current !== null) {
+      cancelAnimationFrame(requestRef.current);
+      requestRef.current = null;
+    }
+
+    if (prefersReducedMotion.current) {
+      introPlayedRef.current = true;
+      currentPercentRef.current = targetPercent;
+      setAnimatedPercent(targetPercent);
+      return;
+    }
+
+    const animateBetween = (from: number, to: number, duration: number) => {
+      const startTime = performance.now();
+
+      const step = (now: number) => {
+        if (!mountedRef.current) return;
+
+        const progress = Math.min((now - startTime) / duration, 1);
+        const nextPercent = from + ((to - from) * easeInOutCubic(progress));
+        currentPercentRef.current = nextPercent;
+        setAnimatedPercent(nextPercent);
+
+        if (progress < 1) {
+          requestRef.current = requestAnimationFrame(step);
+          return;
+        }
+
+        requestRef.current = null;
+      };
+
+      requestRef.current = requestAnimationFrame(step);
+    };
+
+    if (!introPlayedRef.current) {
+      const syncKey = syncId || `gauge-${id}`;
+      const now = performance.now();
+      const existing = syncState[syncKey];
+      const shouldStartNewSequence = !existing || !existing.active || existing.expiresAt <= now;
+
+      if (shouldStartNewSequence) {
+        syncState[syncKey] = {
+          startTime: now,
+          expiresAt: now + INTRO_DURATION_MS + 250,
+          active: true,
+        };
+      }
+
+      const startTime = syncState[syncKey].startTime;
+
+      const step = (frameNow: number) => {
+        if (!mountedRef.current) return;
+
+        const progress = Math.min((frameNow - startTime) / INTRO_DURATION_MS, 1);
+        const nextPercent = getIntroPercent(progress, targetPercent);
+        currentPercentRef.current = nextPercent;
+        setAnimatedPercent(nextPercent);
+
+        if (progress < 1) {
+          requestRef.current = requestAnimationFrame(step);
+          return;
+        }
+
+        introPlayedRef.current = true;
+        currentPercentRef.current = targetPercent;
+        setAnimatedPercent(targetPercent);
+        requestRef.current = null;
+
+        if (syncState[syncKey] && syncState[syncKey].startTime === startTime) {
+          syncState[syncKey].active = false;
+        }
+      };
+
+      requestRef.current = requestAnimationFrame(step);
+      return;
+    }
+
+    if (Math.abs(currentPercentRef.current - targetPercent) > 0.05) {
+      animateBetween(currentPercentRef.current, targetPercent, VALUE_UPDATE_DURATION_MS);
+    }
+  }, [id, isVisible, syncId, targetPercent]);
 
   // Size configurations
   const sizes = {
@@ -149,33 +263,25 @@ const Gauge: React.FC<GaugeProps> = ({
   
   // Ensure percent ranges matching activity are valid for any other logic if needed.
   
+  const quietPathId = `${id}-quiet`;
+  const activePathId = `${id}-active`;
+  const busyPathId = `${id}-busy`;
+  const peakPathId = `${id}-peak`;
+  const igGlowId = `${id}-ig-glow`;
+
   return (
-    <div className={cn(`gauge-legacy flex flex-col items-center justify-center mx-auto select-none ${s.container}`, className)}>
+    <div ref={containerRef} className={cn(`gauge-legacy flex flex-col items-center justify-center mx-auto select-none ${s.container}`, className)}>
       <div className="relative w-full aspect-square">
         <svg viewBox="0 0 200 180" className="w-full h-full overflow-visible">
           <defs>
             {/* Curved paths for text labels */}
-            <path id="pathQuiet" d={createArcPath(-210, -165, radius + 15)} fill="none" />
-            <path id="pathActive" d={createArcPath(-155, -100, radius + 15)} fill="none" />
-            <path id="pathBusy" d={createArcPath(-80, -25, radius + 15)} fill="none" />
-            <path id="pathPeak" d={createArcPath(-15, 35, radius + 15)} fill="none" />
-
-            <filter id="needleGlow">
-              <feGaussianBlur stdDeviation="2" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-
-            {/* Instagram Gradient for progress */}
-            <linearGradient id="igGaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#405DE6" />
-              <stop offset="25%" stopColor="#833AB4" />
-              <stop offset="50%" stopColor="#FD1D1D" />
-              <stop offset="75%" stopColor="#F56040" />
-              <stop offset="100%" stopColor="#FCAF45" />
-            </linearGradient>
+            <path id={quietPathId} d={createArcPath(-210, -165, radius + 15)} fill="none" />
+            <path id={activePathId} d={createArcPath(-155, -100, radius + 15)} fill="none" />
+            <path id={busyPathId} d={createArcPath(-80, -25, radius + 15)} fill="none" />
+            <path id={peakPathId} d={createArcPath(-15, 35, radius + 15)} fill="none" />
             
             {/* Glow filter for Instagram effect */}
-            <filter id="igGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <filter id={igGlowId} x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
               <feMerge>
                 <feMergeNode in="coloredBlur"/>
@@ -238,16 +344,16 @@ const Gauge: React.FC<GaugeProps> = ({
 
           {/* Labels - Activity colors, hidden on small viewports to prevent overlap with value number */}
           <text fill="#22c55e" fontSize="6" fontWeight="700" letterSpacing="0.02em" className="opacity-80 [@media(max-width:360px)]:hidden">
-            <textPath href="#pathQuiet" startOffset="50%" textAnchor="middle">QUIET</textPath>
+            <textPath href={`#${quietPathId}`} startOffset="50%" textAnchor="middle">QUIET</textPath>
           </text>
           <text fill="#eab308" fontSize="6" fontWeight="700" letterSpacing="0.05em" className="opacity-80 [@media(max-width:360px)]:hidden">
-            <textPath href="#pathActive" startOffset="50%" textAnchor="middle">ACTIVE</textPath>
+            <textPath href={`#${activePathId}`} startOffset="50%" textAnchor="middle">ACTIVE</textPath>
           </text>
           <text fill="#f97316" fontSize="6" fontWeight="700" letterSpacing="0.05em" className="opacity-80 [@media(max-width:360px)]:hidden">
-            <textPath href="#pathBusy" startOffset="50%" textAnchor="middle">BUSY</textPath>
+            <textPath href={`#${busyPathId}`} startOffset="50%" textAnchor="middle">BUSY</textPath>
           </text>
           <text fill="#ef4444" fontSize="6" fontWeight="700" letterSpacing="0.02em" className="opacity-80 [@media(max-width:360px)]:hidden">
-            <textPath href="#pathPeak" startOffset="50%" textAnchor="middle">PEAK</textPath>
+            <textPath href={`#${peakPathId}`} startOffset="50%" textAnchor="middle">PEAK</textPath>
           </text>
 
           {/* Main Gray Background Arc */}
@@ -286,7 +392,7 @@ const Gauge: React.FC<GaugeProps> = ({
 
           {/* Needle - Enhanced with Instagram glow */}
           {showNeedle && (
-            <g filter="url(#igGlow)">
+            <g filter={`url(#${igGlowId})`}>
               <line
                 x1={center} y1={center}
                 x2={needlePos.x} y2={needlePos.y}

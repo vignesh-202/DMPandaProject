@@ -52,6 +52,8 @@ interface PricingPlanOption {
     actions_per_hour_limit?: number;
     actions_per_day_limit?: number;
     actions_per_month_limit?: number;
+    entitlements?: Record<string, boolean>;
+    benefits?: Array<{ key: string; enabled: boolean }>;
 }
 
 const getMinDateTimeInputValue = () => {
@@ -78,6 +80,17 @@ const describeFreePlanMode = (planCode?: string | null, expiryDate?: string | nu
 };
 
 const normalizePlanIdentifier = (value: unknown): string => String(value || '').trim().toLowerCase();
+const resolveNoWatermarkFromPlan = (plan?: PricingPlanOption | null): boolean => {
+    if (!plan) return false;
+    if (plan.entitlements && typeof plan.entitlements === 'object') {
+        return plan.entitlements.no_watermark === true;
+    }
+    if (Array.isArray(plan.benefits)) {
+        const benefit = plan.benefits.find((item) => String(item?.key || '').trim().toLowerCase() === 'no_watermark');
+        if (benefit) return benefit.enabled === true;
+    }
+    return false;
+};
 
 const LIMIT_FIELDS = [
     'instagram_connections_limit',
@@ -86,14 +99,14 @@ const LIMIT_FIELDS = [
     'monthly_action_limit'
 ] as const;
 type LimitField = (typeof LIMIT_FIELDS)[number];
-type PopupSectionKey = 'assignPlan' | 'limits' | 'instagram' | 'ban' | 'danger';
+type PopupSectionKey = 'planSettings' | 'instagram' | 'ban' | 'danger';
+type ResetActionState = 'resetPlan' | 'restoreLimits' | null;
 
 const toComparableValue = (value: unknown) => String(value ?? '').trim();
 
 const surfaceClass = 'glass-card rounded-[32px] border border-border/80 bg-card/95 shadow-sm';
 const DEFAULT_POPUP_SECTION_STATE: Record<PopupSectionKey, boolean> = {
-    assignPlan: false,
-    limits: false,
+    planSettings: false,
     instagram: false,
     ban: false,
     danger: false
@@ -130,16 +143,10 @@ export const UsersPage: React.FC = () => {
     const [detailData, setDetailData] = useState<any>(null);
     const [profilePatch, setProfilePatch] = useState<any>({});
     const [lastSyncedProfilePatch, setLastSyncedProfilePatch] = useState<any | null>(null);
-    const [limitDirtyFields, setLimitDirtyFields] = useState<Record<LimitField, boolean>>({
-        instagram_connections_limit: false,
-        hourly_action_limit: false,
-        daily_action_limit: false,
-        monthly_action_limit: false
-    });
-    const [planAutofillNotice, setPlanAutofillNotice] = useState<string | null>(null);
     const [banMode, setBanMode] = useState<'none' | 'soft' | 'hard'>('none');
     const [banReason, setBanReason] = useState('');
     const [saving, setSaving] = useState(false);
+    const [resetActionLoading, setResetActionLoading] = useState<ResetActionState>(null);
     const [planTermMode, setPlanTermMode] = useState<'monthly' | 'yearly' | 'custom'>('monthly');
     const [accountToggleLoadingId, setAccountToggleLoadingId] = useState<string | null>(null);
     const [openingDashboard, setOpeningDashboard] = useState(false);
@@ -229,7 +236,7 @@ export const UsersPage: React.FC = () => {
                 hourly_action_limit: resolveNumericField(profile.hourly_action_limit, response.data?.effective_limits?.hourly_action_limit),
                 daily_action_limit: resolveNumericField(profile.daily_action_limit, response.data?.effective_limits?.daily_action_limit),
                 monthly_action_limit: resolveNumericField(profile.monthly_action_limit, response.data?.effective_limits?.monthly_action_limit),
-                no_watermark: profile.no_watermark === true,
+                no_watermark: resolveNoWatermarkValue(response.data),
                 plan_code: profile.plan_code || response.data?.effective_plan?.plan_code || 'free',
                 duration_mode: resolvedTermMode,
                 custom_expiry_date: profile.expiry_date ? String(profile.expiry_date).slice(0, 16) : '',
@@ -238,13 +245,6 @@ export const UsersPage: React.FC = () => {
             setProfilePatch(nextPatch);
             setPlanTermMode(resolvedTermMode);
             setLastSyncedProfilePatch(buildTrackedSnapshot(nextPatch, resolvedTermMode));
-            setLimitDirtyFields({
-                instagram_connections_limit: false,
-                hourly_action_limit: false,
-                daily_action_limit: false,
-                monthly_action_limit: false
-            });
-            setPlanAutofillNotice(null);
             setBanMode(String(response.data?.user?.ban_mode || 'none') as 'none' | 'soft' | 'hard');
             setBanReason(response.data?.user?.ban_reason || '');
         } catch (error) {
@@ -337,8 +337,22 @@ export const UsersPage: React.FC = () => {
                 selectedPlan.actions_per_month_limit,
                 (selectedPlan as any).monthly_action_limit,
                 0
-            )
+            ),
+            no_watermark: resolveNoWatermarkFromPlan(selectedPlan)
         };
+    };
+
+    const resolveNoWatermarkValue = (payload: any) => {
+        const effectiveEntitlements = payload?.effective_entitlements || {};
+        const effectiveLimits = payload?.effective_limits || {};
+        const responseProfile = payload?.profile || {};
+        if (effectiveEntitlements?.no_watermark !== undefined) {
+            return effectiveEntitlements.no_watermark === true;
+        }
+        if (effectiveLimits?.no_watermark !== undefined) {
+            return effectiveLimits.no_watermark === true;
+        }
+        return responseProfile?.no_watermark === true;
     };
 
     const buildSyncedProfilePatch = (payload: any): any => {
@@ -370,7 +384,7 @@ export const UsersPage: React.FC = () => {
                 detailData?.profile?.monthly_action_limit,
                 profilePatch?.monthly_action_limit
             ),
-            no_watermark: responseProfile?.no_watermark === true,
+            no_watermark: resolveNoWatermarkValue(payload),
             plan_code: resolvePlanOptionValue(
                 responseProfile?.plan_code
                 || payload?.effective_plan?.plan_code
@@ -416,53 +430,41 @@ export const UsersPage: React.FC = () => {
 
     const handlePlanSelect = (nextPlanCode: string) => {
         const defaults = getPlanDefaults(nextPlanCode);
-        setProfilePatch((prev: any) => {
-            const next = { ...prev, plan_code: resolvePlanOptionValue(nextPlanCode) };
-            if (!defaults) return next;
-            let preserved = false;
-            LIMIT_FIELDS.forEach((field) => {
-                if (limitDirtyFields[field]) {
-                    preserved = true;
-                    return;
-                }
-                next[field] = defaults[field];
-            });
-            setPlanAutofillNotice(preserved ? 'Some manually edited limits were preserved. Use "Restore Default Limits" to fully apply plan defaults.' : null);
-            return next;
-        });
+        setProfilePatch((prev: any) => ({
+            ...prev,
+            plan_code: resolvePlanOptionValue(nextPlanCode),
+            instagram_connections_limit: defaults?.instagram_connections_limit ?? prev.instagram_connections_limit,
+            hourly_action_limit: defaults?.hourly_action_limit ?? prev.hourly_action_limit,
+            daily_action_limit: defaults?.daily_action_limit ?? prev.daily_action_limit,
+            monthly_action_limit: defaults?.monthly_action_limit ?? prev.monthly_action_limit,
+            no_watermark: defaults?.no_watermark ?? prev.no_watermark
+        }));
     };
 
     const handleLimitChange = (key: LimitField, value: string) => {
         setProfilePatch((prev: any) => ({ ...prev, [key]: value }));
-        setLimitDirtyFields((prev) => ({ ...prev, [key]: true }));
     };
 
-    const restoreDefaultLimits = () => {
+    const restoreDefaultLimits = async () => {
         const defaults = getPlanDefaults(profilePatch.plan_code || 'free');
         if (!defaults) {
             setErrorMessage('Selected plan defaults are not available.');
             return;
         }
+        setResetActionLoading('restoreLimits');
         setProfilePatch((prev: any) => ({
             ...prev,
             ...defaults
         }));
-        setLimitDirtyFields({
-            instagram_connections_limit: false,
-            hourly_action_limit: false,
-            daily_action_limit: false,
-            monthly_action_limit: false
-        });
-        setPlanAutofillNotice(null);
         setNotice('Default limits restored for selected plan.');
+        await new Promise((resolve) => window.setTimeout(resolve, 300));
+        setResetActionLoading(null);
     };
 
     const submitPlanAndLimits = async () => {
         if (!selectedUser) return;
         const rollbackPatch = { ...profilePatch };
         const rollbackTermMode = planTermMode;
-        const rollbackDirtyFlags = { ...limitDirtyFields };
-        const rollbackNotice = planAutofillNotice;
         setSaving(true);
         setErrorMessage(null);
         try {
@@ -485,13 +487,6 @@ export const UsersPage: React.FC = () => {
             setProfilePatch(syncedPatch);
             setLastSyncedProfilePatch(buildTrackedSnapshot(syncedPatch, syncedTermMode));
             setPlanTermMode(syncedTermMode);
-            setLimitDirtyFields({
-                instagram_connections_limit: false,
-                hourly_action_limit: false,
-                daily_action_limit: false,
-                monthly_action_limit: false
-            });
-            setPlanAutofillNotice(null);
             setUsers((prev) => prev.map((entry) => entry.$id === selectedUser.$id ? {
                 ...entry,
                 ban_mode: result?.user?.ban_mode ?? entry.ban_mode,
@@ -504,8 +499,6 @@ export const UsersPage: React.FC = () => {
             console.error('Failed to update plan and limits:', error);
             setProfilePatch(rollbackPatch);
             setPlanTermMode(rollbackTermMode);
-            setLimitDirtyFields(rollbackDirtyFlags);
-            setPlanAutofillNotice(rollbackNotice);
             setErrorMessage(error?.response?.data?.error || 'Failed to save plan and limits.');
         } finally {
             setSaving(false);
@@ -514,6 +507,7 @@ export const UsersPage: React.FC = () => {
 
     const resetToDefaultPlan = async () => {
         if (!selectedUser) return;
+        setResetActionLoading('resetPlan');
         setSaving(true);
         setErrorMessage(null);
         try {
@@ -526,12 +520,6 @@ export const UsersPage: React.FC = () => {
                 setProfilePatch(syncedPatch);
                 setPlanTermMode(syncedTermMode);
                 setLastSyncedProfilePatch(buildTrackedSnapshot(syncedPatch, syncedTermMode));
-                setLimitDirtyFields({
-                    instagram_connections_limit: false,
-                    hourly_action_limit: false,
-                    daily_action_limit: false,
-                    monthly_action_limit: false
-                });
                 setUsers((prev) => prev.map((entry) => entry.$id === selectedUser.$id ? {
                     ...entry,
                     linked_instagram_accounts: Number(result?.total_linked_accounts ?? entry.linked_instagram_accounts ?? 0),
@@ -544,6 +532,7 @@ export const UsersPage: React.FC = () => {
             console.error('Failed to reset plan:', error);
             setErrorMessage(error?.response?.data?.error || 'Failed to reset plan.');
         } finally {
+            setResetActionLoading(null);
             setSaving(false);
         }
     };
@@ -958,21 +947,21 @@ export const UsersPage: React.FC = () => {
                                 <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
                                     <button
                                         type="button"
-                                        onClick={() => togglePopupSection('assignPlan')}
+                                        onClick={() => togglePopupSection('planSettings')}
                                         className="flex w-full items-start justify-between gap-3 text-left"
                                     >
                                         <div>
-                                            <h3 className="text-sm font-bold text-foreground">Assign plan</h3>
+                                            <h3 className="text-sm font-bold text-foreground">Plan & limits</h3>
                                             <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
-                                                Plan selection can auto-fill untouched limits. Manually edited limits stay preserved unless you restore defaults.
+                                                Choose a plan, review the plan defaults instantly, adjust limits if needed, and save everything together.
                                             </p>
                                         </div>
-                                        {popupSections.assignPlan ? <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" /> : <ChevronDown className="mt-0.5 h-4 w-4 text-muted-foreground" />}
+                                        {popupSections.planSettings ? <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" /> : <ChevronDown className="mt-0.5 h-4 w-4 text-muted-foreground" />}
                                     </button>
-                                    {popupSections.assignPlan ? <div className="mt-4 space-y-3">
+                                    {popupSections.planSettings ? <div className="mt-4 space-y-3">
                                         <SelectField
                                             label="Assigned plan"
-                                            hint="Choose the canonical plan for this user."
+                                            hint="Changing the plan immediately loads that plan's default limits below."
                                             value={selectedPlanCode || 'free'}
                                             onChange={handlePlanSelect}
                                         >
@@ -1047,27 +1036,14 @@ export const UsersPage: React.FC = () => {
                                                 />
                                             ) : null}
                                         </div>
-                                        <button onClick={() => void resetToDefaultPlan()} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
-                                            Reset to Default Plan
+                                        <button
+                                            onClick={() => void resetToDefaultPlan()}
+                                            className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] border border-emerald-500/35 bg-emerald-500/12 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-700 transition hover:border-emerald-500/50 hover:bg-emerald-500/18 disabled:opacity-60 dark:text-emerald-300"
+                                            disabled={saving || isDeletingUser || resetActionLoading === 'restoreLimits'}
+                                        >
+                                            {resetActionLoading === 'resetPlan' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                            {resetActionLoading === 'resetPlan' ? 'Resetting Plan...' : 'Reset to Default Plan'}
                                         </button>
-                                    </div> : null}
-                                </div>
-
-                                <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
-                                    <button
-                                        type="button"
-                                        onClick={() => togglePopupSection('limits')}
-                                        className="flex w-full items-start justify-between gap-3 text-left"
-                                    >
-                                        <div>
-                                            <h3 className="text-sm font-bold text-foreground">Limits</h3>
-                                            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
-                                                Edit limits for this user. Save applies both plan and limits together.
-                                            </p>
-                                        </div>
-                                        {popupSections.limits ? <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" /> : <ChevronDown className="mt-0.5 h-4 w-4 text-muted-foreground" />}
-                                    </button>
-                                    {popupSections.limits ? <div className="mt-4 space-y-3">
                                         <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-4 text-xs text-muted-foreground">
                                             <p>Active account limit: <span className="font-semibold text-foreground">{detailData?.active_account_limit ?? detailData?.effective_limits?.active_account_limit ?? 0}</span></p>
                                             {(detailData?.max_allowed_accounts ?? 0) !== (detailData?.active_account_limit ?? detailData?.effective_limits?.active_account_limit ?? 0) ? (
@@ -1089,11 +1065,6 @@ export const UsersPage: React.FC = () => {
                                                 />
                                             </div>
                                         ))}
-                                        {planAutofillNotice ? (
-                                            <div className="rounded-[18px] border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs font-semibold text-amber-700">
-                                                {planAutofillNotice}
-                                            </div>
-                                        ) : null}
                                         <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-4">
                                             <p className="text-xs font-semibold text-muted-foreground">Watermark override</p>
                                             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1122,8 +1093,13 @@ export const UsersPage: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                            <button onClick={restoreDefaultLimits} className="btn-secondary w-full px-4 py-3 text-[10px]" disabled={saving || isDeletingUser}>
-                                                Restore Default Limits
+                                            <button
+                                                onClick={() => void restoreDefaultLimits()}
+                                                className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] border border-emerald-500/35 bg-emerald-500/12 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-700 transition hover:border-emerald-500/50 hover:bg-emerald-500/18 disabled:opacity-60 dark:text-emerald-300"
+                                                disabled={saving || isDeletingUser || resetActionLoading === 'resetPlan'}
+                                            >
+                                                {resetActionLoading === 'restoreLimits' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                                {resetActionLoading === 'restoreLimits' ? 'Restoring Limits...' : 'Restore Default Limits'}
                                             </button>
                                             <button onClick={() => void submitPlanAndLimits()} className="btn-primary w-full px-4 py-3 text-[10px] disabled:opacity-60" disabled={isSaveDisabled}>
                                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}

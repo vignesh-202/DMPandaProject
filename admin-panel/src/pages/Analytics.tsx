@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import httpClient from '../lib/httpClient';
 import {
     AlertTriangle,
@@ -110,10 +110,16 @@ const ChartTooltip = ({
 
 const GraphFilterDropdown = ({
     value,
-    onChange
+    onChange,
+    summary,
+    detail,
+    loadingText
 }: {
     value: (typeof TRAFFIC_WINDOWS)[number]['value'];
     onChange: (next: (typeof TRAFFIC_WINDOWS)[number]['value']) => void;
+    summary: string;
+    detail?: string;
+    loadingText?: string | null;
 }) => {
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -131,22 +137,24 @@ const GraphFilterDropdown = ({
     }, []);
 
     return (
-        <div ref={dropdownRef} className="relative min-w-[198px]">
+        <div ref={dropdownRef} className="relative w-full min-w-0 sm:min-w-[198px] sm:max-w-[320px]">
             <button
                 type="button"
                 onClick={() => setOpen((current) => !current)}
                 className="flex w-full items-center justify-between gap-3 rounded-[1.35rem] border border-primary/30 bg-[linear-gradient(135deg,rgba(56,189,248,0.18),rgba(99,102,241,0.16)_52%,rgba(15,23,42,0.06))] px-4 py-3 text-left shadow-[0_24px_44px_-30px_rgba(14,165,233,0.55)] backdrop-blur-xl transition-all hover:border-primary/45 hover:shadow-[0_26px_52px_-30px_rgba(99,102,241,0.45)]"
             >
-                <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/80">Graph Window</p>
-                    <p className="mt-1 text-sm font-black text-foreground">{selected.label}</p>
-                    <p className="mt-1 text-[11px] font-medium text-muted-foreground">{TRAFFIC_WINDOW_DETAILS[selected.value]}</p>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/80">Active Range</p>
+                    <p className="mt-1 truncate text-sm font-black text-foreground">{selected.label}</p>
+                    <p className="mt-1 truncate text-[11px] font-semibold text-foreground">{summary}</p>
+                    <p className="mt-1 line-clamp-2 text-[11px] font-medium text-muted-foreground">{detail || TRAFFIC_WINDOW_DETAILS[selected.value]}</p>
+                    {loadingText ? <p className="mt-1 text-[10px] font-semibold text-primary">{loadingText}</p> : null}
                 </div>
                 <ChevronDown className={`h-4 w-4 shrink-0 text-primary transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
 
             {open && (
-                <div className="absolute right-0 top-[calc(100%+0.6rem)] z-30 w-full overflow-hidden rounded-[1.4rem] border border-border/70 bg-card/95 p-2 shadow-[0_30px_70px_-34px_rgba(15,23,42,0.52)] backdrop-blur-xl">
+                <div className="absolute right-0 top-[calc(100%+0.6rem)] z-30 max-h-[12.5rem] w-full overflow-y-auto overscroll-contain rounded-[1.4rem] border border-border/70 bg-card/95 p-2 shadow-[0_30px_70px_-34px_rgba(15,23,42,0.52)] backdrop-blur-xl">
                     {TRAFFIC_WINDOWS.map((option) => {
                         const active = option.value === value;
                         return (
@@ -163,8 +171,8 @@ const GraphFilterDropdown = ({
                                         : 'text-foreground hover:bg-background/80'
                                 }`}
                             >
-                                <div>
-                                    <p className="text-sm font-black">{option.label}</p>
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-black">{option.label}</p>
                                     <p className={`mt-1 text-[11px] ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{TRAFFIC_WINDOW_DETAILS[option.value]}</p>
                                 </div>
                                 <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${active ? 'border-primary-foreground/30 text-primary-foreground/90' : 'border-border/70 text-muted-foreground'}`}>
@@ -301,9 +309,14 @@ export const AnalyticsPage: React.FC = () => {
     const [data, setData] = useState<any>(null);
     const [trafficWindow, setTrafficWindow] = useState<(typeof TRAFFIC_WINDOWS)[number]['value']>('30d');
     const hasLoadedOnceRef = useRef(false);
+    const latestRequestRef = useRef(0);
+    const deferredData = useDeferredValue(data);
+    const displayData = deferredData ?? data;
 
     useEffect(() => {
         const load = async () => {
+            const requestId = latestRequestRef.current + 1;
+            latestRequestRef.current = requestId;
             try {
                 if (!hasLoadedOnceRef.current) {
                     setLoading(true);
@@ -314,13 +327,19 @@ export const AnalyticsPage: React.FC = () => {
                 const response = await httpClient.get('/api/admin/analytics/overview', {
                     params: { window: trafficWindow }
                 });
-                setData(response.data);
+                if (latestRequestRef.current !== requestId) return;
+                startTransition(() => {
+                    setData(response.data);
+                });
                 hasLoadedOnceRef.current = true;
             } catch (err: any) {
+                if (latestRequestRef.current !== requestId) return;
                 setError(err?.response?.data?.error || 'Failed to load analytics.');
             } finally {
-                setLoading(false);
-                setRefreshing(false);
+                if (latestRequestRef.current === requestId) {
+                    setLoading(false);
+                    setRefreshing(false);
+                }
             }
         };
 
@@ -329,37 +348,37 @@ export const AnalyticsPage: React.FC = () => {
 
     const selectedTrafficWindow = TRAFFIC_WINDOWS.find((option) => option.value === trafficWindow)?.label || '30 days';
     const trafficChartData = useMemo(() => {
-        const source = Array.isArray(data?.automation_traffic) ? data.automation_traffic : [];
+        const source = Array.isArray(displayData?.automation_traffic) ? displayData.automation_traffic : [];
         return source.map((entry: any) => ({
             ...entry,
             value: Number(entry?.value || 0)
         }));
-    }, [data?.automation_traffic]);
+    }, [displayData?.automation_traffic]);
     const trafficAverage = useMemo(() => {
         if (!trafficChartData.length) return 0;
         const total = trafficChartData.reduce((sum: number, row: { value: number }) => sum + Number(row.value || 0), 0);
         return total / trafficChartData.length;
     }, [trafficChartData]);
-    const statusBreakdown = Array.isArray(data?.log_status_breakdown) ? data.log_status_breakdown : [];
+    const statusBreakdown = Array.isArray(displayData?.log_status_breakdown) ? displayData.log_status_breakdown : [];
     const statusTotal = statusBreakdown.reduce((sum: number, entry: PieDatum) => sum + Number(entry.value || 0), 0);
     const failedCount = statusBreakdown.find((entry: PieDatum) => String(entry.name).toLowerCase() === 'failed')?.value || 0;
     const successCount = statusBreakdown.find((entry: PieDatum) => String(entry.name).toLowerCase() === 'success')?.value || 0;
     const skippedCount = statusBreakdown.find((entry: PieDatum) => String(entry.name).toLowerCase() === 'skipped')?.value || 0;
     const deliverySuccessRate = statusTotal > 0 ? Math.round(((successCount + skippedCount) / statusTotal) * 100) : 100;
-    const topAutomation = (Array.isArray(data?.automations_by_type) ? data.automations_by_type : [])[0];
-    const noLinkedUsers = (Array.isArray(data?.linked_accounts_distribution) ? data.linked_accounts_distribution : [])
+    const topAutomation = (Array.isArray(displayData?.automations_by_type) ? displayData.automations_by_type : [])[0];
+    const noLinkedUsers = (Array.isArray(displayData?.linked_accounts_distribution) ? displayData.linked_accounts_distribution : [])
         .find((entry: PieDatum) => entry.name === '0 linked')?.value || 0;
     const latestRevenue = (() => {
-        const revenue = Array.isArray(data?.monthly_revenue) ? data.monthly_revenue : [];
+        const revenue = Array.isArray(displayData?.monthly_revenue) ? displayData.monthly_revenue : [];
         return revenue.length > 0 ? Number(revenue[revenue.length - 1]?.value || 0) : 0;
     })();
 
     const metricCards = [
-        { label: 'Revenue', value: moneyFormatter.format(Number(data?.revenue_last_30_days || 0)), icon: TrendingUp, accent: 'bg-primary/12 text-primary' },
-        { label: 'Users', value: numberFormatter.format(Number(data?.totals?.total_users || 0)), icon: Users, accent: 'bg-foreground/5 text-foreground' },
-        { label: 'IG Accounts', value: numberFormatter.format(Number(data?.totals?.linked_instagram_accounts || 0)), icon: Instagram, accent: 'bg-sky-500/10 text-sky-600 dark:text-sky-400' },
-        { label: 'Paid Users', value: numberFormatter.format(Number(data?.totals?.paid_users || 0)), icon: CheckCircle2, accent: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-        { label: 'Automations', value: numberFormatter.format(Number(data?.totals?.active_automations || 0)), icon: Sparkles, accent: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400' },
+        { label: 'Revenue', value: moneyFormatter.format(Number(displayData?.revenue_last_30_days || 0)), icon: TrendingUp, accent: 'bg-primary/12 text-primary' },
+        { label: 'Users', value: numberFormatter.format(Number(displayData?.totals?.total_users || 0)), icon: Users, accent: 'bg-foreground/5 text-foreground' },
+        { label: 'IG Accounts', value: numberFormatter.format(Number(displayData?.totals?.linked_instagram_accounts || 0)), icon: Instagram, accent: 'bg-sky-500/10 text-sky-600 dark:text-sky-400' },
+        { label: 'Paid Users', value: numberFormatter.format(Number(displayData?.totals?.paid_users || 0)), icon: CheckCircle2, accent: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
+        { label: 'Automations', value: numberFormatter.format(Number(displayData?.totals?.active_automations || 0)), icon: Sparkles, accent: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400' },
         { label: 'Delivery', value: `${deliverySuccessRate}%`, icon: Activity, accent: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' }
     ];
 
@@ -392,13 +411,13 @@ export const AnalyticsPage: React.FC = () => {
                     <div className="rounded-[30px] border border-border/70 bg-background/70 p-5">
                         <p className="text-[10px] font-black text-muted-foreground">Window</p>
                         <div className="mt-4 space-y-4">
-                        <div className="rounded-[22px] border border-primary/20 bg-gradient-to-r from-primary/12 via-primary/5 to-transparent px-4 py-4">
-                            <p className="text-[10px] font-black text-muted-foreground">Active range</p>
-                            <p className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">{selectedTrafficWindow}</p>
-                            {refreshing ? (
-                                <p className="mt-2 text-[11px] font-semibold text-primary">Refreshing data...</p>
-                            ) : null}
-                        </div>
+                            <GraphFilterDropdown
+                                value={trafficWindow}
+                                onChange={setTrafficWindow}
+                                summary={selectedTrafficWindow}
+                                detail={`Average ${trafficAverage.toFixed(1)} actions per point`}
+                                loadingText={refreshing ? 'Refreshing data...' : null}
+                            />
                             <div className="rounded-[22px] border border-border/60 bg-card/80 px-4 py-4">
                                 <p className="text-[10px] font-black text-muted-foreground">Average Activity</p>
                                 <p className="mt-2 text-2xl font-extrabold text-foreground">{trafficAverage.toFixed(1)}</p>
@@ -443,15 +462,15 @@ export const AnalyticsPage: React.FC = () => {
                 <AdminGauge
                     label="Actions Per Hour"
                     sublabel="Current usage against the pool capacity"
-                    value={Number(data?.pool?.usage_last_hour || 0)}
-                    max={Number(data?.pool?.capacity_per_hour || 0)}
-                    helper={`${numberFormatter.format(Number(data?.pool?.usage_last_hour || 0))}/${numberFormatter.format(Number(data?.pool?.capacity_per_hour || 0))} in use`}
+                    value={Number(displayData?.pool?.usage_last_hour || 0)}
+                    max={Number(displayData?.pool?.capacity_per_hour || 0)}
+                    helper={`${numberFormatter.format(Number(displayData?.pool?.usage_last_hour || 0))}/${numberFormatter.format(Number(displayData?.pool?.capacity_per_hour || 0))} in use`}
                 />
             </section>
 
             <section className="grid grid-cols-1 gap-7 2xl:grid-cols-[minmax(0,1.2fr)_380px]">
                 <div className="space-y-7">
-                    <div className={`${surfaceClass} p-7 sm:p-8`}>
+                    <div className={`${surfaceClass} p-7 sm:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
                         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                             <div>
                                 <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Automation traffic</h3>
@@ -460,17 +479,13 @@ export const AnalyticsPage: React.FC = () => {
                                 </p>
                             </div>
                             <div className="flex flex-col gap-3 sm:items-end">
-                                <GraphFilterDropdown value={trafficWindow} onChange={setTrafficWindow} />
-                                <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-right">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>
-                                    <p className="mt-1 text-xs font-bold text-foreground">{selectedTrafficWindow}</p>
-                                    <p className="mt-1 text-[10px] font-medium text-muted-foreground">
-                                        Average {trafficAverage.toFixed(1)} actions per point
-                                    </p>
-                                    {refreshing ? (
-                                        <p className="mt-1 text-[10px] font-semibold text-primary">Updating charts and metrics...</p>
-                                    ) : null}
-                                </div>
+                                <GraphFilterDropdown
+                                    value={trafficWindow}
+                                    onChange={setTrafficWindow}
+                                    summary={selectedTrafficWindow}
+                                    detail={`Average ${trafficAverage.toFixed(1)} actions per point`}
+                                    loadingText={refreshing ? 'Updating charts and metrics...' : null}
+                                />
                             </div>
                         </div>
                         <div className="h-[340px]">
@@ -520,14 +535,14 @@ export const AnalyticsPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className={`${surfaceClass} p-7 sm:p-8`}>
+                    <div className={`${surfaceClass} p-7 sm:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
                         <div className="mb-6">
                             <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Revenue trend</h3>
                             <p className="mt-1 text-[11px] font-black text-muted-foreground">Last 30 days</p>
                         </div>
                         <div className="h-[340px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={Array.isArray(data?.monthly_revenue) ? data.monthly_revenue : []}>
+                                <BarChart data={Array.isArray(displayData?.monthly_revenue) ? displayData.monthly_revenue : []}>
                                     <CartesianGrid strokeDasharray="4 4" stroke={chartGridStroke} vertical={false} />
                                     <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} />
                                     <YAxis tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} />
@@ -540,7 +555,7 @@ export const AnalyticsPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-7">
-                    <div className={`${surfaceClass} p-7`}>
+                    <div className={`${surfaceClass} p-7 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
                         <div className="mb-5">
                             <h3 className="text-[1.45rem] font-extrabold tracking-tight text-foreground">Signals</h3>
                             <p className="mt-1 text-[11px] font-black text-muted-foreground">Quick read</p>
@@ -552,17 +567,17 @@ export const AnalyticsPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className={`${surfaceClass} p-7`}>
+                    <div className={`${surfaceClass} p-7 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
                         <div className="mb-5">
                             <h3 className="text-[1.45rem] font-extrabold tracking-tight text-foreground">Recent failures</h3>
                             <p className="mt-1 text-[11px] font-black text-muted-foreground">Latest events</p>
                         </div>
                         <div className="space-y-3">
-                            {(Array.isArray(data?.recent_failures) ? data.recent_failures : []).length === 0 ? (
+                            {(Array.isArray(displayData?.recent_failures) ? displayData.recent_failures : []).length === 0 ? (
                                 <div className="rounded-[24px] border border-success/30 bg-success-muted/60 px-5 py-9 text-center text-sm font-medium text-success">
                                     No recent failures.
                                 </div>
-                            ) : (data.recent_failures as Array<any>).map((item) => (
+                            ) : (displayData?.recent_failures as Array<any>).map((item) => (
                                 <div key={item.id} className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
                                     <div className="flex flex-col gap-3">
                                         <div className="flex items-start justify-between gap-4">
@@ -581,16 +596,16 @@ export const AnalyticsPage: React.FC = () => {
             </section>
 
             <section className="space-y-7">
-                <PieSummaryCard
-                    title="Automation Mix"
-                    subtitle="By type"
-                    data={Array.isArray(data?.automations_by_type) ? data.automations_by_type : []}
-                />
-                <PieSummaryCard
-                    title="Linked Account Spread"
-                    subtitle="Per user"
-                    data={Array.isArray(data?.linked_accounts_distribution) ? data.linked_accounts_distribution : []}
-                />
+                    <PieSummaryCard
+                        title="Automation Mix"
+                        subtitle="By type"
+                        data={Array.isArray(displayData?.automations_by_type) ? displayData.automations_by_type : []}
+                    />
+                    <PieSummaryCard
+                        title="Linked Account Spread"
+                        subtitle="Per user"
+                        data={Array.isArray(displayData?.linked_accounts_distribution) ? displayData.linked_accounts_distribution : []}
+                    />
                 <PieSummaryCard
                     title="Delivery Outcomes"
                     subtitle={selectedTrafficWindow}

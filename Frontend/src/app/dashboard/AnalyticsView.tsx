@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Loader2, RefreshCw, Clock3, UserCircle2, ChevronDown } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import Card from '../../components/ui/card';
@@ -129,10 +129,18 @@ const AnalyticsTooltip = ({
 
 const GraphFilterDropdown = ({
     value,
-    onChange
+    onChange,
+    summary,
+    detail,
+    secondaryDetail,
+    loadingText
 }: {
     value: AnalyticsWindowPreset;
     onChange: (next: AnalyticsWindowPreset) => void;
+    summary: string;
+    detail?: string;
+    secondaryDetail?: string;
+    loadingText?: string | null;
 }) => {
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -150,22 +158,25 @@ const GraphFilterDropdown = ({
     }, []);
 
     return (
-        <div ref={dropdownRef} className="relative min-w-[198px]">
+        <div ref={dropdownRef} className="relative w-full min-w-0 sm:min-w-[198px] sm:max-w-[320px]">
             <button
                 type="button"
                 onClick={() => setOpen((current) => !current)}
                 className="flex w-full items-center justify-between gap-3 rounded-[1.35rem] border border-primary/30 bg-[linear-gradient(135deg,rgba(56,189,248,0.18),rgba(99,102,241,0.16)_52%,rgba(15,23,42,0.06))] px-4 py-3 text-left shadow-[0_24px_44px_-30px_rgba(14,165,233,0.55)] backdrop-blur-xl transition-all hover:border-primary/45 hover:shadow-[0_26px_52px_-30px_rgba(99,102,241,0.45)]"
             >
-                <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/80">Graph Window</p>
-                    <p className="mt-1 text-sm font-black text-foreground">{selected.label}</p>
-                    <p className="mt-1 text-[11px] font-medium text-muted-foreground">{selected.note}</p>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/80">Active Range</p>
+                    <p className="mt-1 truncate text-sm font-black text-foreground">{selected.label}</p>
+                    <p className="mt-1 truncate text-[11px] font-semibold text-foreground">{summary}</p>
+                    {detail ? <p className="mt-1 line-clamp-2 text-[11px] font-medium text-muted-foreground">{detail}</p> : null}
+                    {secondaryDetail ? <p className="mt-1 line-clamp-2 text-[10px] font-medium text-muted-foreground">{secondaryDetail}</p> : null}
+                    {loadingText ? <p className="mt-1 text-[10px] font-semibold text-primary">{loadingText}</p> : null}
                 </div>
                 <ChevronDown className={`h-4 w-4 shrink-0 text-primary transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
 
             {open && (
-                <div className="absolute right-0 top-[calc(100%+0.6rem)] z-30 w-full overflow-hidden rounded-[1.4rem] border border-content/70 bg-card/95 p-2 shadow-[0_30px_70px_-34px_rgba(15,23,42,0.52)] backdrop-blur-xl">
+                <div className="absolute right-0 top-[calc(100%+0.6rem)] z-30 max-h-[12.5rem] w-full overflow-y-auto overscroll-contain rounded-[1.4rem] border border-border/70 bg-card/95 p-2 shadow-[0_30px_70px_-34px_rgba(15,23,42,0.52)] backdrop-blur-xl">
                     {TRAFFIC_WINDOW_OPTIONS.map((option) => {
                         const active = option.value === value;
                         return (
@@ -182,11 +193,11 @@ const GraphFilterDropdown = ({
                                         : 'text-foreground hover:bg-background/80'
                                 }`}
                             >
-                                <div>
-                                    <p className="text-sm font-black">{option.label}</p>
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-black">{option.label}</p>
                                     <p className={`mt-1 text-[11px] ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{option.note}</p>
                                 </div>
-                                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${active ? 'border-primary-foreground/30 text-primary-foreground/90' : 'border-content/70 text-muted-foreground'}`}>
+                                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${active ? 'border-primary-foreground/30 text-primary-foreground/90' : 'border-border/70 text-muted-foreground'}`}>
                                     {option.value}
                                 </span>
                             </button>
@@ -495,11 +506,14 @@ const AnalyticsView: React.FC = () => {
     const [loadingLogs, setLoadingLogs] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [refreshingAll, setRefreshingAll] = useState(false);
+    const [rangeRefreshing, setRangeRefreshing] = useState(false);
     const [downloadingCsv, setDownloadingCsv] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [pieProgress, setPieProgress] = useState(0);
     const [selectedWindowPreset, setSelectedWindowPreset] = useState<AnalyticsWindowPreset>('30d');
     const hasLoadedOnceRef = useRef(false);
+    const latestLogsRequestRef = useRef(0);
+    const latestActionMetricsRequestRef = useRef(0);
     const analyticsCacheKey = useMemo(
         () => `${String(activeAccountID || 'none')}:${analyticsDateRange.start}:${analyticsDateRange.end}:activity-log`,
         [activeAccountID, analyticsDateRange.end, analyticsDateRange.start]
@@ -545,9 +559,13 @@ const AnalyticsView: React.FC = () => {
             return;
         }
         if (!force && Array.isArray(analyticsCache?.[analyticsCacheKey]?.logs)) {
-            setLogs(analyticsCache[analyticsCacheKey].logs);
+            startTransition(() => {
+                setLogs(analyticsCache[analyticsCacheKey].logs);
+            });
             return;
         }
+        const requestId = latestLogsRequestRef.current + 1;
+        latestLogsRequestRef.current = requestId;
         setLoadingLogs(true);
         try {
             const params = new URLSearchParams({
@@ -566,7 +584,10 @@ const AnalyticsView: React.FC = () => {
             }
             const data = await res.json();
             const nextLogs = Array.isArray(data?.logs) ? data.logs : [];
-            setLogs(nextLogs);
+            if (latestLogsRequestRef.current !== requestId) return;
+            startTransition(() => {
+                setLogs(nextLogs);
+            });
             setAnalyticsCache((prev) => ({
                 ...prev,
                 [analyticsCacheKey]: {
@@ -576,7 +597,10 @@ const AnalyticsView: React.FC = () => {
                 }
             }));
         } catch (error) {
-            setLogs([]);
+            if (latestLogsRequestRef.current !== requestId) return;
+            startTransition(() => {
+                setLogs([]);
+            });
             setAnalyticsCache((prev) => ({
                 ...prev,
                 [analyticsCacheKey]: {
@@ -587,7 +611,9 @@ const AnalyticsView: React.FC = () => {
             }));
             throw error;
         } finally {
-            setLoadingLogs(false);
+            if (latestLogsRequestRef.current === requestId) {
+                setLoadingLogs(false);
+            }
         }
     }, [activeAccountID, analyticsCache, analyticsCacheKey, analyticsDateRange.end, analyticsDateRange.start, authenticatedFetch, setAnalyticsCache]);
 
@@ -603,6 +629,8 @@ const AnalyticsView: React.FC = () => {
             });
             return;
         }
+        const requestId = latestActionMetricsRequestRef.current + 1;
+        latestActionMetricsRequestRef.current = requestId;
 
         const params = new URLSearchParams({
             account_id: String(activeAccountID),
@@ -614,40 +642,71 @@ const AnalyticsView: React.FC = () => {
         }
         const data = await res.json();
         const nextMetrics = data?.action_window_metrics || data?.gauge_metrics || {};
-        setActionUsageMetrics({
-            hourly_actions_used: Number(nextMetrics.hourly_actions_used || 0),
-            hourly_action_limit: Number(nextMetrics.hourly_action_limit || 0),
-            daily_actions_used: Number(nextMetrics.daily_actions_used || 0),
-            daily_action_limit: Number(nextMetrics.daily_action_limit || 0),
-            monthly_actions_used: Number(nextMetrics.monthly_actions_used || 0),
-            monthly_action_limit: Number(nextMetrics.monthly_action_limit || 0),
+        if (latestActionMetricsRequestRef.current !== requestId) return;
+        startTransition(() => {
+            setActionUsageMetrics({
+                hourly_actions_used: Number(nextMetrics.hourly_actions_used || 0),
+                hourly_action_limit: Number(nextMetrics.hourly_action_limit || 0),
+                daily_actions_used: Number(nextMetrics.daily_actions_used || 0),
+                daily_action_limit: Number(nextMetrics.daily_action_limit || 0),
+                monthly_actions_used: Number(nextMetrics.monthly_actions_used || 0),
+                monthly_action_limit: Number(nextMetrics.monthly_action_limit || 0),
+            });
         });
     }, [activeAccountID, authenticatedFetch]);
 
-    const fetchAll = useCallback(async (mode: 'initial' | 'refresh' = 'refresh') => {
-        if (mode === 'initial') setInitialLoading(true);
-        else setRefreshingAll(true);
+    const refreshAnalytics = useCallback(async () => {
+        setRefreshingAll(true);
         setError(null);
         try {
             await Promise.all([
-                fetchLogs(mode === 'refresh'),
+                fetchLogs(true),
                 fetchActionUsageMetrics()
             ]);
         } catch (err: any) {
             setError(String(err?.message || 'Failed to load analytics.'));
         } finally {
-            if (mode === 'initial') {
-                setInitialLoading(false);
-                hasLoadedOnceRef.current = true;
-            } else {
-                setRefreshingAll(false);
-            }
+            setRefreshingAll(false);
         }
     }, [fetchActionUsageMetrics, fetchLogs]);
 
     useEffect(() => {
-        void fetchAll(hasLoadedOnceRef.current ? 'refresh' : 'initial');
-    }, [fetchAll]);
+        if (!activeAccountID) {
+            setLogs([]);
+            setInitialLoading(false);
+            setRangeRefreshing(false);
+            hasLoadedOnceRef.current = false;
+            return;
+        }
+
+        const loadLogsForRange = async () => {
+            const isInitialLoad = !hasLoadedOnceRef.current;
+            if (isInitialLoad) {
+                setInitialLoading(true);
+            } else {
+                setRangeRefreshing(true);
+            }
+            setError(null);
+            try {
+                await fetchLogs(false);
+                hasLoadedOnceRef.current = true;
+            } catch (err: any) {
+                setError(String(err?.message || 'Failed to load analytics.'));
+            } finally {
+                setInitialLoading(false);
+                setRangeRefreshing(false);
+            }
+        };
+
+        void loadLogsForRange();
+    }, [activeAccountID, analyticsDateRange.end, analyticsDateRange.start, fetchLogs]);
+
+    useEffect(() => {
+        if (!activeAccountID) return;
+        void fetchActionUsageMetrics().catch((err: any) => {
+            setError(String(err?.message || 'Failed to load analytics.'));
+        });
+    }, [activeAccountID, fetchActionUsageMetrics]);
 
     useEffect(() => {
         if (initialLoading) return;
@@ -727,12 +786,13 @@ const AnalyticsView: React.FC = () => {
             return ts >= startMs && ts <= endMs;
         });
     }, [activeTrafficWindow.end, activeTrafficWindow.start, logs]);
+    const deferredVisibleLogs = useDeferredValue(visibleLogs);
 
     const metrics = useMemo(() => {
-        const total = visibleLogs.length;
-        const directSuccess = visibleLogs.filter((l) => String(l.status || '').toLowerCase() === 'success').length;
-        const failed = visibleLogs.filter((l) => String(l.status || '').toLowerCase() === 'failed').length;
-        const skipped = visibleLogs.filter((l) => String(l.status || '').toLowerCase() === 'skipped').length;
+        const total = deferredVisibleLogs.length;
+        const directSuccess = deferredVisibleLogs.filter((l) => String(l.status || '').toLowerCase() === 'success').length;
+        const failed = deferredVisibleLogs.filter((l) => String(l.status || '').toLowerCase() === 'failed').length;
+        const skipped = deferredVisibleLogs.filter((l) => String(l.status || '').toLowerCase() === 'skipped').length;
         const success = directSuccess;
         const effectiveSuccess = directSuccess + skipped;
         const successRate = total > 0 ? (effectiveSuccess / total) * 100 : 0;
@@ -747,7 +807,7 @@ const AnalyticsView: React.FC = () => {
             deliveryHealth: clampPercent(deliveryHealth),
             failurePressure: clampPercent(100 - failurePressure),
         };
-    }, [visibleLogs]);
+    }, [deferredVisibleLogs]);
 
     const performanceSegments = useMemo<DonutSegment[]>(() => ([
         { key: 'success', label: 'Success', value: metrics.success, color: 'rgb(34 197 94)' },
@@ -779,7 +839,7 @@ const AnalyticsView: React.FC = () => {
         };
         const counts = new Map<string, number>();
 
-        visibleLogs.forEach((log) => {
+        deferredVisibleLogs.forEach((log) => {
             const rawType = String(log.automation_type || '').trim().toLowerCase() || 'unknown';
             counts.set(rawType, (counts.get(rawType) || 0) + 1);
         });
@@ -792,7 +852,7 @@ const AnalyticsView: React.FC = () => {
                 value,
                 color: palette[index % palette.length]
             }));
-    }, [visibleLogs]);
+    }, [deferredVisibleLogs]);
 
     const actionLimitStats = useMemo(() => ({
         hour: {
@@ -835,7 +895,7 @@ const AnalyticsView: React.FC = () => {
                 };
             });
 
-            visibleLogs.forEach((log) => {
+            deferredVisibleLogs.forEach((log) => {
                 const raw = log.sent_at || log.created_at;
                 if (!raw) return;
                 const ts = new Date(raw).getTime();
@@ -862,7 +922,7 @@ const AnalyticsView: React.FC = () => {
             };
         });
 
-        visibleLogs.forEach((log) => {
+        deferredVisibleLogs.forEach((log) => {
             const raw = log.sent_at || log.created_at;
             if (!raw) return;
             const ts = new Date(raw).getTime();
@@ -872,7 +932,7 @@ const AnalyticsView: React.FC = () => {
         });
 
         return buckets.map(({ label, count }) => ({ label, count }));
-    }, [activeTrafficWindow, visibleLogs]);
+    }, [activeTrafficWindow, deferredVisibleLogs]);
 
     const selectedTrafficWindow = useMemo(() => {
         return activeTrafficWindow.title;
@@ -885,7 +945,7 @@ const AnalyticsView: React.FC = () => {
     }, [trafficData]);
 
     const failureReasonSummary = useMemo(() => {
-        const failedLogs = visibleLogs.filter((row) => String(row.status || '').toLowerCase() === 'failed');
+        const failedLogs = deferredVisibleLogs.filter((row) => String(row.status || '').toLowerCase() === 'failed');
         const counts = new Map<string, number>();
         failedLogs.forEach((row) => {
             const reason = String(row.error_reason || '').trim() || 'Unknown failure reason';
@@ -895,7 +955,7 @@ const AnalyticsView: React.FC = () => {
             .map(([reason, count]) => ({ reason, count }))
             .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason))
             .slice(0, 8);
-    }, [visibleLogs]);
+    }, [deferredVisibleLogs]);
 
     const handleDownloadCsv = useCallback(async () => {
         if (!activeAccountID || visibleLogs.length === 0) return;
@@ -962,7 +1022,7 @@ const AnalyticsView: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-2">
                     <button
                         type="button"
-                        onClick={() => fetchAll('refresh')}
+                        onClick={() => void refreshAnalytics()}
                         disabled={loadingLogs || refreshingAll}
                         className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                     >
@@ -1011,20 +1071,17 @@ const AnalyticsView: React.FC = () => {
                         </p>
                     </div>
                     <div className="flex flex-col gap-3 sm:items-end">
-                        <GraphFilterDropdown value={selectedWindowPreset} onChange={applyWindowPreset} />
-                        <div className="rounded-2xl border border-content/70 bg-background/70 px-4 py-3 text-right">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active range</p>
-                            <p className="mt-1 text-xs font-bold text-foreground">{activeTrafficWindow.badge}</p>
-                            <p className="mt-1 text-[10px] font-medium text-muted-foreground">
-                                Average {trafficAverage.toFixed(1)} actions per {activeTrafficWindow.bucketMode === 'hourly' ? 'hour' : 'day'}
-                            </p>
-                            <p className="mt-1 text-[10px] font-medium text-muted-foreground">
-                                Source dates: {analyticsDateRange.start} to {analyticsDateRange.end}
-                            </p>
-                        </div>
+                        <GraphFilterDropdown
+                            value={selectedWindowPreset}
+                            onChange={applyWindowPreset}
+                            summary={activeTrafficWindow.badge}
+                            detail={`Average ${trafficAverage.toFixed(1)} actions per ${activeTrafficWindow.bucketMode === 'hourly' ? 'hour' : 'day'}`}
+                            secondaryDetail={`Source dates: ${analyticsDateRange.start} to ${analyticsDateRange.end}`}
+                            loadingText={rangeRefreshing ? 'Updating chart and insights...' : null}
+                        />
                     </div>
                 </div>
-                <div className="h-[260px]">
+                <div className={`h-[260px] transition-opacity duration-300 ${rangeRefreshing ? 'opacity-80' : 'opacity-100'}`}>
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={trafficData}>
                             <defs>
@@ -1155,15 +1212,23 @@ const AnalyticsView: React.FC = () => {
                     )}
                 </div>
 
-                {loadingLogs ? (
+                {loadingLogs && deferredVisibleLogs.length === 0 ? (
                     <div className="py-10 flex items-center justify-center">
                         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                     </div>
-                ) : visibleLogs.length === 0 ? (
+                ) : deferredVisibleLogs.length === 0 ? (
                     <p className="px-6 py-6 text-xs font-bold text-muted-foreground">No logs found for the selected date range.</p>
                 ) : (
-                    <div className="p-4 sm:p-5 space-y-3 max-h-[620px] overflow-auto">
-                        {visibleLogs.map((row) => (
+                    <div className={`p-4 sm:p-5 space-y-3 max-h-[620px] overflow-auto transition-opacity duration-300 ${loadingLogs ? 'opacity-75' : 'opacity-100'}`}>
+                        {loadingLogs ? (
+                            <div className="sticky top-0 z-10 mb-3 flex justify-end">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-content/70 bg-card/92 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-primary shadow-sm backdrop-blur">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    Updating range
+                                </div>
+                            </div>
+                        ) : null}
+                        {deferredVisibleLogs.map((row) => (
                             <div key={row.id} className="rounded-2xl border border-content/70 bg-card/80 backdrop-blur-sm px-4 py-3 shadow-sm hover:shadow-md transition-all">
                                 <div className="flex flex-wrap items-start justify-between gap-2">
                                     <div className="flex items-center gap-2.5">
