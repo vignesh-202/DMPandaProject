@@ -38,6 +38,13 @@ const TRAFFIC_WINDOWS = [
     { value: '30d', label: '30 days' }
 ] as const;
 
+const REVENUE_WINDOWS = [
+    { value: '7d', label: '7 days' },
+    { value: '30d', label: '30 days' },
+    { value: '90d', label: '90 days' },
+    { value: 'custom', label: 'Custom' }
+] as const;
+
 const TRAFFIC_WINDOW_DETAILS: Record<(typeof TRAFFIC_WINDOWS)[number]['value'], string> = {
     '24h': 'Hourly view',
     '3d': 'Short trend',
@@ -47,7 +54,16 @@ const TRAFFIC_WINDOW_DETAILS: Record<(typeof TRAFFIC_WINDOWS)[number]['value'], 
     '30d': 'Monthly view'
 };
 
+const REVENUE_WINDOW_DETAILS: Record<(typeof REVENUE_WINDOWS)[number]['value'], string> = {
+    '7d': 'Short revenue window',
+    '30d': 'Monthly revenue view',
+    '90d': 'Quarterly revenue view',
+    custom: 'Choose a custom date range'
+};
+
 type PieDatum = { name: string; value: number };
+type TrafficWindowValue = (typeof TRAFFIC_WINDOWS)[number]['value'];
+type RevenueWindowValue = (typeof REVENUE_WINDOWS)[number]['value'];
 
 const moneyFormatter = new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -71,6 +87,29 @@ const formatShortDate = (value: string | number | Date | null | undefined) => {
 
     return `${day}-${month}-${year}`;
 };
+
+const formatDateInputLocal = (value: Date) => {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const buildPresetDateRange = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - Math.max(0, days - 1));
+    return {
+        start: formatDateInputLocal(start),
+        end: formatDateInputLocal(end)
+    };
+};
+
+const humanizeAnalyticsLabel = (value: string) => String(value || '')
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase()) || 'N/A';
 
 const ChartTooltip = ({
     active,
@@ -109,21 +148,37 @@ const ChartTooltip = ({
 };
 
 const GraphFilterDropdown = ({
+    title,
+    options,
     value,
     onChange,
     summary,
     detail,
-    loadingText
+    loadingText,
+    allowCustom = false,
+    customStart,
+    customEnd,
+    onCustomStartChange,
+    onCustomEndChange,
+    onApplyCustom
 }: {
-    value: (typeof TRAFFIC_WINDOWS)[number]['value'];
-    onChange: (next: (typeof TRAFFIC_WINDOWS)[number]['value']) => void;
+    title: string;
+    options: ReadonlyArray<{ value: string; label: string }>;
+    value: string;
+    onChange: (next: string) => void;
     summary: string;
     detail?: string;
     loadingText?: string | null;
+    allowCustom?: boolean;
+    customStart?: string;
+    customEnd?: string;
+    onCustomStartChange?: (next: string) => void;
+    onCustomEndChange?: (next: string) => void;
+    onApplyCustom?: () => void;
 }) => {
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement | null>(null);
-    const selected = TRAFFIC_WINDOWS.find((option) => option.value === value) || TRAFFIC_WINDOWS[0];
+    const selected = options.find((option) => option.value === value) || options[0];
 
     useEffect(() => {
         const handlePointerDown = (event: MouseEvent) => {
@@ -144,18 +199,19 @@ const GraphFilterDropdown = ({
                 className="flex w-full items-center justify-between gap-3 rounded-[1.35rem] border border-primary/30 bg-[linear-gradient(135deg,rgba(56,189,248,0.18),rgba(99,102,241,0.16)_52%,rgba(15,23,42,0.06))] px-4 py-3 text-left shadow-[0_24px_44px_-30px_rgba(14,165,233,0.55)] backdrop-blur-xl transition-all hover:border-primary/45 hover:shadow-[0_26px_52px_-30px_rgba(99,102,241,0.45)]"
             >
                 <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/80">Active Range</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/80">{title}</p>
                     <p className="mt-1 truncate text-sm font-black text-foreground">{selected.label}</p>
                     <p className="mt-1 truncate text-[11px] font-semibold text-foreground">{summary}</p>
-                    <p className="mt-1 line-clamp-2 text-[11px] font-medium text-muted-foreground">{detail || TRAFFIC_WINDOW_DETAILS[selected.value]}</p>
+                    <p className="mt-1 line-clamp-2 text-[11px] font-medium text-muted-foreground">{detail}</p>
                     {loadingText ? <p className="mt-1 text-[10px] font-semibold text-primary">{loadingText}</p> : null}
                 </div>
                 <ChevronDown className={`h-4 w-4 shrink-0 text-primary transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
 
             {open && (
-                <div className="absolute right-0 top-[calc(100%+0.6rem)] z-30 max-h-[12.5rem] w-full overflow-y-auto overscroll-contain rounded-[1.4rem] border border-border/70 bg-card/95 p-2 shadow-[0_30px_70px_-34px_rgba(15,23,42,0.52)] backdrop-blur-xl">
-                    {TRAFFIC_WINDOWS.map((option) => {
+                <div className="absolute right-0 top-[calc(100%+0.6rem)] z-30 w-full overflow-hidden rounded-[1.4rem] border border-border/70 bg-card/95 p-2 shadow-[0_30px_70px_-34px_rgba(15,23,42,0.52)] backdrop-blur-xl">
+                    <div className="max-h-[12.5rem] overflow-y-auto overscroll-contain">
+                    {options.map((option) => {
                         const active = option.value === value;
                         return (
                             <button
@@ -163,7 +219,9 @@ const GraphFilterDropdown = ({
                                 type="button"
                                 onClick={() => {
                                     onChange(option.value);
-                                    setOpen(false);
+                                    if (!allowCustom || option.value !== 'custom') {
+                                        setOpen(false);
+                                    }
                                 }}
                                 className={`flex w-full items-center justify-between rounded-[1rem] px-3 py-3 text-left transition-colors ${
                                     active
@@ -173,7 +231,11 @@ const GraphFilterDropdown = ({
                             >
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-black">{option.label}</p>
-                                    <p className={`mt-1 text-[11px] ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{TRAFFIC_WINDOW_DETAILS[option.value]}</p>
+                                    <p className={`mt-1 text-[11px] ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                                        {title === 'Revenue Range'
+                                            ? REVENUE_WINDOW_DETAILS[option.value as RevenueWindowValue]
+                                            : TRAFFIC_WINDOW_DETAILS[option.value as TrafficWindowValue]}
+                                    </p>
                                 </div>
                                 <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${active ? 'border-primary-foreground/30 text-primary-foreground/90' : 'border-border/70 text-muted-foreground'}`}>
                                     {option.value}
@@ -181,6 +243,41 @@ const GraphFilterDropdown = ({
                             </button>
                         );
                     })}
+                    </div>
+                    {allowCustom && value === 'custom' && onApplyCustom && onCustomStartChange && onCustomEndChange ? (
+                        <div className="mt-2 rounded-[1rem] border border-border/70 bg-background/70 p-3">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                    From
+                                    <input
+                                        type="date"
+                                        value={customStart || ''}
+                                        onChange={(event) => onCustomStartChange(event.target.value)}
+                                        className="input-base mt-2"
+                                    />
+                                </label>
+                                <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                    To
+                                    <input
+                                        type="date"
+                                        value={customEnd || ''}
+                                        onChange={(event) => onCustomEndChange(event.target.value)}
+                                        className="input-base mt-2"
+                                    />
+                                </label>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onApplyCustom();
+                                    setOpen(false);
+                                }}
+                                className="mt-3 btn-primary w-full px-4 py-3 text-[10px]"
+                            >
+                                Apply Custom Range
+                            </button>
+                        </div>
+                    ) : null}
                 </div>
             )}
         </div>
@@ -278,7 +375,7 @@ const PieSummaryCard = ({
                                 <div className="flex items-center justify-between gap-4">
                                     <div className="flex min-w-0 items-center gap-3">
                                         <span className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
-                                        <p className="truncate text-sm font-bold text-foreground">{entry.name}</p>
+                                        <p className="truncate text-sm font-bold text-foreground">{humanizeAnalyticsLabel(entry.name)}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-sm font-black text-foreground">
@@ -307,7 +404,9 @@ export const AnalyticsPage: React.FC = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<any>(null);
-    const [trafficWindow, setTrafficWindow] = useState<(typeof TRAFFIC_WINDOWS)[number]['value']>('30d');
+    const [trafficWindow, setTrafficWindow] = useState<TrafficWindowValue>('30d');
+    const [revenueWindow, setRevenueWindow] = useState<RevenueWindowValue>('30d');
+    const [revenueCustomRange, setRevenueCustomRange] = useState(() => buildPresetDateRange(30));
     const hasLoadedOnceRef = useRef(false);
     const latestRequestRef = useRef(0);
     const deferredData = useDeferredValue(data);
@@ -325,7 +424,12 @@ export const AnalyticsPage: React.FC = () => {
                 }
                 setError(null);
                 const response = await httpClient.get('/api/admin/analytics/overview', {
-                    params: { window: trafficWindow }
+                    params: {
+                        traffic_window: trafficWindow,
+                        revenue_window: revenueWindow,
+                        revenue_from: revenueWindow === 'custom' ? revenueCustomRange.start : undefined,
+                        revenue_to: revenueWindow === 'custom' ? revenueCustomRange.end : undefined
+                    }
                 });
                 if (latestRequestRef.current !== requestId) return;
                 startTransition(() => {
@@ -344,9 +448,20 @@ export const AnalyticsPage: React.FC = () => {
         };
 
         load();
-    }, [trafficWindow]);
+    }, [revenueCustomRange.end, revenueCustomRange.start, revenueWindow, trafficWindow]);
 
     const selectedTrafficWindow = TRAFFIC_WINDOWS.find((option) => option.value === trafficWindow)?.label || '30 days';
+    const selectedRevenueWindow = REVENUE_WINDOWS.find((option) => option.value === revenueWindow)?.label || '30 days';
+    const trafficFilterMeta = displayData?.filters?.traffic || {};
+    const revenueFilterMeta = displayData?.filters?.revenue || {};
+    const applyRevenueCustomRange = () => {
+        if (!revenueCustomRange.start || !revenueCustomRange.end || revenueCustomRange.start > revenueCustomRange.end) {
+            setError('Please choose a valid revenue range.');
+            return;
+        }
+        setError(null);
+        setRevenueWindow('custom');
+    };
     const trafficChartData = useMemo(() => {
         const source = Array.isArray(displayData?.automation_traffic) ? displayData.automation_traffic : [];
         return source.map((entry: any) => ({
@@ -366,15 +481,21 @@ export const AnalyticsPage: React.FC = () => {
     const skippedCount = statusBreakdown.find((entry: PieDatum) => String(entry.name).toLowerCase() === 'skipped')?.value || 0;
     const deliverySuccessRate = statusTotal > 0 ? Math.round(((successCount + skippedCount) / statusTotal) * 100) : 100;
     const topAutomation = (Array.isArray(displayData?.automations_by_type) ? displayData.automations_by_type : [])[0];
+    const topAutomationLabel = humanizeAnalyticsLabel(String(topAutomation?.name || 'N/A'));
     const noLinkedUsers = (Array.isArray(displayData?.linked_accounts_distribution) ? displayData.linked_accounts_distribution : [])
         .find((entry: PieDatum) => entry.name === '0 linked')?.value || 0;
     const latestRevenue = (() => {
         const revenue = Array.isArray(displayData?.monthly_revenue) ? displayData.monthly_revenue : [];
         return revenue.length > 0 ? Number(revenue[revenue.length - 1]?.value || 0) : 0;
     })();
+    const revenueTotalForWindow = Number(displayData?.revenue_total_for_window || 0);
+    const trafficSummaryLabel = selectedTrafficWindow;
+    const revenueSummaryLabel = revenueWindow === 'custom'
+        ? `${revenueFilterMeta.start_date || revenueCustomRange.start} to ${revenueFilterMeta.end_date || revenueCustomRange.end}`
+        : selectedRevenueWindow;
 
     const metricCards = [
-        { label: 'Revenue', value: moneyFormatter.format(Number(displayData?.revenue_last_30_days || 0)), icon: TrendingUp, accent: 'bg-primary/12 text-primary' },
+        { label: 'Revenue', value: moneyFormatter.format(revenueTotalForWindow), icon: TrendingUp, accent: 'bg-primary/12 text-primary' },
         { label: 'Users', value: numberFormatter.format(Number(displayData?.totals?.total_users || 0)), icon: Users, accent: 'bg-foreground/5 text-foreground' },
         { label: 'IG Accounts', value: numberFormatter.format(Number(displayData?.totals?.linked_instagram_accounts || 0)), icon: Instagram, accent: 'bg-sky-500/10 text-sky-600 dark:text-sky-400' },
         { label: 'Paid Users', value: numberFormatter.format(Number(displayData?.totals?.paid_users || 0)), icon: CheckCircle2, accent: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
@@ -387,53 +508,22 @@ export const AnalyticsPage: React.FC = () => {
     }
 
     return (
-        <div className="space-y-9 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <section className={`${surfaceClass} overflow-hidden p-7 sm:p-9`}>
-                <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_380px] xl:items-start">
-                    <div className="space-y-5">
-                        <div className="inline-flex rounded-full border border-primary/20 bg-gradient-to-r from-primary/12 to-transparent px-3 py-1 text-[10px] font-black text-primary">
-                            Admin Analytics
-                        </div>
-                        <div>
-                            <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Analytics overview</h1>
-                            <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-muted-foreground">
-                                Revenue, delivery, usage, and account coverage in one clean view.
-                            </p>
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-3">
-                            <InsightTile label="Success" value={`${deliverySuccessRate}%`} note="Successful and skipped delivery share" />
-                            <InsightTile label="Failed" value={numberFormatter.format(Number(failedCount || 0))} note="Events needing attention" />
-                            <InsightTile label="Top Type" value={topAutomation?.name || 'N/A'} note="Most active automation" />
-                        </div>
+        <div className="space-y-6 sm:space-y-7 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <section className={`${surfaceClass} overflow-hidden p-6 sm:p-8 xl:p-9`}>
+                <div className="space-y-6">
+                    <div className="inline-flex rounded-full border border-primary/20 bg-gradient-to-r from-primary/12 to-transparent px-3 py-1 text-[10px] font-black text-primary">
+                        Admin Analytics
                     </div>
-
-                    <div className="rounded-[30px] border border-border/70 bg-background/70 p-5">
-                        <p className="text-[10px] font-black text-muted-foreground">Window</p>
-                        <div className="mt-4 space-y-4">
-                            <GraphFilterDropdown
-                                value={trafficWindow}
-                                onChange={setTrafficWindow}
-                                summary={selectedTrafficWindow}
-                                detail={`Average ${trafficAverage.toFixed(1)} actions per point`}
-                                loadingText={refreshing ? 'Refreshing data...' : null}
-                            />
-                            <div className="rounded-[22px] border border-border/60 bg-card/80 px-4 py-4">
-                                <p className="text-[10px] font-black text-muted-foreground">Average Activity</p>
-                                <p className="mt-2 text-2xl font-extrabold text-foreground">{trafficAverage.toFixed(1)}</p>
-                                <p className="mt-1 text-[11px] font-semibold text-muted-foreground">Average actions per point</p>
-                            </div>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <div className="rounded-[22px] border border-border/60 bg-card/80 px-4 py-4">
-                                    <p className="text-[10px] font-black text-muted-foreground">No IG Link</p>
-                                    <p className="mt-2 text-2xl font-extrabold text-foreground">{numberFormatter.format(Number(noLinkedUsers || 0))}</p>
-                                </div>
-                                <div className="rounded-[22px] border border-border/60 bg-card/80 px-4 py-4">
-                                    <p className="text-[10px] font-black text-muted-foreground">Latest Revenue</p>
-                                    <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(latestRevenue)}</p>
-                                </div>
-                            </div>
-                        </div>
+                    <div className="max-w-3xl">
+                        <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Analytics overview</h1>
+                        <p className="mt-3 text-sm font-medium leading-6 text-muted-foreground">
+                            Revenue, delivery, usage, and account coverage in one clean view.
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <InsightTile label="Success" value={`${deliverySuccessRate}%`} note="Successful and skipped delivery share" />
+                        <InsightTile label="Failed" value={numberFormatter.format(Number(failedCount || 0))} note="Events needing attention" />
+                        <InsightTile label="Top Type" value={topAutomationLabel} note="Most active automation" />
                     </div>
                 </div>
             </section>
@@ -446,7 +536,7 @@ export const AnalyticsPage: React.FC = () => {
                 </div>
             )}
 
-            <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-3">
                 {metricCards.map((item) => (
                     <MetricCard
                         key={item.label}
@@ -468,27 +558,83 @@ export const AnalyticsPage: React.FC = () => {
                 />
             </section>
 
-            <section className="grid grid-cols-1 gap-7 2xl:grid-cols-[minmax(0,1.2fr)_380px]">
-                <div className="space-y-7">
-                    <div className={`${surfaceClass} p-7 sm:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
-                        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                            <div>
-                                <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Automation traffic</h3>
-                                <p className="mt-1 text-[11px] font-black text-muted-foreground">
-                                    Shared graph design with the user analytics view.
-                                </p>
+            <section className="grid grid-cols-1 gap-7">
+                <div className={`${surfaceClass} p-5 sm:p-7 xl:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0">
+                            <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Revenue trend</h3>
+                            <p className="mt-1 text-[11px] font-black text-muted-foreground">{revenueSummaryLabel}</p>
+                        </div>
+                        <div className="w-full lg:max-w-[320px] lg:shrink-0">
+                            <GraphFilterDropdown
+                                title="Revenue Range"
+                                options={REVENUE_WINDOWS}
+                                value={revenueWindow}
+                                onChange={(next) => setRevenueWindow(next as RevenueWindowValue)}
+                                summary={revenueSummaryLabel}
+                                detail={`Revenue total ${moneyFormatter.format(revenueTotalForWindow)}`}
+                                loadingText={refreshing ? 'Refreshing revenue analytics...' : null}
+                                allowCustom
+                                customStart={revenueCustomRange.start}
+                                customEnd={revenueCustomRange.end}
+                                onCustomStartChange={(next) => setRevenueCustomRange((prev) => ({ ...prev, start: next }))}
+                                onCustomEndChange={(next) => setRevenueCustomRange((prev) => ({ ...prev, end: next }))}
+                                onApplyCustom={applyRevenueCustomRange}
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.85fr)]">
+                        <div className="order-2 h-[260px] sm:h-[320px] xl:order-1 xl:h-[340px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={Array.isArray(displayData?.monthly_revenue) ? displayData.monthly_revenue : []}>
+                                    <CartesianGrid strokeDasharray="4 4" stroke={chartGridStroke} vertical={false} />
+                                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} />
+                                    <YAxis tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} />
+                                    <Tooltip content={<ChartTooltip label="Revenue" formatter={(value) => moneyFormatter.format(value)} />} />
+                                    <Bar dataKey="value" fill="#833AB4" radius={[10, 10, 0, 0]} maxBarSize={30} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <div className="order-1 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:order-2 xl:grid-cols-1">
+                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
+                                <p className="text-[10px] font-black text-muted-foreground">Revenue Total</p>
+                                <p className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">{moneyFormatter.format(revenueTotalForWindow)}</p>
+                                <p className="mt-2 text-sm text-muted-foreground">Total within the selected revenue range.</p>
                             </div>
-                            <div className="flex flex-col gap-3 sm:items-end">
-                                <GraphFilterDropdown
-                                    value={trafficWindow}
-                                    onChange={setTrafficWindow}
-                                    summary={selectedTrafficWindow}
-                                    detail={`Average ${trafficAverage.toFixed(1)} actions per point`}
-                                    loadingText={refreshing ? 'Updating charts and metrics...' : null}
-                                />
+                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
+                                <p className="text-[10px] font-black text-muted-foreground">Latest Revenue</p>
+                                <p className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">{moneyFormatter.format(latestRevenue)}</p>
+                                <p className="mt-2 text-sm text-muted-foreground">Most recent plotted day in the active revenue window.</p>
+                            </div>
+                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
+                                <p className="text-[10px] font-black text-muted-foreground">No IG Link</p>
+                                <p className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">{numberFormatter.format(Number(noLinkedUsers || 0))}</p>
+                                <p className="mt-2 text-sm text-muted-foreground">Users still waiting for an Instagram account connection.</p>
                             </div>
                         </div>
-                        <div className="h-[340px]">
+                    </div>
+                </div>
+
+                <div className={`${surfaceClass} p-5 sm:p-7 xl:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0">
+                            <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Automation traffic</h3>
+                            <p className="mt-1 text-[11px] font-black text-muted-foreground">Last 30 days of stored delivery activity, shown across flexible traffic windows.</p>
+                        </div>
+                        <div className="w-full lg:max-w-[320px] lg:shrink-0">
+                            <GraphFilterDropdown
+                                title="Automation Range"
+                                options={TRAFFIC_WINDOWS}
+                                value={trafficWindow}
+                                onChange={(next) => setTrafficWindow(next as TrafficWindowValue)}
+                                summary={trafficSummaryLabel}
+                                detail={`Average ${trafficAverage.toFixed(1)} actions per ${trafficFilterMeta.bucket === 'hour' ? 'hour' : 'point'}`}
+                                loadingText={refreshing ? 'Refreshing automation analytics...' : null}
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.85fr)]">
+                        <div className="order-2 h-[260px] sm:h-[320px] xl:order-1 xl:h-[340px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={trafficChartData}>
                                     <defs>
@@ -533,69 +679,28 @@ export const AnalyticsPage: React.FC = () => {
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
-                    </div>
-
-                    <div className={`${surfaceClass} p-7 sm:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
-                        <div className="mb-6">
-                            <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Revenue trend</h3>
-                            <p className="mt-1 text-[11px] font-black text-muted-foreground">Last 30 days</p>
-                        </div>
-                        <div className="h-[340px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={Array.isArray(displayData?.monthly_revenue) ? displayData.monthly_revenue : []}>
-                                    <CartesianGrid strokeDasharray="4 4" stroke={chartGridStroke} vertical={false} />
-                                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} />
-                                    <YAxis tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} />
-                                    <Tooltip content={<ChartTooltip label="Revenue" formatter={(value) => moneyFormatter.format(value)} />} />
-                                    <Bar dataKey="value" fill="#833AB4" radius={[10, 10, 0, 0]} maxBarSize={30} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="space-y-7">
-                    <div className={`${surfaceClass} p-7 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
-                        <div className="mb-5">
-                            <h3 className="text-[1.45rem] font-extrabold tracking-tight text-foreground">Signals</h3>
-                            <p className="mt-1 text-[11px] font-black text-muted-foreground">Quick read</p>
-                        </div>
-                        <div className="space-y-4">
-                            <InsightTile label="Success Rate" value={`${deliverySuccessRate}%`} note="Success plus skipped events" />
-                            <InsightTile label="No IG Link" value={numberFormatter.format(Number(noLinkedUsers || 0))} note="Users still unlinked" />
-                            <InsightTile label="Recent Revenue" value={moneyFormatter.format(latestRevenue)} note="Most recent day in trend" />
-                        </div>
-                    </div>
-
-                    <div className={`${surfaceClass} p-7 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
-                        <div className="mb-5">
-                            <h3 className="text-[1.45rem] font-extrabold tracking-tight text-foreground">Recent failures</h3>
-                            <p className="mt-1 text-[11px] font-black text-muted-foreground">Latest events</p>
-                        </div>
-                        <div className="space-y-3">
-                            {(Array.isArray(displayData?.recent_failures) ? displayData.recent_failures : []).length === 0 ? (
-                                <div className="rounded-[24px] border border-success/30 bg-success-muted/60 px-5 py-9 text-center text-sm font-medium text-success">
-                                    No recent failures.
+                        <div className="order-1 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:order-2 xl:grid-cols-1">
+                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
+                                <p className="text-[10px] font-black text-muted-foreground">Active Automation Range</p>
+                                <p className="mt-3 text-2xl font-extrabold tracking-tight text-foreground">{trafficSummaryLabel}</p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    Average {trafficAverage.toFixed(1)} actions per {trafficFilterMeta.bucket === 'hour' ? 'hour' : 'point'}.
+                                </p>
+                            </div>
+                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
+                                <p className="text-[10px] font-black text-muted-foreground">Signals</p>
+                                <div className="mt-4 space-y-4">
+                                    <InsightTile label="Success Rate" value={`${deliverySuccessRate}%`} note="Success plus skipped events" />
+                                    <InsightTile label="Recent Revenue" value={moneyFormatter.format(latestRevenue)} note="Most recent day in trend" />
                                 </div>
-                            ) : (displayData?.recent_failures as Array<any>).map((item) => (
-                                <div key={item.id} className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                                    <div className="flex flex-col gap-3">
-                                        <div className="flex items-start justify-between gap-4">
-                                            <p className="text-sm font-bold text-foreground">{item.event_type}</p>
-                                            <span className="shrink-0 text-[10px] font-black text-muted-foreground">
-                                                {formatShortDate(item.sent_at || 0)}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm leading-6 text-muted-foreground">{item.reason}</p>
-                                    </div>
-                                </div>
-                            ))}
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <section className="space-y-7">
+            <section className="grid grid-cols-1 gap-7 2xl:grid-cols-[minmax(0,1fr)_380px]">
+                <div className="space-y-7">
                     <PieSummaryCard
                         title="Automation Mix"
                         subtitle="By type"
@@ -606,9 +711,38 @@ export const AnalyticsPage: React.FC = () => {
                         subtitle="Per user"
                         data={Array.isArray(displayData?.linked_accounts_distribution) ? displayData.linked_accounts_distribution : []}
                     />
+                </div>
+                <div className={`${surfaceClass} p-6 sm:p-7 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
+                    <div className="mb-5">
+                        <h3 className="text-[1.45rem] font-extrabold tracking-tight text-foreground">Recent failures</h3>
+                        <p className="mt-1 text-[11px] font-black text-muted-foreground">Latest events in the active automation range</p>
+                    </div>
+                    <div className="space-y-3">
+                        {(Array.isArray(displayData?.recent_failures) ? displayData.recent_failures : []).length === 0 ? (
+                            <div className="rounded-[24px] border border-success/30 bg-success-muted/60 px-5 py-9 text-center text-sm font-medium text-success">
+                                No recent failures.
+                            </div>
+                        ) : (displayData?.recent_failures as Array<any>).map((item) => (
+                            <div key={item.id} className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <p className="text-sm font-bold text-foreground">{humanizeAnalyticsLabel(item.event_type)}</p>
+                                        <span className="shrink-0 text-[10px] font-black text-muted-foreground">
+                                            {formatShortDate(item.sent_at || 0)}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm leading-6 text-muted-foreground">{item.reason}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            <section className="space-y-7">
                 <PieSummaryCard
                     title="Delivery Outcomes"
-                    subtitle={selectedTrafficWindow}
+                    subtitle={trafficSummaryLabel}
                     data={statusBreakdown}
                 />
             </section>

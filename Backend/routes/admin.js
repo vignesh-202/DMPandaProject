@@ -393,15 +393,105 @@ const startOfDayIso = (daysAgo = 0) => {
 
 const TRAFFIC_WINDOW_OPTIONS = {
     '24h': { hours: 24, bucket: 'hour' },
+    '3d': { days: 3, bucket: 'day' },
     '7d': { days: 7, bucket: 'day' },
     '14d': { days: 14, bucket: 'day' },
     '21d': { days: 21, bucket: 'day' },
     '30d': { days: 30, bucket: 'day' }
 };
 
+const REVENUE_WINDOW_OPTIONS = {
+    '7d': { days: 7 },
+    '30d': { days: 30 },
+    '90d': { days: 90 }
+};
+
 const normalizeTrafficWindow = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
-    return TRAFFIC_WINDOW_OPTIONS[normalized] ? normalized : '30d';
+    return normalized === 'custom' || TRAFFIC_WINDOW_OPTIONS[normalized] ? normalized : '30d';
+};
+
+const normalizeRevenueWindow = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return normalized === 'custom' || REVENUE_WINDOW_OPTIONS[normalized] ? normalized : '30d';
+};
+
+const parseAnalyticsDateInput = (value, endOfDay = false) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return null;
+    const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+    const parsed = isoDatePattern.test(normalized)
+        ? new Date(`${normalized}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z`)
+        : new Date(normalized);
+    if (Number.isNaN(parsed.getTime())) return null;
+    if (!isoDatePattern.test(normalized)) {
+        if (endOfDay) parsed.setUTCHours(23, 59, 59, 999);
+        else parsed.setUTCHours(0, 0, 0, 0);
+    }
+    return parsed;
+};
+
+const formatAnalyticsDateOnly = (value) => {
+    const parsed = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toISOString().slice(0, 10);
+};
+
+const buildAnalyticsRangeConfig = ({
+    windowValue,
+    fromValue,
+    toValue,
+    presets,
+    fallbackWindow,
+    includeHourly = false
+}) => {
+    const normalizedWindow = String(windowValue || '').trim().toLowerCase();
+    const now = new Date();
+    if (normalizedWindow === 'custom') {
+        const start = parseAnalyticsDateInput(fromValue, false);
+        const end = parseAnalyticsDateInput(toValue, true);
+        if (start && end && start <= end) {
+            const spanMs = end.getTime() - start.getTime();
+            return {
+                window: 'custom',
+                from: start,
+                to: end,
+                bucket: includeHourly && spanMs <= (48 * 60 * 60 * 1000) ? 'hour' : 'day',
+                start_date: formatAnalyticsDateOnly(start),
+                end_date: formatAnalyticsDateOnly(end)
+            };
+        }
+    }
+
+    const resolvedWindow = presets[normalizedWindow] ? normalizedWindow : fallbackWindow;
+    const preset = presets[resolvedWindow] || presets[fallbackWindow];
+    const end = new Date(now);
+    if (preset.hours) {
+        const start = new Date(end);
+        start.setUTCHours(end.getUTCHours() - preset.hours + 1, 0, 0, 0);
+        return {
+            window: resolvedWindow,
+            from: start,
+            to: end,
+            bucket: 'hour',
+            start_date: formatAnalyticsDateOnly(start),
+            end_date: formatAnalyticsDateOnly(end)
+        };
+    }
+
+    const start = new Date(end);
+    start.setUTCHours(0, 0, 0, 0);
+    start.setUTCDate(start.getUTCDate() - ((preset.days || 30) - 1));
+    const normalizedEnd = new Date(end);
+    normalizedEnd.setUTCHours(23, 59, 59, 999);
+    return {
+        window: resolvedWindow,
+        from: start,
+        to: normalizedEnd,
+        bucket: 'day',
+        start_date: formatAnalyticsDateOnly(start),
+        end_date: formatAnalyticsDateOnly(normalizedEnd)
+    };
 };
 
 const startOfUtcHour = (value = new Date()) => {
@@ -410,18 +500,22 @@ const startOfUtcHour = (value = new Date()) => {
     return dt;
 };
 
-const buildTrafficSeries = (logs, windowKey) => {
-    const config = TRAFFIC_WINDOW_OPTIONS[windowKey] || TRAFFIC_WINDOW_OPTIONS['30d'];
-    const now = new Date();
+const buildTrafficSeries = (logs, rangeConfig) => {
+    const range = rangeConfig || buildAnalyticsRangeConfig({
+        windowValue: '30d',
+        presets: TRAFFIC_WINDOW_OPTIONS,
+        fallbackWindow: '30d',
+        includeHourly: true
+    });
 
-    if (config.bucket === 'hour') {
-        const end = startOfUtcHour(now);
-        const start = new Date(end);
-        start.setUTCHours(end.getUTCHours() - (config.hours - 1));
+    if (range.bucket === 'hour') {
+        const end = startOfUtcHour(range.to);
+        const start = startOfUtcHour(range.from);
+        const totalHours = Math.max(1, Math.floor((end.getTime() - start.getTime()) / (60 * 60 * 1000)) + 1);
 
         const buckets = [];
         const bucketMap = new Map();
-        for (let index = 0; index < config.hours; index += 1) {
+        for (let index = 0; index < totalHours; index += 1) {
             const bucketDate = new Date(start);
             bucketDate.setUTCHours(start.getUTCHours() + index);
             const key = bucketDate.toISOString().slice(0, 13);
@@ -433,7 +527,7 @@ const buildTrafficSeries = (logs, windowKey) => {
 
         (Array.isArray(logs) ? logs : []).forEach((entry) => {
             const sentAt = new Date(entry.sent_at || entry.$createdAt || 0);
-            if (Number.isNaN(sentAt.getTime()) || sentAt < start || sentAt > now) return;
+            if (Number.isNaN(sentAt.getTime()) || sentAt < range.from || sentAt > range.to) return;
             const key = sentAt.toISOString().slice(0, 13);
             const bucket = bucketMap.get(key);
             if (bucket) bucket.value += 1;
@@ -442,15 +536,15 @@ const buildTrafficSeries = (logs, windowKey) => {
         return buckets;
     }
 
-    const end = new Date(now);
+    const end = new Date(range.to);
     end.setUTCHours(23, 59, 59, 999);
-    const start = new Date(now);
+    const start = new Date(range.from);
     start.setUTCHours(0, 0, 0, 0);
-    start.setUTCDate(start.getUTCDate() - (config.days - 1));
 
     const buckets = [];
     const bucketMap = new Map();
-    for (let index = 0; index < config.days; index += 1) {
+    const totalDays = Math.max(1, Math.floor((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1);
+    for (let index = 0; index < totalDays; index += 1) {
         const bucketDate = new Date(start);
         bucketDate.setUTCDate(start.getUTCDate() + index);
         const key = bucketDate.toISOString().slice(0, 10);
@@ -469,6 +563,12 @@ const buildTrafficSeries = (logs, windowKey) => {
     });
 
     return buckets;
+};
+
+const isDateWithinRange = (value, range) => {
+    const parsed = value instanceof Date ? value : new Date(value || 0);
+    if (Number.isNaN(parsed.getTime())) return false;
+    return parsed >= range.from && parsed <= range.to;
 };
 
 const listAllDocuments = async (databases, collectionId, queries = [], limit = 100) => {
@@ -1260,35 +1360,41 @@ const buildDashboardMetrics = async (databases) => {
 };
 
 const buildAnalyticsOverview = async (databases, options = {}) => {
-    const trafficWindow = normalizeTrafficWindow(options.window);
-    const [metrics, logs, automations, transactions, users, accounts] = await Promise.all([
+    const trafficRange = buildAnalyticsRangeConfig({
+        windowValue: normalizeTrafficWindow(options.traffic_window || options.window),
+        fromValue: options.traffic_from,
+        toValue: options.traffic_to,
+        presets: TRAFFIC_WINDOW_OPTIONS,
+        fallbackWindow: '30d',
+        includeHourly: true
+    });
+    const revenueRange = buildAnalyticsRangeConfig({
+        windowValue: normalizeRevenueWindow(options.revenue_window),
+        fromValue: options.revenue_from,
+        toValue: options.revenue_to,
+        presets: REVENUE_WINDOW_OPTIONS,
+        fallbackWindow: '30d',
+        includeHourly: false
+    });
+    const [metrics, logs, transactions, users, accounts] = await Promise.all([
         buildDashboardMetrics(databases),
         listAllDocuments(databases, LOGS_COLLECTION_ID, [
-            Query.greaterThanEqual('sent_at', startOfDayIso(29))
+            Query.greaterThanEqual('sent_at', trafficRange.from.toISOString())
         ]).catch(() => []),
-        listAllDocuments(databases, AUTOMATIONS_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, TRANSACTIONS_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, USERS_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, IG_ACCOUNTS_COLLECTION_ID).catch(() => [])
     ]);
-    const trafficSeries = buildTrafficSeries(logs, trafficWindow);
-    const trafficKeys = new Set(trafficSeries.map((entry) => entry.key));
-    const filteredLogs = logs.filter((entry) => {
-        const sentAt = new Date(entry.sent_at || entry.$createdAt || 0);
-        if (Number.isNaN(sentAt.getTime())) return false;
-        const key = trafficWindow === '24h'
-            ? sentAt.toISOString().slice(0, 13)
-            : sentAt.toISOString().slice(0, 10);
-        return trafficKeys.has(key);
-    });
+    const filteredLogs = logs.filter((entry) => isDateWithinRange(entry.sent_at || entry.$createdAt || 0, trafficRange));
+    const trafficSeries = buildTrafficSeries(filteredLogs, trafficRange);
 
     const log_status_breakdown = ['success', 'failed', 'skipped'].map((status) => ({
         name: status,
         value: filteredLogs.filter((entry) => String(entry.status || '').toLowerCase() === status).length
     }));
 
-    const automationsByTypeMap = automations.reduce((acc, item) => {
-        const key = normalizeAutomationType(item.automation_type);
+    const automationsByTypeMap = filteredLogs.reduce((acc, item) => {
+        const key = normalizeAutomationType(item.automation_type || item.event_type);
         acc[key] = Number(acc[key] || 0) + 1;
         return acc;
     }, {});
@@ -1298,15 +1404,25 @@ const buildAnalyticsOverview = async (databases, options = {}) => {
         .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
 
     const monthlyRevenueMap = {};
-    for (let i = 29; i >= 0; i -= 1) {
-        monthlyRevenueMap[startOfDayIso(i).slice(0, 10)] = 0;
+    const revenueStart = new Date(revenueRange.from);
+    revenueStart.setUTCHours(0, 0, 0, 0);
+    const revenueEnd = new Date(revenueRange.to);
+    revenueEnd.setUTCHours(23, 59, 59, 999);
+    const revenueDays = Math.max(1, Math.floor((revenueEnd.getTime() - revenueStart.getTime()) / (24 * 60 * 60 * 1000)) + 1);
+    for (let i = 0; i < revenueDays; i += 1) {
+        const bucketDate = new Date(revenueStart);
+        bucketDate.setUTCDate(revenueStart.getUTCDate() + i);
+        monthlyRevenueMap[bucketDate.toISOString().slice(0, 10)] = 0;
     }
     transactions.forEach((transaction) => {
+        if (!isDateWithinRange(getTransactionCreatedAt(transaction) || 0, revenueRange)) return;
         const key = String(getTransactionCreatedAt(transaction) || '').slice(0, 10);
         if (key && Object.prototype.hasOwnProperty.call(monthlyRevenueMap, key)) {
             monthlyRevenueMap[key] += getTransactionFinalAmount(transaction);
         }
     });
+    const revenueSeries = Object.entries(monthlyRevenueMap).map(([day, value]) => ({ day, value }));
+    const revenueTotal = revenueSeries.reduce((sum, entry) => sum + Number(entry.value || 0), 0);
 
     const linkedAccountsDistributionMap = accounts.reduce((acc, account) => {
         const key = String(account.user_id || '').trim();
@@ -1319,9 +1435,23 @@ const buildAnalyticsOverview = async (databases, options = {}) => {
         ...metrics,
         log_status_breakdown,
         automations_by_type,
-        monthly_revenue: Object.entries(monthlyRevenueMap).map(([day, value]) => ({ day, value })),
-        automation_traffic_window: trafficWindow,
+        monthly_revenue: revenueSeries,
+        revenue_total_for_window: revenueTotal,
+        automation_traffic_window: trafficRange.window,
         automation_traffic: trafficSeries,
+        filters: {
+            traffic: {
+                window: trafficRange.window,
+                start_date: trafficRange.start_date,
+                end_date: trafficRange.end_date,
+                bucket: trafficRange.bucket
+            },
+            revenue: {
+                window: revenueRange.window,
+                start_date: revenueRange.start_date,
+                end_date: revenueRange.end_date
+            }
+        },
         linked_accounts_distribution: [
             { name: '0 linked', value: users.filter((user) => !linkedAccountsDistributionMap[user.$id]).length },
             { name: '1 linked', value: users.filter((user) => linkedAccountsDistributionMap[user.$id] === 1).length },
@@ -1364,7 +1494,15 @@ router.get('/dashboard/metrics', loginRequired, adminRequired, async (req, res) 
 router.get('/analytics/overview', loginRequired, adminRequired, async (req, res) => {
     try {
         const { databases } = getServices();
-        return ok(res, await buildAnalyticsOverview(databases, { window: req.query.window }));
+        return ok(res, await buildAnalyticsOverview(databases, {
+            window: req.query.window,
+            traffic_window: req.query.traffic_window,
+            traffic_from: req.query.traffic_from,
+            traffic_to: req.query.traffic_to,
+            revenue_window: req.query.revenue_window,
+            revenue_from: req.query.revenue_from,
+            revenue_to: req.query.revenue_to
+        }));
     } catch (error) {
         console.error('Admin analytics overview error:', error?.message || String(error));
         return fail(res, 500, 'Failed to load admin analytics overview.');
