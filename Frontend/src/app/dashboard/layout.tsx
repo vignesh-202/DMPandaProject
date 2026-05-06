@@ -454,7 +454,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               </button>
 
               <div className={cn(
-                'ig-topline absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-border bg-card shadow-lg z-[180] transition-all duration-200 origin-top-right',
+                'ig-topline fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+4.5rem)] w-auto overflow-hidden rounded-2xl border border-border bg-card shadow-lg z-[180] transition-all duration-200 origin-top sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[22rem] sm:max-w-[calc(100vw-1.5rem)] sm:origin-top-right',
                 isNotificationMenuOpen
                   ? 'visible translate-y-0 scale-100 opacity-100'
                   : 'invisible -translate-y-2 scale-95 opacity-0'
