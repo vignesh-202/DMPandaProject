@@ -15,7 +15,7 @@ const AutomationPreviewPanel: React.FC<AutomationPreviewPanelProps> = ({
     children,
     title,
     minHeightClassName = '',
-    wrapperClassName = 'order-1 hidden min-h-0 w-full lg:block xl:order-2 xl:col-span-4 xl:self-start xl:max-h-[calc(100vh-7rem)]',
+    wrapperClassName = 'order-2 hidden min-h-0 w-full md:block xl:order-2 xl:col-span-4 xl:self-start xl:max-h-[calc(100vh-7rem)]',
     showMobileTrigger = true,
     mobileTriggerLabel = 'Live Preview',
 }) => {
@@ -24,24 +24,24 @@ const AutomationPreviewPanel: React.FC<AutomationPreviewPanelProps> = ({
     return (
         <>
             <div className={wrapperClassName}>
-                <div className="lg:sticky lg:top-4">
+                <div className="md:sticky md:top-4 xl:top-6">
                     {title && (
                         <div className="mb-4 text-center">
                             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{title}</span>
                         </div>
                     )}
-                    <div className={`bg-muted/40 p-4 flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-border ${minHeightClassName}`.trim()}>
+                    <div className={`flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-border bg-muted/40 p-4 ${minHeightClassName}`.trim()}>
                         {children}
                     </div>
                 </div>
             </div>
 
             {showMobileTrigger && (
-                <div className="lg:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
+                <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 px-1 md:hidden">
                     <button
                         type="button"
                         onClick={() => setShowModal(true)}
-                        className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-ig-purple via-ig-pink to-ig-orange text-white rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-105 active:scale-95"
+                        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-ig-purple via-ig-pink to-ig-orange px-5 py-3 text-white shadow-xl transition-all hover:shadow-2xl active:scale-[0.99]"
                     >
                         <Eye className="w-5 h-5 flex-shrink-0" />
                         <span className="font-bold text-sm whitespace-nowrap">{mobileTriggerLabel}</span>
@@ -51,11 +51,11 @@ const AutomationPreviewPanel: React.FC<AutomationPreviewPanelProps> = ({
 
             {showMobileTrigger && showModal && createPortal(
                 <div
-                    className="lg:hidden fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200 md:hidden"
                     onClick={() => setShowModal(false)}
                 >
                     <div
-                        className="relative w-full max-w-[340px] animate-in zoom-in-95 duration-200"
+                        className="relative flex w-full max-w-md flex-col animate-in zoom-in-95 duration-200"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
@@ -71,8 +71,12 @@ const AutomationPreviewPanel: React.FC<AutomationPreviewPanelProps> = ({
                                 <span className="text-[10px] font-black uppercase tracking-widest text-white/70">{title}</span>
                             </div>
                         )}
-                        <div className="bg-muted/40 p-4 flex flex-col items-center justify-center overflow-hidden rounded-3xl border border-border">
-                            {children}
+                        <div className="overflow-hidden rounded-3xl border border-border bg-card/95 shadow-2xl">
+                            <div className="max-h-[min(78vh,42rem)] overflow-y-auto bg-muted/40 p-4">
+                                <div className="flex flex-col items-center justify-center">
+                                    {children}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>,

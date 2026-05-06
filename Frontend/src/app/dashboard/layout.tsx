@@ -24,6 +24,7 @@ type DashboardNotification = {
 };
 
 const NOTIFICATION_STORAGE_PREFIX = 'dm-panda:dashboard-notifications:seen';
+const DASHBOARD_SIDEBAR_STORAGE_KEY = 'dm-panda:dashboard-sidebar-expanded';
 
 const resolveNotificationTargetView = (
   automationTypeRaw: string
@@ -91,10 +92,11 @@ const getExpiryNotificationCopy = (planName: string, expiresAt: string) => {
 };
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.innerWidth >= 1024;
-  });
+    const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        if (window.innerWidth < 1024) return false;
+        return window.localStorage.getItem(DASHBOARD_SIDEBAR_STORAGE_KEY) !== 'false';
+    });
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
@@ -153,17 +155,33 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
   // Handle responsive sidebar
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024) {
+    const desktopQuery = window.matchMedia('(min-width: 1024px)');
+
+    const syncSidebarState = (event?: MediaQueryListEvent) => {
+      const matchesDesktop = event ? event.matches : desktopQuery.matches;
+      if (!matchesDesktop) {
         setIsSidebarOpen(false);
-      } else {
-        setIsSidebarOpen(true);
+        return;
       }
+
+      setIsSidebarOpen(window.localStorage.getItem(DASHBOARD_SIDEBAR_STORAGE_KEY) !== 'false');
     };
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+
+    syncSidebarState();
+
+    if (typeof desktopQuery.addEventListener === 'function') {
+      desktopQuery.addEventListener('change', syncSidebarState);
+      return () => desktopQuery.removeEventListener('change', syncSidebarState);
+    }
+
+    desktopQuery.addListener(syncSidebarState);
+    return () => desktopQuery.removeListener(syncSidebarState);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth < 1024) return;
+    window.localStorage.setItem(DASHBOARD_SIDEBAR_STORAGE_KEY, isSidebarOpen ? 'true' : 'false');
+  }, [isSidebarOpen]);
 
   useEffect(() => {
     try {
@@ -324,7 +342,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       <aside
         ref={sidebarRef}
         className={cn(
-          "fixed top-0 left-0 h-full flex flex-col transition-all duration-300 ease-out lg:relative z-30",
+          "fixed top-0 left-0 h-full max-w-[85vw] flex flex-col transition-all duration-300 ease-out lg:relative lg:max-w-none z-30",
           "bg-sidebar border-r border-sidebar-border shadow-sm",
           isSidebarOpen
             ? "w-64 translate-x-0"
@@ -436,7 +454,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               </button>
 
               <div className={cn(
-                'ig-topline absolute right-0 top-full mt-2 w-[22rem] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-border bg-card shadow-lg z-[180] transition-all duration-200 origin-top-right',
+                'ig-topline absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-border bg-card shadow-lg z-[180] transition-all duration-200 origin-top-right',
                 isNotificationMenuOpen
                   ? 'visible translate-y-0 scale-100 opacity-100'
                   : 'invisible -translate-y-2 scale-95 opacity-0'
@@ -609,7 +627,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         <div className="relative flex-1 min-h-0">
           <main
             ref={mainRef}
-            className="h-full overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6"
+            className="h-full overflow-y-auto overflow-x-hidden p-3 pb-24 sm:p-4 sm:pb-28 lg:p-6 lg:pb-6"
             data-dashboard-section-scroll-root
           >
             <div className="animate-fadeIn relative min-h-full">

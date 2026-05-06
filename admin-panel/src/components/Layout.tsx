@@ -246,7 +246,7 @@ export const Layout: React.FC = () => {
                         className="absolute inset-0 bg-black/45 backdrop-blur-sm"
                         onClick={() => setMobileNavOpen(false)}
                     />
-                    <div className="relative z-10 flex h-full w-64 max-w-[calc(100vw-3rem)] flex-col border-r border-sidebar-border bg-sidebar/96 shadow-2xl backdrop-blur-xl">
+                    <div className="relative z-10 flex h-full w-72 max-w-[calc(100vw-1.5rem)] flex-col border-r border-sidebar-border bg-sidebar/96 shadow-2xl backdrop-blur-xl">
                         <div className="border-b border-sidebar-border px-4 py-4 sm:px-5">
                     <div className="relative flex items-center gap-3 pr-12">
                                 <div>
@@ -325,12 +325,12 @@ export const Layout: React.FC = () => {
                                 <h2 className="mt-1 truncate text-base font-extrabold text-foreground sm:text-lg">{headerMeta.title}</h2>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto">
                             <div className="status-pill status-pill-success shrink-0">
                                 <span className="h-2 w-2 rounded-full bg-success" />
                                 Live
                             </div>
-                            <div className="hidden rounded-full border border-border/80 bg-card/80 px-4 py-2 text-xs font-semibold text-muted-foreground sm:flex">
+                            <div className="max-w-full truncate rounded-full border border-border/80 bg-card/80 px-4 py-2 text-xs font-semibold text-muted-foreground">
                                 {headerMeta.subtitle}
                             </div>
                         </div>

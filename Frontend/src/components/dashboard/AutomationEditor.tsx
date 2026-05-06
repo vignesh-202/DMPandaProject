@@ -1741,21 +1741,23 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         <>
             <button
                 onClick={() => setShowMobilePreviewModal(true)}
-                className="lg:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] flex h-14 items-center justify-center gap-2 rounded-full bg-primary px-8 font-bold text-primary-foreground shadow-2xl transition-all hover:scale-105 active:scale-95 border border-white/20 whitespace-nowrap"
+                className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[9999] flex min-h-12 w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 items-center justify-center gap-2 rounded-2xl border border-white/20 bg-primary px-6 py-3 font-bold text-primary-foreground shadow-2xl transition-all active:scale-[0.99] lg:hidden"
             >
                 <Smartphone className="w-5 h-5" />
                 <span>Live Preview</span>
             </button>
             {showMobilePreviewModal && createPortal(
                 <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-background/90 p-4 backdrop-blur-xl lg:hidden">
-                    <div className="relative w-full max-w-[360px]">
+                    <div className="relative flex w-full max-w-md flex-col">
                         <button
                             onClick={() => setShowMobilePreviewModal(false)}
                             className="absolute -right-2 -top-12 flex h-10 w-10 items-center justify-center rounded-full bg-muted/80 text-foreground shadow-lg transition-all hover:bg-muted z-[10010]"
                         >
                             <X className="w-5 h-5" />
                         </button>
-                        {renderPreview()}
+                        <div className="max-h-[min(78vh,42rem)] overflow-y-auto rounded-3xl">
+                            {renderPreview()}
+                        </div>
                     </div>
                 </div>,
                 document.body
@@ -1778,7 +1780,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     </button>
                 </div>
                 <div className="grid grid-cols-1 gap-0 lg:grid-cols-2 lg:max-h-[calc(100vh-160px)] lg:min-h-0 lg:overflow-hidden">
-                    <div className="p-4 sm:p-6 md:p-8 lg:min-h-0 lg:overflow-y-auto">
+                    <div className="p-4 pb-24 sm:p-6 sm:pb-28 md:p-8 md:pb-8 lg:min-h-0 lg:overflow-y-auto">
                         {renderActionBar()}
                         {renderForm()}
                     </div>
@@ -1806,8 +1808,10 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     if (effectiveVariant === 'embedded') {
         return (
             <div className="w-full relative">
-                {renderActionBar()}
-                {renderForm()}
+                <div className="pb-24 sm:pb-28 lg:pb-0">
+                    {renderActionBar()}
+                    {renderForm()}
+                </div>
                 <ModernConfirmModal
                     isOpen={modalConfig.isOpen}
                     onClose={closeModal}
@@ -1837,7 +1841,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     </button>
                 </div>
                 <div className="grid grid-cols-1 gap-0 lg:grid-cols-2 lg:max-h-[78vh] lg:min-h-0 lg:overflow-hidden">
-                    <div className="p-4 sm:p-8 lg:min-h-0 lg:overflow-y-auto">
+                    <div className="p-4 pb-24 sm:p-8 sm:pb-28 lg:min-h-0 lg:overflow-y-auto lg:pb-8">
                         {renderActionBar()}
                         {renderForm()}
                     </div>

@@ -157,7 +157,7 @@ export const Dashboard: React.FC = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <section className={`${surfaceClass} overflow-hidden p-6 sm:p-8`}>
+            <section className={`${surfaceClass} overflow-hidden p-5 sm:p-8`}>
                 <div className="flex flex-col gap-8">
                     <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                         <div>
@@ -178,7 +178,7 @@ export const Dashboard: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="w-full xl:w-96 shrink-0">
+                        <div className="w-full shrink-0 xl:w-96">
                             <div className="rounded-[26px] border border-border/70 bg-background/70 p-5">
                                 <p className="text-[10px] font-black text-muted-foreground">Plan Leader</p>
                                 <p className="mt-3 text-2xl font-extrabold text-foreground">{topPlan?.name || 'No plan data'}</p>
@@ -224,7 +224,7 @@ export const Dashboard: React.FC = () => {
                 ))}
             </section>
 
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_380px]">
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,23.75rem)]">
                 <div className={`${surfaceClass} p-6 sm:p-7`}>
                     <div className="mb-6 flex items-center justify-between gap-4">
                         <div>
@@ -256,7 +256,7 @@ export const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="mt-6 h-[300px]">
+                    <div className="mt-6 h-[240px] sm:h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={revenueTrend}>
                                 <defs>
@@ -314,7 +314,7 @@ export const Dashboard: React.FC = () => {
                 </div>
             </section>
 
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_380px]">
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,23.75rem)]">
                 <div className={`${surfaceClass} p-6 sm:p-7`}>
                     <div className="mb-6 flex items-center justify-between gap-4">
                         <div>
@@ -326,7 +326,7 @@ export const Dashboard: React.FC = () => {
                             Signup trend
                         </div>
                     </div>
-                    <div className="h-[300px]">
+                    <div className="h-[240px] sm:h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={growthData}>
                                 <defs>
@@ -351,7 +351,7 @@ export const Dashboard: React.FC = () => {
                         <p className="mt-1 text-xs font-black text-muted-foreground">All user profiles</p>
                     </div>
                     <div className="grid gap-5 xl:grid-cols-1">
-                        <div className="mx-auto flex h-[220px] w-full max-w-[260px] items-center justify-center">
+                        <div className="mx-auto flex h-[200px] w-full max-w-[240px] items-center justify-center sm:h-[220px] sm:max-w-[260px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
@@ -405,7 +405,7 @@ export const Dashboard: React.FC = () => {
                 </div>
             </section>
 
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,22.5rem)]">
                 <div className={`${surfaceClass} overflow-hidden`}>
                     <div className="flex items-center justify-between border-b border-border/70 px-6 py-5 sm:px-7">
                         <div>
