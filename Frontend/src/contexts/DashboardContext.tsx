@@ -511,7 +511,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                 const accounts = data.ig_accounts || [];
                 setIgAccounts(accounts);
                 if (accounts.length > 0) {
-                    await refreshLinkedProfiles();
+                    void refreshLinkedProfiles();
                 }
 
                 if (accounts.length > 0) {
@@ -534,14 +534,12 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                         return initialTargetID;
                     });
 
-                    // Critical: If this is the initial load, we must ensure stats are fetched before unblocking
-                    // We also set lastFetchedStatsAccountID immediately to prevent the useEffect watcher from double-fetching.
+                    // Start stats early, but do not block the first dashboard paint on it.
                     if (initialTargetID) {
                         const targetAcc = accounts.find((a: any) => a.ig_user_id === initialTargetID || a.id === initialTargetID);
                         if (targetAcc) {
-                            // Pre-set the ref so the useEffect hook sees it as 'already fetched'
                             lastFetchedStatsAccountID.current = initialTargetID;
-                            await fetchStats(initialTargetID, accounts);
+                            void fetchStats(initialTargetID, accounts);
                         }
                     }
                 } else {
@@ -557,7 +555,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
             setIsGlobalLoading(false);
             isFetchingAccounts.current = false;
         }
-    }, [authenticatedFetch, fetchStats]);
+    }, [authenticatedFetch, fetchStats, refreshLinkedProfiles]);
 
     // Initial load
     useEffect(() => {

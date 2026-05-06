@@ -2,11 +2,10 @@ import { Suspense, lazy, type ReactElement } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { Layout } from './components/Layout';
-import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 import AdminLoadingState from './components/AdminLoadingState';
 
+const AdminAppShell = lazy(() => import('./components/AdminAppShell'));
 const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })));
 const AuthCallback = lazy(() => import('./pages/AuthCallback').then((module) => ({ default: module.AuthCallback })));
 const Dashboard = lazy(() => import('./pages/Dashboard').then((module) => ({ default: module.Dashboard })));
@@ -42,21 +41,19 @@ function App() {
               <Route path="/login" element={<AdminPublicRoute><Login /></AdminPublicRoute>} />
               <Route path="/auth/callback" element={<AuthCallback />} />
 
-              <Route element={<ProtectedRoute />}>
-                <Route element={<Layout />}>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
-                  <Route path="/users" element={<UsersPage />} />
-                  <Route path="/users/:userId" element={<UsersPage />} />
-                  <Route path="/users/:userId/edit" element={<UsersPage />} />
-                  <Route path="/automations" element={<AutomationsPage />} />
-                  <Route path="/pricing" element={<PricingPage />} />
-                  <Route path="/coupons" element={<CouponsPage />} />
-                  <Route path="/coupons/create" element={<CouponsPage />} />
-                  <Route path="/coupons/:couponId/edit" element={<CouponsPage />} />
-                  <Route path="/email-campaigns" element={<EmailCampaignsPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                </Route>
+              <Route element={<AdminAppShell />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/users" element={<UsersPage />} />
+                <Route path="/users/:userId" element={<UsersPage />} />
+                <Route path="/users/:userId/edit" element={<UsersPage />} />
+                <Route path="/automations" element={<AutomationsPage />} />
+                <Route path="/pricing" element={<PricingPage />} />
+                <Route path="/coupons" element={<CouponsPage />} />
+                <Route path="/coupons/create" element={<CouponsPage />} />
+                <Route path="/coupons/:couponId/edit" element={<CouponsPage />} />
+                <Route path="/email-campaigns" element={<EmailCampaignsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

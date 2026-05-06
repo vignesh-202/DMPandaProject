@@ -7,6 +7,47 @@ export default defineConfig({
   plugins: [
     react(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+
+          if (id.includes('react-router') || id.includes('@remix-run')) {
+            return 'router';
+          }
+
+          if (
+            id.includes('recharts')
+            || id.includes('react-gauge-chart')
+            || id.includes('/d3-')
+            || id.includes('\\d3-')
+          ) {
+            return 'charts';
+          }
+
+          if (
+            id.includes('lucide-react')
+            || id.includes('react-icons')
+            || id.includes('@fortawesome')
+          ) {
+            return 'icons';
+          }
+
+          if (
+            id.includes('/react/')
+            || id.includes('\\react\\')
+            || id.includes('react-dom')
+            || id.includes('scheduler')
+          ) {
+            return 'react-core';
+          }
+
+          return 'vendor';
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@shared': path.resolve(__dirname, '../shared'),

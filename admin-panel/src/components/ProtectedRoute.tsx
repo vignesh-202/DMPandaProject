@@ -3,7 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AdminLoadingState from './AdminLoadingState';
 
-export const ProtectedRoute: React.FC = () => {
+export const ProtectedRoute: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
     const { user, loading, isAdmin } = useAuth();
 
     if (loading) {
@@ -39,5 +39,5 @@ export const ProtectedRoute: React.FC = () => {
         );
     }
 
-    return <Outlet />;
+    return <>{children || <Outlet />}</>;
 };

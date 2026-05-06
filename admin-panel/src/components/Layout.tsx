@@ -43,7 +43,7 @@ const resolveHeaderMeta = (pathname: string) => {
     return { title: 'Overview', subtitle: 'Admin control center' };
 };
 
-export const Layout: React.FC = () => {
+export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
     const { logout, user } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
@@ -337,7 +337,7 @@ export const Layout: React.FC = () => {
                     </div>
                 </header>
                 <div className="custom-scrollbar relative mx-auto min-h-0 w-full max-w-[1480px] flex-1 overflow-x-clip overflow-y-auto px-4 pb-10 pt-5 sm:px-6 sm:pb-12 sm:pt-7 lg:px-8">
-                    <Outlet />
+                    {children || <Outlet />}
                 </div>
                 <div className="pointer-events-none absolute inset-0 z-[120]" data-admin-section-overlay-root />
             </main>
