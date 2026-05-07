@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     name: EAS Build (Production)
+    if: ${{ hashFiles('MobileApp/package-lock.json') != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check for EXPO_TOKEN

@@ -162,6 +162,16 @@ const enforceLoginAccess = async (userId, options = {}) => {
     return accessState;
 };
 
+const enforceAppContextAccess = (appContext, labels = []) => {
+    const normalizedContext = normalizeAppContext(appContext);
+    if (normalizedContext === 'admin' && !labels.includes('admin')) {
+        const error = new Error('Only users with the admin label can access this dashboard.');
+        error.statusCode = 403;
+        error.payload = { error: 'Only users with the admin label can access this dashboard.' };
+        throw error;
+    }
+};
+
 const findUsersByNormalizedEmail = async (users, email, options = {}) => {
     const normalizedTarget = normalizeEmail(email);
     const excludeUserId = String(options.excludeUserId || '').trim();
@@ -300,6 +310,9 @@ router.post('/api/login', async (req, res) => {
         const userId = user.$id;
         const serverClient = getAppwriteClient({ useApiKey: true });
         const users = new Users(serverClient);
+        const labels = Array.isArray(user?.labels) ? user.labels : [];
+
+        enforceAppContextAccess(appContext, labels);
 
         const newSession = await users.createSession(userId);
         const token = getSessionSecret(newSession);
@@ -309,7 +322,7 @@ router.post('/api/login', async (req, res) => {
         try {
             await enforceLoginAccess(userId, {
                 appContext,
-                labels: Array.isArray(user?.labels) ? user.labels : []
+                labels
             });
         } catch (accessError) {
             try {

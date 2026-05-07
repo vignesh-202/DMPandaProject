@@ -494,6 +494,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     }, [authenticatedFetch]);
 
     const isFetchingAccounts = useRef(false);
+    const planRevalidationInFlight = useRef(false);
 
     // Unified accounts fetch with automatic sync
     const fetchIgAccounts = useCallback(async () => {
@@ -571,6 +572,10 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
             if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
                 return;
             }
+            if (planRevalidationInFlight.current) {
+                return;
+            }
+            planRevalidationInFlight.current = true;
             try {
                 await refreshPlanAccess();
                 const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts`);
@@ -588,14 +593,21 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                 }
             } catch (_) {
                 // keep current session state until the next successful revalidation
+            } finally {
+                planRevalidationInFlight.current = false;
             }
         };
 
         const intervalId = window.setInterval(revalidate, 20000);
-        window.addEventListener('focus', revalidate);
+        const handleVisibilityOrFocus = () => {
+            void revalidate();
+        };
+        window.addEventListener('focus', handleVisibilityOrFocus);
+        document.addEventListener('visibilitychange', handleVisibilityOrFocus);
         return () => {
             window.clearInterval(intervalId);
-            window.removeEventListener('focus', revalidate);
+            window.removeEventListener('focus', handleVisibilityOrFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
         };
     }, [authenticatedFetch, isInitialLoadComplete, refreshPlanAccess, user]);
 

@@ -111,6 +111,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const notificationMenuRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  const notificationFetchInFlightRef = useRef(false);
   const userIdentifier = String(user?.$id || user?.id || user?.email || 'guest');
   const notificationStorageKey = `${NOTIFICATION_STORAGE_PREFIX}:${userIdentifier}`;
 
@@ -195,7 +196,10 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
   const fetchNotifications = useCallback(async () => {
     if (!isInitialLoadComplete) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    if (notificationFetchInFlightRef.current) return;
 
+    notificationFetchInFlightRef.current = true;
     setIsNotificationsLoading(true);
     try {
       const requests: Promise<Response | null>[] = [
@@ -274,17 +278,27 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       console.error('Failed to load dashboard notifications:', error);
       setNotifications([]);
     } finally {
+      notificationFetchInFlightRef.current = false;
       setIsNotificationsLoading(false);
     }
   }, [activeAccountID, authenticatedFetch, isInitialLoadComplete]);
 
   useEffect(() => {
     void fetchNotifications();
+    const handleVisibilityOrFocus = () => {
+      void fetchNotifications();
+    };
     const intervalId = window.setInterval(() => {
       void fetchNotifications();
     }, 60000);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
 
-    return () => window.clearInterval(intervalId);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
   }, [fetchNotifications]);
 
   useEffect(() => {
