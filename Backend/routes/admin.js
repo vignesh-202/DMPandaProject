@@ -33,7 +33,11 @@ const {
     normalizeBillingCycle,
     isValidPlanSource,
     normalizePlanSource,
-    buildPlanProfilePayload
+    buildPlanProfilePayload,
+    getLatestValidTransaction,
+    parseAdminOverride,
+    buildAdminOverridePayload,
+    clearAdminOverridePayload
 } = require('../utils/planConfig');
 const {
     normalizeAccountAccess,
@@ -843,6 +847,22 @@ const getLatestTransactionForUserReset = async (databases, userId) => {
 const buildEffectivePlanResponse = async (databases, userId, userFallback = null) => {
     const context = await resolveUserPlanContext(databases, userId, userFallback);
     const subscriptionState = deriveSubscriptionState(context.profile?.plan_code, context.profile?.expiry_date);
+    let adminOverride = null;
+    try {
+        const parsed = context.profile?.admin_override_json ? JSON.parse(context.profile.admin_override_json) : null;
+        if (parsed) {
+            const expiry = parseSubscriptionExpiryDate(parsed.e || parsed.expires_at || null);
+            adminOverride = {
+                plan_id: normalizePlanCode(parsed.p || parsed.plan_id || 'free'),
+                plan_name: String(parsed.n || parsed.plan_name || '').trim() || null,
+                billing_cycle: parsed.b ? normalizeBillingCycle(parsed.b) : null,
+                expires_at: expiry,
+                is_active: Boolean(expiry && new Date(expiry).getTime() > Date.now())
+            };
+        }
+    } catch (_) {
+        adminOverride = null;
+    }
     return {
         profile: context.profile,
         effective_plan: {
@@ -855,6 +875,7 @@ const buildEffectivePlanResponse = async (databases, userId, userFallback = null
         is_active: subscriptionState.is_active,
         is_expired: subscriptionState.is_expired,
         derived_status: subscriptionState.derived_status,
+        admin_override: adminOverride,
         self_plan: {
             id: String(context.selfPlanId || 'free'),
             expiry_date: context.selfExpiryDate || null
@@ -2229,16 +2250,47 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             limitOverrides = {};
             featureOverrides = {};
         } else if (action === 'reset_to_paid_snapshot_or_free') {
-            const restoredPlan = await resolveLatestValidTransactionRestore(databases, userId, pricingPlans);
-            nextPlan = restoredPlan.plan;
-            nextPlanId = restoredPlan.planId;
-            nextExpiryDate = restoredPlan.expiryDate;
-            nextPlanSource = 'admin';
+            const restoredTransaction = await getLatestValidTransaction(databases, userId, pricingPlans);
+            nextPlan = restoredTransaction?.plan || (pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === 'free') || null);
+            nextPlanId = restoredTransaction?.planId || 'free';
+            nextExpiryDate = restoredTransaction?.expiryDate || null;
+            nextPlanSource = restoredTransaction ? 'payment' : 'system';
             limitOverrides = {};
             featureOverrides = {};
         } else {
             return fail(res, 400, 'Unsupported profile action.');
         }
+
+        const existingAdminOverride = parseAdminOverride(existingProfile);
+        const nextFeatureOverrides = req.body?.no_watermark !== undefined
+            ? { ...featureOverrides, no_watermark: req.body.no_watermark === true }
+            : featureOverrides;
+        const shouldPersistAdminOverride = (
+            action === 'change_assigned_plan'
+            || (
+                ['edit_custom_limits', 'edit_benefits', 'reset_to_assigned_defaults'].includes(action)
+                && (
+                    existingAdminOverride
+                    || normalizePlanSource(existingProfile?.plan_source, 'system') === 'admin'
+                )
+            )
+        );
+        const adminOverrideJson = shouldPersistAdminOverride
+            ? buildAdminOverridePayload({
+                planId: nextPlanId,
+                planName: nextPlan?.name || nextPlan?.plan_name || existingAdminOverride?.plan_name || nextPlanId,
+                billingCycle: req.body?.duration_mode === 'yearly'
+                    ? 'yearly'
+                    : (existingAdminOverride?.billing_cycle || 'monthly'),
+                expiresAt: nextExpiryDate || existingAdminOverride?.expires_at,
+                limitOverrides,
+                featureOverrides: nextFeatureOverrides
+            })
+            : (
+                action === 'reset_to_paid_snapshot_or_free'
+                    ? clearAdminOverridePayload()
+                    : existingProfile?.admin_override_json
+            );
 
         const payload = buildPlanProfilePayload({
             currentProfile: existingProfile,
@@ -2247,11 +2299,12 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             planSource: nextPlanSource,
             subscriptionStatus: nextPlanId === 'free' ? 'inactive' : 'active',
             subscriptionExpires: nextExpiryDate,
-            featureOverrides,
+            featureOverrides: nextFeatureOverrides,
             limitOverrides,
             noWatermarkEnabled: req.body?.no_watermark,
             resetReminderState: action === 'change_assigned_plan' || action === 'reset_to_paid_snapshot_or_free',
-            credits: existingProfile ? undefined : 0
+            credits: existingProfile ? undefined : 0,
+            adminOverrideJson
         });
         if (req.body?.kill_switch_enabled !== undefined) {
             payload.kill_switch_enabled = req.body.kill_switch_enabled !== false;
@@ -2318,6 +2371,7 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
                 plan_code: payload.plan_code,
                 expiry_date: payload.expiry_date,
                 plan_source: payload.plan_source,
+                admin_override_json: payload.admin_override_json,
                 kill_switch_enabled: userUpdate.kill_switch_enabled,
                 cleanup_protected: userUpdate.cleanup_protected
             }
@@ -2407,31 +2461,11 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
             nextExpiryDate = profile?.expiry_date || null;
             nextPlanSource = 'admin';
         } else {
-            const latestTransaction = await getLatestTransactionForUserReset(databases, userId);
-            const now = new Date();
-            const latestTransactionPlanId = getResetTransactionPlanCode(latestTransaction) || 'free';
-            const matchedTransactionPlan = pricingPlans.find((plan) => normalizePlanCode(plan.plan_code || plan.id) === latestTransactionPlanId) || null;
-            const latestTransactionExpiryDetails = resolveResetTransactionExpiry(latestTransaction, matchedTransactionPlan);
-            const latestTransactionExpiry = latestTransactionExpiryDetails.expiryDate;
-            const expiry = latestTransactionExpiry ? new Date(latestTransactionExpiry) : null;
-            const hasActiveLatestTransaction = Boolean(expiry && expiry > now);
-
-            if (latestTransaction && hasActiveLatestTransaction) {
-                nextPlan = matchedTransactionPlan
-                    || {
-                        plan_code: latestTransactionPlanId,
-                        id: latestTransactionPlanId,
-                        name: String(latestTransaction?.plan_name || latestTransaction?.planName || latestTransactionPlanId).trim() || 'Plan'
-                    };
-                nextPlanId = latestTransactionPlanId;
-                nextExpiryDate = latestTransactionExpiry;
-                nextPlanSource = 'admin';
-            } else {
-                nextPlan = freePlan;
-                nextPlanId = 'free';
-                nextExpiryDate = null;
-                nextPlanSource = 'system';
-            }
+            const restoredTransaction = await getLatestValidTransaction(databases, userId, pricingPlans);
+            nextPlan = restoredTransaction?.plan || freePlan;
+            nextPlanId = restoredTransaction?.planId || 'free';
+            nextExpiryDate = restoredTransaction?.expiryDate || null;
+            nextPlanSource = restoredTransaction ? 'payment' : 'system';
         }
 
         if (profile) {
@@ -2447,7 +2481,8 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
                         subscriptionExpires: nextExpiryDate,
                         featureOverrides,
                         limitOverrides,
-                        resetReminderState: true
+                        resetReminderState: true,
+                        adminOverrideJson: clearAdminOverridePayload()
                     })
                 });
                 await recomputeAccountAccessForUser(databases, userId, updatedProfile);
@@ -2472,7 +2507,8 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
                     featureOverrides,
                     limitOverrides,
                     resetReminderState: true,
-                    credits: 0
+                    credits: 0,
+                    adminOverrideJson: clearAdminOverridePayload()
                 })
             });
             await recomputeAccountAccessForUser(databases, userId, createdProfile);

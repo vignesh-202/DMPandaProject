@@ -628,15 +628,38 @@ class AppwriteClient {
         }
         hydrated.__plan_features = {};
         PLAN_BENEFIT_KEYS.forEach((key) => {
-            const enabled = benefitFieldsForKey(key).some((field) => plan?.[field] === true);
+            const profileOverride = benefitFieldsForKey(key).find((field) => hydrated[field] !== undefined);
+            const enabled = profileOverride
+                ? hydrated[profileOverride] === true
+                : benefitFieldsForKey(key).some((field) => plan?.[field] === true);
             hydrated[benefitFieldForKey(key)] = enabled;
             hydrated.__plan_features[key] = enabled;
         });
-        hydrated.instagram_link_limit = Number(plan.instagram_link_limit || plan.instagram_connections_limit || 0);
-        hydrated.instagram_connections_limit = Number(plan.instagram_connections_limit || 0);
-        hydrated.hourly_action_limit = Number(plan.actions_per_hour_limit || 0);
-        hydrated.daily_action_limit = Number(plan.actions_per_day_limit || 0);
-        hydrated.monthly_action_limit = Number(plan.actions_per_month_limit || 0);
+        const hasOwnMonthlyLimit = Object.prototype.hasOwnProperty.call(hydrated, 'monthly_action_limit');
+        hydrated.instagram_link_limit = Number(
+            hydrated.instagram_link_limit
+            ?? plan.instagram_link_limit
+            ?? plan.instagram_connections_limit
+            ?? 0
+        );
+        hydrated.instagram_connections_limit = Number(
+            hydrated.instagram_connections_limit
+            ?? plan.instagram_connections_limit
+            ?? 0
+        );
+        hydrated.hourly_action_limit = Number(
+            hydrated.hourly_action_limit
+            ?? plan.actions_per_hour_limit
+            ?? 0
+        );
+        hydrated.daily_action_limit = Number(
+            hydrated.daily_action_limit
+            ?? plan.actions_per_day_limit
+            ?? 0
+        );
+        hydrated.monthly_action_limit = hasOwnMonthlyLimit
+            ? hydrated.monthly_action_limit
+            : Number(plan.actions_per_month_limit ?? 0);
         return hydrated;
     }
 

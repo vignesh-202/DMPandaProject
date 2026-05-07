@@ -281,7 +281,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
     };
 
     const renderTextTemplate = () => (
-        <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-content space-y-4">
+        <div className="space-y-4 rounded-2xl border border-content bg-gray-50 p-4 dark:bg-gray-800/50 sm:p-6">
             <div className="flex justify-between items-center">
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Reply Message</label>
                 <span className={`text-[9px] font-bold ${getByteLength(templateData.text || '') > TEXT_MAX ? 'text-red-500' : 'text-gray-400'}`}>
@@ -298,7 +298,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                         clearValidationError('template_text');
                     }
                 }}
-                className={`w-full bg-white dark:bg-gray-900 border-2 ${validationErrors['template_text'] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500/50 outline-none rounded-2xl p-6 text-sm font-bold text-gray-900 dark:text-gray-100 min-h-[160px] shadow-xl shadow-black/5 transition-all resize-none`}
+                className={`w-full bg-white dark:bg-gray-900 border-2 ${validationErrors['template_text'] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500/50 outline-none rounded-2xl p-4 text-sm font-bold text-gray-900 dark:text-gray-100 min-h-[132px] shadow-xl shadow-black/5 transition-all resize-none sm:p-6 sm:min-h-[160px]`}
                 placeholder="Enter your reply message here..."
             />
             {validationErrors['template_text'] && (

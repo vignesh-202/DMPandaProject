@@ -574,11 +574,245 @@ const calculateTransactionExpiry = (transaction, plan = null) => {
 const listUserTransactions = async (databases, userId, limit = 250) => {
     const safeUserId = String(userId || '').trim();
     if (!safeUserId) return [];
-    const response = await databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
-        Query.equal('userId', safeUserId),
-        Query.limit(limit)
+    const [bySnakeCase, byCamelCase] = await Promise.all([
+        databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
+            Query.equal('user_id', safeUserId),
+            Query.limit(limit)
+        ]).catch(() => ({ documents: [] })),
+        databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
+            Query.equal('userId', safeUserId),
+            Query.limit(limit)
+        ]).catch(() => ({ documents: [] }))
     ]);
-    return response.documents || [];
+    const seen = new Set();
+    return [...(bySnakeCase.documents || []), ...(byCamelCase.documents || [])].filter((doc) => {
+        const key = String(doc?.$id || doc?.transactionId || '').trim();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+};
+
+const parseAdminOverride = (profile = null) => {
+    const parsed = parseJsonObject(profile?.admin_override_json, null);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const planId = normalizePlanCode(parsed.p || parsed.plan_id || parsed.plan_code || 'free') || 'free';
+    const expiresAt = toIsoDateTime(parsed.e || parsed.expires_at || parsed.expiry_date || null);
+    const billingCycle = (parsed.b || parsed.billing_cycle) ? normalizeBillingCycle(parsed.b || parsed.billing_cycle) : null;
+    return {
+        plan_id: planId,
+        plan_name: String(parsed.n || parsed.plan_name || parsed.name || profile?.plan_name || planId || '').trim() || null,
+        billing_cycle: billingCycle,
+        expires_at: expiresAt,
+        created_at: toIsoDateTime(parsed.c || parsed.created_at || null),
+        limit_overrides: expandAdminOverrideLimitOverrides(parsed.l || parsed.limit_overrides),
+        feature_overrides: expandAdminOverrideFeatureOverrides(parsed.f || parsed.feature_overrides)
+    };
+};
+
+const hasActiveAdminOverride = (override = null) => {
+    if (!override?.expires_at) return false;
+    const parsed = new Date(override.expires_at);
+    if (Number.isNaN(parsed.getTime())) return false;
+    return parsed.getTime() > Date.now();
+};
+
+const buildAdminOverridePayload = ({
+    planId = 'free',
+    billingCycle = null,
+    expiresAt = null,
+    planName = null,
+    createdAt = null,
+    limitOverrides = {},
+    featureOverrides = {}
+} = {}) => {
+    const normalizedPlanId = normalizePlanCode(planId || 'free') || 'free';
+    const normalizedExpiresAt = toIsoDateTime(expiresAt);
+    if (!normalizedExpiresAt) return null;
+    void planName;
+    void createdAt;
+    void limitOverrides;
+    void featureOverrides;
+    return JSON.stringify({
+        p: normalizedPlanId,
+        b: billingCycle ? normalizeBillingCycle(billingCycle) : null,
+        e: normalizedExpiresAt
+    });
+};
+
+const clearAdminOverridePayload = () => null;
+
+const ADMIN_OVERRIDE_LIMIT_KEY_MAP = Object.freeze({
+    instagram_connections_limit: 'i',
+    hourly_action_limit: 'h',
+    daily_action_limit: 'd',
+    monthly_action_limit: 'm'
+});
+
+const ADMIN_OVERRIDE_LIMIT_KEY_MAP_REVERSE = Object.freeze(
+    Object.entries(ADMIN_OVERRIDE_LIMIT_KEY_MAP).reduce((acc, [key, shortKey]) => {
+        acc[shortKey] = key;
+        return acc;
+    }, {})
+);
+
+const ADMIN_OVERRIDE_FEATURE_KEY_MAP = Object.freeze(
+    BENEFIT_KEYS.reduce((acc, key, index) => {
+        acc[key] = index.toString(36);
+        return acc;
+    }, {})
+);
+
+const ADMIN_OVERRIDE_FEATURE_KEY_MAP_REVERSE = Object.freeze(
+    Object.entries(ADMIN_OVERRIDE_FEATURE_KEY_MAP).reduce((acc, [key, shortKey]) => {
+        acc[shortKey] = key;
+        return acc;
+    }, {})
+);
+
+const compactAdminOverrideLimitOverrides = (overrides = {}) => Object.entries(parseJsonObject(overrides, {})).reduce((acc, [key, value]) => {
+    const normalizedKey = String(key || '').trim();
+    if (!normalizedKey || value === undefined) return acc;
+    acc[ADMIN_OVERRIDE_LIMIT_KEY_MAP[normalizedKey] || normalizedKey] = value;
+    return acc;
+}, {});
+
+const expandAdminOverrideLimitOverrides = (overrides = {}) => Object.entries(parseJsonObject(overrides, {})).reduce((acc, [key, value]) => {
+    const normalizedKey = String(key || '').trim();
+    if (!normalizedKey || value === undefined) return acc;
+    acc[ADMIN_OVERRIDE_LIMIT_KEY_MAP_REVERSE[normalizedKey] || normalizedKey] = value;
+    return acc;
+}, {});
+
+const compactAdminOverrideFeatureOverrides = (overrides = {}) => Object.entries(parseJsonObject(overrides, {})).reduce((acc, [key, value]) => {
+    const normalizedKey = normalizeBenefitKey(key);
+    if (!normalizedKey || value === undefined) return acc;
+    acc[ADMIN_OVERRIDE_FEATURE_KEY_MAP[normalizedKey] || normalizedKey] = value;
+    return acc;
+}, {});
+
+const expandAdminOverrideFeatureOverrides = (overrides = {}) => Object.entries(parseJsonObject(overrides, {})).reduce((acc, [key, value]) => {
+    const normalizedKey = String(key || '').trim();
+    if (!normalizedKey || value === undefined) return acc;
+    const expandedKey = normalizeBenefitKey(ADMIN_OVERRIDE_FEATURE_KEY_MAP_REVERSE[normalizedKey] || normalizedKey);
+    if (!expandedKey) return acc;
+    acc[expandedKey] = value;
+    return acc;
+}, {});
+
+const selectLatestTransactionFromDocuments = (transactions = [], pricingPlans = [], now = Date.now()) => {
+    const plans = Array.isArray(pricingPlans) ? pricingPlans : [];
+    const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
+    const latestTransaction = (Array.isArray(transactions) ? transactions : [])
+        .map((transaction) => {
+            const createdAt = toIsoDateTime(getTransactionCreatedAt(transaction));
+            return {
+                transaction,
+                createdAt,
+                createdAtMs: createdAt ? new Date(createdAt).getTime() : 0
+            };
+        })
+        .sort((a, b) => b.createdAtMs - a.createdAtMs)[0] || null;
+
+    if (!latestTransaction?.transaction) return null;
+
+    const transaction = latestTransaction.transaction;
+    const status = normalizeTransactionStatus(pickTransactionValue(transaction, 'status'));
+    if (!VALID_SELF_SUBSCRIPTION_STATUSES.has(status)) {
+        return null;
+    }
+
+    const planId = getTransactionPlanId(transaction);
+    const plan = findPlanByIdentifier(plans, planId);
+    const expiry = toIsoDateTime(pickTransactionValue(transaction, 'expiry_date') || calculateTransactionExpiry(transaction, plan));
+    if (!plan || planId === 'free' || !expiry) return null;
+
+    const expiryMs = new Date(expiry).getTime();
+    if (Number.isNaN(expiryMs) || expiryMs <= nowMs) {
+        return null;
+    }
+
+    return {
+        transaction,
+        planId,
+        plan,
+        expiryDate: expiry,
+        billingCycle: getTransactionBillingCycle(transaction),
+        createdAt: latestTransaction.createdAt
+    };
+};
+
+const resolveEntitlementReplacementDecision = ({
+    profile = null,
+    pricingPlans = [],
+    latestValidTransaction = null,
+    now = Date.now()
+} = {}) => {
+    const plans = Array.isArray(pricingPlans) ? pricingPlans : [];
+    const freePlan = findPlanByIdentifier(plans, 'free') || normalizePlanDocument({ plan_code: 'free', name: 'Free Plan' });
+    const override = parseAdminOverride(profile);
+    if (override && hasActiveAdminOverride(override)) {
+        return {
+            plan: findPlanByIdentifier(plans, override.plan_id) || freePlan,
+            planId: override.plan_id,
+            planSource: 'admin',
+            billingCycle: override.billing_cycle,
+            expiryDate: override.expires_at,
+            clearAdminOverride: false,
+            reason: 'active_admin_override'
+        };
+    }
+    if (override) {
+        return {
+            plan: freePlan,
+            planId: 'free',
+            planSource: 'system',
+            billingCycle: null,
+            expiryDate: null,
+            clearAdminOverride: true,
+            reason: 'expired_admin_override'
+        };
+    }
+    if (!profile) {
+        return {
+            plan: freePlan,
+            planId: 'free',
+            planSource: 'system',
+            billingCycle: null,
+            expiryDate: null,
+            clearAdminOverride: false,
+            reason: 'missing_profile'
+        };
+    }
+    const runtimeIdentity = getRuntimePlanIdentity(profile);
+    const runtimePlanId = runtimeIdentity.plan_code || 'free';
+    const runtimeExpired = isExpiredSubscription(runtimePlanId, runtimeIdentity.expiry_date);
+    if (runtimeExpired) {
+        return {
+            plan: freePlan,
+            planId: 'free',
+            planSource: 'system',
+            billingCycle: null,
+            expiryDate: null,
+            clearAdminOverride: false,
+            reason: 'expired_runtime_plan'
+        };
+    }
+    return {
+        plan: findPlanByIdentifier(plans, runtimePlanId) || freePlan,
+        planId: runtimePlanId,
+        planSource: inferPlanSource(profile),
+        billingCycle: runtimeIdentity.billing_cycle,
+        expiryDate: runtimeIdentity.expiry_date,
+        clearAdminOverride: false,
+        reason: latestValidTransaction ? 'current_runtime_plan_with_latest_transaction_available' : 'current_runtime_plan'
+    };
+};
+
+const getLatestValidTransaction = async (databases, userId, pricingPlans = null, limit = 250) => {
+    const plans = Array.isArray(pricingPlans) ? pricingPlans : await listPricingPlans(databases);
+    const transactions = await listUserTransactions(databases, userId, limit);
+    return selectLatestTransactionFromDocuments(transactions, plans);
 };
 
 const buildFreeSelfSubscriptionMemory = (extra = {}) => ({
@@ -638,11 +872,19 @@ const isExpiredSubscription = (planId, expiresAt) => {
     return parsed.getTime() < Date.now();
 };
 
-const parseProfileConfig = (_profile) => ({
-    raw: {},
-    feature_overrides: {},
-    limit_overrides: {}
-});
+const parseProfileConfig = (profile = null) => {
+    const override = parseAdminOverride(profile);
+    const shouldUseRuntimeOverrides = Boolean(override) || normalizePlanSource(profile?.plan_source, 'system') === 'admin';
+    return {
+        raw: override || {},
+        feature_overrides: shouldUseRuntimeOverrides
+            ? parseRuntimeFeatureFlags(profile)
+            : parseJsonObject(override?.feature_overrides, {}),
+        limit_overrides: shouldUseRuntimeOverrides
+            ? parseRuntimeLimitOverrides(profile)
+            : parseJsonObject(override?.limit_overrides, {})
+    };
+};
 
 const parseRuntimeLimits = (profile = null) => {
     const monthlyValue = normalizeStoredLimit(profile?.monthly_action_limit);
@@ -670,6 +912,18 @@ const parseRuntimeFeatures = (profile = null) => {
     return parseProfileConfig(profile).feature_overrides;
 };
 
+const parseRuntimeLimitOverrides = (profile = null) => ({
+    instagram_connections_limit: toFiniteNumber(profile?.instagram_connections_limit) ?? DEFAULT_FREE_PROFILE_LIMITS.instagram_connections_limit,
+    hourly_action_limit: toFiniteNumber(profile?.hourly_action_limit) ?? DEFAULT_FREE_PROFILE_LIMITS.hourly_action_limit,
+    daily_action_limit: toFiniteNumber(profile?.daily_action_limit) ?? DEFAULT_FREE_PROFILE_LIMITS.daily_action_limit,
+    monthly_action_limit: normalizeStoredLimit(profile?.monthly_action_limit)
+});
+
+const parseRuntimeFeatureFlags = (profile = null) => BENEFIT_KEYS.reduce((acc, key) => {
+    acc[key] = profile?.[benefitFieldForKey(key)] === true;
+    return acc;
+}, {});
+
 const getProfileBillingCycle = (profile = null, fallback = null) => {
     if (profile?.billing_cycle) {
         return normalizeBillingCycle(profile.billing_cycle);
@@ -688,14 +942,8 @@ const getRuntimePlanIdentity = (profile = null) => ({
     plan_source: normalizePlanSource(profile?.plan_source, 'system')
 });
 
-const inferPlanSource = (profile = null, selfMemory = null) => {
-    const profilePlan = normalizePlanCode(profile?.plan_code || 'free') || 'free';
-    const userPlan = normalizePlanCode(selfMemory?.plan_id || 'free') || 'free';
-    const profileExpiry = toIsoDateTime(profile?.expiry_date || null);
-    const userExpiry = toIsoDateTime(selfMemory?.expiry_date || null);
-    if (profilePlan !== userPlan) return 'admin';
-    if ((profileExpiry || null) !== (userExpiry || null)) return 'admin';
-    return 'self';
+const inferPlanSource = (profile = null) => {
+    return normalizePlanSource(profile?.plan_source, 'system');
 };
 
 const buildRuntimeFeatureSnapshot = ({
@@ -761,10 +1009,15 @@ const buildProfileConfigPayload = ({
     featureOverrides,
     limitOverrides
 } = {}) => {
-    void currentProfile;
-    void featureOverrides;
-    void limitOverrides;
-    return null;
+    const existing = parseProfileConfig(currentProfile);
+    return {
+        feature_overrides: Object.keys(parseJsonObject(featureOverrides, {})).length > 0
+            ? parseJsonObject(featureOverrides, {})
+            : existing.feature_overrides,
+        limit_overrides: Object.keys(parseJsonObject(limitOverrides, {})).length > 0
+            ? parseJsonObject(limitOverrides, {})
+            : existing.limit_overrides
+    };
 };
 
 const resolvePlanEntitlements = (plan, profile = null) => {
@@ -866,7 +1119,8 @@ const buildPlanProfilePayload = ({
     credits = undefined,
     preserveUsage = true,
     resetReminderState = undefined,
-    expiredPlanSnapshot = undefined
+    expiredPlanSnapshot = undefined,
+    adminOverrideJson = undefined
 } = {}) => {
     const normalizedPlanId = String(planId || plan?.plan_code || plan?.id || 'free').trim() || 'free';
     const isFreePlan = normalizePlanCode(normalizedPlanId) === 'free';
@@ -875,7 +1129,7 @@ const buildPlanProfilePayload = ({
         : normalizeSubscriptionStatus(subscriptionStatus, 'active');
     const normalizedBillingCycle = isFreePlan
         ? null
-        : getProfileBillingCycle(currentProfile, billingCycle || 'monthly');
+        : (billingCycle ? normalizeBillingCycle(billingCycle) : getProfileBillingCycle(currentProfile, 'monthly'));
     const normalizedExpires = isFreePlan ? null : toIsoDateTime(subscriptionExpires);
     const requestedPlanSource = planSource ?? currentProfile?.plan_source ?? 'system';
     const normalizedPlanSource = isValidPlanSource(requestedPlanSource)
@@ -887,8 +1141,18 @@ const buildPlanProfilePayload = ({
         console.debug(`[plan-source] persisting source "${normalizedPlanSource}"`);
     }
     const defaults = resolvePlanLimits(plan, null);
-    const nextLimitOverrides = parseJsonObject(limitOverrides, {});
-    void noWatermarkEnabled;
+    const profileConfig = parseProfileConfig(currentProfile);
+    const requestedLimitOverrides = parseJsonObject(limitOverrides, {});
+    const requestedFeatureOverrides = parseJsonObject(featureOverrides, {});
+    const nextLimitOverrides = Object.keys(requestedLimitOverrides).length > 0
+        ? requestedLimitOverrides
+        : profileConfig.limit_overrides;
+    const nextFeatureOverrides = Object.keys(requestedFeatureOverrides).length > 0
+        ? requestedFeatureOverrides
+        : profileConfig.feature_overrides;
+    if (noWatermarkEnabled !== undefined) {
+        nextFeatureOverrides.no_watermark = noWatermarkEnabled === true;
+    }
     const effectiveLimits = {
         ...buildAccountLimitEnvelope({
             instagram_connections_limit: toFiniteNumber(nextLimitOverrides.instagram_connections_limit) != null
@@ -913,6 +1177,11 @@ const buildPlanProfilePayload = ({
     void shouldResetReminderState;
     void paidPlanSnapshot;
     void expiredPlanSnapshot;
+    const effectiveEntitlements = buildRuntimeFeatureSnapshot({
+        plan,
+        featureOverrides: nextFeatureOverrides,
+        noWatermarkEnabled: nextFeatureOverrides.no_watermark === true
+    });
 
     const payload = {
         user_id: String(currentProfile?.user_id || '').trim() || undefined,
@@ -920,15 +1189,17 @@ const buildPlanProfilePayload = ({
         plan_source: normalizedPlanSource,
         plan_name: String(plan?.name || currentProfile?.plan_name || normalizedPlanId || 'Free Plan').trim() || 'Free Plan',
         expiry_date: normalizedExpires,
+        billing_cycle: normalizedBillingCycle,
         kill_switch_enabled: currentProfile?.kill_switch_enabled !== false,
         instagram_connections_limit: Number(effectiveLimits.instagram_connections_limit || 0),
         hourly_action_limit: Number(effectiveLimits.hourly_action_limit || 0),
         daily_action_limit: Number(effectiveLimits.daily_action_limit || 0),
-        monthly_action_limit: encodeProfileLimit(effectiveLimits.monthly_action_limit)
+        monthly_action_limit: encodeProfileLimit(effectiveLimits.monthly_action_limit),
+        admin_override_json: adminOverrideJson
     };
 
     BENEFIT_KEYS.forEach((key) => {
-        payload[benefitFieldForKey(key)] = undefined;
+        payload[benefitFieldForKey(key)] = effectiveEntitlements[key] === true;
     });
 
     if (credits !== undefined) {
@@ -985,7 +1256,8 @@ const upsertEffectiveProfile = async (databases, userId, currentProfile, plan, o
         paidPlanSnapshot: options.paidPlanSnapshot,
         preserveUsage: options.preserveUsage !== false,
         resetReminderState: options.resetReminderState,
-        expiredPlanSnapshot: options.expiredPlanSnapshot
+        expiredPlanSnapshot: options.expiredPlanSnapshot,
+        adminOverrideJson: options.adminOverrideJson
     });
     try {
         if (currentProfile?.$id) {
@@ -1010,207 +1282,53 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null) =>
     const plans = await listPricingPlans(databases);
     const existingProfile = await getUserProfile(databases, safeUserId);
     const freePlan = findPlanByIdentifier(plans, 'free') || normalizePlanDocument({ plan_code: 'free', name: 'Free Plan' });
-    const isAssignedFreePlan = existingProfile && (normalizePlanCode(existingProfile.plan_code || 'free') || 'free') === 'free';
-    const currentFreeExpiryDate = toIsoDateTime(existingProfile?.expiry_date || null);
-    const currentFreeExpiryMs = currentFreeExpiryDate ? new Date(currentFreeExpiryDate).getTime() : Number.NaN;
-    const hasActiveTemporaryFreeOverride = isAssignedFreePlan
-        && currentFreeExpiryDate
-        && !Number.isNaN(currentFreeExpiryMs)
-        && currentFreeExpiryMs > Date.now();
-
-    if (hasActiveTemporaryFreeOverride) {
-        const normalizedFreeProfile = (
-            existingProfile?.billing_cycle
-            || String(existingProfile?.plan_source || '').trim() !== 'admin'
-        )
-            ? await upsertEffectiveProfile(databases, safeUserId, existingProfile, freePlan, {
-                planId: 'free',
-                planSource: 'admin',
-                billingCycle: null,
-                subscriptionStatus: 'inactive',
-                subscriptionExpires: currentFreeExpiryDate
-            })
-            : {
-                ...existingProfile,
-                plan_code: 'free',
-                billing_cycle: null,
-                expiry_date: currentFreeExpiryDate,
-                plan_source: 'admin'
-            };
-
-        return {
-            profile: normalizedFreeProfile,
-            plans,
-            plan: freePlan,
-            planSource: 'admin',
-            subscriptionPlanId: 'free',
-            billingCycle: null,
-            entitlements: resolvePlanEntitlements(freePlan, normalizedFreeProfile),
-            limits: resolvePlanLimits(freePlan, normalizedFreeProfile),
-            selfPlanId: 'free',
-            selfExpiryDate: null,
-            selfUserDocument: null,
-            selfTransaction: null,
-            selfTransactionId: null
-        };
-    }
-
     const selfMemory = await getUserSelfMemory(databases, safeUserId, userFallback, plans);
-
+    const latestValidTransaction = await getLatestValidTransaction(databases, safeUserId, plans);
+    const decision = resolveEntitlementReplacementDecision({
+        profile: existingProfile,
+        pricingPlans: plans,
+        latestValidTransaction
+    });
     let profile = existingProfile;
-    let runtimeIdentity = getRuntimePlanIdentity(profile);
-    let effectivePlanId = runtimeIdentity.plan_code || 'free';
-    let effectivePlan = findPlanByIdentifier(plans, effectivePlanId) || freePlan;
-    let planSource = inferPlanSource(profile, selfMemory);
-    let billingCycle = runtimeIdentity.billing_cycle;
-    let effectiveExpiresAt = runtimeIdentity.expiry_date;
+    let plan = decision.plan || freePlan;
+    let planSource = decision.planSource || 'system';
+    let subscriptionPlanId = decision.planId || 'free';
+    let billingCycle = decision.billingCycle || null;
 
-    const selfPlanId = normalizePlanCode(selfMemory.plan_id || 'free') || 'free';
-    const selfExpiryDate = selfMemory.expiry_date || null;
-    const selfPlanExpired = isExpiredSubscription(selfPlanId, selfExpiryDate);
-    const effectivePlanExpired = isExpiredSubscription(effectivePlanId, effectiveExpiresAt);
-
-    if (isAssignedFreePlan) {
-        const normalizedFreeProfile = !currentFreeExpiryDate && String(existingProfile?.plan_source || '').trim() === 'admin'
-            ? {
-                ...(existingProfile || {}),
-                plan_code: 'free',
-                billing_cycle: null,
-                expiry_date: null,
-                plan_source: 'admin'
-            }
-            : null;
-
-        if (normalizedFreeProfile) {
-            return {
-                profile: normalizedFreeProfile,
-                plans,
-                plan: freePlan,
-                planSource: 'admin',
-                subscriptionPlanId: 'free',
-                billingCycle: null,
-                entitlements: resolvePlanEntitlements(freePlan, normalizedFreeProfile),
-                limits: resolvePlanLimits(freePlan, normalizedFreeProfile),
-                selfPlanId: selfPlanExpired ? 'free' : selfPlanId,
-                selfExpiryDate: selfPlanExpired ? null : selfExpiryDate,
-                selfUserDocument: selfMemory.user || null,
-                selfTransaction: selfMemory.transaction || null,
-                selfTransactionId: selfMemory.transaction_id || null
-            };
-        }
-
-        if (selfPlanId !== 'free' && !selfPlanExpired) {
-            const restoredPlan = findPlanByIdentifier(plans, selfPlanId) || freePlan;
-            const restoredProfile = await upsertEffectiveProfile(databases, safeUserId, existingProfile, restoredPlan, {
-                planId: selfPlanId,
-                planSource: 'payment',
-                billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfExpiryDate),
-                subscriptionStatus: 'active',
-                subscriptionExpires: selfExpiryDate,
-                paidPlanSnapshot: buildPaidPlanSnapshot({
-                    plan: restoredPlan,
-                    billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfExpiryDate),
-                    expires: selfExpiryDate,
-                    status: 'active'
-                })
-            });
-
-            return {
-                profile: restoredProfile,
-                plans,
-                plan: restoredPlan,
-                planSource: 'payment',
-                subscriptionPlanId: selfPlanId,
-                billingCycle: selfMemory.billing_cycle ? normalizeBillingCycle(selfMemory.billing_cycle) : null,
-                entitlements: resolvePlanEntitlements(restoredPlan, restoredProfile),
-                limits: resolvePlanLimits(restoredPlan, restoredProfile),
-                selfPlanId,
-                selfExpiryDate,
-                selfUserDocument: selfMemory.user || null,
-                selfTransaction: selfMemory.transaction || null,
-                selfTransactionId: selfMemory.transaction_id || null
-            };
-        }
-
-        const finalFreeProfile = await upsertEffectiveProfile(databases, safeUserId, existingProfile, freePlan, {
+    if (!profile) {
+        profile = await upsertEffectiveProfile(databases, safeUserId, existingProfile, freePlan, {
             planId: 'free',
             planSource: 'system',
             billingCycle: null,
             subscriptionStatus: 'inactive',
-            subscriptionExpires: null
+            subscriptionExpires: null,
+            adminOverrideJson: clearAdminOverridePayload()
         });
-
-        return {
-            profile: finalFreeProfile,
-            plans,
-            plan: freePlan,
-            planSource: 'system',
-            subscriptionPlanId: 'free',
-            billingCycle: null,
-            entitlements: resolvePlanEntitlements(freePlan, finalFreeProfile),
-            limits: resolvePlanLimits(freePlan, finalFreeProfile),
-            selfPlanId: selfPlanExpired ? 'free' : selfPlanId,
-            selfExpiryDate: selfPlanExpired ? null : selfExpiryDate,
-            selfUserDocument: selfMemory.user || null,
-            selfTransaction: selfMemory.transaction || null,
-            selfTransactionId: selfMemory.transaction_id || null
-        };
-    }
-
-    if (effectivePlanExpired) {
-        const activeSelfPlan = selfPlanId !== 'free' && !selfPlanExpired
-            ? (findPlanByIdentifier(plans, selfPlanId) || null)
-            : null;
-
-        if (planSource === 'admin' && effectivePlanId !== 'free' && activeSelfPlan) {
-            profile = await upsertEffectiveProfile(databases, safeUserId, profile, activeSelfPlan, {
-                planId: selfPlanId,
-                planSource: 'payment',
-                billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfExpiryDate),
-                subscriptionStatus: 'active',
-                subscriptionExpires: selfExpiryDate,
-                paidPlanSnapshot: buildPaidPlanSnapshot({
-                    plan: activeSelfPlan,
-                    billingCycle: selfMemory.billing_cycle || inferBillingCycleFromExpiry(selfExpiryDate),
-                    expires: selfExpiryDate,
-                    status: 'active'
-                })
-            });
-        } else {
-            profile = await upsertEffectiveProfile(databases, safeUserId, profile, freePlan, {
-                planId: 'free',
-                planSource: 'system',
-                billingCycle: null,
-                subscriptionStatus: 'inactive',
-                subscriptionExpires: null
-            });
-        }
-        runtimeIdentity = getRuntimePlanIdentity(profile);
-        effectivePlanId = runtimeIdentity.plan_code || 'free';
-        effectivePlan = findPlanByIdentifier(plans, effectivePlanId) || freePlan;
-        planSource = inferPlanSource(profile, {
-            ...selfMemory,
-            plan_id: selfPlanExpired ? 'free' : selfPlanId,
-            expiry_date: selfPlanExpired ? null : selfExpiryDate
+    } else if (decision.reason !== 'current_runtime_plan' && decision.reason !== 'current_runtime_plan_with_latest_transaction_available') {
+        profile = await upsertEffectiveProfile(databases, safeUserId, existingProfile, plan, {
+            planId: subscriptionPlanId,
+            planSource,
+            billingCycle,
+            subscriptionStatus: subscriptionPlanId === 'free' ? 'inactive' : 'active',
+            subscriptionExpires: decision.expiryDate,
+            adminOverrideJson: decision.clearAdminOverride ? clearAdminOverridePayload() : existingProfile?.admin_override_json
         });
-        billingCycle = runtimeIdentity.billing_cycle;
-        effectiveExpiresAt = runtimeIdentity.expiry_date;
     }
 
     return {
         profile,
         plans,
-        plan: effectivePlan,
+        plan,
         planSource,
-        subscriptionPlanId: effectivePlanId,
+        subscriptionPlanId,
         billingCycle: billingCycle ? normalizeBillingCycle(billingCycle) : null,
-        entitlements: resolvePlanEntitlements(effectivePlan, profile),
-        limits: resolvePlanLimits(effectivePlan, profile),
-        selfPlanId: selfPlanExpired ? 'free' : selfPlanId,
-        selfExpiryDate: selfPlanExpired ? null : selfExpiryDate,
+        entitlements: resolvePlanEntitlements(plan, profile),
+        limits: resolvePlanLimits(plan, profile),
+        selfPlanId: latestValidTransaction?.planId || 'free',
+        selfExpiryDate: latestValidTransaction?.expiryDate || null,
         selfUserDocument: selfMemory.user || null,
-        selfTransaction: selfMemory.transaction || null,
-        selfTransactionId: selfMemory.transaction_id || null
+        selfTransaction: latestValidTransaction?.transaction || selfMemory.transaction || null,
+        selfTransactionId: latestValidTransaction?.transaction?.$id || latestValidTransaction?.transaction?.transactionId || selfMemory.transaction_id || null
     };
 };
 
@@ -1267,6 +1385,14 @@ module.exports = {
     getUserProfile,
     getUserSelfMemory,
     listUserTransactions,
+    getLatestValidTransaction,
+    parseAdminOverride,
+    hasActiveAdminOverride,
+    buildAdminOverridePayload,
+    clearAdminOverridePayload,
+    selectLatestTransactionFromDocuments,
+    selectLatestValidTransactionFromDocuments: selectLatestTransactionFromDocuments,
+    resolveEntitlementReplacementDecision,
     getTransactionPlanId,
     getTransactionCreatedAt,
     calculateTransactionExpiry,

@@ -105,6 +105,9 @@ type ResetActionState = 'resetPlan' | 'restoreLimits' | null;
 const toComparableValue = (value: unknown) => String(value ?? '').trim();
 
 const surfaceClass = 'glass-card rounded-[32px] border border-border/80 bg-card/95 shadow-sm';
+const popupSectionClass = 'rounded-[28px] border border-border/80 bg-card/90 p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.45)] backdrop-blur-xl';
+const popupInsetClass = 'rounded-[22px] border border-border/70 bg-background/70 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]';
+const popupHeaderBandClass = 'rounded-[24px] border border-border/70 bg-gradient-to-br from-background via-background/96 to-muted/35 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]';
 const DEFAULT_POPUP_SECTION_STATE: Record<PopupSectionKey, boolean> = {
     planSettings: false,
     instagram: false,
@@ -494,7 +497,7 @@ export const UsersPage: React.FC = () => {
                 linked_instagram_accounts: Number(result?.total_linked_accounts ?? entry.linked_instagram_accounts ?? 0)
             } : entry));
             await loadUserDetail(selectedUser.$id);
-            setNotice('Plan and limits updated.');
+            setNotice('Admin entitlement override updated.');
         } catch (error: any) {
             console.error('Failed to update plan and limits:', error);
             setProfilePatch(rollbackPatch);
@@ -527,7 +530,7 @@ export const UsersPage: React.FC = () => {
                 } : entry));
             }
             await loadUserDetail(selectedUser.$id);
-            setNotice('Reset to default plan completed.');
+            setNotice('Default plan restored from latest valid payment or free.');
         } catch (error: any) {
             console.error('Failed to reset plan:', error);
             setErrorMessage(error?.response?.data?.error || 'Failed to reset plan.');
@@ -893,41 +896,43 @@ export const UsersPage: React.FC = () => {
                                 {errorMessage || notice}
                             </div>
                         )}
-                        <section className={`${surfaceClass} custom-scrollbar relative max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 sm:p-7`}>
+                        <section className={`${surfaceClass} custom-scrollbar relative max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-6`}>
                         {detailLoading ? (
                             <AdminLoadingState title="Loading user details" description="Fetching profile overrides, account links, and moderation state." className="min-h-[320px]" />
                         ) : (
                             <div className="space-y-6">
-                                <div className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                        <button
-                                            type="button"
-                                            onClick={closeModal}
-                                            className="inline-flex items-center gap-2 text-xs font-black text-muted-foreground transition hover:text-foreground"
-                                        >
-                                            <ArrowLeft className="h-4 w-4" />
-                                            Back to users
-                                        </button>
-                                        <h2 className="mt-3 text-2xl font-extrabold text-foreground">{detailData?.user?.name || selectedUser?.name}</h2>
-                                        <p className="break-all text-sm text-muted-foreground">{detailData?.user?.email || selectedUser?.email}</p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={openDashboard}
-                                            disabled={openingDashboard}
-                                            className="btn-primary px-4 py-3 text-[10px] disabled:opacity-60"
-                                        >
-                                            {openingDashboard ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-                                            Access Dashboard
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={closeModal}
-                                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background/70 text-muted-foreground transition hover:text-foreground"
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </button>
+                                <div className={popupHeaderBandClass}>
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                        <div>
+                                            <button
+                                                type="button"
+                                                onClick={closeModal}
+                                                className="inline-flex items-center gap-2 text-xs font-black text-muted-foreground transition hover:text-foreground"
+                                            >
+                                                <ArrowLeft className="h-4 w-4" />
+                                                Back to users
+                                            </button>
+                                            <h2 className="mt-3 text-2xl font-extrabold text-foreground">{detailData?.user?.name || selectedUser?.name}</h2>
+                                            <p className="break-all text-sm text-muted-foreground">{detailData?.user?.email || selectedUser?.email}</p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={openDashboard}
+                                                disabled={openingDashboard}
+                                                className="btn-primary px-4 py-3 text-[10px] disabled:opacity-60"
+                                            >
+                                                {openingDashboard ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+                                                Access Dashboard
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={closeModal}
+                                                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background/70 text-muted-foreground transition hover:text-foreground"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -937,14 +942,14 @@ export const UsersPage: React.FC = () => {
                                         ['Linked Accounts', detailData?.total_linked_accounts ?? 0],
                                         ['Transactions', detailData?.total_transactions ?? 0]
                                     ].map(([label, value]) => (
-                                        <div key={String(label)} className="rounded-[24px] border border-border/70 bg-background/50 p-5">
+                                        <div key={String(label)} className={popupInsetClass}>
                                             <p className="text-[10px] font-black text-muted-foreground">{label}</p>
                                             <p className="mt-3 text-2xl font-extrabold text-foreground">{String(value)}</p>
                                         </div>
                                     ))}
                                 </div>
 
-                                <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
+                                <div className={popupSectionClass}>
                                     <button
                                         type="button"
                                         onClick={() => togglePopupSection('planSettings')}
@@ -958,150 +963,187 @@ export const UsersPage: React.FC = () => {
                                         </div>
                                         {popupSections.planSettings ? <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" /> : <ChevronDown className="mt-0.5 h-4 w-4 text-muted-foreground" />}
                                     </button>
-                                    {popupSections.planSettings ? <div className="mt-4 space-y-3">
-                                        <SelectField
-                                            label="Assigned plan"
-                                            hint="Changing the plan immediately loads that plan's default limits below."
-                                            value={selectedPlanCode || 'free'}
-                                            onChange={handlePlanSelect}
-                                        >
-                                            <option value="free">Free Plan</option>
-                                            {pricingPlans
-                                                .filter((plan) => normalizePlanIdentifier(plan.plan_code || plan.id) !== 'free')
-                                                .map((plan) => (
-                                                    <option key={plan.id} value={resolvePlanOptionValue(plan.plan_code || plan.id)}>{plan.name}</option>
-                                                ))}
-                                        </SelectField>
-                                        <div className="rounded-[20px] border border-border/70 bg-card/70 px-4 py-4">
-                                            <p className="text-xs font-semibold text-muted-foreground">Source</p>
-                                            <p className="mt-2 text-sm font-bold text-foreground">
-                                                {String(detailData?.subscription_summary?.plan_source || detailData?.plan_source || 'system').replace(/^./, (char: string) => char.toUpperCase())}
-                                            </p>
-                                            <p className="mt-1 text-xs font-medium text-muted-foreground">
-                                                Read-only. Subscription source is controlled by the backend.
-                                            </p>
-                                        </div>
-                                        <div className="rounded-[24px] border border-border/70 bg-background/55 p-4">
-                                            <p className="text-xs font-semibold text-muted-foreground">Derived subscription state</p>
-                                            <p className="mt-1 text-xs font-medium text-muted-foreground">
-                                                Plan code: {detailData?.subscription_summary?.plan_code || detailData?.profile?.plan_code || 'free'}
-                                            </p>
-                                            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                                <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-3">
-                                                    <p className="text-[10px] font-black text-muted-foreground">Source</p>
-                                                    <p className="mt-2 text-sm font-bold text-foreground">{detailData?.subscription_summary?.plan_source || detailData?.plan_source || 'system'}</p>
-                                                </div>
-                                                <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-3">
-                                                    <p className="text-[10px] font-black text-muted-foreground">Status</p>
-                                                    <p className="mt-2 text-sm font-bold text-foreground">{detailData?.subscription_summary?.derived_status || detailData?.derived_status || 'inactive'}</p>
-                                                </div>
-                                                <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-3">
-                                                    <p className="text-[10px] font-black text-muted-foreground">Expiry</p>
-                                                    <p className="mt-2 text-sm font-bold text-foreground">
-                                                        {formatExpiryLabel(detailData?.subscription_summary?.expiry_date || detailData?.expiry_date || null)}
+                                    {popupSections.planSettings ? <div className="mt-5 space-y-4">
+                                        <div className="rounded-[24px] border border-border/70 bg-gradient-to-br from-background/95 to-muted/20 p-4 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.45)] sm:p-5">
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                <div className="min-w-0">
+                                                    <h4 className="text-sm font-bold text-foreground">Plan</h4>
+                                                    <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                                        Assigning a plan here replaces the user&apos;s active entitlement until expiry, reset, or a newer successful payment.
                                                     </p>
                                                 </div>
-                                            </div>
-                                            {freePlanModeLabel ? <p className="mt-3 text-xs font-semibold text-muted-foreground">{freePlanModeLabel}</p> : null}
-                                        </div>
-                                        <div className="rounded-[24px] border border-border/70 bg-background/55 p-4">
-                                            <p className="text-xs font-semibold text-muted-foreground">Plan term</p>
-                                            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
-                                                Choose monthly, yearly, or a custom expiry date.
-                                                {selectedPlanCode === 'free' ? ' Leave the custom date blank to keep the user on Permanent Free.' : ''}
-                                            </p>
-                                            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                                {([
-                                                    ['monthly', 'Monthly'],
-                                                    ['yearly', 'Yearly'],
-                                                    ['custom', 'Custom date']
-                                                ] as const).map(([mode, label]) => (
-                                                    <button
-                                                        key={mode}
-                                                        type="button"
-                                                        onClick={() => setPlanTermMode(mode)}
-                                                        className={cn('segmented-option justify-center', planTermMode === mode ? 'is-active' : '')}
-                                                    >
-                                                        {label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            {planTermMode === 'custom' ? (
-                                                <input
-                                                    type="datetime-local"
-                                                    className="input-base mt-3"
-                                                    value={profilePatch.custom_expiry_date ?? ''}
-                                                    onChange={(event) => setProfilePatch((prev: any) => ({ ...prev, custom_expiry_date: event.target.value }))}
-                                                    min={getMinDateTimeInputValue()}
-                                                />
-                                            ) : null}
-                                        </div>
-                                        <button
-                                            onClick={() => void resetToDefaultPlan()}
-                                            className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] border border-emerald-500/35 bg-emerald-500/12 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-700 transition hover:border-emerald-500/50 hover:bg-emerald-500/18 disabled:opacity-60 dark:text-emerald-300"
-                                            disabled={saving || isDeletingUser || resetActionLoading === 'restoreLimits'}
-                                        >
-                                            {resetActionLoading === 'resetPlan' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                                            {resetActionLoading === 'resetPlan' ? 'Resetting Plan...' : 'Reset to Default Plan'}
-                                        </button>
-                                        <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-4 text-xs text-muted-foreground">
-                                            <p>Active account limit: <span className="font-semibold text-foreground">{detailData?.active_account_limit ?? detailData?.effective_limits?.active_account_limit ?? 0}</span></p>
-                                            {(detailData?.max_allowed_accounts ?? 0) !== (detailData?.active_account_limit ?? detailData?.effective_limits?.active_account_limit ?? 0) ? (
-                                                <p className="mt-1">Current linked capacity: {detailData?.max_allowed_accounts ?? 0} linked accounts.</p>
-                                            ) : null}
-                                        </div>
-                                        {[
-                                            ['instagram_connections_limit', 'Plan active limit'],
-                                            ['hourly_action_limit', 'Hourly actions'],
-                                            ['daily_action_limit', 'Daily actions'],
-                                            ['monthly_action_limit', 'Monthly actions']
-                                        ].map(([key, label]) => (
-                                            <div key={key}>
-                                                <label className="text-xs font-semibold text-muted-foreground">{label}</label>
-                                                <input
-                                                    className="input-base mt-2"
-                                                    value={profilePatch[key] ?? ''}
-                                                    onChange={(event) => handleLimitChange(key as LimitField, event.target.value)}
-                                                />
-                                            </div>
-                                        ))}
-                                        <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-4">
-                                            <p className="text-xs font-semibold text-muted-foreground">Watermark override</p>
-                                            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                                 <button
-                                                    type="button"
-                                                    className={cn('segmented-option min-h-[84px] flex-col items-start rounded-[20px] p-4 text-left', !profilePatch.no_watermark ? 'is-active' : '')}
-                                                    onClick={() => setProfilePatch((prev: any) => ({ ...prev, no_watermark: false }))}
+                                                    onClick={() => void resetToDefaultPlan()}
+                                                    className="btn-primary inline-flex w-full items-center justify-center gap-2 rounded-[20px] px-4 py-3 text-[10px] sm:w-auto sm:min-w-[14rem] disabled:opacity-60"
+                                                    disabled={saving || isDeletingUser || resetActionLoading === 'restoreLimits'}
                                                 >
-                                                    <span className="segmented-dot" />
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-foreground">Watermark on</p>
-                                                        <p className="mt-1 text-xs font-medium text-muted-foreground">Keep the shared watermark active for this user.</p>
-                                                    </div>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={cn('segmented-option min-h-[84px] flex-col items-start rounded-[20px] p-4 text-left', profilePatch.no_watermark ? 'is-active' : '')}
-                                                    onClick={() => setProfilePatch((prev: any) => ({ ...prev, no_watermark: true }))}
-                                                >
-                                                    <span className="segmented-dot" />
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-foreground">Watermark off</p>
-                                                        <p className="mt-1 text-xs font-medium text-muted-foreground">Allow replies without the shared watermark.</p>
-                                                    </div>
+                                                    {resetActionLoading === 'resetPlan' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                                    {resetActionLoading === 'resetPlan' ? 'Resetting Plan...' : 'Reset to Default Plan'}
                                                 </button>
                                             </div>
+
+                                            <div className="mt-4 space-y-4">
+                                                <SelectField
+                                                    label="Assigned plan"
+                                                    hint="Changing the plan immediately loads that plan's default limits in the limits section below."
+                                                    value={selectedPlanCode || 'free'}
+                                                    onChange={handlePlanSelect}
+                                                >
+                                                    <option value="free">Free Plan</option>
+                                                    {pricingPlans
+                                                        .filter((plan) => normalizePlanIdentifier(plan.plan_code || plan.id) !== 'free')
+                                                        .map((plan) => (
+                                                            <option key={plan.id} value={resolvePlanOptionValue(plan.plan_code || plan.id)}>{plan.name}</option>
+                                                        ))}
+                                                </SelectField>
+
+                                                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)]">
+                                                    <div className={popupInsetClass}>
+                                                        <p className="text-xs font-semibold text-muted-foreground">Derived subscription state</p>
+                                                        <p className="mt-1 text-xs font-medium text-muted-foreground">
+                                                            Plan code: {detailData?.subscription_summary?.plan_code || detailData?.profile?.plan_code || 'free'}
+                                                        </p>
+                                                        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                                            <div className="rounded-[18px] border border-border/70 bg-card/80 px-4 py-3">
+                                                                <p className="text-[10px] font-black text-muted-foreground">Source</p>
+                                                                <p className="mt-2 text-sm font-bold text-foreground">{detailData?.subscription_summary?.plan_source || detailData?.plan_source || 'system'}</p>
+                                                            </div>
+                                                            <div className="rounded-[18px] border border-border/70 bg-card/80 px-4 py-3">
+                                                                <p className="text-[10px] font-black text-muted-foreground">Status</p>
+                                                                <p className="mt-2 text-sm font-bold text-foreground">{detailData?.subscription_summary?.derived_status || detailData?.derived_status || 'inactive'}</p>
+                                                            </div>
+                                                            <div className="rounded-[18px] border border-border/70 bg-card/80 px-4 py-3">
+                                                                <p className="text-[10px] font-black text-muted-foreground">Expiry</p>
+                                                                <p className="mt-2 text-sm font-bold text-foreground">
+                                                                    {formatExpiryLabel(detailData?.subscription_summary?.expiry_date || detailData?.expiry_date || null)}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        {freePlanModeLabel ? <p className="mt-3 text-xs font-semibold text-muted-foreground">{freePlanModeLabel}</p> : null}
+                                                    </div>
+
+                                                    <div className={popupInsetClass}>
+                                                        <p className="text-xs font-semibold text-muted-foreground">Source</p>
+                                                        <p className="mt-2 text-sm font-bold text-foreground">
+                                                            {String(detailData?.subscription_summary?.plan_source || detailData?.plan_source || 'system').replace(/^./, (char: string) => char.toUpperCase())}
+                                                        </p>
+                                                        <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                                            Read-only. Subscription source is controlled by the backend.
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className={popupInsetClass}>
+                                                    <p className="text-xs font-semibold text-muted-foreground">Plan term</p>
+                                                    <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                                        Choose monthly, yearly, or a custom expiry date.
+                                                        {selectedPlanCode === 'free' ? ' Leave the custom date blank to keep the user on Permanent Free.' : ''}
+                                                    </p>
+                                                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                                        {([
+                                                            ['monthly', 'Monthly'],
+                                                            ['yearly', 'Yearly'],
+                                                            ['custom', 'Custom date']
+                                                        ] as const).map(([mode, label]) => (
+                                                            <button
+                                                                key={mode}
+                                                                type="button"
+                                                                onClick={() => setPlanTermMode(mode)}
+                                                                className={cn('segmented-option justify-center', planTermMode === mode ? 'is-active' : '')}
+                                                            >
+                                                                {label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    {planTermMode === 'custom' ? (
+                                                        <input
+                                                            type="datetime-local"
+                                                            className="input-base mt-3"
+                                                            value={profilePatch.custom_expiry_date ?? ''}
+                                                            onChange={(event) => setProfilePatch((prev: any) => ({ ...prev, custom_expiry_date: event.target.value }))}
+                                                            min={getMinDateTimeInputValue()}
+                                                        />
+                                                    ) : null}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                            <button
-                                                onClick={() => void restoreDefaultLimits()}
-                                                className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] border border-emerald-500/35 bg-emerald-500/12 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-700 transition hover:border-emerald-500/50 hover:bg-emerald-500/18 disabled:opacity-60 dark:text-emerald-300"
-                                                disabled={saving || isDeletingUser || resetActionLoading === 'resetPlan'}
-                                            >
-                                                {resetActionLoading === 'restoreLimits' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                                                {resetActionLoading === 'restoreLimits' ? 'Restoring Limits...' : 'Restore Default Limits'}
-                                            </button>
-                                            <button onClick={() => void submitPlanAndLimits()} className="btn-primary w-full px-4 py-3 text-[10px] disabled:opacity-60" disabled={isSaveDisabled}>
+
+                                        <div className="rounded-[24px] border border-border/70 bg-gradient-to-br from-background/95 to-muted/20 p-4 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.45)] sm:p-5">
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                <div className="min-w-0">
+                                                    <h4 className="text-sm font-bold text-foreground">Limits</h4>
+                                                    <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                                        Adjust account capacity, action limits, and watermark behavior independently from plan selection.
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => void restoreDefaultLimits()}
+                                                    className="btn-primary inline-flex w-full items-center justify-center gap-2 rounded-[20px] px-4 py-3 text-[10px] sm:w-auto sm:min-w-[14rem] disabled:opacity-60"
+                                                    disabled={saving || isDeletingUser || resetActionLoading === 'resetPlan'}
+                                                >
+                                                    {resetActionLoading === 'restoreLimits' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                                    {resetActionLoading === 'restoreLimits' ? 'Restoring Limits...' : 'Restore Default Limits'}
+                                                </button>
+                                            </div>
+
+                                            <div className="mt-4 space-y-4">
+                                                <div className={`${popupInsetClass} text-xs text-muted-foreground`}>
+                                                    <p>Active account limit: <span className="font-semibold text-foreground">{detailData?.active_account_limit ?? detailData?.effective_limits?.active_account_limit ?? 0}</span></p>
+                                                    {(detailData?.max_allowed_accounts ?? 0) !== (detailData?.active_account_limit ?? detailData?.effective_limits?.active_account_limit ?? 0) ? (
+                                                        <p className="mt-1">Current linked capacity: {detailData?.max_allowed_accounts ?? 0} linked accounts.</p>
+                                                    ) : null}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                    {[
+                                                        ['instagram_connections_limit', 'Plan active limit'],
+                                                        ['hourly_action_limit', 'Hourly actions'],
+                                                        ['daily_action_limit', 'Daily actions'],
+                                                        ['monthly_action_limit', 'Monthly actions']
+                                                    ].map(([key, label]) => (
+                                                        <div key={key}>
+                                                            <label className="text-xs font-semibold text-muted-foreground">{label}</label>
+                                                            <input
+                                                                className="input-base mt-2"
+                                                                value={profilePatch[key] ?? ''}
+                                                                onChange={(event) => handleLimitChange(key as LimitField, event.target.value)}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <div className={popupInsetClass}>
+                                                    <p className="text-xs font-semibold text-muted-foreground">Watermark override</p>
+                                                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                        <button
+                                                            type="button"
+                                                            className={cn('segmented-option min-h-[84px] flex-col items-start rounded-[20px] p-4 text-left', !profilePatch.no_watermark ? 'is-active' : '')}
+                                                            onClick={() => setProfilePatch((prev: any) => ({ ...prev, no_watermark: false }))}
+                                                        >
+                                                            <span className="segmented-dot" />
+                                                            <div>
+                                                                <p className="text-sm font-semibold text-foreground">Watermark on</p>
+                                                                <p className="mt-1 text-xs font-medium text-muted-foreground">Keep the shared watermark active for this user.</p>
+                                                            </div>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className={cn('segmented-option min-h-[84px] flex-col items-start rounded-[20px] p-4 text-left', profilePatch.no_watermark ? 'is-active' : '')}
+                                                            onClick={() => setProfilePatch((prev: any) => ({ ...prev, no_watermark: true }))}
+                                                        >
+                                                            <span className="segmented-dot" />
+                                                            <div>
+                                                                <p className="text-sm font-semibold text-foreground">Watermark off</p>
+                                                                <p className="mt-1 text-xs font-medium text-muted-foreground">Allow replies without the shared watermark.</p>
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-stretch sm:justify-end">
+                                            <button onClick={() => void submitPlanAndLimits()} className="btn-primary w-full px-4 py-3 text-[10px] sm:w-auto sm:min-w-[14rem] disabled:opacity-60" disabled={isSaveDisabled}>
                                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                                                 Save Plan & Limits
                                             </button>
@@ -1109,7 +1151,7 @@ export const UsersPage: React.FC = () => {
                                     </div> : null}
                                 </div>
 
-                                <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
+                                <div className={popupSectionClass}>
                                     <button
                                         type="button"
                                         onClick={() => togglePopupSection('instagram')}
@@ -1135,7 +1177,7 @@ export const UsersPage: React.FC = () => {
                                                         ? 'Locked by plan limit'
                                                         : 'Active';
                                             return (
-                                                <div key={acc.$id} className="flex flex-col gap-3 rounded-[18px] border border-border/70 bg-background/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                                <div key={acc.$id} className="flex flex-col gap-3 rounded-[22px] border border-border/70 bg-background/72 p-4 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.45)] sm:flex-row sm:items-center sm:justify-between">
                                                     <div className="min-w-0">
                                                         <p className="truncate text-sm font-bold text-foreground">{acc.username || acc.ig_user_id || acc.account_id}</p>
                                                         <p className="mt-1 text-xs text-muted-foreground">
@@ -1191,7 +1233,7 @@ export const UsersPage: React.FC = () => {
                                     </div> : null}
                                 </div>
 
-                                <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
+                                <div className={popupSectionClass}>
                                     <button
                                         type="button"
                                         onClick={() => togglePopupSection('ban')}
@@ -1224,7 +1266,7 @@ export const UsersPage: React.FC = () => {
                                             value={banReason}
                                             onChange={(event) => setBanReason(event.target.value)}
                                         />
-                                        <div className="rounded-[18px] border border-border/70 bg-card/70 px-4 py-4">
+                                        <div className={popupInsetClass}>
                                             <p className="text-xs font-semibold text-muted-foreground">Kill switch</p>
                                             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                                 <button
@@ -1258,7 +1300,7 @@ export const UsersPage: React.FC = () => {
                                     </div> : null}
                                 </div>
 
-                                <div className="rounded-[24px] border border-border/70 bg-background/50 p-5">
+                                <div className={popupSectionClass}>
                                     <button
                                         type="button"
                                         onClick={() => togglePopupSection('danger')}

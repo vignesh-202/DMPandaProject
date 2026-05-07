@@ -27,7 +27,6 @@ DEFAULT_REPORT_PATH = ROOT_DIR / "ProductionSetup" / "reports" / "appwrite-clean
 
 PROTECTED_COLLECTIONS = {
     "admin_audit_logs",
-    "automation_collected_emails",
     "chat_states",
     "comment_moderation",
     "email_campaigns",

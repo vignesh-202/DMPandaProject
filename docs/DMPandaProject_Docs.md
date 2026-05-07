@@ -17,26 +17,34 @@
 
 ## Subscription Architecture
 - `profiles` is the only runtime enforcement source.
-- `users` stores only self-subscription memory:
-  - `plan_id`
-  - `plan_expires_at`
+- `users` no longer stores subscription-plan truth.
 - `pricing` is catalog only.
 
 ## Effective Plan Flow
 - Self-subscription:
   - read selected plan from `pricing`
-  - write self plan memory to `users`
+  - persist successful transaction/subscription state
   - write effective entitlements to `profiles`
 - Admin plan change:
   - read selected plan template from `pricing`
-  - write effective entitlements to `profiles` only
+  - store compact replacement-state metadata in `profiles.admin_override_json`
+  - write effective entitlements to `profiles`
+  - custom limits and benefit toggles persist on the runtime `profiles` fields, not inside `admin_override_json`
 - Reset plan limits:
   - read effective plan defaults from `pricing`
   - reapply limits and features to `profiles`
 - Reset plan:
-  - read original self plan from `users.plan_id`
-  - read plan template from `pricing`
-  - restore `profiles`
+  - read the single latest transaction only
+  - restore that paid plan if that newest transaction is still active, otherwise `free`
+
+## Entitlement Replacement Rules
+- Admin override is an entitlement replacement state, not a visual overlay.
+- While override is active, it fully controls the account.
+- When override expires, user becomes `free`.
+- Older paid transactions do not reactivate automatically.
+- A paid plan can become active again only when:
+  - admin clicks `Reset to Default Plan` and the newest transaction is still active
+  - user completes a newer successful payment, which also clears the admin override
 
 ## Duration Rules
 - Monthly plans run for `30 days`.
@@ -113,13 +121,13 @@
 ## Functions
 - `subscription-manager`
   - 30-minute schedule
-  - reminders, downgrade, restore, and account-access recompute
+  - reminders, last-transaction-only subscription checks, downgrade-to-free on expiry, and account-access recompute
 - `payment-reminders`
   - hourly abandoned-checkout reminder and cleanup
 - `refresh-instagram-tokens`
   - refreshes token metadata
 - `on-user-create`
-  - seeds free-plan runtime and self-plan memory
+  - seeds free-plan runtime documents
 
 ## Cleanup Completed
 - Removed live tables:
@@ -141,7 +149,6 @@
 ## Tooling
 - `ProductionSetup/setup_appwrite.py`
   - provisions the final live schema target
-  - includes new `users.plan_id`, `users.plan_expires_at`
   - includes `pricing.monthly_duration_days`, `pricing.yearly_duration_days`
   - excludes deprecated tables and attributes
 - `ProductionSetup/migrate_subscription_truth.py`

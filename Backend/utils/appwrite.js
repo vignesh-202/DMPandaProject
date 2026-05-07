@@ -55,11 +55,9 @@ module.exports = {
     LOGS_COLLECTION_ID: 'logs',
     CHAT_STATES_COLLECTION_ID: 'chat_states',
     AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID: 'automation_collect_destinations',
-    AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID: 'automation_collected_emails',
     KEYWORDS_COLLECTION_ID: 'keywords',
     KEYWORD_INDEX_COLLECTION_ID: 'keyword_index',
     // Function IDs
     FUNCTION_REMOVE_INSTAGRAM: process.env.FUNCTION_REMOVE_INSTAGRAM,
     FUNCTION_INACTIVE_USER_CLEANUP: process.env.FUNCTION_INACTIVE_USER_CLEANUP
 };
-

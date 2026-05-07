@@ -220,7 +220,7 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Search Bar with Refresh Button */}
-      <div className="relative flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -231,29 +231,31 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
             className="w-full rounded-2xl border-2 border-content/70 bg-card/90 py-3 pl-11 pr-4 text-sm font-medium text-foreground placeholder:text-muted-foreground/70 transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
           />
         </div>
-        <button
-          type="button"
-          onClick={() => fetchTemplates(true)}
-          disabled={isLoading}
-          className="rounded-xl border-2 border-content/70 bg-card p-3 text-muted-foreground transition-all hover:border-primary/30 hover:bg-muted/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          title="Refresh templates"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-        </button>
-        {onCreateNew && (
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-none sm:items-center">
           <button
             type="button"
-            onClick={onCreateNew}
-            className="p-3 rounded-xl border-2 border-blue-200 dark:border-blue-600/40 bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20"
-            title="Create reply template"
+            onClick={() => fetchTemplates(true)}
+            disabled={isLoading}
+            className="flex min-h-11 items-center justify-center rounded-xl border-2 border-content/70 bg-card p-3 text-muted-foreground transition-all hover:border-primary/30 hover:bg-muted/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            title="Refresh templates"
           >
-            <Plus className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-        )}
+          {onCreateNew && (
+            <button
+              type="button"
+              onClick={onCreateNew}
+              className="flex min-h-11 items-center justify-center rounded-xl border-2 border-blue-200 bg-blue-600 p-3 text-white shadow-md shadow-blue-500/20 transition-all hover:bg-blue-700 dark:border-blue-600/40"
+              title="Create reply template"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Templates Container Box */}
-      <div className="relative min-h-[220px] max-h-[420px] overflow-y-auto rounded-[28px] border border-content bg-card/95 p-4 shadow-sm custom-scrollbar">
+      <div className="relative min-h-[220px] max-h-[420px] overflow-y-auto rounded-[22px] border border-content bg-card/95 p-3 shadow-sm custom-scrollbar sm:rounded-[28px] sm:p-4">
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
@@ -284,7 +286,7 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {filteredTemplates.map((template) => {
               const Icon = TEMPLATE_TYPE_ICONS[template.template_type] || FileText;
               const isSelected = template.id === selectedTemplateId;
@@ -303,7 +305,7 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
                   }}
                   onKeyDown={(event) => handleTemplateCardKeyDown(event, template)}
                   aria-disabled={isTemplateLoading}
-                  className={`group relative rounded-[24px] border p-4 text-left transition-all ${isSelected
+                  className={`group relative rounded-[20px] border p-3 text-left transition-all sm:rounded-[24px] sm:p-4 ${isSelected
                     ? 'border-primary/40 bg-primary/8 shadow-[0_18px_40px_rgba(108,43,217,0.12)]'
                     : isTemplateLoading
                       ? 'cursor-not-allowed border-content/70 bg-muted/50 opacity-75'

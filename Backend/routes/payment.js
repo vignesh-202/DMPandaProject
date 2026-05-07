@@ -32,7 +32,8 @@ const {
     resolvePlanDurationDays,
     calculateSubscriptionExpiry,
     buildPlanProfilePayload,
-    buildPaidPlanSnapshot
+    buildPaidPlanSnapshot,
+    clearAdminOverridePayload
 } = require('../utils/planConfig');
 const { loadUserAccessState } = require('../utils/accessControl');
 const { recomputeAccountAccessForUser } = require('../utils/accountAccess');
@@ -716,6 +717,14 @@ const ensureUserProfileDocument = async (
     return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, payload));
 };
 
+const clearAdminOverrideForUserProfile = async (databases, userId) => {
+    const existingProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, String(userId || '').trim());
+    if (!existingProfile?.$id) return null;
+    return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, existingProfile.$id, {
+        admin_override_json: clearAdminOverridePayload()
+    }));
+};
+
 const finalizePlanPurchase = async ({
     databases,
     userId,
@@ -771,6 +780,7 @@ const finalizePlanPurchase = async ({
             paidPlanSnapshot
         }
     );
+    await clearAdminOverrideForUserProfile(databases, userId);
     const runtimeContext = await resolveUserPlanContext(databases, userId);
     await recomputeAccountAccessForUser(databases, userId, runtimeContext.profile);
     await updateAutomationPlanValidationForUser(databases, userId, runtimeContext).catch(() => null);
@@ -1581,3 +1591,6 @@ router.get('/pricing', async (req, res) => {
 });
 
 module.exports = router;
+module.exports._test = {
+    clearAdminOverrideForUserProfile
+};

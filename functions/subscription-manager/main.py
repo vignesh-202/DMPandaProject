@@ -68,6 +68,31 @@ def _benefit_fields(key):
             fields.append(legacy_field)
     return fields
 
+
+ADMIN_OVERRIDE_LIMIT_KEY_MAP = {
+    "i": "instagram_connections_limit",
+    "h": "hourly_action_limit",
+    "d": "daily_action_limit",
+    "m": "monthly_action_limit",
+}
+
+def _to_base36(value: int) -> str:
+    digits = "0123456789abcdefghijklmnopqrstuvwxyz"
+    number = max(0, int(value))
+    if number == 0:
+        return "0"
+    chars = []
+    while number:
+        number, remainder = divmod(number, 36)
+        chars.append(digits[remainder])
+    return "".join(reversed(chars))
+
+
+ADMIN_OVERRIDE_FEATURE_KEY_MAP = {
+    _to_base36(index): key
+    for index, key in enumerate(BENEFIT_KEYS)
+}
+
 VALID_SELF_TRANSACTION_STATUSES = {"success", "paid", "captured", "completed", "active"}
 NEGATIVE_SELF_TRANSACTION_STATUSES = {"refunded", "partially_refunded", "chargeback", "disputed", "void", "reversed", "cancelled", "canceled"}
 
@@ -385,22 +410,56 @@ def _transaction_expiry(transaction, plan_defaults):
 def _self_subscription_from_transactions(transactions, pricing_map, now):
     ranked = []
     for transaction in transactions:
-        status = str(_obj_get(transaction, "status") or "").strip().lower()
-        if status != "success":
-            continue
-        created_at = _transaction_created_at(transaction)
-        ranked.append((created_at or datetime.min.replace(tzinfo=timezone.utc), transaction))
+        created_at = _transaction_created_at(transaction) or datetime.min.replace(tzinfo=timezone.utc)
+        ranked.append((created_at, transaction))
     ranked.sort(key=lambda item: item[0], reverse=True)
-    decisive = ranked[0][1] if ranked else None
+    decisive = ranked[0] if ranked else None
     if not decisive:
         return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None, "billing_cycle": None}
-    plan_code = _transaction_plan_code(decisive)
-    if plan_code == DEFAULT_FREE_PLAN or plan_code not in pricing_map:
+    _, transaction = decisive
+    status = str(_obj_get(transaction, "status") or "").strip().lower()
+    if status not in VALID_SELF_TRANSACTION_STATUSES:
         return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None, "billing_cycle": None}
-    expiry_date = _parse_datetime(_obj_get(decisive, "expiry_date"))
+    plan_code = _transaction_plan_code(transaction)
+    plan_defaults = pricing_map.get(plan_code)
+    if plan_code == DEFAULT_FREE_PLAN or not plan_defaults:
+        return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None, "billing_cycle": None}
+    expiry_date = _parse_datetime(_obj_get(transaction, "expiry_date")) or _transaction_expiry(transaction, plan_defaults)
     if not expiry_date or expiry_date <= now:
-        return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None, "billing_cycle": _transaction_billing_cycle(decisive)}
-    return {"plan_id": plan_code, "expiry_date": _to_iso(expiry_date), "billing_cycle": _transaction_billing_cycle(decisive)}
+        return {"plan_id": DEFAULT_FREE_PLAN, "expiry_date": None, "billing_cycle": None}
+    return {"plan_id": plan_code, "expiry_date": _to_iso(expiry_date), "billing_cycle": _transaction_billing_cycle(transaction)}
+
+
+def _parse_admin_override(profile):
+    parsed = _parse_json_object(_obj_get(profile, "admin_override_json"), None)
+    if not parsed:
+        return None
+    plan_id = _normalize_plan_code(_obj_get(parsed, "p") or _obj_get(parsed, "plan_id") or _obj_get(parsed, "plan_code"))
+    expires_at = _parse_datetime(_obj_get(parsed, "e") or _obj_get(parsed, "expires_at") or _obj_get(parsed, "expiry_date"))
+    billing_cycle = str(_obj_get(parsed, "b") or _obj_get(parsed, "billing_cycle") or "").strip().lower()
+    if billing_cycle not in {"monthly", "yearly"}:
+        billing_cycle = None
+    raw_limit_overrides = _parse_json_object(_obj_get(parsed, "l") or _obj_get(parsed, "limit_overrides"), {})
+    raw_feature_overrides = _parse_json_object(_obj_get(parsed, "f") or _obj_get(parsed, "feature_overrides"), {})
+    limit_overrides = {}
+    for key, value in raw_limit_overrides.items():
+        expanded_key = ADMIN_OVERRIDE_LIMIT_KEY_MAP.get(str(key or "").strip(), str(key or "").strip())
+        if expanded_key:
+            limit_overrides[expanded_key] = value
+    feature_overrides = {}
+    for key, value in raw_feature_overrides.items():
+        expanded_key = ADMIN_OVERRIDE_FEATURE_KEY_MAP.get(str(key or "").strip(), str(key or "").strip())
+        normalized_key = str(expanded_key or "").strip().lower()
+        if normalized_key:
+            feature_overrides[normalized_key] = value
+    return {
+        "plan_id": plan_id,
+        "plan_name": str(_obj_get(parsed, "n") or _obj_get(parsed, "plan_name") or _obj_get(profile, "plan_name") or plan_id.title()).strip() or "Plan",
+        "expires_at": expires_at,
+        "billing_cycle": billing_cycle,
+        "limit_overrides": limit_overrides,
+        "feature_overrides": feature_overrides,
+    }
 
 
 def _build_profile_patch_for_plan(profile, plan_defaults, *, plan_code, plan_name, plan_source, billing_cycle, expiry_date, status, preserve_expired_snapshot=False):
@@ -413,11 +472,20 @@ def _build_profile_patch_for_plan(profile, plan_defaults, *, plan_code, plan_nam
         "plan_source": _normalize_plan_source(plan_source, "system" if plan_code == DEFAULT_FREE_PLAN else "payment"),
         "plan_name": plan_name,
         "expiry_date": expiry_date,
+        "billing_cycle": billing_cycle,
         "instagram_connections_limit": limits_payload["instagram_connections_limit"],
         "hourly_action_limit": limits_payload["hourly_action_limit"],
         "daily_action_limit": limits_payload["daily_action_limit"],
         "monthly_action_limit": limits_payload["monthly_action_limit"],
     }
+    entitlements = {
+        key: False
+        for key in BENEFIT_KEYS
+    }
+    entitlements.update(plan_defaults.get("entitlements") or {})
+    for key, enabled in entitlements.items():
+        for field in _benefit_fields(key):
+            patch[field] = enabled is True
     return patch
 
 
@@ -437,38 +505,7 @@ def _downgrade_profile_to_free(client, db_id, profiles_collection, pricing_map, 
         status="inactive",
         preserve_expired_snapshot=preserve_expired_snapshot,
     )
-    return _update_document(client, db_id, profiles_collection, profile_id, patch)
-
-
-def _restore_profile_from_self_memory(client, db_id, profiles_collection, pricing_map, profile, self_memory):
-    profile_id = str(_obj_get(profile, "$id", "") or "").strip()
-    plan_code = _normalize_plan_code(_obj_get(self_memory, "plan_id"))
-    if not profile_id or plan_code == DEFAULT_FREE_PLAN:
-        return None
-    plan_defaults = pricing_map.get(plan_code)
-    if not plan_defaults:
-        return None
-    expiry_date = _obj_get(self_memory, "expiry_date") or None
-    billing_cycle = str(_obj_get(self_memory, "billing_cycle") or "monthly").strip().lower()
-    if billing_cycle not in {"monthly", "yearly"}:
-        billing_cycle = "monthly"
-    limits_payload = {
-        "instagram_connections_limit": plan_defaults["instagram_connections_limit"],
-        "active_account_limit": plan_defaults["instagram_connections_limit"],
-        "hourly_action_limit": plan_defaults["hourly_action_limit"],
-        "daily_action_limit": plan_defaults["daily_action_limit"],
-        "monthly_action_limit": plan_defaults["monthly_action_limit"],
-    }
-    patch = {
-        "plan_code": plan_code,
-        "plan_source": "payment",
-        "plan_name": plan_defaults["plan_name"],
-        "expiry_date": expiry_date,
-        "instagram_connections_limit": limits_payload["instagram_connections_limit"],
-        "hourly_action_limit": plan_defaults["hourly_action_limit"],
-        "daily_action_limit": plan_defaults["daily_action_limit"],
-        "monthly_action_limit": plan_defaults["monthly_action_limit"],
-    }
+    patch["admin_override_json"] = None
     return _update_document(client, db_id, profiles_collection, profile_id, patch)
 
 
@@ -681,8 +718,7 @@ def main(context):
                 continue
             self_memory = _self_subscription_from_transactions(transactions_by_user.get(user_id, []), pricing_map, now)
             expiry_date = _parse_datetime(_obj_get(profile, "expiry_date"))
-            self_plan_id = _normalize_plan_code(_obj_get(self_memory, "plan_id"))
-            self_plan_expires = _parse_datetime(_obj_get(self_memory, "expiry_date"))
+            admin_override = _parse_admin_override(profile)
 
             try:
                 if expiry_date:
@@ -697,21 +733,21 @@ def main(context):
                         _maybe_send_reminder(client, db_id, profiles_collection, profile, "repeat", expiry_date, summary)
 
                 if expiry_date and expiry_date < now:
-                    if plan_source == "admin" and self_plan_id != DEFAULT_FREE_PLAN and self_plan_expires and self_plan_expires > now:
-                        restored = _restore_profile_from_self_memory(client, db_id, profiles_collection, pricing_map, profile, self_memory)
-                        if restored:
-                            summary["restored"] += 1
-                            profile = restored
-                        _recompute_account_access(client, db_id, restored or profile)
-                    else:
-                        downgraded = _downgrade_profile_to_free(client, db_id, profiles_collection, pricing_map, profile, preserve_expired_snapshot=True)
-                        if downgraded:
-                            summary["downgraded"] += 1
-                            profile = downgraded
-                        if plan_source == "self":
-                            summary["transaction_self_memory_expired"] += 1
-                        _recompute_account_access(client, db_id, downgraded or profile)
-                        continue
+                    downgraded = _downgrade_profile_to_free(client, db_id, profiles_collection, pricing_map, profile, preserve_expired_snapshot=True)
+                    if downgraded:
+                        summary["downgraded"] += 1
+                        profile = downgraded
+                    if plan_source == "payment" and _normalize_plan_code(_obj_get(self_memory, "plan_id")) == DEFAULT_FREE_PLAN:
+                        summary["transaction_self_memory_expired"] += 1
+                    _recompute_account_access(client, db_id, downgraded or profile)
+                    continue
+                if plan_source == "admin" and admin_override and admin_override.get("expires_at") and admin_override["expires_at"] <= now:
+                    downgraded = _downgrade_profile_to_free(client, db_id, profiles_collection, pricing_map, profile, preserve_expired_snapshot=True)
+                    if downgraded:
+                        summary["downgraded"] += 1
+                        profile = downgraded
+                    _recompute_account_access(client, db_id, downgraded or profile)
+                    continue
             except Exception as error:
                 summary["failed"] += 1
                 context.error(json.dumps({

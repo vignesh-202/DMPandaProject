@@ -96,7 +96,7 @@ def check_static_wiring():
         assert_true("touchUserActivity" in text or "ensureUserActivityDocument" in text, f"Activity refresh hook missing from {file_path.name}.")
 
     cleanup_text = (ROOT / "Backend" / "utils" / "userCleanup.js").read_text(encoding="utf-8")
-    for token in ("PAYMENT_ATTEMPTS_COLLECTION_ID", "COUPON_REDEMPTIONS_COLLECTION_ID", "AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID", "LOGS_COLLECTION_ID", "anonymizeTransactionsForUser"):
+    for token in ("PAYMENT_ATTEMPTS_COLLECTION_ID", "COUPON_REDEMPTIONS_COLLECTION_ID", "LOGS_COLLECTION_ID", "anonymizeTransactionsForUser"):
         assert_true(token in cleanup_text, f"userCleanup.js is missing {token}.")
 
 

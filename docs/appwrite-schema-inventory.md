@@ -13,11 +13,13 @@ Generated from live Appwrite verification on `2026-04-22`.
   - `plan_name`
   - `plan_source`
   - `expiry_date`
-  - `limits_json`
-  - `features_json`
-  - `paid_plan_snapshot_json`
   - `admin_override_json`
   - `kill_switch_enabled`
+- `admin_override_json` stores compact admin replacement metadata only:
+  - plan id
+  - billing cycle
+  - expiry
+- Runtime custom limits and benefit toggles remain on the normal `profiles` fields.
 - Action counters remain here:
   - `hourly_actions_used`
   - `daily_actions_used`
@@ -27,7 +29,7 @@ Generated from live Appwrite verification on `2026-04-22`.
   - none after cleanup
 
 ### `users`
-- Stores identity, moderation, and self-subscription memory:
+- Stores identity and moderation state:
   - `name`
   - `email`
   - `status`
@@ -36,8 +38,6 @@ Generated from live Appwrite verification on `2026-04-22`.
   - `banned_at`
   - `banned_by`
   - `kill_switch_enabled`
-  - `plan_id`
-  - `plan_expires_at`
 - Removed live user columns:
   - `referred_by`
   - `referral_code`
@@ -82,8 +82,12 @@ Generated from live Appwrite verification on `2026-04-22`.
 - `settings`
 - `admin_settings`
 - `automation_collect_destinations`
-- `automation_collected_emails`
 - `email_campaigns`
+
+## Deprecated / Removed
+- Removed live table:
+  - `automation_collected_emails`
+- Kept in setup tooling only as a deprecated collection id so it is not recreated accidentally.
 
 ## Live Cleanup Completed
 - Removed tables:
@@ -111,6 +115,9 @@ Generated from live Appwrite verification on `2026-04-22`.
   - `databases get-collection`
   - `databases list-attributes`
   - `databases list-documents`
+- Subscription resolution rule:
+  - only the newest transaction is considered for paid-plan restoration
+  - if that newest transaction is inactive or expired, the user resolves to `free`
 - Verified with setup and migration tooling:
   - `ProductionSetup/setup_appwrite.py`
   - `ProductionSetup/migrate_subscription_truth.py`

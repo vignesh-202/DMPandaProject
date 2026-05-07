@@ -927,7 +927,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     }
 
     const renderForm = () => (
-        <div className={`space-y-8 pb-16 ${type === 'global' && useParentLayout ? '' : 'p-8 border-r border-slate-100 dark:border-slate-900'}`}>
+        <div className={`space-y-6 pb-16 sm:space-y-8 ${type === 'global' && useParentLayout ? '' : 'border-r border-slate-100 p-4 dark:border-slate-900 sm:p-6 lg:p-8'}`}>
             {error && (
                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-600 text-xs font-bold">
                     <AlertCircle className="w-4 h-4 shrink-0" />
@@ -956,7 +956,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     (type === 'global' && useParentLayout) ? (
                         <div>
                             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Automation Core</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:gap-8">
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center gap-2 mb-1 px-1">
                                         <div className="flex items-center gap-2">
@@ -1399,7 +1399,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 {type !== 'global' && (
                     <div className="space-y-4 pt-6 border-t border-slate-100 dark:border-slate-800">
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2 ml-1">Trigger Type</h3>
-                        <div className={`grid gap-3 ${triggerOptions.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                        <div className={`grid gap-2 sm:gap-3 ${triggerOptions.length === 2 ? 'grid-cols-1 min-[380px]:grid-cols-2' : 'grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-3'}`}>
                             {triggerOptions.map(t => (
                                 <button
                                     key={t.id}
@@ -1587,19 +1587,19 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         </p>
                     )}
                     {selectedTemplate && !showTemplateSelector && (
-                        <div className="flex min-h-[104px] items-center justify-between gap-4 rounded-[30px] border border-primary/20 bg-primary/8 px-6 py-5 shadow-[0_18px_45px_rgba(108,43,217,0.08)]">
+                        <div className="flex min-h-[88px] flex-col gap-3 rounded-[24px] border border-primary/20 bg-primary/8 px-4 py-4 shadow-[0_18px_45px_rgba(108,43,217,0.08)] sm:min-h-[104px] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-[30px] sm:px-6 sm:py-5">
                             <div className="flex min-w-0 items-center gap-3">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-[22px] bg-primary/15 text-primary shadow-sm">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-[18px] bg-primary/15 text-primary shadow-sm sm:h-12 sm:w-12 sm:rounded-[22px]">
                                     <Reply className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="truncate text-base font-black uppercase tracking-tight text-foreground">{selectedTemplate.name}</p>
+                                    <p className="truncate text-sm font-black uppercase tracking-tight text-foreground sm:text-base">{selectedTemplate.name}</p>
                                     <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
                                         {selectedTemplate.template_type.replace('template_', '')}
                                     </p>
                                 </div>
                             </div>
-                            <div className="shrink-0 rounded-full bg-success-muted/70 px-3.5 py-1.5 text-[9px] font-black uppercase tracking-[0.22em] text-success">
+                            <div className="w-fit shrink-0 rounded-full bg-success-muted/70 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-success sm:px-3.5 sm:tracking-[0.22em]">
                                 Selected
                             </div>
                         </div>

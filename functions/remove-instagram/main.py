@@ -207,7 +207,6 @@ def main(context):
                 ('logs', 'account_id'),
                 ('chat_states', 'account_id'),
                 ('automation_collect_destinations', 'account_id'),
-                ('automation_collected_emails', 'account_id'),
             ]
             deleted_counts = {}
 

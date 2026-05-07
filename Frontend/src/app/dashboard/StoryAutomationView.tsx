@@ -200,12 +200,12 @@ const StoryAutomationView: React.FC = () => {
   if (selectedMedia && activeAccountID) {
     return (
       <>
-        <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
+        <div className="mx-auto max-w-7xl min-h-screen space-y-6 p-3 sm:space-y-8 sm:p-4 md:p-6 lg:p-8">
           <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
           <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-            <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2">
-              <section className="bg-card p-8 rounded-[40px] border border-content shadow-sm space-y-8 xl:min-h-0">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
+            <div className="w-full min-w-0 space-y-6 xl:col-span-8 xl:space-y-8 xl:overflow-y-auto xl:pr-2">
+              <section className="space-y-6 rounded-[28px] border border-content bg-card p-4 shadow-sm sm:space-y-8 sm:rounded-[34px] sm:p-6 lg:rounded-[40px] lg:p-8 xl:min-h-0">
                 <AutomationEditor
                   type="story"
                   variant="embedded"

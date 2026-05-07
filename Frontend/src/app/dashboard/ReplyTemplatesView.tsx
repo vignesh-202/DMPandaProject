@@ -866,7 +866,7 @@ export default function ReplyTemplatesView() {
   // Editor page (new page in section instead of popup)
   if (editorMode !== null) {
     return (
-      <div className="relative max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+      <div className="relative mx-auto max-w-7xl p-3 sm:p-4 md:p-6 lg:p-8">
         {/* Loading overlay */}
         {editorLoading && (
           <div className="absolute inset-0 bg-card/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-3xl">
@@ -877,9 +877,9 @@ export default function ReplyTemplatesView() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
           {/* Form column */}
-          <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2">
+          <div className="w-full min-w-0 space-y-4 xl:col-span-8 xl:space-y-6 xl:overflow-y-auto xl:pr-2">
             <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
                 <button
@@ -930,7 +930,7 @@ export default function ReplyTemplatesView() {
             )}
 
             {/* Template Name */}
-            <div className="bg-card p-6 rounded-2xl border-2 border-border shadow-sm">
+            <div className="rounded-2xl border-2 border-border bg-card p-4 shadow-sm sm:p-6">
               <div className="flex justify-between items-center mb-3">
                 <label className="block text-sm font-black text-foreground uppercase tracking-widest">
                   Template Name
@@ -972,11 +972,11 @@ export default function ReplyTemplatesView() {
             </div>
 
             {/* Template Type */}
-            <div className="bg-card p-6 rounded-2xl border-2 border-border shadow-sm">
+            <div className="rounded-2xl border-2 border-border bg-card p-4 shadow-sm sm:p-6">
               <label className="block text-sm font-black text-foreground uppercase tracking-widest mb-4">
                 Template Type
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
                 {TEMPLATE_TYPE_OPTIONS.map((opt) => {
                   const Icon = opt.icon;
                   const isSelected = templateType === opt.id;
@@ -989,7 +989,7 @@ export default function ReplyTemplatesView() {
                         setTemplateData(getDefaultTemplateData(opt.id));
                         setTemplateValidationErrors({});
                       }}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 text-center transition-all ${isSelected
+                        className={`flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-xl border-2 p-3 text-center transition-all sm:p-4 ${isSelected
                         ? 'border-primary bg-primary/10 text-primary shadow-lg shadow-primary/10'
                         : 'border-border hover:border-border/70 hover:bg-muted/40'
                         }`}
@@ -1005,7 +1005,7 @@ export default function ReplyTemplatesView() {
             </div>
 
             {/* Content Editor */}
-            <div className="bg-card p-6 rounded-2xl border-2 border-border shadow-sm">
+            <div className="rounded-2xl border-2 border-border bg-card p-4 shadow-sm sm:p-6">
               <label className="block text-sm font-black text-foreground uppercase tracking-widest mb-4">
                 Template Content
               </label>
@@ -1058,9 +1058,9 @@ export default function ReplyTemplatesView() {
 
   // List view
   return (
-    <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl p-3 sm:p-4 md:p-6 lg:p-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-foreground uppercase tracking-tight mb-2">
             Reply Templates
@@ -1069,7 +1069,7 @@ export default function ReplyTemplatesView() {
             Create reusable templates for DM, Post, Reel, Story, and Live automations
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:flex sm:items-center">
           {/* View Mode Toggle */}
           <div className="flex items-center gap-1 p-1 bg-muted rounded-xl">
             <button
@@ -1105,7 +1105,7 @@ export default function ReplyTemplatesView() {
           {/* Create Button */}
           <button
             onClick={openCreate}
-            className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+            className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 sm:px-6 sm:tracking-widest"
           >
             <Plus className="w-5 h-5" />
             Create Template
@@ -1141,7 +1141,7 @@ export default function ReplyTemplatesView() {
         </div>
       ) : (
         <div className={viewMode === 'grid'
-          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+          ? 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6'
           : 'space-y-4'
         }>
           {templates.map((t, index) => {
@@ -1149,7 +1149,7 @@ export default function ReplyTemplatesView() {
             return (
               <div
                 key={t.id}
-                className={`bg-card rounded-2xl border-2 border-border hover:border-primary transition-all shadow-sm hover:shadow-xl group ${viewMode === 'list' ? 'p-4 flex flex-col sm:flex-row sm:items-center gap-4' : 'p-6'
+                className={`group rounded-2xl border-2 border-border bg-card shadow-sm transition-all hover:border-primary hover:shadow-xl ${viewMode === 'list' ? 'flex flex-col gap-4 p-4 sm:flex-row sm:items-center' : 'p-4 sm:p-6'
                   }`}
               >
                 {viewMode === 'list' ? (
@@ -1183,17 +1183,17 @@ export default function ReplyTemplatesView() {
                       </div>
                     </div>
                     {/* Actions */}
-                    <div className="flex-shrink-0 flex items-center gap-2">
+                    <div className="grid flex-shrink-0 grid-cols-2 gap-2 sm:flex sm:items-center">
                       <button
                         onClick={() => openEdit(t)}
-                        className="px-4 py-2.5 rounded-xl border-2 border-border bg-card text-foreground font-bold hover:bg-muted/40 transition-all"
+                        className="rounded-xl border-2 border-border bg-card px-4 py-2.5 font-bold text-foreground transition-all hover:bg-muted/40"
                       >
                         <Pencil className="w-4 h-4 inline mr-2" />
                         Edit
                       </button>
                       <button
                         onClick={() => requestDelete(t)}
-                        className="px-4 py-2.5 rounded-xl border-2 border-destructive/30 bg-destructive-muted/40 text-destructive font-bold hover:bg-destructive-muted/60 transition-all"
+                        className="rounded-xl border-2 border-destructive/30 bg-destructive-muted/40 px-4 py-2.5 font-bold text-destructive transition-all hover:bg-destructive-muted/60"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1201,8 +1201,8 @@ export default function ReplyTemplatesView() {
                   </>
                 ) : (
                   <>
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
                         {/* Serial Number */}
                         <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary font-black text-xs">
                           {index + 1}
@@ -1210,8 +1210,8 @@ export default function ReplyTemplatesView() {
                         <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/15 transition-colors">
                           <Icon className="w-6 h-6 text-primary" />
                         </div>
-                        <div>
-                          <h3 className="text-lg font-black text-foreground mb-1">
+                        <div className="min-w-0">
+                          <h3 className="mb-1 truncate text-lg font-black text-foreground">
                             {t.name}
                           </h3>
                           <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
@@ -1222,7 +1222,7 @@ export default function ReplyTemplatesView() {
                     </div>
 
                     {/* Live Usage Count Badge */}
-                    <div className="mb-4 pb-4 border-b border-border">
+                    <div className="mb-4 border-b border-border pb-4">
                       <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
                         Used By
                       </p>
@@ -1239,10 +1239,10 @@ export default function ReplyTemplatesView() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-[1fr_auto] gap-2">
                       <button
                         onClick={() => openEdit(t)}
-                        className="flex-1 px-4 py-2.5 rounded-xl border-2 border-border bg-card text-foreground font-bold hover:bg-muted/40 transition-all"
+                        className="flex-1 rounded-xl border-2 border-border bg-card px-4 py-2.5 font-bold text-foreground transition-all hover:bg-muted/40"
                       >
                         <Pencil className="w-4 h-4 inline mr-2" />
                         Edit
@@ -1321,4 +1321,3 @@ export default function ReplyTemplatesView() {
     </div>
   );
 }
-

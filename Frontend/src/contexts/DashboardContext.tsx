@@ -460,7 +460,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         } finally {
             bulkProfileRefreshKeys.current.delete(refreshKey);
         }
-    }, [authenticatedFetch, igAccounts]);
+    }, [authenticatedFetch]);
 
     // Fetch account stats
     const fetchStats = useCallback(async (accountId: string, accountsOverride?: any[]) => {
@@ -561,9 +561,9 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     // Initial load
     useEffect(() => {
         if (user) {
-            fetchIgAccounts();
+            void fetchIgAccounts();
         }
-    }, [user?.id, fetchIgAccounts]);
+    }, [user?.$id, fetchIgAccounts]);
 
     useEffect(() => {
         if (!user || !isInitialLoadComplete) return;

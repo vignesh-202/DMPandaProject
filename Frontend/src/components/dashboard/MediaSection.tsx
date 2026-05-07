@@ -308,9 +308,9 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
     const getMediaPreviewUrl = (item: MediaItem) => toBrowserPreviewUrl(item.thumbnail_url || item.media_url || '');
 
     const renderShowcaseCard = (item: MediaItem, isAutomated: boolean) => (
-        <div className="flex h-full flex-col p-2.5">
+        <div className="flex h-full flex-col p-2 sm:p-2.5">
             <div className={cn(
-                'relative h-[17rem] overflow-hidden rounded-[1.5rem] border border-border/70 bg-[#060606]'
+                'relative h-[13.5rem] overflow-hidden rounded-[1.2rem] border border-border/70 bg-[#060606] sm:h-[15rem] sm:rounded-[1.35rem] lg:h-[17rem] lg:rounded-[1.5rem]'
             )}>
                 <img
                     src={getMediaPreviewUrl(item)}
@@ -333,14 +333,14 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                     </div>
                 )}
             </div>
-            <div className="flex flex-1 flex-col gap-2 px-0.5 pb-0.5 pt-3">
+            <div className="flex flex-1 flex-col gap-2 px-0.5 pb-0.5 pt-2.5 sm:pt-3">
                 {type !== 'story' && (
-                    <h3 className="line-clamp-2 text-[13px] font-black leading-snug tracking-tight text-foreground">
+                    <h3 className="line-clamp-2 text-[12px] font-black leading-snug tracking-tight text-foreground sm:text-[13px]">
                         {item.caption?.trim() || (type === 'reel' ? 'Reel automation item' : 'Post automation item')}
                     </h3>
                 )}
                 {type === 'story' && (
-                    <h3 className="line-clamp-1 text-[13px] font-black leading-snug tracking-tight text-foreground">
+                    <h3 className="line-clamp-1 text-[12px] font-black leading-snug tracking-tight text-foreground sm:text-[13px]">
                         Story automation item
                     </h3>
                 )}
@@ -356,7 +356,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                         onCreateAutomation(item);
                     }}
                     className={cn(
-                        'mt-auto inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all',
+                        'mt-auto inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl px-3 text-[9px] font-black uppercase tracking-[0.14em] transition-all sm:text-[10px] sm:tracking-[0.16em]',
                         isAutomated
                             ? 'bg-primary/12 text-primary hover:bg-primary/18'
                             : 'bg-foreground text-background hover:bg-foreground/90'
@@ -418,8 +418,8 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
         };
 
         return (
-            <div className="bg-white dark:bg-black p-6 rounded-3xl h-full min-h-[500px] flex flex-col border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <div className="flex h-full min-h-[420px] flex-col rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 dark:border-slate-800 dark:bg-black sm:min-h-[500px] sm:rounded-3xl sm:p-6">
+                <div className="mb-6 flex flex-col items-start justify-between gap-4 md:mb-8 md:flex-row md:items-center">
                     <div>
                         <h2 className="text-2xl sm:text-3xl font-black text-black dark:text-white tracking-tight">{title}</h2>
                         <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mt-2 flex items-center gap-1.5">
@@ -812,7 +812,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                 'grid gap-6',
                                 useShowcaseCards
                                     ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-                                    : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+                                    : 'grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
                             )}>
                                 {automationsSet.map(item => (
                                     <Card
@@ -821,7 +821,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                         className={cn(
                                             'group h-full cursor-pointer overflow-hidden border p-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl',
                                             useShowcaseCards
-                                                ? 'min-h-[23rem] rounded-[1.8rem] border-border bg-card shadow-sm'
+                                                ? 'min-h-[18.5rem] rounded-[1.35rem] border-border bg-card shadow-sm sm:min-h-[20.5rem] sm:rounded-[1.6rem] lg:min-h-[23rem] lg:rounded-[1.8rem]'
                                                 : 'relative rounded-3xl border-0 bg-gray-50 shadow-lg dark:bg-gray-900'
                                         )}
                                     >
@@ -865,7 +865,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
 
                         {/* CASE 4: Selection Grid (Create Mode) */}
                         {((viewMode === 'create' && hasAnyContent) || type === 'mention') && (
-                            <div className="flex-1 min-h-[500px] relative">
+                            <div className="relative min-h-[360px] flex-1 sm:min-h-[500px]">
 
                                 {sortedItems.length === 0 ? (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-12 animate-in fade-in duration-500">
@@ -889,7 +889,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                                 'grid gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 overflow-y-auto pr-2 max-h-[800px] scrollbar-thin',
                                                 useShowcaseCards
                                                     ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-                                                    : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+                                                    : 'grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
                                             )}
                                         >
                                             {sortedItems.map((item) => {
@@ -901,7 +901,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                                         className={cn(
                                                             'group h-full cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl',
                                                             useShowcaseCards
-                                                                ? `min-h-[23rem] rounded-[1.8rem] border border-border bg-card p-0 shadow-sm ${isAutomated ? 'ring-2 ring-primary/20' : 'hover:ring-2 hover:ring-primary/20'}`
+                                                                ? `min-h-[18.5rem] rounded-[1.35rem] border border-border bg-card p-0 shadow-sm sm:min-h-[20.5rem] sm:rounded-[1.6rem] lg:min-h-[23rem] lg:rounded-[1.8rem] ${isAutomated ? 'ring-2 ring-primary/20' : 'hover:ring-2 hover:ring-primary/20'}`
                                                                 : `rounded-[2rem] border-0 bg-slate-50 p-0 shadow-md dark:bg-slate-900 ${isAutomated ? 'ring-2 ring-blue-500/20' : 'hover:ring-4 ring-blue-500/30'}`
                                                         )}
                                                     >

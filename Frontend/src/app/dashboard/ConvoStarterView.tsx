@@ -713,7 +713,7 @@ const ConvoStarterView: React.FC = () => {
     const canShowMainWorkspace = isCreatingItem || isConvoStarterReady;
 
     return (
-        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 px-3 sm:px-4 md:px-6">
+        <div className="mx-auto max-w-7xl space-y-6 px-3 sm:space-y-8 sm:px-4 md:px-6">
             <AutomationToast
                 message={success}
                 variant="success"
@@ -732,7 +732,7 @@ const ConvoStarterView: React.FC = () => {
                             <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Convo Starters</h1>
                             <p className="text-sm font-medium text-muted-foreground">Help new visitors start a conversation. You can keep up to 4 quick starter prompts live on Instagram.</p>
                         </div>
-                        <div className="flex flex-wrap items-center justify-end gap-3">
+                        <div className="flex flex-wrap items-center justify-stretch gap-2 sm:justify-end sm:gap-3">
                             <button
                                 onClick={() => fetchConvoStarters(true)}
                                 className="p-3 bg-secondary text-muted-foreground rounded-xl hover:bg-secondary/80 transition-all"
@@ -762,14 +762,14 @@ const ConvoStarterView: React.FC = () => {
                                         }
                                         void startCreate();
                                     }}
-                                    className="px-8 py-3 bg-foreground text-background rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-foreground/10 flex items-center gap-2"
+                                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-4 py-3 text-[10px] font-black uppercase tracking-widest text-background shadow-xl shadow-foreground/10 transition-all sm:w-auto sm:px-8"
                                 >
                                     <Plus className="w-4 h-4" />
                                     Add Question
                                 </button>
                             )}
                             {hasChanges && editingIndex === null && (
-                                <button onClick={handlePublish} disabled={saving} className="px-8 py-3 bg-primary text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-primary/20 flex items-center gap-2">
+                                <button onClick={handlePublish} disabled={saving} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-xl shadow-primary/20 transition-all sm:w-auto sm:px-8">
                                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                                     Publish Changes
                                 </button>
@@ -778,7 +778,7 @@ const ConvoStarterView: React.FC = () => {
                                 <button
                                     onClick={handleDeleteAll}
                                     disabled={isDeleting}
-                                    className="px-8 py-3 bg-destructive text-destructive-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-destructive/20 flex items-center gap-2 disabled:opacity-70"
+                                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-destructive px-4 py-3 text-[10px] font-black uppercase tracking-widest text-destructive-foreground shadow-xl shadow-destructive/20 transition-all disabled:opacity-70 sm:w-auto sm:px-8"
                                 >
                                     {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                     Delete
@@ -796,12 +796,12 @@ const ConvoStarterView: React.FC = () => {
 
             {/* Main Workspace */}
             {canShowMainWorkspace && (
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                     {/* Left: Form */}
-                    <div className="xl:col-span-8 space-y-6 order-2 xl:order-1 xl:overflow-y-auto xl:pr-2">
+                    <div className="order-2 space-y-6 xl:order-1 xl:col-span-8 xl:overflow-y-auto xl:pr-2">
                         {isCreatingItem && newItem ? (
                             /* Edit Form */
-                            <div className="bg-card border border-content rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-foreground/10 space-y-12">
+                            <div className="space-y-8 rounded-[2rem] border border-content bg-card p-4 shadow-2xl shadow-foreground/10 sm:rounded-[2.25rem] sm:p-6 lg:space-y-10 lg:rounded-[2.5rem] lg:p-8 xl:space-y-12 xl:p-10">
                                 <div className="-mx-2 rounded-[2rem] bg-card/95 px-2 py-2">
                                     <div className="flex flex-col gap-4 border border-content/70 rounded-[2rem] bg-card px-5 py-4 shadow-lg md:flex-row md:items-start md:justify-between">
                                         <div className="flex items-center gap-3">
@@ -831,7 +831,7 @@ const ConvoStarterView: React.FC = () => {
                                     <input
                                         value={newItem.question}
                                         onChange={(e) => setNewItem({ ...newItem, question: e.target.value })}
-                                        className={`w-full bg-muted/40 border-2 ${validationErrors.question ? 'border-destructive' : 'border-content dark:border-border'} focus:border-primary outline-none rounded-2xl py-5 px-8 text-lg font-black transition-all shadow-inner`}
+                                        className={`w-full bg-muted/40 border-2 ${validationErrors.question ? 'border-destructive' : 'border-content dark:border-border'} focus:border-primary outline-none rounded-2xl px-4 py-4 text-base font-black transition-all shadow-inner sm:px-6 sm:py-5 sm:text-lg`}
                                         placeholder="e.g. How can I help you today?"
                                     />
                                     <div className="flex justify-end items-center px-2">
@@ -861,7 +861,7 @@ const ConvoStarterView: React.FC = () => {
                                     />
 
                                     {newItem.followers_only && (
-                                        <div className="bg-card border border-content rounded-2xl p-6 space-y-4">
+                                        <div className="space-y-4 rounded-2xl border border-content bg-card p-4 sm:p-6">
                                             <div className="space-y-2">
                                                 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Followers-Only Message</label>
                                                 <textarea
@@ -980,15 +980,15 @@ const ConvoStarterView: React.FC = () => {
                                             />
                                         </div>
                                     ) : (
-                                        <div className="p-6 bg-primary/10 border-2 border-primary/20 rounded-3xl flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <div className="p-3 bg-primary text-primary-foreground rounded-2xl shadow-lg shadow-primary/20"><Reply className="w-5 h-5" /></div>
-                                                <div>
-                                                    <p className="text-sm font-black text-foreground uppercase tracking-tight">{selectedTemplate.name}</p>
+                                        <div className="flex flex-col gap-3 rounded-[1.5rem] border-2 border-primary/20 bg-primary/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-3xl sm:p-6">
+                                            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                                                <div className="rounded-2xl bg-primary p-2.5 text-primary-foreground shadow-lg shadow-primary/20 sm:p-3"><Reply className="w-5 h-5" /></div>
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-black uppercase tracking-tight text-foreground">{selectedTemplate.name}</p>
                                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{selectedTemplate.template_type.replace('template_', '')}</p>
                                                 </div>
                                             </div>
-                                            <div className="px-3 py-1.5 bg-success-muted/60 text-success text-[9px] font-black uppercase tracking-widest rounded-lg">Selected</div>
+                                            <div className="w-fit rounded-lg bg-success-muted/60 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-success">Selected</div>
                                         </div>
                                     )}
                                     {validationErrors.template && (
@@ -1004,7 +1004,7 @@ const ConvoStarterView: React.FC = () => {
                                     Active Starters ({convoStarters.length}/{MAX_CONVO_STARTERS})
                                 </p>
                                 {convoStarters.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-24 bg-muted/30 rounded-[3rem] border-2 border-dashed border-border">
+                                    <div className="flex flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-border bg-muted/30 px-4 py-16 sm:rounded-[3rem] sm:py-24">
                                         <div className="p-6 bg-card rounded-3xl shadow-sm mb-6">
                                             <MessageSquare className="w-8 h-8 text-muted-foreground/60" />
                                         </div>
@@ -1014,13 +1014,13 @@ const ConvoStarterView: React.FC = () => {
                                         </p>
                                         <button
                                             onClick={() => { void startCreate(); }}
-                                            className="mt-8 px-10 py-4 bg-primary text-primary-foreground rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-primary/90 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 flex items-center gap-2"
+                                            className="mt-8 flex min-h-11 items-center gap-2 rounded-2xl bg-primary px-6 py-4 text-[11px] font-black uppercase tracking-widest text-primary-foreground shadow-xl shadow-primary/20 transition-all hover:bg-primary/90 hover:scale-[1.02] active:scale-95 sm:px-10"
                                         >
                                             <Plus className="w-4 h-4" /> Create First Question
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className={layoutMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'}>
+                                    <div className={layoutMode === 'grid' ? 'grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6' : 'space-y-4'}>
                                         {convoStarters.map((starter, index) => (
                                             <Card
                                                 key={index}
@@ -1030,25 +1030,25 @@ const ConvoStarterView: React.FC = () => {
                                                 onDragOver={(e) => handleDragOver(e, index)}
                                                 onDragLeave={handleDragLeave}
                                                 onDrop={(e) => handleDrop(e, index)}
-                                                className={`group p-6 transition-all duration-500 relative bg-card border rounded-[2rem] hover:shadow-2xl cursor-move
+                                                className={`group relative cursor-move rounded-[1.5rem] border bg-card p-4 transition-all duration-500 hover:shadow-2xl sm:rounded-[2rem] sm:p-6
                                                     ${dragOverIdx === index ? 'border-primary ring-2 ring-primary/20 scale-[1.02]' : 'border-content'}
                                                     ${dragIdx === index ? 'opacity-50 scale-95' : ''}
                                                 `}
                                             >
-                                                <div className="flex justify-between items-start mb-6">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="text-xl font-black text-muted-foreground/60 w-8">
+                                                <div className="mb-4 flex items-start justify-between sm:mb-6">
+                                                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                                                        <div className="w-7 text-lg font-black text-muted-foreground/60 sm:w-8 sm:text-xl">
                                                             {String(index + 1).padStart(2, '0')}
                                                         </div>
                                                         <div className="p-2 bg-muted text-muted-foreground rounded-lg cursor-grab active:cursor-grabbing">
                                                             <GripVertical className="w-4 h-4" />
                                                         </div>
-                                                        <div className="p-4 bg-muted/40 group-hover:bg-primary/10 text-muted-foreground group-hover:text-primary rounded-2xl transition-all duration-500">
-                                                            <MessageCircle className="w-6 h-6" />
+                                                        <div className="rounded-2xl bg-muted/40 p-3 text-muted-foreground transition-all duration-500 group-hover:bg-primary/10 group-hover:text-primary sm:p-4">
+                                                            <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-lg bg-primary/10 text-primary">
+                                                    <div className="ml-2 flex flex-wrap items-center justify-end gap-2">
+                                                        <span className="rounded-lg bg-primary/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.14em] text-primary sm:px-3 sm:tracking-widest">
                                                             {starter.template_type?.replace('template_', '') || 'Reply'}
                                                         </span>
                                                         <button
@@ -1068,8 +1068,8 @@ const ConvoStarterView: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 <div className="space-y-4">
-                                                    <h3 className="text-xl font-black text-foreground line-clamp-1">{starter.question}</h3>
-                                                    <div className="p-4 bg-muted/30 rounded-2xl border border-content/50">
+                                                    <h3 className="line-clamp-2 text-lg font-black text-foreground sm:text-xl">{starter.question}</h3>
+                                                    <div className="rounded-2xl border border-content/50 bg-muted/30 p-3 sm:p-4">
                                                         <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Connected Reply</p>
                                                         <div className="flex items-center gap-2">
                                                             <MessageSquare className="w-3 h-3 text-primary" />
@@ -1149,4 +1149,3 @@ const ConvoStarterView: React.FC = () => {
 };
 
 export default ConvoStarterView;
-
