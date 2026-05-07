@@ -125,6 +125,7 @@ export const UsersPage: React.FC = () => {
     const [users, setUsers] = useState<UserRow[]>([]);
     const [pricingPlans, setPricingPlans] = useState<PricingPlanOption[]>([]);
     const [loading, setLoading] = useState(true);
+    const [hasLoadedUsersOnce, setHasLoadedUsersOnce] = useState(false);
     const [searchInput, setSearchInput] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [filters, setFilters] = useState({
@@ -217,6 +218,7 @@ export const UsersPage: React.FC = () => {
             console.error('Error fetching users:', error);
             setErrorMessage('Failed to load users.');
         } finally {
+            setHasLoadedUsersOnce(true);
             setLoading(false);
         }
     };
@@ -496,7 +498,6 @@ export const UsersPage: React.FC = () => {
                 ban_reason: result?.user?.ban_reason ?? entry.ban_reason,
                 linked_instagram_accounts: Number(result?.total_linked_accounts ?? entry.linked_instagram_accounts ?? 0)
             } : entry));
-            await loadUserDetail(selectedUser.$id);
             setNotice('Admin entitlement override updated.');
         } catch (error: any) {
             console.error('Failed to update plan and limits:', error);
@@ -529,7 +530,6 @@ export const UsersPage: React.FC = () => {
                     profile: result?.profile || entry.profile
                 } : entry));
             }
-            await loadUserDetail(selectedUser.$id);
             setNotice('Default plan restored from latest valid payment or free.');
         } catch (error: any) {
             console.error('Failed to reset plan:', error);
@@ -584,7 +584,22 @@ export const UsersPage: React.FC = () => {
                     linked_instagram_accounts: Number(result?.total_linked_accounts ?? entry.linked_instagram_accounts ?? 0)
                 } : entry));
             } else {
-                await loadUserDetail(selectedUser.$id);
+                setDetailData((prev: any) => {
+                    if (!prev) return prev;
+                    const currentAccounts = Array.isArray(prev.instagram_accounts) ? prev.instagram_accounts : [];
+                    return {
+                        ...prev,
+                        instagram_accounts: currentAccounts.map((entry: any) => (
+                            entry?.$id === account.$id
+                                ? {
+                                    ...entry,
+                                    admin_status: enabling ? 'active' : 'inactive',
+                                    effective_access: enabling
+                                }
+                                : entry
+                        ))
+                    };
+                });
             }
             setNotice(enabling ? 'Instagram account activated.' : 'Instagram account deactivated.');
         } catch (error: any) {
@@ -677,7 +692,7 @@ export const UsersPage: React.FC = () => {
     }, [lastSyncedProfilePatch, trackedSnapshot]);
     const isSaveDisabled = saving || isDeletingUser || !hasPlanLimitChanges;
 
-    if (loading && users.length === 0) {
+    if (!hasLoadedUsersOnce && loading) {
         return <AdminLoadingState title="Loading users" description="Preparing user records, subscription details, and moderation controls." />;
     }
 
