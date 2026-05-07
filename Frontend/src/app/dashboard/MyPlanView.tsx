@@ -3,7 +3,7 @@ import { AlertCircle, Calendar, Check, CreditCard, Zap } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
-import { PricingPlan, formatMoney, getPaidCheckoutPlans, getPlanBigPrice, normalizePricingPayload } from '../../lib/pricing';
+import { PricingPlan, buildPlanLimitItems, formatMoney, getPaidCheckoutPlans, getPlanBigPrice, normalizePricingPayload } from '../../lib/pricing';
 import PlanCheckoutModal from '../../components/dashboard/PlanCheckoutModal';
 
 type UserPlan = {
@@ -335,6 +335,7 @@ const MyPlanView: React.FC = () => {
                 const isCurrentPlan = entry.id === plan?.plan_id || entry.name === currentPlanName;
                 const isSelectablePaidPlan = checkoutPlans.some((item) => item.id === entry.id);
                 const isUnavailable = entry.plan_code === 'free' || (!isCurrentPlan && !isSelectablePaidPlan);
+                const planLimits = buildPlanLimitItems(entry);
                 return (
                   <div
                     key={entry.id}
@@ -361,6 +362,18 @@ const MyPlanView: React.FC = () => {
                     </div>
 
                     <div className="flex-grow space-y-4">
+                      <div className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Plan limits</p>
+                        <div className="mt-4 space-y-3">
+                          {planLimits.map((item) => (
+                            <div key={`${entry.id}-${item.label}`} className="flex items-center justify-between gap-4 text-sm">
+                              <span className="text-muted-foreground">{item.label}</span>
+                              <span className="font-semibold text-foreground">{item.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
                       {entry.features.map((feature, index) => (
                         <div key={`${entry.id}-${index}`} className="flex items-start gap-3 text-sm">
                           <div className="mt-0.5 text-success">
