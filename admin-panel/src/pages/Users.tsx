@@ -20,6 +20,7 @@ import httpClient from '../lib/httpClient';
 import { cn } from '../lib/utils';
 import AdminLoadingState from '../components/AdminLoadingState';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { clearCachedResource, loadCachedResource } from '../lib/resourceCache';
 
 interface UserRow {
     $id: string;
@@ -70,6 +71,51 @@ const formatExpiryLabel = (value?: string | null) => {
     if (!value) return 'No expiry';
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? 'No expiry' : parsed.toLocaleString();
+};
+
+const getInstagramTokenValidity = (value?: string | null) => {
+    if (!value) {
+        return {
+            tone: 'neutral' as const,
+            label: 'Unknown validity',
+            detail: 'Token expiry is not available.'
+        };
+    }
+
+    const expiresAt = new Date(value);
+    const expiresMs = expiresAt.getTime();
+    if (Number.isNaN(expiresMs)) {
+        return {
+            tone: 'neutral' as const,
+            label: 'Unknown validity',
+            detail: 'Token expiry could not be parsed.'
+        };
+    }
+
+    const diffMs = expiresMs - Date.now();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMs <= 0) {
+        return {
+            tone: 'danger' as const,
+            label: 'Expired',
+            detail: `Expired on ${formatExpiryLabel(value)}`
+        };
+    }
+
+    if (diffDays <= 7) {
+        return {
+            tone: 'warning' as const,
+            label: 'Expiring soon',
+            detail: `${diffDays} day${diffDays === 1 ? '' : 's'} left`
+        };
+    }
+
+    return {
+        tone: 'success' as const,
+        label: 'Valid',
+        detail: `${diffDays} days left`
+    };
 };
 
 const describeFreePlanMode = (planCode?: string | null, expiryDate?: string | null) => {
@@ -188,7 +234,7 @@ export const UsersPage: React.FC = () => {
 
     const fetchPricingPlans = async () => {
         try {
-            const response = await httpClient.get('/api/admin/pricing');
+            const response = await loadCachedResource('admin:pricing:plans', () => httpClient.get('/api/admin/pricing'), 30000);
             setPricingPlans(Array.isArray(response.data?.plans) ? response.data.plans : []);
         } catch (error) {
             console.error('Failed to load pricing plans:', error);
@@ -481,6 +527,7 @@ export const UsersPage: React.FC = () => {
             payload.plan_code = resolvePlanOptionValue(payload.plan_code || profilePatch.plan_code || 'free');
 
             const response = await httpClient.patch(`/api/admin/users/${selectedUser.$id}/profile`, payload);
+            clearCachedResource('admin:pricing:plans');
             const result = response.data?.data || {};
             mergeDetailData(result);
             if (result?.user?.ban_mode) {
@@ -799,8 +846,8 @@ export const UsersPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                <div className="overflow-x-auto overscroll-x-contain">
+                    <table className="min-w-[42rem] w-full text-left sm:min-w-full">
                         <thead>
                             <tr className="border-b border-border/70 bg-background/40">
                                 <th className="px-6 py-4 text-[10px] font-black text-muted-foreground">User</th>
@@ -826,7 +873,7 @@ export const UsersPage: React.FC = () => {
                             ) : (
                                 users.map((user) => (
                                     <tr key={user.$id} className="transition-colors hover:bg-background/40">
-                                        <td className="min-w-[240px] px-6 py-5">
+                                        <td className="min-w-[220px] px-4 py-5 sm:px-6">
                                             <div className="flex items-center gap-4">
                                                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-sm font-black text-foreground">
                                                     {user.name?.charAt(0) || 'U'}
@@ -837,13 +884,13 @@ export const UsersPage: React.FC = () => {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5 text-xs font-bold text-foreground">
+                                        <td className="px-4 py-5 text-xs font-bold text-foreground sm:px-6">
                                             {user.profile?.plan_code || 'free'}
                                         </td>
-                                        <td className="px-6 py-5 text-xs font-bold text-foreground">
+                                        <td className="px-4 py-5 text-xs font-bold text-foreground sm:px-6">
                                             {user.linked_instagram_accounts ?? 0}
                                         </td>
-                                        <td className="px-6 py-5">
+                                        <td className="px-4 py-5 sm:px-6">
                                             <span className={cn(
                                                 'status-pill',
                                                 user.ban_mode === 'hard'
@@ -855,8 +902,8 @@ export const UsersPage: React.FC = () => {
                                                 {user.ban_mode || 'none'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-5 text-right">
-                                            <Link to={`/users/${user.$id}`} className="btn-secondary px-4 py-2 text-[10px]">
+                                        <td className="px-4 py-5 text-right sm:px-6">
+                                            <Link to={`/users/${user.$id}`} className="btn-secondary inline-flex min-h-10 items-center justify-center px-3 py-2 text-[10px] sm:px-4">
                                                 <Settings2 className="h-4 w-4" />
                                                 Manage
                                             </Link>
@@ -868,16 +915,16 @@ export const UsersPage: React.FC = () => {
                     </table>
                 </div>
 
-                <div className="flex flex-col gap-4 border-t border-border/70 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 border-t border-border/70 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                     <p className="text-xs text-muted-foreground">
                         Page {pagination.page} of {pagination.total_pages}
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         <button
                             type="button"
                             onClick={() => void fetchUsers(Math.max(1, pagination.page - 1))}
                             disabled={!pagination.has_previous || loading}
-                            className="btn-secondary px-4 py-2 text-[10px] disabled:opacity-60"
+                            className="btn-secondary inline-flex min-h-10 items-center justify-center px-4 py-2 text-[10px] disabled:opacity-60"
                         >
                             <ChevronLeft className="h-4 w-4" />
                             Previous
@@ -886,7 +933,7 @@ export const UsersPage: React.FC = () => {
                             type="button"
                             onClick={() => void fetchUsers(pagination.page + 1)}
                             disabled={!pagination.has_next || loading}
-                            className="btn-secondary px-4 py-2 text-[10px] disabled:opacity-60"
+                            className="btn-secondary inline-flex min-h-10 items-center justify-center px-4 py-2 text-[10px] disabled:opacity-60"
                         >
                             Next
                             <ChevronRight className="h-4 w-4" />
@@ -896,7 +943,7 @@ export const UsersPage: React.FC = () => {
             </section>
 
             {userId && (
-                <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/45 p-2 backdrop-blur-sm sm:items-center sm:p-4">
                     <button type="button" className="absolute inset-0" aria-label="Close user manager" onClick={closeModal} />
                     <div className="relative z-10 w-full max-w-6xl">
                         {(notice || errorMessage) && (
@@ -911,7 +958,7 @@ export const UsersPage: React.FC = () => {
                                 {errorMessage || notice}
                             </div>
                         )}
-                        <section className={`${surfaceClass} custom-scrollbar relative max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-6`}>
+                        <section className={`${surfaceClass} custom-scrollbar relative max-h-[calc(100dvh-0.5rem)] overflow-y-auto rounded-t-[1.75rem] p-3 sm:max-h-[calc(100dvh-2rem)] sm:rounded-[32px] sm:p-6`}>
                         {detailLoading ? (
                             <AdminLoadingState title="Loading user details" description="Fetching profile overrides, account links, and moderation state." className="min-h-[320px]" />
                         ) : (
@@ -930,12 +977,12 @@ export const UsersPage: React.FC = () => {
                                             <h2 className="mt-3 text-2xl font-extrabold text-foreground">{detailData?.user?.name || selectedUser?.name}</h2>
                                             <p className="break-all text-sm text-muted-foreground">{detailData?.user?.email || selectedUser?.email}</p>
                                         </div>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                                             <button
                                                 type="button"
                                                 onClick={openDashboard}
                                                 disabled={openingDashboard}
-                                                className="btn-primary px-4 py-3 text-[10px] disabled:opacity-60"
+                                                className="btn-primary inline-flex min-h-11 w-full items-center justify-center px-4 py-3 text-[10px] disabled:opacity-60 sm:w-auto"
                                             >
                                                 {openingDashboard ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                                                 Access Dashboard
@@ -1191,16 +1238,45 @@ export const UsersPage: React.FC = () => {
                                                     : acc.plan_locked === true
                                                         ? 'Locked by plan limit'
                                                         : 'Active';
+                                            const tokenValidity = getInstagramTokenValidity(acc.token_expires_at);
                                             return (
                                                 <div key={acc.$id} className="flex flex-col gap-3 rounded-[22px] border border-border/70 bg-background/72 p-4 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.45)] sm:flex-row sm:items-center sm:justify-between">
-                                                    <div className="min-w-0">
-                                                        <p className="truncate text-sm font-bold text-foreground">{acc.username || acc.ig_user_id || acc.account_id}</p>
-                                                        <p className="mt-1 text-xs text-muted-foreground">
-                                                            {accessLabel}
-                                                            {acc.plan_locked === true && isAdminActive && isUserActive ? ' - over plan active-account limit' : ''}
-                                                        </p>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                                            <div className="min-w-0">
+                                                                <p className="truncate text-sm font-bold text-foreground">{acc.username || acc.ig_user_id || acc.account_id}</p>
+                                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                                    {accessLabel}
+                                                                    {acc.plan_locked === true && isAdminActive && isUserActive ? ' - over plan active-account limit' : ''}
+                                                                </p>
+                                                            </div>
+                                                            <div className="grid min-w-0 gap-2 rounded-[18px] border border-border/70 bg-card/80 px-3 py-2 text-xs sm:min-w-[240px]">
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <span className="font-semibold text-muted-foreground">Token status</span>
+                                                                    <span
+                                                                        className={cn(
+                                                                            'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold',
+                                                                            tokenValidity.tone === 'success' && 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300',
+                                                                            tokenValidity.tone === 'warning' && 'bg-amber-500/12 text-amber-700 dark:text-amber-300',
+                                                                            tokenValidity.tone === 'danger' && 'bg-destructive/12 text-destructive',
+                                                                            tokenValidity.tone === 'neutral' && 'bg-muted text-muted-foreground'
+                                                                        )}
+                                                                    >
+                                                                        {tokenValidity.label}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <span className="font-semibold text-muted-foreground">Valid until</span>
+                                                                    <span className="text-right font-medium text-foreground">{formatExpiryLabel(acc.token_expires_at)}</span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <span className="font-semibold text-muted-foreground">Validity</span>
+                                                                    <span className="text-right font-medium text-foreground">{tokenValidity.detail}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-3">
+                                                    <div className="flex items-center justify-end gap-3 sm:self-stretch">
                                                         <button
                                                             type="button"
                                                             role="switch"

@@ -9,19 +9,25 @@ function buildSingleEventPayload(webhookData, entry, { messaging = null, change 
 }
 
 function extractMessagingMeta(entry, event) {
-    const recipientId = String(event?.recipient?.id || entry?.id || '').trim();
+    const businessAccountId = String(entry?.id || event?.recipient?.id || '').trim();
+    const recipientId = businessAccountId;
     const senderId = String(event?.sender?.id || '').trim();
     const eventType = event?.postback
         ? (event?.postback?.referral || event?.postback?.context ? 'share_referral' : 'postback')
-        : 'message';
+        : event?.read
+            ? 'read'
+            : event?.delivery
+                ? 'delivery'
+                : 'message';
     const eventKey = event?.message?.mid
         || event?.postback?.mid
+        || event?.postback?.payload
         || event?.postback?.title
         || `${eventType}:${recipientId}:${senderId}:${JSON.stringify(event || {})}`;
 
     return {
         eventType,
-        accountId: recipientId,
+        accountId: businessAccountId,
         recipientId,
         senderId,
         conversationKey: senderId && recipientId ? `${recipientId}:${senderId}` : `${recipientId}:unknown`,

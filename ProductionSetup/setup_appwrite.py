@@ -339,17 +339,43 @@ ADDITIONAL_INDEXES = {
 
 COLLECTION_OVERRIDES = {}
 
+ACTIVE_COLLECTION_IDS = {
+    "transactions",
+    "users",
+    "pricing",
+    "ig_accounts",
+    "automations",
+    "keyword_index",
+    "profiles",
+    "keywords",
+    "super_profiles",
+    "reply_templates",
+    "inbox_menus",
+    "convo_starters",
+    "comment_moderation",
+    "logs",
+    "chat_states",
+    "coupons",
+    "coupon_redemptions",
+    "automation_collect_destinations",
+    "payment_attempts",
+    "email_campaigns",
+    "job_locks",
+    "inactive_user_cleanup_audit",
+    "system_config",
+}
+
 DEPRECATED_COLLECTIONS = {
     "admin_audit_logs",
     "admin_settings",
-    "subscription_reminder_events",
     "automation_collected_emails",
+    "settings",
+    "subscription_reminder_events",
     "affiliate_profiles",
     "referrals",
     "payouts",
     "notification_throttles",
     "worker_locks",
-    "settings",
 }
 
 DEPRECATED_ATTRIBUTES = {
@@ -468,7 +494,11 @@ def load_schema_definitions():
             DEPRECATED_INDEXES,
         )
 
-    return [definition for collection_id, definition in merged.items() if collection_id not in DEPRECATED_COLLECTIONS]
+    return [
+        definition
+        for collection_id, definition in merged.items()
+        if collection_id in ACTIVE_COLLECTION_IDS and collection_id not in DEPRECATED_COLLECTIONS
+    ]
 
 
 def ensure_database(databases):

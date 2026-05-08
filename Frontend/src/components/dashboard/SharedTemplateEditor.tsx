@@ -22,15 +22,22 @@ import { toBrowserPreviewUrl } from '../../lib/templatePreview';
 
 export type TemplateType = 'template_text' | 'template_carousel' | 'template_buttons' | 'template_media' | 'template_share_post' | 'template_quick_replies';
 
+type TemplateButton = {
+    title: string;
+    url?: string;
+    payload?: string;
+    type: 'web_url' | 'postback' | string;
+};
+
 export interface TemplateData {
     text?: string;
     elements?: Array<{
         title: string;
         subtitle?: string;
         image_url: string;
-        buttons?: Array<{ title: string; url: string; type: string }>;
+        buttons?: Array<TemplateButton>;
     }>;
-    buttons?: Array<{ title: string; url: string; type: string }>;
+    buttons?: Array<TemplateButton>;
     media_url?: string;
     thumbnail_url?: string;
     preview_media_url?: string;
@@ -280,6 +287,13 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
         }
     };
 
+    const buildDefaultButton = (type: 'web_url' | 'postback' = 'web_url'): TemplateButton => ({
+        title: '',
+        type,
+        url: type === 'web_url' ? 'https://' : '',
+        payload: type === 'postback' ? 'Reply with more details' : ''
+    });
+
     const renderTextTemplate = () => (
         <div className="space-y-4 rounded-2xl border border-content bg-gray-50 p-4 dark:bg-gray-800/50 sm:p-6">
             <div className="flex justify-between items-center">
@@ -465,7 +479,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                             const elements = [...(templateData.elements || [])];
                                             if (!elements[activeCarouselElementIdx].buttons) elements[activeCarouselElementIdx].buttons = [];
                                             if (elements[activeCarouselElementIdx].buttons!.length < 3) {
-                                                elements[activeCarouselElementIdx].buttons!.push({ title: '', url: '', type: 'web_url' });
+                                                elements[activeCarouselElementIdx].buttons!.push(buildDefaultButton('web_url'));
                                                 onUpdate({ ...templateData, elements });
                                             }
                                         }}
@@ -591,7 +605,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                         onClick={() => {
                             const buttons = [...(templateData.buttons || [])];
                             if (buttons.length < 3) {
-                                buttons.push({ title: '', url: '', type: 'web_url' });
+                                buttons.push(buildDefaultButton('web_url'));
                                 onUpdate({ ...templateData, buttons });
                             }
                         }}
@@ -624,22 +638,89 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                     placeholder="Button Text"
                                 />
                             </div>
-                            <div className="md:col-span-7 space-y-1.5">
-                                <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Link</label>
-                                <input
-                                    id={`field_btn_${idx}_url`}
-                                    value={btn.url || ''}
-                                    onChange={e => {
-                                        const buttons = [...(templateData.buttons || [])];
-                                        buttons[idx].url = e.target.value;
-                                        onUpdate({ ...templateData, buttons });
-                                        clearValidationError(`btn_${idx}_url`);
-                                    }}
-                                    className={`w-full bg-gray-50 dark:bg-black/30 border-2 ${validationErrors[`btn_${idx}_url`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-3 text-[11px] font-bold text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500/50 transition-all`}
-                                    placeholder="https://..."
-                                />
-                                {validationErrors[`btn_${idx}_url`] && (
-                                    <p className="text-[8px] font-bold text-red-500 px-1">{validationErrors[`btn_${idx}_url`]}</p>
+                            <div className="md:col-span-7 space-y-3">
+                                <div className="space-y-1.5">
+                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Action</label>
+                                    <div className="grid grid-cols-2 gap-2 rounded-2xl bg-gray-50 dark:bg-black/30 p-1.5 border border-slate-200 dark:border-slate-800">
+                                        {[
+                                            { id: 'web_url', label: 'Open URL' },
+                                            { id: 'postback', label: 'Text Reply' }
+                                        ].map((option) => (
+                                            <button
+                                                key={option.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    const buttons = [...(templateData.buttons || [])];
+                                                    const nextType = option.id as 'web_url' | 'postback';
+                                                    const current = buttons[idx] || buildDefaultButton(nextType);
+                                                    buttons[idx] = {
+                                                        ...current,
+                                                        type: nextType,
+                                                        url: nextType === 'web_url'
+                                                            ? (current.url && current.url.trim() ? current.url : 'https://')
+                                                            : '',
+                                                        payload: nextType === 'postback'
+                                                            ? (current.payload && current.payload.trim() ? current.payload : 'Reply with more details')
+                                                            : ''
+                                                    };
+                                                    onUpdate({ ...templateData, buttons });
+                                                    clearValidationError(`btn_${idx}_url`);
+                                                    clearValidationError(`btn_${idx}_payload`);
+                                                }}
+                                                className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                    (btn.type || 'web_url') === option.id
+                                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                                                        : 'text-gray-500 hover:text-blue-600'
+                                                }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                {(btn.type || 'web_url') === 'postback' ? (
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Reply Text</label>
+                                            <span className={`text-[8px] font-bold ${getByteLength(btn.payload || '') > QUICK_REPLY_PAYLOAD_MAX ? 'text-red-500' : 'text-gray-300'}`}>
+                                                {getByteLength(btn.payload || '')}/{QUICK_REPLY_PAYLOAD_MAX} bytes
+                                            </span>
+                                        </div>
+                                        <input
+                                            id={`field_btn_${idx}_payload`}
+                                            value={btn.payload || ''}
+                                            onChange={e => {
+                                                const buttons = [...(templateData.buttons || [])];
+                                                buttons[idx].payload = e.target.value;
+                                                onUpdate({ ...templateData, buttons });
+                                                clearValidationError(`btn_${idx}_payload`);
+                                            }}
+                                            className={`w-full bg-gray-50 dark:bg-black/30 border-2 ${validationErrors[`btn_${idx}_payload`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-3 text-[11px] font-bold text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500/50 transition-all`}
+                                            placeholder="Reply with more details"
+                                        />
+                                        {validationErrors[`btn_${idx}_payload`] && (
+                                            <p className="text-[8px] font-bold text-red-500 px-1">{validationErrors[`btn_${idx}_payload`]}</p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1.5">
+                                        <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Link</label>
+                                        <input
+                                            id={`field_btn_${idx}_url`}
+                                            value={btn.url || ''}
+                                            onChange={e => {
+                                                const buttons = [...(templateData.buttons || [])];
+                                                buttons[idx].url = e.target.value;
+                                                onUpdate({ ...templateData, buttons });
+                                                clearValidationError(`btn_${idx}_url`);
+                                            }}
+                                            className={`w-full bg-gray-50 dark:bg-black/30 border-2 ${validationErrors[`btn_${idx}_url`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-3 text-[11px] font-bold text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500/50 transition-all`}
+                                            placeholder="https://example.com"
+                                        />
+                                        {validationErrors[`btn_${idx}_url`] && (
+                                            <p className="text-[8px] font-bold text-red-500 px-1">{validationErrors[`btn_${idx}_url`]}</p>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                             <div className="md:col-span-1 pb-1">

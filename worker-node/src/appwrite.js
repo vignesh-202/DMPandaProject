@@ -7,6 +7,7 @@ const sharedPlanFeatures = require('../../shared/planFeatures.json');
 
 const CHAT_STATES_COLLECTION_ID = process.env.CHAT_STATES_COLLECTION_ID || 'chat_states';
 const AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID = process.env.AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID || 'automation_collect_destinations';
+const CONVO_STARTERS_COLLECTION_ID = process.env.CONVO_STARTERS_COLLECTION_ID || 'convo_starters';
 const PRICING_COLLECTION_ID = process.env.PRICING_COLLECTION_ID || 'pricing';
 const SYSTEM_CONFIG_COLLECTION_ID = process.env.SYSTEM_CONFIG_COLLECTION_ID || 'system_config';
 const LOGS_COLLECTION_ID = process.env.LOGS_COLLECTION_ID || 'logs';
@@ -175,6 +176,79 @@ class AppwriteClient {
         };
     }
 
+    _toArray(value) {
+        if (Array.isArray(value)) return value;
+        if (value === null || value === undefined || value === '') return [];
+        return [value];
+    }
+
+    _parseJson(value, fallback = null) {
+        if (value === null || value === undefined || value === '') return fallback;
+        if (typeof value === 'object') return value;
+        try {
+            return JSON.parse(String(value));
+        } catch (_) {
+            return fallback;
+        }
+    }
+
+    async _loadConvoStarterFallbacks(accountIds) {
+        const normalizedAccountIds = this.normalizeAccountIds(accountIds);
+        if (normalizedAccountIds.length === 0) return [];
+        try {
+            const response = await withAppwriteRetry(() => this.databases.listDocuments(
+                this.databaseId,
+                CONVO_STARTERS_COLLECTION_ID,
+                [
+                    Query.equal('account_id', normalizedAccountIds),
+                    Query.limit(25)
+                ]
+            ), {
+                operationName: 'get_convo_starter_fallbacks',
+                context: { account_ids: normalizedAccountIds }
+            });
+
+            const documents = Array.isArray(response?.documents) ? response.documents : [];
+            const automations = [];
+            for (const doc of documents) {
+                const starters = this._parseJson(doc?.starters, []);
+                if (!Array.isArray(starters)) continue;
+                starters.forEach((starter, index) => {
+                    const normalized = this._normalizeAutomation({
+                        $id: `${String(doc?.$id || 'convo').trim()}:starter:${index + 1}`,
+                        account_id: String(doc?.account_id || '').trim(),
+                        automation_type: 'convo_starter',
+                        trigger_type: 'ice_breakers',
+                        title: String(starter?.question || '').trim(),
+                        title_normalized: String(starter?.question || '').trim().toLowerCase(),
+                        payload: String(starter?.payload || starter?.template_id || '').trim(),
+                        template_id: String(starter?.template_id || starter?.payload || '').trim(),
+                        template_content: String(starter?.template_id || starter?.payload || '').trim(),
+                        template_type: String(starter?.template_type || '').trim() || null,
+                        is_active: true,
+                        followers_only: starter?.followers_only === true,
+                        followers_only_message: String(starter?.followers_only_message || '').trim(),
+                        followers_only_primary_button_text: String(starter?.followers_only_primary_button_text || '').trim(),
+                        followers_only_secondary_button_text: String(starter?.followers_only_secondary_button_text || '').trim(),
+                        suggest_more_enabled: starter?.suggest_more_enabled === true,
+                        once_per_user_24h: starter?.once_per_user_24h === true,
+                        collect_email_enabled: starter?.collect_email_enabled === true,
+                        collect_email_only_gmail: starter?.collect_email_only_gmail === true,
+                        collect_email_prompt_message: String(starter?.collect_email_prompt_message || '').trim(),
+                        collect_email_fail_retry_message: String(starter?.collect_email_fail_retry_message || '').trim(),
+                        collect_email_success_reply_message: String(starter?.collect_email_success_reply_message || '').trim(),
+                        seen_typing_enabled: starter?.seen_typing_enabled === true
+                    });
+                    automations.push(normalized);
+                });
+            }
+            return automations;
+        } catch (error) {
+            console.warn(`Failed convo starter fallback lookup for ${JSON.stringify(normalizedAccountIds)}:`, error?.message || error);
+            return [];
+        }
+    }
+
     async getIGAccount(accountId) {
         try {
             let response = await withAppwriteRetry(() => this.databases.listDocuments(
@@ -249,7 +323,19 @@ class AppwriteClient {
                 documents = (response.documents || []).filter((document) => this._toBoolean(document?.is_active, true));
             }
 
-            return documents.map((document) => this._normalizeAutomation(document));
+            let normalizedAutomations = documents.map((document) => this._normalizeAutomation(document));
+
+            if (normalizedTypes.includes('convo_starter')) {
+                const hasConvoStarter = normalizedAutomations.some(
+                    (document) => String(document?.automation_type || '').trim().toLowerCase() === 'convo_starter'
+                );
+                if (!hasConvoStarter) {
+                    const fallbackConvoStarters = await this._loadConvoStarterFallbacks(normalizedAccountIds);
+                    normalizedAutomations = normalizedAutomations.concat(fallbackConvoStarters);
+                }
+            }
+
+            return normalizedAutomations;
         } catch (error) {
             console.error(`Error fetching automations for ${JSON.stringify(accountIds)}:`, error);
             return [];

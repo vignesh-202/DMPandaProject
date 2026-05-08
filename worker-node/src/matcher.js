@@ -1,4 +1,8 @@
 class AutomationMatcher {
+    static _normalizeToken(value) {
+        return String(value || '').toUpperCase().trim();
+    }
+
     static _getKeywordList(automation) {
         let keywords = automation.trigger_keyword || automation.keywords || automation.keyword || [];
         if (typeof keywords === 'string') {
@@ -10,16 +14,34 @@ class AutomationMatcher {
         }
         if (!Array.isArray(keywords)) keywords = [keywords];
         return keywords
-            .map((keyword) => String(keyword || '').toUpperCase().trim())
+            .map((keyword) => this._normalizeToken(keyword))
             .filter(Boolean);
     }
 
-    static _getTitleCandidate(automation) {
+    static _getConversationStarterCandidates(automation) {
         const automationType = String(automation?.automation_type || '').trim().toLowerCase();
         if (!['convo_starter', 'inbox_menu'].includes(automationType)) {
-            return '';
+            return [];
         }
-        return String(automation?.title || automation?.title_normalized || '').toUpperCase().trim();
+        return Array.from(new Set([
+            automation?.title,
+            automation?.title_normalized,
+            automation?.question,
+            automation?.payload,
+            automation?.template_content,
+            automation?.template_id
+        ].map((value) => this._normalizeToken(value)).filter(Boolean)));
+    }
+
+    static _getDirectReferenceCandidates(automation) {
+        return Array.from(new Set([
+            automation?.payload,
+            automation?.template_id,
+            automation?.template_content,
+            automation?.media_id,
+            automation?.$id,
+            automation?.id
+        ].map((value) => this._normalizeToken(value)).filter(Boolean)));
     }
 
     /**
@@ -45,9 +67,16 @@ class AutomationMatcher {
                 }
             }
 
-            const normalizedTitle = this._getTitleCandidate(automation);
-            if (normalizedTitle && normalizedText === normalizedTitle) {
-                return automation;
+            for (const candidate of this._getDirectReferenceCandidates(automation)) {
+                if (normalizedText === candidate) {
+                    return automation;
+                }
+            }
+
+            for (const candidate of this._getConversationStarterCandidates(automation)) {
+                if (normalizedText === candidate) {
+                    return automation;
+                }
             }
         }
 

@@ -547,7 +547,7 @@ def _evaluate_user(user_doc, profile_doc, latest_tx_at, now, self_subscription=N
     profile_expires = _parse_datetime(_obj_get(profile_doc, "expiry_date"))
     if profile_plan != DEFAULT_FREE_PLAN:
         if not profile_expires:
-            return {"decision": "skip_uncertain", "reason": "runtime_paid_missing_expiry"}
+            return {"decision": "skip_paid", "reason": "runtime_paid_profile_without_expiry"}
         if profile_expires > now:
             return {"decision": "skip_paid", "reason": "runtime_paid_profile"}
         return {"decision": "skip_uncertain", "reason": "runtime_profile_expired_non_free"}
@@ -649,6 +649,17 @@ def _delete_by_field(client: Client, db_id: str, collection_id: str, field: str,
     return deleted
 
 
+def _delete_by_any_field(client: Client, db_id: str, collection_id: str, values_by_field):
+    deleted = 0
+    for field, raw_values in (values_by_field or {}).items():
+        for raw_value in (raw_values if isinstance(raw_values, (list, tuple, set)) else [raw_values]):
+            safe_value = str(raw_value or "").strip()
+            if not safe_value:
+                continue
+            deleted += _delete_by_field(client, db_id, collection_id, field, safe_value)
+    return deleted
+
+
 def _anonymize_transactions(client: Client, db_id: str, collection_id: str, user_id: str):
     deleted_ref = _build_deleted_user_ref(user_id)
     updated = 0
@@ -693,41 +704,41 @@ def _delete_user_data(client: Client, db_id: str, collections: dict, user_doc):
         for value in [_obj_get(account, "account_id"), _obj_get(account, "ig_user_id"), _obj_get(account, "$id")]
         if str(value or "").strip()
     }
+    account_field_values = {
+        "account_id": linked_account_ids,
+        "ig_user_id": linked_account_ids,
+    }
+    user_field_values = {
+        "user_id": [user_id],
+        "userId": [user_id],
+    }
 
-    account_scoped = [
-        collections["automations"],
-        collections["reply_templates"],
-        collections["inbox_menus"],
-        collections["convo_starters"],
-        collections["super_profiles"],
-        collections["comment_moderation"],
-        collections["chat_states"],
-        collections["automation_collect_destinations"],
-        collections["logs"],
-        collections["keywords"],
-        collections["keyword_index"],
-    ]
-    for account_id in linked_account_ids:
-        for collection_id in account_scoped:
-            deleted = _delete_by_field(client, db_id, collection_id, "account_id", account_id)
-            if deleted:
-                summary["deleted"][collection_id] = summary["deleted"].get(collection_id, 0) + deleted
-
-    user_scoped = [
-        collections["campaigns"],
-        collections["automations"],
-        collections["reply_templates"],
-        collections["inbox_menus"],
-        collections["convo_starters"],
-        collections["super_profiles"],
-        collections["comment_moderation"],
-        collections["automation_collect_destinations"],
-        collections["ig_accounts"],
-        collections["payment_attempts"],
-        collections["coupon_redemptions"],
-    ]
-    for collection_id in user_scoped:
-        deleted = _delete_by_field(client, db_id, collection_id, "user_id", user_id)
+    purge_plan = {
+        collections["automations"]: {**account_field_values, **user_field_values},
+        collections["reply_templates"]: {**account_field_values, **user_field_values},
+        collections["inbox_menus"]: {**account_field_values, **user_field_values},
+        collections["convo_starters"]: {**account_field_values, **user_field_values},
+        collections["super_profiles"]: {**account_field_values, **user_field_values},
+        collections["comment_moderation"]: {**account_field_values, **user_field_values},
+        collections["chat_states"]: {
+            **account_field_values,
+            **user_field_values,
+            "sender_id": [user_id],
+            "recipient_id": [user_id],
+        },
+        collections["automation_collect_destinations"]: {**account_field_values, **user_field_values},
+        collections["automation_collected_emails"]: {**account_field_values, **user_field_values},
+        collections["logs"]: {**account_field_values, **user_field_values},
+        collections["keywords"]: {**account_field_values, **user_field_values},
+        collections["keyword_index"]: {**account_field_values, **user_field_values},
+        collections["campaigns"]: user_field_values,
+        collections["email_campaigns"]: user_field_values,
+        collections["ig_accounts"]: {**account_field_values, **user_field_values},
+        collections["payment_attempts"]: user_field_values,
+        collections["coupon_redemptions"]: user_field_values,
+    }
+    for collection_id, field_map in purge_plan.items():
+        deleted = _delete_by_any_field(client, db_id, collection_id, field_map)
         if deleted:
             summary["deleted"][collection_id] = summary["deleted"].get(collection_id, 0) + deleted
 
@@ -794,6 +805,7 @@ def main(context):
 
         collections = {
             "campaigns": _env("CAMPAIGNS_COLLECTION_ID", "campaigns"),
+            "email_campaigns": _env("EMAIL_CAMPAIGNS_COLLECTION_ID", "email_campaigns"),
             "profiles": profiles_collection,
             "automations": _env("AUTOMATIONS_COLLECTION_ID", "automations"),
             "reply_templates": _env("REPLY_TEMPLATES_COLLECTION_ID", "reply_templates"),
@@ -807,6 +819,7 @@ def main(context):
             "keywords": _env("KEYWORDS_COLLECTION_ID", "keywords"),
             "keyword_index": _env("KEYWORD_INDEX_COLLECTION_ID", "keyword_index"),
             "ig_accounts": _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts"),
+            "automation_collected_emails": _env("AUTOMATION_COLLECTED_EMAILS_COLLECTION_ID", "automation_collected_emails"),
             "payment_attempts": payment_attempts_collection,
             "coupon_redemptions": coupon_redemptions_collection,
             "transactions": transactions_collection,

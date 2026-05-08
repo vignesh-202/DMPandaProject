@@ -114,6 +114,10 @@ function typeLabel(t: string): string {
   return TEMPLATE_TYPE_OPTIONS.find(o => o.id === t)?.label || t.replace('template_', '');
 }
 
+function isValidHttpUrl(value: string): boolean {
+  return value.startsWith('http://') || value.startsWith('https://');
+}
+
 function automationTypeLabel(a: string): string {
   const m: Record<string, string> = {
     dm: 'DM',
@@ -460,6 +464,7 @@ export default function ReplyTemplatesView() {
       } else {
         buttons.forEach((btn: any, idx: number) => {
           const title = (btn.title || '').trim();
+          const buttonType = String(btn.type || 'web_url').trim();
           if (!title) {
             errors[`btn_${idx}_title`] = 'Button title is required.';
           } else {
@@ -470,11 +475,25 @@ export default function ReplyTemplatesView() {
               errors[`btn_${idx}_title`] = `Button title must be at most ${BUTTON_TITLE_MAX} UTF-8 bytes.`;
             }
           }
-          const url = (btn.url || '').trim();
-          if (!url) {
-            errors[`btn_${idx}_url`] = 'Button URL is required. This field is important.';
-          } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            errors[`btn_${idx}_url`] = 'Button URL must start with http:// or https://';
+          if (buttonType === 'postback') {
+            const payload = (btn.payload || '').trim();
+            if (!payload) {
+              errors[`btn_${idx}_payload`] = 'Reply text is required. This field is important.';
+            } else {
+              const bl = getByteLength(payload);
+              if (bl < QUICK_REPLY_PAYLOAD_MIN) {
+                errors[`btn_${idx}_payload`] = 'Reply text must be at least 2 characters.';
+              } else if (bl > QUICK_REPLY_PAYLOAD_MAX) {
+                errors[`btn_${idx}_payload`] = `Reply text too long (max ${QUICK_REPLY_PAYLOAD_MAX} UTF-8 bytes).`;
+              }
+            }
+          } else {
+            const url = (btn.url || '').trim();
+            if (!url) {
+              errors[`btn_${idx}_url`] = 'Button URL is required. This field is important.';
+            } else if (!isValidHttpUrl(url)) {
+              errors[`btn_${idx}_url`] = 'Button URL must start with http:// or https://';
+            }
           }
         });
       }

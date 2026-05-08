@@ -1,14 +1,54 @@
 {
-  "on-user-create": {
-    "execution_id": "69edbe19a7d0ead4a790",
-    "status": "completed",
-    "response_status_code": 200,
-    "errors": ""
-  },
-  "remove-instagram": {
-    "execution_id": "69edbe1d7fcf47cdc815",
-    "status": "completed",
-    "response_status_code": 200,
-    "errors": ""
+  "verified_at": "2026-05-08T07:44:47Z",
+  "notes": [
+    "All functions in functions/function-manifest.json were executed successfully.",
+    "refresh-instagram-tokens initially failed because Appwrite was serving an older deployment that queried a missing is_active attribute.",
+    "refresh-instagram-tokens was redeployed on 2026-05-08 before the final verification pass."
+  ],
+  "results": {
+    "audit-media-automations": {
+      "execution_id": "69fd9429f3c9c983ad0c",
+      "status": "completed"
+    },
+    "cleanup-logs-chat-state": {
+      "execution_id": "69fd942d546acf21867a",
+      "status": "completed"
+    },
+    "cleanup-audit-job-locks": {
+      "execution_id": "69fd943026fc5ae71da2",
+      "status": "completed"
+    },
+    "on-user-create": {
+      "execution_id": "69fd9432f18dee0af394",
+      "status": "completed"
+    },
+    "refresh-instagram-tokens": {
+      "execution_id": "69fd94361c7e7c742db4",
+      "status": "completed"
+    },
+    "remind-link-instagram": {
+      "execution_id": "69fd943abb7a9fe32295",
+      "status": "completed"
+    },
+    "remove-instagram": {
+      "execution_id": "69fd943deb7d8b4f1540",
+      "status": "completed"
+    },
+    "reset-user-action-budgets": {
+      "execution_id": "69fd9445b920de920a9b",
+      "status": "completed"
+    },
+    "subscription-manager": {
+      "execution_id": "69fd9448c371dadf6659",
+      "status": "completed"
+    },
+    "payment-reminders": {
+      "execution_id": "69fd944c241883a71956",
+      "status": "completed"
+    },
+    "inactive-user-cleanup": {
+      "execution_id": "69fd944f109b666a0439",
+      "status": "completed"
+    }
   }
 }

@@ -68,6 +68,20 @@ const resolveCanonicalFeatureKey = (value) => {
     return FEATURE_ALIASES[normalized] || normalized;
 };
 
+const uniqueNonEmptyStrings = (values) => Array.from(new Set(
+    (Array.isArray(values) ? values : [values])
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+));
+
+const looksLikeInternalReference = (value) => {
+    const token = String(value || '').trim();
+    if (!token) return false;
+    if (token.length >= 20 && /^[a-f0-9]+$/i.test(token)) return true;
+    if (token.length >= 24 && /^[A-Za-z0-9+/=:_-]+$/.test(token) && !/\s/.test(token)) return true;
+    return false;
+};
+
 class DMWorker {
     constructor() {
         this.appwrite = new AppwriteClient();
@@ -136,12 +150,19 @@ class DMWorker {
         let eventKey = String(mergedMeta.eventKey || '').trim();
 
         if (messaging && typeof messaging === 'object') {
-            eventType = eventType || (messaging?.postback
-                ? (messaging?.postback?.referral || messaging?.postback?.context ? 'share_referral' : 'postback')
-                : 'message');
-            recipientId = recipientId || String(messaging?.recipient?.id || entry?.id || '').trim();
+            eventType = eventType || (
+                messaging?.postback
+                    ? (messaging?.postback?.referral || messaging?.postback?.context ? 'share_referral' : 'postback')
+                    : messaging?.read
+                        ? 'read'
+                        : messaging?.delivery
+                            ? 'delivery'
+                            : 'message'
+            );
+            const businessAccountId = String(entry?.id || messaging?.recipient?.id || '').trim();
+            recipientId = recipientId || businessAccountId;
             senderId = senderId || String(messaging?.sender?.id || '').trim();
-            accountId = accountId || recipientId;
+            accountId = accountId || businessAccountId || recipientId;
             conversationKey = conversationKey || (senderId && recipientId ? `${recipientId}:${senderId}` : '');
             eventKey = eventKey || String(
                 messaging?.message?.mid
@@ -362,6 +383,25 @@ class DMWorker {
                 automation_id: automation?.$id || null
             });
         });
+    }
+
+    _logCompletedAutomationResult(meta = {}, result = null, extra = {}) {
+        const line = '-'.repeat(72);
+        const payload = {
+            completed_at: new Date().toISOString(),
+            event_type: String(meta?.eventType || '').trim() || null,
+            account_id: String(meta?.accountId || '').trim() || null,
+            recipient_id: String(meta?.recipientId || '').trim() || null,
+            sender_id: String(meta?.senderId || '').trim() || null,
+            conversation_key: String(meta?.conversationKey || '').trim() || null,
+            handled: result?.handled === true,
+            duplicate: result?.duplicate === true,
+            automation_type: String(result?.automationType || '').trim() || null,
+            ...extra,
+        };
+        console.log('AUTOMATION RESULT');
+        console.log(JSON.stringify(payload, null, 2));
+        console.log(line);
     }
 
     _trackMetaApiAction(tracker, userId) {
@@ -1868,20 +1908,34 @@ class DMWorker {
             const message = messaging.message;
             const postback = messaging.postback;
             const conversationKey = senderId && recipientId ? `${recipientId}:${senderId}` : `${recipientId}:unknown`;
-            const inboundText = String(
-                message?.text
-                || postback?.title
-                || postback?.payload
-                || ''
-            ).trim();
 
-            if (!inboundText) {
-                console.log('No message or postback text found, skipping.');
+            if (messaging.read) {
+                console.log('Ignoring Instagram read receipt event.');
+                return false;
+            }
+
+            if (messaging.delivery) {
+                console.log('Ignoring Instagram delivery receipt event.');
                 return false;
             }
 
             if (message?.is_echo === true) {
                 console.log('Ignoring echoed outbound Instagram message.');
+                return false;
+            }
+
+            if (recipientId && senderId && String(recipientId).trim() === String(senderId).trim()) {
+                console.log(`Ignoring self-authored business message event from ${senderId}.`);
+                return false;
+            }
+
+            const inboundCandidates = postback
+                ? uniqueNonEmptyStrings([postback?.payload, postback?.title, message?.text])
+                : uniqueNonEmptyStrings([message?.text, postback?.payload, postback?.title]);
+            const inboundText = inboundCandidates[0] || '';
+
+            if (!inboundText) {
+                console.log('No message or postback text found, skipping.');
                 return false;
             }
 
@@ -1958,14 +2012,34 @@ class DMWorker {
                     const automationType = String(automation?.automation_type || '').trim().toLowerCase();
                     return automationType !== 'global';
                 });
-                matchedAutomation = AutomationMatcher.matchDM(inboundText, specificAutomations);
-                if (!matchedAutomation) {
-                    const globalAutomations = automations.filter((automation) => String(automation?.automation_type || '').trim().toLowerCase() === 'global');
-                    matchedAutomation = AutomationMatcher.matchDM(inboundText, globalAutomations);
+                const globalAutomations = automations.filter((automation) => String(automation?.automation_type || '').trim().toLowerCase() === 'global');
+                for (const candidate of inboundCandidates) {
+                    matchedAutomation = AutomationMatcher.matchDM(candidate, specificAutomations);
+                    if (matchedAutomation) break;
+                    matchedAutomation = AutomationMatcher.matchDM(candidate, globalAutomations);
+                    if (matchedAutomation) break;
                 }
             }
             if (!matchedAutomation) {
                 console.log(`No keyword match for: ${inboundText}`);
+
+                const isHumanReadablePostbackReply = Boolean(
+                    postback
+                    && inboundText
+                    && !looksLikeInternalReference(inboundText)
+                );
+                if (isHumanReadablePostbackReply) {
+                    const fallbackSent = await instagram.sendMessage(senderId, 'template_text', {
+                        text: inboundText
+                    });
+                    if (fallbackSent) {
+                        console.log(`Sent button postback payload back as text reply: "${inboundText}"`);
+                    }
+                    return {
+                        handled: fallbackSent,
+                        automationType: 'postback_text_reply'
+                    };
+                }
 
                 if (this._hasRecentWelcomeReply(conversationKey, options)) {
                     console.log(`Welcome message already sent inside the 24-hour window for ${conversationKey}.`);
@@ -2199,6 +2273,56 @@ class DMWorker {
 
     async processWebhook(webhookData, options = {}) {
         const meta = this._extractEventMetaFromWebhook(webhookData, options);
+        const line = '-'.repeat(72);
+        const bufferedLogs = [];
+        const originalConsole = {
+            log: console.log,
+            info: console.info,
+            warn: console.warn,
+            error: console.error
+        };
+        const pushBufferedLog = (level, args) => {
+            const rendered = args.map((value) => {
+                if (typeof value === 'string') return value;
+                try {
+                    return JSON.stringify(value, null, 2);
+                } catch (_) {
+                    return String(value);
+                }
+            }).join(' ');
+            bufferedLogs.push({ level, text: rendered });
+        };
+        console.log = (...args) => pushBufferedLog('log', args);
+        console.info = (...args) => pushBufferedLog('info', args);
+        console.warn = (...args) => pushBufferedLog('warn', args);
+        console.error = (...args) => pushBufferedLog('error', args);
+
+        const flushBufferedLogs = (resultPayload) => {
+            originalConsole.log(line);
+            originalConsole.log('AUTOMATION TRACE START');
+            originalConsole.log(JSON.stringify({
+                started_at: new Date().toISOString(),
+                event_type: String(meta?.eventType || '').trim() || null,
+                account_id: String(meta?.accountId || '').trim() || null,
+                recipient_id: String(meta?.recipientId || '').trim() || null,
+                sender_id: String(meta?.senderId || '').trim() || null,
+                conversation_key: String(meta?.conversationKey || '').trim() || null,
+                event_key: String(meta?.eventKey || '').trim() || null,
+            }, null, 2));
+            bufferedLogs.forEach((entry) => {
+                const target = entry.level === 'error'
+                    ? originalConsole.error
+                    : entry.level === 'info'
+                        ? originalConsole.info
+                    : entry.level === 'warn'
+                        ? originalConsole.warn
+                        : originalConsole.log;
+                target(entry.text);
+            });
+            originalConsole.log('AUTOMATION RESULT');
+            originalConsole.log(JSON.stringify(resultPayload, null, 2));
+            originalConsole.log(line);
+        };
         const shouldClaim = Boolean(
             meta?.eventKey
             && meta?.accountId
@@ -2206,50 +2330,107 @@ class DMWorker {
             && typeof this.appwrite?.finalizeProcessingEvent === 'function'
         );
 
-        if (this._wasProcessedRecently(meta)) {
-            return { handled: true, duplicate: true, automationType: 'duplicate_event' };
-        }
-
-        let claim = null;
-        if (shouldClaim) {
-            claim = await this.appwrite.claimProcessingEvent(meta, {
-                processingTtlMs: PROCESSING_LOCK_TTL_MS,
-                dedupeTtlMs: EVENT_DEDUPE_TTL_MS
-            });
-            if (!claim?.claimed) {
-                this._rememberProcessedEvent(meta, EVENT_DEDUPE_TTL_MS);
-                return { handled: true, duplicate: true, automationType: 'duplicate_event' };
-            }
-        }
-
-        const metaApiUsageTracker = options?.metaApiUsageTracker || { counts: new Map(), flushed: false };
-
         try {
-            const result = await this.processMessage(webhookData, {
-                ...options,
-                meta,
-                metaApiUsageTracker,
-                throwOnError: options?.throwOnError !== false
-            });
-            await this._flushMetaApiActionUsage(metaApiUsageTracker);
-            this._rememberProcessedEvent(meta, EVENT_DEDUPE_TTL_MS);
-            if (claim?.claimed) {
-                await this.appwrite.finalizeProcessingEvent(claim, {
-                    status: 'completed',
+            if (this._wasProcessedRecently(meta)) {
+                const result = { handled: true, duplicate: true, automationType: 'duplicate_event' };
+                flushBufferedLogs({
+                    completed_at: new Date().toISOString(),
+                    event_type: String(meta?.eventType || '').trim() || null,
+                    account_id: String(meta?.accountId || '').trim() || null,
+                    recipient_id: String(meta?.recipientId || '').trim() || null,
+                    sender_id: String(meta?.senderId || '').trim() || null,
+                    conversation_key: String(meta?.conversationKey || '').trim() || null,
+                    handled: true,
+                    duplicate: true,
+                    automation_type: 'duplicate_event',
+                    claim_status: 'skipped_recent_duplicate'
+                });
+                return result;
+            }
+
+            let claim = null;
+            if (shouldClaim) {
+                claim = await this.appwrite.claimProcessingEvent(meta, {
+                    processingTtlMs: PROCESSING_LOCK_TTL_MS,
                     dedupeTtlMs: EVENT_DEDUPE_TTL_MS
                 });
+                if (!claim?.claimed) {
+                    this._rememberProcessedEvent(meta, EVENT_DEDUPE_TTL_MS);
+                    const result = { handled: true, duplicate: true, automationType: 'duplicate_event' };
+                    flushBufferedLogs({
+                        completed_at: new Date().toISOString(),
+                        event_type: String(meta?.eventType || '').trim() || null,
+                        account_id: String(meta?.accountId || '').trim() || null,
+                        recipient_id: String(meta?.recipientId || '').trim() || null,
+                        sender_id: String(meta?.senderId || '').trim() || null,
+                        conversation_key: String(meta?.conversationKey || '').trim() || null,
+                        handled: true,
+                        duplicate: true,
+                        automation_type: 'duplicate_event',
+                        claim_status: 'duplicate_claim_rejected'
+                    });
+                    return result;
+                }
             }
-            return result;
-        } catch (error) {
-            await this._flushMetaApiActionUsage(metaApiUsageTracker);
-            if (claim?.claimed) {
-                await this.appwrite.finalizeProcessingEvent(claim, {
-                    status: 'failed',
-                    error: error?.message || error,
-                    dedupeTtlMs: 1000
+
+            const metaApiUsageTracker = options?.metaApiUsageTracker || { counts: new Map(), flushed: false };
+
+            try {
+                const result = await this.processMessage(webhookData, {
+                    ...options,
+                    meta,
+                    metaApiUsageTracker,
+                    throwOnError: options?.throwOnError !== false
                 });
+                await this._flushMetaApiActionUsage(metaApiUsageTracker);
+                this._rememberProcessedEvent(meta, EVENT_DEDUPE_TTL_MS);
+                if (claim?.claimed) {
+                    await this.appwrite.finalizeProcessingEvent(claim, {
+                        status: 'completed',
+                        dedupeTtlMs: EVENT_DEDUPE_TTL_MS
+                    });
+                }
+                flushBufferedLogs({
+                    completed_at: new Date().toISOString(),
+                    event_type: String(meta?.eventType || '').trim() || null,
+                    account_id: String(meta?.accountId || '').trim() || null,
+                    recipient_id: String(meta?.recipientId || '').trim() || null,
+                    sender_id: String(meta?.senderId || '').trim() || null,
+                    conversation_key: String(meta?.conversationKey || '').trim() || null,
+                    handled: result?.handled === true,
+                    duplicate: result?.duplicate === true,
+                    automation_type: String(result?.automationType || '').trim() || null,
+                    claim_status: claim?.claimed ? 'claimed' : 'not_claimed'
+                });
+                return result;
+            } catch (error) {
+                await this._flushMetaApiActionUsage(metaApiUsageTracker);
+                if (claim?.claimed) {
+                    await this.appwrite.finalizeProcessingEvent(claim, {
+                        status: 'failed',
+                        error: error?.message || error,
+                        dedupeTtlMs: 1000
+                    });
+                }
+                flushBufferedLogs({
+                    completed_at: new Date().toISOString(),
+                    event_type: String(meta?.eventType || '').trim() || null,
+                    account_id: String(meta?.accountId || '').trim() || null,
+                    recipient_id: String(meta?.recipientId || '').trim() || null,
+                    sender_id: String(meta?.senderId || '').trim() || null,
+                    conversation_key: String(meta?.conversationKey || '').trim() || null,
+                    handled: false,
+                    duplicate: false,
+                    automation_type: 'processing_error',
+                    claim_status: 'duplicate_claim_rejected'
+                });
+                throw error;
             }
-            throw error;
+        } finally {
+            console.log = originalConsole.log;
+            console.info = originalConsole.info;
+            console.warn = originalConsole.warn;
+            console.error = originalConsole.error;
         }
     }
 }

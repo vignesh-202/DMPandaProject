@@ -110,6 +110,7 @@ app.get('/health', (req, res) => {
         service: 'worker-node',
         role: streamerClient.isEnabled() ? 'slave' : 'standalone',
         streamer_attached: streamerClient.isEnabled(),
+        streamer_connected: streamerClient.isConnected(),
         direct_webhook_processing_enabled: directWebhookProcessingEnabled
     });
 });

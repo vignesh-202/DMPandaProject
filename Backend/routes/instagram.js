@@ -99,6 +99,7 @@ const parseMaybeJson = (v, fallback) => {
 };
 
 const normalizeTitle = (value) => String(value || '').trim().toLowerCase();
+const normalizeButtonType = (value) => String(value || 'web_url').trim().toLowerCase();
 
 const KEYWORD_MAX_PER_AUTOMATION = 5;
 const KEYWORD_TYPES = new Set(['dm', 'global', 'post', 'reel', 'story', 'live', 'comment']);
@@ -1509,8 +1510,17 @@ const validateAutomationPayload = (automation) => {
             buttons.forEach((btn, i) => {
                 const t = String(btn?.title || '');
                 const tl = byteLen(t);
+                const buttonType = normalizeButtonType(btn?.type);
                 if (tl < BUTTON_TITLE_MIN || tl > BUTTON_TITLE_MAX) errors.push(`buttons[${i}].title must be ${BUTTON_TITLE_MIN}-${BUTTON_TITLE_MAX} UTF-8 bytes`);
-                if (!btn?.url || byteLen(btn.url) > MEDIA_URL_MAX) errors.push(`buttons[${i}].url is required and must be <= ${MEDIA_URL_MAX} UTF-8 bytes`);
+                if (buttonType === 'postback') {
+                    const payload = String(btn?.payload || '');
+                    const payloadLength = byteLen(payload);
+                    if (payloadLength < QUICK_REPLY_PAYLOAD_MIN || payloadLength > QUICK_REPLY_PAYLOAD_MAX) {
+                        errors.push(`buttons[${i}].payload must be ${QUICK_REPLY_PAYLOAD_MIN}-${QUICK_REPLY_PAYLOAD_MAX} UTF-8 bytes`);
+                    }
+                } else {
+                    if (!btn?.url || byteLen(btn.url) > MEDIA_URL_MAX) errors.push(`buttons[${i}].url is required and must be <= ${MEDIA_URL_MAX} UTF-8 bytes`);
+                }
             });
         }
     }
@@ -4550,7 +4560,7 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
                 automation_type: 'convo_starter',
                 title: toSafeString(starter.question, 255),
                 title_normalized: normalizeTitle(starter.question),
-                trigger_type: 'conversation_starter',
+                trigger_type: 'ice_breakers',
                 template_id: starter.template_id ? toSafeString(starter.template_id, 255) : null,
                 template_type: starter.template_type ? toSafeString(starter.template_type, 50) : null,
                 template_content: starter.template_id ? toSafeString(starter.template_id, 255) : null,

@@ -15,18 +15,18 @@ export function getDefaultTemplateData(templateType: TemplateType): TemplateData
     case 'template_text':
       return { text: '' };
     case 'template_carousel':
-      return {
+        return {
         elements: [{
           title: '',
           subtitle: '',
           image_url: '',
-          buttons: [{ title: '', url: '', type: 'web_url' }]
+          buttons: [{ title: '', url: 'https://', payload: '', type: 'web_url' }]
         }]
       };
     case 'template_buttons':
       return {
         text: '',
-        buttons: [{ title: '', url: '', type: 'web_url' }]
+        buttons: [{ title: '', url: 'https://', payload: '', type: 'web_url' }]
       };
     case 'template_media':
       return { media_url: '' };

@@ -16,6 +16,7 @@ class StreamerClient {
         this.reconnectDelayMs = Math.max(1000, Number(process.env.WORKER_STREAM_RECONNECT_DELAY_MS || 2000) || 2000);
         this.ws = null;
         this.closed = false;
+        this.connected = false;
         this.reconnectTimer = null;
         this.activeJobs = new Map();
     }
@@ -35,6 +36,7 @@ class StreamerClient {
 
     stop() {
         this.closed = true;
+        this.connected = false;
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
@@ -51,6 +53,10 @@ class StreamerClient {
         this.activeJobs.clear();
     }
 
+    isConnected() {
+        return this.connected === true;
+    }
+
     _connect() {
         if (this.closed || !this.url) return;
         const headers = {};
@@ -61,6 +67,7 @@ class StreamerClient {
         this.ws = ws;
 
         ws.on('open', () => {
+            this.connected = true;
             this.logger.log(`Connected to streamer at ${this.url}`);
             this._send({
                 type: 'worker.register',
@@ -80,13 +87,23 @@ class StreamerClient {
         });
 
         ws.on('close', () => {
+            this.connected = false;
             this.logger.warn('Streamer connection closed.');
+            this.logger.log(`Waiting for streamer-node to become active. Retrying in ${this.reconnectDelayMs}ms...`);
             if (this.ws === ws) this.ws = null;
             this._scheduleReconnect();
         });
 
         ws.on('error', (error) => {
+            this.connected = false;
             this.logger.error('Streamer connection error:', error?.message || error);
+            if (this.ws === ws) {
+                try {
+                    ws.terminate();
+                } catch (_) { }
+                this.ws = null;
+            }
+            this._scheduleReconnect();
         });
     }
 
@@ -115,24 +132,33 @@ class StreamerClient {
 
         const messaging = Array.isArray(entry.messaging) ? entry.messaging[0] : null;
         if (messaging && typeof messaging === 'object') {
-            const recipientId = String(messaging?.recipient?.id || entry?.id || '').trim();
+            const businessAccountId = String(entry?.id || messaging?.recipient?.id || '').trim();
+            const recipientId = businessAccountId;
             const senderId = String(messaging?.sender?.id || '').trim();
             const eventType = messaging?.postback
                 ? (messaging?.postback?.referral || messaging?.postback?.context ? 'share_referral' : 'postback')
-                : 'message';
+                : messaging?.read
+                    ? 'read'
+                    : messaging?.delivery
+                        ? 'delivery'
+                        : 'message';
             const eventKey = String(
                 messaging?.message?.mid
                 || messaging?.postback?.mid
+                || messaging?.postback?.payload
                 || messaging?.postback?.title
                 || ''
             ).trim();
+            const fallbackEventKey = !eventKey && recipientId && senderId
+                ? `${eventType}:${recipientId}:${senderId}:${JSON.stringify(messaging || {})}`
+                : '';
             return {
                 eventType,
-                accountId: recipientId,
+                accountId: businessAccountId,
                 recipientId,
                 senderId,
                 conversationKey: senderId && recipientId ? `${recipientId}:${senderId}` : '',
-                eventKey
+                eventKey: eventKey || fallbackEventKey
             };
         }
 
