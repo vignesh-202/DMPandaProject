@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import httpClient from '../lib/httpClient';
 import AdminLoadingState from '../components/AdminLoadingState';
+import { clearCachedResource, loadCachedResource } from '../lib/resourceCache';
 
 type PricingPlan = {
   id: string;
@@ -167,7 +168,7 @@ export const PricingPage: React.FC = () => {
   const loadPlans = async () => {
     setLoading(true);
     try {
-      const response = await httpClient.get('/api/admin/pricing');
+      const response = await loadCachedResource('admin:pricing:plans', () => httpClient.get('/api/admin/pricing'), 30000);
       const nextPlans = (response.data?.plans || []).map((plan: PricingPlan) => ({
         ...plan,
         features: Array.isArray(plan.features) ? plan.features : []
@@ -261,6 +262,7 @@ export const PricingPage: React.FC = () => {
         entitlements: plan.entitlements || {},
         comparison: plan.comparison || []
       });
+      clearCachedResource('admin:pricing:plans');
       await loadPlans();
     } catch (error) {
       console.error('Failed to save pricing:', error);

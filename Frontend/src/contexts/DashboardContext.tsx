@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { buildLockedFeatureState, getFeatureLabel, hasPlanEntitlement, normalizeFeatureKey } from '../lib/planAccess';
@@ -109,6 +109,10 @@ interface DashboardContextProps {
     planPureLimits: {
         max_link_limit: number | null;
         active_account_limit: number;
+    };
+    planStatus: {
+        planName: string | null;
+        expiresAt: string | null;
     };
     accessState: {
         ban_mode?: string;
@@ -253,6 +257,10 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         max_link_limit: null,
         active_account_limit: 0
     });
+    const [planStatus, setPlanStatus] = useState<DashboardContextProps['planStatus']>({
+        planName: null,
+        expiresAt: null
+    });
     const [currentPlanIdentifier, setCurrentPlanIdentifier] = useState<string>('free');
     const [accessState, setAccessState] = useState<DashboardContextProps['accessState']>(authAccessState || null);
 
@@ -365,6 +373,10 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
             ...previous,
             active_account_limit: resolveActiveAccountLimit(limitsPayload)
         }));
+        setPlanStatus({
+            planName: String(payload?.details?.name || '').trim() || null,
+            expiresAt: String(payload?.expires || '').trim() || null
+        });
         setCurrentPlanIdentifier(planIdentifier);
         applyPlanPureLimits(pricingPlansRef.current, planIdentifier);
         setAccessState(payload?.access_state || authAccessState || null);
@@ -392,6 +404,10 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                         ...previous,
                         active_account_limit: resolveActiveAccountLimit(limitsPayload)
                     }));
+                    setPlanStatus({
+                        planName: String(payload?.details?.name || '').trim() || null,
+                        expiresAt: String(payload?.expires || '').trim() || null
+                    });
                     setCurrentPlanIdentifier(planIdentifier);
                     applyPlanPureLimits(pricingPlansRef.current, planIdentifier);
                     setAccessState(payload?.access_state || authAccessState || null);
@@ -405,6 +421,10 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                         ...previous,
                         active_account_limit: 0
                     }));
+                    setPlanStatus({
+                        planName: null,
+                        expiresAt: null
+                    });
                     setCurrentPlanIdentifier('free');
                     applyPlanPureLimits(pricingPlansRef.current, 'free');
                     setAccessState(authAccessState || null);
@@ -731,15 +751,15 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         await fetchPromise;
     }, [activeAccountID, authenticatedFetch, convoStarterData]);
 
-    const updateMediaCache = (type: string, items: any[]) => {
+    const updateMediaCache = useCallback((type: string, items: any[]) => {
         setMediaCache(prev => ({ ...prev, [type]: items }));
-    };
+    }, []);
 
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [saveUnsavedChanges, setSaveUnsavedChanges] = useState<() => Promise<boolean>>(() => async () => true);
     const [discardUnsavedChanges, setDiscardUnsavedChanges] = useState<() => void>(() => () => { });
 
-    const value = {
+    const value = useMemo(() => ({
         currentView: currentViewState,
         setCurrentView,
         mediaCache,
@@ -795,12 +815,69 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         planEntitlements,
         planLimits,
         planPureLimits,
+        planStatus,
         accessState,
         refreshPlanAccess,
         refreshLinkedProfiles,
         hasPlanFeature,
         getPlanGate
-    };
+    }), [
+        accessState,
+        activeAccount,
+        activeAccountID,
+        activeAccountStats,
+        analyticsCache,
+        analyticsDateRange,
+        analyticsLoading,
+        automationInitialLoaded,
+        convoStarterData,
+        convoStarterLoading,
+        convoStarters,
+        currentViewState,
+        discardUnsavedChanges,
+        dmAutomations,
+        fetchAutomations,
+        fetchConvoStarters,
+        fetchIgAccounts,
+        fetchInboxMenu,
+        getPlanGate,
+        globalTriggers,
+        hasPlanFeature,
+        hasUnsavedChanges,
+        igAccounts,
+        inboxMenuData,
+        inboxMenuLoading,
+        isGlobalLoading,
+        isInitialLoadComplete,
+        isLoadingAccounts,
+        isLoadingStats,
+        mediaCache,
+        planEntitlements,
+        planFeatures,
+        planLimits,
+        planPureLimits,
+        planStatus,
+        refreshLinkedProfiles,
+        refreshPlanAccess,
+        saveUnsavedChanges,
+        setActiveAccountID,
+        setAnalyticsCache,
+        setAnalyticsDateRange,
+        setAnalyticsLoading,
+        setAutomationInitialLoaded,
+        setConvoStarterData,
+        setConvoStarters,
+        setCurrentView,
+        setDiscardUnsavedChanges,
+        setDmAutomations,
+        setGlobalTriggers,
+        setHasUnsavedChanges,
+        setIgAccounts,
+        setInboxMenuData,
+        setIsLoadingAccounts,
+        setSaveUnsavedChanges,
+        updateMediaCache
+    ]);
 
     return (
         <DashboardContext.Provider value={value}>

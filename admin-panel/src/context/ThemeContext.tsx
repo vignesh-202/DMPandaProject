@@ -25,30 +25,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [hasExplicitPreference, setHasExplicitPreference] = useState<boolean>(() => Boolean(getStoredTheme()));
 
     useEffect(() => {
-        let active = true;
-        httpClient.get('/api/settings')
-            .then(() => {
-                if (!active) return;
-                const storedTheme = getStoredTheme();
-                if (storedTheme) {
-                    setTheme(storedTheme);
-                    setHasExplicitPreference(true);
-                    return;
-                }
-
-                setTheme(getSystemTheme());
-            })
-            .catch(() => {
-                if (!active) return;
-                setTheme(getSystemTheme());
-            });
-
-        return () => {
-            active = false;
-        };
-    }, []);
-
-    useEffect(() => {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
         const handleThemeChange = (event: MediaQueryListEvent) => {
             if (hasExplicitPreference) return;

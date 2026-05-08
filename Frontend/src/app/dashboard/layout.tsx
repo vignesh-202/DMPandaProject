@@ -10,6 +10,7 @@ import DashboardLoading from '../../components/ui/DashboardLoading';
 import { useLoading } from '../../contexts/LoadingContext';
 import { cn } from '../../lib/utils';
 import { writeTransientState } from '../../lib/transientState';
+import { FAST_TRANSITION, SMOOTH_TRANSITION } from '../../lib/animation';
 
 type DashboardNotification = {
   id: string;
@@ -103,7 +104,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const [seenNotificationIds, setSeenNotificationIds] = useState<string[]>([]);
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
-  const { currentView, setCurrentView, activeAccountID, setActiveAccountID, isInitialLoadComplete } = useDashboard();
+  const { currentView, setCurrentView, activeAccountID, setActiveAccountID, isInitialLoadComplete, planStatus } = useDashboard();
   const { logout, user, authenticatedFetch, isLoading: isAuthLoading } = useAuth();
   const { isLoading: isAppLoading } = useLoading();
   const navigate = useNavigate();
@@ -202,39 +203,26 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     notificationFetchInFlightRef.current = true;
     setIsNotificationsLoading(true);
     try {
-      const requests: Promise<Response | null>[] = [
-        authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`)
-      ];
-
-      if (activeAccountID) {
-        requests.push(
-          authenticatedFetch(
-            `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automation-activity-log?account_id=${encodeURIComponent(activeAccountID)}&limit=100`
-          )
-        );
-      } else {
-        requests.push(Promise.resolve(null));
-      }
-
-      const [planResponse, logsResponse] = await Promise.all(requests);
-      const [planPayload, logsPayload] = await Promise.all([
-        planResponse?.ok ? planResponse.json().catch(() => null) : null,
-        logsResponse?.ok ? logsResponse.json().catch(() => null) : null
-      ]);
+      const logsResponse = activeAccountID
+        ? await authenticatedFetch(
+          `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automation-activity-log?account_id=${encodeURIComponent(activeAccountID)}&limit=100`
+        )
+        : null;
+      const logsPayload = logsResponse?.ok ? await logsResponse.json().catch(() => null) : null;
 
       const nextNotifications: DashboardNotification[] = [];
       const expiryCopy = getExpiryNotificationCopy(
-        String(planPayload?.details?.name || 'Your subscription'),
-        String(planPayload?.expires || '')
+        String(planStatus.planName || 'Your subscription'),
+        String(planStatus.expiresAt || '')
       );
 
       if (expiryCopy) {
         nextNotifications.push({
-          id: `subscription-expiring:${String(planPayload?.expires || '')}`,
+          id: `subscription-expiring:${String(planStatus.expiresAt || '')}`,
           kind: 'subscription_expiring',
           title: expiryCopy.title,
           description: expiryCopy.description,
-          createdAt: String(planPayload?.expires || new Date().toISOString()),
+          createdAt: String(planStatus.expiresAt || new Date().toISOString()),
           targetView: 'My Plan'
         });
       }
@@ -281,7 +269,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       notificationFetchInFlightRef.current = false;
       setIsNotificationsLoading(false);
     }
-  }, [activeAccountID, authenticatedFetch, isInitialLoadComplete]);
+  }, [activeAccountID, authenticatedFetch, isInitialLoadComplete, planStatus.expiresAt, planStatus.planName]);
 
   useEffect(() => {
     void fetchNotifications();
@@ -346,7 +334,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       {/* Mobile Backdrop */}
       <div
         className={cn(
-        "fixed inset-0 bg-foreground/20 backdrop-blur-sm z-20 lg:hidden transition-opacity duration-200",
+        `fixed inset-0 bg-foreground/20 backdrop-blur-sm z-20 lg:hidden ${FAST_TRANSITION}`,
         isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
       )}
       onClick={() => setIsSidebarOpen(false)}
@@ -356,7 +344,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       <aside
         ref={sidebarRef}
         className={cn(
-          "fixed top-0 left-0 h-full max-w-[85vw] flex flex-col transition-all duration-300 ease-out lg:relative lg:max-w-none z-30",
+          `fixed top-0 left-0 h-full max-w-[85vw] flex flex-col ${SMOOTH_TRANSITION} ease-out lg:relative lg:max-w-none z-30`,
           "bg-sidebar border-r border-sidebar-border shadow-sm",
           isSidebarOpen
             ? "w-64 translate-x-0"
@@ -468,7 +456,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               </button>
 
               <div className={cn(
-                'ig-topline fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+4.5rem)] w-auto overflow-hidden rounded-2xl border border-border bg-card shadow-lg z-[180] transition-all duration-200 origin-top sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[22rem] sm:max-w-[calc(100vw-1.5rem)] sm:origin-top-right',
+                `ig-topline fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+4.5rem)] w-auto overflow-hidden rounded-2xl border border-border bg-card shadow-lg z-[180] ${FAST_TRANSITION} origin-top sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[22rem] sm:max-w-[calc(100vw-1.5rem)] sm:origin-top-right`,
                 isNotificationMenuOpen
                   ? 'visible translate-y-0 scale-100 opacity-100'
                   : 'invisible -translate-y-2 scale-95 opacity-0'
@@ -482,7 +470,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   </div>
                 </div>
 
-                <div className="max-h-[24rem] overflow-y-auto">
+                <div className="max-h-[min(65vh,24rem)] overflow-y-auto overscroll-contain">
                   {isNotificationsLoading ? (
                     <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                       Loading notifications...
@@ -571,7 +559,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
               {/* Profile Dropdown - Instagram themed */}
               <div className={cn(
-                "ig-topline absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-2xl shadow-lg overflow-hidden z-[180] transition-all duration-200 origin-top-right",
+                `ig-topline absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-2xl shadow-lg overflow-hidden z-[180] ${FAST_TRANSITION} origin-top-right`,
                 isProfileMenuOpen
                   ? "opacity-100 scale-100 translate-y-0 visible"
                   : "opacity-0 scale-95 -translate-y-2 invisible"

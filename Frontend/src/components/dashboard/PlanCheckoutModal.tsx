@@ -10,6 +10,7 @@ import {
   getPaidCheckoutPlans
 } from '../../lib/pricing';
 import { cn } from '../../lib/utils';
+import { FAST_TRANSITION } from '../../lib/animation';
 
 type CheckoutQuote = {
   billing_cycle: 'monthly' | 'yearly';
@@ -388,7 +389,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
         </button>
 
         <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="min-h-0 overflow-y-auto border-b border-border p-5 sm:p-6 lg:border-b-0 lg:border-r lg:p-8">
+          <div className="min-h-0 overflow-y-auto border-b border-border p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-8">
             <div className="max-w-2xl">
               <p className="text-[11px] font-black uppercase tracking-[0.24em] text-primary/75">Checkout</p>
               <h2 className="mt-3 text-2xl font-black tracking-tight text-foreground sm:text-3xl">Choose your next plan</h2>
@@ -396,7 +397,8 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                 Switch between paid plans here. Free stays available only after a paid subscription expires.
               </p>
 
-              <div className="mt-6 inline-flex rounded-2xl border border-border bg-muted/50 p-1">
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <div className="inline-flex rounded-2xl border border-border bg-muted/50 p-1">
                 <button
                   type="button"
                   onClick={() => setBillingCycle('monthly')}
@@ -414,20 +416,21 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                     'rounded-xl px-4 py-2 text-sm font-bold transition',
                     billingCycle === 'yearly' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
                   )}
-                >
-                  Yearly
-                </button>
-              </div>
+                  >
+                    Yearly
+                  </button>
+                </div>
 
-              {canToggleCurrency && (
-                <button
-                  type="button"
-                  onClick={onCurrencyToggle}
-                  className="ml-3 inline-flex rounded-2xl border border-border px-4 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
-                >
-                  {currency}
-                </button>
-              )}
+                {canToggleCurrency && (
+                  <button
+                    type="button"
+                    onClick={onCurrencyToggle}
+                    className="inline-flex h-11 items-center rounded-2xl border border-border px-4 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
+                  >
+                    {currency}
+                  </button>
+                )}
+              </div>
 
               <div className="mt-6 grid gap-4">
                 {eligiblePlans.map((entry) => {
@@ -439,7 +442,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                       type="button"
                       onClick={() => setSelectedPlanId(entry.id)}
                       className={cn(
-                        'rounded-[1.6rem] border p-5 text-left transition',
+                        `rounded-[1.6rem] border p-4 text-left ${FAST_TRANSITION} sm:p-5`,
                         isSelected
                           ? 'border-primary/40 bg-primary/5 shadow-[0_16px_40px_rgba(17,17,17,0.08)]'
                           : 'border-border bg-background/60 hover:border-border/80'
@@ -473,7 +476,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                         {entry.features.slice(0, 4).map((feature, index) => (
                           <div key={`${entry.id}-${index}`} className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Check className="h-4 w-4 text-success" />
-                            <span className="truncate">{feature}</span>
+                            <span className="min-w-0 break-words">{feature}</span>
                           </div>
                         ))}
                       </div>
@@ -484,7 +487,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
             </div>
           </div>
 
-          <div className="min-h-0 overflow-y-auto bg-muted/30 p-5 sm:p-6 lg:p-8">
+          <div className="min-h-0 overflow-y-auto bg-muted/30 p-4 sm:p-6 lg:p-8">
             <div className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm">
               <p className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">Order Summary</p>
               <h3 className="mt-3 text-xl font-black text-foreground">{selectedPlan?.name || 'Select a plan'}</h3>
@@ -514,7 +517,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                 <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
                   Coupon Code
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <div className="relative flex-1">
                     <Percent className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <input
@@ -528,7 +531,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                     type="button"
                     onClick={handleApplyCoupon}
                     disabled={isApplyingCoupon || !selectedPlan}
-                    className="inline-flex h-12 items-center justify-center rounded-2xl border border-border px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-12 items-center justify-center rounded-2xl border border-border px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-[7rem]"
                   >
                     {isApplyingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
                   </button>

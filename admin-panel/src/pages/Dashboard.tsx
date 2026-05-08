@@ -28,6 +28,7 @@ import {
 import { cn } from '../lib/utils';
 import AdminLoadingState from '../components/AdminLoadingState';
 import AdminGauge from '../components/ui/AdminGauge';
+import { loadCachedResource } from '../lib/resourceCache';
 
 const COLORS = ['#405DE6', '#833AB4', '#F56040', '#FCAF45', '#10B981', '#0EA5E9'];
 
@@ -87,8 +88,8 @@ export const Dashboard: React.FC = () => {
             try {
                 setLoading(true);
                 const [metricsRes, usersRes] = await Promise.all([
-                    httpClient.get('/api/admin/dashboard/metrics'),
-                    httpClient.get('/api/admin/users', { params: { page: 1, page_size: 6 } })
+                    loadCachedResource('admin:dashboard:metrics', () => httpClient.get('/api/admin/dashboard/metrics'), 20000),
+                    loadCachedResource('admin:dashboard:recent-users', () => httpClient.get('/api/admin/users', { params: { page: 1, page_size: 6 } }), 20000)
                 ]);
                 setMetrics(metricsRes.data);
                 setRecentUsers(usersRes.data?.users || []);
