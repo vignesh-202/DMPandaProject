@@ -21,6 +21,10 @@ const PROCESSING_LOCK_TTL_MS = Math.max(
     30_000,
     Number(process.env.WORKER_EVENT_PROCESSING_LOCK_TTL_MS || 5 * 60 * 1000) || (5 * 60 * 1000)
 );
+const SEEN_TYPING_DELAY_MS = Math.max(
+    0,
+    Number(process.env.WORKER_SEEN_TYPING_DELAY_MS || 0) || 0
+);
 const getTriggerType = (automation) => String(automation?.trigger_type || 'keywords').trim().toLowerCase();
 const isKeywordTrigger = (automation) => getTriggerType(automation) === 'keywords';
 const isAllCommentsTrigger = (automation) => getTriggerType(automation) === 'all_comments';
@@ -776,7 +780,7 @@ class DMWorker {
         try {
             await instagram.markSeen(senderId);
             await instagram.setTyping(senderId, true);
-            await this._delay(900);
+            await this._delay(SEEN_TYPING_DELAY_MS);
         } finally {
             await instagram.setTyping(senderId, false).catch(() => false);
             if (chainState && typeof chainState === 'object') {
