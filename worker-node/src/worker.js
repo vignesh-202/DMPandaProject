@@ -23,7 +23,7 @@ const PROCESSING_LOCK_TTL_MS = Math.max(
 );
 const SEEN_TYPING_DELAY_MS = Math.max(
     0,
-    Number(process.env.WORKER_SEEN_TYPING_DELAY_MS || 0) || 0
+    Number(process.env.WORKER_SEEN_TYPING_DELAY_MS || 1000) || 1000
 );
 const getTriggerType = (automation) => String(automation?.trigger_type || 'keywords').trim().toLowerCase();
 const isKeywordTrigger = (automation) => getTriggerType(automation) === 'keywords';
