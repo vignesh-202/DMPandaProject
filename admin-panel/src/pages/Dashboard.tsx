@@ -188,9 +188,16 @@ export const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid gap-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
                         <AdminGauge
-                            label="Hourly Action Pool"
+                            label="Meta Hourly Pool"
+                            sublabel="200 per linked Instagram account"
+                            value={Number(metrics?.meta_pool?.capacity_per_hour || 0)}
+                            max={Math.max(Number(metrics?.meta_pool?.capacity_per_hour || 0), 1)}
+                            helper={`${numberFormatter.format(Number(metrics?.meta_pool?.linked_accounts || 0))} linked accounts define the platform cap.`}
+                        />
+                        <AdminGauge
+                            label="User Plan Hourly Pool"
                             sublabel="Current usage across all active account limits"
                             value={Number(metrics?.pool?.usage_last_hour || 0)}
                             max={Number(metrics?.pool?.capacity_per_hour || 0)}

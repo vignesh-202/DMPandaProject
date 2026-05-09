@@ -1255,6 +1255,8 @@ const getTransactionCouponId = (transaction) =>
 const getTransactionPlanId = (transaction) =>
     String(transaction.planCode ?? transaction.plan_code ?? transaction.planId ?? transaction.plan_id ?? '').trim() || null;
 
+const META_PLATFORM_HOURLY_LIMIT_PER_LINKED_ACCOUNT = 200;
+
 const buildDashboardMetrics = async (databases) => {
     const [users, profiles, accounts, transactions, automations, logs, coupons, couponRedemptions] = await Promise.all([
         listAllDocuments(databases, USERS_COLLECTION_ID),
@@ -1334,6 +1336,13 @@ const buildDashboardMetrics = async (databases) => {
 
     const poolCapacity = profiles.reduce((sum, profile) => sum + Number(profile.hourly_action_limit || 0), 0);
     const poolUsage = profiles.reduce((sum, profile) => sum + Number(profile.hourly_actions_used || 0), 0);
+    const dailyPoolCapacity = profiles.reduce((sum, profile) => sum + Number(profile.daily_action_limit || 0), 0);
+    const dailyPoolUsage = profiles.reduce((sum, profile) => sum + Number(profile.daily_actions_used || 0), 0);
+    const monthlyPoolCapacity = profiles.reduce((sum, profile) => sum + Number(profile.monthly_action_limit || 0), 0);
+    const monthlyPoolUsage = profiles.reduce((sum, profile) => sum + Number(profile.monthly_actions_used || 0), 0);
+    const metaPoolCapacity = Number(accounts.length || 0) * META_PLATFORM_HOURLY_LIMIT_PER_LINKED_ACCOUNT;
+    const hourlyPoolBalanceMax = Math.max(metaPoolCapacity, poolCapacity, 1);
+    const hourlyPoolBalanceValue = Math.min(metaPoolCapacity, poolCapacity);
     const activeCoupons = coupons.filter((coupon) => coupon.active !== false && (!coupon.expires_at || new Date(coupon.expires_at).getTime() >= Date.now()));
     const expiredCoupons = coupons.filter((coupon) => coupon.expires_at && new Date(coupon.expires_at).getTime() < Date.now());
     const topCouponMap = couponRedemptions.reduce((acc, redemption) => {
@@ -1365,6 +1374,35 @@ const buildDashboardMetrics = async (databases) => {
             capacity_per_hour: poolCapacity,
             usage_last_hour: poolUsage,
             usage_percent: poolCapacity > 0 ? Math.round((poolUsage / poolCapacity) * 100) : 0
+        },
+        plan_pools: {
+            hourly: {
+                capacity: poolCapacity,
+                usage: poolUsage,
+                usage_percent: poolCapacity > 0 ? Math.round((poolUsage / poolCapacity) * 100) : 0
+            },
+            daily: {
+                capacity: dailyPoolCapacity,
+                usage: dailyPoolUsage,
+                usage_percent: dailyPoolCapacity > 0 ? Math.round((dailyPoolUsage / dailyPoolCapacity) * 100) : 0
+            },
+            monthly: {
+                capacity: monthlyPoolCapacity,
+                usage: monthlyPoolUsage,
+                usage_percent: monthlyPoolCapacity > 0 ? Math.round((monthlyPoolUsage / monthlyPoolCapacity) * 100) : 0
+            }
+        },
+        meta_pool: {
+            linked_accounts: accounts.length,
+            limit_per_account_per_hour: META_PLATFORM_HOURLY_LIMIT_PER_LINKED_ACCOUNT,
+            capacity_per_hour: metaPoolCapacity
+        },
+        hourly_pool_balance: {
+            meta_capacity_per_hour: metaPoolCapacity,
+            plan_capacity_per_hour: poolCapacity,
+            gauge_value: hourlyPoolBalanceValue,
+            gauge_max: hourlyPoolBalanceMax,
+            usage_percent: hourlyPoolBalanceMax > 0 ? Math.round((hourlyPoolBalanceValue / hourlyPoolBalanceMax) * 100) : 0
         },
         coupons: {
             total_coupons: coupons.length,

@@ -493,6 +493,24 @@ export const AnalyticsPage: React.FC = () => {
     const revenueSummaryLabel = revenueWindow === 'custom'
         ? `${revenueFilterMeta.start_date || revenueCustomRange.start} to ${revenueFilterMeta.end_date || revenueCustomRange.end}`
         : selectedRevenueWindow;
+    const metaHourlyCapacity = Number(displayData?.meta_pool?.capacity_per_hour || 0);
+    const metaLinkedAccounts = Number(displayData?.meta_pool?.linked_accounts || 0);
+    const planHourlyCapacity = Number(displayData?.plan_pools?.hourly?.capacity || displayData?.pool?.capacity_per_hour || 0);
+    const planHourlyUsage = Number(displayData?.plan_pools?.hourly?.usage || displayData?.pool?.usage_last_hour || 0);
+    const planHourlyUsagePercent = Number(displayData?.plan_pools?.hourly?.usage_percent || displayData?.pool?.usage_percent || 0);
+    const planDailyCapacity = Number(displayData?.plan_pools?.daily?.capacity || 0);
+    const planDailyUsage = Number(displayData?.plan_pools?.daily?.usage || 0);
+    const planDailyUsagePercent = Number(displayData?.plan_pools?.daily?.usage_percent || 0);
+    const planMonthlyCapacity = Number(displayData?.plan_pools?.monthly?.capacity || 0);
+    const planMonthlyUsage = Number(displayData?.plan_pools?.monthly?.usage || 0);
+    const planMonthlyUsagePercent = Number(displayData?.plan_pools?.monthly?.usage_percent || 0);
+    const hourlyBalanceValue = Number(displayData?.hourly_pool_balance?.gauge_value || 0);
+    const hourlyBalanceMax = Number(displayData?.hourly_pool_balance?.gauge_max || 0);
+    const hourlyBalanceHelper = planHourlyCapacity > metaHourlyCapacity
+        ? `User plans exceed Meta by ${numberFormatter.format(planHourlyCapacity - metaHourlyCapacity)} actions/hour.`
+        : metaHourlyCapacity > planHourlyCapacity
+            ? `Meta is ahead by ${numberFormatter.format(metaHourlyCapacity - planHourlyCapacity)} actions/hour.`
+            : 'Meta and user-plan hourly caps are aligned.';
 
     const metricCards = [
         { label: 'Revenue', value: moneyFormatter.format(revenueTotalForWindow), icon: TrendingUp, accent: 'bg-primary/12 text-primary' },
@@ -548,13 +566,41 @@ export const AnalyticsPage: React.FC = () => {
                 ))}
             </section>
 
-            <section className="grid grid-cols-1 gap-5">
+            <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
                 <AdminGauge
-                    label="Actions Per Hour"
-                    sublabel="Current usage against the pool capacity"
-                    value={Number(displayData?.pool?.usage_last_hour || 0)}
-                    max={Number(displayData?.pool?.capacity_per_hour || 0)}
-                    helper={`${numberFormatter.format(Number(displayData?.pool?.usage_last_hour || 0))}/${numberFormatter.format(Number(displayData?.pool?.capacity_per_hour || 0))} in use`}
+                    label="Meta Hourly Pool"
+                    sublabel="200 per linked Instagram account"
+                    value={metaHourlyCapacity}
+                    max={Math.max(metaHourlyCapacity, 1)}
+                    helper={`${numberFormatter.format(metaLinkedAccounts)} linked accounts define the platform cap.`}
+                />
+                <AdminGauge
+                    label="Hourly Limit Balance"
+                    sublabel="Meta allocation vs user-plan hourly cap"
+                    value={hourlyBalanceValue}
+                    max={Math.max(hourlyBalanceMax, 1)}
+                    helper={hourlyBalanceHelper}
+                />
+                <AdminGauge
+                    label="User Plan Hourly Pool"
+                    sublabel="Current hourly usage against profile limits"
+                    value={planHourlyUsage}
+                    max={Math.max(planHourlyCapacity, 1)}
+                    helper={`${planHourlyUsagePercent}% of hourly profile capacity is in use.`}
+                />
+                <AdminGauge
+                    label="User Plan Daily Pool"
+                    sublabel="Current daily usage against profile limits"
+                    value={planDailyUsage}
+                    max={Math.max(planDailyCapacity, 1)}
+                    helper={`${planDailyUsagePercent}% of daily profile capacity is in use.`}
+                />
+                <AdminGauge
+                    label="User Plan Monthly Pool"
+                    sublabel="Current monthly usage against profile limits"
+                    value={planMonthlyUsage}
+                    max={Math.max(planMonthlyCapacity, 1)}
+                    helper={`${planMonthlyUsagePercent}% of monthly profile capacity is in use.`}
                 />
             </section>
 
