@@ -131,10 +131,6 @@ export const Dashboard: React.FC = () => {
     const averageDailyRevenue = revenueLast30Days > 0 ? revenueLast30Days / 30 : 0;
     const revenuePerPaidUser = paidUsersCount > 0 ? revenueLast30Days / paidUsersCount : 0;
     const paidConversionRate = totalUsersCount > 0 ? Math.round((paidUsersCount / totalUsersCount) * 100) : 0;
-    const totalMonthlyBudget = Number(metrics?.totals?.total_users || 0) > 0
-        ? Number(metrics?.totals?.total_users || 0) * 100
-        : 0;
-    const consumedBudget = Number(metrics?.pool?.usage_last_hour || 0);
     const revenueTrend = Array.isArray(metrics?.revenue_series_30_days)
         ? metrics.revenue_series_30_days.map((entry: any) => ({
             day: String(entry.day || '').slice(5).replace('-', '/'),
@@ -192,20 +188,13 @@ export const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-4">
                         <AdminGauge
-                            label="Actions Per Hour"
-                            sublabel="Live pool draw vs capacity"
+                            label="Hourly Action Pool"
+                            sublabel="Current usage across all active account limits"
                             value={Number(metrics?.pool?.usage_last_hour || 0)}
                             max={Number(metrics?.pool?.capacity_per_hour || 0)}
-                            helper={`${poolUsagePercent}% of the current hourly action pool is already allocated.`}
-                        />
-                        <AdminGauge
-                            label="Consumed Amount"
-                            sublabel="Usage vs working budget"
-                            value={consumedBudget}
-                            max={Math.max(totalMonthlyBudget, consumedBudget, 1)}
-                            helper="Computation-backed real current usage tracking."
+                            helper={`${poolUsagePercent}% of hourly capacity is in use right now.`}
                         />
                     </div>
                 </div>
