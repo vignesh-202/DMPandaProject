@@ -1,5 +1,6 @@
 import os
 import json
+import ast
 from datetime import datetime, timedelta, timezone
 
 from appwrite.client import Client
@@ -23,14 +24,6 @@ def _obj_get(value, key, default=None):
     return getattr(value, key, default)
 
 
-def _parse_limits(profile: dict):
-    return {
-        "hourly_action_limit": _safe_int(_obj_get(profile, "hourly_action_limit"), 0),
-        "daily_action_limit": _safe_int(_obj_get(profile, "daily_action_limit"), 0),
-        "monthly_action_limit": _safe_int(_obj_get(profile, "monthly_action_limit"), 0),
-    }
-
-
 def _safe_int(value, fallback=0):
     try:
         if value is None:
@@ -38,6 +31,22 @@ def _safe_int(value, fallback=0):
         return int(float(str(value)))
     except Exception:  # noqa: BLE001
         return fallback
+
+
+def _parse_request_body(raw_body):
+    if isinstance(raw_body, dict):
+        return raw_body
+    text = str(raw_body or "").strip()
+    if not text:
+        return {}
+    try:
+        return json.loads(text)
+    except Exception:  # noqa: BLE001
+        try:
+            parsed = ast.literal_eval(text)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:  # noqa: BLE001
+            return {}
 
 
 def _list_documents(client: Client, db_id: str, collection_id: str, queries=None):
@@ -58,7 +67,7 @@ def _update_document(client: Client, db_id: str, collection_id: str, document_id
     )
 
 
-def _list_profiles(client: Client, db_id: str, collection_id: str):
+def _list_accounts(client: Client, db_id: str, collection_id: str):
     rows = []
     cursor = None
     while True:
@@ -81,13 +90,7 @@ def _list_profiles(client: Client, db_id: str, collection_id: str):
 def main(context):
     try:
         raw_body = getattr(getattr(context, "req", None), "body", None)
-        if isinstance(raw_body, dict):
-            request_body = raw_body
-        else:
-            try:
-                request_body = json.loads(str(raw_body or "{}"))
-            except Exception:
-                request_body = {}
+        request_body = _parse_request_body(raw_body)
         dry_run = request_body.get("dry_run") is True
 
         client = Client()
@@ -96,26 +99,20 @@ def main(context):
         client.set_key(_env("APPWRITE_API_KEY"))
 
         db_id = _env("APPWRITE_DATABASE_ID")
-        profiles_collection = _env("PROFILES_COLLECTION_ID", "profiles")
+        accounts_collection = _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts")
         now = datetime.now(timezone.utc)
         now_iso = now.isoformat(timespec="seconds").replace("+00:00", "Z")
 
         updated = 0
         scanned = 0
-        profiles = _list_profiles(client, db_id, profiles_collection)
-        for profile in profiles:
+        accounts = _list_accounts(client, db_id, accounts_collection)
+        for account in accounts:
             scanned += 1
-            profile_id = str(_obj_get(profile, "$id", "") or "").strip()
-            if not profile_id:
+            account_id = str(_obj_get(account, "$id", "") or "").strip()
+            if not account_id:
                 continue
 
-            defaults = _parse_limits(profile)
             patch = {}
-
-            for field, default_value in defaults.items():
-                current = _safe_int(_obj_get(profile, field), 0)
-                if current != default_value:
-                    patch[field] = default_value
 
             windows = [
                 ("hourly", timedelta(hours=1)),
@@ -124,12 +121,10 @@ def main(context):
             ]
             for prefix, duration in windows:
                 used_key = f"{prefix}_actions_used"
-                limit_key = f"{prefix}_action_limit"
                 window_key = f"{prefix}_window_started_at"
 
-                limit_val = _safe_int(_obj_get(profile, limit_key), _safe_int(patch.get(limit_key), 0))
-                used_val = max(0, _safe_int(_obj_get(profile, used_key), 0))
-                started_raw = str(_obj_get(profile, window_key) or "").strip()
+                used_val = max(0, _safe_int(_obj_get(account, used_key), 0))
+                started_raw = str(_obj_get(account, window_key) or "").strip()
                 try:
                     started_dt = datetime.fromisoformat(started_raw.replace("Z", "+00:00")) if started_raw else None
                 except Exception:  # noqa: BLE001
@@ -139,10 +134,10 @@ def main(context):
                     patch[used_key] = 0
                     patch[window_key] = now_iso
                 else:
-                    patch[used_key] = used_val if limit_val <= 0 else min(used_val, limit_val)
+                    patch[used_key] = used_val
 
             if patch and not dry_run:
-                _update_document(client, db_id, profiles_collection, profile_id, patch)
+                _update_document(client, db_id, accounts_collection, account_id, patch)
                 updated += 1
             elif patch:
                 updated += 1

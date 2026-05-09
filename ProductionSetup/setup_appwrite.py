@@ -276,6 +276,12 @@ ADDITIONAL_ATTRIBUTES = {
             "default": "active",
             "elements": ["active", "inactive"],
         },
+        {"key": "hourly_actions_used", "type": "integer", "required": False, "array": False, "default": 0, "min": 0, "max": 1000000},
+        {"key": "daily_actions_used", "type": "integer", "required": False, "array": False, "default": 0, "min": 0, "max": 10000000},
+        {"key": "monthly_actions_used", "type": "integer", "required": False, "array": False, "default": 0, "min": 0, "max": 100000000},
+        {"key": "hourly_window_started_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "daily_window_started_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "monthly_window_started_at", "type": "datetime", "required": False, "array": False, "default": None},
     ],
     "coupons": [
         {
@@ -388,6 +394,12 @@ DEPRECATED_ATTRIBUTES = {
     },
     "profiles": {
         "no_watermark_enabled",
+        "hourly_actions_used",
+        "daily_actions_used",
+        "monthly_actions_used",
+        "hourly_window_started_at",
+        "daily_window_started_at",
+        "monthly_window_started_at",
     },
     "ig_accounts": {
         "admin_disabled",
@@ -397,6 +409,9 @@ DEPRECATED_ATTRIBUTES = {
         "access_state",
         "access_reason",
         "is_active",
+        "hourly_action_limit",
+        "daily_action_limit",
+        "monthly_action_limit",
     },
 }
 

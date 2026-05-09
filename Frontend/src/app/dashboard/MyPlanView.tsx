@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Calendar, Check, CreditCard, Zap } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import InfoPopover from '../../components/ui/InfoPopover';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
 import { PricingPlan, buildPlanLimitItems, formatMoney, getPaidCheckoutPlans, getPlanBigPrice, normalizePricingPayload } from '../../lib/pricing';
 import PlanCheckoutModal from '../../components/dashboard/PlanCheckoutModal';
@@ -363,7 +364,19 @@ const MyPlanView: React.FC = () => {
 
                     <div className="flex-grow space-y-4">
                       <div className="rounded-2xl border border-border/70 bg-muted/25 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Plan limits</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Plan limits</p>
+                          <InfoPopover
+                            title="Plan limits"
+                            description="These limits apply separately to each linked Instagram account on the user."
+                            formula="Every linked Instagram account gets its own hourly, daily, and monthly limit window."
+                            notes={[
+                              'Two linked Instagram accounts means two separate account limit windows.',
+                              'Changing the selected Instagram account updates the account-specific gauge usage.'
+                            ]}
+                            className="shrink-0"
+                          />
+                        </div>
                         <div className="mt-4 space-y-3">
                           {planLimits.map((item) => (
                             <div key={`${entry.id}-${item.label}`} className="flex items-center justify-between gap-4 text-sm">

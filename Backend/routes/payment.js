@@ -33,7 +33,8 @@ const {
     calculateSubscriptionExpiry,
     buildPlanProfilePayload,
     buildPaidPlanSnapshot,
-    clearAdminOverridePayload
+    clearAdminOverridePayload,
+    syncUserIgAccountLimitSnapshots
 } = require('../utils/planConfig');
 const { loadUserAccessState } = require('../utils/accessControl');
 const { recomputeAccountAccessForUser } = require('../utils/accountAccess');
@@ -782,6 +783,7 @@ const finalizePlanPurchase = async ({
     );
     await clearAdminOverrideForUserProfile(databases, userId);
     const runtimeContext = await resolveUserPlanContext(databases, userId);
+    await syncUserIgAccountLimitSnapshots(databases, userId, runtimeContext.limits || {}).catch(() => []);
     await recomputeAccountAccessForUser(databases, userId, runtimeContext.profile);
     await updateAutomationPlanValidationForUser(databases, userId, runtimeContext).catch(() => null);
     await touchUserActivity(userId, {

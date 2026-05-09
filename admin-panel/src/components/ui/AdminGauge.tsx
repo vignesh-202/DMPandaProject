@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 import Gauge from './gauge';
+import InfoPopover from './InfoPopover';
 
 interface AdminGaugeProps {
   value: number;
@@ -8,8 +9,12 @@ interface AdminGaugeProps {
   label: string;
   sublabel?: string;
   helper?: string;
+  helperBelowValue?: string;
   className?: string;
   compact?: boolean;
+  infoDescription?: string;
+  infoFormula?: string;
+  infoNotes?: string[];
 }
 
 export const AdminGauge: React.FC<AdminGaugeProps> = ({
@@ -18,12 +23,17 @@ export const AdminGauge: React.FC<AdminGaugeProps> = ({
   label,
   sublabel,
   helper,
+  helperBelowValue,
   className,
-  compact = false
+  compact = false,
+  infoDescription,
+  infoFormula,
+  infoNotes
 }) => {
   const safeMax = Math.max(Number(max || 0), 1);
   const safeValue = Math.max(0, Number(value || 0));
-  const updatedText = helper || `${safeValue.toLocaleString('en-IN')}/${safeMax.toLocaleString('en-IN')} in use`;
+  const ratioText = `${safeValue.toLocaleString('en-IN')}/${safeMax.toLocaleString('en-IN')}`;
+  const gaugeText = helperBelowValue || '';
 
   return (
     <div className={cn(
@@ -32,9 +42,20 @@ export const AdminGauge: React.FC<AdminGaugeProps> = ({
       className
     )}>
       <div className="flex h-full flex-col">
-        <div className="pr-10 min-h-[52px]">
-          <h3 className="text-sm font-bold text-foreground">{label}</h3>
-          {sublabel ? <p className="text-xs font-medium leading-5 text-muted-foreground mt-1">{sublabel}</p> : null}
+        <div className="flex items-start justify-between gap-4 min-h-[52px]">
+          <div className="pr-2">
+            <h3 className="text-sm font-bold text-foreground">{label}</h3>
+            {sublabel ? <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">{sublabel}</p> : null}
+          </div>
+          {infoDescription ? (
+            <InfoPopover
+              title={label}
+              description={infoDescription}
+              formula={infoFormula}
+              notes={infoNotes}
+              className="shrink-0"
+            />
+          ) : null}
         </div>
         <div className="flex flex-1 items-center justify-center px-2 pt-3">
           <Gauge
@@ -42,13 +63,23 @@ export const AdminGauge: React.FC<AdminGaugeProps> = ({
             max={safeMax}
             size="lg"
             syncId="dashboard-gauges"
-            updatedText={helper ? '' : updatedText}
+            updatedText={gaugeText}
           />
         </div>
-        {helper && (
-          <div className="mt-auto pt-4">
-            <p className="text-center text-[10px] font-medium leading-4 text-muted-foreground sm:text-xs">
+        <div className="mt-auto pt-3 text-center">
+          <p className="text-base font-black tracking-tight text-foreground sm:text-lg">
+            {ratioText}
+          </p>
+          {helper && (
+            <p className="mt-2 text-center text-[10px] font-medium leading-4 text-muted-foreground sm:text-xs">
               {helper}
+            </p>
+          )}
+        </div>
+        {!helper && helperBelowValue && (
+          <div className="pt-2">
+            <p className="text-center text-[10px] font-medium leading-4 text-muted-foreground sm:text-xs">
+              {helperBelowValue}
             </p>
           </div>
         )}

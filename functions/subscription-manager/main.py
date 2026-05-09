@@ -463,7 +463,15 @@ def _parse_admin_override(profile):
 
 
 def _build_profile_patch_for_plan(profile, plan_defaults, *, plan_code, plan_name, plan_source, billing_cycle, expiry_date, status, preserve_expired_snapshot=False):
-    limits_payload = _resolve_limits_payload(profile, plan_defaults if plan_code != DEFAULT_FREE_PLAN else plan_defaults)
+    defaults = plan_defaults or {}
+    monthly_limit = _safe_int(defaults.get("monthly_action_limit"), 0)
+    limits_payload = {
+        "instagram_connections_limit": max(0, _safe_int(defaults.get("instagram_connections_limit"), 0)),
+        "active_account_limit": max(0, _safe_int(defaults.get("instagram_connections_limit"), 0)),
+        "hourly_action_limit": max(0, _safe_int(defaults.get("hourly_action_limit"), 0)),
+        "daily_action_limit": max(0, _safe_int(defaults.get("daily_action_limit"), 0)),
+        "monthly_action_limit": monthly_limit if monthly_limit > 0 else 0,
+    }
     _ = preserve_expired_snapshot
     _ = billing_cycle
     _ = status
@@ -675,6 +683,7 @@ def main(context):
         client.set_key(api_key)
 
         profiles_collection = _env("PROFILES_COLLECTION_ID", "profiles")
+        ig_accounts_collection = _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts")
         transactions_collection = _env("TRANSACTIONS_COLLECTION_ID", "transactions")
         pricing_collection = _env("PRICING_COLLECTION_ID", "pricing")
         job_locks_collection = _env("JOB_LOCKS_COLLECTION_ID", "job_locks")

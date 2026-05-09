@@ -1067,7 +1067,7 @@ const AnalyticsView: React.FC = () => {
                         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">Automation Traffic</p>
                         <h2 className="mt-1 text-xl font-black text-foreground">{selectedTrafficWindow}</h2>
                         <p className="text-xs text-muted-foreground">
-                            Traffic charts follow the selected log range, while action usage gauges reflect live profile counters used for enforcement.
+                            Traffic charts follow the selected log range, while action usage gauges reflect the live counters for the selected Instagram account.
                         </p>
                     </div>
                     <div className="flex flex-col gap-3 sm:items-end">

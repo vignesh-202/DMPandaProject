@@ -48,6 +48,12 @@ const calculateDashboardOverview = async (userId) => {
     ).catch(() => ({ documents: [] }));
     const accountIds = (accounts.documents || []).map((account) => String(account.ig_user_id || account.account_id || account.$id)).filter(Boolean);
     const accountQuery = accountIds.length > 0 ? [Query.equal('account_id', accountIds)] : [];
+    const accountUsage = (accounts.documents || []).reduce((totals, account) => {
+        totals.monthly += Number(account?.monthly_actions_used || 0);
+        totals.daily += Number(account?.daily_actions_used || 0);
+        totals.hourly += Number(account?.hourly_actions_used || 0);
+        return totals;
+    }, { hourly: 0, daily: 0, monthly: 0 });
 
     const [profiles, logs24h, logs30d] = await Promise.all([
         databases.listDocuments(
@@ -84,7 +90,7 @@ const calculateDashboardOverview = async (userId) => {
         reply_rate: replyRate,
         gauge_metrics: {
             dm_rate: logs30dDocs.length > 0 ? Math.round((successCount / logs30dDocs.length) * 100) : 0,
-            actions_month: Number(profile.monthly_actions_used || 0),
+            actions_month: accountUsage.monthly,
             actions_month_limit: Number(runtimeLimits.monthly_action_limit || 0),
             reel_replies: reelReplies,
             post_replies: postReplies

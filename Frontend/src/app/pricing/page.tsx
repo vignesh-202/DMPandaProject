@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AuthRedirectButton from '../../components/ui/AuthRedirectButton';
 import { ChevronDown, ChevronUp, Check, X } from 'lucide-react';
+import InfoPopover from '../../components/ui/InfoPopover';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
 import {
   PricingPlan,
@@ -189,9 +190,21 @@ const PricingPage: React.FC = () => {
                         : 'border-gray-200 bg-gray-50 dark:border-white/[0.08] dark:bg-white/[0.03]'
                     }`}
                   >
-                    <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                      Plan limits
-                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                        Plan limits
+                      </p>
+                      <InfoPopover
+                        title="Plan limits"
+                        description="These limits apply individually to each linked Instagram account, not as one shared limit across the whole user."
+                        formula="Every linked Instagram account gets its own hourly, daily, and monthly usage window."
+                        notes={[
+                          'If a user links two Instagram accounts, both accounts receive their own plan limits.',
+                          'Usage is tracked separately for each linked Instagram account.'
+                        ]}
+                        className="shrink-0"
+                      />
+                    </div>
                     <div className="mt-4 space-y-3">
                       {planLimits.map((item) => (
                         <div key={`${plan.id}-${item.label}`} className="flex items-center justify-between gap-4 text-sm">

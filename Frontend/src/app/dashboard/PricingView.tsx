@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Check, CreditCard, Sparkles, X } from 'lucide-react';
 import Card from '../../components/ui/card';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import InfoPopover from '../../components/ui/InfoPopover';
 import { useAuth } from '../../contexts/AuthContext';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
 import { PricingPlan, formatMoney, formatPlanLimit, getPaidCheckoutPlans, getPlanBigPrice, getPlanBilledTotal, normalizePricingPayload } from '../../lib/pricing';
@@ -187,7 +188,18 @@ const PricingView: React.FC = () => {
                 </div>
 
                 <div className="mb-6 rounded-2xl border border-border/70 bg-muted/30 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Plan limits</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Plan limits</p>
+                    <InfoPopover
+                      title="Plan limits"
+                      description="These action limits apply separately to each linked Instagram account under the user."
+                      formula="Each linked Instagram account gets its own hourly, daily, and monthly limit window."
+                      notes={[
+                        'If two Instagram accounts are linked, both accounts track usage independently.',
+                        'Usage resets by account, not as one shared pool inside a user dashboard.'
+                      ]}
+                    />
+                  </div>
                   <div className="mt-4 space-y-3">
                     {planLimits.map((item) => (
                       <div key={`${plan.id}-${item.label}`} className="flex items-center justify-between gap-4 text-sm">

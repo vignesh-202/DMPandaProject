@@ -37,7 +37,8 @@ const {
     getLatestValidTransaction,
     parseAdminOverride,
     buildAdminOverridePayload,
-    clearAdminOverridePayload
+    clearAdminOverridePayload,
+    syncUserIgAccountLimitSnapshots
 } = require('../utils/planConfig');
 const {
     normalizeAccountAccess,
@@ -524,7 +525,14 @@ const buildTrafficSeries = (logs, rangeConfig) => {
             bucketDate.setUTCHours(start.getUTCHours() + index);
             const key = bucketDate.toISOString().slice(0, 13);
             const label = bucketDate.toISOString().slice(11, 16);
-            const bucket = { key, label, value: 0 };
+            const bucket = {
+                key,
+                label,
+                value: 0,
+                successful: 0,
+                failed: 0,
+                skipped: 0
+            };
             buckets.push(bucket);
             bucketMap.set(key, bucket);
         }
@@ -534,10 +542,30 @@ const buildTrafficSeries = (logs, rangeConfig) => {
             if (Number.isNaN(sentAt.getTime()) || sentAt < range.from || sentAt > range.to) return;
             const key = sentAt.toISOString().slice(0, 13);
             const bucket = bucketMap.get(key);
-            if (bucket) bucket.value += 1;
+            if (!bucket) return;
+            bucket.value += 1;
+            const status = String(entry.status || '').toLowerCase();
+            if (status === 'failed') {
+                bucket.failed += 1;
+            } else if (status === 'skipped') {
+                bucket.skipped += 1;
+                bucket.successful += 1;
+            } else {
+                bucket.successful += 1;
+            }
         });
 
-        return buckets;
+        return buckets.map((bucket, index, allBuckets) => {
+            const windowStart = Math.max(0, index - 2);
+            const rollingSample = allBuckets.slice(windowStart, index + 1);
+            const rollingAverage = rollingSample.length > 0
+                ? rollingSample.reduce((sum, item) => sum + Number(item.value || 0), 0) / rollingSample.length
+                : 0;
+            return {
+                ...bucket,
+                rolling_average: Number(rollingAverage.toFixed(2))
+            };
+        });
     }
 
     const end = new Date(range.to);
@@ -553,7 +581,14 @@ const buildTrafficSeries = (logs, rangeConfig) => {
         bucketDate.setUTCDate(start.getUTCDate() + index);
         const key = bucketDate.toISOString().slice(0, 10);
         const label = key.slice(5).replace('-', '/');
-        const bucket = { key, label, value: 0 };
+        const bucket = {
+            key,
+            label,
+            value: 0,
+            successful: 0,
+            failed: 0,
+            skipped: 0
+        };
         buckets.push(bucket);
         bucketMap.set(key, bucket);
     }
@@ -563,10 +598,30 @@ const buildTrafficSeries = (logs, rangeConfig) => {
         if (Number.isNaN(sentAt.getTime()) || sentAt < start || sentAt > end) return;
         const key = sentAt.toISOString().slice(0, 10);
         const bucket = bucketMap.get(key);
-        if (bucket) bucket.value += 1;
+        if (!bucket) return;
+        bucket.value += 1;
+        const status = String(entry.status || '').toLowerCase();
+        if (status === 'failed') {
+            bucket.failed += 1;
+        } else if (status === 'skipped') {
+            bucket.skipped += 1;
+            bucket.successful += 1;
+        } else {
+            bucket.successful += 1;
+        }
     });
 
-    return buckets;
+    return buckets.map((bucket, index, allBuckets) => {
+        const windowStart = Math.max(0, index - 2);
+        const rollingSample = allBuckets.slice(windowStart, index + 1);
+        const rollingAverage = rollingSample.length > 0
+            ? rollingSample.reduce((sum, item) => sum + Number(item.value || 0), 0) / rollingSample.length
+            : 0;
+        return {
+            ...bucket,
+            rolling_average: Number(rollingAverage.toFixed(2))
+        };
+    });
 };
 
 const isDateWithinRange = (value, range) => {
@@ -645,10 +700,7 @@ const buildProfileRollbackPayload = (profile = null) => {
         daily_action_limit: Number(profile.daily_action_limit || 0),
         monthly_action_limit: Number(profile.monthly_action_limit || 0),
         no_watermark: profile.no_watermark === true,
-        credits: Number(profile.credits || 0),
-        hourly_actions_used: Number(profile.hourly_actions_used || 0),
-        daily_actions_used: Number(profile.daily_actions_used || 0),
-        monthly_actions_used: Number(profile.monthly_actions_used || 0)
+        credits: Number(profile.credits || 0)
     };
 };
 
@@ -846,7 +898,11 @@ const getLatestTransactionForUserReset = async (databases, userId) => {
 };
 const buildEffectivePlanResponse = async (databases, userId, userFallback = null) => {
     const context = await resolveUserPlanContext(databases, userId, userFallback);
-    const subscriptionState = deriveSubscriptionState(context.profile?.plan_code, context.profile?.expiry_date);
+    const effectivePlanCode = String(context.subscriptionPlanId || context.plan?.plan_code || context.plan?.id || context.profile?.plan_code || 'free').trim() || 'free';
+    const effectivePlanName = String(context.plan?.name || context.profile?.plan_name || effectivePlanCode || 'Free Plan').trim() || 'Free Plan';
+    const effectivePlanSource = normalizePlanSource(context.profile?.plan_source || context.planSource || 'system', 'system');
+    const effectiveExpiryDate = parseSubscriptionExpiryDate(context.profile?.expiry_date || null);
+    const subscriptionState = deriveSubscriptionState(effectivePlanCode, effectiveExpiryDate);
     let adminOverride = null;
     try {
         const parsed = context.profile?.admin_override_json ? JSON.parse(context.profile.admin_override_json) : null;
@@ -866,15 +922,24 @@ const buildEffectivePlanResponse = async (databases, userId, userFallback = null
     return {
         profile: context.profile,
         effective_plan: {
-            id: String(context.profile?.plan_code || context.subscriptionPlanId || 'free'),
-            plan_code: String(context.profile?.plan_code || context.subscriptionPlanId || 'free'),
-            name: String(context.profile?.plan_name || context.subscriptionPlanId || 'Free Plan')
+            id: effectivePlanCode,
+            plan_code: effectivePlanCode,
+            name: effectivePlanName
         },
-        plan_source: normalizePlanSource(context.profile?.plan_source || context.planSource || 'system', 'system'),
+        plan_source: effectivePlanSource,
         expiry_date: subscriptionState.expiry_date,
         is_active: subscriptionState.is_active,
         is_expired: subscriptionState.is_expired,
         derived_status: subscriptionState.derived_status,
+        subscription_summary: {
+            plan_code: effectivePlanCode,
+            plan_name: effectivePlanName,
+            expiry_date: subscriptionState.expiry_date,
+            plan_source: effectivePlanSource,
+            derived_status: subscriptionState.derived_status,
+            is_active: subscriptionState.is_active,
+            is_expired: subscriptionState.is_expired
+        },
         admin_override: adminOverride,
         self_plan: {
             id: String(context.selfPlanId || 'free'),
@@ -1277,6 +1342,14 @@ const buildDashboardMetrics = async (databases) => {
         return status === 'success' || status === 'skipped';
     });
 
+    const profileByUserId = profiles.reduce((acc, profile) => {
+        const key = String(profile.user_id || profile.$id || '').trim();
+        if (key) {
+            acc[key] = profile;
+        }
+        return acc;
+    }, {});
+
     const totals = {
         total_users: users.length,
         linked_instagram_accounts: accounts.length,
@@ -1334,15 +1407,24 @@ const buildDashboardMetrics = async (databases) => {
         }
     });
 
-    const poolCapacity = profiles.reduce((sum, profile) => sum + Number(profile.hourly_action_limit || 0), 0);
-    const poolUsage = profiles.reduce((sum, profile) => sum + Number(profile.hourly_actions_used || 0), 0);
-    const dailyPoolCapacity = profiles.reduce((sum, profile) => sum + Number(profile.daily_action_limit || 0), 0);
-    const dailyPoolUsage = profiles.reduce((sum, profile) => sum + Number(profile.daily_actions_used || 0), 0);
-    const monthlyPoolCapacity = profiles.reduce((sum, profile) => sum + Number(profile.monthly_action_limit || 0), 0);
-    const monthlyPoolUsage = profiles.reduce((sum, profile) => sum + Number(profile.monthly_actions_used || 0), 0);
+    const poolCapacity = accounts.reduce((sum, account) => {
+        const profile = profileByUserId[String(account.user_id || '').trim()];
+        return sum + Number(profile?.hourly_action_limit || 0);
+    }, 0);
+    const poolUsage = accounts.reduce((sum, account) => sum + Number(account.hourly_actions_used || 0), 0);
+    const dailyPoolCapacity = accounts.reduce((sum, account) => {
+        const profile = profileByUserId[String(account.user_id || '').trim()];
+        return sum + Number(profile?.daily_action_limit || 0);
+    }, 0);
+    const dailyPoolUsage = accounts.reduce((sum, account) => sum + Number(account.daily_actions_used || 0), 0);
+    const monthlyPoolCapacity = accounts.reduce((sum, account) => {
+        const profile = profileByUserId[String(account.user_id || '').trim()];
+        return sum + Number(profile?.monthly_action_limit || 0);
+    }, 0);
+    const monthlyPoolUsage = accounts.reduce((sum, account) => sum + Number(account.monthly_actions_used || 0), 0);
     const metaPoolCapacity = Number(accounts.length || 0) * META_PLATFORM_HOURLY_LIMIT_PER_LINKED_ACCOUNT;
-    const hourlyPoolBalanceMax = Math.max(metaPoolCapacity, poolCapacity, 1);
-    const hourlyPoolBalanceValue = Math.min(metaPoolCapacity, poolCapacity);
+    const hourlyPoolBalanceMax = Math.max(metaPoolCapacity, 1);
+    const hourlyPoolBalanceValue = poolCapacity;
     const activeCoupons = coupons.filter((coupon) => coupon.active !== false && (!coupon.expires_at || new Date(coupon.expires_at).getTime() >= Date.now()));
     const expiredCoupons = coupons.filter((coupon) => coupon.expires_at && new Date(coupon.expires_at).getTime() < Date.now());
     const topCouponMap = couponRedemptions.reduce((acc, redemption) => {
@@ -1395,14 +1477,16 @@ const buildDashboardMetrics = async (databases) => {
         meta_pool: {
             linked_accounts: accounts.length,
             limit_per_account_per_hour: META_PLATFORM_HOURLY_LIMIT_PER_LINKED_ACCOUNT,
-            capacity_per_hour: metaPoolCapacity
+            capacity_per_hour: metaPoolCapacity,
+            usage_last_hour: poolUsage,
+            usage_percent: metaPoolCapacity > 0 ? Math.round((poolUsage / metaPoolCapacity) * 100) : 0
         },
         hourly_pool_balance: {
             meta_capacity_per_hour: metaPoolCapacity,
             plan_capacity_per_hour: poolCapacity,
             gauge_value: hourlyPoolBalanceValue,
             gauge_max: hourlyPoolBalanceMax,
-            usage_percent: hourlyPoolBalanceMax > 0 ? Math.round((hourlyPoolBalanceValue / hourlyPoolBalanceMax) * 100) : 0
+            usage_percent: metaPoolCapacity > 0 ? Math.round((hourlyPoolBalanceValue / metaPoolCapacity) * 100) : 0
         },
         coupons: {
             total_coupons: coupons.length,
@@ -2377,6 +2461,7 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             user = Object.keys(userUpdate).length > 0
                 ? await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, userUpdate)
                 : await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
+            await syncUserIgAccountLimitSnapshots(databases, userId, resolvePlanLimits(nextPlan, profile)).catch(() => []);
             accountAccessState = await recomputeAccountAccessStateForUser(databases, userId, profile);
             instagram_accounts = accountAccessState.accounts;
             await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
@@ -2498,6 +2583,11 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
             nextPlanId = String(nextPlan?.plan_code || nextPlan?.id || 'free').trim() || 'free';
             nextExpiryDate = profile?.expiry_date || null;
             nextPlanSource = 'admin';
+        } else if (action === 'reset_to_default_plan' || action === 'reset_to_free_plan') {
+            nextPlan = freePlan;
+            nextPlanId = 'free';
+            nextExpiryDate = null;
+            nextPlanSource = 'system';
         } else {
             const restoredTransaction = await getLatestValidTransaction(databases, userId, pricingPlans);
             nextPlan = restoredTransaction?.plan || freePlan;
@@ -2523,6 +2613,7 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
                         adminOverrideJson: clearAdminOverridePayload()
                     })
                 });
+                await syncUserIgAccountLimitSnapshots(databases, userId, resolvePlanLimits(nextPlan, updatedProfile)).catch(() => []);
                 await recomputeAccountAccessForUser(databases, userId, updatedProfile);
                 await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
             } catch (error) {
@@ -2549,6 +2640,7 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
                     adminOverrideJson: clearAdminOverridePayload()
                 })
             });
+            await syncUserIgAccountLimitSnapshots(databases, userId, resolvePlanLimits(nextPlan, createdProfile)).catch(() => []);
             await recomputeAccountAccessForUser(databases, userId, createdProfile);
             await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
         }
@@ -2572,7 +2664,9 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
         return ok(res, {
             message: action === 'reset_to_assigned_defaults'
                 ? 'Assigned plan defaults restored successfully.'
-                : 'Plan reset successfully.',
+                : (action === 'reset_to_default_plan' || action === 'reset_to_free_plan')
+                    ? 'Default plan restored successfully.'
+                    : 'Plan reset successfully.',
             ...(await buildEffectivePlanResponse(databases, userId, updatedUserDocument))
         });
     } catch (error) {
@@ -2769,6 +2863,7 @@ router.patch('/pricing/:planId', loginRequired, adminRequired, async (req, res) 
                 })
             ).catch(() => null);
             if (refreshedProfile?.user_id) {
+                await syncUserIgAccountLimitSnapshots(databases, refreshedProfile.user_id, resolvePlanLimits(updated, refreshedProfile)).catch(() => []);
                 await recomputeAccountAccessForUser(databases, refreshedProfile.user_id, refreshedProfile).catch(() => null);
                 await updateAutomationPlanValidationForUser(databases, refreshedProfile.user_id).catch(() => null);
             }

@@ -125,6 +125,42 @@ const describeFreePlanMode = (planCode?: string | null, expiryDate?: string | nu
         : 'Permanent Free';
 };
 
+const deriveSubscriptionSummary = (payload: any, previous: any = null) => {
+    const explicit = payload?.subscription_summary;
+    if (explicit && typeof explicit === 'object') {
+        return explicit;
+    }
+
+    const profile = payload?.profile || previous?.profile || {};
+    const effectivePlan = payload?.effective_plan || previous?.effective_plan || {};
+    const fallbackPlanCode = String(
+        effectivePlan?.plan_code
+        || profile?.plan_code
+        || previous?.subscription_summary?.plan_code
+        || 'free'
+    ).trim().toLowerCase() || 'free';
+    const rawExpiry = payload?.expiry_date
+        || profile?.expiry_date
+        || previous?.subscription_summary?.expiry_date
+        || null;
+    const normalizedExpiry = rawExpiry ? new Date(rawExpiry) : null;
+    const expiryDate = normalizedExpiry && !Number.isNaN(normalizedExpiry.getTime())
+        ? normalizedExpiry.toISOString()
+        : null;
+    const isFree = fallbackPlanCode === 'free';
+    const isActive = !isFree && Boolean(expiryDate && new Date(expiryDate).getTime() > Date.now());
+    const isExpired = !isFree && Boolean(expiryDate && new Date(expiryDate).getTime() <= Date.now());
+
+    return {
+        plan_code: fallbackPlanCode,
+        expiry_date: expiryDate,
+        plan_source: payload?.plan_source || profile?.plan_source || previous?.subscription_summary?.plan_source || 'system',
+        derived_status: isActive ? 'active' : (isExpired ? 'expired' : 'inactive'),
+        is_active: isActive,
+        is_expired: isExpired
+    };
+};
+
 const normalizePlanIdentifier = (value: unknown): string => String(value || '').trim().toLowerCase();
 const resolveNoWatermarkFromPlan = (plan?: PricingPlanOption | null): boolean => {
     if (!plan) return false;
@@ -279,20 +315,8 @@ export const UsersPage: React.FC = () => {
         try {
             const response = await httpClient.get(`/api/admin/users/${targetUserId}`);
             setDetailData(response.data);
-            const profile = response.data?.profile || {};
-            const resolvedTermMode = resolvePlanTermMode(profile.plan_code, profile.expiry_date);
-            const nextPatch = {
-                action: 'change_assigned_plan',
-                instagram_connections_limit: resolveNumericField(profile.instagram_connections_limit, response.data?.effective_limits?.instagram_connections_limit),
-                hourly_action_limit: resolveNumericField(profile.hourly_action_limit, response.data?.effective_limits?.hourly_action_limit),
-                daily_action_limit: resolveNumericField(profile.daily_action_limit, response.data?.effective_limits?.daily_action_limit),
-                monthly_action_limit: resolveNumericField(profile.monthly_action_limit, response.data?.effective_limits?.monthly_action_limit),
-                no_watermark: resolveNoWatermarkValue(response.data),
-                plan_code: profile.plan_code || response.data?.effective_plan?.plan_code || 'free',
-                duration_mode: resolvedTermMode,
-                custom_expiry_date: profile.expiry_date ? String(profile.expiry_date).slice(0, 16) : '',
-                kill_switch_enabled: response.data?.user?.kill_switch_enabled !== false
-            };
+            const nextPatch = buildSyncedProfilePatch(response.data);
+            const resolvedTermMode = resolvePlanTermMode(nextPatch.plan_code, response.data?.profile?.expiry_date || null);
             setProfilePatch(nextPatch);
             setPlanTermMode(resolvedTermMode);
             setLastSyncedProfilePatch(buildTrackedSnapshot(nextPatch, resolvedTermMode));
@@ -409,6 +433,7 @@ export const UsersPage: React.FC = () => {
     const buildSyncedProfilePatch = (payload: any): any => {
         const responseProfile = payload?.profile || {};
         const responseLimits = payload?.effective_limits || {};
+        const responseSubscriptionSummary = payload?.subscription_summary || {};
         return {
             action: 'change_assigned_plan',
             instagram_connections_limit: resolveNumericField(
@@ -437,8 +462,9 @@ export const UsersPage: React.FC = () => {
             ),
             no_watermark: resolveNoWatermarkValue(payload),
             plan_code: resolvePlanOptionValue(
-                responseProfile?.plan_code
+                responseSubscriptionSummary?.plan_code
                 || payload?.effective_plan?.plan_code
+                || responseProfile?.plan_code
                 || profilePatch?.plan_code
                 || detailData?.profile?.plan_code
                 || 'free'
@@ -463,6 +489,8 @@ export const UsersPage: React.FC = () => {
     const mergeDetailData = (payload: any) => {
         setDetailData((prev: any) => {
             if (!prev) return prev;
+            const nextSubscriptionSummary = deriveSubscriptionSummary(payload, prev);
+            const nextEffectiveLimits = payload?.effective_limits || prev.effective_limits;
             return {
                 ...prev,
                 ...(payload || {}),
@@ -471,10 +499,10 @@ export const UsersPage: React.FC = () => {
                 instagram_accounts: Array.isArray(payload?.instagram_accounts) ? payload.instagram_accounts : prev.instagram_accounts,
                 total_linked_accounts: payload?.total_linked_accounts ?? prev.total_linked_accounts,
                 max_allowed_accounts: payload?.max_allowed_accounts ?? prev.max_allowed_accounts,
-                active_account_limit: payload?.active_account_limit ?? prev.active_account_limit,
-                effective_limits: payload?.effective_limits || prev.effective_limits,
+                active_account_limit: payload?.active_account_limit ?? nextEffectiveLimits?.active_account_limit ?? prev.active_account_limit,
+                effective_limits: nextEffectiveLimits,
                 effective_plan: payload?.effective_plan || prev.effective_plan,
-                subscription_summary: payload?.subscription_summary || prev.subscription_summary
+                subscription_summary: nextSubscriptionSummary
             };
         });
     };
@@ -562,22 +590,18 @@ export const UsersPage: React.FC = () => {
         setSaving(true);
         setErrorMessage(null);
         try {
-            const response = await httpClient.post(`/api/admin/users/${selectedUser.$id}/reset-plan`, { action: 'reset_to_paid_snapshot_or_free' });
+            const response = await httpClient.post(`/api/admin/users/${selectedUser.$id}/reset-plan`, { action: 'reset_to_default_plan' });
             const result = response.data?.data || {};
+            await loadUserDetail(selectedUser.$id);
+            await fetchUsers(pagination.page);
             if (result?.profile || result?.effective_limits) {
-                mergeDetailData(result);
-                const syncedPatch = buildSyncedProfilePatch(result);
-                const syncedTermMode = resolvePlanTermMode(syncedPatch.plan_code, result?.profile?.expiry_date || null);
-                setProfilePatch(syncedPatch);
-                setPlanTermMode(syncedTermMode);
-                setLastSyncedProfilePatch(buildTrackedSnapshot(syncedPatch, syncedTermMode));
                 setUsers((prev) => prev.map((entry) => entry.$id === selectedUser.$id ? {
                     ...entry,
                     linked_instagram_accounts: Number(result?.total_linked_accounts ?? entry.linked_instagram_accounts ?? 0),
                     profile: result?.profile || entry.profile
                 } : entry));
             }
-            setNotice('Default plan restored from latest valid payment or free.');
+            setNotice(result?.message || 'Default plan restored successfully.');
         } catch (error: any) {
             console.error('Failed to reset plan:', error);
             setErrorMessage(error?.response?.data?.error || 'Failed to reset plan.');

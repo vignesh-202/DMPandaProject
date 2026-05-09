@@ -28,7 +28,9 @@ const {
 const {
     buildPlanApiPayload,
     resolveUserPlanContext,
-    normalizeFeatureKey
+    normalizeFeatureKey,
+    buildAccountActionState,
+    syncUserIgAccountLimitSnapshots
 } = require('../utils/planConfig');
 const sharedPlanFeatures = require('../../shared/planFeatures.json');
 const { evaluateActionRateLimit } = require('../../shared/actionRateLimiter');
@@ -766,8 +768,63 @@ const listOwnedIgAccounts = async (databases, appUserId, extraQueries = []) => {
     ));
 };
 
-const serializeIgAccount = (account) => {
+const IG_ACCOUNT_ACTION_KEYS = [
+    'hourly_actions_used',
+    'daily_actions_used',
+    'monthly_actions_used',
+    'hourly_window_started_at',
+    'daily_window_started_at',
+    'monthly_window_started_at'
+];
+
+const stripIgAccountActionFields = (payload = {}) => {
+    const next = { ...(payload || {}) };
+    IG_ACCOUNT_ACTION_KEYS.forEach((key) => {
+        delete next[key];
+    });
+    return next;
+};
+
+const isUnknownAttributeError = (error) => {
+    const message = String(error?.message || error || '').toLowerCase();
+    return message.includes('unknown attribute')
+        || message.includes('attribute not found')
+        || message.includes('invalid document structure')
+        || message.includes('attribute does not exist');
+};
+
+const updateIgAccountDocument = async (databases, documentId, payload) => {
+    try {
+        return await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, documentId, payload);
+    } catch (error) {
+        if (!isUnknownAttributeError(error)) throw error;
+        return databases.updateDocument(
+            process.env.APPWRITE_DATABASE_ID,
+            IG_ACCOUNTS_COLLECTION_ID,
+            documentId,
+            stripIgAccountActionFields(payload)
+        );
+    }
+};
+
+const createIgAccountDocument = async (databases, documentId, payload, permissions) => {
+    try {
+        return await databases.createDocument(process.env.APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, documentId, payload, permissions);
+    } catch (error) {
+        if (!isUnknownAttributeError(error)) throw error;
+        return databases.createDocument(
+            process.env.APPWRITE_DATABASE_ID,
+            IG_ACCOUNTS_COLLECTION_ID,
+            documentId,
+            stripIgAccountActionFields(payload),
+            permissions
+        );
+    }
+};
+
+const serializeIgAccount = (account, profileLimits = {}) => {
     const access = normalizeAccountAccess(account);
+    const actionState = buildAccountActionState(account, profileLimits);
     const normalizedStatus = String(account?.status || 'active').trim().toLowerCase() || 'active';
     const normalizedAdminStatus = String(account?.admin_status || 'active').trim().toLowerCase() || 'active';
     return {
@@ -788,7 +845,13 @@ const serializeIgAccount = (account) => {
         plan_locked: access.plan_locked,
         effective_access: access.effective_access,
         access_state: access.access_state,
-        access_reason: access.access_reason
+        access_reason: access.access_reason,
+        hourly_action_limit: Number(actionState.hourly_action_limit || 0),
+        daily_action_limit: Number(actionState.daily_action_limit || 0),
+        monthly_action_limit: Number(actionState.monthly_action_limit || 0),
+        hourly_actions_used: Number(actionState.hourly_actions_used || 0),
+        daily_actions_used: Number(actionState.daily_actions_used || 0),
+        monthly_actions_used: Number(actionState.monthly_actions_used || 0)
     };
 };
 
@@ -1981,6 +2044,8 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
         // Step 4: Check for duplicates and Save
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+        const profileContext = await resolveUserPlanContext(databases, user.$id);
+        const windowStartedAt = new Date().toISOString();
 
         const existingAccounts = await databases.listDocuments(
             process.env.APPWRITE_DATABASE_ID,
@@ -1994,11 +2059,7 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                 return res.status(409).json({ error: `This Instagram account (@${igUsername}) is already linked to another user.` });
             } else {
                 // Update
-                await databases.updateDocument(
-                    process.env.APPWRITE_DATABASE_ID,
-                    IG_ACCOUNTS_COLLECTION_ID,
-                    existingAccount.$id,
-                    {
+                await updateIgAccountDocument(databases, existingAccount.$id, {
                         // user_id = app user id (owner)
                         user_id: user.$id,
                         // ig_user_id = Meta token response "user_id"
@@ -2014,10 +2075,14 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                         status: 'active',
                         admin_status: String(existingAccount?.admin_status || 'active').trim().toLowerCase() || 'active',
                         linked_at: new Date().toISOString(),
-                    }
-                );
-                const refreshedProfileContext = await resolveUserPlanContext(databases, user.$id);
-                await recomputeAccountAccessForUser(databases, user.$id, refreshedProfileContext.profile);
+                        hourly_actions_used: Number(existingAccount?.hourly_actions_used || 0),
+                        daily_actions_used: Number(existingAccount?.daily_actions_used || 0),
+                        monthly_actions_used: Number(existingAccount?.monthly_actions_used || 0),
+                        hourly_window_started_at: existingAccount?.hourly_window_started_at || windowStartedAt,
+                        daily_window_started_at: existingAccount?.daily_window_started_at || windowStartedAt,
+                        monthly_window_started_at: existingAccount?.monthly_window_started_at || windowStartedAt,
+                    });
+                await recomputeAccountAccessForUser(databases, user.$id, profileContext.profile);
                 return res.json({ message: `Instagram account @${igUsername} updated successfully.` });
             }
         } else {
@@ -2031,11 +2096,7 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
             }
 
             // Create
-            await databases.createDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                IG_ACCOUNTS_COLLECTION_ID,
-                ID.unique(),
-                {
+            await createIgAccountDocument(databases, ID.unique(), {
                     // user_id = app user id (owner)
                     user_id: user.$id,
                     // ig_user_id = Meta token response "user_id"
@@ -2050,14 +2111,17 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                     permissions: permissionsText,
                     linked_at: new Date().toISOString(),
                     status: 'active',
-                    admin_status: 'active'
-                },
-                [
+                    admin_status: 'active',
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0,
+                    hourly_window_started_at: windowStartedAt,
+                    daily_window_started_at: windowStartedAt,
+                    monthly_window_started_at: windowStartedAt
+                }, [
                     Permission.read(Role.user(user.$id))
-                ]
-            );
-            const refreshedProfileContext = await resolveUserPlanContext(databases, user.$id);
-            await recomputeAccountAccessForUser(databases, user.$id, refreshedProfileContext.profile);
+                ]);
+            await recomputeAccountAccessForUser(databases, user.$id, profileContext.profile);
             return res.json({ message: `Instagram account @${igUsername} linked successfully.` });
         }
 
@@ -2074,6 +2138,7 @@ router.get('/account/ig-accounts', loginRequired, async (req, res) => {
         const databases = new Databases(serverClient);
 
         const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        await syncUserIgAccountLimitSnapshots(databases, req.user.$id, profileContext.limits || {}).catch(() => []);
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const accountAccessState = await recomputeAccountAccessStateForUser(
             databases,
@@ -2083,7 +2148,7 @@ router.get('/account/ig-accounts', loginRequired, async (req, res) => {
         );
         const recomputedAccounts = accountAccessState.accounts || [];
 
-        const safeAccounts = recomputedAccounts.map(serializeIgAccount);
+        const safeAccounts = recomputedAccounts.map((account) => serializeIgAccount(account, profileContext.limits || {}));
         const planPayload = buildPlanApiPayload(profileContext.plan, profileContext.profile);
 
         res.json({
@@ -2601,8 +2666,9 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
         const { account_id } = req.query;
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        await syncUserIgAccountLimitSnapshots(databases, req.user.$id, profileContext.limits || {}).catch(() => []);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const accountAccessState = await recomputeAccountAccessStateForUser(
             databases,
             req.user.$id,
@@ -2646,18 +2712,19 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
         ]);
 
         const effectiveLimits = profileContext.limits || {};
+        const activeAccountActionState = buildAccountActionState(igAccount, effectiveLimits);
         const logs = logsResult.status === 'fulfilled' ? logsResult.value.documents || [] : [];
         const successfulLogs = logs.filter((entry) => String(entry.status || '').toLowerCase() === 'success').length;
         const replyRate = logs.length > 0 ? Math.round((successfulLogs / logs.length) * 100) : 0;
         const reelReplies = logs.filter((entry) => String(entry.automation_type || '').toLowerCase() === 'reel').length;
         const postReplies = logs.filter((entry) => ['comment', 'post'].includes(String(entry.automation_type || '').toLowerCase())).length;
-        const hourlyLimit = Number(effectiveLimits.hourly_action_limit || 0);
-        const dailyLimit = Number(effectiveLimits.daily_action_limit || 0);
-        const monthlyLimit = Number(effectiveLimits.monthly_action_limit || 0);
+        const hourlyLimit = Number(activeAccountActionState.hourly_action_limit || 0);
+        const dailyLimit = Number(activeAccountActionState.daily_action_limit || 0);
+        const monthlyLimit = Number(activeAccountActionState.monthly_action_limit || 0);
         const instagramLimit = Number(effectiveLimits.instagram_link_limit || effectiveLimits.instagram_connections_limit || 0);
-        const hourlyUsage = Number(profileContext.profile?.hourly_actions_used || 0);
-        const dailyUsage = Number(profileContext.profile?.daily_actions_used || 0);
-        const monthlyUsage = Number(profileContext.profile?.monthly_actions_used || 0);
+        const hourlyUsage = Number(activeAccountActionState.hourly_actions_used || 0);
+        const dailyUsage = Number(activeAccountActionState.daily_actions_used || 0);
+        const monthlyUsage = Number(activeAccountActionState.monthly_actions_used || 0);
 
         res.json({
             reply_templates: templatesResult.status === 'fulfilled' ? templatesResult.value.total : 0,
@@ -2677,7 +2744,7 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 daily_action_limit: dailyLimit,
                 monthly_actions_used: monthlyUsage,
                 monthly_action_limit: monthlyLimit,
-                usage_source: 'profile_counters'
+                usage_source: 'ig_account_counters'
             },
             action_window_metrics: {
                 hourly_actions_used: hourlyUsage,
@@ -2686,7 +2753,7 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 daily_action_limit: dailyLimit,
                 monthly_actions_used: monthlyUsage,
                 monthly_action_limit: monthlyLimit,
-                usage_source: 'profile_counters'
+                usage_source: 'ig_account_counters'
             },
             account_link_metrics: {
                 linked_accounts: Number(accountAccessState.summary?.total_linked_accounts || 0),

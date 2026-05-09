@@ -1,5 +1,6 @@
 import os
 import json
+import ast
 import requests
 from appwrite.client import Client
 from appwrite.query import Query
@@ -27,17 +28,27 @@ def _update_document(client, db_id, collection_id, document_id, data):
         {"data": data},
     )
 
+
+def _parse_request_body(raw_body):
+    if isinstance(raw_body, dict):
+        return raw_body
+    text = str(raw_body or "").strip()
+    if not text:
+        return {}
+    try:
+        return json.loads(text)
+    except Exception:
+        try:
+            parsed = ast.literal_eval(text)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+
 # Scheduled function (every 30 days) to refresh Instagram access tokens.
 def main(context):
     try:
         raw_body = getattr(getattr(context, "req", None), "body", None)
-        if isinstance(raw_body, dict):
-            request_body = raw_body
-        else:
-            try:
-                request_body = json.loads(str(raw_body or "{}"))
-            except Exception:
-                request_body = {}
+        request_body = _parse_request_body(raw_body)
         dry_run = request_body.get("dry_run") is True
 
         client = Client()

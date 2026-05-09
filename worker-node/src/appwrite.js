@@ -767,17 +767,17 @@ class AppwriteClient {
     }
 
     async incrementActionUsage(userId, incrementBy = 1) {
-        const profile = await this.getProfile(userId);
-        if (!profile?.$id) return null;
-        const patch = buildActionUsageIncrementPatch(profile, incrementBy);
+        const account = await this.getIGAccount(userId);
+        if (!account?.$id) return null;
+        const patch = buildActionUsageIncrementPatch(account, incrementBy);
         return withAppwriteRetry(() => this.databases.updateDocument(
             this.databaseId,
-            process.env.PROFILES_COLLECTION_ID || 'profiles',
-            profile.$id,
+            process.env.IG_ACCOUNTS_COLLECTION_ID,
+            account.$id,
             patch
         ), {
-            operationName: 'increment_action_usage',
-            context: { user_id: userId, profile_id: profile.$id, increment_by: incrementBy }
+            operationName: 'increment_account_action_usage',
+            context: { account_id: userId, ig_account_id: account.$id, increment_by: incrementBy }
         });
     }
 

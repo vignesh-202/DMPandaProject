@@ -408,37 +408,51 @@ class DMWorker {
         console.log(line);
     }
 
-    _trackMetaApiAction(tracker, userId) {
+    _trackMetaApiAction(tracker, budgetKey) {
         if (!tracker || !(tracker.counts instanceof Map)) return;
-        const safeUserId = String(userId || '').trim();
-        if (!safeUserId) return;
-        tracker.counts.set(safeUserId, Number(tracker.counts.get(safeUserId) || 0) + 1);
+        const safeBudgetKey = String(budgetKey || '').trim();
+        if (!safeBudgetKey) return;
+        tracker.counts.set(safeBudgetKey, Number(tracker.counts.get(safeBudgetKey) || 0) + 1);
     }
 
-    _initializeMetaApiBudget(tracker, userId, profile) {
-        if (!tracker || !(tracker.budgets instanceof Map)) return;
-        const safeUserId = String(userId || '').trim();
-        if (!safeUserId || tracker.budgets.has(safeUserId)) return;
-        const limits = normalizeActionLimits(profile || {});
-        const usage = {
-            hourly_actions_used: Number(profile?.hourly_actions_used || 0),
-            daily_actions_used: Number(profile?.daily_actions_used || 0),
-            monthly_actions_used: Number(profile?.monthly_actions_used || 0)
+    _buildAccountExecutionProfile(profile = {}, igAccount = {}) {
+        return {
+            ...profile,
+            hourly_action_limit: Number(profile?.hourly_action_limit ?? 0),
+            daily_action_limit: Number(profile?.daily_action_limit ?? 0),
+            monthly_action_limit: profile?.monthly_action_limit == null
+                ? null
+                : Number(profile?.monthly_action_limit || 0),
+            hourly_actions_used: Number(igAccount?.hourly_actions_used ?? 0),
+            daily_actions_used: Number(igAccount?.daily_actions_used ?? 0),
+            monthly_actions_used: Number(igAccount?.monthly_actions_used ?? 0)
         };
-        tracker.budgets.set(safeUserId, { limits, usage });
     }
 
-    _canConsumeMetaApiAction(tracker, userId, amount = 1) {
-        const safeUserId = String(userId || '').trim();
-        if (!tracker || !(tracker.budgets instanceof Map) || !safeUserId) {
+    _initializeMetaApiBudget(tracker, budgetKey, executionProfile) {
+        if (!tracker || !(tracker.budgets instanceof Map)) return;
+        const safeBudgetKey = String(budgetKey || '').trim();
+        if (!safeBudgetKey || tracker.budgets.has(safeBudgetKey)) return;
+        const limits = normalizeActionLimits(executionProfile || {});
+        const usage = {
+            hourly_actions_used: Number(executionProfile?.hourly_actions_used || 0),
+            daily_actions_used: Number(executionProfile?.daily_actions_used || 0),
+            monthly_actions_used: Number(executionProfile?.monthly_actions_used || 0)
+        };
+        tracker.budgets.set(safeBudgetKey, { limits, usage });
+    }
+
+    _canConsumeMetaApiAction(tracker, budgetKey, amount = 1) {
+        const safeBudgetKey = String(budgetKey || '').trim();
+        if (!tracker || !(tracker.budgets instanceof Map) || !safeBudgetKey) {
             return { allowed: false, code: 'execution_state_uncertain', reason: 'missing_meta_api_budget_tracker' };
         }
-        const budget = tracker.budgets.get(safeUserId);
+        const budget = tracker.budgets.get(safeBudgetKey);
         if (!budget) {
             return { allowed: false, code: 'execution_state_uncertain', reason: 'missing_meta_api_budget_state' };
         }
 
-        const pending = Number(tracker.counts.get(safeUserId) || 0);
+        const pending = Number(tracker.counts.get(safeBudgetKey) || 0);
         const delta = Math.max(1, Number(amount || 1));
         const nextHourly = Number(budget.usage.hourly_actions_used || 0) + pending + delta;
         const nextDaily = Number(budget.usage.daily_actions_used || 0) + pending + delta;
@@ -463,10 +477,10 @@ class DMWorker {
         if (!this.appwrite || typeof this.appwrite.incrementActionUsage !== 'function') return;
 
         for (const [userId, count] of tracker.counts.entries()) {
-            const safeUserId = String(userId || '').trim();
+            const safeBudgetKey = String(userId || '').trim();
             const safeCount = Math.max(0, Number(count || 0));
-            if (!safeUserId || safeCount <= 0) continue;
-            await this.appwrite.incrementActionUsage(safeUserId, safeCount).catch((error) => {
+            if (!safeBudgetKey || safeCount <= 0) continue;
+            await this.appwrite.incrementActionUsage(safeBudgetKey, safeCount).catch((error) => {
                 console.warn('Failed to increment Meta API action usage:', error?.message || error);
             });
         }
@@ -486,14 +500,14 @@ class DMWorker {
         return safeTracker;
     }
 
-    _createInstagramClient(accessToken, userId, tracker = null, profile = null) {
-        const safeUserId = String(userId || '').trim();
+    _createInstagramClient(accessToken, budgetKey, tracker = null, executionProfile = null) {
+        const safeBudgetKey = String(budgetKey || '').trim();
         const safeTracker = this._ensureMetaApiUsageTracker(tracker);
-        this._initializeMetaApiBudget(safeTracker, safeUserId, profile);
+        this._initializeMetaApiBudget(safeTracker, safeBudgetKey, executionProfile);
         return new InstagramAPI(accessToken, {
-            onBeforeRequest: async () => this._canConsumeMetaApiAction(safeTracker, safeUserId, 1),
+            onBeforeRequest: async () => this._canConsumeMetaApiAction(safeTracker, safeBudgetKey, 1),
             onRequestComplete: async () => {
-                this._trackMetaApiAction(safeTracker, safeUserId);
+                this._trackMetaApiAction(safeTracker, safeBudgetKey);
             }
         });
     }
@@ -608,17 +622,20 @@ class DMWorker {
                 }
             };
         }
-        const actionLimitGate = this._getActionLimitGate(profile);
+        const executionProfile = this._buildAccountExecutionProfile(profile, igAccount);
+        const actionLimitGate = this._getActionLimitGate(executionProfile);
         if (actionLimitGate.blocked) {
             return {
                 accessState,
                 profile,
+                executionProfile,
                 actionLimitGate
             };
         }
         return {
             accessState,
             profile,
+            executionProfile,
             actionLimitGate: {
                 blocked: false,
                 reason: null,
@@ -1520,7 +1537,7 @@ class DMWorker {
             return false;
         }
 
-        const { accessState, profile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
+        const { accessState, profile, executionProfile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
         if (actionLimitGate.blocked) {
             this._logAutomationDecision('comment', {
                 user_id: igAccount.user_id,
@@ -1532,7 +1549,8 @@ class DMWorker {
             return { handled: false, automationType: actionLimitGate.reason };
         }
 
-        const instagram = this._createInstagramClient(igAccount.access_token, igAccount.user_id, options?.metaApiUsageTracker, profile);
+        const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || commentEvent.recipientId).trim();
+        const instagram = this._createInstagramClient(igAccount.access_token, accountBudgetKey, options?.metaApiUsageTracker, executionProfile);
         const primaryAccountId = String(igAccount.ig_user_id || igAccount.account_id || commentEvent.recipientId).trim() || String(commentEvent.recipientId || '').trim();
         const automationAccountIds = this.getAutomationAccountIds(igAccount, primaryAccountId);
         const conversationKey = `${commentEvent.recipientId}:${commentEvent.senderId}`;
@@ -1588,7 +1606,7 @@ class DMWorker {
                 lastAutomationType = 'invalid_due_to_plan';
                 continue;
             }
-            const creditGate = this._getActionLimitGate(profile);
+            const creditGate = this._getActionLimitGate(executionProfile);
             if (creditGate.blocked) {
                 this._logAutomationDecision('comment', {
                     user_id: igAccount.user_id,
@@ -1726,7 +1744,7 @@ class DMWorker {
             return false;
         }
 
-        const { accessState, profile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
+        const { accessState, profile, executionProfile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
         if (actionLimitGate.blocked) {
             this._logAutomationDecision('mention', {
                 user_id: igAccount.user_id,
@@ -1738,7 +1756,8 @@ class DMWorker {
             return { handled: false, automationType: actionLimitGate.reason };
         }
 
-        const instagram = this._createInstagramClient(igAccount.access_token, igAccount.user_id, options?.metaApiUsageTracker, profile);
+        const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || mentionEvent.recipientId).trim();
+        const instagram = this._createInstagramClient(igAccount.access_token, accountBudgetKey, options?.metaApiUsageTracker, executionProfile);
         const primaryAccountId = String(igAccount.ig_user_id || igAccount.account_id || mentionEvent.recipientId).trim() || String(mentionEvent.recipientId || '').trim();
         const automationAccountIds = this.getAutomationAccountIds(igAccount, primaryAccountId);
         const conversationKey = `${mentionEvent.recipientId}:${mentionEvent.senderId}`;
@@ -1772,7 +1791,7 @@ class DMWorker {
             });
             return { handled: false, automationType: 'invalid_due_to_plan' };
         }
-        const creditGate = this._getActionLimitGate(profile);
+        const creditGate = this._getActionLimitGate(executionProfile);
         if (creditGate.blocked) {
             this._logAutomationDecision('mention', {
                 user_id: igAccount.user_id,
@@ -1953,7 +1972,7 @@ class DMWorker {
                 return false;
             }
             console.log(`IG account found: ${igAccount.username}`);
-            const { accessState, profile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
+            const { accessState, profile, executionProfile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
             if (actionLimitGate.blocked) {
                 this._logAutomationDecision('dm', {
                     user_id: igAccount.user_id,
@@ -1978,7 +1997,8 @@ class DMWorker {
                 return false;
             }
 
-            const instagram = this._createInstagramClient(accessToken, igAccount.user_id, options?.metaApiUsageTracker, profile);
+            const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || recipientId).trim();
+            const instagram = this._createInstagramClient(accessToken, accountBudgetKey, options?.metaApiUsageTracker, executionProfile);
             const conversationState = await this._getConversationState(primaryAccountId, conversationKey);
 
             const pendingEmailResult = await this._handlePendingEmailCollection({
@@ -2084,7 +2104,7 @@ class DMWorker {
                     automationType: 'invalid_due_to_plan'
                 };
             }
-            const creditGate = this._getActionLimitGate(profile);
+            const creditGate = this._getActionLimitGate(executionProfile);
             if (creditGate.blocked) {
                 this._logAutomationDecision('dm', {
                     user_id: igAccount.user_id,

@@ -186,12 +186,6 @@ def _load_free_plan_snapshot(client, db_id, pricing_collection_id):
         "hourly_action_limit": limits_snapshot["hourly_action_limit"],
         "daily_action_limit": limits_snapshot["daily_action_limit"],
         "monthly_action_limit": monthly_limit if monthly_limit > 0 else 0,
-        "hourly_actions_used": 0,
-        "daily_actions_used": 0,
-        "monthly_actions_used": 0,
-        "hourly_window_started_at": None,
-        "daily_window_started_at": None,
-        "monthly_window_started_at": None,
     }
 
 

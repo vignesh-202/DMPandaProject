@@ -8,7 +8,10 @@ import {
     Users,
     Instagram,
     CheckCircle2,
-    ChevronDown
+    ChevronDown,
+    ArrowDownRight,
+    ArrowUpRight,
+    RefreshCw
 } from 'lucide-react';
 import {
     ResponsiveContainer,
@@ -407,8 +410,12 @@ export const AnalyticsPage: React.FC = () => {
     const [trafficWindow, setTrafficWindow] = useState<TrafficWindowValue>('30d');
     const [revenueWindow, setRevenueWindow] = useState<RevenueWindowValue>('30d');
     const [revenueCustomRange, setRevenueCustomRange] = useState(() => buildPresetDateRange(30));
+    const [refreshNonce, setRefreshNonce] = useState(0);
+    const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
     const hasLoadedOnceRef = useRef(false);
     const latestRequestRef = useRef(0);
+    const revenueSectionRef = useRef<HTMLElement | null>(null);
+    const automationSectionRef = useRef<HTMLElement | null>(null);
     const deferredData = useDeferredValue(data);
     const displayData = deferredData ?? data;
 
@@ -435,6 +442,7 @@ export const AnalyticsPage: React.FC = () => {
                 startTransition(() => {
                     setData(response.data);
                 });
+                setLastUpdatedAt(new Date());
                 hasLoadedOnceRef.current = true;
             } catch (err: any) {
                 if (latestRequestRef.current !== requestId) return;
@@ -448,7 +456,7 @@ export const AnalyticsPage: React.FC = () => {
         };
 
         load();
-    }, [revenueCustomRange.end, revenueCustomRange.start, revenueWindow, trafficWindow]);
+    }, [refreshNonce, revenueCustomRange.end, revenueCustomRange.start, revenueWindow, trafficWindow]);
 
     const selectedTrafficWindow = TRAFFIC_WINDOWS.find((option) => option.value === trafficWindow)?.label || '30 days';
     const selectedRevenueWindow = REVENUE_WINDOWS.find((option) => option.value === revenueWindow)?.label || '30 days';
@@ -462,11 +470,25 @@ export const AnalyticsPage: React.FC = () => {
         setError(null);
         setRevenueWindow('custom');
     };
+    const triggerRefresh = () => {
+        if (loading || refreshing) return;
+        setRefreshNonce((current) => current + 1);
+    };
+    const lastUpdatedLabel = lastUpdatedAt
+        ? lastUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        : 'Waiting for first sync';
+    const refreshSurfaceClass = refreshing
+        ? 'relative overflow-hidden ring-1 ring-primary/10 before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-primary/80 before:to-transparent'
+        : '';
     const trafficChartData = useMemo(() => {
         const source = Array.isArray(displayData?.automation_traffic) ? displayData.automation_traffic : [];
         return source.map((entry: any) => ({
             ...entry,
-            value: Number(entry?.value || 0)
+            value: Number(entry?.value || 0),
+            successful: Number(entry?.successful || 0),
+            failed: Number(entry?.failed || 0),
+            skipped: Number(entry?.skipped || 0),
+            rolling_average: Number(entry?.rolling_average || 0)
         }));
     }, [displayData?.automation_traffic]);
     const trafficAverage = useMemo(() => {
@@ -495,6 +517,8 @@ export const AnalyticsPage: React.FC = () => {
         : selectedRevenueWindow;
     const metaHourlyCapacity = Number(displayData?.meta_pool?.capacity_per_hour || 0);
     const metaLinkedAccounts = Number(displayData?.meta_pool?.linked_accounts || 0);
+    const metaHourlyUsage = Number(displayData?.meta_pool?.usage_last_hour || displayData?.plan_pools?.hourly?.usage || displayData?.pool?.usage_last_hour || 0);
+    const metaHourlyUsagePercent = Number(displayData?.meta_pool?.usage_percent || 0);
     const planHourlyCapacity = Number(displayData?.plan_pools?.hourly?.capacity || displayData?.pool?.capacity_per_hour || 0);
     const planHourlyUsage = Number(displayData?.plan_pools?.hourly?.usage || displayData?.pool?.usage_last_hour || 0);
     const planHourlyUsagePercent = Number(displayData?.plan_pools?.hourly?.usage_percent || displayData?.pool?.usage_percent || 0);
@@ -505,12 +529,23 @@ export const AnalyticsPage: React.FC = () => {
     const planMonthlyUsage = Number(displayData?.plan_pools?.monthly?.usage || 0);
     const planMonthlyUsagePercent = Number(displayData?.plan_pools?.monthly?.usage_percent || 0);
     const hourlyBalanceValue = Number(displayData?.hourly_pool_balance?.gauge_value || 0);
-    const hourlyBalanceMax = Number(displayData?.hourly_pool_balance?.gauge_max || 0);
-    const hourlyBalanceHelper = planHourlyCapacity > metaHourlyCapacity
-        ? `User plans exceed Meta by ${numberFormatter.format(planHourlyCapacity - metaHourlyCapacity)} actions/hour.`
-        : metaHourlyCapacity > planHourlyCapacity
-            ? `Meta is ahead by ${numberFormatter.format(metaHourlyCapacity - planHourlyCapacity)} actions/hour.`
-            : 'Meta and user-plan hourly caps are aligned.';
+    const hourlyBalanceMax = Number(displayData?.hourly_pool_balance?.gauge_max || metaHourlyCapacity || 0);
+    const hourlyBalanceHelper = hourlyBalanceValue > metaHourlyCapacity
+        ? `Sold hourly limits exceed Meta by ${numberFormatter.format(hourlyBalanceValue - metaHourlyCapacity)} actions/hour.`
+        : metaHourlyCapacity > hourlyBalanceValue
+            ? `Meta still has ${numberFormatter.format(metaHourlyCapacity - hourlyBalanceValue)} actions/hour of headroom.`
+            : 'Meta and sold hourly plan limits are aligned.';
+    const peakTrafficPoint = trafficChartData.reduce((peak: any, row: any) => {
+        if (!peak || Number(row.value || 0) > Number(peak.value || 0)) return row;
+        return peak;
+    }, null);
+    const failureShare = statusTotal > 0 ? Math.round((Number(failedCount || 0) / statusTotal) * 100) : 0;
+    const averageSuccessfulTraffic = trafficChartData.length > 0
+        ? trafficChartData.reduce((sum: number, row: any) => sum + Number(row.successful || 0), 0) / trafficChartData.length
+        : 0;
+    const scrollToSection = (sectionRef: React.RefObject<HTMLElement | null>) => {
+        sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
     const metricCards = [
         { label: 'Revenue', value: moneyFormatter.format(revenueTotalForWindow), icon: TrendingUp, accent: 'bg-primary/12 text-primary' },
@@ -537,6 +572,51 @@ export const AnalyticsPage: React.FC = () => {
                         <p className="mt-3 text-sm font-medium leading-6 text-muted-foreground">
                             Revenue, delivery, usage, and account coverage in one clean view.
                         </p>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] ${refreshing ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border/70 bg-background/70 text-muted-foreground'}`}>
+                            <span className={`h-2 w-2 rounded-full ${refreshing ? 'animate-pulse bg-primary' : 'bg-emerald-500'}`} />
+                            {refreshing ? 'Refreshing live analytics' : `Last sync ${lastUpdatedLabel}`}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={triggerRefresh}
+                            disabled={loading || refreshing}
+                            className={`inline-flex items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs font-black uppercase tracking-[0.18em] transition-all ${refreshing ? 'border-primary/30 bg-primary/10 text-primary shadow-[0_18px_38px_-26px_rgba(14,165,233,0.8)]' : 'border-border/70 bg-background/75 text-foreground hover:border-primary/25 hover:text-primary'}`}
+                        >
+                            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                            {refreshing ? 'Refreshing' : 'Refresh Data'}
+                        </button>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <button
+                            type="button"
+                            onClick={() => scrollToSection(revenueSectionRef)}
+                            className="group rounded-[26px] border border-primary/25 bg-[linear-gradient(135deg,rgba(56,189,248,0.2),rgba(99,102,241,0.14),rgba(255,255,255,0.88))] p-5 text-left shadow-[0_24px_54px_-34px_rgba(56,189,248,0.7)] transition-transform duration-300 hover:-translate-y-0.5"
+                        >
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/80">Jump To</p>
+                                    <p className="mt-3 text-xl font-extrabold tracking-tight text-foreground">Revenue</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">Open the income trend, totals, and revenue window controls.</p>
+                                </div>
+                                <ArrowDownRight className="h-5 w-5 shrink-0 text-primary transition-transform duration-300 group-hover:translate-x-1 group-hover:translate-y-1" />
+                            </div>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => scrollToSection(automationSectionRef)}
+                            className="group rounded-[26px] border border-border/70 bg-[linear-gradient(135deg,rgba(16,185,129,0.16),rgba(14,165,233,0.12),rgba(255,255,255,0.92))] p-5 text-left shadow-[0_24px_54px_-34px_rgba(16,185,129,0.5)] transition-transform duration-300 hover:-translate-y-0.5"
+                        >
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Jump To</p>
+                                    <p className="mt-3 text-xl font-extrabold tracking-tight text-foreground">Automation Traffic</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">Go straight to delivery activity, range filters, and traffic signals.</p>
+                                </div>
+                                <ArrowDownRight className="h-5 w-5 shrink-0 text-emerald-600 transition-transform duration-300 group-hover:translate-x-1 group-hover:translate-y-1" />
+                            </div>
+                        </button>
                     </div>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                         <InsightTile label="Success" value={`${deliverySuccessRate}%`} note="Successful and skipped delivery share" />
@@ -570,9 +650,16 @@ export const AnalyticsPage: React.FC = () => {
                 <AdminGauge
                     label="Meta Hourly Pool"
                     sublabel="200 per linked Instagram account"
-                    value={metaHourlyCapacity}
+                    value={metaHourlyUsage}
                     max={Math.max(metaHourlyCapacity, 1)}
                     helper={`${numberFormatter.format(metaLinkedAccounts)} linked accounts define the platform cap.`}
+                    helperBelowValue={`${metaHourlyUsagePercent}% of Meta hourly capacity is currently in use.`}
+                    infoDescription="This gauge measures real hourly automation usage against the Meta platform ceiling."
+                    infoFormula="Numerator: sum of hourly_actions_used from all linked ig_accounts. Denominator: total linked ig_accounts × 200."
+                    infoNotes={[
+                        'Each linked Instagram account adds 200 hourly Meta actions to the pool.',
+                        'Usage comes only from ig_accounts, not from profile rows.'
+                    ]}
                 />
                 <AdminGauge
                     label="Hourly Limit Balance"
@@ -580,38 +667,73 @@ export const AnalyticsPage: React.FC = () => {
                     value={hourlyBalanceValue}
                     max={Math.max(hourlyBalanceMax, 1)}
                     helper={hourlyBalanceHelper}
+                    infoDescription="This gauge shows how much hourly capacity has been sold to linked Instagram accounts compared with the Meta hourly pool."
+                    infoFormula="Numerator: for each linked ig_account, sum the owning profile.hourly_action_limit. Denominator: total linked ig_accounts × 200."
+                    infoNotes={[
+                        'This is the oversell monitor for hourly automation capacity.',
+                        'A value above the denominator means customer plan limits exceed Meta hourly allocation.'
+                    ]}
                 />
                 <AdminGauge
                     label="User Plan Hourly Pool"
-                    sublabel="Current hourly usage against profile limits"
+                    sublabel="Linked users' hourly consumption against allocated hourly limits"
                     value={planHourlyUsage}
                     max={Math.max(planHourlyCapacity, 1)}
                     helper={`${planHourlyUsagePercent}% of hourly profile capacity is in use.`}
+                    infoDescription="This gauge shows total hourly usage against the hourly limits allocated to each linked Instagram account."
+                    infoFormula="Numerator: sum of hourly_actions_used across ig_accounts. Denominator: for each linked ig_account, add the owning profile.hourly_action_limit."
+                    infoNotes={[
+                        'Usage is tracked per Instagram account.',
+                        'Profile limits are counted once for every linked account owned by that profile.'
+                    ]}
                 />
                 <AdminGauge
                     label="User Plan Daily Pool"
-                    sublabel="Current daily usage against profile limits"
+                    sublabel="Linked users' daily consumption against allocated daily limits"
                     value={planDailyUsage}
                     max={Math.max(planDailyCapacity, 1)}
                     helper={`${planDailyUsagePercent}% of daily profile capacity is in use.`}
+                    infoDescription="This gauge shows total daily usage against daily limits allocated to linked Instagram accounts."
+                    infoFormula="Numerator: sum of daily_actions_used across ig_accounts. Denominator: for each linked ig_account, add the owning profile.daily_action_limit."
+                    infoNotes={[
+                        'Daily usage is stored on ig_accounts.',
+                        'Daily capacity is derived from owner profiles and counted per linked account.'
+                    ]}
                 />
                 <AdminGauge
                     label="User Plan Monthly Pool"
-                    sublabel="Current monthly usage against profile limits"
+                    sublabel="Linked users' monthly consumption against allocated monthly limits"
                     value={planMonthlyUsage}
                     max={Math.max(planMonthlyCapacity, 1)}
                     helper={`${planMonthlyUsagePercent}% of monthly profile capacity is in use.`}
+                    infoDescription="This gauge shows total monthly usage against monthly limits allocated to linked Instagram accounts."
+                    infoFormula="Numerator: sum of monthly_actions_used across ig_accounts. Denominator: for each linked ig_account, add the owning profile.monthly_action_limit."
+                    infoNotes={[
+                        'Monthly usage is stored on ig_accounts.',
+                        'Monthly capacity is derived from owner profiles and counted per linked account.'
+                    ]}
                 />
             </section>
 
             <section className="grid grid-cols-1 gap-7">
-                <div className={`${surfaceClass} p-5 sm:p-7 xl:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
+                <section ref={revenueSectionRef} className={`${surfaceClass} ${refreshSurfaceClass} p-5 sm:p-7 xl:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
-                            <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Revenue trend</h3>
+                            <div className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
+                                Revenue section
+                            </div>
+                            <h3 className="mt-4 text-[1.55rem] font-extrabold tracking-tight text-foreground">Revenue trend</h3>
                             <p className="mt-1 text-[11px] font-black text-muted-foreground">{revenueSummaryLabel}</p>
                         </div>
-                        <div className="w-full lg:max-w-[320px] lg:shrink-0">
+                        <div className="flex w-full flex-col gap-3 lg:max-w-[320px] lg:shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => scrollToSection(automationSectionRef)}
+                                className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-emerald-700 transition-colors hover:bg-emerald-500/15"
+                            >
+                                Automation Traffic
+                                <ArrowUpRight className="h-4 w-4" />
+                            </button>
                             <GraphFilterDropdown
                                 title="Revenue Range"
                                 options={REVENUE_WINDOWS}
@@ -630,7 +752,7 @@ export const AnalyticsPage: React.FC = () => {
                         </div>
                     </div>
                     <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.85fr)]">
-                        <div className="order-2 h-[260px] sm:h-[320px] xl:order-1 xl:h-[340px]">
+                        <div className={`order-2 h-[260px] sm:h-[320px] xl:order-1 xl:h-[340px] transition-all duration-300 ${refreshing ? 'scale-[0.995] saturate-[0.96]' : 'scale-100'}`}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={Array.isArray(displayData?.monthly_revenue) ? displayData.monthly_revenue : []}>
                                     <CartesianGrid strokeDasharray="4 4" stroke={chartGridStroke} vertical={false} />
@@ -659,15 +781,26 @@ export const AnalyticsPage: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <div className={`${surfaceClass} p-5 sm:p-7 xl:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
+                <section ref={automationSectionRef} className={`${surfaceClass} ${refreshSurfaceClass} p-5 sm:p-7 xl:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
-                            <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">Automation traffic</h3>
+                            <div className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
+                                Automation section
+                            </div>
+                            <h3 className="mt-4 text-[1.55rem] font-extrabold tracking-tight text-foreground">Automation traffic</h3>
                             <p className="mt-1 text-[11px] font-black text-muted-foreground">Last 30 days of stored delivery activity, shown across flexible traffic windows.</p>
                         </div>
-                        <div className="w-full lg:max-w-[320px] lg:shrink-0">
+                        <div className="flex w-full flex-col gap-3 lg:max-w-[320px] lg:shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => scrollToSection(revenueSectionRef)}
+                                className="inline-flex items-center justify-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-primary transition-colors hover:bg-primary/15"
+                            >
+                                Revenue
+                                <ArrowUpRight className="h-4 w-4" />
+                            </button>
                             <GraphFilterDropdown
                                 title="Automation Range"
                                 options={TRAFFIC_WINDOWS}
@@ -680,7 +813,7 @@ export const AnalyticsPage: React.FC = () => {
                         </div>
                     </div>
                     <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.85fr)]">
-                        <div className="order-2 h-[260px] sm:h-[320px] xl:order-1 xl:h-[340px]">
+                        <div className={`order-2 h-[260px] sm:h-[320px] xl:order-1 xl:h-[340px] transition-all duration-300 ${refreshing ? 'scale-[0.995] saturate-[0.96]' : 'scale-100'}`}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={trafficChartData}>
                                     <defs>
@@ -715,34 +848,94 @@ export const AnalyticsPage: React.FC = () => {
                                     />
                                     <Line
                                         type="monotone"
+                                        dataKey="successful"
+                                        name="Successful"
+                                        stroke="#22c55e"
+                                        strokeWidth={2.2}
+                                        dot={false}
+                                        activeDot={{ r: 4 }}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="failed"
+                                        name="Failed"
+                                        stroke="#ef4444"
+                                        strokeWidth={2.2}
+                                        dot={false}
+                                        activeDot={{ r: 4 }}
+                                    />
+                                    <Line
+                                        type="monotone"
                                         dataKey="value"
+                                        name="Total events"
                                         stroke="url(#adminTrafficGradient)"
                                         strokeWidth={3}
                                         dot={false}
                                         activeDot={{ r: 5 }}
                                         filter="url(#adminTrafficGlow)"
                                     />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="rolling_average"
+                                        name="Rolling avg"
+                                        stroke="#94a3b8"
+                                        strokeWidth={2}
+                                        strokeDasharray="7 7"
+                                        dot={false}
+                                        activeDot={{ r: 4 }}
+                                    />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
                         <div className="order-1 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:order-2 xl:grid-cols-1">
+                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                                <p className="text-[10px] font-black text-muted-foreground">Chart Layers</p>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                    <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
+                                        <span className="h-2.5 w-2.5 rounded-full bg-[linear-gradient(90deg,#22c55e,#38bdf8,#6366f1)]" />
+                                        Total events
+                                    </span>
+                                    <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
+                                        <span className="h-2.5 w-2.5 rounded-full bg-[#22c55e]" />
+                                        Successful
+                                    </span>
+                                    <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
+                                        <span className="h-2.5 w-2.5 rounded-full bg-[#ef4444]" />
+                                        Failed
+                                    </span>
+                                    <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
+                                        <span className="h-2.5 w-2.5 rounded-full border border-dashed border-slate-400" />
+                                        Rolling average
+                                    </span>
+                                </div>
+                            </div>
                             <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
                                 <p className="text-[10px] font-black text-muted-foreground">Active Automation Range</p>
                                 <p className="mt-3 text-2xl font-extrabold tracking-tight text-foreground">{trafficSummaryLabel}</p>
-                                <p className="mt-2 text-sm text-muted-foreground">
-                                    Average {trafficAverage.toFixed(1)} actions per {trafficFilterMeta.bucket === 'hour' ? 'hour' : 'point'}.
-                                </p>
-                            </div>
-                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
-                                <p className="text-[10px] font-black text-muted-foreground">Signals</p>
-                                <div className="mt-4 space-y-4">
-                                    <InsightTile label="Success Rate" value={`${deliverySuccessRate}%`} note="Success plus skipped events" />
-                                    <InsightTile label="Recent Revenue" value={moneyFormatter.format(latestRevenue)} note="Most recent day in trend" />
-                                </div>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                                Average {trafficAverage.toFixed(1)} actions per {trafficFilterMeta.bucket === 'hour' ? 'hour' : 'point'}.
+                            </p>
+                        </div>
+                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
+                            <p className="text-[10px] font-black text-muted-foreground">Signals</p>
+                            <div className="mt-4 space-y-4">
+                                <InsightTile label="Success Rate" value={`${deliverySuccessRate}%`} note="Success plus skipped events" />
+                                <InsightTile label="Failure Share" value={`${failureShare}%`} note="Share of failed traffic in the selected range" />
+                                <InsightTile
+                                    label="Peak Window"
+                                    value={peakTrafficPoint?.label || 'N/A'}
+                                    note={peakTrafficPoint ? `${numberFormatter.format(Number(peakTrafficPoint.value || 0))} total events at peak` : 'No traffic in the selected range'}
+                                />
+                                <InsightTile
+                                    label="Avg Successful"
+                                    value={numberFormatter.format(Number(averageSuccessfulTraffic.toFixed(1)))}
+                                    note={`Average successful or skipped events per ${trafficFilterMeta.bucket === 'hour' ? 'hour' : 'point'}`}
+                                />
                             </div>
                         </div>
+                        </div>
                     </div>
-                </div>
+                </section>
             </section>
 
             <section className="grid grid-cols-1 gap-7 2xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -758,7 +951,7 @@ export const AnalyticsPage: React.FC = () => {
                         data={Array.isArray(displayData?.linked_accounts_distribution) ? displayData.linked_accounts_distribution : []}
                     />
                 </div>
-                <div className={`${surfaceClass} p-6 sm:p-7 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
+                <div className={`${surfaceClass} ${refreshSurfaceClass} p-6 sm:p-7 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
                     <div className="mb-5">
                         <h3 className="text-[1.45rem] font-extrabold tracking-tight text-foreground">Recent failures</h3>
                         <p className="mt-1 text-[11px] font-black text-muted-foreground">Latest events in the active automation range</p>

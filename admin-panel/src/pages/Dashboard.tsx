@@ -123,7 +123,19 @@ export const Dashboard: React.FC = () => {
     );
 
     const topPlan = planDistribution[0];
-    const poolUsagePercent = Number(metrics?.pool?.usage_percent || 0);
+    const poolUsagePercent = Number(metrics?.plan_pools?.hourly?.usage_percent || 0);
+    const metaUsagePercent = Number(metrics?.meta_pool?.usage_percent || 0);
+    const metaHourlyUsage = Number(metrics?.meta_pool?.usage_last_hour || metrics?.plan_pools?.hourly?.usage || 0);
+    const metaHourlyCapacity = Number(metrics?.meta_pool?.capacity_per_hour || 0);
+    const planHourlyUsage = Number(metrics?.plan_pools?.hourly?.usage || metrics?.pool?.usage_last_hour || 0);
+    const planHourlyCapacity = Number(metrics?.plan_pools?.hourly?.capacity || metrics?.pool?.capacity_per_hour || 0);
+    const hourlyBalanceValue = Number(metrics?.hourly_pool_balance?.gauge_value || 0);
+    const hourlyBalanceMax = Number(metrics?.hourly_pool_balance?.gauge_max || metaHourlyCapacity || 0);
+    const hourlyBalanceHelper = hourlyBalanceValue > metaHourlyCapacity
+        ? `Sold hourly limits exceed Meta capacity by ${numberFormatter.format(hourlyBalanceValue - metaHourlyCapacity)} actions/hour.`
+        : hourlyBalanceValue < metaHourlyCapacity
+            ? `Meta still has ${numberFormatter.format(metaHourlyCapacity - hourlyBalanceValue)} actions/hour of headroom.`
+            : 'Sold hourly limits are exactly aligned with Meta hourly capacity.';
     const revenueLast30Days = Number(metrics?.revenue_last_30_days || 0);
     const revenueLast7Days = Number(metrics?.revenue_last_7_days || 0);
     const paidUsersCount = Number(metrics?.totals?.paid_users || 0);
@@ -188,20 +200,46 @@ export const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-4 lg:grid-cols-3">
                         <AdminGauge
                             label="Meta Hourly Pool"
                             sublabel="200 per linked Instagram account"
-                            value={Number(metrics?.meta_pool?.capacity_per_hour || 0)}
-                            max={Math.max(Number(metrics?.meta_pool?.capacity_per_hour || 0), 1)}
+                            value={metaHourlyUsage}
+                            max={Math.max(metaHourlyCapacity, 1)}
                             helper={`${numberFormatter.format(Number(metrics?.meta_pool?.linked_accounts || 0))} linked accounts define the platform cap.`}
+                            helperBelowValue={`${metaUsagePercent}% of Meta hourly capacity is currently in use.`}
+                            infoDescription="This gauge measures real hourly usage against the Meta platform cap."
+                            infoFormula="Numerator: sum of hourly_actions_used across all linked ig_accounts. Denominator: total linked ig_accounts × 200."
+                            infoNotes={[
+                                'Every linked Instagram account contributes 200 Meta hourly actions to the platform pool.',
+                                'The used side comes only from the ig_accounts collection.'
+                            ]}
+                        />
+                        <AdminGauge
+                            label="Hourly Limit Balance"
+                            sublabel="Sold hourly limits vs Meta hourly capacity"
+                            value={hourlyBalanceValue}
+                            max={Math.max(hourlyBalanceMax, 1)}
+                            helper={hourlyBalanceHelper}
+                            infoDescription="This gauge shows how much hourly capacity has been sold to linked Instagram accounts compared with the Meta platform pool."
+                            infoFormula="Numerator: for each linked ig_account, take the owning profile.hourly_action_limit and sum it. Denominator: total linked ig_accounts × 200."
+                            infoNotes={[
+                                'If the numerator is higher than the denominator, customer plan limits exceed the Meta hourly pool.',
+                                'This is the oversell risk indicator for hourly automation capacity.'
+                            ]}
                         />
                         <AdminGauge
                             label="User Plan Hourly Pool"
-                            sublabel="Current usage across all active account limits"
-                            value={Number(metrics?.pool?.usage_last_hour || 0)}
-                            max={Number(metrics?.pool?.capacity_per_hour || 0)}
+                            sublabel="Linked users' hourly consumption against allocated hourly limits"
+                            value={planHourlyUsage}
+                            max={Math.max(planHourlyCapacity, 1)}
                             helper={`${poolUsagePercent}% of hourly capacity is in use right now.`}
+                            infoDescription="This gauge shows how much hourly limit customers have used against the hourly limit allocated to every linked Instagram account."
+                            infoFormula="Numerator: sum of hourly_actions_used across all ig_accounts. Denominator: for each linked ig_account, sum the owning profile.hourly_action_limit."
+                            infoNotes={[
+                                'Usage is stored on ig_accounts.',
+                                'Limit capacity is read from the linked account owner profile and counted once per linked account.'
+                            ]}
                         />
                     </div>
                 </div>

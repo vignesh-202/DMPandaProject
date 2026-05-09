@@ -4,7 +4,8 @@ const {
     APPWRITE_DATABASE_ID,
     PRICING_COLLECTION_ID,
     PROFILES_COLLECTION_ID,
-    TRANSACTIONS_COLLECTION_ID
+    TRANSACTIONS_COLLECTION_ID,
+    IG_ACCOUNTS_COLLECTION_ID
 } = require('./appwrite');
 
 const parseJsonArray = (value) => {
@@ -750,6 +751,15 @@ const resolveEntitlementReplacementDecision = ({
 } = {}) => {
     const plans = Array.isArray(pricingPlans) ? pricingPlans : [];
     const freePlan = findPlanByIdentifier(plans, 'free') || normalizePlanDocument({ plan_code: 'free', name: 'Free Plan' });
+    const latestTransactionPlanId = normalizePlanCode(latestValidTransaction?.planId || latestValidTransaction?.plan?.plan_code || 'free') || 'free';
+    const latestTransactionDecision = latestValidTransaction ? {
+        plan: latestValidTransaction.plan || findPlanByIdentifier(plans, latestTransactionPlanId) || freePlan,
+        planId: latestTransactionPlanId,
+        planSource: 'payment',
+        billingCycle: latestValidTransaction.billingCycle || null,
+        expiryDate: latestValidTransaction.expiryDate || null,
+        clearAdminOverride: false
+    } : null;
     const override = parseAdminOverride(profile);
     if (override && hasActiveAdminOverride(override)) {
         return {
@@ -773,6 +783,12 @@ const resolveEntitlementReplacementDecision = ({
             reason: 'expired_admin_override'
         };
     }
+    if (!profile && latestTransactionDecision) {
+        return {
+            ...latestTransactionDecision,
+            reason: 'latest_valid_transaction_without_profile'
+        };
+    }
     if (!profile) {
         return {
             plan: freePlan,
@@ -787,6 +803,31 @@ const resolveEntitlementReplacementDecision = ({
     const runtimeIdentity = getRuntimePlanIdentity(profile);
     const runtimePlanId = runtimeIdentity.plan_code || 'free';
     const runtimeExpired = isExpiredSubscription(runtimePlanId, runtimeIdentity.expiry_date);
+    const runtimePlan = findPlanByIdentifier(plans, runtimePlanId) || null;
+    const runtimeSource = inferPlanSource(profile);
+    const runtimeExpiryMs = runtimeIdentity.expiry_date ? new Date(runtimeIdentity.expiry_date).getTime() : NaN;
+    const latestExpiryMs = latestValidTransaction?.expiryDate ? new Date(latestValidTransaction.expiryDate).getTime() : NaN;
+
+    if (latestTransactionDecision) {
+        const runtimePlanMissing = !runtimePlan;
+        const runtimeIsFree = normalizePlanCode(runtimePlanId) === 'free';
+        const paymentRuntimeMismatch = runtimeSource === 'payment'
+            && latestTransactionPlanId !== normalizePlanCode(runtimePlanId);
+        const paymentRuntimeOlderExpiry = runtimeSource === 'payment'
+            && Number.isFinite(latestExpiryMs)
+            && (!Number.isFinite(runtimeExpiryMs) || latestExpiryMs > runtimeExpiryMs + 1000);
+
+        if (runtimePlanMissing || runtimeIsFree || runtimeExpired || paymentRuntimeMismatch || paymentRuntimeOlderExpiry) {
+            return {
+                ...latestTransactionDecision,
+                clearAdminOverride: false,
+                reason: runtimeExpired
+                    ? 'latest_valid_transaction_restored_after_runtime_expiry'
+                    : 'latest_valid_transaction_restored'
+            };
+        }
+    }
+
     if (runtimeExpired) {
         return {
             plan: freePlan,
@@ -799,9 +840,9 @@ const resolveEntitlementReplacementDecision = ({
         };
     }
     return {
-        plan: findPlanByIdentifier(plans, runtimePlanId) || freePlan,
+        plan: runtimePlan || freePlan,
         planId: runtimePlanId,
-        planSource: inferPlanSource(profile),
+        planSource: runtimeSource,
         billingCycle: runtimeIdentity.billing_cycle,
         expiryDate: runtimeIdentity.expiry_date,
         clearAdminOverride: false,
@@ -910,6 +951,71 @@ const parseRuntimeLimits = (profile = null) => {
 
 const parseRuntimeFeatures = (profile = null) => {
     return parseProfileConfig(profile).feature_overrides;
+};
+
+const buildAccountActionLimitSnapshot = (limits = {}) => ({
+    hourly_action_limit: Number(limits?.hourly_action_limit || 0),
+    daily_action_limit: Number(limits?.daily_action_limit || 0),
+    monthly_action_limit: limits?.monthly_action_limit == null
+        ? 0
+        : Number(limits?.monthly_action_limit || 0)
+});
+
+const buildAccountActionUsageSnapshot = (account = {}) => ({
+    hourly_actions_used: Number(account?.hourly_actions_used || 0),
+    daily_actions_used: Number(account?.daily_actions_used || 0),
+    monthly_actions_used: Number(account?.monthly_actions_used || 0)
+});
+
+const buildAccountActionState = (account = {}, fallbackLimits = {}) => {
+    const limits = buildAccountActionLimitSnapshot(fallbackLimits);
+    return {
+        ...limits,
+        ...buildAccountActionUsageSnapshot({
+            hourly_actions_used: account?.hourly_actions_used ?? fallbackLimits?.hourly_actions_used,
+            daily_actions_used: account?.daily_actions_used ?? fallbackLimits?.daily_actions_used,
+            monthly_actions_used: account?.monthly_actions_used ?? fallbackLimits?.monthly_actions_used
+        })
+    };
+};
+
+const syncUserIgAccountLimitSnapshots = async (databases, userId, limits = {}) => {
+    const safeUserId = String(userId || '').trim();
+    if (!safeUserId) return [];
+
+    const response = await databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
+        Query.equal('user_id', safeUserId),
+        Query.limit(100)
+    ]).catch(() => ({ documents: [] }));
+    const accounts = Array.isArray(response?.documents) ? response.documents : [];
+    const nowIso = new Date().toISOString();
+
+    return Promise.all(accounts.map(async (account) => {
+        const patch = {};
+
+        ['hourly_actions_used', 'daily_actions_used', 'monthly_actions_used'].forEach((key) => {
+            if (account?.[key] == null) {
+                patch[key] = 0;
+            }
+        });
+
+        ['hourly_window_started_at', 'daily_window_started_at', 'monthly_window_started_at'].forEach((key) => {
+            if (!account?.[key]) {
+                patch[key] = nowIso;
+            }
+        });
+
+        if (Object.keys(patch).length === 0) {
+            return account;
+        }
+
+        try {
+            return await databases.updateDocument(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, account.$id, patch);
+        } catch (error) {
+            console.warn(`Failed to sync IG account limit snapshot for ${account.$id}:`, error?.message || error);
+            return account;
+        }
+    }));
 };
 
 const parseRuntimeLimitOverrides = (profile = null) => ({
@@ -1208,11 +1314,7 @@ const buildPlanProfilePayload = ({
         payload.credits = Number(currentProfile.credits || 0);
     }
 
-    if (preserveUsage && currentProfile) {
-        payload.hourly_actions_used = Number(currentProfile.hourly_actions_used || 0);
-        payload.daily_actions_used = Number(currentProfile.daily_actions_used || 0);
-        payload.monthly_actions_used = Number(currentProfile.monthly_actions_used || 0);
-    }
+    void preserveUsage;
 
     Object.keys(payload).forEach((key) => {
         if (payload[key] === undefined) {
@@ -1361,6 +1463,10 @@ module.exports = {
     calculateSubscriptionExpiry,
     parseRuntimeLimits,
     parseRuntimeFeatures,
+    buildAccountActionLimitSnapshot,
+    buildAccountActionUsageSnapshot,
+    buildAccountActionState,
+    syncUserIgAccountLimitSnapshots,
     getProfileBillingCycle,
     getRuntimePlanIdentity,
     inferPlanSource,
