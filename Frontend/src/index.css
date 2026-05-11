@@ -373,6 +373,20 @@
     }
   }
 
+  /* Ensure touch targets are at least 44px on mobile */
+  @media (max-width: 639px) {
+    button, a, [role="button"] {
+      min-height: 44px;
+    }
+    
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea,
+    select {
+      min-height: 44px;
+      font-size: 16px; /* Prevents iOS zoom on focus */
+    }
+  }
+
   /* Selection styling */
   ::selection {
     background-color: rgb(var(--primary) / 0.2);
@@ -986,8 +1000,14 @@ select,
   border: 1px solid rgb(var(--border));
   border-radius: var(--radius);
   color: rgb(var(--foreground));
-  font-size: 0.875rem;
+  font-size: 16px;
   transition: all 0.15s ease;
+}
+
+@media (min-width: 640px) {
+  .input-base {
+    font-size: 0.875rem;
+  }
 }
 
 .input-base::placeholder {
@@ -1076,7 +1096,7 @@ select,
     background-color: rgb(var(--input));
     padding: 0.75rem 2.85rem 0.75rem 0.95rem;
     color: rgb(var(--foreground));
-    font-size: 0.875rem;
+    font-size: 16px;
     outline: none;
     transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
     background-image:
@@ -1087,6 +1107,12 @@ select,
       calc(100% - 0.85rem) calc(50% - 0.12rem);
     background-size: 0.45rem 0.45rem, 0.45rem 0.45rem;
     background-repeat: no-repeat;
+  }
+
+  @media (min-width: 640px) {
+    .select-modern {
+      font-size: 0.875rem;
+    }
   }
 
   .select-modern:focus {

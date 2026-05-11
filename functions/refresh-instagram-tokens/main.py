@@ -1,6 +1,4 @@
 import os
-import json
-import ast
 import requests
 from appwrite.client import Client
 from appwrite.query import Query
@@ -29,27 +27,38 @@ def _update_document(client, db_id, collection_id, document_id, data):
     )
 
 
-def _parse_request_body(raw_body):
-    if isinstance(raw_body, dict):
-        return raw_body
-    text = str(raw_body or "").strip()
-    if not text:
-        return {}
-    try:
-        return json.loads(text)
-    except Exception:
-        try:
-            parsed = ast.literal_eval(text)
-            return parsed if isinstance(parsed, dict) else {}
-        except Exception:
-            return {}
+def _obj_get(value, key, default=None):
+    if isinstance(value, dict):
+        return value.get(key, default)
+    return getattr(value, key, default)
+
+
+def _request_header_map(context):
+    req = getattr(context, "req", None)
+    headers = getattr(req, "headers", None)
+    pairs = []
+    if isinstance(headers, dict):
+        pairs = headers.items()
+    elif isinstance(headers, list):
+        pairs = [
+            (_obj_get(item, "name", ""), _obj_get(item, "value", ""))
+            for item in headers
+        ]
+    return {
+        str(key or "").strip().lower(): str(value or "").strip().lower()
+        for key, value in pairs
+        if str(key or "").strip()
+    }
+
+
+def _is_dry_run_request(context):
+    headers = _request_header_map(context)
+    return headers.get("x-dry-run") in {"1", "true", "yes", "on"}
 
 # Scheduled function (every 30 days) to refresh Instagram access tokens.
 def main(context):
     try:
-        raw_body = getattr(getattr(context, "req", None), "body", None)
-        request_body = _parse_request_body(raw_body)
-        dry_run = request_body.get("dry_run") is True
+        dry_run = _is_dry_run_request(context)
 
         client = Client()
         client.set_endpoint(os.environ['APPWRITE_ENDPOINT'])

@@ -1,6 +1,4 @@
 import os
-import json
-import ast
 from datetime import datetime, timedelta, timezone
 
 from appwrite.client import Client
@@ -33,20 +31,27 @@ def _safe_int(value, fallback=0):
         return fallback
 
 
-def _parse_request_body(raw_body):
-    if isinstance(raw_body, dict):
-        return raw_body
-    text = str(raw_body or "").strip()
-    if not text:
-        return {}
-    try:
-        return json.loads(text)
-    except Exception:  # noqa: BLE001
-        try:
-            parsed = ast.literal_eval(text)
-            return parsed if isinstance(parsed, dict) else {}
-        except Exception:  # noqa: BLE001
-            return {}
+def _request_header_map(context) -> dict:
+    req = getattr(context, "req", None)
+    headers = getattr(req, "headers", None)
+    pairs = []
+    if isinstance(headers, dict):
+        pairs = headers.items()
+    elif isinstance(headers, list):
+        pairs = [
+            (_obj_get(item, "name", ""), _obj_get(item, "value", ""))
+            for item in headers
+        ]
+    return {
+        str(key or "").strip().lower(): str(value or "").strip().lower()
+        for key, value in pairs
+        if str(key or "").strip()
+    }
+
+
+def _is_dry_run_request(context) -> bool:
+    headers = _request_header_map(context)
+    return headers.get("x-dry-run") in {"1", "true", "yes", "on"}
 
 
 def _list_documents(client: Client, db_id: str, collection_id: str, queries=None):
@@ -89,9 +94,7 @@ def _list_accounts(client: Client, db_id: str, collection_id: str):
 
 def main(context):
     try:
-        raw_body = getattr(getattr(context, "req", None), "body", None)
-        request_body = _parse_request_body(raw_body)
-        dry_run = request_body.get("dry_run") is True
+        dry_run = _is_dry_run_request(context)
 
         client = Client()
         client.set_endpoint(_env("APPWRITE_ENDPOINT"))

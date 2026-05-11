@@ -840,12 +840,8 @@ class DMWorker {
             'suggest_more'
         );
 
-        if (!suggestMoreAutomation?.template_id) {
-            return false;
-        }
-
-        const suggestMoreTemplate = await this.appwrite.getTemplate(
-            suggestMoreAutomation.template_id,
+        const suggestMoreTemplate = await this._resolveAutomationTemplate(
+            suggestMoreAutomation,
             suggestMoreAutomation.account_id || automation?.account_id
         );
         if (!suggestMoreTemplate) {

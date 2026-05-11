@@ -37,7 +37,8 @@ function Invoke-RestExecution {
         [Parameter(Mandatory = $true)]
         [string]$TargetFunctionId,
         [Parameter(Mandatory = $true)]
-        [string]$ExecutionBody
+        [string]$ExecutionBody,
+        [hashtable]$ExecutionHeaders = @{}
     )
 
     $repoRoot = Split-Path $PSScriptRoot -Parent
@@ -56,12 +57,19 @@ function Invoke-RestExecution {
         "X-Appwrite-Key" = $apiKey
         "Content-Type" = "application/json"
     }
+    $requestHeaders = @{
+        "content-type" = "application/json"
+    }
+    foreach ($key in $ExecutionHeaders.Keys) {
+        $requestHeaders[$key] = [string]$ExecutionHeaders[$key]
+    }
+
     $payload = @{
         body = [string]$ExecutionBody
         async = $false
         path = "/"
         method = "POST"
-        headers = @{ "content-type" = "application/json" }
+        headers = $requestHeaders
     } | ConvertTo-Json -Depth 5
 
     return Invoke-RestMethod -Method Post -Uri "$endpoint/functions/$TargetFunctionId/executions" -Headers $headers -Body $payload
@@ -123,6 +131,11 @@ foreach ($item in $selected) {
         $safeBody = "{}"
     }
     Write-Host "Creating test execution for $($item.functionId)"
+    $executionHeaders = @{}
+    if ($item.functionId -in @("reset-user-action-budgets", "refresh-instagram-tokens") -and $safeBody -match '"dry_run"\s*:\s*(true|1)') {
+        $executionHeaders["x-dry-run"] = "true"
+        $safeBody = "{}"
+    }
     $commandLine = Join-AppwriteCommand -Args @(
         "functions", "create-execution",
         "--function-id", $item.functionId,
@@ -135,7 +148,7 @@ foreach ($item in $selected) {
     if ($result.ExitCode -ne 0) {
         if ($rawOutput -match 'not valid JSON') {
             Write-Host "CLI execution failed; falling back to REST for $($item.functionId)"
-            $execution = Invoke-RestExecution -TargetFunctionId $item.functionId -ExecutionBody $safeBody
+            $execution = Invoke-RestExecution -TargetFunctionId $item.functionId -ExecutionBody $safeBody -ExecutionHeaders $executionHeaders
         } else {
             throw "Failed to create execution for $($item.functionId): $rawOutput"
         }

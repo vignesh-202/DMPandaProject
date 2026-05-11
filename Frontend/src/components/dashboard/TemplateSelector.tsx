@@ -122,6 +122,35 @@ export const prefetchReplyTemplates = async (
   return result.templates;
 };
 
+export const fetchReplyTemplateById = async (
+  activeAccountID: string,
+  authenticatedFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+  templateId?: string | null
+) => {
+  const normalizedTemplateId = String(templateId || '').trim();
+  if (!activeAccountID || !normalizedTemplateId) return null;
+
+  const cachedTemplate = templatesCache[activeAccountID]?.templates?.find((template) => template.id === normalizedTemplateId) || null;
+  if (cachedTemplate?.template_data && Object.keys(cachedTemplate.template_data || {}).length > 0) {
+    return cachedTemplate;
+  }
+
+  const res = await authenticatedFetch(
+    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${normalizedTemplateId}?account_id=${activeAccountID}`
+  );
+  if (!res.ok) {
+    return cachedTemplate;
+  }
+
+  const fullTemplate = await res.json();
+  const currentTemplates = templatesCache[activeAccountID]?.templates || [];
+  const nextTemplates = currentTemplates.some((template) => template.id === normalizedTemplateId)
+    ? currentTemplates.map((template) => template.id === normalizedTemplateId ? fullTemplate : template)
+    : [...currentTemplates, fullTemplate];
+  templatesCache[activeAccountID] = { templates: nextTemplates, timestamp: Date.now() };
+  return fullTemplate;
+};
+
 const TemplateSelector: React.FC<TemplateSelectorProps> = ({
   selectedTemplateId,
   onSelect,
@@ -174,19 +203,13 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
     if (!template.template_data || Object.keys(template.template_data).length === 0) {
       setLoadingTemplateIds(prev => new Set(prev).add(template.id));
       try {
-        const res = await authenticatedFetch(
-          `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${template.id}?account_id=${activeAccountID}`
-        );
-        if (res.ok) {
-          const fullTemplate = await res.json();
+        const fullTemplate = await fetchReplyTemplateById(activeAccountID || '', authenticatedFetch, template.id);
+        if (fullTemplate) {
           let nextTemplates: ReplyTemplate[] = [];
           setTemplates(prev => {
             nextTemplates = prev.map(t => t.id === template.id ? fullTemplate : t);
             return nextTemplates;
           });
-          if (activeAccountID) {
-            templatesCache[activeAccountID] = { templates: nextTemplates, timestamp: Date.now() };
-          }
           onTemplatesLoaded?.(nextTemplates);
           onSelect(fullTemplate);
         } else {

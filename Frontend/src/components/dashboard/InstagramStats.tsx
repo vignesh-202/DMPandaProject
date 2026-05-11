@@ -42,12 +42,12 @@ const StatItem = ({
 }) => (
   <button
     onClick={onToggle}
-    className="flex-1 text-center group/stat cursor-pointer min-w-0 py-1.5 rounded-full hover:bg-secondary transition-colors"
+    className="flex-1 text-center group/stat cursor-pointer min-w-0 py-1 sm:py-1.5 px-0.5 sm:px-1 rounded-full hover:bg-secondary transition-colors"
   >
-    <span className="block font-semibold text-foreground text-sm sm:text-base leading-tight transition-all duration-200">
+    <span className="block font-semibold text-foreground text-xs sm:text-base leading-tight transition-all duration-200">
       {showExact ? value.toLocaleString() : formatNumber(value)}
     </span>
-    <span className="text-2xs uppercase font-medium tracking-wider text-muted-foreground group-hover/stat:text-foreground transition-colors">
+    <span className="text-[9px] sm:text-2xs uppercase font-medium tracking-tight sm:tracking-wider text-muted-foreground group-hover/stat:text-foreground transition-colors">
       {label}
     </span>
   </button>

@@ -744,7 +744,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                     <Ghost className="w-10 h-10 text-gray-400" />
                                 </div>
                                 <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
-                                    {type === 'mention' ? "No Mentions Found" : `No ${type.charAt(0).toUpperCase() + type.slice(1)}s Found`}
+                                    {type === 'mention' ? "No Mentions Found" : type === 'story' ? "No Stories Found" : `No ${type.charAt(0).toUpperCase() + type.slice(1)}s Found`}
                                 </h3>
                                 <div className="text-gray-500 dark:text-gray-400 max-w-lg leading-relaxed mb-8 text-sm font-medium">
                                     {type === 'story' ? (

@@ -9,7 +9,8 @@ const getAppwriteClient = (options = {}) => {
     const { useApiKey = false, sessionToken = null, headers = {} } = options;
     const client = new Client()
         .setEndpoint(APPWRITE_ENDPOINT)
-        .setProject(APPWRITE_PROJECT_ID);
+        .setProject(APPWRITE_PROJECT_ID)
+        .setSelfSigned(true);
 
     if (useApiKey) {
         client.setKey(APPWRITE_API_KEY);

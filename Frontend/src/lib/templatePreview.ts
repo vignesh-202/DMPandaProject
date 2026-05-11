@@ -213,7 +213,7 @@ export const resolveSelectedSharePostPreview = async ({
         caption: matchedItem.caption || '',
         media_type: matchedItem.media_type || '',
         permalink: matchedItem.permalink || '',
-        latest_post_type: matchedItem.media_type === 'VIDEO' ? 'reel' : 'post',
+        latest_post_type: 'post',
         use_latest_post: false
       };
 
@@ -238,7 +238,10 @@ export const buildPreviewAutomationFromTemplate = (
   if (!templateType) return null;
 
   const data = parseTemplatePreviewData(template?.template_data);
-  const preferredSharePostUrl = getPreferredSharePostPreviewUrl({ template_data: data });
+  const isLatestSharePostTemplate = templateType === 'template_share_post' && !!data.use_latest_post;
+  const preferredSharePostUrl = isLatestSharePostTemplate
+    ? ''
+    : getPreferredSharePostPreviewUrl({ template_data: data });
 
   return {
     template_type: templateType as any,
@@ -258,12 +261,12 @@ export const buildPreviewAutomationFromTemplate = (
         : undefined,
     media_id: templateType === 'template_share_post' ? data.media_id : undefined,
     media_url: templateType === 'template_share_post' ? preferredSharePostUrl : undefined,
-    thumbnail_url: templateType === 'template_share_post' ? data.thumbnail_url : undefined,
-    preview_media_url: templateType === 'template_share_post' ? data.preview_media_url : undefined,
-    linked_media_url: templateType === 'template_share_post' ? data.linked_media_url : undefined,
-    caption: templateType === 'template_share_post' ? data.caption : undefined,
-    media_type: templateType === 'template_share_post' ? data.media_type : undefined,
-    permalink: templateType === 'template_share_post' ? data.permalink : undefined,
+    thumbnail_url: templateType === 'template_share_post' && !isLatestSharePostTemplate ? data.thumbnail_url : undefined,
+    preview_media_url: templateType === 'template_share_post' && !isLatestSharePostTemplate ? data.preview_media_url : undefined,
+    linked_media_url: templateType === 'template_share_post' && !isLatestSharePostTemplate ? data.linked_media_url : undefined,
+    caption: templateType === 'template_share_post' && !isLatestSharePostTemplate ? data.caption : undefined,
+    media_type: templateType === 'template_share_post' && !isLatestSharePostTemplate ? data.media_type : undefined,
+    permalink: templateType === 'template_share_post' && !isLatestSharePostTemplate ? data.permalink : undefined,
     use_latest_post: templateType === 'template_share_post' ? data.use_latest_post : undefined,
     latest_post_type: templateType === 'template_share_post' ? data.latest_post_type : undefined,
     template_data: data

@@ -9,7 +9,7 @@ import AutomationPreviewPanel from '../../components/dashboard/AutomationPreview
 import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
 import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
-import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
+import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate } from '../../components/dashboard/TemplateSelector';
 import AutomationToast from '../../components/ui/AutomationToast';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
@@ -29,6 +29,7 @@ const SuggestMoreView: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState<ReplyTemplate | null>(null);
+    const [isSelectedTemplateLoading, setIsSelectedTemplateLoading] = useState(false);
     const [showTemplateSelector, setShowTemplateSelector] = useState(true);
     const [isActive, setIsActive] = useState(true);
     const [success, setSuccess] = useState<string | null>(null);
@@ -76,15 +77,13 @@ const SuggestMoreView: React.FC = () => {
                 const templateId = String(data.template_id || '').trim();
                 if (templateId) {
                     try {
+                        setIsSelectedTemplateLoading(true);
                         if (templateCacheRef.current[templateId]) {
                             setSelectedTemplate(templateCacheRef.current[templateId]);
                             setShowTemplateSelector(false);
                         } else {
-                            const templateRes = await authenticatedFetch(
-                                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${templateId}?account_id=${activeAccountID}`
-                            );
-                            if (templateRes.ok) {
-                                const templateData = await templateRes.json();
+                            const templateData = await fetchReplyTemplateById(activeAccountID, authenticatedFetch, templateId);
+                            if (templateData) {
                                 templateCacheRef.current[templateId] = templateData;
                                 setSelectedTemplate(templateData);
                                 setShowTemplateSelector(false);
@@ -92,9 +91,12 @@ const SuggestMoreView: React.FC = () => {
                         }
                     } catch (err) {
                         console.error('Error fetching template:', err);
+                    } finally {
+                        setIsSelectedTemplateLoading(false);
                     }
                 } else {
                     setSelectedTemplate(null);
+                    setIsSelectedTemplateLoading(false);
                     setShowTemplateSelector(true);
                 }
             }
@@ -179,6 +181,7 @@ const SuggestMoreView: React.FC = () => {
             setIsActive(Boolean(config.is_active));
             const restoredTemplate = config.template_id ? (templateCacheRef.current[config.template_id] || null) : null;
             setSelectedTemplate(restoredTemplate);
+            setIsSelectedTemplateLoading(false);
             setShowTemplateSelector(!restoredTemplate);
         });
     }, [config.is_active, config.template_id, handleSave, isDirty, setDiscardUnsavedChanges, setHasUnsavedChanges, setSaveUnsavedChanges]);
@@ -290,6 +293,7 @@ const SuggestMoreView: React.FC = () => {
                             <TemplateSelector
                                 selectedTemplateId={selectedTemplate?.id}
                                 onSelect={(template) => {
+                                    setIsSelectedTemplateLoading(false);
                                     setSelectedTemplate(template);
                                     setShowTemplateSelector(!template);
                                 }}
@@ -331,6 +335,7 @@ const SuggestMoreView: React.FC = () => {
                             profilePic={activeAccount?.profile_picture_url}
                             displayName={activeAccount?.username || 'username'}
                             lockScroll
+                            isLoadingPreview={isSelectedTemplateLoading}
                         />
                     ) : (
                         <SharedMobilePreview
@@ -341,6 +346,7 @@ const SuggestMoreView: React.FC = () => {
                             profilePic={activeAccount?.profile_picture_url || undefined}
                             displayName={activeAccount?.username || 'username'}
                             lockScroll
+                            isLoadingPreview={isSelectedTemplateLoading}
                         />
                     )}
                 </AutomationPreviewPanel>
@@ -359,4 +365,3 @@ const SuggestMoreView: React.FC = () => {
 };
 
 export default SuggestMoreView;
-

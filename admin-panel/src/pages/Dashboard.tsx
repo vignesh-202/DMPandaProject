@@ -187,10 +187,10 @@ export const Dashboard: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="w-full shrink-0 xl:w-96">
-                            <div className="rounded-[26px] border border-border/70 bg-background/70 p-5">
+                        <div className="w-full shrink-0 xl:max-w-96">
+                            <div className="rounded-[26px] border border-border/70 bg-background/70 p-4 sm:p-5">
                                 <p className="text-[10px] font-black text-muted-foreground">Plan Leader</p>
-                                <p className="mt-3 text-2xl font-extrabold text-foreground">{topPlan?.name || 'No plan data'}</p>
+                                <p className="mt-3 text-xl sm:text-2xl font-extrabold text-foreground">{topPlan?.name || 'No plan data'}</p>
                                 <p className="mt-2 text-sm text-muted-foreground">
                                     {topPlan
                                         ? `${numberFormatter.format(topPlan.value)} users are on the leading plan.`
@@ -200,7 +200,7 @@ export const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid gap-4 lg:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <AdminGauge
                             label="Meta Hourly Pool"
                             sublabel="200 per linked Instagram account"
@@ -245,25 +245,25 @@ export const Dashboard: React.FC = () => {
                 </div>
             </section>
 
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+            <section className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
                 {overviewCards.map((card) => (
-                    <div key={card.label} className={`${surfaceClass} px-5 py-5`}>
-                        <div className="flex items-start justify-between gap-4">
-                            <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl', card.tone)}>
-                                <card.icon className="h-5 w-5" />
+                    <div key={card.label} className={`${surfaceClass} px-4 py-4 sm:px-5 sm:py-5`}>
+                        <div className="flex items-start justify-between gap-2 sm:gap-4">
+                            <div className={cn('flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl sm:rounded-2xl', card.tone)}>
+                                <card.icon className="h-4 w-4 sm:h-5 sm:w-5" />
                             </div>
-                            <p className="text-right text-[10px] font-black text-muted-foreground">{card.label}</p>
+                            <p className="text-right text-[9px] sm:text-[10px] font-black text-muted-foreground">{card.label}</p>
                         </div>
-                        <p className="mt-5 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
+                        <p className="mt-3 sm:mt-5 text-lg sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
                     </div>
                 ))}
             </section>
 
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,23.75rem)]">
-                <div className={`${surfaceClass} p-6 sm:p-7`}>
-                    <div className="mb-6 flex items-center justify-between gap-4">
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(16rem,23.75rem)]">
+                <div className={`${surfaceClass} p-4 sm:p-6 lg:p-7`}>
+                    <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h2 className="text-xl font-extrabold text-foreground">Revenue Pulse</h2>
+                            <h2 className="text-lg sm:text-xl font-extrabold text-foreground">Revenue Pulse</h2>
                             <p className="mt-1 text-xs font-black text-muted-foreground">Last 30 days</p>
                         </div>
                         <div className="status-pill border border-border bg-background/70 text-foreground">
@@ -272,26 +272,26 @@ export const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black text-muted-foreground">30 day revenue</p>
-                            <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenueLast30Days)}</p>
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                        <div className="rounded-[20px] sm:rounded-[24px] border border-border/70 bg-background/60 px-3 py-3 sm:px-5 sm:py-4">
+                            <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground">30 day revenue</p>
+                            <p className="mt-2 text-base sm:text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenueLast30Days)}</p>
                         </div>
-                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black text-muted-foreground">7 day revenue</p>
-                            <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenueLast7Days)}</p>
+                        <div className="rounded-[20px] sm:rounded-[24px] border border-border/70 bg-background/60 px-3 py-3 sm:px-5 sm:py-4">
+                            <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground">7 day revenue</p>
+                            <p className="mt-2 text-base sm:text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenueLast7Days)}</p>
                         </div>
-                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black text-muted-foreground">Avg / day</p>
-                            <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(averageDailyRevenue)}</p>
+                        <div className="rounded-[20px] sm:rounded-[24px] border border-border/70 bg-background/60 px-3 py-3 sm:px-5 sm:py-4">
+                            <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground">Avg / day</p>
+                            <p className="mt-2 text-base sm:text-2xl font-extrabold text-foreground">{moneyFormatter.format(averageDailyRevenue)}</p>
                         </div>
-                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black text-muted-foreground">Revenue / paid user</p>
-                            <p className="mt-2 text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenuePerPaidUser)}</p>
+                        <div className="rounded-[20px] sm:rounded-[24px] border border-border/70 bg-background/60 px-3 py-3 sm:px-5 sm:py-4">
+                            <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground">Revenue / paid user</p>
+                            <p className="mt-2 text-base sm:text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenuePerPaidUser)}</p>
                         </div>
                     </div>
 
-                    <div className="mt-6 h-[240px] sm:h-[300px]">
+                    <div className="mt-4 sm:mt-6 h-[200px] sm:h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={revenueTrend}>
                                 <defs>
@@ -349,11 +349,11 @@ export const Dashboard: React.FC = () => {
                 </div>
             </section>
 
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,23.75rem)]">
-                <div className={`${surfaceClass} p-6 sm:p-7`}>
-                    <div className="mb-6 flex items-center justify-between gap-4">
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(16rem,23.75rem)]">
+                <div className={`${surfaceClass} p-4 sm:p-6 lg:p-7`}>
+                    <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h2 className="text-xl font-extrabold text-foreground">User Growth</h2>
+                            <h2 className="text-lg sm:text-xl font-extrabold text-foreground">User Growth</h2>
                             <p className="mt-1 text-xs font-black text-muted-foreground">Last 7 days</p>
                         </div>
                         <div className="status-pill border border-border bg-background/70 text-foreground">
@@ -361,7 +361,7 @@ export const Dashboard: React.FC = () => {
                             Signup trend
                         </div>
                     </div>
-                    <div className="h-[240px] sm:h-[300px]">
+                    <div className="h-[200px] sm:h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={growthData}>
                                 <defs>
@@ -440,11 +440,11 @@ export const Dashboard: React.FC = () => {
                 </div>
             </section>
 
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,22.5rem)]">
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(16rem,22.5rem)]">
                 <div className={`${surfaceClass} overflow-hidden`}>
-                    <div className="flex items-center justify-between border-b border-border/70 px-6 py-5 sm:px-7">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 px-4 py-4 sm:px-6 sm:py-5 lg:px-7">
                         <div>
-                            <h2 className="text-xl font-extrabold text-foreground">Recent Users</h2>
+                            <h2 className="text-lg sm:text-xl font-extrabold text-foreground">Recent Users</h2>
                             <p className="mt-1 text-xs font-black text-muted-foreground">Latest signups</p>
                         </div>
                         <div className="status-pill border border-border bg-background/70 text-foreground">
@@ -454,9 +454,9 @@ export const Dashboard: React.FC = () => {
                     </div>
                     <div className="divide-y divide-border/70">
                         {recentUsers.length === 0 ? (
-                            <div className="px-6 py-12 text-center text-sm text-muted-foreground">No recent users available.</div>
+                            <div className="px-4 sm:px-6 py-12 text-center text-sm text-muted-foreground">No recent users available.</div>
                         ) : recentUsers.map((user) => (
-                            <div key={user.$id} className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+                            <div key={user.$id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5 lg:px-7">
                                 <div className="min-w-0">
                                     <p className="truncate text-sm font-bold text-foreground">{user.name || 'Unnamed User'}</p>
                                     <p className="truncate text-xs text-muted-foreground">{user.email}</p>

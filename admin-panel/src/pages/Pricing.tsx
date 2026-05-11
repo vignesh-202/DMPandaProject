@@ -296,21 +296,21 @@ export const PricingPage: React.FC = () => {
 
   return (
     <div className="space-y-9 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <section className={`${surfaceClass} overflow-hidden p-7 sm:p-9`}>
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_420px] xl:items-start">
+      <section className={`${surfaceClass} overflow-hidden p-5 sm:p-7 lg:p-9`}>
+        <div className="grid gap-6 lg:gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,380px)] xl:items-start">
           <div className="space-y-5">
             <div className="inline-flex rounded-full border border-primary/20 bg-gradient-to-r from-primary/12 to-transparent px-3 py-1 text-[10px] font-black text-primary">
               Pricing Control
             </div>
             <div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Plan management</h1>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground">Plan management</h1>
               <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-muted-foreground">
                 Keep summaries visible. Open a plan only when you need to tune billing, limits, or feature copy.
               </p>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <StatTile label="Plans" value={String(stats.totalPlans)} />
             <StatTile label="Popular" value={String(stats.popularPlans)} />
             <StatTile label="Custom" value={String(stats.customPlans)} />
@@ -326,11 +326,11 @@ export const PricingPage: React.FC = () => {
 
           return (
             <article key={plan.id} className={`${surfaceClass} overflow-hidden`}>
-              <div className="border-b border-border/60 px-6 py-6 sm:px-8">
-                <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+              <div className="border-b border-border/60 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+                <div className="flex flex-col gap-4 lg:gap-6 xl:flex-row xl:items-start xl:justify-between">
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-[1.7rem] font-extrabold tracking-tight text-foreground">{plan.name}</h2>
+                      <h2 className="text-xl sm:text-[1.7rem] font-extrabold tracking-tight text-foreground">{plan.name}</h2>
                       <span className="rounded-full border border-border/70 bg-background/60 px-3 py-1 text-[10px] font-black text-muted-foreground">
                         {plan.plan_code || 'no code'}
                       </span>
@@ -346,7 +346,7 @@ export const PricingPage: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
                       <SummaryMetric
                         icon={BadgeIndianRupee}
                         label="Monthly"

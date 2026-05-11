@@ -74,11 +74,11 @@ export const SettingsPage: React.FC = () => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div>
-                <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-4xl">Global Settings</h1>
-                <p className="mt-2 text-gray-500 dark:text-neutral-400">Manage the shared watermark policy with safe fallback behavior.</p>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white">Global Settings</h1>
+                <p className="mt-2 text-sm text-gray-500 dark:text-neutral-400">Manage the shared watermark policy with safe fallback behavior.</p>
             </div>
 
-            <div className="glass-card rounded-[32px] p-6 shadow-sm space-y-6">
+            <div className="glass-card rounded-[24px] sm:rounded-[32px] p-4 sm:p-6 shadow-sm space-y-6">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
                         <p className="text-sm font-semibold text-muted-foreground">Watermark policy</p>
@@ -131,7 +131,7 @@ export const SettingsPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-[1.1fr,0.9fr] gap-4">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr,0.9fr]">
                     <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
                         <label className="text-sm font-semibold text-muted-foreground">Placement strategy</label>
                         <div className="mt-3 space-y-3">

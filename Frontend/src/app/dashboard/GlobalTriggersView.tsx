@@ -11,7 +11,7 @@ import ModernCalendar from '../../components/ui/ModernCalendar';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
-import TemplateSelector, { ReplyTemplate, prefetchReplyTemplates } from '../../components/dashboard/TemplateSelector';
+import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate, prefetchReplyTemplates } from '../../components/dashboard/TemplateSelector';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
 import AutomationEditor from '../../components/dashboard/AutomationEditor';
 import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
@@ -44,6 +44,7 @@ const GlobalTriggersView: React.FC = () => {
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
     const [prefetchedTemplate, setPrefetchedTemplate] = useState<ReplyTemplate | null>(null);
     const [previewTemplate, setPreviewTemplate] = useState<ReplyTemplate | null>(null);
+    const [isPreviewTemplateLoading, setIsPreviewTemplateLoading] = useState(false);
     const templateCacheRef = useRef<Record<string, ReplyTemplate>>({});
     const [refreshing, setRefreshing] = useState(false);
     const [isPreparingEditor, setIsPreparingEditor] = useState(false);
@@ -114,11 +115,14 @@ const GlobalTriggersView: React.FC = () => {
         let cancelled = false;
         if (!selectedTemplateId) {
             setPreviewTemplate(null);
+            setIsPreviewTemplateLoading(false);
             return;
         }
 
-        if (templateCacheRef.current[selectedTemplateId]) {
-            setPreviewTemplate(templateCacheRef.current[selectedTemplateId]);
+        const cachedTemplate = templateCacheRef.current[selectedTemplateId] || null;
+        if (cachedTemplate?.template_data && Object.keys(cachedTemplate.template_data || {}).length > 0) {
+            setPreviewTemplate(cachedTemplate);
+            setIsPreviewTemplateLoading(false);
             return;
         }
 
@@ -128,17 +132,16 @@ const GlobalTriggersView: React.FC = () => {
         if (hasData) {
             setPreviewTemplate(inList);
             templateCacheRef.current[selectedTemplateId] = inList;
+            setIsPreviewTemplateLoading(false);
             return;
         }
 
         (async () => {
             try {
-                const res = await authenticatedFetch(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${selectedTemplateId}?account_id=${activeAccountID}`
-                );
+                setIsPreviewTemplateLoading(true);
+                const fullTemplate = await fetchReplyTemplateById(activeAccountID || '', authenticatedFetch, selectedTemplateId);
                 if (!cancelled) {
-                    if (res.ok) {
-                        const fullTemplate = await res.json();
+                    if (fullTemplate) {
                         setPreviewTemplate(fullTemplate);
                         templateCacheRef.current[selectedTemplateId] = fullTemplate;
                     } else {
@@ -147,6 +150,8 @@ const GlobalTriggersView: React.FC = () => {
                 }
             } catch (_) {
                 if (!cancelled) setPreviewTemplate(inList);
+            } finally {
+                if (!cancelled) setIsPreviewTemplateLoading(false);
             }
         })();
 
@@ -462,6 +467,7 @@ const GlobalTriggersView: React.FC = () => {
                                             profilePic={profilePic}
                                             lockScroll
                                             hideAutomationPrompt
+                                            isLoadingPreview={isPreviewTemplateLoading}
                                         />
                                     );
                                 }
@@ -481,6 +487,7 @@ const GlobalTriggersView: React.FC = () => {
                                         profilePic={profilePic}
                                         lockScroll
                                         hideAutomationPrompt
+                                        isLoadingPreview={isPreviewTemplateLoading}
                                     />
                                 );
                             })()}

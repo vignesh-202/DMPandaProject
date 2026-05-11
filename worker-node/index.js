@@ -4,6 +4,8 @@ const cors = require('cors');
 const morgan = require('morgan');
 require('dotenv').config();
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const DMWorker = require('./src/worker');
 const StreamerClient = require('./src/streamer-client');
 

@@ -5,7 +5,7 @@
     "runtime": "python-3.9",
     "path": "audit-media-automations",
     "entrypoint": "main.py",
-    "buildCommands": "pip install appwrite python-dotenv requests",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
     "schedule": "0 * * * *"
   },
@@ -15,7 +15,7 @@
     "runtime": "python-3.9",
     "path": "cleanup-logs-chat-state",
     "entrypoint": "main.py",
-    "buildCommands": "pip install appwrite python-dotenv requests",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
     "schedule": "0 */6 * * *"
   },
@@ -25,7 +25,7 @@
     "runtime": "python-3.9",
     "path": "cleanup-audit-job-locks",
     "entrypoint": "main.py",
-    "buildCommands": "pip install appwrite python-dotenv requests",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
     "schedule": "30 */6 * * *",
     "scopes": ["documents.read", "documents.write"]
@@ -37,7 +37,7 @@
     "events": ["users.*.create"],
     "path": "on-user-create",
     "entrypoint": "main.py",
-    "buildCommands": "pip install appwrite python-dotenv requests",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
     "scopes": ["documents.read", "documents.write"]
   },
@@ -47,7 +47,7 @@
     "runtime": "python-3.9",
     "path": "refresh-instagram-tokens",
     "entrypoint": "main.py",
-    "buildCommands": "pip install appwrite python-dotenv requests",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
     "schedule": "0 0 1 * *"
   },
@@ -57,7 +57,7 @@
     "runtime": "python-3.9",
     "path": "remind-link-instagram",
     "entrypoint": "main.py",
-    "buildCommands": "pip install appwrite python-dotenv requests",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
     "schedule": "0 * * * *"
   },
@@ -67,7 +67,7 @@
     "runtime": "python-3.9",
     "path": "remove-instagram",
     "entrypoint": "main.py",
-    "buildCommands": "pip install appwrite python-dotenv requests",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
     "scopes": ["documents.read", "documents.write"]
   },
@@ -77,7 +77,7 @@
     "runtime": "python-3.9",
     "path": "reset-user-action-budgets",
     "entrypoint": "main.py",
-    "buildCommands": "pip install appwrite python-dotenv requests",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
     "schedule": "0 * * * *"
   },
@@ -87,7 +87,7 @@
     "runtime": "python-3.9",
     "path": "subscription-manager",
     "entrypoint": "main.py",
-    "buildCommands": "pip install appwrite python-dotenv requests",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
     "schedule": "*/30 * * * *",
     "scopes": ["documents.read", "documents.write", "messages.write"]
@@ -98,7 +98,7 @@
     "runtime": "python-3.9",
     "path": "payment-reminders",
     "entrypoint": "main.py",
-    "buildCommands": "pip install appwrite python-dotenv requests",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
     "schedule": "0 * * * *",
     "scopes": ["documents.read", "documents.write", "messages.write"]
@@ -109,7 +109,7 @@
     "runtime": "python-3.9",
     "path": "inactive-user-cleanup",
     "entrypoint": "main.py",
-    "buildCommands": "pip install appwrite python-dotenv requests",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
     "schedule": "0 2 * * *",
     "scopes": ["documents.read", "documents.write", "users.read", "users.write", "messages.write"]

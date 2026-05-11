@@ -10,7 +10,7 @@ import AutomationActionBar from '../../components/dashboard/AutomationActionBar'
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
-import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
+import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate } from '../../components/dashboard/TemplateSelector';
 import AutomationToast from '../../components/ui/AutomationToast';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
@@ -49,6 +49,7 @@ const MentionsView: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState<ReplyTemplate | null>(null);
+    const [isSelectedTemplateLoading, setIsSelectedTemplateLoading] = useState(false);
     const [showTemplateSelector, setShowTemplateSelector] = useState(true);
     const [isActive, setIsActive] = useState(true);
     const [followersOnly, setFollowersOnly] = useState(false);
@@ -119,15 +120,13 @@ const MentionsView: React.FC = () => {
                 const templateId = String(data.template_id || '').trim();
                 if (templateId) {
                     try {
+                        setIsSelectedTemplateLoading(true);
                         if (templateCacheRef.current[templateId]) {
                             setSelectedTemplate(templateCacheRef.current[templateId]);
                             setShowTemplateSelector(false);
                         } else {
-                            const templateRes = await authenticatedFetch(
-                                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${templateId}?account_id=${activeAccountID}`
-                            );
-                            if (templateRes.ok) {
-                                const templateData = await templateRes.json();
+                            const templateData = await fetchReplyTemplateById(activeAccountID, authenticatedFetch, templateId);
+                            if (templateData) {
                                 templateCacheRef.current[templateId] = templateData;
                                 setSelectedTemplate(templateData);
                                 setShowTemplateSelector(false);
@@ -135,9 +134,12 @@ const MentionsView: React.FC = () => {
                         }
                     } catch (err) {
                         console.error('Error fetching template:', err);
+                    } finally {
+                        setIsSelectedTemplateLoading(false);
                     }
                 } else {
                     setSelectedTemplate(null);
+                    setIsSelectedTemplateLoading(false);
                     setShowTemplateSelector(true);
                 }
             }
@@ -267,6 +269,7 @@ const MentionsView: React.FC = () => {
             setSeenTypingEnabled(Boolean(config.seen_typing_enabled));
             const restoredTemplate = config.template_id ? (templateCacheRef.current[config.template_id] || null) : null;
             setSelectedTemplate(restoredTemplate);
+            setIsSelectedTemplateLoading(false);
             setShowTemplateSelector(!restoredTemplate);
         });
     }, [config, handleSave, isDirty, setDiscardUnsavedChanges, setHasUnsavedChanges, setSaveUnsavedChanges]);
@@ -490,6 +493,7 @@ const MentionsView: React.FC = () => {
                             <TemplateSelector
                                 selectedTemplateId={selectedTemplate?.id}
                                 onSelect={(template) => {
+                                    setIsSelectedTemplateLoading(false);
                                     setSelectedTemplate(template);
                                     setShowTemplateSelector(!template);
                                 }}
@@ -531,6 +535,7 @@ const MentionsView: React.FC = () => {
                             profilePic={activeAccount?.profile_picture_url}
                             displayName={activeAccount?.username || 'username'}
                             lockScroll
+                            isLoadingPreview={isSelectedTemplateLoading}
                         />
                     ) : (
                         <SharedMobilePreview
@@ -541,6 +546,7 @@ const MentionsView: React.FC = () => {
                             profilePic={activeAccount?.profile_picture_url || undefined}
                             displayName={activeAccount?.username || 'username'}
                             lockScroll
+                            isLoadingPreview={isSelectedTemplateLoading}
                         />
                     )}
                 </AutomationPreviewPanel>
@@ -559,4 +565,3 @@ const MentionsView: React.FC = () => {
 };
 
 export default MentionsView;
-

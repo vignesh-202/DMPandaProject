@@ -9,7 +9,7 @@ import AutomationPreviewPanel from '../../components/dashboard/AutomationPreview
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
-import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
+import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate } from '../../components/dashboard/TemplateSelector';
 import AutomationToast from '../../components/ui/AutomationToast';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
@@ -25,6 +25,7 @@ const WelcomeMessageView: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState<ReplyTemplate | null>(null);
+    const [isSelectedTemplateLoading, setIsSelectedTemplateLoading] = useState(false);
     const [showTemplateSelector, setShowTemplateSelector] = useState(true);
     const [automationId, setAutomationId] = useState<string | null>(null);
     const [followersOnly, setFollowersOnly] = useState(false);
@@ -78,14 +79,14 @@ const WelcomeMessageView: React.FC = () => {
 
             const templateId = String(automation?.template_id || '').trim();
             if (templateId) {
+                setIsSelectedTemplateLoading(true);
                 if (templateCacheRef.current[templateId]) {
                     setSelectedTemplate(templateCacheRef.current[templateId]);
+                    setIsSelectedTemplateLoading(false);
+                    setShowTemplateSelector(false);
                 } else {
-                    const templateRes = await authenticatedFetch(
-                        `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${templateId}?account_id=${activeAccountID}`
-                    );
-                    if (templateRes.ok) {
-                        const templateData = await templateRes.json();
+                    const templateData = await fetchReplyTemplateById(activeAccountID, authenticatedFetch, templateId);
+                    if (templateData) {
                         templateCacheRef.current[templateId] = templateData;
                         setSelectedTemplate(templateData);
                         setShowTemplateSelector(false);
@@ -96,11 +97,13 @@ const WelcomeMessageView: React.FC = () => {
                 }
             } else {
                 setSelectedTemplate(null);
+                setIsSelectedTemplateLoading(false);
                 setShowTemplateSelector(true);
             }
         } catch (err: any) {
             setError(String(err?.message || 'Failed to load welcome message.'));
         } finally {
+            setIsSelectedTemplateLoading(false);
             setIsLoading(false);
         }
     }, [activeAccountID, authenticatedFetch]);
@@ -341,6 +344,7 @@ const WelcomeMessageView: React.FC = () => {
                             <TemplateSelector
                                 selectedTemplateId={selectedTemplate?.id}
                                 onSelect={(template) => {
+                                    setIsSelectedTemplateLoading(false);
                                     setSelectedTemplate(template);
                                     setShowTemplateSelector(!template);
                                 }}
@@ -379,6 +383,7 @@ const WelcomeMessageView: React.FC = () => {
                             profilePic={activeAccount?.profile_picture_url}
                             displayName={activeAccount?.username || 'username'}
                             lockScroll
+                            isLoadingPreview={isSelectedTemplateLoading}
                         />
                     ) : (
                         <SharedMobilePreview
@@ -389,6 +394,7 @@ const WelcomeMessageView: React.FC = () => {
                             profilePic={activeAccount?.profile_picture_url || undefined}
                             displayName={activeAccount?.username || 'username'}
                             lockScroll
+                            isLoadingPreview={isSelectedTemplateLoading}
                         />
                     )}
                 </AutomationPreviewPanel>

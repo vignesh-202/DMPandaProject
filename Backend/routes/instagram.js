@@ -2562,7 +2562,7 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
         const params = {
             fields: type === 'live'
                 ? 'id,status'
-                : 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,shortcode',
+                : 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,shortcode',
             access_token: accessToken,
             limit: 25
         };
@@ -2587,8 +2587,12 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
             }))
             : mediaItems.filter(item => {
                 if (!type) return true;
-                if (type === 'reel') return item.media_type === 'VIDEO';
-                if (type === 'post') return ['IMAGE', 'CAROUSEL_ALBUM'].includes(item.media_type);
+                const productType = String(item.media_product_type || '').trim().toUpperCase();
+                const mediaType = String(item.media_type || '').trim().toUpperCase();
+                const isReel = productType === 'REELS' || mediaType === 'VIDEO';
+                
+                if (type === 'reel' || type === 'reels') return isReel;
+                if (type === 'post' || type === 'posts') return !isReel;
                 return true;
             });
 

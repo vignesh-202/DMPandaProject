@@ -71,35 +71,35 @@ export const AutomationsPage: React.FC = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <section className={`${surfaceClass} overflow-hidden p-6 sm:p-8`}>
-                <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_360px] xl:items-start">
+            <section className={`${surfaceClass} overflow-hidden p-4 sm:p-6 lg:p-8`}>
+                <div className="grid gap-6 lg:gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,320px)] xl:items-start">
                     <div>
                         <p className="text-[10px] font-black text-primary/75">Automation</p>
-                        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Automation Control</h1>
+                        <h1 className="mt-3 text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground">Automation Control</h1>
                         <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-muted-foreground">
                             Review automation volume, active coverage, and the latest rule updates in one clear workspace.
                         </p>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+                    <div className="grid grid-cols-3 gap-3 sm:gap-4 xl:grid-cols-1">
                         {summaryCards.map((card) => (
-                            <div key={card.label} className="rounded-[26px] border border-border/70 bg-background/70 p-5">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl', card.tone)}>
-                                        <card.icon className="h-5 w-5" />
+                            <div key={card.label} className="rounded-[20px] sm:rounded-[26px] border border-border/70 bg-background/70 p-3 sm:p-5">
+                                <div className="flex items-start justify-between gap-2 sm:gap-4">
+                                    <div className={cn('flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl sm:rounded-2xl', card.tone)}>
+                                        <card.icon className="h-4 w-4 sm:h-5 sm:w-5" />
                                     </div>
-                                    <p className="text-right text-[10px] font-black text-muted-foreground">{card.label}</p>
+                                    <p className="text-right text-[9px] sm:text-[10px] font-black text-muted-foreground">{card.label}</p>
                                 </div>
-                                <p className="mt-5 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
+                                <p className="mt-3 sm:mt-5 text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
                             </div>
                         ))}
                     </div>
                 </div>
             </section>
 
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.78fr,1.22fr]">
-                <div className={`${surfaceClass} p-6 sm:p-7`}>
-                    <div className="mb-5 flex items-center justify-between gap-4">
+            <section className="grid grid-cols-1 gap-6 lg:grid-cols-[0.78fr,1.22fr]">
+                <div className={`${surfaceClass} p-4 sm:p-6 lg:p-7`}>
+                    <div className="mb-4 sm:mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h2 className="text-xl font-extrabold text-foreground">Type Mix</h2>
                             <p className="mt-1 text-xs font-black text-muted-foreground">Current count</p>
@@ -135,9 +135,9 @@ export const AutomationsPage: React.FC = () => {
                 </div>
 
                 <div className={`${surfaceClass} overflow-hidden`}>
-                    <div className="flex items-center justify-between border-b border-border/70 px-6 py-5 sm:px-7">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 px-4 py-4 sm:px-6 sm:py-5 lg:px-7">
                         <div>
-                            <h2 className="text-xl font-extrabold text-foreground">Recent Updates</h2>
+                            <h2 className="text-lg sm:text-xl font-extrabold text-foreground">Recent Updates</h2>
                             <p className="mt-1 text-xs font-black text-muted-foreground">Latest changes</p>
                         </div>
                         <div className="status-pill border border-border bg-background/70 text-foreground">
@@ -148,10 +148,10 @@ export const AutomationsPage: React.FC = () => {
 
                     <div className="max-h-[38rem] overflow-y-auto divide-y divide-border/70">
                         {(Array.isArray(data?.automations) ? data.automations : []).length === 0 ? (
-                            <div className="px-6 py-12 text-center text-sm text-muted-foreground">No automation updates available.</div>
+                            <div className="px-4 sm:px-6 py-12 text-center text-sm text-muted-foreground">No automation updates available.</div>
                         ) : (
                             (Array.isArray(data?.automations) ? data.automations : []).map((item: any) => (
-                                <div key={item.id} className="px-6 py-5 sm:px-7">
+                                <div key={item.id} className="px-4 py-4 sm:px-6 sm:py-5 lg:px-7">
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                         <div className="min-w-0">
                                             <div className="flex flex-wrap items-center gap-3">
@@ -179,10 +179,10 @@ export const AutomationsPage: React.FC = () => {
                 </div>
             </section>
 
-            <section className={`${surfaceClass} p-6 sm:p-7`}>
-                <div className="mb-5 flex items-center justify-between gap-4">
+            <section className={`${surfaceClass} p-4 sm:p-6 lg:p-7`}>
+                <div className="mb-4 sm:mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="text-xl font-extrabold text-foreground">Automation Activity Trend</h2>
+                        <h2 className="text-lg sm:text-xl font-extrabold text-foreground">Automation Activity Trend</h2>
                         <p className="mt-1 text-xs font-black text-muted-foreground">Main automation overview</p>
                     </div>
                     <div className="status-pill border border-border bg-background/70 text-foreground">
@@ -191,7 +191,7 @@ export const AutomationsPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="h-[280px] rounded-[24px] border border-border/70 bg-background/60 p-4">
+                <div className="h-[220px] sm:h-[280px] rounded-[20px] sm:rounded-[24px] border border-border/70 bg-background/60 p-3 sm:p-4">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={Array.isArray(data?.trend_30_days) ? data.trend_30_days : []}>
                             <defs>

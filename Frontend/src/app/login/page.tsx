@@ -194,7 +194,7 @@ const LoginPage: React.FC = () => {
             {error && <p className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-3 rounded-md mb-4">{error}</p>}
             {successMessage && <p className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-3 rounded-md mb-4">{successMessage}</p>}
 
-            <form onSubmit={handleEmailPasswordSubmit} className="space-y-4">
+            <form onSubmit={handleEmailPasswordSubmit} method="post" action="#" className="space-y-4">
               {!isLoginView && (
                 <Input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" className="w-full text-gray-900 dark:text-white bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 placeholder-gray-400 dark:placeholder-gray-500" />
               )}

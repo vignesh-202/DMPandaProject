@@ -23,15 +23,27 @@ import {
     Bar,
     XAxis,
     YAxis,
-    CartesianGrid,
-    PieChart,
-    Pie,
-    Cell
+    CartesianGrid
 } from 'recharts';
 import AdminLoadingState from '../components/AdminLoadingState';
 import AdminGauge from '../components/ui/AdminGauge';
 
-const CHART_COLORS = ['#405DE6', '#833AB4', '#F56040', '#FCAF45', '#10B981', '#0EA5E9', '#FB7185'];
+const CHART_COLORS = [
+    'rgb(59 130 246)',
+    'rgb(16 185 129)',
+    'rgb(245 158 11)',
+    'rgb(244 63 94)',
+    'rgb(139 92 246)',
+    'rgb(236 72 153)',
+    'rgb(14 165 233)',
+    'rgb(168 85 247)'
+];
+const TRAFFIC_SERIES_COLORS = {
+    total: '#38bdf8',
+    successful: '#22c55e',
+    failed: '#ef4444',
+    rollingAverage: '#94a3b8'
+} as const;
 const TRAFFIC_WINDOWS = [
     { value: '24h', label: '24 hrs' },
     { value: '3d', label: '3 days' },
@@ -67,6 +79,13 @@ const REVENUE_WINDOW_DETAILS: Record<(typeof REVENUE_WINDOWS)[number]['value'], 
 type PieDatum = { name: string; value: number };
 type TrafficWindowValue = (typeof TRAFFIC_WINDOWS)[number]['value'];
 type RevenueWindowValue = (typeof REVENUE_WINDOWS)[number]['value'];
+interface DonutSegment {
+    key: string;
+    label: string;
+    value: number;
+    color: string;
+    muted?: boolean;
+}
 
 const moneyFormatter = new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -78,6 +97,10 @@ const numberFormatter = new Intl.NumberFormat('en-IN');
 
 const surfaceClass = 'glass-card rounded-[32px] border border-border/70 bg-card/95 shadow-[0_22px_65px_rgba(15,23,42,0.07)]';
 const chartGridStroke = 'rgb(148 163 184 / 0.18)';
+const DONUT_SIZE = 280;
+const DONUT_CENTER = DONUT_SIZE / 2;
+const DONUT_OUTER_RADIUS = 112;
+const DONUT_INNER_RADIUS = 58;
 
 const formatShortDate = (value: string | number | Date | null | undefined) => {
     if (!value) return 'Unknown';
@@ -113,6 +136,37 @@ const humanizeAnalyticsLabel = (value: string) => String(value || '')
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase()) || 'N/A';
+
+const polarToCartesian = (cx: number, cy: number, radius: number, angleInDegrees: number) => {
+    const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180;
+    return {
+        x: cx + radius * Math.cos(angleInRadians),
+        y: cy + radius * Math.sin(angleInRadians)
+    };
+};
+
+const describeDonutArc = (
+    cx: number,
+    cy: number,
+    outerRadius: number,
+    innerRadius: number,
+    startAngle: number,
+    endAngle: number
+) => {
+    const outerStart = polarToCartesian(cx, cy, outerRadius, endAngle);
+    const outerEnd = polarToCartesian(cx, cy, outerRadius, startAngle);
+    const innerStart = polarToCartesian(cx, cy, innerRadius, startAngle);
+    const innerEnd = polarToCartesian(cx, cy, innerRadius, endAngle);
+    const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
+
+    return [
+        `M ${outerStart.x} ${outerStart.y}`,
+        `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 0 ${outerEnd.x} ${outerEnd.y}`,
+        `L ${innerStart.x} ${innerStart.y}`,
+        `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 1 ${innerEnd.x} ${innerEnd.y}`,
+        'Z'
+    ].join(' ');
+};
 
 const ChartTooltip = ({
     active,
@@ -317,85 +371,197 @@ const InsightTile = ({ label, value, note }: { label: string; value: string; not
     </div>
 );
 
-const PieSummaryCard = ({
+const DonutChartCard = ({
+    eyebrow,
     title,
-    subtitle,
-    data,
-    formatter
+    description,
+    segments,
+    progress,
+    defaultCenterTitle,
+    defaultCenterValue,
+    defaultCenterCaption,
+    emptyCenterTitle = 'No Data'
 }: {
+    eyebrow: string;
     title: string;
-    subtitle: string;
-    data: PieDatum[];
-    formatter?: (value: number) => string;
+    description: string;
+    segments: DonutSegment[];
+    progress: number;
+    defaultCenterTitle: string;
+    defaultCenterValue: string;
+    defaultCenterCaption: string;
+    emptyCenterTitle?: string;
 }) => {
-    const safeData = Array.isArray(data) ? data.filter((entry) => Number(entry?.value || 0) > 0) : [];
-    const totalValue = safeData.reduce((sum, entry) => sum + Number(entry.value || 0), 0);
+    const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+
+    const chartState = useMemo(() => {
+        const filtered = segments.filter((segment) => segment.value > 0);
+        const total = filtered.reduce((sum, segment) => sum + segment.value, 0);
+        const displaySegments = total > 0
+            ? filtered
+            : [{ key: 'empty', label: emptyCenterTitle, value: 1, color: 'rgb(226 232 240)', muted: true }];
+        const displayTotal = displaySegments.reduce((sum, item) => sum + item.value, 0);
+        let cursor = 0;
+
+        return {
+            total,
+            segments: displaySegments.map((segment) => {
+                const fullSpan = (segment.value / displayTotal) * 360;
+                const scaledSpan = fullSpan * progress;
+                const gapAngle = total > 0 ? Math.min(3.2, scaledSpan * 0.14) : 0;
+                const startAngle = cursor + (gapAngle / 2);
+                const endAngle = Math.max(startAngle + 0.1, cursor + scaledSpan - (gapAngle / 2));
+                cursor += scaledSpan;
+                return {
+                    ...segment,
+                    startAngle,
+                    endAngle,
+                    midAngle: startAngle + ((endAngle - startAngle) / 2),
+                    percent: total > 0 ? Math.round((segment.value / total) * 100) : 0
+                };
+            })
+        };
+    }, [segments, progress, emptyCenterTitle]);
+
+    const hoveredSegment = chartState.segments.find((segment) => segment.key === hoveredKey && !segment.muted) || null;
+    const centerTitle = hoveredSegment ? hoveredSegment.label : (chartState.total > 0 ? defaultCenterTitle : emptyCenterTitle);
+    const centerValue = hoveredSegment ? numberFormatter.format(hoveredSegment.value) : (chartState.total > 0 ? defaultCenterValue : '0');
+    const centerCaption = hoveredSegment
+        ? `${hoveredSegment.percent}% of ${numberFormatter.format(chartState.total)} logs`
+        : defaultCenterCaption;
+
+    const hoveredPointer = hoveredSegment
+        ? {
+            start: polarToCartesian(DONUT_CENTER, DONUT_CENTER, DONUT_OUTER_RADIUS - 10, hoveredSegment.midAngle),
+            end: polarToCartesian(DONUT_CENTER, DONUT_CENTER, 18, hoveredSegment.midAngle)
+        }
+        : null;
 
     return (
-        <div className={`${surfaceClass} p-7 sm:p-8`}>
-            <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                    <h3 className="text-[1.55rem] font-extrabold tracking-tight text-foreground">{title}</h3>
-                    <p className="mt-1 text-[11px] font-black text-muted-foreground">{subtitle}</p>
-                </div>
-                <span className="inline-flex w-fit rounded-full border border-border/70 bg-background/60 px-3 py-1 text-[10px] font-black text-muted-foreground">
-                    Total {formatter ? formatter(totalValue) : numberFormatter.format(totalValue)}
-                </span>
-            </div>
+        <div className="relative overflow-hidden rounded-[2.2rem] border border-border/70 bg-card/95 p-6 shadow-[0_28px_70px_-38px_rgba(15,23,42,0.38)]">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.10),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.22),transparent_52%)]" />
+            <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-[340px_minmax(0,1fr)]">
+                <div className="relative z-10 flex items-center justify-center">
+                    <div className="relative flex aspect-square w-full max-w-[320px] items-center justify-center rounded-full border border-border/60 bg-background/60 backdrop-blur-xl shadow-[0_30px_80px_-44px_rgba(14,165,233,0.38)]">
+                        <div className="absolute inset-[10%] rounded-full border border-border/60" />
+                        <div className="absolute inset-[18%] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.12),transparent_62%)]" />
+                        <svg viewBox={`0 0 ${DONUT_SIZE} ${DONUT_SIZE}`} className="relative z-10 h-[87.5%] w-[87.5%] drop-shadow-[0_16px_44px_rgba(15,23,42,0.16)]">
+                            <circle
+                                cx={DONUT_CENTER}
+                                cy={DONUT_CENTER}
+                                r={DONUT_OUTER_RADIUS}
+                                fill="transparent"
+                                stroke="rgba(148,163,184,0.14)"
+                                strokeWidth="26"
+                            />
+                            {chartState.segments.map((segment) => {
+                                const isHovered = hoveredSegment?.key === segment.key;
+                                const outerRadius = isHovered ? DONUT_OUTER_RADIUS + 3 : DONUT_OUTER_RADIUS;
+                                const innerRadius = isHovered ? DONUT_INNER_RADIUS - 2 : DONUT_INNER_RADIUS;
+                                const path = describeDonutArc(
+                                    DONUT_CENTER,
+                                    DONUT_CENTER,
+                                    outerRadius,
+                                    innerRadius,
+                                    segment.startAngle,
+                                    segment.endAngle
+                                );
 
-            <div className="grid gap-7 xl:grid-cols-[250px_minmax(0,1fr)] xl:items-center">
-                <div className="mx-auto flex h-[240px] w-full max-w-[240px] items-center justify-center rounded-[34px] bg-gradient-to-br from-primary/10 via-background to-background p-3">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={safeData}
-                                dataKey="value"
-                                nameKey="name"
-                                innerRadius={58}
-                                outerRadius={98}
-                                paddingAngle={3}
-                                stroke="none"
-                            >
-                                {safeData.map((entry, index) => (
-                                    <Cell key={`${entry.name}-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip content={<ChartTooltip label={title} formatter={formatter} />} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-
-                <div className="space-y-3">
-                    {safeData.length === 0 ? (
-                        <div className="rounded-[26px] border border-dashed border-border bg-background/60 px-5 py-9 text-center text-sm font-medium text-muted-foreground">
-                            No data yet.
+                                return (
+                                    <path
+                                        key={segment.key}
+                                        d={path}
+                                        fill={segment.color}
+                                        opacity={segment.muted ? 0.45 : isHovered ? 1 : 0.9}
+                                        className="transition-all duration-200"
+                                        onMouseEnter={() => !segment.muted && setHoveredKey(segment.key)}
+                                        onMouseLeave={() => setHoveredKey((current) => (current === segment.key ? null : current))}
+                                    />
+                                );
+                            })}
+                            {hoveredPointer && hoveredSegment ? (
+                                <>
+                                    <line
+                                        x1={hoveredPointer.start.x}
+                                        y1={hoveredPointer.start.y}
+                                        x2={hoveredPointer.end.x}
+                                        y2={hoveredPointer.end.y}
+                                        stroke={hoveredSegment.color}
+                                        strokeWidth="5"
+                                        strokeLinecap="round"
+                                        opacity="0.18"
+                                    />
+                                    <line
+                                        x1={hoveredPointer.start.x}
+                                        y1={hoveredPointer.start.y}
+                                        x2={hoveredPointer.end.x}
+                                        y2={hoveredPointer.end.y}
+                                        stroke={hoveredSegment.color}
+                                        strokeWidth="2.4"
+                                        strokeLinecap="round"
+                                        opacity="0.96"
+                                    />
+                                </>
+                            ) : null}
+                        </svg>
+                        <div className="absolute inset-[23%] z-20 flex flex-col items-center justify-center rounded-full border border-border/60 bg-card/95 px-4 text-center shadow-[0_24px_45px_-30px_rgba(15,23,42,0.42)] sm:px-6">
+                            <div className="h-2.5 w-2.5 rounded-full bg-primary/80 shadow-[0_0_24px_rgba(59,130,246,0.7)]" />
+                            <p className="mt-3 text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{centerTitle}</p>
+                            <p className="mt-1 text-2xl font-black text-foreground sm:text-3xl">{centerValue}</p>
+                            <p className="mt-1 max-w-[11rem] text-[10px] leading-relaxed text-muted-foreground sm:text-[11px]">{centerCaption}</p>
                         </div>
-                    ) : safeData.map((entry, index) => {
-                        const value = Number(entry.value || 0);
-                        const share = totalValue > 0 ? Math.round((value / totalValue) * 100) : 0;
-                        return (
-                            <div key={entry.name} className="rounded-[24px] border border-border/70 bg-background/60 px-4 py-4">
-                                <div className="flex items-center justify-between gap-4">
-                                    <div className="flex min-w-0 items-center gap-3">
-                                        <span className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
-                                        <p className="truncate text-sm font-bold text-foreground">{humanizeAnalyticsLabel(entry.name)}</p>
+                    </div>
+                </div>
+                <div className="relative z-10">
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-primary">{eyebrow}</p>
+                    <h2 className="mt-2 text-xl font-black text-foreground">{title}</h2>
+                    <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">{description}</p>
+                    <div className={`mt-6 grid gap-3 ${chartState.segments.length <= 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'}`}>
+                        {chartState.segments.map((segment) => (
+                            <button
+                                key={segment.key}
+                                type="button"
+                                onMouseEnter={() => !segment.muted && setHoveredKey(segment.key)}
+                                onMouseLeave={() => setHoveredKey((current) => (current === segment.key ? null : current))}
+                                className={`min-h-[104px] rounded-[1.5rem] border px-4 py-4 text-left transition-all ${segment.muted ? 'cursor-default border-border bg-muted/70 text-muted-foreground' : 'border-border/55 bg-background/70 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-26px_rgba(15,23,42,0.35)]'}`}
+                                style={segment.muted ? undefined : {
+                                    borderColor: hoveredSegment?.key === segment.key ? `${segment.color}88` : `${segment.color}40`,
+                                    backgroundColor: hoveredSegment?.key === segment.key ? `${segment.color}20` : `${segment.color}12`
+                                }}
+                            >
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-foreground">
+                                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }} />
+                                        {segment.label}
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-sm font-black text-foreground">
-                                            {formatter ? formatter(value) : numberFormatter.format(value)}
-                                        </p>
-                                        <p className="text-[11px] font-semibold text-muted-foreground">{share}%</p>
-                                    </div>
+                                    <span className="text-[11px] font-black" style={segment.muted ? undefined : { color: segment.color }}>
+                                        {segment.muted ? '0%' : `${segment.percent}%`}
+                                    </span>
                                 </div>
-                                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-muted">
+                                <p className="mt-3 text-2xl font-black text-foreground">{segment.muted ? '0' : numberFormatter.format(segment.value)}</p>
+                                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/80">
                                     <div
-                                        className="h-full rounded-full"
-                                        style={{ width: `${Math.max(share, 6)}%`, backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                                        className="h-full rounded-full transition-all duration-300"
+                                        style={{
+                                            width: `${segment.muted ? 100 : segment.percent}%`,
+                                            backgroundColor: segment.color
+                                        }}
                                     />
                                 </div>
-                            </div>
-                        );
-                    })}
+                                <p className="mt-2 text-[10px] font-medium text-muted-foreground">
+                                    {segment.muted ? 'No logs matched this chart yet.' : `${segment.percent}% share of the current window.`}
+                                </p>
+                            </button>
+                        ))}
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-muted-foreground">
+                        <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1.5">
+                            Total logs: <span className="font-black text-foreground">{numberFormatter.format(chartState.total)}</span>
+                        </span>
+                        <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1.5">
+                            Hover a segment to inspect the center value
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -412,12 +578,19 @@ export const AnalyticsPage: React.FC = () => {
     const [revenueCustomRange, setRevenueCustomRange] = useState(() => buildPresetDateRange(30));
     const [refreshNonce, setRefreshNonce] = useState(0);
     const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+    const [pieProgress, setPieProgress] = useState(0);
     const hasLoadedOnceRef = useRef(false);
     const latestRequestRef = useRef(0);
     const revenueSectionRef = useRef<HTMLElement | null>(null);
     const automationSectionRef = useRef<HTMLElement | null>(null);
     const deferredData = useDeferredValue(data);
     const displayData = deferredData ?? data;
+
+    useEffect(() => {
+        setPieProgress(0);
+        const id = window.setTimeout(() => setPieProgress(1), 80);
+        return () => window.clearTimeout(id);
+    }, [displayData?.log_status_breakdown]);
 
     useEffect(() => {
         const load = async () => {
@@ -504,8 +677,6 @@ export const AnalyticsPage: React.FC = () => {
     const deliverySuccessRate = statusTotal > 0 ? Math.round(((successCount + skippedCount) / statusTotal) * 100) : 100;
     const topAutomation = (Array.isArray(displayData?.automations_by_type) ? displayData.automations_by_type : [])[0];
     const topAutomationLabel = humanizeAnalyticsLabel(String(topAutomation?.name || 'N/A'));
-    const noLinkedUsers = (Array.isArray(displayData?.linked_accounts_distribution) ? displayData.linked_accounts_distribution : [])
-        .find((entry: PieDatum) => entry.name === '0 linked')?.value || 0;
     const latestRevenue = (() => {
         const revenue = Array.isArray(displayData?.monthly_revenue) ? displayData.monthly_revenue : [];
         return revenue.length > 0 ? Number(revenue[revenue.length - 1]?.value || 0) : 0;
@@ -543,6 +714,19 @@ export const AnalyticsPage: React.FC = () => {
     const averageSuccessfulTraffic = trafficChartData.length > 0
         ? trafficChartData.reduce((sum: number, row: any) => sum + Number(row.successful || 0), 0) / trafficChartData.length
         : 0;
+    const deliveryOutcomeSegments: DonutSegment[] = [
+        { key: 'success', label: 'Success', value: Number(successCount || 0), color: 'rgb(34 197 94)' },
+        { key: 'failed', label: 'Failed', value: Number(failedCount || 0), color: 'rgb(239 68 68)' },
+        { key: 'skipped', label: 'Skipped', value: Number(skippedCount || 0), color: 'rgb(245 158 11)' }
+    ];
+    const automationMixSegments: DonutSegment[] = (Array.isArray(displayData?.automations_by_type) ? displayData.automations_by_type : [])
+        .filter((entry: PieDatum) => Number(entry?.value || 0) > 0)
+        .map((entry: PieDatum, index: number) => ({
+            key: String(entry.name || `type-${index}`),
+            label: humanizeAnalyticsLabel(String(entry.name || 'Unknown')),
+            value: Number(entry.value || 0),
+            color: CHART_COLORS[index % CHART_COLORS.length]
+        }));
     const scrollToSection = (sectionRef: React.RefObject<HTMLElement | null>) => {
         sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
@@ -588,7 +772,7 @@ export const AnalyticsPage: React.FC = () => {
                             {refreshing ? 'Refreshing' : 'Refresh Data'}
                         </button>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 md:grid-cols-2">
                         <button
                             type="button"
                             onClick={() => scrollToSection(revenueSectionRef)}
@@ -634,7 +818,7 @@ export const AnalyticsPage: React.FC = () => {
                 </div>
             )}
 
-            <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+            <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {metricCards.map((item) => (
                     <MetricCard
                         key={item.label}
@@ -775,9 +959,9 @@ export const AnalyticsPage: React.FC = () => {
                                 <p className="mt-2 text-sm text-muted-foreground">Most recent plotted day in the active revenue window.</p>
                             </div>
                             <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
-                                <p className="text-[10px] font-black text-muted-foreground">No IG Link</p>
-                                <p className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">{numberFormatter.format(Number(noLinkedUsers || 0))}</p>
-                                <p className="mt-2 text-sm text-muted-foreground">Users still waiting for an Instagram account connection.</p>
+                                <p className="text-[10px] font-black text-muted-foreground">Top Automation</p>
+                                <p className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">{topAutomationLabel}</p>
+                                <p className="mt-2 text-sm text-muted-foreground">Most active automation type in the selected traffic range.</p>
                             </div>
                         </div>
                     </div>
@@ -817,11 +1001,6 @@ export const AnalyticsPage: React.FC = () => {
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={trafficChartData}>
                                     <defs>
-                                        <linearGradient id="adminTrafficGradient" x1="0" y1="0" x2="1" y2="0">
-                                            <stop offset="0%" stopColor="#22c55e" stopOpacity={0.2} />
-                                            <stop offset="50%" stopColor="#38bdf8" stopOpacity={0.4} />
-                                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0.7} />
-                                        </linearGradient>
                                         <filter id="adminTrafficGlow" x="-50%" y="-50%" width="200%" height="200%">
                                             <feGaussianBlur stdDeviation="6" result="coloredBlur" />
                                             <feMerge>
@@ -850,7 +1029,7 @@ export const AnalyticsPage: React.FC = () => {
                                         type="monotone"
                                         dataKey="successful"
                                         name="Successful"
-                                        stroke="#22c55e"
+                                        stroke={TRAFFIC_SERIES_COLORS.successful}
                                         strokeWidth={2.2}
                                         dot={false}
                                         activeDot={{ r: 4 }}
@@ -859,7 +1038,7 @@ export const AnalyticsPage: React.FC = () => {
                                         type="monotone"
                                         dataKey="failed"
                                         name="Failed"
-                                        stroke="#ef4444"
+                                        stroke={TRAFFIC_SERIES_COLORS.failed}
                                         strokeWidth={2.2}
                                         dot={false}
                                         activeDot={{ r: 4 }}
@@ -868,7 +1047,7 @@ export const AnalyticsPage: React.FC = () => {
                                         type="monotone"
                                         dataKey="value"
                                         name="Total events"
-                                        stroke="url(#adminTrafficGradient)"
+                                        stroke={TRAFFIC_SERIES_COLORS.total}
                                         strokeWidth={3}
                                         dot={false}
                                         activeDot={{ r: 5 }}
@@ -878,7 +1057,7 @@ export const AnalyticsPage: React.FC = () => {
                                         type="monotone"
                                         dataKey="rolling_average"
                                         name="Rolling avg"
-                                        stroke="#94a3b8"
+                                        stroke={TRAFFIC_SERIES_COLORS.rollingAverage}
                                         strokeWidth={2}
                                         strokeDasharray="7 7"
                                         dot={false}
@@ -892,19 +1071,31 @@ export const AnalyticsPage: React.FC = () => {
                                 <p className="text-[10px] font-black text-muted-foreground">Chart Layers</p>
                                 <div className="mt-4 flex flex-wrap gap-2">
                                     <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
-                                        <span className="h-2.5 w-2.5 rounded-full bg-[linear-gradient(90deg,#22c55e,#38bdf8,#6366f1)]" />
+                                        <span
+                                            className="h-2.5 w-2.5 rounded-full"
+                                            style={{ backgroundColor: TRAFFIC_SERIES_COLORS.total }}
+                                        />
                                         Total events
                                     </span>
                                     <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
-                                        <span className="h-2.5 w-2.5 rounded-full bg-[#22c55e]" />
+                                        <span
+                                            className="h-2.5 w-2.5 rounded-full"
+                                            style={{ backgroundColor: TRAFFIC_SERIES_COLORS.successful }}
+                                        />
                                         Successful
                                     </span>
                                     <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
-                                        <span className="h-2.5 w-2.5 rounded-full bg-[#ef4444]" />
+                                        <span
+                                            className="h-2.5 w-2.5 rounded-full"
+                                            style={{ backgroundColor: TRAFFIC_SERIES_COLORS.failed }}
+                                        />
                                         Failed
                                     </span>
                                     <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
-                                        <span className="h-2.5 w-2.5 rounded-full border border-dashed border-slate-400" />
+                                        <span
+                                            className="h-2.5 w-2.5 rounded-full border border-dashed"
+                                            style={{ borderColor: TRAFFIC_SERIES_COLORS.rollingAverage }}
+                                        />
                                         Rolling average
                                     </span>
                                 </div>
@@ -938,17 +1129,17 @@ export const AnalyticsPage: React.FC = () => {
                 </section>
             </section>
 
-            <section className="grid grid-cols-1 gap-7 2xl:grid-cols-[minmax(0,1fr)_380px]">
-                <div className="space-y-7">
-                    <PieSummaryCard
-                        title="Automation Mix"
-                        subtitle="By type"
-                        data={Array.isArray(displayData?.automations_by_type) ? displayData.automations_by_type : []}
-                    />
-                    <PieSummaryCard
-                        title="Linked Account Spread"
-                        subtitle="Per user"
-                        data={Array.isArray(displayData?.linked_accounts_distribution) ? displayData.linked_accounts_distribution : []}
+            <section className="grid grid-cols-1 gap-7 xl:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+                <div className="min-w-0">
+                    <DonutChartCard
+                        eyebrow="Automation Mix"
+                        title="Automation Count by Type"
+                        description="A matching frontend-style donut chart showing how your activity logs are distributed across automation types."
+                        segments={automationMixSegments}
+                        progress={pieProgress}
+                        defaultCenterTitle="Automation Types"
+                        defaultCenterValue={numberFormatter.format(automationMixSegments.length)}
+                        defaultCenterCaption={`${numberFormatter.format(statusTotal)} total logs`}
                     />
                 </div>
                 <div className={`${surfaceClass} ${refreshSurfaceClass} p-6 sm:p-7 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
@@ -962,15 +1153,15 @@ export const AnalyticsPage: React.FC = () => {
                                 No recent failures.
                             </div>
                         ) : (displayData?.recent_failures as Array<any>).map((item) => (
-                            <div key={item.id} className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
+                            <div key={item.id} className="rounded-[24px] border border-border/70 bg-background/60 px-4 py-4 sm:px-5">
                                 <div className="flex flex-col gap-3">
-                                    <div className="flex items-start justify-between gap-4">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                                         <p className="text-sm font-bold text-foreground">{humanizeAnalyticsLabel(item.event_type)}</p>
                                         <span className="shrink-0 text-[10px] font-black text-muted-foreground">
                                             {formatShortDate(item.sent_at || 0)}
                                         </span>
                                     </div>
-                                    <p className="text-sm leading-6 text-muted-foreground">{item.reason}</p>
+                                    <p className="break-words text-sm leading-6 text-muted-foreground">{item.reason}</p>
                                 </div>
                             </div>
                         ))}
@@ -979,10 +1170,15 @@ export const AnalyticsPage: React.FC = () => {
             </section>
 
             <section className="space-y-7">
-                <PieSummaryCard
+                <DonutChartCard
+                    eyebrow="Performance Split"
                     title="Delivery Outcomes"
-                    subtitle={trafficSummaryLabel}
-                    data={statusBreakdown}
+                    description="A matching frontend-style donut chart showing how delivery logs are split across success, failed, and skipped results."
+                    segments={deliveryOutcomeSegments}
+                    progress={pieProgress}
+                    defaultCenterTitle="Success Rate"
+                    defaultCenterValue={`${deliverySuccessRate}%`}
+                    defaultCenterCaption={`${numberFormatter.format(statusTotal)} total logs`}
                 />
             </section>
         </div>

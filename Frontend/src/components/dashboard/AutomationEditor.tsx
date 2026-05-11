@@ -10,7 +10,7 @@ import { useDashboard } from '../../contexts/DashboardContext';
 import ModernConfirmModal from '../ui/ModernConfirmModal';
 import ToggleSwitch from '../ui/ToggleSwitch';
 import LoadingOverlay from '../ui/LoadingOverlay';
-import TemplateSelector, { ReplyTemplate, prefetchReplyTemplates } from './TemplateSelector';
+import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate, prefetchReplyTemplates } from './TemplateSelector';
 import SharedMobilePreview from './SharedMobilePreview';
 import AutomationActionBar from './AutomationActionBar';
 import LockedFeatureToggle from '../ui/LockedFeatureToggle';
@@ -95,6 +95,46 @@ function _mergeReplyTemplate(templateType: string, templateData: Record<string, 
             latest_post_type: (d.latest_post_type === 'reel' ? 'reel' : 'post')
         };
         default: return { template_type: 'template_text', template_content: String(d.text || '') };
+    }
+}
+
+function _buildPersistedTemplateFields(templateType: string, templateData: Record<string, unknown>): Record<string, unknown> {
+    const d = templateData || {};
+    switch (templateType) {
+        case 'template_text':
+            return { template_type: 'template_text', template_content: String(d.text || '') };
+        case 'template_buttons':
+            return {
+                template_type: 'template_buttons',
+                template_content: String(d.text || ''),
+                buttons: Array.isArray(d.buttons) ? d.buttons : []
+            };
+        case 'template_carousel':
+            return {
+                template_type: 'template_carousel',
+                template_elements: Array.isArray(d.elements) ? d.elements : []
+            };
+        case 'template_quick_replies':
+            return {
+                template_type: 'template_quick_replies',
+                template_content: String(d.text || ''),
+                replies: Array.isArray(d.replies) ? d.replies : []
+            };
+        case 'template_media':
+            return {
+                template_type: 'template_media',
+                template_content: String(d.media_url || ''),
+                buttons: Array.isArray(d.buttons) ? d.buttons : []
+            };
+        case 'template_share_post':
+            return {
+                template_type: 'template_share_post',
+                media_id: String(d.media_id || ''),
+                use_latest_post: !!d.use_latest_post,
+                latest_post_type: d.latest_post_type === 'reel' ? 'reel' : 'post'
+            };
+        default:
+            return { template_type: 'template_text', template_content: String(d.text || '') };
     }
 }
 
@@ -219,6 +259,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
     const [selectedTemplate, setSelectedTemplate] = useState<ReplyTemplate | null>(null);
+    const [isSelectedTemplateLoading, setIsSelectedTemplateLoading] = useState(false);
     const [showTemplateSelector, setShowTemplateSelector] = useState(true);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [isAutomationLoading, setIsAutomationLoading] = useState(Boolean(automationId));
@@ -325,15 +366,18 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
         if (template) {
             setSelectedTemplate(template);
+            setIsSelectedTemplateLoading(false);
             setShowTemplateSelector(false);
             emitTemplateSelect(template.id || data.template_id || null);
             emitTemplatesLoaded([template]);
         } else if (data.template_id) {
             setSelectedTemplate(null);
+            setIsSelectedTemplateLoading(true);
             setShowTemplateSelector(false);
             emitTemplateSelect(data.template_id);
         } else {
             setSelectedTemplate(null);
+            setIsSelectedTemplateLoading(false);
             setShowTemplateSelector(true);
             emitTemplateSelect(null);
         }
@@ -588,6 +632,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             fetchDetails();
         } else {
             setSelectedTemplate(null);
+            setIsSelectedTemplateLoading(false);
             setShowTemplateSelector(true);
             emitTemplateSelect(null);
             setIsPlanInvalid(false);
@@ -632,15 +677,18 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         if (automation.template_id && !selectedTemplate) {
             (async () => {
                 try {
-                    const r = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${automation.template_id}?account_id=${activeAccountID}`);
-                    if (r.ok) {
-                        const d = await r.json();
+                    setIsSelectedTemplateLoading(true);
+                    const d = await fetchReplyTemplateById(activeAccountID, authenticatedFetch, automation.template_id);
+                    if (d) {
                         setSelectedTemplate(d);
                         setShowTemplateSelector(false);
                         emitTemplateSelect(d.id || automation.template_id);
                         emitTemplatesLoaded([d]);
                     }
                 } catch (_) { }
+                finally {
+                    setIsSelectedTemplateLoading(false);
+                }
             })();
         }
     }, [activeAccountID, automation.template_id, authenticatedFetch, emitTemplateSelect, emitTemplatesLoaded, selectedTemplate]);
@@ -867,8 +915,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             };
             if (selectedTemplate) {
                 payload.template_id = selectedTemplate.id;
-                // Merge template data into automation for preview/display
-                Object.assign(payload, _mergeReplyTemplate(selectedTemplate.template_type, selectedTemplate.template_data || {}));
+                // Persist only the fields the automation runtime actually needs.
+                Object.assign(payload, _buildPersistedTemplateFields(selectedTemplate.template_type, selectedTemplate.template_data || {}));
             }
             // Remove frontend-specific fields that backend doesn't need
             delete payload.keywords;
@@ -1550,8 +1598,9 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     </div>
                     {(!selectedTemplate || showTemplateSelector) && (
                         <TemplateSelector
-                            selectedTemplateId={selectedTemplate?.id}
+                            selectedTemplateId={selectedTemplate?.id || automation.template_id}
                             onSelect={(template) => {
+                                setIsSelectedTemplateLoading(false);
                                 setSelectedTemplate(template);
                                 setShowTemplateSelector(!template);
                                 emitTemplateSelect(template?.id || null);
@@ -1637,13 +1686,27 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     profilePic={profilePic}
                     lockScroll
                     hideAutomationPrompt
+                    isLoadingPreview={isSelectedTemplateLoading}
                 />
             );
         }
 
-        // When editing an existing automation that already has template fields but
-        // selectedTemplate is not loaded yet, fall back to automation data so the
-        // live preview still shows the reply template content.
+        if (automation.template_id) {
+            return (
+                <SharedMobilePreview
+                    mode="automation"
+                    automation={{ template_type: 'template_text', template_content: 'Loading selected reply template...' }}
+                    activeAccountID={activeAccountID}
+                    authenticatedFetch={authenticatedFetch}
+                    displayName={displayName}
+                    profilePic={profilePic}
+                    lockScroll
+                    hideAutomationPrompt
+                    isLoadingPreview
+                />
+            );
+        }
+
         if (automation.template_type) {
             return (
                 <SharedMobilePreview
@@ -1655,6 +1718,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     profilePic={profilePic}
                     lockScroll
                     hideAutomationPrompt
+                    isLoadingPreview={isSelectedTemplateLoading}
                 />
             );
         }

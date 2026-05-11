@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     ChevronRight, Smartphone, RefreshCcw, Instagram, Menu,
     Image as ImageIcon, Video, Music, FileText, Reply,
-    MousePointerClick, Share2, MessageSquare, LayoutGrid, List, MessageCircle, Camera, Mic, PlusSquare, ExternalLink
+    MousePointerClick, Share2, MessageSquare, LayoutGrid, List, MessageCircle, Camera, Mic, PlusSquare, ExternalLink, Loader2
 } from 'lucide-react';
 import {
     canBrowserRenderPreviewUrl,
@@ -76,6 +76,7 @@ export interface SharedMobilePreviewProps {
     isMediaDeleted?: boolean;
     lockScroll?: boolean;
     hideAutomationPrompt?: boolean;
+    isLoadingPreview?: boolean;
 }
 
 const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
@@ -92,13 +93,16 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
     fetchedAutomations = {},
     isMediaDeleted: propsIsMediaDeleted,
     lockScroll = false,
-    hideAutomationPrompt = false
+    hideAutomationPrompt = false,
+    isLoadingPreview = false
 }) => {
     const [activeIdx, setActiveIdx] = useState<number | null>(null);
     const [localIsMediaDeleted, setIsMediaDeleted] = useState(false);
     const [sharePostPreviewFailed, setSharePostPreviewFailed] = useState(false);
     const [resolvedLatestSharePost, setResolvedLatestSharePost] = useState<Record<string, unknown> | null>(null);
     const [resolvedSelectedSharePost, setResolvedSelectedSharePost] = useState<Record<string, unknown> | null>(null);
+    const [resolvedLatestSharePostKey, setResolvedLatestSharePostKey] = useState('');
+    const [resolvedSelectedSharePostKey, setResolvedSelectedSharePostKey] = useState('');
     const carouselRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
@@ -157,20 +161,23 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
 
     const applyTemplateData = (target: any, td: any) => {
         if (!target || !td) return target;
+        const isLatestSharePostTemplate = !!td.use_latest_post;
         if (!target.template_content && td.text) target.template_content = td.text;
         if (!target.template_elements && td.elements) target.template_elements = td.elements;
         if (!target.replies && td.replies) target.replies = td.replies;
         if (!target.buttons && td.buttons) target.buttons = td.buttons;
-        if (!target.media_url && td.media_url) target.media_url = td.media_url;
-        if (!target.thumbnail_url && td.thumbnail_url) target.thumbnail_url = td.thumbnail_url;
-        if (!target.preview_media_url && td.preview_media_url) target.preview_media_url = td.preview_media_url;
-        if (!target.linked_media_url && td.linked_media_url) target.linked_media_url = td.linked_media_url;
         if (!target.media_id && td.media_id) target.media_id = td.media_id;
         if (target.use_latest_post === undefined && td.use_latest_post !== undefined) target.use_latest_post = td.use_latest_post;
         if (!target.latest_post_type && td.latest_post_type) target.latest_post_type = td.latest_post_type;
-        if (!target.caption && td.caption) target.caption = td.caption;
-        if (!target.media_type && td.media_type) target.media_type = td.media_type;
-        if (!target.permalink && td.permalink) target.permalink = td.permalink;
+        if (!isLatestSharePostTemplate) {
+            if (!target.media_url && td.media_url) target.media_url = td.media_url;
+            if (!target.thumbnail_url && td.thumbnail_url) target.thumbnail_url = td.thumbnail_url;
+            if (!target.preview_media_url && td.preview_media_url) target.preview_media_url = td.preview_media_url;
+            if (!target.linked_media_url && td.linked_media_url) target.linked_media_url = td.linked_media_url;
+            if (!target.caption && td.caption) target.caption = td.caption;
+            if (!target.media_type && td.media_type) target.media_type = td.media_type;
+            if (!target.permalink && td.permalink) target.permalink = td.permalink;
+        }
         if (!target.template_data || Object.keys(target.template_data || {}).length === 0) target.template_data = td;
         return target;
     };
@@ -268,23 +275,32 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
 
     useEffect(() => {
         let alive = true;
+        const latestPostType = auto?.latest_post_type === 'reel' ? 'reel' : 'post';
+        const requestKey = auto?.use_latest_post && auto?.template_type === 'template_share_post' && activeAccountID
+            ? `${activeAccountID}:${latestPostType}`
+            : '';
 
         if (!auto?.use_latest_post || auto?.template_type !== 'template_share_post' || !activeAccountID || !authenticatedFetch) {
             setResolvedLatestSharePost(null);
+            setResolvedLatestSharePostKey('');
             return () => {
                 alive = false;
             };
         }
 
+        setResolvedLatestSharePost(null);
+        setResolvedLatestSharePostKey(requestKey);
+
         (async () => {
             const latestPreview = await resolveLatestSharePostPreview({
                 activeAccountID,
                 authenticatedFetch,
-                latestPostType: auto?.latest_post_type === 'reel' ? 'reel' : 'post'
+                latestPostType
             });
 
             if (!alive) return;
             setResolvedLatestSharePost(latestPreview);
+            setResolvedLatestSharePostKey(requestKey);
         })();
 
         return () => {
@@ -294,6 +310,11 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
 
     useEffect(() => {
         let alive = true;
+        const mediaId = String(auto?.media_id || '');
+        const requestKey =
+            auto?.template_type === 'template_share_post' && !auto?.use_latest_post && activeAccountID && mediaId
+                ? `${activeAccountID}:${mediaId}`
+                : '';
 
         if (
             auto?.template_type !== 'template_share_post' ||
@@ -303,20 +324,25 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
             !authenticatedFetch
         ) {
             setResolvedSelectedSharePost(null);
+            setResolvedSelectedSharePostKey('');
             return () => {
                 alive = false;
             };
         }
 
+        setResolvedSelectedSharePost(null);
+        setResolvedSelectedSharePostKey(requestKey);
+
         (async () => {
             const matchedPreview = await resolveSelectedSharePostPreview({
                 activeAccountID,
                 authenticatedFetch,
-                mediaId: String(auto?.media_id || '')
+                mediaId
             });
 
             if (!alive) return;
             setResolvedSelectedSharePost(matchedPreview);
+            setResolvedSelectedSharePostKey(requestKey);
         })();
 
         return () => {
@@ -325,7 +351,20 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
     }, [activeAccountID, authenticatedFetch, auto?.media_id, auto?.template_type, auto?.use_latest_post]);
 
     const resolvedAutomation = useMemo(() => {
-        const resolvedSharePost = resolvedLatestSharePost || resolvedSelectedSharePost;
+        const latestPostType = auto?.latest_post_type === 'reel' ? 'reel' : 'post';
+        const expectedLatestKey =
+            auto?.template_type === 'template_share_post' && auto?.use_latest_post && activeAccountID
+                ? `${activeAccountID}:${latestPostType}`
+                : '';
+        const expectedSelectedKey =
+            auto?.template_type === 'template_share_post' && !auto?.use_latest_post && activeAccountID && auto?.media_id
+                ? `${activeAccountID}:${String(auto.media_id)}`
+                : '';
+
+        const resolvedSharePost = auto?.use_latest_post
+            ? (resolvedLatestSharePostKey === expectedLatestKey ? resolvedLatestSharePost : null)
+            : (resolvedSelectedSharePostKey === expectedSelectedKey ? resolvedSelectedSharePost : null);
+
         if (!auto || !resolvedSharePost) return auto;
 
         const mergedTemplateData = {
@@ -338,7 +377,14 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
             ...resolvedSharePost,
             template_data: mergedTemplateData
         };
-    }, [auto, resolvedLatestSharePost, resolvedSelectedSharePost]);
+    }, [
+        activeAccountID,
+        auto,
+        resolvedLatestSharePost,
+        resolvedLatestSharePostKey,
+        resolvedSelectedSharePost,
+        resolvedSelectedSharePostKey
+    ]);
 
     if (resolvedAutomation) {
         auto = resolvedAutomation;
@@ -477,13 +523,11 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
         const activeSharePostUrl = sharePostPreviewFailed && sharePostFallbackImageUrl
             ? sharePostFallbackImageUrl
             : sharePostPreviewUrl;
-        const sharePostMediaLabel =
-            auto.latest_post_type === 'reel' ||
-                td.latest_post_type === 'reel' ||
-                auto.media_type === 'VIDEO' ||
-                td.media_type === 'VIDEO'
-                ? 'Reel'
-                : 'Post';
+        const isLatestPostActive = auto.use_latest_post || td.use_latest_post;
+        const requestedLatestType = auto.latest_post_type || td.latest_post_type;
+        const sharePostMediaLabel = isLatestPostActive
+            ? (requestedLatestType === 'reel' ? 'Reel' : 'Post')
+            : (requestedLatestType === 'reel' || auto.media_type === 'VIDEO' || td.media_type === 'VIDEO' ? 'Reel' : 'Post');
         const showSharePostMedia = Boolean(activeSharePostUrl);
         return (
             <>
@@ -688,6 +732,13 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                             <div className="w-1.5 h-1.5 bg-current rounded-full" />
                         </div>
                     </div>
+
+                    {isLoadingPreview && (
+                        <div className="absolute right-4 top-16 z-40 flex items-center gap-2 rounded-full border border-border/60 bg-background/95 px-3 py-1.5 shadow-sm dark:bg-black/90">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Loading</span>
+                        </div>
+                    )}
 
                     {/* Instagram Header */}
                     <div className="px-5 py-3 border-b border-[#DBDBDB] dark:border-[#262626] flex items-center justify-between bg-white dark:bg-black mt-2">

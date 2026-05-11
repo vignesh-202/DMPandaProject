@@ -12,7 +12,7 @@ import { ArrowLeft } from 'lucide-react';
 import { takeTransientState } from '../../lib/transientState';
 import AutomationToast from '../../components/ui/AutomationToast';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
-import { prefetchReplyTemplates, ReplyTemplate } from '../../components/dashboard/TemplateSelector';
+import { fetchReplyTemplateById, prefetchReplyTemplates, ReplyTemplate } from '../../components/dashboard/TemplateSelector';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 
 const PostAutomationView: React.FC = () => {
@@ -29,6 +29,7 @@ const PostAutomationView: React.FC = () => {
   const [editorLoadingMessage, setEditorLoadingMessage] = useState('Preparing post automation editor');
   const [prefetchedAutomation, setPrefetchedAutomation] = useState<any>(null);
   const [prefetchedTemplate, setPrefetchedTemplate] = useState<ReplyTemplate | null>(null);
+  const [isPreviewTemplateLoading, setIsPreviewTemplateLoading] = useState(false);
   const [mediaRefreshKey, setMediaRefreshKey] = useState(0);
   const saveHandlerRef = React.useRef<() => Promise<boolean>>(async () => true);
   useDashboardMainScrollLock(Boolean(selectedMedia || isPreparingEditor));
@@ -51,6 +52,52 @@ const PostAutomationView: React.FC = () => {
       return Array.from(merged.values());
     });
   }, []);
+
+  const previewTemplate =
+    (selectedTemplateId ? replyTemplatesList.find((template) => template.id === selectedTemplateId) : null)
+    || (prefetchedTemplate && prefetchedTemplate.id === selectedTemplateId ? prefetchedTemplate : null);
+
+  const previewAutomation = previewTemplate?.template_data && Object.keys(previewTemplate.template_data || {}).length > 0
+    ? {
+        ...(buildPreviewAutomationFromTemplate(previewTemplate) || {})
+      }
+    : prefetchedAutomation;
+
+  useEffect(() => {
+    let alive = true;
+
+    if (!activeAccountID || !selectedTemplateId) {
+      setIsPreviewTemplateLoading(false);
+      return () => {
+        alive = false;
+      };
+    }
+
+    const currentTemplate = replyTemplatesList.find((template) => template.id === selectedTemplateId)
+      || (prefetchedTemplate?.id === selectedTemplateId ? prefetchedTemplate : null);
+
+    if (currentTemplate?.template_data && Object.keys(currentTemplate.template_data || {}).length > 0) {
+      setIsPreviewTemplateLoading(false);
+      return () => {
+        alive = false;
+      };
+    }
+
+    setIsPreviewTemplateLoading(true);
+    void fetchReplyTemplateById(activeAccountID, authenticatedFetch, selectedTemplateId)
+      .then((template) => {
+        if (!alive || !template) return;
+        setPrefetchedTemplate((current) => current?.id === template.id ? template : current);
+        handleTemplatesLoaded([template]);
+      })
+      .finally(() => {
+        if (alive) setIsPreviewTemplateLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [activeAccountID, authenticatedFetch, handleTemplatesLoaded, prefetchedTemplate, replyTemplatesList, selectedTemplateId]);
 
   const primeEditorResources = useCallback(async () => {
     if (!activeAccountID) return;
@@ -250,32 +297,18 @@ const PostAutomationView: React.FC = () => {
 
           {/* Right: Live Preview */}
           <AutomationPreviewPanel>
-            {selectedTemplateId ? (
-              (() => {
-                const template = replyTemplatesList.find(t => t.id === selectedTemplateId);
-                if (template) {
-                  const displayName = activeAccount?.username || 'your_account';
-                  const profilePic = activeAccount?.profile_picture_url || null;
-
-                  const previewAutomation = {
-                    ...(buildPreviewAutomationFromTemplate(template) || {})
-                  };
-
-                  return (
-                    <SharedMobilePreview
-                      mode="automation"
-                      automation={previewAutomation}
-                      activeAccountID={activeAccountID}
-                      authenticatedFetch={authenticatedFetch}
-                      displayName={displayName}
-                      profilePic={profilePic || undefined}
-                      lockScroll
-                      hideAutomationPrompt
-                    />
-                  );
-                }
-                return null;
-              })()
+            {previewAutomation ? (
+              <SharedMobilePreview
+                mode="automation"
+                automation={previewAutomation}
+                activeAccountID={activeAccountID}
+                authenticatedFetch={authenticatedFetch}
+                displayName={activeAccount?.username || 'your_account'}
+                profilePic={activeAccount?.profile_picture_url || undefined}
+                lockScroll
+                hideAutomationPrompt
+                isLoadingPreview={isPreviewTemplateLoading}
+              />
             ) : (
               <SharedMobilePreview
                 mode="automation"
@@ -286,6 +319,7 @@ const PostAutomationView: React.FC = () => {
                 profilePic={activeAccount?.profile_picture_url || undefined}
                 lockScroll
                 hideAutomationPrompt
+                isLoadingPreview={isPreviewTemplateLoading}
               />
             )}
           </AutomationPreviewPanel>
