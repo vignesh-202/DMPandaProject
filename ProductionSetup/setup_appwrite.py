@@ -413,6 +413,9 @@ DEPRECATED_ATTRIBUTES = {
         "daily_action_limit",
         "monthly_action_limit",
     },
+    "automation_collect_destinations": {
+        "sheet_link",
+    },
 }
 
 DEPRECATED_INDEXES = {

@@ -188,7 +188,7 @@ const InboxMenu: React.FC = () => {
 
         const requestKey = `${activeAccountID}|${params.toString()}`;
         const doFetch = async () => {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/media?${params}`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/media?${params}`);
             if (res.ok) {
                 const data = await res.json();
                 return data.data || [];
@@ -295,7 +295,7 @@ const InboxMenu: React.FC = () => {
 
         const fetchFull = async () => {
             try {
-                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${target.$id}?account_id=${activeAccountID}`);
+                const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${target.$id}?account_id=${activeAccountID}`);
                 if (res.ok) {
                     const fullData = await res.json();
                     setFetchedAutomations(prev => ({ ...prev, [target.$id]: fullData }));
@@ -711,7 +711,7 @@ const InboxMenu: React.FC = () => {
             console.log('Sending menu to backend:', { itemCount: cleanMenu.length, items: cleanMenu });
 
             // Task 2: Send menu to backend where it sets the menu using Instagram Graph API
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/inbox-menu`, {
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/inbox-menu`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ account_id: activeAccountID, action: 'save', menu_items: cleanMenu })
@@ -827,7 +827,7 @@ const InboxMenu: React.FC = () => {
             const itemTemplateId = String(item?.template_id || '').trim();
             if (itemTemplateId && activeAccountID) {
                 const templateResponse = await authenticatedFetch(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${itemTemplateId}?account_id=${activeAccountID}`
+                    `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${itemTemplateId}?account_id=${activeAccountID}`
                 );
                 if (templateResponse.ok) {
                     resolvedTemplate = await templateResponse.json();
@@ -929,7 +929,7 @@ const InboxMenu: React.FC = () => {
         if (!activeAccountID) return;
         setIsActionLoading(true);
         try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/inbox-menu`, {
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/inbox-menu`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ account_id: activeAccountID, action: 'sync' })
@@ -953,7 +953,7 @@ const InboxMenu: React.FC = () => {
         setIsActionLoading(true);
         setIsDeleting(true);
         try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/inbox-menu?account_id=${activeAccountID}`, {
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/inbox-menu?account_id=${activeAccountID}`, {
                 method: 'DELETE'
             });
             if (response.ok) {
@@ -1436,8 +1436,8 @@ const InboxMenu: React.FC = () => {
                                                 <div className="space-y-8 animate-in fade-in slide-in-from-top-2">
                                                                                                         <LockedFeatureToggle
                                                         icon={<Power className={`w-5 h-5 ${newItem.followers_only ? 'text-blue-500' : 'text-gray-400'}`} />}
-                                                        title="Followers Only Mode"
-                                                        description="Only followers can trigger this auto reply menu item."
+                                                        title="Followers Only"
+                                                        description="Only respond to users who already follow your account."
                                                         checked={newItem.followers_only === true}
                                                         onToggle={() => setNewItem({ ...newItem, followers_only: !newItem.followers_only })}
                                                         locked={getPlanGate('followers_only').isLocked}
@@ -1446,36 +1446,34 @@ const InboxMenu: React.FC = () => {
                                                         activeIconClassName="text-blue-500"
                                                     />
 
-                                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="p-3 rounded-2xl shadow-sm border bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                                                                <Calendar className="w-5 h-5 text-gray-400" />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-0.5">Once Per User (24h)</p>
-                                                                <p className="text-[10px] font-medium text-gray-400">This control is staged in the UI, but saving the 24-hour cooldown still needs the deferred Appwrite schema pass.</p>
-                                                            </div>
-                                                        </div>
-                                                        <ToggleSwitch isChecked={false} onChange={() => { }} variant="plain" disabled />
-                                                    </div>
+                                                    <LockedFeatureToggle
+                                                        icon={<Calendar className={`w-5 h-5 text-gray-400`} />}
+                                                        title="Once Per User (24h)"
+                                                        description="Prevent the same person from retriggering this automation again for 24 hours."
+                                                        checked={false}
+                                                        onToggle={() => { }}
+                                                        locked={false}
+                                                        note=""
+                                                        activeIconClassName="text-cyan-500"
+                                                        actionElement={<span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Coming Soon</span>}
+                                                    />
 
-                                                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="p-3 rounded-2xl shadow-sm border bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                                                                <Mail className="w-5 h-5 text-gray-400" />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-0.5">Collect Email</p>
-                                                                <p className="text-[10px] font-medium text-gray-400">Collector prompts and destination routing still need the deferred Appwrite schema pass before they can be saved safely.</p>
-                                                            </div>
-                                                        </div>
-                                                        <ToggleSwitch isChecked={false} onChange={() => { }} variant="plain" disabled />
-                                                    </div>
+                                                    <LockedFeatureToggle
+                                                        icon={<Mail className={`w-5 h-5 text-gray-400`} />}
+                                                        title="Collect Email"
+                                                        description="Prompt users for their email address before completing the automation flow."
+                                                        checked={false}
+                                                        onToggle={() => { }}
+                                                        locked={false}
+                                                        note=""
+                                                        activeIconClassName="text-indigo-500"
+                                                        actionElement={<span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Coming Soon</span>}
+                                                    />
 
                                                     <LockedFeatureToggle
                                                         icon={<MessageSquare className={`w-5 h-5 ${newItem.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />}
-                                                        title="Seen + Typing"
-                                                        description="Store the seen and typing reaction with this inbox menu reply item."
+                                                        title="Seen + Typing Reaction"
+                                                        description="Simulate seen and typing indicators before sending the automated reply."
                                                         checked={newItem.seen_typing_enabled === true}
                                                         onToggle={() => setNewItem({ ...newItem, seen_typing_enabled: !(newItem.seen_typing_enabled === true) })}
                                                         locked={getPlanGate('seen_typing').isLocked}
@@ -2125,3 +2123,4 @@ const InboxMenu: React.FC = () => {
 };
 
 export default InboxMenu;
+

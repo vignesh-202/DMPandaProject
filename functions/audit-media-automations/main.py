@@ -138,6 +138,45 @@ def _delete_related(client: Client, db_id: str, collection_id: str, automation_i
     return deleted, failed
 
 
+def _delete_automation_artifacts(
+    client: Client,
+    db_id: str,
+    automation_id: str,
+    *,
+    keywords_collection: str,
+    keyword_index_collection: str,
+    collector_destinations_collection: str,
+):
+    deleted_index, failed_index = _delete_related(client, db_id, keyword_index_collection, automation_id)
+    deleted_keywords, failed_keywords = _delete_related(client, db_id, keywords_collection, automation_id)
+    deleted_destinations, failed_destinations = _delete_related(client, db_id, collector_destinations_collection, automation_id)
+    return {
+        "deleted_keyword_index": deleted_index,
+        "failed_keyword_index": failed_index,
+        "deleted_keywords": deleted_keywords,
+        "failed_keywords": failed_keywords,
+        "deleted_collect_destinations": deleted_destinations,
+        "failed_collect_destinations": failed_destinations,
+    }
+
+
+def _ensure_collections_exist(client: Client, db_id: str, collection_ids):
+    checked = []
+    for collection_id in collection_ids:
+        safe_collection_id = str(collection_id or "").strip()
+        if not safe_collection_id:
+            continue
+        _with_retry(
+            lambda cid=safe_collection_id: _call_appwrite(
+                client,
+                "get",
+                f"/databases/{db_id}/collections/{cid}",
+            )
+        )
+        checked.append(safe_collection_id)
+    return checked
+
+
 def _get_ig_account(client: Client, db_id: str, ig_collection: str, account_id: str):
     safe = str(account_id or "").strip()
     if not safe:
@@ -336,17 +375,33 @@ def main(context):
         automations_collection = _env("AUTOMATIONS_COLLECTION_ID", "automations")
         keywords_collection = _env("KEYWORDS_COLLECTION_ID", "keywords")
         keyword_index_collection = _env("KEYWORD_INDEX_COLLECTION_ID", "keyword_index")
+        collector_destinations_collection = _env("AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID", "automation_collect_destinations")
         ig_accounts_collection = _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts")
         now = datetime.now(timezone.utc)
+        checked_collections = _ensure_collections_exist(
+            client,
+            db_id,
+            [
+                automations_collection,
+                keywords_collection,
+                keyword_index_collection,
+                collector_destinations_collection,
+                ig_accounts_collection,
+                _env("LOGS_COLLECTION_ID", "logs"),
+                _env("CHAT_STATES_COLLECTION_ID", "chat_states"),
+            ],
+        )
 
         deletions_by_user = {}
         totals = {
             "deleted_automations": 0,
             "deleted_keywords": 0,
             "deleted_keyword_index": 0,
+            "deleted_collect_destinations": 0,
             "failed_automations": 0,
             "failed_keywords": 0,
             "failed_keyword_index": 0,
+            "failed_collect_destinations": 0,
         }
 
         automations = _list_all(
@@ -402,27 +457,29 @@ def main(context):
 
             reason = "Linked Instagram media is missing or inaccessible"
             if dry_run:
-                deleted_index = 0
-                failed_index = 0
-                deleted_keywords = 0
-                failed_keywords = 0
+                artifact_totals = {
+                    "deleted_keyword_index": 0,
+                    "failed_keyword_index": 0,
+                    "deleted_keywords": 0,
+                    "failed_keywords": 0,
+                    "deleted_collect_destinations": 0,
+                    "failed_collect_destinations": 0,
+                }
             else:
-                    deleted_index, failed_index = _delete_related(
-                        client,
-                        db_id,
-                        keyword_index_collection,
-                        automation_id,
-                    )
-                    deleted_keywords, failed_keywords = _delete_related(
-                        client,
-                        db_id,
-                        keywords_collection,
-                        automation_id,
-                    )
-            totals["deleted_keyword_index"] += deleted_index
-            totals["failed_keyword_index"] += failed_index
-            totals["deleted_keywords"] += deleted_keywords
-            totals["failed_keywords"] += failed_keywords
+                artifact_totals = _delete_automation_artifacts(
+                    client,
+                    db_id,
+                    automation_id,
+                    keywords_collection=keywords_collection,
+                    keyword_index_collection=keyword_index_collection,
+                    collector_destinations_collection=collector_destinations_collection,
+                )
+            totals["deleted_keyword_index"] += artifact_totals["deleted_keyword_index"]
+            totals["failed_keyword_index"] += artifact_totals["failed_keyword_index"]
+            totals["deleted_keywords"] += artifact_totals["deleted_keywords"]
+            totals["failed_keywords"] += artifact_totals["failed_keywords"]
+            totals["deleted_collect_destinations"] += artifact_totals["deleted_collect_destinations"]
+            totals["failed_collect_destinations"] += artifact_totals["failed_collect_destinations"]
 
             try:
                 if not dry_run:
@@ -446,8 +503,9 @@ def main(context):
                             "title": str(_obj_get(automation, "title", "") or ""),
                             "account_id": account_id,
                             "media_id": media_id,
-                            "deleted_keywords": deleted_keywords,
-                            "deleted_keyword_index": deleted_index,
+                            "deleted_keywords": artifact_totals["deleted_keywords"],
+                            "deleted_keyword_index": artifact_totals["deleted_keyword_index"],
+                            "deleted_collect_destinations": artifact_totals["deleted_collect_destinations"],
                             "reason": reason,
                         }
                     )
@@ -473,6 +531,7 @@ def main(context):
                 "totals": totals,
                 "users_with_removals": len(deletions_by_user),
                 "emails_sent": email_sent,
+                "checked_collections": checked_collections,
             }
         )
     except Exception as err:  # noqa: BLE001

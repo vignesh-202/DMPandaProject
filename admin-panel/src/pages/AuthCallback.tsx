@@ -22,7 +22,7 @@ export const AuthCallback: React.FC = () => {
             }
 
             try {
-                const url = new URL(`${import.meta.env.VITE_API_BASE_URL}/api/auth/google-callback`);
+                const url = new URL(`${((globalThis as any).__DM_PANDA_ADMIN_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/auth/google-callback`);
                 url.searchParams.append('userId', userId);
                 url.searchParams.append('secret', secret);
                 url.searchParams.append('target', 'admin');
@@ -82,3 +82,4 @@ export const AuthCallback: React.FC = () => {
 };
 
 export default AuthCallback;
+

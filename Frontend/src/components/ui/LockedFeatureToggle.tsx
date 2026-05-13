@@ -7,9 +7,9 @@ interface LockedFeatureToggleProps {
     description: string;
     checked: boolean;
     onToggle: () => void;
-    locked: boolean;
-    note: string;
-    onUpgrade: () => void;
+    locked?: boolean;
+    note?: string;
+    onUpgrade?: () => void;
     activeIconClassName?: string;
     actionElement?: React.ReactNode;
 }
@@ -20,9 +20,9 @@ const LockedFeatureToggle: React.FC<LockedFeatureToggleProps> = ({
     description,
     checked,
     onToggle,
-    locked,
-    note,
-    onUpgrade,
+    locked = false,
+    note = '',
+    onUpgrade = () => {},
     activeIconClassName = 'text-primary',
     actionElement
 }) => (

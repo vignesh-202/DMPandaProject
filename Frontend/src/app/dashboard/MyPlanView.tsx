@@ -56,7 +56,7 @@ const MyPlanView: React.FC = () => {
   const pricingHeaders = useMemo(() => buildCountryHeaders(countryCode), [countryCode]);
 
   const fetchMyPlan = React.useCallback(async () => {
-    const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`, {
+    const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/my-plan`, {
       headers: pricingHeaders
     });
     if (!response.ok) {
@@ -73,7 +73,7 @@ const MyPlanView: React.FC = () => {
     setPlansLoading(true);
     setPlansError(null);
     try {
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/pricing`, {
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/pricing`, {
         headers: pricingHeaders
       });
       const data = await response.json().catch(() => ({}));
@@ -100,8 +100,8 @@ const MyPlanView: React.FC = () => {
         setCurrency(geo.defaultCurrency);
         const headers = buildCountryHeaders(geo.countryCode);
         const [planResponse, pricingResponse] = await Promise.all([
-          authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`, { headers }),
-          authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/pricing`, { headers })
+          authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/my-plan`, { headers }),
+          authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/pricing`, { headers })
         ]);
         const planData = await planResponse.json().catch(() => null);
         const pricingData = await pricingResponse.json().catch(() => ({}));
@@ -440,3 +440,4 @@ const MyPlanView: React.FC = () => {
 };
 
 export default MyPlanView;
+

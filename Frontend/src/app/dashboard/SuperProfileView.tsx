@@ -82,7 +82,7 @@ const SuperProfileView: React.FC = () => {
         setError(null);
         try {
             const res = await authenticatedFetch(
-                `${import.meta.env.VITE_API_BASE_URL}/api/super-profile?account_id=${activeAccountID}`
+                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/super-profile?account_id=${activeAccountID}`
             );
             if (res.ok) {
                 const data = await res.json();
@@ -185,7 +185,7 @@ const SuperProfileView: React.FC = () => {
         setError(null);
         setSuccess(null);
         try {
-            const url = `${import.meta.env.VITE_API_BASE_URL}/api/super-profile?account_id=${activeAccountID}`;
+            const url = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/super-profile?account_id=${activeAccountID}`;
             const method = publicUrl ? 'PATCH' : 'POST';
 
             const res = await authenticatedFetch(url, {
@@ -623,4 +623,5 @@ const SuperProfileView: React.FC = () => {
 };
 
 export default SuperProfileView;
+
 

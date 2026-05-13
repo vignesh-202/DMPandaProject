@@ -839,6 +839,12 @@ class DMWorker {
             automationAccountIds,
             'suggest_more'
         );
+        if (!suggestMoreAutomation) {
+            console.log(
+                `Suggest More enabled on automation ${automation?.$id || automation?.title || 'unknown'} but no active Suggest More config was found.`
+            );
+            return false;
+        }
 
         const suggestMoreTemplate = await this._resolveAutomationTemplate(
             suggestMoreAutomation,

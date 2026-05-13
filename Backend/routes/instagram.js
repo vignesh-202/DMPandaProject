@@ -21,8 +21,6 @@ const {
     FUNCTION_REMOVE_INSTAGRAM
 } = require('../utils/appwrite');
 const {
-    getGoogleServiceAccount,
-    loadSpreadsheetMetadata,
     sendWebhookPayload
 } = require('../utils/emailCollectors');
 const {
@@ -42,6 +40,16 @@ const {
     recomputeAccountAccessStateForUser,
     recomputeAccountAccessForUser
 } = require('../utils/accountAccess');
+const {
+    getAutomationSchema,
+    inspectAutomationDependencies,
+    normalizeAutomationType,
+    buildAutomationEnvelope,
+    createAutomationRecord,
+    updateAutomationRecord,
+    upsertSingletonAutomation,
+    deleteAutomationRecord
+} = require('../utils/automationLifecycle');
 
 // Environment variables
 const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID;
@@ -494,7 +502,7 @@ const listSuggestMoreDocuments = async (databases, {
     limit
 });
 
-const COLLECTOR_DESTINATION_TYPES = new Set(['sheet', 'webhook']);
+const COLLECTOR_DESTINATION_TYPES = new Set(['webhook']);
 
 const normalizeCollectorDestinationType = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
@@ -507,16 +515,13 @@ const parseDestinationJson = (value) => {
 };
 
 const getCollectorDestinationDefaults = () => {
-    const serviceAccount = getGoogleServiceAccount();
     return {
-        destination_type: '',
-        sheet_link: '',
+        destination_type: 'webhook',
         webhook_url: '',
         destination_id: '',
         destination_json: {},
         verified: false,
-        verified_at: null,
-        service_account_email: serviceAccount?.client_email || ''
+        verified_at: null
     };
 };
 
@@ -527,15 +532,11 @@ const normalizeCollectorDestinationResponse = (document) => {
         $id: document.$id,
         automation_id: String(document.automation_id || '').trim(),
         destination_type: normalizeCollectorDestinationType(document.destination_type),
-        sheet_link: String(document.sheet_link || '').trim(),
         webhook_url: String(document.webhook_url || '').trim(),
         destination_id: String(document.destination_id || '').trim(),
         destination_json: destinationJson,
         verified: destinationJson.verified === true,
-        verified_at: destinationJson.verified_at || null,
-        service_account_email: String(
-            destinationJson.service_account_email || getCollectorDestinationDefaults().service_account_email || ''
-        ).trim()
+        verified_at: destinationJson.verified_at || null
     };
 };
 
@@ -1535,6 +1536,72 @@ const syncKeywordRecords = async (databases, { accountId, automationId, automati
     }
 };
 
+const deleteCollectorDestinationRecords = async (databases, automationId) => {
+    const safeAutomationId = String(automationId || '').trim();
+    if (!safeAutomationId) return 0;
+
+    let deleted = 0;
+    try {
+        const existing = await listAllDocuments(databases, AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID, [
+            Query.equal('automation_id', safeAutomationId)
+        ]);
+        for (const doc of existing) {
+            await databases.deleteDocument(
+                process.env.APPWRITE_DATABASE_ID,
+                AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
+                doc.$id
+            );
+            deleted += 1;
+        }
+    } catch (error) {
+        if (!isMissingCollectionError(error)) {
+            throw error;
+        }
+    }
+
+    return deleted;
+};
+
+const deleteAutomationWithArtifacts = async (databases, automationDoc) => {
+    if (!automationDoc?.$id) return;
+
+    await deleteAutomationRecord({
+        databases,
+        databaseId: process.env.APPWRITE_DATABASE_ID,
+        automation: automationDoc,
+        preflight: async () => {
+            await inspectAutomationDependencies({
+                automationType: automationDoc.automation_type,
+                automation: automationDoc,
+                loadCollectionInfo: (collectionId) => getCollectionAttributeInfo(databases, collectionId),
+                loadCollectorDocument: () => loadCollectorDestinationDocument(databases, automationDoc)
+            });
+        },
+        cleanupCollectorDestinations: async () => {
+            try {
+                await deleteCollectorDestinationRecords(databases, automationDoc.$id);
+            } catch (error) {
+                console.error(`Collector destination cleanup failed: ${error.message}`);
+            }
+        },
+        cleanupKeywords: KEYWORD_TYPES.has(automationDoc.automation_type)
+            ? async () => {
+                try {
+                    await syncKeywordRecords(databases, {
+                        accountId: automationDoc.account_id,
+                        automationId: automationDoc.$id,
+                        automationType: automationDoc.automation_type || 'dm',
+                        keywords: [],
+                        matchType: automationDoc.keyword_match_type || 'exact'
+                    });
+                } catch (error) {
+                    console.error(`Keyword cleanup failed: ${error.message}`);
+                }
+            }
+            : null
+    });
+};
+
 const validateAutomationPayload = (automation) => {
     const errors = [];
     const title = String(automation.title || '').trim();
@@ -1764,10 +1831,7 @@ const buildAutomationDocumentData = ({
     const title = toSafeString(source.title, 255);
     const titleNormalized = normalizeTitle(title);
     const followersOnly = source.followers_only === true;
-    const normalizedAutomationType = String(automationType || '').trim().toLowerCase();
-    const defaultIsActive = normalizedAutomationType === 'welcome_message'
-        ? true
-        : (source.is_active !== undefined ? source.is_active : true);
+    const defaultIsActive = source.is_active !== undefined ? source.is_active : true;
 
     return {
         keywordArray,
@@ -3196,7 +3260,8 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
         const { normalizedAccountId: targetAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, account_id);
 
         const body = req.body;
-        const automationType = type || body.automation_type || 'dm';
+        const automationType = normalizeAutomationType(type || body.automation_type || 'dm');
+        const automationSchema = getAutomationSchema(automationType);
         const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {
             ...body,
             automation_type: automationType
@@ -3210,7 +3275,6 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
         }
         const keywordInfo = getKeywordInfo(body);
         const keywordArray = KEYWORD_TYPES.has(automationType) ? keywordInfo.keywords : [];
-        const keywordString = keywordArray.join(',');
         const validationErrors = validateAutomationPayload({
             ...body,
             automation_type: automationType
@@ -3231,13 +3295,23 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
 
         const {
             titleNormalized,
-            docData: fullCreateData
+            docData: builtCreateData
         } = buildAutomationDocumentData({
             userId: req.user.$id,
             accountId: targetAccountId,
             automationType,
             payload: body
         });
+        const fullCreateData = {
+            ...buildAutomationEnvelope({
+                userId: req.user.$id,
+                accountId: targetAccountId,
+                automationType,
+                payload: body
+            }),
+            ...builtCreateData,
+            trigger_type: builtCreateData.trigger_type || automationSchema.triggerType
+        };
 
         if ((automationType === 'dm' || automationType === 'global') && titleNormalized) {
             const duplicate = await hasDuplicateAutomationTitle(databases, {
@@ -3280,15 +3354,22 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
 
         const automationCollectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
         const docData = sanitizePayloadForCollection(fullCreateData, automationCollectionInfo);
+        const dependencyPreflight = async () => {
+            await inspectAutomationDependencies({
+                automationType,
+                candidate: fullCreateData,
+                loadCollectionInfo: (collectionId) => getCollectionAttributeInfo(databases, collectionId)
+            });
+        };
 
         // Create automation directly (replacing functions)
-        const doc = await createDocumentWithUnknownAttributeRetry({
+        const doc = await createAutomationRecord({
             databases,
             databaseId: process.env.APPWRITE_DATABASE_ID,
-            collectionId: AUTOMATIONS_COLLECTION_ID,
-            documentId: ID.unique(),
             payload: docData,
-            permissions: [Permission.read(Role.user(req.user.$id))]
+            permissions: [Permission.read(Role.user(req.user.$id))],
+            createDocumentWithUnknownAttributeRetry,
+            preflight: dependencyPreflight
         });
 
         if (KEYWORD_TYPES.has(automationType)) {
@@ -3302,7 +3383,7 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
                 });
             } catch (e) {
                 try {
-                    await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, doc.$id);
+                    await deleteAutomationWithArtifacts(databases, doc);
                 } catch (_) { }
                 return res.status(400).json({ error: e.message || 'Keyword sync failed', field: 'keywords' });
             }
@@ -3331,12 +3412,13 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
         await ensureAccessibleOwnedIgAccount(databases, req.user.$id, existing.account_id);
 
         const body = req.body;
-        const nextAutomationType = body.automation_type || existing.automation_type || 'dm';
+        const nextAutomationType = normalizeAutomationType(body.automation_type || existing.automation_type || 'dm');
+        const automationSchema = getAutomationSchema(nextAutomationType);
         const keywordUpdateProvided = body.keyword !== undefined || body.keywords !== undefined || body.automation_type !== undefined;
         const {
             keywordArray: nextKeywords,
             titleNormalized,
-            docData: fullUpdateData
+            docData: builtUpdateData
         } = buildAutomationDocumentData({
             userId: req.user.$id,
             accountId: existing.account_id,
@@ -3344,6 +3426,17 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
             payload: body,
             existingDocument: existing
         });
+        const fullUpdateData = {
+            ...buildAutomationEnvelope({
+                userId: req.user.$id,
+                accountId: existing.account_id,
+                automationType: nextAutomationType,
+                payload: body,
+                existingDocument: existing
+            }),
+            ...builtUpdateData,
+            trigger_type: builtUpdateData.trigger_type || automationSchema.triggerType
+        };
 
         const candidate = {
             ...existing,
@@ -3421,13 +3514,23 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
 
         const automationCollectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
         const sanitizedUpdateData = sanitizePayloadForCollection(fullUpdateData, automationCollectionInfo);
+        const dependencyPreflight = async () => {
+            await inspectAutomationDependencies({
+                automationType: nextAutomationType,
+                automation: existing,
+                candidate,
+                loadCollectionInfo: (collectionId) => getCollectionAttributeInfo(databases, collectionId),
+                loadCollectorDocument: () => loadCollectorDestinationDocument(databases, existing)
+            });
+        };
 
-        await databases.updateDocument(
-            process.env.APPWRITE_DATABASE_ID,
-            AUTOMATIONS_COLLECTION_ID,
-            req.params.id,
-            sanitizedUpdateData
-        );
+        await updateAutomationRecord({
+            databases,
+            databaseId: process.env.APPWRITE_DATABASE_ID,
+            automationId: req.params.id,
+            payload: sanitizedUpdateData,
+            preflight: dependencyPreflight
+        });
 
         if (keywordUpdateProvided) {
             try {
@@ -3502,42 +3605,31 @@ router.put('/instagram/automations/:id/email-collector-destination', loginRequir
 
         const destinationType = normalizeCollectorDestinationType(req.body?.destination_type);
         if (!destinationType) {
-            return res.status(400).json({ error: 'destination_type must be "sheet" or "webhook"' });
+            return res.status(400).json({ error: 'destination_type must be "webhook"' });
         }
 
-        const sheetLink = destinationType === 'sheet' ? String(req.body?.sheet_link || '').trim() : '';
         const webhookUrl = destinationType === 'webhook' ? String(req.body?.webhook_url || '').trim() : '';
 
-        if (destinationType === 'sheet' && !sheetLink) {
-            return res.status(400).json({ error: 'sheet_link is required for Google Sheets destinations' });
-        }
         if (destinationType === 'webhook' && !webhookUrl) {
             return res.status(400).json({ error: 'webhook_url is required for webhook destinations' });
         }
 
         const existingResponse = normalizeCollectorDestinationResponse(existingDocument);
         const destinationChanged = existingResponse.destination_type !== destinationType
-            || existingResponse.sheet_link !== sheetLink
             || existingResponse.webhook_url !== webhookUrl;
-        const serviceAccountEmail = getCollectorDestinationDefaults().service_account_email;
         const nextDestinationJson = destinationChanged
             ? {
                 verified: false,
                 verified_at: null,
-                verification_error: null,
-                service_account_email: serviceAccountEmail
+                verification_error: null
             }
-            : {
-                ...existingResponse.destination_json,
-                service_account_email: serviceAccountEmail
-            };
+            : existingResponse.destination_json;
 
         const savedDoc = await persistCollectorDestinationDocument(databases, automation, {
             user_id: String(automation.user_id || '').trim(),
             account_id: String(automation.account_id || '').trim(),
             automation_id: String(automation.$id || '').trim(),
             destination_type: destinationType,
-            sheet_link: sheetLink || null,
             webhook_url: webhookUrl || null,
             destination_id: destinationChanged ? null : (existingResponse.destination_id || null),
             destination_json: JSON.stringify(nextDestinationJson),
@@ -3582,44 +3674,27 @@ router.post('/instagram/automations/:id/email-collector-destination/verify', log
             ...normalizedDestination.destination_json,
             verified: false,
             verified_at: null,
-            verification_error: null,
-            service_account_email: getCollectorDestinationDefaults().service_account_email
+            verification_error: null
         };
         let destinationId = normalizedDestination.destination_id || null;
 
-        if (normalizedDestination.destination_type === 'sheet') {
-            if (!normalizedDestination.sheet_link) {
-                return res.status(400).json({ error: 'sheet_link is required before verification' });
-            }
-            const metadata = await loadSpreadsheetMetadata(normalizedDestination.sheet_link);
-            destinationId = `${metadata.spreadsheetId}::${metadata.sheetGid}`;
-            Object.assign(destinationJson, {
-                verified: true,
-                verified_at: now,
-                spreadsheet_id: metadata.spreadsheetId,
-                spreadsheet_title: metadata.spreadsheetTitle,
-                sheet_gid: metadata.sheetGid,
-                sheet_title: metadata.sheetTitle
-            });
-        } else if (normalizedDestination.destination_type === 'webhook') {
-            if (!normalizedDestination.webhook_url) {
-                return res.status(400).json({ error: 'webhook_url is required before verification' });
-            }
-            const samplePayload = buildCollectorVerifySamplePayload(automation);
-            const webhookResponse = await sendWebhookPayload(normalizedDestination.webhook_url, samplePayload);
-            Object.assign(destinationJson, {
-                verified: true,
-                verified_at: now,
-                last_verify_status: webhookResponse?.status || null,
-                last_verify_sample: samplePayload
-            });
-        } else {
-            return res.status(400).json({ error: 'destination_type must be "sheet" or "webhook"' });
+        if (normalizedDestination.destination_type !== 'webhook') {
+            return res.status(400).json({ error: 'destination_type must be "webhook"' });
         }
+        if (!normalizedDestination.webhook_url) {
+            return res.status(400).json({ error: 'webhook_url is required before verification' });
+        }
+        const samplePayload = buildCollectorVerifySamplePayload(automation);
+        const webhookResponse = await sendWebhookPayload(normalizedDestination.webhook_url, samplePayload);
+        Object.assign(destinationJson, {
+            verified: true,
+            verified_at: now,
+            last_verify_status: webhookResponse?.status || null,
+            last_verify_sample: samplePayload
+        });
 
         const savedDoc = await persistCollectorDestinationDocument(databases, automation, {
             destination_type: normalizedDestination.destination_type,
-            sheet_link: normalizedDestination.sheet_link || null,
             webhook_url: normalizedDestination.webhook_url || null,
             destination_id: destinationId,
             destination_json: JSON.stringify(destinationJson),
@@ -3652,23 +3727,7 @@ router.delete('/instagram/automations/:id', loginRequired, async (req, res) => {
 
 
 
-        try {
-            await syncKeywordRecords(databases, {
-                accountId: existing.account_id,
-                automationId: existing.$id,
-                automationType: existing.automation_type || 'dm',
-                keywords: [],
-                matchType: existing.keyword_match_type || 'exact'
-            });
-        } catch (e) {
-            console.error(`Keyword cleanup failed: ${e.message}`);
-        }
-
-        await databases.deleteDocument(
-            process.env.APPWRITE_DATABASE_ID,
-            AUTOMATIONS_COLLECTION_ID,
-            req.params.id
-        );
+        await deleteAutomationWithArtifacts(databases, existing);
         res.json({ message: 'Automation deleted' });
     } catch (err) {
         console.error(`Delete Automation Error: ${err.message}`);
@@ -4026,21 +4085,26 @@ const buildInboxMenuFromAutomationDocuments = (documents, templateMap) => (
         })
         .map((doc) => {
             const type = String(doc?.menu_item_type || '').trim().toLowerCase() === 'web_url' ? 'web_url' : 'postback';
+            const configured = type === 'web_url' || hasConfiguredReplyTemplate(doc?.template_id || doc?.template_content);
+            const normalizedOptions = type === 'web_url'
+                ? buildDisabledReplyAutomationFields()
+                : normalizeReplyAutomationOptions(doc, { configured });
             const baseItem = {
                 automation_id: String(doc?.$id || '').trim(),
                 title: String(doc?.title || '').trim(),
                 type,
-                followers_only: Boolean(doc?.followers_only),
-                followers_only_message: String(doc?.followers_only_message || INBOX_MENU_FOLLOWERS_ONLY_DEFAULT).trim(),
-                followers_only_primary_button_text: String(doc?.followers_only_primary_button_text || INBOX_MENU_PRIMARY_BUTTON_DEFAULT).trim(),
-                followers_only_secondary_button_text: String(doc?.followers_only_secondary_button_text || INBOX_MENU_SECONDARY_BUTTON_DEFAULT).trim(),
-                once_per_user_24h: Boolean(doc?.once_per_user_24h),
-                collect_email_enabled: Boolean(doc?.collect_email_enabled),
-                collect_email_only_gmail: Boolean(doc?.collect_email_only_gmail),
-                collect_email_prompt_message: String(doc?.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT).trim(),
-                collect_email_fail_retry_message: String(doc?.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT).trim(),
-                collect_email_success_reply_message: String(doc?.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT).trim(),
-                seen_typing_enabled: Boolean(doc?.seen_typing_enabled)
+                followers_only: normalizedOptions.followers_only,
+                followers_only_message: normalizedOptions.followers_only_message,
+                followers_only_primary_button_text: normalizedOptions.followers_only_primary_button_text,
+                followers_only_secondary_button_text: normalizedOptions.followers_only_secondary_button_text,
+                suggest_more_enabled: normalizedOptions.suggest_more_enabled,
+                once_per_user_24h: normalizedOptions.once_per_user_24h,
+                collect_email_enabled: normalizedOptions.collect_email_enabled,
+                collect_email_only_gmail: normalizedOptions.collect_email_only_gmail,
+                collect_email_prompt_message: normalizedOptions.collect_email_prompt_message,
+                collect_email_fail_retry_message: normalizedOptions.collect_email_fail_retry_message,
+                collect_email_success_reply_message: normalizedOptions.collect_email_success_reply_message,
+                seen_typing_enabled: normalizedOptions.seen_typing_enabled
             };
 
             if (type === 'web_url') {
@@ -4107,18 +4171,7 @@ const buildConvoStartersFromAutomationDocuments = (documents, templateMap) => (
                 template_name: template?.name || undefined,
                 template_type: doc?.template_type || template?.template_type || undefined,
                 template_data: template?.parsedTemplateData || undefined,
-                followers_only: Boolean(doc?.followers_only),
-                followers_only_message: String(doc?.followers_only_message || ''),
-                followers_only_primary_button_text: String(doc?.followers_only_primary_button_text || ''),
-                followers_only_secondary_button_text: String(doc?.followers_only_secondary_button_text || ''),
-                suggest_more_enabled: Boolean(doc?.suggest_more_enabled),
-                once_per_user_24h: Boolean(doc?.once_per_user_24h),
-                collect_email_enabled: Boolean(doc?.collect_email_enabled),
-                collect_email_only_gmail: Boolean(doc?.collect_email_only_gmail),
-                collect_email_prompt_message: String(doc?.collect_email_prompt_message || ''),
-                collect_email_fail_retry_message: String(doc?.collect_email_fail_retry_message || ''),
-                collect_email_success_reply_message: String(doc?.collect_email_success_reply_message || ''),
-                seen_typing_enabled: Boolean(doc?.seen_typing_enabled)
+                ...normalizeReplyAutomationOptions(doc, { configured: hasConfiguredReplyTemplate(templateId || doc?.template_content) })
             };
         })
         .filter((item) => item.question)
@@ -4145,6 +4198,64 @@ const normalizeInboxMenuForComparison = (menuItems) => (
         })
         .filter(Boolean)
 );
+
+const hasConfiguredReplyTemplate = (value) => String(value || '').trim().length > 0;
+
+const buildDisabledReplyAutomationFields = () => ({
+    followers_only: false,
+    followers_only_message: '',
+    followers_only_primary_button_text: '',
+    followers_only_secondary_button_text: '',
+    suggest_more_enabled: false,
+    once_per_user_24h: false,
+    collect_email_enabled: false,
+    collect_email_only_gmail: false,
+    collect_email_prompt_message: '',
+    collect_email_fail_retry_message: '',
+    collect_email_success_reply_message: '',
+    seen_typing_enabled: false
+});
+
+const normalizeReplyAutomationOptions = (source, { configured }) => {
+    if (!configured) {
+        return buildDisabledReplyAutomationFields();
+    }
+
+    const followersOnly = source?.followers_only === true;
+    const collectEmailEnabled = source?.collect_email_enabled === true;
+    return {
+        followers_only: followersOnly,
+        followers_only_message: followersOnly
+            ? String(source?.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT).trim()
+            : '',
+        followers_only_primary_button_text: String(source?.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT).trim(),
+        followers_only_secondary_button_text: String(source?.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT).trim(),
+        suggest_more_enabled: source?.suggest_more_enabled === true,
+        once_per_user_24h: source?.once_per_user_24h === true,
+        collect_email_enabled: collectEmailEnabled,
+        collect_email_only_gmail: collectEmailEnabled && source?.collect_email_only_gmail === true,
+        collect_email_prompt_message: String(source?.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT).trim(),
+        collect_email_fail_retry_message: String(source?.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT).trim(),
+        collect_email_success_reply_message: String(source?.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT).trim(),
+        seen_typing_enabled: source?.seen_typing_enabled === true
+    };
+};
+
+const ensureTemplateBackedAutomationReady = ({
+    templateId,
+    isActive,
+    sectionLabel,
+    allowInactiveWithoutTemplate = true
+}) => {
+    const configured = hasConfiguredReplyTemplate(templateId);
+    if (!configured && !allowInactiveWithoutTemplate) {
+        return `${sectionLabel} requires a reply template before it can be saved.`;
+    }
+    if (!configured && isActive === true) {
+        return `${sectionLabel} requires a reply template before it can be turned on.`;
+    }
+    return null;
+};
 
 router.get('/instagram/inbox-menu', loginRequired, async (req, res) => {
     try {
@@ -4272,11 +4383,7 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
         }).catch(() => ({ documents: [] }));
 
         for (const doc of (existingDocs.documents || [])) {
-            await databases.deleteDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                AUTOMATIONS_COLLECTION_ID,
-                doc.$id
-            );
+            await deleteAutomationWithArtifacts(databases, doc);
         }
 
         if (menuItems.length > 0) {
@@ -4287,22 +4394,22 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
                 const isWebUrl = String(item.type || '').trim().toLowerCase() === 'web_url';
                 const templateId = isWebUrl ? '' : String(item.payload || item.template_id || '').trim();
                 const title = toSafeString(item.title, 255).trim();
+                const configured = isWebUrl || hasConfiguredReplyTemplate(templateId);
                 const normalizedAutoReplyItem = isWebUrl
-                    ? {}
-                    : {
-                        followers_only: item.followers_only === true,
-                        followers_only_message: String(item.followers_only_message || INBOX_MENU_FOLLOWERS_ONLY_DEFAULT).trim(),
-                        followers_only_primary_button_text: String(item.followers_only_primary_button_text || INBOX_MENU_PRIMARY_BUTTON_DEFAULT).trim(),
-                        followers_only_secondary_button_text: String(item.followers_only_secondary_button_text || INBOX_MENU_SECONDARY_BUTTON_DEFAULT).trim(),
-                        suggest_more_enabled: item.suggest_more_enabled === true,
-                        once_per_user_24h: item.once_per_user_24h === true,
-                        collect_email_enabled: item.collect_email_enabled === true,
-                        collect_email_only_gmail: item.collect_email_only_gmail === true,
-                        collect_email_prompt_message: String(item.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT).trim(),
-                        collect_email_fail_retry_message: String(item.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT).trim(),
-                        collect_email_success_reply_message: String(item.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT).trim(),
-                        seen_typing_enabled: item.seen_typing_enabled === true
-                    };
+                    ? buildDisabledReplyAutomationFields()
+                    : normalizeReplyAutomationOptions(item, { configured });
+
+                if (!isWebUrl) {
+                    const setupError = ensureTemplateBackedAutomationReady({
+                        templateId,
+                        isActive: true,
+                        sectionLabel: `Inbox menu item "${title}"`,
+                        allowInactiveWithoutTemplate: false
+                    });
+                    if (setupError) {
+                        return res.status(400).json({ error: setupError, field: 'template_id' });
+                    }
+                }
 
                 if (!isWebUrl) {
                     const featureAccessError = await enforceAutomationFeatureAccess(
@@ -4437,7 +4544,7 @@ router.delete('/instagram/inbox-menu', loginRequired, async (req, res) => {
         }).catch(() => ({ documents: [] }));
 
         for (const doc of (existing.documents || [])) {
-            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, doc.$id);
+            await deleteAutomationWithArtifacts(databases, doc);
         }
 
         // Also delete from Instagram
@@ -4582,29 +4689,27 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
 
         const normalizedStarters = (Array.isArray(starters) ? starters : []).map((starter) => {
             const templateId = String(starter?.template_id || starter?.payload || '').trim();
-            const followersOnly = starter?.followers_only === true;
-            const collectEmailEnabled = starter?.collect_email_enabled === true;
+            const configured = hasConfiguredReplyTemplate(templateId);
             return {
                 question: String(starter?.question || '').trim(),
                 payload: templateId,
                 template_id: templateId || undefined,
                 template_type: starter?.template_type || undefined,
-                followers_only: followersOnly,
-                followers_only_message: followersOnly
-                    ? String(starter?.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT).trim()
-                    : '',
-                followers_only_primary_button_text: String(starter?.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT).trim(),
-                followers_only_secondary_button_text: String(starter?.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT).trim(),
-                suggest_more_enabled: starter?.suggest_more_enabled === true,
-                once_per_user_24h: starter?.once_per_user_24h === true,
-                collect_email_enabled: collectEmailEnabled,
-                collect_email_only_gmail: starter?.collect_email_only_gmail === true,
-                collect_email_prompt_message: String(starter?.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT).trim(),
-                collect_email_fail_retry_message: String(starter?.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT).trim(),
-                collect_email_success_reply_message: String(starter?.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT).trim(),
-                seen_typing_enabled: starter?.seen_typing_enabled === true
+                ...normalizeReplyAutomationOptions(starter, { configured })
             };
         }).filter((starter) => starter.question);
+
+        for (const starter of normalizedStarters) {
+            const setupError = ensureTemplateBackedAutomationReady({
+                templateId: starter.template_id,
+                isActive: true,
+                sectionLabel: `Convo starter "${starter.question}"`,
+                allowInactiveWithoutTemplate: false
+            });
+            if (setupError) {
+                return res.status(400).json({ error: setupError, field: 'template_id' });
+            }
+        }
 
         for (const starter of normalizedStarters) {
             const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, starter);
@@ -4620,7 +4725,7 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
         }).catch(() => ({ documents: [] }));
 
         for (const doc of (existingAutomationDocs.documents || [])) {
-            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, doc.$id);
+            await deleteAutomationWithArtifacts(databases, doc);
         }
 
         const automationCollectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
@@ -4739,7 +4844,7 @@ router.delete('/instagram/convo-starters', loginRequired, async (req, res) => {
         }).catch(() => ({ documents: [] }));
 
         for (const doc of (existingAutomationDocs.documents || [])) {
-            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, doc.$id);
+            await deleteAutomationWithArtifacts(databases, doc);
         }
 
         try {
@@ -4784,23 +4889,25 @@ router.get('/instagram/mentions-config', loginRequired, async (req, res) => {
 
         if (result.total > 0) {
             const doc = result.documents[0];
+            const configured = hasConfiguredReplyTemplate(doc.template_id || doc.template_content);
+            const normalizedOptions = normalizeReplyAutomationOptions(doc, { configured });
             res.json({
-                is_setup: true,
-                is_active: doc.is_active !== false,
+                is_setup: configured,
+                is_active: configured && doc.is_active !== false,
                 template_id: doc.template_id || null,
                 doc_id: doc.$id,
-                followers_only: Boolean(doc.followers_only),
-                followers_only_message: String(doc.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT).trim(),
-                followers_only_primary_button_text: String(doc.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT).trim(),
-                followers_only_secondary_button_text: String(doc.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT).trim(),
-                suggest_more_enabled: Boolean(doc.suggest_more_enabled),
-                once_per_user_24h: Boolean(doc.once_per_user_24h),
-                collect_email_enabled: Boolean(doc.collect_email_enabled),
-                collect_email_only_gmail: Boolean(doc.collect_email_only_gmail),
-                collect_email_prompt_message: String(doc.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT).trim(),
-                collect_email_fail_retry_message: String(doc.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT).trim(),
-                collect_email_success_reply_message: String(doc.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT).trim(),
-                seen_typing_enabled: Boolean(doc.seen_typing_enabled),
+                followers_only: normalizedOptions.followers_only,
+                followers_only_message: normalizedOptions.followers_only_message,
+                followers_only_primary_button_text: normalizedOptions.followers_only_primary_button_text,
+                followers_only_secondary_button_text: normalizedOptions.followers_only_secondary_button_text,
+                suggest_more_enabled: normalizedOptions.suggest_more_enabled,
+                once_per_user_24h: normalizedOptions.once_per_user_24h,
+                collect_email_enabled: normalizedOptions.collect_email_enabled,
+                collect_email_only_gmail: normalizedOptions.collect_email_only_gmail,
+                collect_email_prompt_message: normalizedOptions.collect_email_prompt_message,
+                collect_email_fail_retry_message: normalizedOptions.collect_email_fail_retry_message,
+                collect_email_success_reply_message: normalizedOptions.collect_email_success_reply_message,
+                seen_typing_enabled: normalizedOptions.seen_typing_enabled,
                 ...planEnvelope
             });
         } else {
@@ -4863,15 +4970,33 @@ router.post('/instagram/mentions-config', loginRequired, async (req, res) => {
             return res.status(403).json(featureAccessError);
         }
 
+        const setupError = ensureTemplateBackedAutomationReady({
+            templateId: template_id,
+            isActive: is_active === undefined ? true : is_active === true,
+            sectionLabel: 'Mentions config'
+        });
+        if (setupError) {
+            return res.status(400).json({ error: setupError, field: 'template_id' });
+        }
+
         const automationCollectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
+        const normalizedOptions = normalizeReplyAutomationOptions(payload, {
+            configured: hasConfiguredReplyTemplate(template_id)
+        });
         const docData = sanitizePayloadForCollection({
-            user_id: req.user.$id,
-            account_id: normalizedAccountId,
-            automation_type: 'mentions',
-            title: 'Mentions',
+            ...buildAutomationEnvelope({
+                userId: req.user.$id,
+                accountId: normalizedAccountId,
+                automationType: 'mentions',
+                payload: {
+                    ...payload,
+                    is_active: hasConfiguredReplyTemplate(template_id)
+                        ? payload.is_active
+                        : false,
+                    ...normalizedOptions
+                }
+            }),
             title_normalized: 'mentions',
-            trigger_type: 'config',
-            template_id: template_id || null,
             template_type: req.body.template_type ? toSafeString(req.body.template_type, 50) : null,
             template_content: template_id ? toSafeString(template_id, 255) : null,
             buttons: '[]',
@@ -4882,33 +5007,29 @@ router.post('/instagram/mentions-config', loginRequired, async (req, res) => {
             keyword: '',
             keywords: '[]',
             keyword_match_type: 'exact',
-            is_active: payload.is_active !== false,
-            followers_only: payload.followers_only === true,
-            followers_only_message: payload.followers_only_message,
-            followers_only_primary_button_text: payload.followers_only_primary_button_text,
-            followers_only_secondary_button_text: payload.followers_only_secondary_button_text,
-            suggest_more_enabled: payload.suggest_more_enabled === true,
-            private_reply_enabled: true,
-            share_to_admin_enabled: false,
-            once_per_user_24h: payload.once_per_user_24h === true,
-            story_scope: 'shown',
-            collect_email_enabled: payload.collect_email_enabled === true,
-            collect_email_only_gmail: payload.collect_email_only_gmail === true,
-            collect_email_prompt_message: payload.collect_email_prompt_message,
-            collect_email_fail_retry_message: payload.collect_email_fail_retry_message,
-            collect_email_success_reply_message: payload.collect_email_success_reply_message,
-            seen_typing_enabled: payload.seen_typing_enabled === true,
             comment_reply: '',
             linked_media_id: null,
             linked_media_url: null
         }, automationCollectionInfo);
 
-        if (existing.total > 0) {
-            await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, existing.documents[0].$id, docData);
-        } else {
-            await databases.createDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, ID.unique(), docData,
-                [Permission.read(Role.user(req.user.$id))]);
-        }
+        await upsertSingletonAutomation({
+            databases,
+            databaseId: process.env.APPWRITE_DATABASE_ID,
+            Query,
+            accountId: normalizedAccountId,
+            userId: req.user.$id,
+            automationType: 'mentions',
+            payload: docData,
+            permissions: [Permission.read(Role.user(req.user.$id))],
+            createDocumentWithUnknownAttributeRetry,
+            preflight: async () => {
+                await inspectAutomationDependencies({
+                    automationType: 'mentions',
+                    candidate: payload,
+                    loadCollectionInfo: (collectionId) => getCollectionAttributeInfo(databases, collectionId)
+                });
+            }
+        });
 
         res.json({ message: 'Mentions config saved' });
     } catch (err) {
@@ -4942,7 +5063,7 @@ router.delete('/instagram/mentions-config', loginRequired, async (req, res) => {
         });
 
         if (existing.total > 0) {
-            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, existing.documents[0].$id);
+            await deleteAutomationWithArtifacts(databases, existing.documents[0]);
         }
 
         res.json({ message: 'Mentions config deleted' });
@@ -5194,9 +5315,10 @@ router.get('/instagram/suggest-more', loginRequired, async (req, res) => {
 
         if (result.total > 0) {
             const doc = result.documents[0];
+            const configured = hasConfiguredReplyTemplate(doc.template_id || doc.template_content);
             res.json({
-                is_setup: true,
-                is_active: doc.is_active || false,
+                is_setup: configured,
+                is_active: configured && doc.is_active !== false,
                 template_id: doc.template_id || null,
                 doc_id: doc.$id,
                 ...planEnvelope
@@ -5235,23 +5357,49 @@ router.post('/instagram/suggest-more', loginRequired, async (req, res) => {
             return res.status(403).json(featureAccessError);
         }
 
+        const setupError = ensureTemplateBackedAutomationReady({
+            templateId: template_id,
+            isActive: is_active === undefined ? true : is_active === true,
+            sectionLabel: 'Suggest more'
+        });
+        if (setupError) {
+            return res.status(400).json({ error: setupError, field: 'template_id' });
+        }
+
         const docData = {
-            user_id: req.user.$id,
-            account_id: normalizedAccountId,
-            automation_type: 'suggest_more',
-            title: 'Suggest More',
-            title_normalized: 'suggest more',
-            trigger_type: 'config',
-            template_id: template_id || null,
-            is_active: is_active !== undefined ? is_active : true
+            ...buildAutomationEnvelope({
+                userId: req.user.$id,
+                accountId: normalizedAccountId,
+                automationType: 'suggest_more',
+                payload: {
+                    title: 'Suggest More',
+                    template_id: template_id || null,
+                    is_active: hasConfiguredReplyTemplate(template_id)
+                        ? (is_active !== undefined ? is_active : true)
+                        : false
+                }
+            }),
+            title_normalized: 'suggest more'
         };
 
-        if (existing.total > 0) {
-            await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, existing.documents[0].$id, docData);
-        } else {
-            await databases.createDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, ID.unique(), docData,
-                [Permission.read(Role.user(req.user.$id))]);
-        }
+        await upsertSingletonAutomation({
+            databases,
+            databaseId: process.env.APPWRITE_DATABASE_ID,
+            Query,
+            accountId: normalizedAccountId,
+            userId: req.user.$id,
+            automationType: 'suggest_more',
+            payload: docData,
+            permissions: [Permission.read(Role.user(req.user.$id))],
+            createDocumentWithUnknownAttributeRetry,
+            preflight: async () => {
+                await inspectAutomationDependencies({
+                    automationType: 'suggest_more',
+                    candidate: docData,
+                    loadCollectionInfo: (collectionId) => getCollectionAttributeInfo(databases, collectionId)
+                });
+            }
+        });
 
         res.json({ message: 'Suggest more config saved' });
     } catch (err) {
@@ -5285,7 +5433,7 @@ router.delete('/instagram/suggest-more', loginRequired, async (req, res) => {
         });
 
         if (existing.total > 0) {
-            await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, existing.documents[0].$id);
+            await deleteAutomationWithArtifacts(databases, existing.documents[0]);
         }
 
         res.json({ message: 'Suggest more config deleted' });

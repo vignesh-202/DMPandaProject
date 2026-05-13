@@ -72,7 +72,7 @@ const CommentModerationView: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/comment-moderation?account_id=${activeAccountID}`, {
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/comment-moderation?account_id=${activeAccountID}`, {
                 signal
             });
             const data = await res.json().catch(() => ({}));
@@ -143,7 +143,7 @@ const CommentModerationView: React.FC = () => {
         setSuccess(null);
 
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/comment-moderation?account_id=${activeAccountID}`, {
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/comment-moderation?account_id=${activeAccountID}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rules: moderationRulesFromLists(keywordLists) })
@@ -315,3 +315,4 @@ const CommentModerationView: React.FC = () => {
 };
 
 export default CommentModerationView;
+

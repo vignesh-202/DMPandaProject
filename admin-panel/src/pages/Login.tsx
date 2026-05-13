@@ -83,7 +83,7 @@ export const Login: React.FC = () => {
                 target: 'admin',
                 redirect_origin: window.location.origin
             });
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/google?${params.toString()}`, {
+            const response = await fetch(`${((globalThis as any).__DM_PANDA_ADMIN_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/auth/google?${params.toString()}`, {
                 credentials: 'include',
                 headers: {
                     'X-App-Context': 'admin'
@@ -113,7 +113,7 @@ export const Login: React.FC = () => {
         setSuccessMessage(null);
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/forgot-password`, {
+            const response = await fetch(`${((globalThis as any).__DM_PANDA_ADMIN_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/forgot-password`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -275,3 +275,4 @@ export const Login: React.FC = () => {
 };
 
 export default Login;
+

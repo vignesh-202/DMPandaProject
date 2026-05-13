@@ -32,7 +32,7 @@ const PricingView: React.FC = () => {
   const pricingHeaders = useMemo(() => buildCountryHeaders(countryCode), [countryCode]);
 
   const fetchPricing = React.useCallback(async () => {
-    const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/pricing`, {
+    const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/pricing`, {
       headers: pricingHeaders
     });
     const data = await response.json().catch(() => ({}));
@@ -40,7 +40,7 @@ const PricingView: React.FC = () => {
   }, [authenticatedFetch, pricingHeaders]);
 
   const fetchCurrentPlan = React.useCallback(async () => {
-    const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`, {
+    const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/my-plan`, {
       headers: pricingHeaders
     });
     const data = await response.json().catch(() => null);
@@ -56,8 +56,8 @@ const PricingView: React.FC = () => {
         setCurrency(geo.defaultCurrency);
         const headers = buildCountryHeaders(geo.countryCode);
         const [pricingResponse, currentPlanResponse] = await Promise.all([
-          authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/pricing`, { headers }),
-          authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`, { headers })
+          authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/pricing`, { headers }),
+          authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/my-plan`, { headers })
         ]);
         const pricingData = await pricingResponse.json().catch(() => ({}));
         const currentPlanData = await currentPlanResponse.json().catch(() => null);
@@ -265,3 +265,4 @@ const PricingView: React.FC = () => {
 };
 
 export default PricingView;
+

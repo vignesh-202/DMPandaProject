@@ -193,7 +193,7 @@ const PostAutomationView: React.FC = () => {
         if (isEditingExisting) {
             await primeEditorResources();
             const backendType = (stateMedia?.automation_type || '').toLowerCase() === 'comment' ? 'comment' : 'post';
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}&type=${backendType}`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${targetId}?account_id=${activeAccountID}&type=${backendType}`);
             if (!res.ok) {
                 if (res.status === 404) {
                     handleDeletedAutomationFallback();
@@ -206,7 +206,7 @@ const PostAutomationView: React.FC = () => {
 
             const resolvedTemplateId = String(resolvedAutomation?.template_id || '').trim();
             if (resolvedTemplateId) {
-                const templateRes = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${resolvedTemplateId}?account_id=${activeAccountID}`);
+                const templateRes = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${resolvedTemplateId}?account_id=${activeAccountID}`);
                 if (templateRes.ok) {
                     resolvedTemplate = await templateRes.json();
                 }
@@ -271,7 +271,7 @@ const PostAutomationView: React.FC = () => {
                 }}
                 onDelete={selectedMedia?.automation_id ? async (id) => {
                   const backendType = (selectedMedia?.automation_type || '').toLowerCase() === 'comment' ? 'comment' : 'post';
-                  await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${id}?account_id=${activeAccountID}&type=${backendType}`, {
+                  await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}?account_id=${activeAccountID}&type=${backendType}`, {
                     method: 'DELETE'
                   });
                   handleSave();
@@ -363,3 +363,4 @@ const PostAutomationView: React.FC = () => {
 };
 
 export default PostAutomationView;
+

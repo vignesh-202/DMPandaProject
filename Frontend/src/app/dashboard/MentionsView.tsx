@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AtSign, ArrowLeft, Lock, Sparkles, Mail, MessageSquare, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { AtSign, ArrowLeft, Power, Lightbulb, Mail, MessageSquare, Calendar, Info } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
@@ -35,11 +35,11 @@ interface MentionsConfig {
 }
 
 const FOLLOWERS_ONLY_MESSAGE_DEFAULT = 'Please follow this account first, then send your message again.';
-const FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT = '👤 Follow Account';
-const FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT = "✅ I've Followed";
-const COLLECT_EMAIL_PROMPT_DEFAULT = '📧 Could you share your best email so we can send the details and updates ✨';
-const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '⚠️ That email looks invalid. Please send a valid email like name@example.com.';
-const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ✅';
+const FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT = '?? Follow Account';
+const FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT = "? I've Followed";
+const COLLECT_EMAIL_PROMPT_DEFAULT = '?? Could you share your best email so we can send the details and updates ?';
+const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '?? That email looks invalid. Please send a valid email like name@example.com.';
+const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ?';
 
 const MentionsView: React.FC = () => {
     const { authenticatedFetch } = useAuth();
@@ -97,7 +97,7 @@ const MentionsView: React.FC = () => {
         fetchingRef.current = true;
         setIsLoading(true);
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/mentions-config?account_id=${activeAccountID}`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/mentions-config?account_id=${activeAccountID}`);
             if (res.ok) {
                 const data = await res.json();
                 setConfig(data);
@@ -208,7 +208,7 @@ const MentionsView: React.FC = () => {
         setIsSaving(true);
         setError(null);
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/mentions-config`, {
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/mentions-config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -284,7 +284,7 @@ const MentionsView: React.FC = () => {
                 setModalConfig(prev => ({ ...prev, isOpen: false }));
                 setIsSaving(true);
                 try {
-                    await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/mentions-config?account_id=${activeAccountID}`, {
+                    await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/mentions-config?account_id=${activeAccountID}`, {
                         method: 'DELETE'
                     });
                     setConfig({ is_setup: false, is_active: false });
@@ -382,14 +382,15 @@ const MentionsView: React.FC = () => {
                     </div>
 
                     <LockedFeatureToggle
-                        icon={<Lock className={`w-5 h-5 ${followersOnly ? 'text-primary' : 'text-muted-foreground'}`} />}
+                        icon={<Power className={`w-5 h-5 ${followersOnly ? 'text-blue-500' : 'text-gray-400'}`} />}
                         title="Followers Only"
-                        description="Reply only to followers and send a follow CTA to everyone else."
+                        description="Only respond to users who already follow your account."
                         checked={followersOnly}
                         onToggle={() => setFollowersOnly(!followersOnly)}
                         locked={getPlanGate('followers_only').isLocked}
                         note={getPlanGate('followers_only').note}
                         onUpgrade={() => setCurrentView('My Plan')}
+                        activeIconClassName="text-blue-500"
                     />
 
                     {followersOnly && (
@@ -417,60 +418,90 @@ const MentionsView: React.FC = () => {
                         </div>
                     )}
 
-                    <LockedFeatureToggle
-                        icon={<Sparkles className={`w-5 h-5 ${suggestMoreEnabled ? 'text-primary' : 'text-muted-foreground'}`} />}
-                        title="Suggest More"
-                        description="Show extra reply suggestions after the main mentions reply."
-                        checked={suggestMoreEnabled}
-                        onToggle={() => setSuggestMoreEnabled(!suggestMoreEnabled)}
-                        locked={suggestMoreGate.isLocked}
-                        note={suggestMoreGate.note}
-                        onUpgrade={() => setCurrentView('My Plan')}
-                    />
+                    <div className="space-y-2">
+                        <LockedFeatureToggle
+                            icon={<Lightbulb className={`w-5 h-5 ${suggestMoreEnabled ? 'text-yellow-500' : 'text-gray-400'}`} />}
+                            title="Suggest More"
+                            description="Add a Suggest More button after this automation reply."
+                            checked={suggestMoreEnabled}
+                            onToggle={() => setSuggestMoreEnabled(!suggestMoreEnabled)}
+                            locked={suggestMoreGate.isLocked}
+                            note={suggestMoreGate.note}
+                            onUpgrade={() => setCurrentView('My Plan')}
+                            activeIconClassName="text-yellow-500"
+                        />
+                        {suggestMoreEnabled && !suggestMoreGate.isLocked && (
+                            <div className="ml-2 flex items-center gap-2 rounded-2xl border border-yellow-200 dark:border-yellow-500/20 bg-yellow-50/60 dark:bg-yellow-500/5 px-4 py-3">
+                                <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                                <p className="text-[10px] font-bold text-yellow-700 dark:text-yellow-300">Suggest More must be configured in the <button type="button" onClick={() => setCurrentView('Suggest More')} className="underline hover:no-underline font-black">Suggest More</button> section for this toggle to take effect.</p>
+                            </div>
+                        )}
+                    </div>
 
                     <LockedFeatureToggle
-                        icon={<Calendar className={`w-5 h-5 ${oncePerUser ? 'text-primary' : 'text-muted-foreground'}`} />}
+                        icon={<Calendar className={`w-5 h-5 ${oncePerUser ? 'text-cyan-500' : 'text-gray-400'}`} />}
                         title="Once Per User (24h)"
-                        description="Send the mentions reply only once per user within 24 hours."
+                        description="Prevent the same person from retriggering this automation again for 24 hours."
                         checked={oncePerUser}
                         onToggle={() => setOncePerUser(!oncePerUser)}
                         locked={getPlanGate('once_per_user_24h').isLocked}
                         note={getPlanGate('once_per_user_24h').note}
                         onUpgrade={() => setCurrentView('My Plan')}
+                        activeIconClassName="text-cyan-500"
                     />
 
-                    <LockedFeatureToggle
-                        icon={<Mail className={`w-5 h-5 ${collectEmailEnabled ? 'text-primary' : 'text-muted-foreground'}`} />}
-                        title="Collect Email"
-                        description="Capture an email before finishing the mentions flow."
-                        checked={collectEmailEnabled}
-                        onToggle={() => setCollectEmailEnabled(!collectEmailEnabled)}
-                        locked={collectEmailGate.isLocked}
-                        note={collectEmailGate.note}
-                        onUpgrade={() => setCurrentView('My Plan')}
-                    />
+                    <div className="space-y-3">
+                        <LockedFeatureToggle
+                            icon={<Mail className={`w-5 h-5 ${collectEmailEnabled ? 'text-indigo-500' : 'text-gray-400'}`} />}
+                            title="Collect Email"
+                            description="Prompt users for their email address before completing the automation flow."
+                            checked={collectEmailEnabled}
+                            onToggle={() => setCollectEmailEnabled(!collectEmailEnabled)}
+                            locked={collectEmailGate.isLocked}
+                            note={collectEmailGate.note}
+                            onUpgrade={() => setCurrentView('My Plan')}
+                            activeIconClassName="text-indigo-500"
+                        />
 
-                    {collectEmailEnabled && !collectEmailGate.isLocked && (
-                        <div className="bg-card border border-content rounded-2xl p-6 space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-black uppercase tracking-[0.15em] text-foreground">Gmail Only</span>
-                                <ToggleSwitch isChecked={collectEmailOnlyGmail} onChange={() => setCollectEmailOnlyGmail(!collectEmailOnlyGmail)} variant="plain" />
+                        {collectEmailEnabled && !collectEmailGate.isLocked && (
+                            <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
+                                <LockedFeatureToggle
+                                    icon={<Mail className={`w-5 h-5 ${collectEmailOnlyGmail ? 'text-indigo-500' : 'text-gray-400'}`} />}
+                                    title="Allow Only Gmail"
+                                    description="Only accept @gmail.com email addresses."
+                                    checked={collectEmailOnlyGmail}
+                                    onToggle={() => setCollectEmailOnlyGmail(!collectEmailOnlyGmail)}
+                                    activeIconClassName="text-indigo-500"
+                                />
+                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Prompt Message</p>
+                                    <textarea value={collectEmailPromptMessage} onChange={(e) => setCollectEmailPromptMessage(e.target.value)} className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary" placeholder={COLLECT_EMAIL_PROMPT_DEFAULT} />
+                                    <p className="text-[9px] text-muted-foreground">{new Blob([collectEmailPromptMessage]).size}/1000 bytes</p>
+                                </div>
+                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Retry Message</p>
+                                    <textarea value={collectEmailFailRetryMessage} onChange={(e) => setCollectEmailFailRetryMessage(e.target.value)} className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary" placeholder={COLLECT_EMAIL_FAIL_RETRY_DEFAULT} />
+                                    <p className="text-[9px] text-muted-foreground">{new Blob([collectEmailFailRetryMessage]).size}/1000 bytes</p>
+                                </div>
+                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Success Message</p>
+                                    <textarea value={collectEmailSuccessReplyMessage} onChange={(e) => setCollectEmailSuccessReplyMessage(e.target.value)} className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary" placeholder={COLLECT_EMAIL_SUCCESS_DEFAULT} />
+                                    <p className="text-[9px] text-muted-foreground">{new Blob([collectEmailSuccessReplyMessage]).size}/1000 bytes</p>
+                                </div>
                             </div>
-                            <textarea value={collectEmailPromptMessage} onChange={(e) => setCollectEmailPromptMessage(e.target.value)} className="input-base min-h-[80px] text-sm" placeholder={COLLECT_EMAIL_PROMPT_DEFAULT} />
-                            <textarea value={collectEmailFailRetryMessage} onChange={(e) => setCollectEmailFailRetryMessage(e.target.value)} className="input-base min-h-[80px] text-sm" placeholder={COLLECT_EMAIL_FAIL_RETRY_DEFAULT} />
-                            <textarea value={collectEmailSuccessReplyMessage} onChange={(e) => setCollectEmailSuccessReplyMessage(e.target.value)} className="input-base min-h-[80px] text-sm" placeholder={COLLECT_EMAIL_SUCCESS_DEFAULT} />
-                        </div>
-                    )}
+                        )}
+                    </div>
 
                     <LockedFeatureToggle
-                        icon={<MessageSquare className={`w-5 h-5 ${seenTypingEnabled ? 'text-primary' : 'text-muted-foreground'}`} />}
+                        icon={<MessageSquare className={`w-5 h-5 ${seenTypingEnabled ? 'text-violet-500' : 'text-gray-400'}`} />}
                         title="Seen + Typing Reaction"
-                        description="Simulate seen and typing before the mentions reply."
+                        description="Simulate seen and typing indicators before sending the automated reply."
                         checked={seenTypingEnabled}
                         onToggle={() => setSeenTypingEnabled(!seenTypingEnabled)}
                         locked={seenTypingGate.isLocked}
                         note={seenTypingGate.note}
                         onUpgrade={() => setCurrentView('My Plan')}
+                        activeIconClassName="text-violet-500"
                     />
 
                     {/* Template Selector */}
@@ -565,3 +596,4 @@ const MentionsView: React.FC = () => {
 };
 
 export default MentionsView;
+

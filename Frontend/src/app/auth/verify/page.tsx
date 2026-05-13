@@ -18,7 +18,7 @@ const VerifyEmailPage: React.FC = () => {
 
       if (userId && secret) {
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/verify-callback`, {
+          const response = await fetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/auth/verify-callback`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -62,3 +62,4 @@ const VerifyEmailPage: React.FC = () => {
 };
 
 export default VerifyEmailPage;
+

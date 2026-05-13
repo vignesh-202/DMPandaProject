@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles, Lock, ArrowLeft } from 'lucide-react';
+import { Power, Lightbulb, ArrowLeft, Info, Sparkles } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
 import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
 import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
-import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
+import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate } from '../../components/dashboard/TemplateSelector';
 import AutomationToast from '../../components/ui/AutomationToast';
@@ -24,6 +24,7 @@ const WelcomeMessageView: React.FC = () => {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isActive, setIsActive] = useState(true);
     const [selectedTemplate, setSelectedTemplate] = useState<ReplyTemplate | null>(null);
     const [isSelectedTemplateLoading, setIsSelectedTemplateLoading] = useState(false);
     const [showTemplateSelector, setShowTemplateSelector] = useState(true);
@@ -54,7 +55,7 @@ const WelcomeMessageView: React.FC = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations?account_id=${activeAccountID}&type=welcome_message`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations?account_id=${activeAccountID}&type=welcome_message`);
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
                 throw new Error(body?.error || 'Failed to load welcome message.');
@@ -63,6 +64,7 @@ const WelcomeMessageView: React.FC = () => {
             const data = await res.json();
             const automation = Array.isArray(data?.automations) ? data.automations[0] : null;
             setAutomationId(automation?.$id || null);
+            setIsActive(automation?.is_active !== false);
             setFollowersOnly(Boolean(automation?.followers_only));
             setFollowersOnlyMessage(String(automation?.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT));
             setFollowersOnlyPrimaryButtonText(String(automation?.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT));
@@ -70,6 +72,7 @@ const WelcomeMessageView: React.FC = () => {
             setSuggestMoreEnabled(Boolean(automation?.suggest_more_enabled));
             setInitialState(JSON.stringify({
                 template_id: automation?.template_id || null,
+                is_active: automation?.is_active !== false,
                 followers_only: Boolean(automation?.followers_only),
                 followers_only_message: automation?.followers_only ? String(automation?.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT) : '',
                 followers_only_primary_button_text: String(automation?.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT),
@@ -114,12 +117,13 @@ const WelcomeMessageView: React.FC = () => {
 
     const currentState = useMemo(() => JSON.stringify({
         template_id: selectedTemplate?.id || null,
+        is_active: isActive,
         followers_only: followersOnly,
         followers_only_message: followersOnly ? followersOnlyMessage : '',
         followers_only_primary_button_text: followersOnlyPrimaryButtonText,
         followers_only_secondary_button_text: followersOnlySecondaryButtonText,
         suggest_more_enabled: suggestMoreEnabled
-    }), [followersOnly, followersOnlyMessage, followersOnlyPrimaryButtonText, followersOnlySecondaryButtonText, selectedTemplate?.id, suggestMoreEnabled]);
+    }), [followersOnly, followersOnlyMessage, followersOnlyPrimaryButtonText, followersOnlySecondaryButtonText, isActive, selectedTemplate?.id, suggestMoreEnabled]);
 
     const isDirty = !!initialState && initialState !== currentState;
 
@@ -145,7 +149,7 @@ const WelcomeMessageView: React.FC = () => {
                 title: 'Welcome Message',
                 template_id: selectedTemplate.id,
                 template_type: selectedTemplate.template_type,
-                is_active: true,
+                is_active: isActive,
                 followers_only: followersOnly,
                 followers_only_message: followersOnly ? followersOnlyMessage : '',
                 followers_only_primary_button_text: followersOnlyPrimaryButtonText,
@@ -157,8 +161,8 @@ const WelcomeMessageView: React.FC = () => {
             };
 
             const url = automationId
-                ? `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${automationId}?account_id=${activeAccountID}`
-                : `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations?account_id=${activeAccountID}&type=welcome_message`;
+                ? `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${automationId}?account_id=${activeAccountID}`
+                : `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations?account_id=${activeAccountID}&type=welcome_message`;
 
             const res = await authenticatedFetch(url, {
                 method: automationId ? 'PATCH' : 'POST',
@@ -195,11 +199,12 @@ const WelcomeMessageView: React.FC = () => {
                 closeModal();
                 setIsSaving(true);
                 try {
-                    await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${automationId}?account_id=${activeAccountID}`, {
+                    await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${automationId}?account_id=${activeAccountID}`, {
                         method: 'DELETE'
                     });
                     setAutomationId(null);
                     setSelectedTemplate(null);
+                    setIsActive(true);
                     setFollowersOnly(false);
                     setFollowersOnlyMessage(FOLLOWERS_ONLY_MESSAGE_DEFAULT);
                     setFollowersOnlyPrimaryButtonText(FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT);
@@ -207,6 +212,7 @@ const WelcomeMessageView: React.FC = () => {
                     setSuggestMoreEnabled(false);
                     setInitialState(JSON.stringify({
                         template_id: null,
+                        is_active: true,
                         followers_only: false,
                         followers_only_message: '',
                         followers_only_primary_button_text: FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
@@ -275,15 +281,37 @@ const WelcomeMessageView: React.FC = () => {
                         </p>
                     </div>
 
+                    {/* Active Toggle */}
+                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${isActive ? 'ring-1 ring-primary/15' : ''}`}>
+                        <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-2xl shadow-sm border ${isActive
+                                ? 'bg-white dark:bg-gray-900 border-emerald-100 dark:border-emerald-500/10'
+                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                            }`}>
+                                <Sparkles className={`w-5 h-5 transition-colors ${isActive ? 'text-emerald-500' : 'text-gray-400'}`} />
+                            </div>
+                            <div>
+                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Enable Welcome Message</p>
+                                <p className="text-[10px] font-medium text-muted-foreground">When enabled, auto-reply to new conversations with no matching automation.</p>
+                            </div>
+                        </div>
+                        <ToggleSwitch
+                            isChecked={isActive}
+                            onChange={() => setIsActive(!isActive)}
+                            variant="plain"
+                        />
+                    </div>
+
                     <LockedFeatureToggle
-                        icon={<Lock className={`w-5 h-5 ${followersOnly ? 'text-primary' : 'text-muted-foreground'}`} />}
+                        icon={<Power className={`w-5 h-5 ${followersOnly ? 'text-blue-500' : 'text-gray-400'}`} />}
                         title="Followers Only"
-                        description="Gate the welcome message until the user follows the account."
+                        description="Only respond to users who already follow your account."
                         checked={followersOnly}
                         onToggle={() => setFollowersOnly(!followersOnly)}
                         locked={getPlanGate('followers_only').isLocked}
                         note={getPlanGate('followers_only').note}
                         onUpgrade={() => setCurrentView('My Plan')}
+                        activeIconClassName="text-blue-500"
                     />
 
                     {followersOnly && (
@@ -314,16 +342,25 @@ const WelcomeMessageView: React.FC = () => {
                         </div>
                     )}
 
-                    <LockedFeatureToggle
-                        icon={<Sparkles className={`w-5 h-5 ${suggestMoreEnabled ? 'text-primary' : 'text-muted-foreground'}`} />}
-                        title="Suggest More"
-                        description="Send the Suggest More template right after the welcome reply."
-                        checked={suggestMoreEnabled}
-                        onToggle={() => setSuggestMoreEnabled(!suggestMoreEnabled)}
-                        locked={suggestMoreGate.isLocked}
-                        note={suggestMoreGate.note}
-                        onUpgrade={() => setCurrentView('My Plan')}
-                    />
+                    <div className="space-y-2">
+                        <LockedFeatureToggle
+                            icon={<Lightbulb className={`w-5 h-5 ${suggestMoreEnabled ? 'text-yellow-500' : 'text-gray-400'}`} />}
+                            title="Suggest More"
+                            description="Add a Suggest More button after this automation reply."
+                            checked={suggestMoreEnabled}
+                            onToggle={() => setSuggestMoreEnabled(!suggestMoreEnabled)}
+                            locked={suggestMoreGate.isLocked}
+                            note={suggestMoreGate.note}
+                            onUpgrade={() => setCurrentView('My Plan')}
+                            activeIconClassName="text-yellow-500"
+                        />
+                        {suggestMoreEnabled && !suggestMoreGate.isLocked && (
+                            <div className="ml-2 flex items-center gap-2 rounded-2xl border border-yellow-200 dark:border-yellow-500/20 bg-yellow-50/60 dark:bg-yellow-500/5 px-4 py-3">
+                                <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                                <p className="text-[10px] font-bold text-yellow-700 dark:text-yellow-300">Suggest More must be configured in the <button type="button" onClick={() => setCurrentView('Suggest More')} className="underline hover:no-underline font-black">Suggest More</button> section for this toggle to take effect.</p>
+                            </div>
+                        )}
+                    </div>
 
                     <div className="bg-card border border-content rounded-2xl p-6 space-y-4">
                         <div className="flex items-center justify-between">
@@ -413,3 +450,4 @@ const WelcomeMessageView: React.FC = () => {
 };
 
 export default WelcomeMessageView;
+

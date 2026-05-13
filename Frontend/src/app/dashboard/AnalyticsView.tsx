@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Loader2, RefreshCw, Clock3, UserCircle2, ChevronDown } from 'lucide-react';
@@ -574,9 +574,9 @@ const AnalyticsView: React.FC = () => {
                 end_date: analyticsDateRange.end,
                 limit: '200'
             });
-            let res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automation-activity-log?${params.toString()}`);
+            let res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automation-activity-log?${params.toString()}`);
             if (!res.ok) {
-                res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automation-activity-log?${params.toString()}`);
+                res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automation-activity-log?${params.toString()}`);
             }
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
@@ -635,7 +635,7 @@ const AnalyticsView: React.FC = () => {
         const params = new URLSearchParams({
             account_id: String(activeAccountID),
         });
-        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/dashboard/counts?${params.toString()}`);
+        const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/dashboard/counts?${params.toString()}`);
         if (!res.ok) {
             const body = await res.json().catch(() => ({}));
             throw new Error(body?.error || 'Failed to fetch action usage metrics.');
@@ -1268,3 +1268,4 @@ const AnalyticsView: React.FC = () => {
 };
 
 export default AnalyticsView;
+

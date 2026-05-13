@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { MessageSquare, Plus, RefreshCw, AlertCircle, Trash2, CheckCircle2, Instagram, MessageCircle, Loader2, Pencil, Image as ImageIcon, Reply, ArrowLeft, X, HelpCircle, List, Calendar, ChevronDown, Film, Globe, PlusSquare, Edit, LayoutGrid, GripVertical, Lock, Sparkles, Mail } from 'lucide-react';
+import { MessageSquare, Plus, RefreshCw, AlertCircle, Trash2, CheckCircle2, Instagram, MessageCircle, Loader2, Pencil, Image as ImageIcon, Reply, ArrowLeft, X, HelpCircle, List, Calendar, ChevronDown, Film, Globe, PlusSquare, Edit, LayoutGrid, GripVertical, Power, Lightbulb, Mail, Info } from 'lucide-react';
 import Card from '../../components/ui/card';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
@@ -271,7 +271,7 @@ const ConvoStarterView: React.FC = () => {
         setError(null);
         try {
             const res = await authenticatedFetch(
-                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/convo-starters?account_id=${activeAccountID}`,
+                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/convo-starters?account_id=${activeAccountID}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -373,7 +373,7 @@ const ConvoStarterView: React.FC = () => {
         }
 
         try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${templateId}?account_id=${activeAccountID}`);
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${templateId}?account_id=${activeAccountID}`);
             if (response.ok) {
                 const template = await response.json();
                 return template as ReplyTemplate;
@@ -406,7 +406,7 @@ const ConvoStarterView: React.FC = () => {
 
         const requestKey = `${activeAccountID}|${params.toString()}`;
         const doFetch = async () => {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/media?${params}`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/media?${params}`);
             if (res.ok) {
                 const data = await res.json();
                 return data.data || [];
@@ -580,7 +580,7 @@ const ConvoStarterView: React.FC = () => {
             });
 
             const res = await authenticatedFetch(
-                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/convo-starters?account_id=${activeAccountID}`,
+                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/convo-starters?account_id=${activeAccountID}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -606,7 +606,7 @@ const ConvoStarterView: React.FC = () => {
         setIsDeleting(true);
         try {
             const res = await authenticatedFetch(
-                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/convo-starters?account_id=${activeAccountID}`,
+                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/convo-starters?account_id=${activeAccountID}`,
                 { method: 'DELETE' }
             );
             if (res.ok) {
@@ -640,7 +640,7 @@ const ConvoStarterView: React.FC = () => {
         setSyncing(true);
         try {
             const res = await authenticatedFetch(
-                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/convo-starters?account_id=${activeAccountID}`,
+                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/convo-starters?account_id=${activeAccountID}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -844,9 +844,9 @@ const ConvoStarterView: React.FC = () => {
 
                                 <div className="space-y-4 pt-6 border-t border-content">
                                     <LockedFeatureToggle
-                                        icon={<Lock className={`w-5 h-5 ${newItem.followers_only ? 'text-primary' : 'text-muted-foreground'}`} />}
+                                        icon={<Power className={`w-5 h-5 ${newItem.followers_only ? 'text-blue-500' : 'text-gray-400'}`} />}
                                         title="Followers Only"
-                                        description="Gate this starter until the sender follows the account."
+                                        description="Only respond to users who already follow your account."
                                         checked={Boolean(newItem.followers_only)}
                                         onToggle={() => setNewItem({
                                             ...newItem,
@@ -858,6 +858,7 @@ const ConvoStarterView: React.FC = () => {
                                         locked={getPlanGate('followers_only').isLocked}
                                         note={getPlanGate('followers_only').note}
                                         onUpgrade={() => setCurrentView('My Plan')}
+                                        activeIconClassName="text-blue-500"
                                     />
 
                                     {newItem.followers_only && (
@@ -900,48 +901,108 @@ const ConvoStarterView: React.FC = () => {
                                         </div>
                                     )}
 
-                                    <LockedFeatureToggle
-                                        icon={<Sparkles className={`w-5 h-5 ${newItem.suggest_more_enabled ? 'text-primary' : 'text-muted-foreground'}`} />}
-                                        title="Suggest More"
-                                        description="Send your Suggest More template after this conversation starter reply."
-                                        checked={Boolean(newItem.suggest_more_enabled)}
-                                        onToggle={() => setNewItem({ ...newItem, suggest_more_enabled: !newItem.suggest_more_enabled })}
-                                        locked={getPlanGate('suggest_more').isLocked}
-                                        note={getPlanGate('suggest_more').note}
-                                        onUpgrade={() => setCurrentView('My Plan')}
-                                    />
+                                    <div className="space-y-2">
+                                        <LockedFeatureToggle
+                                            icon={<Lightbulb className={`w-5 h-5 ${newItem.suggest_more_enabled ? 'text-yellow-500' : 'text-gray-400'}`} />}
+                                            title="Suggest More"
+                                            description="Add a Suggest More button after this automation reply."
+                                            checked={Boolean(newItem.suggest_more_enabled)}
+                                            onToggle={() => setNewItem({ ...newItem, suggest_more_enabled: !newItem.suggest_more_enabled })}
+                                            locked={getPlanGate('suggest_more').isLocked}
+                                            note={getPlanGate('suggest_more').note}
+                                            onUpgrade={() => setCurrentView('My Plan')}
+                                            activeIconClassName="text-yellow-500"
+                                        />
+                                        {newItem.suggest_more_enabled && !getPlanGate('suggest_more').isLocked && (
+                                            <div className="ml-2 flex items-center gap-2 rounded-2xl border border-yellow-200 dark:border-yellow-500/20 bg-yellow-50/60 dark:bg-yellow-500/5 px-4 py-3">
+                                                <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                                                <p className="text-[10px] font-bold text-yellow-700 dark:text-yellow-300">Suggest More must be configured in the <button type="button" onClick={() => setCurrentView('Suggest More')} className="underline hover:no-underline font-black">Suggest More</button> section for this toggle to take effect.</p>
+                                            </div>
+                                        )}
+                                    </div>
 
                                     <LockedFeatureToggle
-                                        icon={<Calendar className={`w-5 h-5 ${newItem.once_per_user_24h ? 'text-primary' : 'text-muted-foreground'}`} />}
+                                        icon={<Calendar className={`w-5 h-5 ${newItem.once_per_user_24h ? 'text-cyan-500' : 'text-gray-400'}`} />}
                                         title="Once Per User (24h)"
-                                        description="Prevent the same person from triggering this starter again for 24 hours."
+                                        description="Prevent the same person from retriggering this automation again for 24 hours."
                                         checked={Boolean(newItem.once_per_user_24h)}
                                         onToggle={() => setNewItem({ ...newItem, once_per_user_24h: !newItem.once_per_user_24h })}
                                         locked={getPlanGate('once_per_user_24h').isLocked}
                                         note={getPlanGate('once_per_user_24h').note}
                                         onUpgrade={() => setCurrentView('My Plan')}
+                                        activeIconClassName="text-cyan-500"
                                     />
 
-                                    <LockedFeatureToggle
-                                        icon={<Mail className={`w-5 h-5 ${newItem.collect_email_enabled ? 'text-primary' : 'text-muted-foreground'}`} />}
-                                        title="Collect Email"
-                                        description="Require a valid email before the main reply continues."
-                                        checked={Boolean(newItem.collect_email_enabled)}
-                                        onToggle={() => setNewItem({ ...newItem, collect_email_enabled: !newItem.collect_email_enabled })}
-                                        locked={getPlanGate('collect_email').isLocked}
-                                        note={getPlanGate('collect_email').note}
-                                        onUpgrade={() => setCurrentView('My Plan')}
-                                    />
+                                    <div className="space-y-3">
+                                        <LockedFeatureToggle
+                                            icon={<Mail className={`w-5 h-5 ${newItem.collect_email_enabled ? 'text-indigo-500' : 'text-gray-400'}`} />}
+                                            title="Collect Email"
+                                            description="Prompt users for their email address before completing the automation flow."
+                                            checked={Boolean(newItem.collect_email_enabled)}
+                                            onToggle={() => setNewItem({
+                                                ...newItem,
+                                                collect_email_enabled: !newItem.collect_email_enabled,
+                                                collect_email_only_gmail: newItem.collect_email_enabled ? false : newItem.collect_email_only_gmail
+                                            })}
+                                            locked={getPlanGate('collect_email').isLocked}
+                                            note={getPlanGate('collect_email').note}
+                                            onUpgrade={() => setCurrentView('My Plan')}
+                                            activeIconClassName="text-indigo-500"
+                                        />
+                                        {newItem.collect_email_enabled && !getPlanGate('collect_email').isLocked && (
+                                            <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
+                                                <LockedFeatureToggle
+                                                    icon={<Mail className={`w-5 h-5 ${newItem.collect_email_only_gmail ? 'text-indigo-500' : 'text-gray-400'}`} />}
+                                                    title="Allow Only Gmail"
+                                                    description="Only accept @gmail.com email addresses."
+                                                    checked={Boolean(newItem.collect_email_only_gmail)}
+                                                    onToggle={() => setNewItem({ ...newItem, collect_email_only_gmail: !newItem.collect_email_only_gmail })}
+                                                    activeIconClassName="text-indigo-500"
+                                                />
+                                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Prompt Message</p>
+                                                    <textarea
+                                                        value={newItem.collect_email_prompt_message || ''}
+                                                        onChange={(e) => setNewItem({ ...newItem, collect_email_prompt_message: e.target.value })}
+                                                        className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                                        placeholder={COLLECT_EMAIL_PROMPT_DEFAULT}
+                                                    />
+                                                    <p className="text-[9px] text-muted-foreground">{getByteLength(newItem.collect_email_prompt_message || '')}/1000 bytes</p>
+                                                </div>
+                                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Retry Message</p>
+                                                    <textarea
+                                                        value={newItem.collect_email_fail_retry_message || ''}
+                                                        onChange={(e) => setNewItem({ ...newItem, collect_email_fail_retry_message: e.target.value })}
+                                                        className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                                        placeholder={COLLECT_EMAIL_FAIL_RETRY_DEFAULT}
+                                                    />
+                                                    <p className="text-[9px] text-muted-foreground">{getByteLength(newItem.collect_email_fail_retry_message || '')}/1000 bytes</p>
+                                                </div>
+                                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Success Message</p>
+                                                    <textarea
+                                                        value={newItem.collect_email_success_reply_message || ''}
+                                                        onChange={(e) => setNewItem({ ...newItem, collect_email_success_reply_message: e.target.value })}
+                                                        className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                                        placeholder={COLLECT_EMAIL_SUCCESS_DEFAULT}
+                                                    />
+                                                    <p className="text-[9px] text-muted-foreground">{getByteLength(newItem.collect_email_success_reply_message || '')}/1000 bytes</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
 
                                     <LockedFeatureToggle
-                                        icon={<MessageSquare className={`w-5 h-5 ${newItem.seen_typing_enabled ? 'text-primary' : 'text-muted-foreground'}`} />}
+                                        icon={<MessageSquare className={`w-5 h-5 ${newItem.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />}
                                         title="Seen + Typing Reaction"
-                                        description="Store the seen and typing preference with this starter."
+                                        description="Simulate seen and typing indicators before sending the automated reply."
                                         checked={Boolean(newItem.seen_typing_enabled)}
                                         onToggle={() => setNewItem({ ...newItem, seen_typing_enabled: !newItem.seen_typing_enabled })}
                                         locked={getPlanGate('seen_typing').isLocked}
                                         note={getPlanGate('seen_typing').note}
                                         onUpgrade={() => setCurrentView('My Plan')}
+                                        activeIconClassName="text-violet-500"
                                     />
                                 </div>
 
@@ -1149,3 +1210,4 @@ const ConvoStarterView: React.FC = () => {
 };
 
 export default ConvoStarterView;
+

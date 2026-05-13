@@ -95,7 +95,7 @@ def _parse_json(value, default=None):
 
 def _normalize_destination_type(value) -> str:
     normalized = str(value or "").strip().lower()
-    return normalized if normalized in {"sheet", "webhook"} else ""
+    return normalized if normalized == "webhook" else ""
 
 
 def _list_all_documents(client: Client, db_id: str, collection_id: str, queries=None, page_size: int = PAGE_SIZE, max_pages: int = 20):
@@ -118,19 +118,13 @@ def _list_all_documents(client: Client, db_id: str, collection_id: str, queries=
 
 def _normalize_verified_destinations(collector_doc):
     config = _parse_json(_obj_get(collector_doc, "config_json") or _obj_get(collector_doc, "template_content"), {})
-    sheets = config.get("sheets") if isinstance(config, dict) else []
     webhooks = config.get("webhooks") if isinstance(config, dict) else []
-    verified_sheets = {
-        str(_obj_get(entry, "id", "") or "").strip()
-        for entry in (sheets or [])
-        if _obj_get(entry, "sheet_verified") is True and str(_obj_get(entry, "spreadsheet_id", "") or "").strip()
-    }
     verified_webhooks = {
         str(_obj_get(entry, "id", "") or "").strip()
         for entry in (webhooks or [])
         if _obj_get(entry, "webhook_verified") is True and str(_obj_get(entry, "webhook_url", "") or "").strip()
     }
-    return {"sheet": verified_sheets, "webhook": verified_webhooks}
+    return {"webhook": verified_webhooks}
 
 
 def _resolve_collect_email_destination(automation_doc):

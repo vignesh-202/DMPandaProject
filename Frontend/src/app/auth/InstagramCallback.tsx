@@ -35,7 +35,7 @@ const InstagramCallback: React.FC = () => {
         if (code) {
             const linkInstagram = async () => {
                 try {
-                    const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/instagram-callback`, {
+                    const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/auth/instagram-callback`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -72,3 +72,4 @@ const InstagramCallback: React.FC = () => {
 };
 
 export default InstagramCallback;
+

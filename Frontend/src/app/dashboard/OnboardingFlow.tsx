@@ -141,7 +141,7 @@ const OnboardingFlow: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/set-password`, {
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/set-password`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -170,7 +170,7 @@ const OnboardingFlow: React.FC = () => {
         setIsSubmitting(true);
         setError(null);
         try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/resend-verification`, {
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/resend-verification`, {
                 method: 'POST'
             });
 
@@ -193,7 +193,7 @@ const OnboardingFlow: React.FC = () => {
         setIsSubmitting(true);
         setError(null);
         try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/change-unverified-email`, {
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/change-unverified-email`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -224,7 +224,7 @@ const OnboardingFlow: React.FC = () => {
         setError(null);
 
         try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/instagram/url`);
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/auth/instagram/url`);
             const data = await response.json();
 
             if (data.url) {
@@ -642,7 +642,7 @@ const OnboardingFlow: React.FC = () => {
                                         setIsDeleting(true);
                                         setDeleteError(null);
                                         try {
-                                            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/delete`, {
+                                            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/delete`, {
                                                 method: 'DELETE',
                                                 headers: {
                                                     'Content-Type': 'application/json'
@@ -731,3 +731,4 @@ const OnboardingFlow: React.FC = () => {
 };
 
 export default OnboardingFlow;
+

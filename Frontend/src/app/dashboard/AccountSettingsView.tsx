@@ -1,4 +1,4 @@
-ï»¿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '../../components/ui/card';
 import { createPortal } from 'react-dom';
 import { Button } from '../../components/ui/button';
@@ -227,7 +227,7 @@ const AccountSettingsView = () => {
     resetMessages();
 
     try {
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/delete`, {
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/delete`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -286,7 +286,7 @@ const AccountSettingsView = () => {
         body.password = password;
       }
 
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/update`, {
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/update`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -325,7 +325,7 @@ const AccountSettingsView = () => {
     try {
       // For unlinked accounts: try relink first (no Instagram login). If token missing/expired, use OAuth with relink=1 to avoid force_reauth.
       if (accountID !== 'new') {
-        const relinkRes = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts/relink/${accountID}`, { method: 'POST' });
+        const relinkRes = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/ig-accounts/relink/${accountID}`, { method: 'POST' });
         const relinkData = await relinkRes.json().catch(() => ({}));
         if (relinkRes.ok) {
           setMsg('instagram', 'success', 'Instagram account linked successfully.');
@@ -338,8 +338,8 @@ const AccountSettingsView = () => {
       }
 
       const url = accountID !== 'new'
-        ? `${import.meta.env.VITE_API_BASE_URL}/api/auth/instagram/url?relink=1`
-        : `${import.meta.env.VITE_API_BASE_URL}/api/auth/instagram/url`;
+        ? `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/auth/instagram/url?relink=1`
+        : `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/auth/instagram/url`;
       const response = await authenticatedFetch(url);
       const data = await response.json();
       if (data.url) {
@@ -358,7 +358,7 @@ const AccountSettingsView = () => {
     setIsUnlinking(accountID);
     resetMessages();
     try {
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts/${accountID}/status`, {
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/ig-accounts/${accountID}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus })
@@ -408,7 +408,7 @@ const AccountSettingsView = () => {
     setIsDeletingIG(accountID);
     resetMessages();
     try {
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts/${accountID}/delete`, {
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/ig-accounts/${accountID}/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: pwd })
@@ -433,7 +433,7 @@ const AccountSettingsView = () => {
     setIsSyncingIG(accountID);
     resetMessages();
     try {
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts/refresh-profiles`, {
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/ig-accounts/refresh-profiles`, {
         method: 'POST'
       });
       if (response.ok) {
@@ -459,7 +459,7 @@ const AccountSettingsView = () => {
     }
     setIsSubmittingPassword(true);
     try {
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/change-password`, {
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -498,7 +498,7 @@ const AccountSettingsView = () => {
     }
     setIsSubmittingSetPassword(true);
     try {
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/set-password`, {
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/set-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -680,7 +680,7 @@ const AccountSettingsView = () => {
                   const isUserInactive = account.disabled_by_user === true || account.status === 'inactive';
                   const isActive = account.status === 'active';
                   const statusLabel = isActive
-                    ? (account.plan_locked === true ? 'Active â€¢ plan locked' : 'Active')
+                    ? (account.plan_locked === true ? 'Active • plan locked' : 'Active')
                     : (isAdminDisabled ? 'Inactive by admin' : 'Inactive by you');
 
                   return (
@@ -951,7 +951,7 @@ const AccountSettingsView = () => {
                     if (deleteModalError) setDeleteModalError('');
                   }}
                   className="h-12 rounded-xl text-center text-lg"
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                  placeholder="••••••••"
                   error={deleteModalError || undefined}
                 />
               </div>
@@ -1173,3 +1173,4 @@ const AccountSettingsView = () => {
 };
 
 export default AccountSettingsView;
+

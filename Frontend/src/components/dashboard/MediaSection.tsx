@@ -87,7 +87,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
 
         fetchingRef.current = true;
         try {
-            const baseUrl = `${import.meta.env.VITE_API_BASE_URL}/api/instagram`;
+            const baseUrl = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram`;
             const endpoint = type === 'mention' ? 'mentions' : 'media';
 
             const params = new URLSearchParams({
@@ -152,7 +152,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
 
         setLoadingLiveAutomations(true);
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations?account_id=${activeAccountID}&type=live&summary=1`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations?account_id=${activeAccountID}&type=live&summary=1`);
             const data = await res.json();
             if (res.ok) {
                 setLiveAutomations((data.automations || []).map((automation: any) => ({
@@ -969,3 +969,4 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
 };
 
 export default MediaSection;
+

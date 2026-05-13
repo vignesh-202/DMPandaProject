@@ -205,7 +205,7 @@ const LiveAutomationView: React.FC = () => {
 
                 if (isEditingExisting) {
                     await primeEditorResources();
-                    const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}&type=live`);
+                    const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${targetId}?account_id=${activeAccountID}&type=live`);
                     if (!res.ok) {
                         if (res.status === 404) {
                             handleDeletedAutomationFallback();
@@ -218,7 +218,7 @@ const LiveAutomationView: React.FC = () => {
 
                     const resolvedTemplateId = String(resolvedAutomation?.template_id || '').trim();
                     if (resolvedTemplateId) {
-                        const templateRes = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${resolvedTemplateId}?account_id=${activeAccountID}`);
+                        const templateRes = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${resolvedTemplateId}?account_id=${activeAccountID}`);
                         if (templateRes.ok) {
                             resolvedTemplate = await templateRes.json();
                         }
@@ -283,7 +283,7 @@ const LiveAutomationView: React.FC = () => {
                                     saveHandlerRef.current = handler;
                                 }}
                                 onDelete={selectedMedia?.automation_id ? async (id) => {
-                                    await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${id}?account_id=${activeAccountID}&type=live`, {
+                                    await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}?account_id=${activeAccountID}&type=live`, {
                                         method: 'DELETE'
                                     });
                                     handleSave();
@@ -358,3 +358,4 @@ const LiveAutomationView: React.FC = () => {
 };
 
 export default LiveAutomationView;
+

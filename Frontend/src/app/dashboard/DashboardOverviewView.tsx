@@ -71,7 +71,7 @@ const DashboardOverviewView: React.FC = () => {
     if (countsInFlight.current) return;
 
     countsInFlight.current = true;
-    const url = `${import.meta.env.VITE_API_BASE_URL}/api/dashboard/counts${activeAccountID ? `?account_id=${activeAccountID}` : ''}`;
+    const url = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/dashboard/counts${activeAccountID ? `?account_id=${activeAccountID}` : ''}`;
 
     authenticatedFetch(url)
       .then((res) => (res.ok ? res.json() : {}))
@@ -120,7 +120,7 @@ const DashboardOverviewView: React.FC = () => {
   ];
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:gap-3 lg:gap-2">
+    <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:gap-6 lg:gap-8">
       <section>
         <InstagramStats />
       </section>
@@ -195,3 +195,4 @@ const DashboardOverviewView: React.FC = () => {
 };
 
 export default DashboardOverviewView;
+

@@ -149,7 +149,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
 
         const requestKey = `${activeAccountID}|${params.toString()}`;
         const doFetch = async () => {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/media?${params}`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/media?${params}`);
             if (res.ok) {
                 const data = await res.json();
                 return data.data || [];
@@ -1322,3 +1322,4 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
 };
 
 export default SharedTemplateEditor;
+

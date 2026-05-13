@@ -252,7 +252,7 @@ const InsightsView: React.FC = () => {
       setLoading(true);
       try {
         const response = await authenticatedFetch(
-          `${import.meta.env.VITE_API_BASE_URL}/api/instagram/insights?account_id=${encodeURIComponent(activeAccountID)}&period=${encodeURIComponent(period)}`
+          `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/insights?account_id=${encodeURIComponent(activeAccountID)}&period=${encodeURIComponent(period)}`
         );
         const data = await response.json().catch(() => null);
         if (!cancelled) {
@@ -453,3 +453,4 @@ const InsightsView: React.FC = () => {
 };
 
 export default InsightsView;
+

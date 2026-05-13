@@ -111,7 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const checkHasPassword = useCallback(async (force: boolean = false) => {
     if (!force && hasPasswordRef.current !== undefined) return;
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/has-password`, {
+      const response = await fetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/has-password`, {
         credentials: 'include',
         headers: applyFrontendHeaders(),
       });
@@ -138,7 +138,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
-      const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/me`;
+      const apiUrl = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/me`;
 
       const response = await fetch(apiUrl, {
         credentials: 'include',
@@ -237,7 +237,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setHasLinkedInstagram(false);
 
     // Perform the backend logout in the background (fire and forget).
-    fetch(`${import.meta.env.VITE_API_BASE_URL}/logout`, {
+    fetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/logout`, {
       credentials: 'include',
       headers: applyFrontendHeaders(),
     }).catch(error => {
@@ -252,7 +252,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const promise = (async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/me`, {
+        const response = await fetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/me`, {
           credentials: 'include',
           headers: applyFrontendHeaders(),
         });
@@ -444,3 +444,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+

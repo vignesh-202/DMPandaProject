@@ -91,7 +91,7 @@ const loadReplyTemplates = async (
   replyTemplatesListPromise = (async () => {
     try {
       const res = await authenticatedFetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates?account_id=${activeAccountID}&full=false`
+        `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates?account_id=${activeAccountID}&full=false`
       );
       if (!res.ok) {
         return { templates: [], error: 'Failed to load templates' };
@@ -136,7 +136,7 @@ export const fetchReplyTemplateById = async (
   }
 
   const res = await authenticatedFetch(
-    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${normalizedTemplateId}?account_id=${activeAccountID}`
+    `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${normalizedTemplateId}?account_id=${activeAccountID}`
   );
   if (!res.ok) {
     return cachedTemplate;
@@ -418,3 +418,4 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
 };
 
 export default TemplateSelector;
+

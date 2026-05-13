@@ -46,7 +46,7 @@ const PasswordRecoveryPage: React.FC = () => {
         setIsSubmitting(true);
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/recovery`, {
+            const response = await fetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/auth/recovery`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId, secret, newPassword, confirmPassword }),
@@ -152,3 +152,4 @@ const PasswordRecoveryPage: React.FC = () => {
 };
 
 export default PasswordRecoveryPage;
+

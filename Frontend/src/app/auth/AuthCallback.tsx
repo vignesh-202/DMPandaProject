@@ -20,7 +20,7 @@ const AuthCallback: React.FC = () => {
 
       if (userId && secret) {
         try {
-          const url = new URL(`${import.meta.env.VITE_API_BASE_URL}/api/auth/google-callback`);
+          const url = new URL(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/auth/google-callback`);
           url.searchParams.append('userId', userId);
           url.searchParams.append('secret', secret);
           url.searchParams.append('target', isAdminBridge ? 'admin' : 'frontend');
@@ -84,3 +84,4 @@ const AuthCallback: React.FC = () => {
 };
 
 export default AuthCallback;
+

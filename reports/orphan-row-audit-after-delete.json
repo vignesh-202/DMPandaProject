@@ -1,0 +1,202 @@
+{
+  "generated_at": "2026-05-12T05:32:42.423660+00:00",
+  "database_id": "698b09ff002b91aff785",
+  "context": {
+    "users_docs": 1,
+    "auth_users": 1,
+    "ig_accounts": 3,
+    "account_reference_ids": 6,
+    "automations": 26
+  },
+  "collections": [
+    {
+      "collection_id": "automations",
+      "total_documents": 26,
+      "orphan_count": 0,
+      "orphans": []
+    },
+    {
+      "collection_id": "automation_collect_destinations",
+      "total_documents": 5,
+      "orphan_count": 3,
+      "orphans": [
+        {
+          "id": "69b2923f003cf32eceb9",
+          "reasons": [
+            "missing automation"
+          ],
+          "user_id": "",
+          "account_id": "17841452817679462",
+          "automation_id": "69b2923f0025642c6b02",
+          "created_at": "2026-03-12T10:15:32.694+00:00",
+          "updated_at": "2026-03-12T10:15:32.694+00:00"
+        },
+        {
+          "id": "69b2968f0013d1fc84cb",
+          "reasons": [
+            "missing automation"
+          ],
+          "user_id": "",
+          "account_id": "17841452817679462",
+          "automation_id": "69b2968e003d0453e1f2",
+          "created_at": "2026-03-12T10:33:56.039+00:00",
+          "updated_at": "2026-03-12T10:33:56.039+00:00"
+        },
+        {
+          "id": "69b298a80032d8f35c2a",
+          "reasons": [
+            "missing automation"
+          ],
+          "user_id": "",
+          "account_id": "17841452817679462",
+          "automation_id": "69b298a800212d023907",
+          "created_at": "2026-03-12T10:42:53.530+00:00",
+          "updated_at": "2026-03-12T10:42:53.530+00:00"
+        }
+      ]
+    },
+    {
+      "collection_id": "keywords",
+      "total_documents": 22,
+      "orphan_count": 2,
+      "orphans": [
+        {
+          "id": "69958ae300069be68d76",
+          "reasons": [
+            "missing automation"
+          ],
+          "user_id": "",
+          "account_id": "17841452817679462",
+          "automation_id": "69958ae200119596aed0",
+          "created_at": "2026-02-18T09:48:19.294+00:00",
+          "updated_at": "2026-02-21T07:04:06.228+00:00"
+        },
+        {
+          "id": "699deda60025a4e9b6a5",
+          "reasons": [
+            "missing automation"
+          ],
+          "user_id": "",
+          "account_id": "17841452817679462",
+          "automation_id": "699deda5003b5b2ebf2b",
+          "created_at": "2026-02-24T18:27:50.733+00:00",
+          "updated_at": "2026-02-24T18:27:50.733+00:00"
+        }
+      ]
+    },
+    {
+      "collection_id": "keyword_index",
+      "total_documents": 22,
+      "orphan_count": 2,
+      "orphans": [
+        {
+          "id": "69c57e3b0016ba7d9470",
+          "reasons": [
+            "missing automation"
+          ],
+          "user_id": "",
+          "account_id": "17841452817679462",
+          "automation_id": "69958ae200119596aed0",
+          "created_at": "2026-03-26T18:43:10.844+00:00",
+          "updated_at": "2026-03-26T18:43:10.844+00:00"
+        },
+        {
+          "id": "69c57e3d000a979f3ca3",
+          "reasons": [
+            "missing automation"
+          ],
+          "user_id": "",
+          "account_id": "17841452817679462",
+          "automation_id": "699deda5003b5b2ebf2b",
+          "created_at": "2026-03-26T18:43:13.270+00:00",
+          "updated_at": "2026-03-26T18:43:13.270+00:00"
+        }
+      ]
+    },
+    {
+      "collection_id": "reply_templates",
+      "total_documents": 12,
+      "orphan_count": 0,
+      "orphans": []
+    },
+    {
+      "collection_id": "super_profiles",
+      "total_documents": 1,
+      "orphan_count": 0,
+      "orphans": []
+    },
+    {
+      "collection_id": "comment_moderation",
+      "total_documents": 1,
+      "orphan_count": 0,
+      "orphans": []
+    },
+    {
+      "collection_id": "logs",
+      "total_documents": 26,
+      "orphan_count": 0,
+      "orphans": []
+    },
+    {
+      "collection_id": "chat_states",
+      "total_documents": 5,
+      "orphan_count": 0,
+      "orphans": []
+    }
+  ],
+  "deletion": {
+    "deleted": [
+      {
+        "collection_id": "automation_collect_destinations",
+        "id": "69b2923f003cf32eceb9",
+        "reasons": [
+          "missing automation"
+        ]
+      },
+      {
+        "collection_id": "automation_collect_destinations",
+        "id": "69b2968f0013d1fc84cb",
+        "reasons": [
+          "missing automation"
+        ]
+      },
+      {
+        "collection_id": "automation_collect_destinations",
+        "id": "69b298a80032d8f35c2a",
+        "reasons": [
+          "missing automation"
+        ]
+      },
+      {
+        "collection_id": "keywords",
+        "id": "69958ae300069be68d76",
+        "reasons": [
+          "missing automation"
+        ]
+      },
+      {
+        "collection_id": "keywords",
+        "id": "699deda60025a4e9b6a5",
+        "reasons": [
+          "missing automation"
+        ]
+      },
+      {
+        "collection_id": "keyword_index",
+        "id": "69c57e3b0016ba7d9470",
+        "reasons": [
+          "missing automation"
+        ]
+      },
+      {
+        "collection_id": "keyword_index",
+        "id": "69c57e3d000a979f3ca3",
+        "reasons": [
+          "missing automation"
+        ]
+      }
+    ],
+    "failed": []
+  },
+  "deleted_at": "2026-05-12T05:32:43.114565+00:00"
+}

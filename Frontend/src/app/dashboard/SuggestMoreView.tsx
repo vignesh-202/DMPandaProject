@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Lightbulb, ArrowLeft } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -66,7 +66,7 @@ const SuggestMoreView: React.FC = () => {
         fetchingRef.current = true;
         setIsLoading(true);
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/suggest-more?account_id=${activeAccountID}`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/suggest-more?account_id=${activeAccountID}`);
             if (res.ok) {
                 const data = await res.json();
                 setConfig(data);
@@ -145,7 +145,7 @@ const SuggestMoreView: React.FC = () => {
         setIsSaving(true);
         setError(null);
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/suggest-more`, {
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/suggest-more`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -196,7 +196,7 @@ const SuggestMoreView: React.FC = () => {
                 setModalConfig(prev => ({ ...prev, isOpen: false }));
                 setIsSaving(true);
                 try {
-                    await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/suggest-more?account_id=${activeAccountID}`, {
+                    await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/suggest-more?account_id=${activeAccountID}`, {
                         method: 'DELETE'
                     });
                     setConfig({ is_setup: false, is_active: false });
@@ -365,3 +365,4 @@ const SuggestMoreView: React.FC = () => {
 };
 
 export default SuggestMoreView;
+

@@ -34,7 +34,7 @@ const PricingPage: React.FC = () => {
         if (!pricingPageBootstrapPromise) {
           pricingPageBootstrapPromise = (async () => {
             const geo = await detectGeoCurrency();
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pricing`, {
+            const response = await fetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/pricing`, {
               headers: buildCountryHeaders(geo.countryCode)
             });
             if (!response.ok) {
@@ -310,3 +310,4 @@ const PricingPage: React.FC = () => {
 };
 
 export default PricingPage;
+

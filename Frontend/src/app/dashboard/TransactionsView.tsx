@@ -56,7 +56,7 @@ const TransactionsView: React.FC = () => {
       if (nextFrom) params.set('from', nextFrom);
       if (nextTo) params.set('to', nextTo);
       const queryString = params.toString();
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/transactions${queryString ? `?${queryString}` : ''}`);
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/transactions${queryString ? `?${queryString}` : ''}`);
       const data = await response.json().catch(() => ({} as TransactionResponse));
       const minFrom = typeof data?.date_bounds?.min_from === 'string' ? data.date_bounds.min_from : '';
       const maxTo = typeof data?.date_bounds?.max_to === 'string' && data.date_bounds.max_to
@@ -137,7 +137,7 @@ const TransactionsView: React.FC = () => {
   const handleDownload = async (transactionId: string) => {
     setDownloadingId(transactionId);
     try {
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/transactions/${transactionId}/pdf`);
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/transactions/${transactionId}/pdf`);
       if (!response.ok) {
         throw new Error('Failed to generate receipt');
       }
@@ -375,3 +375,4 @@ const TransactionsView: React.FC = () => {
 };
 
 export default TransactionsView;
+

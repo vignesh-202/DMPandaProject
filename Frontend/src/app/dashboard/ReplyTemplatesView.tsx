@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
@@ -226,7 +226,7 @@ export default function ReplyTemplatesView() {
     const doFetch = async (): Promise<{ templates: unknown[]; error: string | null }> => {
       try {
         if (!activeAccountID) return { templates: [], error: null };
-        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates?account_id=${activeAccountID}&full=false`);
+        const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates?account_id=${activeAccountID}&full=false`);
         const data = await res.json();
         if (res.ok) return { templates: data.templates || [], error: null };
         return { templates: [], error: data.error || 'Failed to load templates' };
@@ -322,7 +322,7 @@ export default function ReplyTemplatesView() {
     let linked = Array.isArray(t.linked_automations) ? t.linked_automations : [];
     if (linked.length === 0) {
       try {
-        const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${t.id}?account_id=${activeAccountID}`);
+        const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${t.id}?account_id=${activeAccountID}`);
         if (res.ok) {
           const data = await res.json();
           linked = Array.isArray(data.linked_automations) ? data.linked_automations : [];
@@ -383,7 +383,7 @@ export default function ReplyTemplatesView() {
 
     // Always load full data when editing
     try {
-      const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${t.id}?account_id=${activeAccountID}`);
+      const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${t.id}?account_id=${activeAccountID}`);
       if (res.ok) {
         const fullTemplate = await res.json();
         // Update the template in the templates array
@@ -697,8 +697,8 @@ export default function ReplyTemplatesView() {
         template_data: templateDataToPayload(templateType, templateData),
       };
       const url = editId
-        ? `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${editId}?account_id=${activeAccountID}`
-        : `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates`;
+        ? `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${editId}?account_id=${activeAccountID}`
+        : `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates`;
       const res = await authenticatedFetch(url, {
         method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -808,7 +808,7 @@ export default function ReplyTemplatesView() {
     setDeleteError(null);
     try {
       const res = await authenticatedFetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${deleteModal.id}?account_id=${activeAccountID}`,
+        `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${deleteModal.id}?account_id=${activeAccountID}`,
         { method: 'DELETE' }
       );
       const data = await res.json();
@@ -1088,9 +1088,9 @@ export default function ReplyTemplatesView() {
             Create reusable templates for DM, Post, Reel, Story, and Live automations
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:flex sm:items-center">
+        <div className="flex flex-wrap items-center gap-3 sm:justify-end">
           {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 p-1 bg-muted rounded-xl">
+          <div className="flex flex-1 sm:flex-none items-center justify-center sm:justify-start gap-1 p-1 bg-muted rounded-xl">
             <button
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded-lg transition-all ${viewMode === 'grid'
@@ -1116,15 +1116,16 @@ export default function ReplyTemplatesView() {
           <button
             onClick={() => fetchList(true)}
             disabled={loading}
-            className="p-3 rounded-xl border-2 border-border bg-card text-foreground hover:bg-muted/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 p-3 rounded-xl border-2 border-border bg-card text-foreground hover:bg-muted/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             title="Refresh templates"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="sm:hidden text-sm font-semibold">Refresh</span>
           </button>
           {/* Create Button */}
           <button
             onClick={openCreate}
-            className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 sm:px-6 sm:tracking-widest"
+            className="flex w-full sm:w-auto min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 sm:px-6 sm:tracking-widest"
           >
             <Plus className="w-5 h-5" />
             Create Template
@@ -1340,3 +1341,4 @@ export default function ReplyTemplatesView() {
     </div>
   );
 }
+

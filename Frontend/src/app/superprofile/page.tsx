@@ -119,7 +119,7 @@ const SuperProfilePublicPage: React.FC = () => {
       }
 
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/public/superprofile/${encodeURIComponent(slug)}`);
+        const res = await fetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/public/superprofile/${encodeURIComponent(slug)}`);
         if (!res.ok) {
           setError('Profile not found.');
           setLoading(false);
@@ -275,3 +275,4 @@ const SuperProfilePublicPage: React.FC = () => {
 };
 
 export default SuperProfilePublicPage;
+

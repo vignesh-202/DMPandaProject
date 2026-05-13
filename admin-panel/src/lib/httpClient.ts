@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL,
+    baseURL: ((globalThis as any).__DM_PANDA_ADMIN_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL),
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
@@ -18,7 +18,7 @@ const validateAdminSession = async () => {
 
     adminSessionValidationPromise = (async () => {
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/me`, {
+            const response = await fetch(`${((globalThis as any).__DM_PANDA_ADMIN_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/me`, {
                 credentials: 'include',
                 headers: {
                     'X-App-Context': 'admin'
@@ -63,3 +63,4 @@ api.interceptors.response.use(
 );
 
 export default api;
+

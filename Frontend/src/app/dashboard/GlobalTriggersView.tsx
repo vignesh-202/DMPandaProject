@@ -70,7 +70,7 @@ const GlobalTriggersView: React.FC = () => {
         setError(null);
         try {
             const res = await authenticatedFetch(
-                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations?account_id=${activeAccountID}&type=global&summary=1`
+                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations?account_id=${activeAccountID}&type=global&summary=1`
             );
             const data = await res.json();
             if (res.ok) {
@@ -190,7 +190,7 @@ const GlobalTriggersView: React.FC = () => {
             let resolvedTemplate: ReplyTemplate | null = null;
 
             if (!preloadedTrigger && targetId) {
-                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}`);
+                const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${targetId}?account_id=${activeAccountID}`);
                 if (res.ok) {
                     resolvedTrigger = await res.json();
                 }
@@ -199,7 +199,7 @@ const GlobalTriggersView: React.FC = () => {
             const resolvedTemplateId = String(resolvedTrigger?.template_id || '').trim();
             if (resolvedTemplateId) {
                 const templateRes = await authenticatedFetch(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${resolvedTemplateId}?account_id=${activeAccountID}`
+                    `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${resolvedTemplateId}?account_id=${activeAccountID}`
                 );
                 if (templateRes.ok) {
                     resolvedTemplate = await templateRes.json();
@@ -290,7 +290,7 @@ const GlobalTriggersView: React.FC = () => {
         setGlobalTriggers((prev: any) => prev.map((x: any) => (x.$id === trigger.$id ? { ...x, active: next, is_active: next } : x)));
 
         try {
-            await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${trigger.$id}`, {
+            await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${trigger.$id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_active: next })
@@ -313,7 +313,7 @@ const GlobalTriggersView: React.FC = () => {
                 setModalConfig((prev) => ({ ...prev, isOpen: false }));
                 setDeletingIds((s) => new Set(s).add(id));
                 try {
-                    await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${id}`, {
+                    await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}`, {
                         method: 'DELETE'
                     });
                     setGlobalTriggers((prev: any) => prev.filter((x: any) => x.$id !== id));
@@ -418,7 +418,7 @@ const GlobalTriggersView: React.FC = () => {
                                             saveHandlerRef.current = handler;
                                         }}
                                         onDelete={editingTrigger.$id ? async (id) => {
-                                        await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${id}`, { method: 'DELETE' });
+                                        await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}`, { method: 'DELETE' });
                                         handleSave();
                                     } : undefined}
                                     onChange={handleEditorChange}
@@ -670,3 +670,4 @@ const GlobalTriggersView: React.FC = () => {
 };
 
 export default GlobalTriggersView;
+

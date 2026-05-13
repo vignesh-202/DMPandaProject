@@ -1338,7 +1338,7 @@ class AppwriteClient {
     }
 
     async ensureCollectedEmailsCollection() {
-        // Collected emails are routed to external destinations (Google Sheets / APIs).
+        // Collected emails are routed to external webhook destinations.
         // Keep this as a compatibility no-op to avoid recreating DB storage.
         return false;
     }

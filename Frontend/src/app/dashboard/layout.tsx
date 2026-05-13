@@ -205,7 +205,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     try {
       const logsResponse = activeAccountID
         ? await authenticatedFetch(
-          `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automation-activity-log?account_id=${encodeURIComponent(activeAccountID)}&limit=100`
+          `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automation-activity-log?account_id=${encodeURIComponent(activeAccountID)}&limit=100`
         )
         : null;
       const logsPayload = logsResponse?.ok ? await logsResponse.json().catch(() => null) : null;
@@ -547,14 +547,21 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                     src={`https://cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(user.name)}&width=100&height=100`}
                     alt={user.name}
                     className="w-[30px] h-[30px] sm:w-[36px] sm:h-[36px] rounded-full object-cover border-2 border-card transition-transform duration-200 group-hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                      (e.target as HTMLElement).nextElementSibling?.classList.remove('hidden');
+                      (e.target as HTMLElement).nextElementSibling?.classList.add('flex');
+                    }}
                   />
-                ) : (
-                  <div className="w-[30px] h-[30px] sm:w-[36px] sm:h-[36px] rounded-full bg-card flex items-center justify-center border-2 border-card transition-transform duration-200 group-hover:scale-105">
-                    <span className="text-xs sm:text-sm font-semibold text-foreground">
-                      {userInitials}
-                    </span>
-                  </div>
-                )}
+                ) : null}
+                <div className={cn(
+                  "w-[30px] h-[30px] sm:w-[36px] sm:h-[36px] rounded-full bg-primary/10 items-center justify-center border-2 border-card transition-transform duration-200 group-hover:scale-105",
+                  user ? "hidden" : "flex"
+                )}>
+                  <span className="text-xs sm:text-sm font-semibold text-primary">
+                    {userInitials}
+                  </span>
+                </div>
               </button>
 
               {/* Profile Dropdown - Instagram themed */}
@@ -644,3 +651,4 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default DashboardLayout;
+

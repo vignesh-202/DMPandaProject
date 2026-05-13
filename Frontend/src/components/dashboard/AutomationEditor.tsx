@@ -4,7 +4,7 @@ import {
     FileText, Smartphone, Image as ImageIcon, Reply, Save, Loader2, X, Instagram,
     MessageSquare, AlertCircle, CheckCircle2, Trash2, HelpCircle, Power, Globe,
     MousePointerClick, Share2, Film, Radio, BookText, Plus, ChevronRight, Share2 as ShareIcon,
-    Calendar, ChevronDown, Check, Info, Lightbulb, ExternalLink, LayoutTemplate, Mail, Copy
+    Calendar, ChevronDown, Check, Info, Lightbulb, LayoutTemplate, Mail
 } from 'lucide-react';
 import { useDashboard } from '../../contexts/DashboardContext';
 import ModernConfirmModal from '../ui/ModernConfirmModal';
@@ -39,12 +39,10 @@ const trimToUtf8Length = (value: string, maxBytes: number) => {
 };
 
 const createCollectorDestinationState = () => ({
-    destination_type: 'sheet',
-    sheet_link: '',
+    destination_type: 'webhook',
     webhook_url: '',
     verified: false,
     verified_at: null as string | null,
-    service_account_email: '',
     destination_json: {} as Record<string, unknown>
 });
 
@@ -225,7 +223,6 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     const [collectorDestination, setCollectorDestination] = useState(createCollectorDestinationState);
     const [collectorDestinationLoading, setCollectorDestinationLoading] = useState(false);
     const [collectorDestinationSaving, setCollectorDestinationSaving] = useState(false);
-    const [copiedServiceAccountEmail, setCopiedServiceAccountEmail] = useState(false);
 
     const [suggestMoreSetup, setSuggestMoreSetup] = useState(false);
     const [keywordInput, setKeywordInput] = useState('');
@@ -443,7 +440,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
         (async () => {
             try {
-                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/suggest-more?account_id=${activeAccountID}`);
+                const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/suggest-more?account_id=${activeAccountID}`);
                 if (!res.ok) throw new Error('Failed to fetch suggest more');
                 const data = await res.json();
                 if (alive) setSuggestMoreSetup(Boolean(data?.is_setup));
@@ -469,18 +466,16 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             setCollectorDestinationLoading(true);
             try {
                 const res = await authenticatedFetch(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${automation.$id}/email-collector-destination`
+                    `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${automation.$id}/email-collector-destination`
                 );
                 const data = await res.json();
                 if (!alive) return;
                 if (res.ok && data?.destination) {
                     setCollectorDestination({
-                        destination_type: data.destination.destination_type || 'sheet',
-                        sheet_link: data.destination.sheet_link || '',
+                        destination_type: data.destination.destination_type || 'webhook',
                         webhook_url: data.destination.webhook_url || '',
                         verified: data.destination.verified === true,
                         verified_at: data.destination.verified_at || null,
-                        service_account_email: data.destination.service_account_email || '',
                         destination_json: data.destination.destination_json || {}
                     });
                 } else {
@@ -508,28 +503,23 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             return true;
         }
 
-        const urlValue = collectorDestination.destination_type === 'webhook'
-            ? String(collectorDestination.webhook_url || '').trim()
-            : String(collectorDestination.sheet_link || '').trim();
+        const urlValue = String(collectorDestination.webhook_url || '').trim();
 
         if (!urlValue) {
-            setError(collectorDestination.destination_type === 'webhook'
-                ? 'Enter a webhook URL for the email collector.'
-                : 'Enter a Google Sheet URL for the email collector.');
+            setError('Enter a webhook URL for the email collector.');
             return false;
         }
 
         setCollectorDestinationSaving(true);
         try {
             const saveRes = await authenticatedFetch(
-                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${savedAutomationId}/email-collector-destination`,
+                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${savedAutomationId}/email-collector-destination`,
                 {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        destination_type: collectorDestination.destination_type,
-                        sheet_link: collectorDestination.destination_type === 'sheet' ? urlValue : '',
-                        webhook_url: collectorDestination.destination_type === 'webhook' ? urlValue : ''
+                        destination_type: 'webhook',
+                        webhook_url: urlValue
                     })
                 }
             );
@@ -542,7 +532,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             let nextDestination = saveData?.destination || null;
             if (shouldVerify) {
                 const verifyRes = await authenticatedFetch(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${savedAutomationId}/email-collector-destination/verify`,
+                    `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${savedAutomationId}/email-collector-destination/verify`,
                     { method: 'POST' }
                 );
                 const verifyData = await verifyRes.json();
@@ -555,12 +545,10 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
             if (nextDestination) {
                 setCollectorDestination({
-                    destination_type: nextDestination.destination_type || 'sheet',
-                    sheet_link: nextDestination.sheet_link || '',
+                    destination_type: nextDestination.destination_type || 'webhook',
                     webhook_url: nextDestination.webhook_url || '',
                     verified: nextDestination.verified === true,
                     verified_at: nextDestination.verified_at || null,
-                    service_account_email: nextDestination.service_account_email || '',
                     destination_json: nextDestination.destination_json || {}
                 });
             }
@@ -607,13 +595,13 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                             : type === 'story' ? 'story'
                                 : type === 'live' ? 'live'
                                     : type;
-                    const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${automationId}?account_id=${activeAccountID}&type=${backendType}`);
+                    const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${automationId}?account_id=${activeAccountID}&type=${backendType}`);
                     if (res.ok) {
                         const data = await res.json();
                         let resolvedTemplate: ReplyTemplate | null = null;
                         if (data.template_id) {
                             try {
-                                const rr = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${data.template_id}?account_id=${activeAccountID}`);
+                                const rr = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${data.template_id}?account_id=${activeAccountID}`);
                                 if (rr.ok) {
                                     resolvedTemplate = await rr.json();
                                 }
@@ -707,7 +695,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         if (!activeAccountID) return;
         setIsFetchingMedia(true);
         try {
-            let url = `${import.meta.env.VITE_API_BASE_URL}/api/instagram/media?account_id=${activeAccountID}`;
+            let url = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/media?account_id=${activeAccountID}`;
             if (sharePostContentType !== 'all') url += `&type=${sharePostContentType}`;
             if (sharePostDateRange !== 'all') url += `&range=${sharePostDateRange}`;
             if (sharePostSortBy) url += `&sort=${sharePostSortBy}`;
@@ -878,13 +866,9 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     setSaving(false);
                     return false;
                 }
-                const destinationUrl = collectorDestination.destination_type === 'webhook'
-                    ? String(collectorDestination.webhook_url || '').trim()
-                    : String(collectorDestination.sheet_link || '').trim();
+                const destinationUrl = String(collectorDestination.webhook_url || '').trim();
                 if (!destinationUrl) {
-                    setError(collectorDestination.destination_type === 'webhook'
-                        ? 'Add a webhook URL for the email collector.'
-                        : 'Add a Google Sheet URL for the email collector.');
+                    setError('Add a webhook URL for the email collector.');
                     setSaving(false);
                     return false;
                 }
@@ -923,7 +907,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             delete payload.active;
             delete payload.comment_reply_text;
 
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations${automation.$id ? `/${automation.$id}` : ''}?account_id=${activeAccountID}${automation.$id ? '' : `&type=${backendType}`}`, {
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations${automation.$id ? `/${automation.$id}` : ''}?account_id=${activeAccountID}${automation.$id ? '' : `&type=${backendType}`}`, {
                 method: automation.$id ? 'PATCH' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1067,8 +1051,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                     <Lightbulb className="w-5 h-5 text-yellow-500" />
                                 </div>
                                 <div>
-                                    <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-1">Important: Matching Rules</p>
-                                    <p className="text-[10px] font-medium text-gray-500 leading-relaxed">
+                                    <p className="text-xs sm:text-sm font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-1">Important: Matching Rules</p>
+                                    <p className="text-xs sm:text-sm font-medium text-gray-500 leading-relaxed">
                                         <span className="font-bold text-gray-700 dark:text-gray-300">Keywords are case insensitive:</span> All keywords are treated as UPPERCASE.
                                     </p>
                                 </div>
@@ -1126,8 +1110,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 {/* 2. Followers Only Toggle */}
                 <LockedFeatureToggle
                     icon={<Power className={`w-5 h-5 ${automation.followers_only ? 'text-blue-500' : 'text-gray-400'}`} />}
-                    title="Followers Only Mode"
-                    description="Restricts this automation to only trigger for your existing followers."
+                    title="Followers Only"
+                    description="Only respond to users who already follow your account."
                     checked={automation.followers_only || false}
                     onToggle={() => {
                         const nextFollowersOnly = !automation.followers_only;
@@ -1213,36 +1197,25 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
                 {/* 2.5. Suggest More Toggle */}
                 {
-                    <LockedFeatureToggle
-                        icon={<Lightbulb className={`w-5 h-5 ${automation.suggest_more_enabled && suggestMoreSetup ? 'text-yellow-500' : 'text-gray-400'}`} />}
-                        title="Include Suggest More"
-                        description={suggestMoreSetup ? 'Add "Suggest More" button after this automation reply.' : 'Setup Suggest More first to enable this feature.'}
-                        checked={automation.suggest_more_enabled || false}
-                        onToggle={() => {
-                            if (!suggestMoreSetup) {
-                                onClose();
-                                setCurrentView('Suggest More');
-                                return;
-                            }
-                            setAutomation({ ...automation, suggest_more_enabled: !automation.suggest_more_enabled })
-                        }}
-                        locked={getPlanGate('suggest_more').isLocked}
-                        note={getPlanGate('suggest_more').note}
-                        onUpgrade={() => setCurrentView('My Plan')}
-                        activeIconClassName="text-yellow-500"
-                        actionElement={!suggestMoreSetup && !getPlanGate('suggest_more').isLocked ? (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    onClose();
-                                    setCurrentView('Suggest More');
-                                }}
-                                className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-yellow-500/20 transition-all"
-                            >
-                                Setup <ExternalLink className="w-3 h-3" />
-                            </button>
-                        ) : undefined}
-                    />
+                    <div className="space-y-2">
+                        <LockedFeatureToggle
+                            icon={<Lightbulb className={`w-5 h-5 ${automation.suggest_more_enabled ? 'text-yellow-500' : 'text-gray-400'}`} />}
+                            title="Suggest More"
+                            description="Add a Suggest More button after this automation reply."
+                            checked={automation.suggest_more_enabled || false}
+                            onToggle={() => setAutomation({ ...automation, suggest_more_enabled: !automation.suggest_more_enabled })}
+                            locked={getPlanGate('suggest_more').isLocked}
+                            note={getPlanGate('suggest_more').note}
+                            onUpgrade={() => setCurrentView('My Plan')}
+                            activeIconClassName="text-yellow-500"
+                        />
+                        {automation.suggest_more_enabled && !suggestMoreSetup && !getPlanGate('suggest_more').isLocked && (
+                            <div className="ml-2 flex items-center gap-2 rounded-2xl border border-yellow-200 dark:border-yellow-500/20 bg-yellow-50/60 dark:bg-yellow-500/5 px-4 py-3">
+                                <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                                <p className="text-[10px] font-bold text-yellow-700 dark:text-yellow-300">Suggest More is not configured yet. <button type="button" onClick={() => { onClose(); setCurrentView('Suggest More'); }} className="underline hover:no-underline font-black">Set it up now</button> for this toggle to take effect.</p>
+                            </div>
+                        )}
+                    </div>
                 }
 
                 {supportsOncePerUser && (
@@ -1264,7 +1237,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         <LockedFeatureToggle
                             icon={<Mail className={`w-5 h-5 ${automation.collect_email_enabled ? 'text-indigo-500' : 'text-gray-400'}`} />}
                             title="Collect Email"
-                            description="Ask for an email before finishing the automation flow."
+                            description="Prompt users for their email address before completing the automation flow."
                             checked={automation.collect_email_enabled === true}
                             onToggle={() => setAutomation({
                                 ...automation,
@@ -1278,17 +1251,14 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         />
                         {automation.collect_email_enabled && !collectEmailLocked && (
                             <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
-                                <div className="flex items-center justify-between gap-4">
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-900 dark:text-white">Gmail Only</p>
-                                        <p className="text-[10px] text-gray-400">Restrict captured emails to Gmail addresses only.</p>
-                                    </div>
-                                    <ToggleSwitch
-                                        isChecked={automation.collect_email_only_gmail === true}
-                                        onChange={() => setAutomation({ ...automation, collect_email_only_gmail: !(automation.collect_email_only_gmail === true) })}
-                                        variant="plain"
-                                    />
-                                </div>
+                                <LockedFeatureToggle
+                                    icon={<Mail className={`w-5 h-5 ${automation.collect_email_only_gmail ? 'text-indigo-500' : 'text-gray-400'}`} />}
+                                    title="Allow Only Gmail"
+                                    description="Only accept @gmail.com email addresses."
+                                    checked={automation.collect_email_only_gmail === true}
+                                    onToggle={() => setAutomation({ ...automation, collect_email_only_gmail: !(automation.collect_email_only_gmail === true) })}
+                                    activeIconClassName="text-indigo-500"
+                                />
                                 <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
                                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Prompt Message</p>
                                     <textarea
@@ -1327,68 +1297,16 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                         </div>
                                         {collectorDestinationLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                                     </div>
-                                    <div className="grid gap-2 sm:grid-cols-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setCollectorDestination((prev) => ({ ...prev, destination_type: 'sheet', verified: false, verified_at: null }))}
-                                            className={`rounded-2xl border px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${collectorDestination.destination_type === 'sheet' ? 'border-primary bg-primary/10 text-primary' : 'border-content/70 bg-card text-foreground'}`}
-                                        >
-                                            Google Sheets
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setCollectorDestination((prev) => ({ ...prev, destination_type: 'webhook', verified: false, verified_at: null }))}
-                                            className={`rounded-2xl border px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${collectorDestination.destination_type === 'webhook' ? 'border-primary bg-primary/10 text-primary' : 'border-content/70 bg-card text-foreground'}`}
-                                        >
-                                            Webhook
-                                        </button>
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] text-muted-foreground">Paste your webhook URL. Verification will send sample lead data to this endpoint.</p>
+                                        <input
+                                            value={collectorDestination.webhook_url || ''}
+                                            onChange={(e) => setCollectorDestination((prev) => ({ ...prev, destination_type: 'webhook', webhook_url: e.target.value, verified: false, verified_at: null }))}
+                                            className="w-full rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                            placeholder="https://example.com/webhook"
+                                        />
                                     </div>
-                                    {collectorDestination.destination_type === 'sheet' ? (
-                                        <div className="space-y-2">
-                                            <div className="rounded-2xl border border-content/70 bg-card p-3">
-                                                <div className="flex flex-wrap items-center justify-between gap-3">
-                                                    <div>
-                                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Google Service Account</p>
-                                                        <p className="mt-1 text-[10px] text-muted-foreground">Share the target sheet with this email before verifying the destination.</p>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={async () => {
-                                                            const serviceEmail = String(collectorDestination.service_account_email || '').trim();
-                                                            if (!serviceEmail) return;
-                                                            await navigator.clipboard.writeText(serviceEmail);
-                                                            setCopiedServiceAccountEmail(true);
-                                                            window.setTimeout(() => setCopiedServiceAccountEmail(false), 2000);
-                                                        }}
-                                                        disabled={!collectorDestination.service_account_email}
-                                                        className="inline-flex items-center gap-2 rounded-2xl border border-content/70 bg-background px-4 py-2 text-[10px] font-black uppercase tracking-widest text-foreground transition-all hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        {copiedServiceAccountEmail ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                                                        {copiedServiceAccountEmail ? 'Copied' : 'Copy Email'}
-                                                    </button>
-                                                </div>
-                                                <div className="mt-3 rounded-2xl bg-muted/40 px-4 py-3 text-xs font-semibold text-foreground break-all">
-                                                    {collectorDestination.service_account_email || 'No service account email available yet.'}
-                                                </div>
-                                            </div>
-                                            <input
-                                                value={collectorDestination.sheet_link || ''}
-                                                onChange={(e) => setCollectorDestination((prev) => ({ ...prev, sheet_link: e.target.value, verified: false, verified_at: null }))}
-                                                className="w-full rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
-                                                placeholder="https://docs.google.com/spreadsheets/d/..."
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            <p className="text-[10px] text-muted-foreground">Paste your webhook URL. Verification will send sample lead data to this endpoint.</p>
-                                            <input
-                                                value={collectorDestination.webhook_url || ''}
-                                                onChange={(e) => setCollectorDestination((prev) => ({ ...prev, webhook_url: e.target.value, verified: false, verified_at: null }))}
-                                                className="w-full rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
-                                                placeholder="https://example.com/webhook"
-                                            />
-                                        </div>
-                                    )}
+                                    {fieldErrors['collect_email_destination'] && <p className="text-[9px] font-bold text-destructive">{fieldErrors['collect_email_destination']}</p>}
                                     <div className="flex flex-wrap items-center gap-3">
                                         <button
                                             type="button"
@@ -1419,7 +1337,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     <LockedFeatureToggle
                         icon={<MessageSquare className={`w-5 h-5 ${automation.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />}
                         title="Seen + Typing Reaction"
-                        description="Store the seen and typing preference with this automation rule."
+                        description="Simulate seen and typing indicators before sending the automated reply."
                         checked={automation.seen_typing_enabled === true}
                         onToggle={() => setAutomation({ ...automation, seen_typing_enabled: !(automation.seen_typing_enabled === true) })}
                         locked={seenTypingLocked}
@@ -1785,7 +1703,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     };
 
     const renderActionBar = () => (
-        <div className="-mx-2 mb-6 px-2 py-2">
+        <div className="sticky top-0 z-[60] -mx-4 -mt-4 mb-6 bg-card/95 backdrop-blur px-4 py-3 border-b border-border shadow-sm sm:-mx-6 sm:-mt-6 sm:px-6 md:-mx-8 md:-mt-8 md:px-8">
             <AutomationActionBar
                 hasExisting={Boolean(automation.$id)}
                 isSaving={saving}
@@ -1932,3 +1850,4 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 };
 
 export default AutomationEditor;
+

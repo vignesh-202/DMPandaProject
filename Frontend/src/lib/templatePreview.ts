@@ -41,7 +41,7 @@ export const toBrowserPreviewUrl = (url: string) => {
   if (!normalizedUrl) return '';
   if (!isRestrictedPreviewMediaUrl(normalizedUrl)) return normalizedUrl;
 
-  const apiBase = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+  const apiBase = String(((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL) || '').trim().replace(/\/+$/, '');
   if (!apiBase) return normalizedUrl;
 
   return `${apiBase}/api/instagram/media-proxy?url=${encodeURIComponent(normalizedUrl)}`;
@@ -116,7 +116,7 @@ export const resolveLatestSharePostPreview = async ({
   const requestPromise = (async () => {
     try {
       const mediaType = normalizedType === 'reel' ? 'reels' : 'posts';
-      const url = `${import.meta.env.VITE_API_BASE_URL}/api/instagram/media?account_id=${encodeURIComponent(activeAccountID)}&type=${mediaType}&limit=25`;
+      const url = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/media?account_id=${encodeURIComponent(activeAccountID)}&type=${mediaType}&limit=25`;
       const res = await authenticatedFetch(url);
 
       if (!res.ok) {
@@ -186,7 +186,7 @@ export const resolveSelectedSharePostPreview = async ({
 
   const requestPromise = (async () => {
     try {
-      const url = `${import.meta.env.VITE_API_BASE_URL}/api/instagram/media?account_id=${encodeURIComponent(activeAccountID)}&type=all&limit=100&sort=recent`;
+      const url = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/media?account_id=${encodeURIComponent(activeAccountID)}&type=all&limit=100&sort=recent`;
       const res = await authenticatedFetch(url);
 
       if (!res.ok) {
@@ -272,3 +272,4 @@ export const buildPreviewAutomationFromTemplate = (
     template_data: data
   };
 };
+

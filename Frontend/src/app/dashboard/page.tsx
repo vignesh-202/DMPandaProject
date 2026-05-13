@@ -227,7 +227,7 @@ const DashboardPage = () => {
 
   const handleInstagramLink = async () => {
     try {
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/instagram/url`);
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/auth/instagram/url`);
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
@@ -278,3 +278,4 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
+

@@ -147,7 +147,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
 
     const fetchBaseQuote = async () => {
       try {
-        const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/coupons/validate`, {
+        const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/coupons/validate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -189,7 +189,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
 
     setIsApplyingCoupon(true);
     try {
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/coupons/validate`, {
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/coupons/validate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -233,7 +233,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
 
     setIsStartingCheckout(true);
     try {
-      const createOrder = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
+      const createOrder = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/create-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
       }
 
       if (orderPayload?.no_payment_required) {
-        const verifyResponse = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/verify-payment`, {
+        const verifyResponse = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/verify-payment`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -309,7 +309,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
         description: `${selectedPlan.name} ${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'} subscription`,
         order_id: orderPayload.order.id,
         handler: async (response: any) => {
-          const verifyResponse = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/verify-payment`, {
+          const verifyResponse = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/verify-payment`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -586,3 +586,4 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
 };
 
 export default PlanCheckoutModal;
+

@@ -65,7 +65,7 @@ const LoginPage: React.FC = () => {
         target: 'frontend',
         redirect_origin: window.location.origin,
       });
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/google?${params.toString()}`, {
+      const response = await fetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/auth/google?${params.toString()}`, {
         credentials: 'include',
         headers: {
           'X-App-Context': 'frontend',
@@ -111,8 +111,8 @@ const LoginPage: React.FC = () => {
     setSuccessMessage(null);
 
     const url = isLoginView
-      ? `${import.meta.env.VITE_API_BASE_URL}/api/login`
-      : `${import.meta.env.VITE_API_BASE_URL}/api/register`;
+      ? `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/login`
+      : `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/register`;
 
     try {
       const response = await fetch(url, {
@@ -247,7 +247,7 @@ const LoginPage: React.FC = () => {
                       }
                       setIsSubmitting(true);
                       setError(null);
-                      fetch(`${import.meta.env.VITE_API_BASE_URL}/api/forgot-password`, {
+                      fetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/forgot-password`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ email }),
@@ -326,3 +326,4 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
+

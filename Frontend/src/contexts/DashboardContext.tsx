@@ -304,7 +304,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const refreshPricingPlanCatalog = useCallback(async () => {
-        const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/pricing`);
+        const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/pricing`);
         if (!response.ok) {
             throw new Error('Failed to load pricing plans');
         }
@@ -356,7 +356,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     }, [location.pathname, navigate]);
 
     const refreshPlanAccess = useCallback(async () => {
-        const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`);
+        const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/my-plan`);
         if (!response.ok) {
             throw new Error('Failed to load plan access');
         }
@@ -387,7 +387,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         const loadPlanFeatures = async () => {
             try {
                 const [planResponse] = await Promise.all([
-                    authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/my-plan`),
+                    authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/my-plan`),
                     pricingPlansRef.current.length === 0 ? refreshPricingPlanCatalog().catch(() => null) : Promise.resolve()
                 ]);
                 if (!planResponse.ok) {
@@ -467,7 +467,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         if (bulkProfileRefreshKeys.current.has(refreshKey)) return;
         bulkProfileRefreshKeys.current.add(refreshKey);
         try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts/refresh-profiles`, {
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/ig-accounts/refresh-profiles`, {
                 method: 'POST'
             });
             if (!response.ok) return;
@@ -498,7 +498,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         setIsLoadingStats(true);
         setActiveAccountStats(null); // Clear old stats immediately to prevent lag/flash of old data
         try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/stats?account_id=${accountId}`);
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/stats?account_id=${accountId}`);
             if (response.ok) {
                 const data = await response.json();
                 setActiveAccountStats({ ...data, _accountId: accountId });
@@ -526,7 +526,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         // setIsGlobalLoading(true); 
 
         try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts`);
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/ig-accounts`);
             if (response.ok) {
                 const data = await response.json();
                 const accounts = data.ig_accounts || [];
@@ -598,7 +598,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
             planRevalidationInFlight.current = true;
             try {
                 await refreshPlanAccess();
-                const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/account/ig-accounts`);
+                const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/ig-accounts`);
                 if (!response.ok) return;
                 const payload = await response.json().catch(() => null);
                 if (Array.isArray(payload?.ig_accounts)) {
@@ -673,7 +673,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         if (automationInitialLoadedRef.current['dm'] && !force) return;
 
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations?account_id=${activeAccountID}`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations?account_id=${activeAccountID}`);
             const data = await res.json();
             if (res.ok) {
                 setDmAutomations(data.automations || []);
@@ -692,7 +692,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         isFetchingInboxMenu.current = true;
         setInboxMenuLoading(true);
         try {
-            const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/inbox-menu?account_id=${activeAccountID}`);
+            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/inbox-menu?account_id=${activeAccountID}`);
             if (response.ok) {
                 const data = await response.json();
                 setInboxMenuData(data);
@@ -718,7 +718,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         setConvoStarterLoading(true);
         const fetchPromise = (async () => {
             try {
-                const response = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/convo-starters?account_id=${activeAccountID}`);
+                const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/convo-starters?account_id=${activeAccountID}`);
                 if (response.ok) {
                     const data = await response.json();
                     setConvoStarterData(data);
@@ -893,3 +893,4 @@ export const useDashboard = () => {
     }
     return context;
 };
+

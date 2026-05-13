@@ -5,7 +5,7 @@ import { useDashboard } from '../../contexts/DashboardContext';
 import {
     MessageSquare, Plus, Trash2, Save, AlertCircle, Radio, BookText,
     MousePointerClick, Smartphone, Loader2, Instagram, CheckCircle2, Globe, Pencil, Lightbulb, PencilLine, HelpCircle, Film, RefreshCcw, Calendar, ChevronDown, Check, Info, ArrowLeft, MoreHorizontal, Settings, X, Search,
-    Image as ImageIcon, Video, Music, FileText, Share2, Reply, ChevronRight, Link as LinkIcon, Power, LayoutTemplate, Mail, Copy
+    Image as ImageIcon, Video, Music, FileText, Share2, Reply, Link as LinkIcon, Power, LayoutTemplate, Mail
 } from 'lucide-react';
 import ModernCalendar from '../../components/ui/ModernCalendar';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
@@ -75,12 +75,10 @@ const COLLECT_EMAIL_PROMPT_DEFAULT = '📧 Could you share your best email so we
 const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '⚠️ That email looks invalid. Please send a valid email like name@example.com.';
 const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ✅';
 const createCollectorDestinationState = () => ({
-    destination_type: 'sheet',
-    sheet_link: '',
+    destination_type: 'webhook',
     webhook_url: '',
     verified: false,
     verified_at: null as string | null,
-    service_account_email: '',
     destination_json: {} as Record<string, unknown>
 });
 
@@ -168,7 +166,6 @@ const DMAutomationView: React.FC = () => {
     const [collectorDestination, setCollectorDestination] = useState(createCollectorDestinationState);
     const [collectorDestinationLoading, setCollectorDestinationLoading] = useState(false);
     const [collectorDestinationSaving, setCollectorDestinationSaving] = useState(false);
-    const [copiedServiceAccountEmail, setCopiedServiceAccountEmail] = useState(false);
     const [keywordWarnings, setKeywordWarnings] = useState<{ [key: number]: string }>({});
     const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
     const [originalAutomation, setOriginalAutomation] = useState<any>(null);
@@ -287,7 +284,7 @@ const DMAutomationView: React.FC = () => {
         if (isManual) setRefreshing(true);
 
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations?account_id=${activeAccountID}&type=dm&summary=1`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations?account_id=${activeAccountID}&type=dm&summary=1`);
             const data = await res.json();
             if (res.ok) {
                 const normalized = (data.automations || data.documents || []).map((doc: any) => ({
@@ -337,7 +334,7 @@ const DMAutomationView: React.FC = () => {
 
         (async () => {
             try {
-                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/suggest-more?account_id=${activeAccountID}`);
+                const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/suggest-more?account_id=${activeAccountID}`);
                 if (!res.ok) return;
                 const data = await res.json();
                 if (alive) setSuggestMoreSetup(Boolean(data?.is_setup));
@@ -366,7 +363,7 @@ const DMAutomationView: React.FC = () => {
         let alive = true;
         (async () => {
             try {
-                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${selectedTemplateId}?account_id=${activeAccountID}`);
+                const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${selectedTemplateId}?account_id=${activeAccountID}`);
                 if (!res.ok) return;
                 const data = await res.json();
                 if (!alive) return;
@@ -401,18 +398,16 @@ const DMAutomationView: React.FC = () => {
             setCollectorDestinationLoading(true);
             try {
                 const res = await authenticatedFetch(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${editingAutomation.$id}/email-collector-destination`
+                    `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${editingAutomation.$id}/email-collector-destination`
                 );
                 const data = await res.json();
                 if (!alive) return;
                 if (res.ok && data?.destination) {
                     setCollectorDestination({
-                        destination_type: data.destination.destination_type || 'sheet',
-                        sheet_link: data.destination.sheet_link || '',
+                        destination_type: data.destination.destination_type || 'webhook',
                         webhook_url: data.destination.webhook_url || '',
                         verified: data.destination.verified === true,
                         verified_at: data.destination.verified_at || null,
-                        service_account_email: data.destination.service_account_email || '',
                         destination_json: data.destination.destination_json || {}
                     });
                 } else {
@@ -436,28 +431,23 @@ const DMAutomationView: React.FC = () => {
             return true;
         }
 
-        const urlValue = collectorDestination.destination_type === 'webhook'
-            ? String(collectorDestination.webhook_url || '').trim()
-            : String(collectorDestination.sheet_link || '').trim();
+        const urlValue = String(collectorDestination.webhook_url || '').trim();
 
         if (!urlValue) {
-            setError(collectorDestination.destination_type === 'webhook'
-                ? 'Enter a webhook URL for the email collector.'
-                : 'Enter a Google Sheet URL for the email collector.');
+            setError('Enter a webhook URL for the email collector.');
             return false;
         }
 
         setCollectorDestinationSaving(true);
         try {
             const saveRes = await authenticatedFetch(
-                `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${savedAutomationId}/email-collector-destination`,
+                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${savedAutomationId}/email-collector-destination`,
                 {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        destination_type: collectorDestination.destination_type,
-                        sheet_link: collectorDestination.destination_type === 'sheet' ? urlValue : '',
-                        webhook_url: collectorDestination.destination_type === 'webhook' ? urlValue : ''
+                        destination_type: 'webhook',
+                        webhook_url: urlValue
                     })
                 }
             );
@@ -470,7 +460,7 @@ const DMAutomationView: React.FC = () => {
             let nextDestination = saveData?.destination || null;
             if (shouldVerify) {
                 const verifyRes = await authenticatedFetch(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${savedAutomationId}/email-collector-destination/verify`,
+                    `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${savedAutomationId}/email-collector-destination/verify`,
                     { method: 'POST' }
                 );
                 const verifyData = await verifyRes.json();
@@ -483,12 +473,10 @@ const DMAutomationView: React.FC = () => {
 
             if (nextDestination) {
                 setCollectorDestination({
-                    destination_type: nextDestination.destination_type || 'sheet',
-                    sheet_link: nextDestination.sheet_link || '',
+                    destination_type: nextDestination.destination_type || 'webhook',
                     webhook_url: nextDestination.webhook_url || '',
                     verified: nextDestination.verified === true,
                     verified_at: nextDestination.verified_at || null,
-                    service_account_email: nextDestination.service_account_email || '',
                     destination_json: nextDestination.destination_json || {}
                 });
             }
@@ -512,7 +500,7 @@ const DMAutomationView: React.FC = () => {
 
         try {
             let targetAuto: any = {};
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${targetId}?account_id=${activeAccountID}`);
             if (!res.ok) {
                 if (res.status === 404) {
                     setError("Automation not found. It may have been deleted.");
@@ -800,13 +788,9 @@ const DMAutomationView: React.FC = () => {
                 hasError = true;
             }
 
-            const destinationUrl = collectorDestination.destination_type === 'webhook'
-                ? String(collectorDestination.webhook_url || '').trim()
-                : String(collectorDestination.sheet_link || '').trim();
+            const destinationUrl = String(collectorDestination.webhook_url || '').trim();
             if (!destinationUrl) {
-                errors['collect_email_destination'] = collectorDestination.destination_type === 'webhook'
-                    ? "Webhook URL is required."
-                    : "Google Sheet URL is required.";
+                errors['collect_email_destination'] = "Webhook URL is required.";
                 hasError = true;
             }
         }
@@ -966,7 +950,7 @@ const DMAutomationView: React.FC = () => {
             }
             delete payload.template_elements;
 
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations${editingAutomation.$id ? '/' + editingAutomation.$id : ''}?account_id=${activeAccountID}&type=dm`, {
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations${editingAutomation.$id ? '/' + editingAutomation.$id : ''}?account_id=${activeAccountID}&type=dm`, {
                 method: editingAutomation.$id ? 'PATCH' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1254,7 +1238,7 @@ const DMAutomationView: React.FC = () => {
                     currentParams.set('after', currentCursor);
                 }
 
-                const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/media?${currentParams.toString()}`);
+                const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/media?${currentParams.toString()}`);
                 const data = await res.json();
 
                 if (!res.ok) {
@@ -1465,7 +1449,7 @@ const DMAutomationView: React.FC = () => {
                 closeModal();
                 setDeletingIds(prev => new Set(prev).add(id));
                 try {
-                    const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${id}?account_id=${activeAccountID}`, { method: 'DELETE' });
+                    const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}?account_id=${activeAccountID}`, { method: 'DELETE' });
                     if (res.ok) {
                         if (editingAutomation?.$id === id) setEditingAutomation(null);
                         fetchAutomations(true, true);
@@ -1492,7 +1476,7 @@ const DMAutomationView: React.FC = () => {
         const originalStatus = auto?.is_active !== false;
         setDmAutomations(prev => prev.map(a => a.$id === auto.$id ? { ...a, active: !originalStatus, is_active: !originalStatus } : a));
         try {
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${auto.$id}?account_id=${activeAccountID}`, {
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${auto.$id}?account_id=${activeAccountID}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_active: !originalStatus })
@@ -1725,9 +1709,9 @@ const DMAutomationView: React.FC = () => {
 
                                 <div className="pt-4">
                                     <LockedFeatureToggle
-                                        icon={<Power className={`w-5 h-5 ${editingAutomation.followers_only ? 'text-primary' : 'text-gray-400'}`} />}
-                                        title="Followers Only Mode"
-                                        description="Restricts this automation to only trigger for your existing followers."
+                                        icon={<Power className={`w-5 h-5 ${editingAutomation.followers_only ? 'text-blue-500' : 'text-gray-400'}`} />}
+                                        title="Followers Only"
+                                        description="Only respond to users who already follow your account."
                                         checked={editingAutomation.followers_only === true}
                                         onToggle={() => {
                                             const nextFollowersOnly = !editingAutomation.followers_only;
@@ -1749,7 +1733,7 @@ const DMAutomationView: React.FC = () => {
                                         locked={getPlanGate('followers_only').isLocked}
                                         note={getPlanGate('followers_only').note}
                                         onUpgrade={() => setCurrentView('My Plan')}
-                                        activeIconClassName="text-primary"
+                                        activeIconClassName="text-blue-500"
                                     />
                                 </div>
                                 {editingAutomation.followers_only && (
@@ -1814,34 +1798,31 @@ const DMAutomationView: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div className="mt-4">
+                                <div className="mt-4 space-y-2">
                                     <LockedFeatureToggle
-                                        icon={<Lightbulb className={`w-5 h-5 ${editingAutomation.suggest_more_enabled && suggestMoreSetup ? 'text-yellow-500' : 'text-gray-400'}`} />}
+                                        icon={<Lightbulb className={`w-5 h-5 ${editingAutomation.suggest_more_enabled ? 'text-yellow-500' : 'text-gray-400'}`} />}
                                         title="Suggest More"
-                                        description={suggestMoreSetup ? 'Send your Suggest More template right after this DM reply.' : 'Setup Suggest More first to enable this option.'}
+                                        description="Add a Suggest More button after this automation reply."
                                         checked={editingAutomation.suggest_more_enabled === true}
                                         onToggle={() => setEditingAutomation({ ...editingAutomation, suggest_more_enabled: !(editingAutomation.suggest_more_enabled === true) })}
                                         locked={getPlanGate('suggest_more').isLocked}
                                         note={getPlanGate('suggest_more').note}
                                         onUpgrade={() => setCurrentView('My Plan')}
                                         activeIconClassName="text-yellow-500"
-                                        actionElement={!suggestMoreSetup ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => setCurrentView('Suggest More')}
-                                                className="flex items-center gap-1.5 px-4 py-2 bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-yellow-500/20 transition-all"
-                                            >
-                                                Setup <ChevronRight className="w-3 h-3" />
-                                            </button>
-                                        ) : undefined}
                                     />
+                                    {editingAutomation.suggest_more_enabled && !suggestMoreSetup && !getPlanGate('suggest_more').isLocked && (
+                                        <div className="ml-2 flex items-center gap-2 rounded-2xl border border-yellow-200 dark:border-yellow-500/20 bg-yellow-50/60 dark:bg-yellow-500/5 px-4 py-3">
+                                            <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                                            <p className="text-[10px] font-bold text-yellow-700 dark:text-yellow-300">Suggest More is not configured yet. <button type="button" onClick={() => setCurrentView('Suggest More')} className="underline hover:no-underline font-black">Set it up now</button> for this toggle to take effect.</p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="mt-4">
                                     <LockedFeatureToggle
                                         icon={<Calendar className={`w-5 h-5 ${editingAutomation.once_per_user_24h ? 'text-cyan-500' : 'text-gray-400'}`} />}
                                         title="Once Per User (24h)"
-                                        description="Prevent the same person from retriggering this DM automation again for 24 hours."
+                                        description="Prevent the same person from retriggering this automation again for 24 hours."
                                         checked={editingAutomation.once_per_user_24h === true}
                                         onToggle={() => setEditingAutomation({ ...editingAutomation, once_per_user_24h: !(editingAutomation.once_per_user_24h === true) })}
                                         locked={getPlanGate('once_per_user_24h').isLocked}
@@ -1855,7 +1836,7 @@ const DMAutomationView: React.FC = () => {
                                     <LockedFeatureToggle
                                         icon={<Mail className={`w-5 h-5 ${editingAutomation.collect_email_enabled ? 'text-indigo-500' : 'text-gray-400'}`} />}
                                         title="Collect Email"
-                                        description="Ask for an email before finishing this DM flow."
+                                        description="Prompt users for their email address before completing the automation flow."
                                         checked={editingAutomation.collect_email_enabled === true}
                                         onToggle={() => setEditingAutomation({
                                             ...editingAutomation,
@@ -1869,17 +1850,14 @@ const DMAutomationView: React.FC = () => {
                                     />
                                     {editingAutomation.collect_email_enabled && !getPlanGate('collect_email').isLocked && (
                                         <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
-                                            <div className="flex items-center justify-between gap-4">
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Gmail Only</p>
-                                                    <p className="text-[10px] text-muted-foreground">Allow only Gmail addresses for this rule.</p>
-                                                </div>
-                                                <ToggleSwitch
-                                                    isChecked={editingAutomation.collect_email_only_gmail === true}
-                                                    onChange={() => setEditingAutomation({ ...editingAutomation, collect_email_only_gmail: !(editingAutomation.collect_email_only_gmail === true) })}
-                                                    variant="plain"
-                                                />
-                                            </div>
+                                            <LockedFeatureToggle
+                                                icon={<Mail className={`w-5 h-5 ${editingAutomation.collect_email_only_gmail ? 'text-indigo-500' : 'text-gray-400'}`} />}
+                                                title="Allow Only Gmail"
+                                                description="Only accept @gmail.com email addresses."
+                                                checked={editingAutomation.collect_email_only_gmail === true}
+                                                onToggle={() => setEditingAutomation({ ...editingAutomation, collect_email_only_gmail: !(editingAutomation.collect_email_only_gmail === true) })}
+                                                activeIconClassName="text-indigo-500"
+                                            />
                                             <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
                                                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Prompt Message</p>
                                                 <textarea
@@ -1918,68 +1896,15 @@ const DMAutomationView: React.FC = () => {
                                                     </div>
                                                     {collectorDestinationLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                                                 </div>
-                                                <div className="grid gap-2 sm:grid-cols-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setCollectorDestination((prev) => ({ ...prev, destination_type: 'sheet', verified: false, verified_at: null }))}
-                                                        className={`rounded-2xl border px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${collectorDestination.destination_type === 'sheet' ? 'border-primary bg-primary/10 text-primary' : 'border-content/70 bg-card text-foreground'}`}
-                                                    >
-                                                        Google Sheets
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setCollectorDestination((prev) => ({ ...prev, destination_type: 'webhook', verified: false, verified_at: null }))}
-                                                        className={`rounded-2xl border px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${collectorDestination.destination_type === 'webhook' ? 'border-primary bg-primary/10 text-primary' : 'border-content/70 bg-card text-foreground'}`}
-                                                    >
-                                                        Webhook
-                                                    </button>
+                                                <div className="space-y-2">
+                                                    <p className="text-[10px] text-muted-foreground">Paste your webhook URL. Verification will send sample lead data to this endpoint.</p>
+                                                    <input
+                                                        value={collectorDestination.webhook_url || ''}
+                                                        onChange={(e) => setCollectorDestination((prev) => ({ ...prev, destination_type: 'webhook', webhook_url: e.target.value, verified: false, verified_at: null }))}
+                                                        className="w-full rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                                        placeholder="https://example.com/webhook"
+                                                    />
                                                 </div>
-                                                {collectorDestination.destination_type === 'sheet' ? (
-                                                    <div className="space-y-2">
-                                                        <div className="rounded-2xl border border-content/70 bg-card p-3">
-                                                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                                                <div>
-                                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Google Service Account</p>
-                                                                    <p className="mt-1 text-[10px] text-muted-foreground">Share the target sheet with this email before verifying the destination.</p>
-                                                                </div>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={async () => {
-                                                                        const serviceEmail = String(collectorDestination.service_account_email || '').trim();
-                                                                        if (!serviceEmail) return;
-                                                                        await navigator.clipboard.writeText(serviceEmail);
-                                                                        setCopiedServiceAccountEmail(true);
-                                                                        window.setTimeout(() => setCopiedServiceAccountEmail(false), 2000);
-                                                                    }}
-                                                                    disabled={!collectorDestination.service_account_email}
-                                                                    className="inline-flex items-center gap-2 rounded-2xl border border-content/70 bg-background px-4 py-2 text-[10px] font-black uppercase tracking-widest text-foreground transition-all hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-                                                                >
-                                                                    {copiedServiceAccountEmail ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                                                                    {copiedServiceAccountEmail ? 'Copied' : 'Copy Email'}
-                                                                </button>
-                                                            </div>
-                                                            <div className="mt-3 rounded-2xl bg-muted/40 px-4 py-3 text-xs font-semibold text-foreground break-all">
-                                                                {collectorDestination.service_account_email || 'No service account email available yet.'}
-                                                            </div>
-                                                        </div>
-                                                        <input
-                                                            value={collectorDestination.sheet_link || ''}
-                                                            onChange={(e) => setCollectorDestination((prev) => ({ ...prev, sheet_link: e.target.value, verified: false, verified_at: null }))}
-                                                            className="w-full rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
-                                                            placeholder="https://docs.google.com/spreadsheets/d/..."
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        <p className="text-[10px] text-muted-foreground">Paste your webhook URL. Verification will send sample lead data to this endpoint.</p>
-                                                        <input
-                                                            value={collectorDestination.webhook_url || ''}
-                                                            onChange={(e) => setCollectorDestination((prev) => ({ ...prev, webhook_url: e.target.value, verified: false, verified_at: null }))}
-                                                            className="w-full rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
-                                                            placeholder="https://example.com/webhook"
-                                                        />
-                                                    </div>
-                                                )}
                                                 {fieldErrors['collect_email_destination'] && <p className="text-[9px] font-bold text-destructive">{fieldErrors['collect_email_destination']}</p>}
                                                 <div className="flex flex-wrap items-center gap-3">
                                                     <button
@@ -2009,7 +1934,7 @@ const DMAutomationView: React.FC = () => {
                                 <LockedFeatureToggle
                                     icon={<MessageSquare className={`w-5 h-5 ${editingAutomation.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />}
                                     title="Seen + Typing Reaction"
-                                    description="Keep the seen/typing preference with this DM rule."
+                                    description="Simulate seen and typing indicators before sending the automated reply."
                                     checked={editingAutomation.seen_typing_enabled === true}
                                     onToggle={() => setEditingAutomation({ ...editingAutomation, seen_typing_enabled: !(editingAutomation.seen_typing_enabled === true) })}
                                     locked={getPlanGate('seen_typing').isLocked}
@@ -3311,3 +3236,4 @@ const DMAutomationView: React.FC = () => {
 };
 
 export default DMAutomationView;
+

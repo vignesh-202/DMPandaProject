@@ -121,6 +121,41 @@ def _parse_json_object(value):
         return {}
 
 
+def _delete_automation_artifacts(client, db_id, automation_id, dry_run=False):
+    safe_automation_id = str(automation_id or "").strip()
+    if not safe_automation_id:
+        return {}
+
+    deleted_counts = {}
+    for coll in ('keywords', 'keyword_index', 'automation_collect_destinations'):
+        try:
+            deleted_counts[coll] = _delete_by_queries(
+                client,
+                db_id,
+                coll,
+                [Query.equal('automation_id', safe_automation_id)],
+                dry_run=dry_run,
+            )
+        except Exception:
+            deleted_counts[coll] = 0
+    return deleted_counts
+
+
+def _ensure_collections_exist(client, db_id, collection_ids):
+    checked = []
+    for collection_id in collection_ids:
+        safe_collection_id = str(collection_id or "").strip()
+        if not safe_collection_id:
+            continue
+        _call_appwrite(
+            client,
+            "get",
+            f"/databases/{db_id}/collections/{safe_collection_id}",
+        )
+        checked.append(safe_collection_id)
+    return checked
+
+
 def _recompute_account_access(client, db_id, user_id, profile_doc, dry_run=False):
     if not user_id:
         return 0
@@ -191,15 +226,30 @@ def main(context):
             return context.res.json({"status": "success", "dry_run": dry_run, "message": "Account unlinked"})
 
         elif action == 'delete':
+            checked_collections = _ensure_collections_exist(
+                client,
+                db_id,
+                [
+                    'automations',
+                    'keywords',
+                    'keyword_index',
+                    'automation_collect_destinations',
+                    'logs',
+                    'chat_states',
+                    'reply_templates',
+                    'super_profiles',
+                    'comment_moderation',
+                    'ig_accounts',
+                ],
+            )
             related_account_ids = [value for value in {str(ig_user_id or '').strip(), str(account_id or '').strip(), str(account_doc_id or '').strip()} if value]
             automation_queries = [Query.equal('account_id', related_account_ids)] if len(related_account_ids) > 1 else [Query.equal('account_id', related_account_ids[0])]
-            automation_docs = _call_appwrite(
+            automation_rows = _list_by_queries(
                 client,
-                "get",
-                f"/databases/{db_id}/collections/automations/documents",
-                {"queries": automation_queries + [Query.limit(PAGE_SIZE)]},
+                db_id,
+                'automations',
+                automation_queries,
             )
-            automation_rows = _obj_get(automation_docs, 'documents', []) or []
             collection_specs = [
                 ('reply_templates', 'account_id'),
                 ('super_profiles', 'account_id'),
@@ -229,17 +279,9 @@ def main(context):
                 automation_id = str(_obj_get(row, '$id', '') or '').strip()
                 if not automation_id:
                     continue
-                for coll in ('keywords', 'keyword_index'):
-                    try:
-                        deleted_counts[f'{coll}:{automation_id}'] = _delete_by_queries(
-                            client,
-                            db_id,
-                            coll,
-                            [Query.equal('automation_id', automation_id)],
-                            dry_run=dry_run,
-                        )
-                    except Exception as e:
-                        context.error(f"Error cleaning collection {coll} for automation {automation_id}: {str(e)}")
+                artifact_counts = _delete_automation_artifacts(client, db_id, automation_id, dry_run=dry_run)
+                for coll, count in artifact_counts.items():
+                    deleted_counts[f'{coll}:{automation_id}'] = count
 
             deleted_counts['automations'] = 0
             for related_id in related_account_ids:
@@ -263,7 +305,7 @@ def main(context):
                 _recompute_account_access(client, db_id, user_id, profile, dry_run=False)
             context.log(f"Account deleted: {account_doc_id}")
             
-            return context.res.json({"status": "success", "dry_run": dry_run, "deleted_counts": deleted_counts, "message": "Account and related data deleted"})
+            return context.res.json({"status": "success", "dry_run": dry_run, "checked_collections": checked_collections, "deleted_counts": deleted_counts, "message": "Account and related data deleted"})
 
         return context.res.json({"error": "Invalid action"}, 400)
 

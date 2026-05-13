@@ -191,7 +191,7 @@ const StoryAutomationView: React.FC = () => {
 
         if (isEditingExisting) {
             await primeEditorResources();
-            const res = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${targetId}?account_id=${activeAccountID}&type=story`);
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${targetId}?account_id=${activeAccountID}&type=story`);
             if (!res.ok) {
                 if (res.status === 404) {
                     handleDeletedAutomationFallback();
@@ -204,7 +204,7 @@ const StoryAutomationView: React.FC = () => {
 
             const resolvedTemplateId = String(resolvedAutomation?.template_id || '').trim();
             if (resolvedTemplateId) {
-                const templateRes = await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/reply-templates/${resolvedTemplateId}?account_id=${activeAccountID}`);
+                const templateRes = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${resolvedTemplateId}?account_id=${activeAccountID}`);
                 if (templateRes.ok) {
                     resolvedTemplate = await templateRes.json();
                 }
@@ -269,7 +269,7 @@ const StoryAutomationView: React.FC = () => {
                     saveHandlerRef.current = handler;
                   }}
                   onDelete={async (id) => {
-                    await authenticatedFetch(`${import.meta.env.VITE_API_BASE_URL}/api/instagram/automations/${id}?account_id=${activeAccountID}&type=story`, {
+                    await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}?account_id=${activeAccountID}&type=story`, {
                       method: 'DELETE'
                     });
                     handleSave();
@@ -373,3 +373,4 @@ const StoryAutomationView: React.FC = () => {
 };
 
 export default StoryAutomationView;
+
