@@ -174,6 +174,17 @@ const resolveNoWatermarkFromPlan = (plan?: PricingPlanOption | null): boolean =>
     return false;
 };
 
+const resolveProfileNoWatermark = (profile: any): boolean | undefined => {
+    if (!profile || typeof profile !== 'object') return undefined;
+    if (profile.benefit_no_watermark !== undefined) {
+        return profile.benefit_no_watermark === true;
+    }
+    if (profile.no_watermark !== undefined) {
+        return profile.no_watermark === true;
+    }
+    return undefined;
+};
+
 const LIMIT_FIELDS = [
     'instagram_connections_limit',
     'hourly_action_limit',
@@ -421,56 +432,66 @@ export const UsersPage: React.FC = () => {
         const effectiveEntitlements = payload?.effective_entitlements || {};
         const effectiveLimits = payload?.effective_limits || {};
         const responseProfile = payload?.profile || {};
+        const storedProfileNoWatermark = resolveProfileNoWatermark(responseProfile);
+        const existingProfileNoWatermark = resolveProfileNoWatermark(detailData?.profile);
+        if (storedProfileNoWatermark !== undefined) {
+            return storedProfileNoWatermark;
+        }
+        if (existingProfileNoWatermark !== undefined) {
+            return existingProfileNoWatermark;
+        }
         if (effectiveEntitlements?.no_watermark !== undefined) {
             return effectiveEntitlements.no_watermark === true;
         }
         if (effectiveLimits?.no_watermark !== undefined) {
             return effectiveLimits.no_watermark === true;
         }
-        return responseProfile?.no_watermark === true;
+        return profilePatch?.no_watermark === true;
     };
 
     const buildSyncedProfilePatch = (payload: any): any => {
         const responseProfile = payload?.profile || {};
         const responseLimits = payload?.effective_limits || {};
         const responseSubscriptionSummary = payload?.subscription_summary || {};
+        const profilePlanCode = responseProfile?.plan_code || detailData?.profile?.plan_code || profilePatch?.plan_code || 'free';
+        const profileExpiryDate = responseProfile?.expiry_date || detailData?.profile?.expiry_date || null;
         return {
             action: 'change_assigned_plan',
             instagram_connections_limit: resolveNumericField(
-                responseLimits?.instagram_connections_limit,
                 responseProfile?.instagram_connections_limit,
                 detailData?.profile?.instagram_connections_limit,
+                responseLimits?.instagram_connections_limit,
                 profilePatch?.instagram_connections_limit
             ),
             hourly_action_limit: resolveNumericField(
-                responseLimits?.hourly_action_limit,
                 responseProfile?.hourly_action_limit,
                 detailData?.profile?.hourly_action_limit,
+                responseLimits?.hourly_action_limit,
                 profilePatch?.hourly_action_limit
             ),
             daily_action_limit: resolveNumericField(
-                responseLimits?.daily_action_limit,
                 responseProfile?.daily_action_limit,
                 detailData?.profile?.daily_action_limit,
+                responseLimits?.daily_action_limit,
                 profilePatch?.daily_action_limit
             ),
             monthly_action_limit: resolveNumericField(
-                responseLimits?.monthly_action_limit,
                 responseProfile?.monthly_action_limit,
                 detailData?.profile?.monthly_action_limit,
+                responseLimits?.monthly_action_limit,
                 profilePatch?.monthly_action_limit
             ),
             no_watermark: resolveNoWatermarkValue(payload),
             plan_code: resolvePlanOptionValue(
-                responseSubscriptionSummary?.plan_code
+                profilePlanCode
+                || responseSubscriptionSummary?.plan_code
                 || payload?.effective_plan?.plan_code
-                || responseProfile?.plan_code
                 || profilePatch?.plan_code
                 || detailData?.profile?.plan_code
                 || 'free'
             ),
-            duration_mode: resolvePlanTermMode(responseProfile?.plan_code, responseProfile?.expiry_date),
-            custom_expiry_date: responseProfile?.expiry_date ? String(responseProfile.expiry_date).slice(0, 16) : '',
+            duration_mode: resolvePlanTermMode(profilePlanCode, profileExpiryDate),
+            custom_expiry_date: profileExpiryDate ? String(profileExpiryDate).slice(0, 16) : '',
             kill_switch_enabled: payload?.user?.kill_switch_enabled !== false
         };
     };
@@ -542,6 +563,7 @@ export const UsersPage: React.FC = () => {
 
     const submitPlanAndLimits = async () => {
         if (!selectedUser) return;
+        const targetUserId = selectedUser.$id;
         const rollbackPatch = { ...profilePatch };
         const rollbackTermMode = planTermMode;
         setSaving(true);
@@ -554,7 +576,7 @@ export const UsersPage: React.FC = () => {
             payload.no_watermark = payload.no_watermark === true;
             payload.plan_code = resolvePlanOptionValue(payload.plan_code || profilePatch.plan_code || 'free');
 
-            const response = await httpClient.patch(`/api/admin/users/${selectedUser.$id}/profile`, payload);
+            const response = await httpClient.patch(`/api/admin/users/${targetUserId}/profile`, payload);
             clearCachedResource('admin:pricing:plans');
             const result = response.data?.data || {};
             mergeDetailData(result);
@@ -573,6 +595,7 @@ export const UsersPage: React.FC = () => {
                 ban_reason: result?.user?.ban_reason ?? entry.ban_reason,
                 linked_instagram_accounts: Number(result?.total_linked_accounts ?? entry.linked_instagram_accounts ?? 0)
             } : entry));
+            await loadUserDetail(targetUserId);
             setNotice('Admin entitlement override updated.');
         } catch (error: any) {
             console.error('Failed to update plan and limits:', error);
@@ -587,27 +610,33 @@ export const UsersPage: React.FC = () => {
     const resetToDefaultPlan = async () => {
         if (!selectedUser) return;
         setResetActionLoading('resetPlan');
-        setSaving(true);
-        setErrorMessage(null);
+
         try {
-            const response = await httpClient.post(`/api/admin/users/${selectedUser.$id}/reset-plan`, { action: 'reset_to_default_plan' });
-            const result = response.data?.data || {};
-            await loadUserDetail(selectedUser.$id);
-            await fetchUsers(pagination.page);
-            if (result?.profile || result?.effective_limits) {
-                setUsers((prev) => prev.map((entry) => entry.$id === selectedUser.$id ? {
-                    ...entry,
-                    linked_instagram_accounts: Number(result?.total_linked_accounts ?? entry.linked_instagram_accounts ?? 0),
-                    profile: result?.profile || entry.profile
-                } : entry));
-            }
-            setNotice(result?.message || 'Default plan restored successfully.');
+            const previewPlanCode = resolvePlanOptionValue(
+                detailData?.self_plan?.id
+                || detailData?.self_plan?.plan_code
+                || 'free'
+            );
+            const previewExpiryDate = detailData?.self_plan?.expiry_date || null;
+            const previewTermMode = resolvePlanTermMode(previewPlanCode, previewExpiryDate);
+
+            setProfilePatch((prev: any) => ({
+                ...prev,
+                plan_code: previewPlanCode,
+                custom_expiry_date: previewExpiryDate ? String(previewExpiryDate).slice(0, 16) : ''
+            }));
+            setPlanTermMode(previewTermMode);
+            setNotice(
+                previewPlanCode === 'free'
+                    ? 'Default plan loaded into the form. Click Save Plan & Limits to apply Free.'
+                    : 'Default plan loaded from the latest valid transaction. Click Save Plan & Limits to apply it.'
+            );
         } catch (error: any) {
             console.error('Failed to reset plan:', error);
             setErrorMessage(error?.response?.data?.error || 'Failed to reset plan.');
         } finally {
+            await new Promise((resolve) => window.setTimeout(resolve, 300));
             setResetActionLoading(null);
-            setSaving(false);
         }
     };
 

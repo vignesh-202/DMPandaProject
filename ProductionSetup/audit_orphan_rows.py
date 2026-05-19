@@ -163,10 +163,6 @@ COLLECTION_RULES: Dict[str, Dict[str, Any]] = {
         "check_user": True,
         "check_account": True,
     },
-    "automation_collect_destinations": {
-        "check_account": True,
-        "check_automation": True,
-    },
     "keywords": {
         "check_account": True,
         "check_automation": True,

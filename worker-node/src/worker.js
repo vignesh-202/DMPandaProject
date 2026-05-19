@@ -1125,6 +1125,15 @@ class DMWorker {
         };
     }
 
+    _isCollectEmailEnabledForAutomation(automation) {
+        if (!automation || automation.collect_email_enabled !== true) {
+            return false;
+        }
+
+        const automationType = String(automation.automation_type || '').trim().toLowerCase();
+        return automationType !== 'convo_starter';
+    }
+
     _isAutomationCoolingDown(state, automationId) {
         const safeAutomationId = String(automationId || '').trim();
         if (!safeAutomationId) return false;
@@ -1637,10 +1646,10 @@ class DMWorker {
                 }
             }
 
-            const destination = matchedAutomation.collect_email_enabled === true
+            const destination = this._isCollectEmailEnabledForAutomation(matchedAutomation)
                 ? await this._getCollectorDestinationOrFallback(matchedAutomation.$id, primaryAccountId)
                 : null;
-            if (matchedAutomation.collect_email_enabled === true) {
+            if (this._isCollectEmailEnabledForAutomation(matchedAutomation)) {
                 if (!destination?.verified) {
                     console.warn(`Skipping collector-gated automation ${matchedAutomation.$id} because no verified destination exists.`);
                     return {
@@ -1816,10 +1825,10 @@ class DMWorker {
             }
         }
 
-        const destination = matchedAutomation.collect_email_enabled === true
+        const destination = this._isCollectEmailEnabledForAutomation(matchedAutomation)
             ? await this._getCollectorDestinationOrFallback(matchedAutomation.$id, primaryAccountId)
             : null;
-        if (matchedAutomation.collect_email_enabled === true) {
+        if (this._isCollectEmailEnabledForAutomation(matchedAutomation)) {
             if (!destination?.verified) {
                 return { handled: false, automationType };
             }
@@ -2148,10 +2157,10 @@ class DMWorker {
                 }
             }
 
-            const collectorDestination = matchedAutomation.collect_email_enabled === true
+            const collectorDestination = this._isCollectEmailEnabledForAutomation(matchedAutomation)
                 ? await this._getCollectorDestinationOrFallback(matchedAutomation.$id, primaryAccountId)
                 : null;
-            if (matchedAutomation.collect_email_enabled === true) {
+            if (this._isCollectEmailEnabledForAutomation(matchedAutomation)) {
                 const automationDefaults = await this._getAutomationDefaults();
                 if (!collectorDestination?.verified) {
                     console.warn(

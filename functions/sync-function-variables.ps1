@@ -119,6 +119,13 @@ $functionVariables = @{
         @{ key = "EXPIRY_REMINDER_LEAD_DAYS"; value = (Get-EnvValue -Key "EXPIRY_REMINDER_LEAD_DAYS" -Default "3"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
     )
+    "sync-instagram-account-profiles" = @(
+        @{ key = "FUNCTION_APPWRITE_ENDPOINT"; value = $appwriteEndpoint; secret = $false }
+        @{ key = "FUNCTION_APPWRITE_PROJECT_ID"; value = $appwriteProjectId; secret = $false }
+        @{ key = "FUNCTION_APPWRITE_API_KEY"; value = $appwriteApiKey; secret = $false }
+        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
+    )
     "audit-media-automations" = @(
         @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
         @{ key = "AUTOMATIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "AUTOMATIONS_COLLECTION_ID" -Default "automations"); secret = $false }

@@ -52,6 +52,17 @@
     "schedule": "0 0 1 * *"
   },
   {
+    "functionId": "sync-instagram-account-profiles",
+    "name": "sync-instagram-account-profiles",
+    "runtime": "python-3.9",
+    "path": "sync-instagram-account-profiles",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite==14.1.0 requests",
+    "timeout": 900,
+    "schedule": "0 2 * * *",
+    "scopes": ["documents.read", "documents.write"]
+  },
+  {
     "functionId": "remind-link-instagram",
     "name": "remind-link-instagram",
     "runtime": "python-3.9",

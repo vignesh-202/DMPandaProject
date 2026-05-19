@@ -124,6 +124,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
 
   const pricingHeaders = useMemo(() => buildCountryHeaders(countryCode), [countryCode]);
   const selectedPlan = useMemo(
@@ -309,39 +310,44 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
         description: `${selectedPlan.name} ${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'} subscription`,
         order_id: orderPayload.order.id,
         handler: async (response: any) => {
-          const verifyResponse = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/verify-payment`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...pricingHeaders
-            },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              plan_id: selectedPlan.id,
-              billing_cycle: billingCycle,
-              currency,
-              coupon_code: couponCode.trim() || undefined,
-              payment_attempt_id: orderPayload?.payment_attempt_id || undefined
-            })
-          });
-
-          const verifyPayload = await verifyResponse.json().catch(() => null);
-
-          if (!verifyResponse.ok) {
-            setCouponState({
-              valid: false,
-              message: String(verifyPayload?.error || 'Payment verification failed. Please contact support.')
+          setIsVerifyingPayment(true);
+          try {
+            const verifyResponse = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/verify-payment`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...pricingHeaders
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                plan_id: selectedPlan.id,
+                billing_cycle: billingCycle,
+                currency,
+                coupon_code: couponCode.trim() || undefined,
+                payment_attempt_id: orderPayload?.payment_attempt_id || undefined
+              })
             });
-            return;
-          }
 
-          if (onSyncComplete) {
-            await onSyncComplete();
+            const verifyPayload = await verifyResponse.json().catch(() => null);
+
+            if (!verifyResponse.ok) {
+              setCouponState({
+                valid: false,
+                message: String(verifyPayload?.error || 'Payment verification failed. Please contact support.')
+              });
+              return;
+            }
+
+            if (onSyncComplete) {
+              await onSyncComplete();
+            }
+            onPaymentSuccess?.(selectedPlan.name);
+            onClose();
+          } finally {
+            setIsVerifyingPayment(false);
           }
-          onPaymentSuccess?.(selectedPlan.name);
-          onClose();
         },
         theme: { color: '#111111' }
       });
@@ -379,6 +385,14 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
         'relative flex w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-border bg-card shadow-[0_36px_120px_rgba(15,23,42,0.22)]',
         isSectionViewportOverlay ? 'max-h-[calc(100%-2rem)]' : 'max-h-[92vh]'
       )}>
+        {isVerifyingPayment && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-card/80 backdrop-blur-sm">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="mt-4 text-sm font-bold text-foreground">Verifying your payment...</p>
+            <p className="mt-1 text-xs text-muted-foreground">Please do not close this window.</p>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={onClose}
@@ -543,17 +557,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                 )}
               </div>
 
-              <div className="mt-5 rounded-[1.4rem] border border-primary/15 bg-primary/5 p-4">
-                <div className="flex items-start gap-3">
-                  <ShieldCheck className="mt-0.5 h-4.5 w-4.5 text-primary" />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Backend verified pricing</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      The total here matches the live plan amount and coupon validation used at checkout.
-                    </p>
-                  </div>
-                </div>
-              </div>
+
 
               <button
                 type="button"

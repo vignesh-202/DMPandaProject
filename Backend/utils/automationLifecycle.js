@@ -1,7 +1,6 @@
 const { ID } = require('node-appwrite');
 const {
     AUTOMATIONS_COLLECTION_ID,
-    AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
     KEYWORDS_COLLECTION_ID,
     KEYWORD_INDEX_COLLECTION_ID,
     LOGS_COLLECTION_ID,
@@ -70,27 +69,6 @@ const buildAutomationEnvelope = ({
         seen_typing_enabled: merged.seen_typing_enabled === true,
         story_scope: merged.story_scope ?? 'shown'
     };
-};
-
-const deleteCollectorDestinationRecords = async ({
-    databases,
-    databaseId,
-    listAllDocuments,
-    automationId
-}) => {
-    const safeAutomationId = String(automationId || '').trim();
-    if (!safeAutomationId) return 0;
-
-    const rows = await listAllDocuments(databases, AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID, [
-        { method: 'equal', attribute: 'automation_id', values: [safeAutomationId] }
-    ]);
-
-    let deleted = 0;
-    for (const row of rows) {
-        await databases.deleteDocument(databaseId, AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID, row.$id);
-        deleted += 1;
-    }
-    return deleted;
 };
 
 const mapPseudoQueries = (Query, queries = []) =>
@@ -217,7 +195,6 @@ const inspectAutomationDependencies = async ({
         AUTOMATIONS_COLLECTION_ID,
         KEYWORDS_COLLECTION_ID,
         KEYWORD_INDEX_COLLECTION_ID,
-        AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
         LOGS_COLLECTION_ID,
         CHAT_STATES_COLLECTION_ID
     ];
@@ -251,6 +228,5 @@ module.exports = {
     createAutomationRecord,
     updateAutomationRecord,
     upsertSingletonAutomation,
-    deleteAutomationRecord,
-    deleteCollectorDestinationRecords
+    deleteAutomationRecord
 };

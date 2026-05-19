@@ -3,8 +3,6 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -87,6 +85,14 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Something went wrong!' });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+});
+
+server.on('error', (error) => {
+    if (error?.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Stop the existing backend process or set a different PORT before starting this server.`);
+        return;
+    }
+    console.error('Backend server failed to start:', error);
 });

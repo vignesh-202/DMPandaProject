@@ -5,7 +5,7 @@ import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import InfoPopover from '../../components/ui/InfoPopover';
 import { useAuth } from '../../contexts/AuthContext';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
-import { PricingPlan, formatMoney, formatPlanLimit, getPaidCheckoutPlans, getPlanBigPrice, getPlanBilledTotal, normalizePricingPayload } from '../../lib/pricing';
+import { PricingPlan, formatMoney, formatPlanLimit, getPaidCheckoutPlans, getPlanBigPrice, getPlanBilledTotal, normalizePricingPayload, pricingPlanMatchesIdentifier } from '../../lib/pricing';
 import PlanCheckoutModal from '../../components/dashboard/PlanCheckoutModal';
 
 type UserPlanSummary = {
@@ -75,6 +75,11 @@ const PricingView: React.FC = () => {
   const checkoutPlans = useMemo(() => {
     return getPaidCheckoutPlans(plans, currentPlan?.plan_id, currentPlan?.details?.name);
   }, [plans, currentPlan]);
+
+  const isCurrentPricingPlan = React.useCallback((plan: PricingPlan) => {
+    return pricingPlanMatchesIdentifier(plan, currentPlan?.plan_id)
+      || pricingPlanMatchesIdentifier(plan, currentPlan?.details?.name || null);
+  }, [currentPlan]);
 
   const refreshAfterPayment = async () => {
     setSyncingPlan(true);
@@ -152,9 +157,8 @@ const PricingView: React.FC = () => {
           {plans.map((plan) => {
             const bigPrice = getPlanBigPrice(plan, currency, isYearly);
             const billedTotal = getPlanBilledTotal(plan, currency, isYearly);
-            const isCurrentPlan = plan.id === currentPlan?.plan_id || plan.name === currentPlan?.details?.name;
-            const isSelectablePaidPlan = checkoutPlans.some((item) => item.id === plan.id);
-            const isUnavailable = plan.plan_code === 'free' || (!isCurrentPlan && !isSelectablePaidPlan);
+            const isCurrentPlan = isCurrentPricingPlan(plan);
+            const isUnavailable = plan.plan_code === 'free' || isCurrentPlan;
             const planLimits = [
               { label: 'Instagram connections', value: formatPlanLimit(plan.instagram_connections_limit) },
               { label: 'Actions / hour', value: formatPlanLimit(plan.actions_per_hour_limit) },

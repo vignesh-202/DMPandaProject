@@ -33,7 +33,17 @@ def _call_appwrite(client, method, path, params=None):
 
 
 def _env(key: str, default: str = "") -> str:
-    return str(os.environ.get(key, default) or "").strip()
+    runtime_key = {
+        "APPWRITE_ENDPOINT": "APPWRITE_FUNCTION_API_ENDPOINT",
+        "APPWRITE_PROJECT_ID": "APPWRITE_FUNCTION_PROJECT_ID",
+        "APPWRITE_API_KEY": "APPWRITE_FUNCTION_API_KEY",
+    }.get(key, key.replace("APPWRITE_", "APPWRITE_FUNCTION_"))
+    return str(
+        os.environ.get(key)
+        or os.environ.get(runtime_key)
+        or default
+        or ""
+    ).strip()
 
 
 def _trim_trailing_slash(value: str = "") -> str:
@@ -328,16 +338,21 @@ def main(context):
             except Exception:
                 request_body = {}
         dry_run = request_body.get("dry_run") is True
+        endpoint = _env("APPWRITE_ENDPOINT")
+        project_id = _env("APPWRITE_PROJECT_ID")
+        api_key = _env("APPWRITE_API_KEY")
+        db_id = _env("APPWRITE_DATABASE_ID")
+        if not endpoint or not project_id or not api_key or not db_id:
+            raise ValueError("Missing required Appwrite runtime configuration.")
 
         client = Client()
-        client.set_endpoint(_env("APPWRITE_ENDPOINT"))
-        client.set_project(_env("APPWRITE_PROJECT_ID"))
-        client.set_key(_env("APPWRITE_API_KEY"))
+        client.set_endpoint(endpoint)
+        client.set_project(project_id)
+        client.set_key(api_key)
 
         messaging = Messaging(client)
         users = Users(client)
 
-        db_id = _env("APPWRITE_DATABASE_ID")
         users_collection_id = _env("USERS_COLLECTION_ID", "users")
         profiles_collection_id = _env("PROFILES_COLLECTION_ID", "profiles")
         ig_accounts_collection_id = _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts")

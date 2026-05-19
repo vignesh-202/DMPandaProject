@@ -458,8 +458,8 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
     const bulkProfileRefreshKeys = React.useRef<Set<string>>(new Set());
 
-    const refreshLinkedProfiles = useCallback(async () => {
-        const sourceAccounts = igAccountsRef.current || [];
+    const refreshLinkedProfiles = useCallback(async (accountsOverride?: any[]) => {
+        const sourceAccounts = Array.isArray(accountsOverride) ? accountsOverride : (igAccountsRef.current || []);
         const refreshKey = sourceAccounts
             .map((account) => `${account.id}:${account.profile_picture_url || ''}:${account.username || ''}`)
             .join('|');
@@ -532,7 +532,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                 const accounts = data.ig_accounts || [];
                 setIgAccounts(accounts);
                 if (accounts.length > 0) {
-                    void refreshLinkedProfiles();
+                    void refreshLinkedProfiles(accounts);
                 }
 
                 if (accounts.length > 0) {

@@ -27,7 +27,17 @@ def _call_appwrite(client, method, path, params=None):
 
 
 def _env(key: str, default: str = "") -> str:
-    return str(os.environ.get(key, default) or "").strip()
+    runtime_key = {
+        "APPWRITE_ENDPOINT": "APPWRITE_FUNCTION_API_ENDPOINT",
+        "APPWRITE_PROJECT_ID": "APPWRITE_FUNCTION_PROJECT_ID",
+        "APPWRITE_API_KEY": "APPWRITE_FUNCTION_API_KEY",
+    }.get(key, key.replace("APPWRITE_", "APPWRITE_FUNCTION_"))
+    return str(
+        os.environ.get(key)
+        or os.environ.get(runtime_key)
+        or default
+        or ""
+    ).strip()
 
 
 def _parse_request_body(context):
@@ -145,18 +155,14 @@ def _delete_automation_artifacts(
     *,
     keywords_collection: str,
     keyword_index_collection: str,
-    collector_destinations_collection: str,
 ):
     deleted_index, failed_index = _delete_related(client, db_id, keyword_index_collection, automation_id)
     deleted_keywords, failed_keywords = _delete_related(client, db_id, keywords_collection, automation_id)
-    deleted_destinations, failed_destinations = _delete_related(client, db_id, collector_destinations_collection, automation_id)
     return {
         "deleted_keyword_index": deleted_index,
         "failed_keyword_index": failed_index,
         "deleted_keywords": deleted_keywords,
         "failed_keywords": failed_keywords,
-        "deleted_collect_destinations": deleted_destinations,
-        "failed_collect_destinations": failed_destinations,
     }
 
 
@@ -364,18 +370,23 @@ def main(context):
     try:
         request_body = _parse_request_body(context)
         dry_run = request_body.get("dry_run") is True
+        endpoint = _env("APPWRITE_ENDPOINT")
+        project_id = _env("APPWRITE_PROJECT_ID")
+        api_key = _env("APPWRITE_API_KEY")
+        db_id = _env("APPWRITE_DATABASE_ID")
+        if not endpoint or not project_id or not api_key or not db_id:
+            raise ValueError("Missing required Appwrite runtime configuration.")
+
         client = Client()
-        client.set_endpoint(_env("APPWRITE_ENDPOINT"))
-        client.set_project(_env("APPWRITE_PROJECT_ID"))
-        client.set_key(_env("APPWRITE_API_KEY"))
+        client.set_endpoint(endpoint)
+        client.set_project(project_id)
+        client.set_key(api_key)
 
         messaging = Messaging(client)
 
-        db_id = _env("APPWRITE_DATABASE_ID")
         automations_collection = _env("AUTOMATIONS_COLLECTION_ID", "automations")
         keywords_collection = _env("KEYWORDS_COLLECTION_ID", "keywords")
         keyword_index_collection = _env("KEYWORD_INDEX_COLLECTION_ID", "keyword_index")
-        collector_destinations_collection = _env("AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID", "automation_collect_destinations")
         ig_accounts_collection = _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts")
         now = datetime.now(timezone.utc)
         checked_collections = _ensure_collections_exist(
@@ -385,7 +396,6 @@ def main(context):
                 automations_collection,
                 keywords_collection,
                 keyword_index_collection,
-                collector_destinations_collection,
                 ig_accounts_collection,
                 _env("LOGS_COLLECTION_ID", "logs"),
                 _env("CHAT_STATES_COLLECTION_ID", "chat_states"),
@@ -397,11 +407,9 @@ def main(context):
             "deleted_automations": 0,
             "deleted_keywords": 0,
             "deleted_keyword_index": 0,
-            "deleted_collect_destinations": 0,
             "failed_automations": 0,
             "failed_keywords": 0,
             "failed_keyword_index": 0,
-            "failed_collect_destinations": 0,
         }
 
         automations = _list_all(
@@ -462,8 +470,6 @@ def main(context):
                     "failed_keyword_index": 0,
                     "deleted_keywords": 0,
                     "failed_keywords": 0,
-                    "deleted_collect_destinations": 0,
-                    "failed_collect_destinations": 0,
                 }
             else:
                 artifact_totals = _delete_automation_artifacts(
@@ -472,14 +478,11 @@ def main(context):
                     automation_id,
                     keywords_collection=keywords_collection,
                     keyword_index_collection=keyword_index_collection,
-                    collector_destinations_collection=collector_destinations_collection,
                 )
             totals["deleted_keyword_index"] += artifact_totals["deleted_keyword_index"]
             totals["failed_keyword_index"] += artifact_totals["failed_keyword_index"]
             totals["deleted_keywords"] += artifact_totals["deleted_keywords"]
             totals["failed_keywords"] += artifact_totals["failed_keywords"]
-            totals["deleted_collect_destinations"] += artifact_totals["deleted_collect_destinations"]
-            totals["failed_collect_destinations"] += artifact_totals["failed_collect_destinations"]
 
             try:
                 if not dry_run:
@@ -505,7 +508,6 @@ def main(context):
                             "media_id": media_id,
                             "deleted_keywords": artifact_totals["deleted_keywords"],
                             "deleted_keyword_index": artifact_totals["deleted_keyword_index"],
-                            "deleted_collect_destinations": artifact_totals["deleted_collect_destinations"],
                             "reason": reason,
                         }
                     )

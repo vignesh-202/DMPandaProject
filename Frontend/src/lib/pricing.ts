@@ -113,6 +113,15 @@ export const normalizePricingPayload = (payload: any): PricingPlan[] => {
 
 const normalizeIdentifier = (value: unknown) => String(value || '').trim().toLowerCase();
 
+export const pricingPlanMatchesIdentifier = (plan: PricingPlan, identifier?: string | null) => {
+  const normalized = normalizeIdentifier(identifier);
+  if (!normalized) return false;
+
+  return normalizeIdentifier(plan.id) === normalized
+    || normalizeIdentifier(plan.plan_code) === normalized
+    || normalizeIdentifier(plan.name) === normalized;
+};
+
 export const getPlanSortValue = (plan: PricingPlan) => {
   if (Number.isFinite(plan.display_order)) {
     return Number(plan.display_order);
@@ -124,11 +133,7 @@ export const findPricingPlan = (plans: PricingPlan[], identifier?: string | null
   const normalized = normalizeIdentifier(identifier);
   if (!normalized) return null;
 
-  return plans.find((plan) => {
-    return normalizeIdentifier(plan.id) === normalized
-      || normalizeIdentifier(plan.plan_code) === normalized
-      || normalizeIdentifier(plan.name) === normalized;
-  }) || null;
+  return plans.find((plan) => pricingPlanMatchesIdentifier(plan, normalized)) || null;
 };
 
 export const getUpgradePlans = (

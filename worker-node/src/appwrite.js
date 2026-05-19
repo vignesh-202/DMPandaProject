@@ -6,7 +6,6 @@ const { buildActionUsageIncrementPatch } = require('../../shared/actionRateLimit
 const sharedPlanFeatures = require('../../shared/planFeatures.json');
 
 const CHAT_STATES_COLLECTION_ID = process.env.CHAT_STATES_COLLECTION_ID || 'chat_states';
-const AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID = process.env.AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID || 'automation_collect_destinations';
 const CONVO_STARTERS_COLLECTION_ID = process.env.CONVO_STARTERS_COLLECTION_ID || 'convo_starters';
 const PRICING_COLLECTION_ID = process.env.PRICING_COLLECTION_ID || 'pricing';
 const SYSTEM_CONFIG_COLLECTION_ID = process.env.SYSTEM_CONFIG_COLLECTION_ID || 'system_config';
@@ -146,6 +145,15 @@ class AppwriteClient {
             ? ''
             : String(automation.comment_reply || '').trim();
 
+        const parsedTemplateElements = this._parseJson(automation.template_elements, null);
+        const collectorDestinationMeta = parsedTemplateElements
+            && typeof parsedTemplateElements === 'object'
+            && !Array.isArray(parsedTemplateElements)
+            && parsedTemplateElements.collector_destination
+            && typeof parsedTemplateElements.collector_destination === 'object'
+            ? parsedTemplateElements.collector_destination
+            : {};
+
         return {
             ...automation,
             menu_item_type: String(
@@ -168,6 +176,11 @@ class AppwriteClient {
                 automation.collect_email_only_gmail,
                 this._toBoolean(specialMeta?.collect_email_only_gmail)
             ),
+            collect_email_webhook_url: String(automation.collect_email_webhook_url || collectorDestinationMeta.webhook_url || '').trim(),
+            collect_email_destination_type: String(automation.collect_email_destination_type || collectorDestinationMeta.destination_type || '').trim(),
+            collect_email_destination_id: String(automation.collect_email_destination_id || collectorDestinationMeta.destination_id || '').trim(),
+            collect_email_destination_json: this._parseJson(automation.collect_email_destination_json, collectorDestinationMeta),
+            collect_email_webhook_verified_at: String(automation.collect_email_webhook_verified_at || collectorDestinationMeta.verified_at || '').trim() || null,
             seen_typing_enabled: this._toBoolean(
                 automation.seen_typing_enabled,
                 this._toBoolean(specialMeta?.seen_typing_enabled)
@@ -1301,32 +1314,21 @@ class AppwriteClient {
 
     async getEmailCollectorDestination(automationId, accountId) {
         try {
-            const response = await this.databases.listDocuments(
-                this.databaseId,
-                AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
-                [
-                    Query.equal('automation_id', String(automationId || '').trim()),
-                    Query.equal('account_id', String(accountId || '').trim()),
-                    Query.limit(1)
-                ]
-            );
-
-            const document = response.documents?.[0] || null;
-            if (!document) return null;
-
-            let destinationJson = {};
-            try {
-                destinationJson = typeof document.destination_json === 'string'
-                    ? JSON.parse(document.destination_json)
-                    : (document.destination_json || {});
-            } catch (_) {
-                destinationJson = {};
-            }
+            const automation = await this.getAutomation(automationId, accountId);
+            if (!automation) return null;
+            const webhookUrl = String(automation.collect_email_webhook_url || '').trim();
+            if (!webhookUrl) return null;
+            const destinationJson = this._parseJson(automation.collect_email_destination_json, {});
 
             return {
-                ...document,
+                automation_id: String(automation.$id || '').trim(),
+                account_id: String(automation.account_id || '').trim(),
+                destination_type: String(automation.collect_email_destination_type || 'webhook').trim() || 'webhook',
+                destination_id: String(automation.collect_email_destination_id || '').trim(),
+                webhook_url: webhookUrl,
                 destination_json: destinationJson,
-                verified: destinationJson?.verified === true
+                verified: destinationJson?.verified === true,
+                verified_at: automation.collect_email_webhook_verified_at || destinationJson?.verified_at || null
             };
         } catch (error) {
             console.warn(

@@ -363,7 +363,6 @@ ACTIVE_COLLECTION_IDS = {
     "chat_states",
     "coupons",
     "coupon_redemptions",
-    "automation_collect_destinations",
     "payment_attempts",
     "email_campaigns",
     "job_locks",
@@ -382,6 +381,7 @@ DEPRECATED_COLLECTIONS = {
     "payouts",
     "notification_throttles",
     "worker_locks",
+    "automation_collect_destinations",
 }
 
 DEPRECATED_ATTRIBUTES = {
@@ -412,9 +412,6 @@ DEPRECATED_ATTRIBUTES = {
         "hourly_action_limit",
         "daily_action_limit",
         "monthly_action_limit",
-    },
-    "automation_collect_destinations": {
-        "sheet_link",
     },
 }
 

@@ -125,7 +125,7 @@ const mapCouponToForm = (coupon: CouponRecord): CouponForm => ({
     bulk_count: '1'
 });
 
-type CouponFilterStatus = 'all' | 'active' | 'inactive';
+type CouponFilterStatus = 'all' | 'active' | 'inactive' | 'unused';
 type CouponFilterType = 'all' | 'percent' | 'fixed';
 type CouponFilterExpiry = 'all' | 'expired' | 'expiring' | 'scheduled' | 'no_expiry';
 type CouponSort = 'recent' | 'expiry' | 'value' | 'usage' | 'code';
@@ -280,6 +280,7 @@ export const CouponsPage: React.FC = () => {
                 if (normalizedSearch && searchScore <= 0) return false;
                 if (statusFilter === 'active' && !coupon.active) return false;
                 if (statusFilter === 'inactive' && coupon.active) return false;
+                if (statusFilter === 'unused' && Number(coupon.redemption_count || 0) > 0) return false;
                 if (typeFilter !== 'all' && coupon.type !== typeFilter) return false;
                 if (expiryFilter === 'expired' && !isExpiredDate(coupon.expires_at)) return false;
                 if (expiryFilter === 'expiring' && !isExpiringSoon(coupon.expires_at)) return false;
@@ -843,7 +844,8 @@ export const CouponsPage: React.FC = () => {
                                             {[
                                                 { value: 'all', label: 'All' },
                                                 { value: 'active', label: 'Active' },
-                                                { value: 'inactive', label: 'Inactive' }
+                                                { value: 'inactive', label: 'Inactive' },
+                                                { value: 'unused', label: 'Unused' }
                                             ].map((option) => {
                                                 const active = statusFilter === option.value;
                                                 return (

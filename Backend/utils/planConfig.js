@@ -114,7 +114,6 @@ const DEFAULT_PLAN_FEATURES = Object.freeze({
         email_collector: 'collect_email',
         webhook_integrations: 'collect_email',
         seen_typing_indicator: 'seen_typing',
-        no_watermark_branding: 'no_watermark',
         once_per_user: 'once_per_user_24h',
         instagram_connections: 'instagram_connections_limit'
     },
@@ -630,15 +629,20 @@ const buildAdminOverridePayload = ({
     const normalizedPlanId = normalizePlanCode(planId || 'free') || 'free';
     const normalizedExpiresAt = toIsoDateTime(expiresAt);
     if (!normalizedExpiresAt) return null;
-    void planName;
-    void createdAt;
-    void limitOverrides;
-    void featureOverrides;
-    return JSON.stringify({
+    const compactedLimits = compactAdminOverrideLimitOverrides(limitOverrides);
+    const compactedFeatures = compactAdminOverrideFeatureOverrides(featureOverrides);
+    const payload = {
         p: normalizedPlanId,
         b: billingCycle ? normalizeBillingCycle(billingCycle) : null,
         e: normalizedExpiresAt
-    });
+    };
+    if (Object.keys(compactedLimits).length > 0) {
+        payload.l = compactedLimits;
+    }
+    if (Object.keys(compactedFeatures).length > 0) {
+        payload.f = compactedFeatures;
+    }
+    return JSON.stringify(payload);
 };
 
 const clearAdminOverridePayload = () => null;
@@ -704,7 +708,7 @@ const expandAdminOverrideFeatureOverrides = (overrides = {}) => Object.entries(p
 const selectLatestTransactionFromDocuments = (transactions = [], pricingPlans = [], now = Date.now()) => {
     const plans = Array.isArray(pricingPlans) ? pricingPlans : [];
     const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
-    const latestTransaction = (Array.isArray(transactions) ? transactions : [])
+    const sortedTransactions = (Array.isArray(transactions) ? transactions : [])
         .map((transaction) => {
             const createdAt = toIsoDateTime(getTransactionCreatedAt(transaction));
             return {
@@ -713,34 +717,40 @@ const selectLatestTransactionFromDocuments = (transactions = [], pricingPlans = 
                 createdAtMs: createdAt ? new Date(createdAt).getTime() : 0
             };
         })
-        .sort((a, b) => b.createdAtMs - a.createdAtMs)[0] || null;
+        .sort((a, b) => b.createdAtMs - a.createdAtMs);
 
-    if (!latestTransaction?.transaction) return null;
+    for (const candidate of sortedTransactions) {
+        if (!candidate?.transaction) continue;
 
-    const transaction = latestTransaction.transaction;
-    const status = normalizeTransactionStatus(pickTransactionValue(transaction, 'status'));
-    if (!VALID_SELF_SUBSCRIPTION_STATUSES.has(status)) {
-        return null;
+        const transaction = candidate.transaction;
+        const status = normalizeTransactionStatus(pickTransactionValue(transaction, 'status'));
+        if (!VALID_SELF_SUBSCRIPTION_STATUSES.has(status)) {
+            continue;
+        }
+
+        const planId = getTransactionPlanId(transaction);
+        const plan = findPlanByIdentifier(plans, planId);
+        const expiry = toIsoDateTime(pickTransactionValue(transaction, 'expiry_date') || calculateTransactionExpiry(transaction, plan));
+        if (!plan || planId === 'free' || !expiry) {
+            continue;
+        }
+
+        const expiryMs = new Date(expiry).getTime();
+        if (Number.isNaN(expiryMs) || expiryMs <= nowMs) {
+            continue;
+        }
+
+        return {
+            transaction,
+            planId,
+            plan,
+            expiryDate: expiry,
+            billingCycle: getTransactionBillingCycle(transaction),
+            createdAt: candidate.createdAt
+        };
     }
 
-    const planId = getTransactionPlanId(transaction);
-    const plan = findPlanByIdentifier(plans, planId);
-    const expiry = toIsoDateTime(pickTransactionValue(transaction, 'expiry_date') || calculateTransactionExpiry(transaction, plan));
-    if (!plan || planId === 'free' || !expiry) return null;
-
-    const expiryMs = new Date(expiry).getTime();
-    if (Number.isNaN(expiryMs) || expiryMs <= nowMs) {
-        return null;
-    }
-
-    return {
-        transaction,
-        planId,
-        plan,
-        expiryDate: expiry,
-        billingCycle: getTransactionBillingCycle(transaction),
-        createdAt: latestTransaction.createdAt
-    };
+    return null;
 };
 
 const resolveEntitlementReplacementDecision = ({
@@ -1379,10 +1389,10 @@ const upsertEffectiveProfile = async (databases, userId, currentProfile, plan, o
     }
 };
 
-const resolveUserPlanContext = async (databases, userId, userFallback = null) => {
+const resolveUserPlanContext = async (databases, userId, userFallback = null, profileFallback = null) => {
     const safeUserId = String(userId || userFallback?.$id || '').trim();
     const plans = await listPricingPlans(databases);
-    const existingProfile = await getUserProfile(databases, safeUserId);
+    const existingProfile = profileFallback || await getUserProfile(databases, safeUserId);
     const freePlan = findPlanByIdentifier(plans, 'free') || normalizePlanDocument({ plan_code: 'free', name: 'Free Plan' });
     const selfMemory = await getUserSelfMemory(databases, safeUserId, userFallback, plans);
     const latestValidTransaction = await getLatestValidTransaction(databases, safeUserId, plans);

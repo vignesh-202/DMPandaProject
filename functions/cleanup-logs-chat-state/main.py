@@ -14,7 +14,17 @@ def _call_appwrite(client, method, path, params=None):
 
 
 def _env(key: str, default: str = "") -> str:
-    return str(os.environ.get(key, default) or "").strip()
+    runtime_key = {
+        "APPWRITE_ENDPOINT": "APPWRITE_FUNCTION_API_ENDPOINT",
+        "APPWRITE_PROJECT_ID": "APPWRITE_FUNCTION_PROJECT_ID",
+        "APPWRITE_API_KEY": "APPWRITE_FUNCTION_API_KEY",
+    }.get(key, key.replace("APPWRITE_", "APPWRITE_FUNCTION_"))
+    return str(
+        os.environ.get(key)
+        or os.environ.get(runtime_key)
+        or default
+        or ""
+    ).strip()
 
 
 def _parse_request_body(context):
@@ -283,12 +293,16 @@ def main(context):
     try:
         request_body = _parse_request_body(context)
         dry_run = request_body.get("dry_run") is True
-        client = Client()
-        client.set_endpoint(_env("APPWRITE_ENDPOINT"))
-        client.set_project(_env("APPWRITE_PROJECT_ID"))
-        client.set_key(_env("APPWRITE_API_KEY"))
-
+        endpoint = _env("APPWRITE_ENDPOINT")
+        project_id = _env("APPWRITE_PROJECT_ID")
+        api_key = _env("APPWRITE_API_KEY")
         db_id = _env("APPWRITE_DATABASE_ID")
+        if not endpoint or not project_id or not api_key or not db_id:
+            raise ValueError("Missing required Appwrite runtime configuration.")
+        client = Client()
+        client.set_endpoint(endpoint)
+        client.set_project(project_id)
+        client.set_key(api_key)
         logs_collection = _env("LOGS_COLLECTION_ID", "logs")
         chat_states_collection = _env("CHAT_STATES_COLLECTION_ID", "chat_states")
         automations_collection = _env("AUTOMATIONS_COLLECTION_ID", "automations")

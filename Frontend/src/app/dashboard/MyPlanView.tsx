@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import InfoPopover from '../../components/ui/InfoPopover';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
-import { PricingPlan, buildPlanLimitItems, formatMoney, getPaidCheckoutPlans, getPlanBigPrice, normalizePricingPayload } from '../../lib/pricing';
+import { PricingPlan, buildPlanLimitItems, formatMoney, getPaidCheckoutPlans, getPlanBigPrice, normalizePricingPayload, pricingPlanMatchesIdentifier } from '../../lib/pricing';
 import PlanCheckoutModal from '../../components/dashboard/PlanCheckoutModal';
 
 type UserPlan = {
@@ -157,6 +157,12 @@ const MyPlanView: React.FC = () => {
   const checkoutPlans = useMemo(() => {
     return getPaidCheckoutPlans(plans, plan?.plan_id, currentPlanName);
   }, [plans, plan?.plan_id, currentPlanName]);
+
+  const isCurrentPricingPlan = React.useCallback((entry: PricingPlan) => {
+    return pricingPlanMatchesIdentifier(entry, plan?.plan_id)
+      || pricingPlanMatchesIdentifier(entry, plan?.plan_code)
+      || pricingPlanMatchesIdentifier(entry, currentPlanName);
+  }, [currentPlanName, plan?.plan_code, plan?.plan_id]);
 
   const openCheckout = (selectedPlan?: PricingPlan) => {
     setSelectedCheckoutPlanId(selectedPlan?.id || checkoutPlans[0]?.id || null);
@@ -333,9 +339,8 @@ const MyPlanView: React.FC = () => {
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
               {plans.map((entry) => {
                 const bigPrice = getPlanBigPrice(entry, currency, isYearly);
-                const isCurrentPlan = entry.id === plan?.plan_id || entry.name === currentPlanName;
-                const isSelectablePaidPlan = checkoutPlans.some((item) => item.id === entry.id);
-                const isUnavailable = entry.plan_code === 'free' || (!isCurrentPlan && !isSelectablePaidPlan);
+                const isCurrentPlan = isCurrentPricingPlan(entry);
+                const isUnavailable = entry.plan_code === 'free' || isCurrentPlan;
                 const planLimits = buildPlanLimitItems(entry);
                 return (
                   <div
@@ -399,8 +404,8 @@ const MyPlanView: React.FC = () => {
 
                     <div className={`mt-8 border-t pt-6 ${entry.is_popular ? 'border-primary/30' : 'border-border'}`}>
                       <button
-                        className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl py-4 text-xs font-black uppercase tracking-[0.2em] shadow-xl transition-all duration-300 ${isCurrentPlan || isUnavailable ? 'bg-muted text-muted-foreground shadow-none cursor-not-allowed' : entry.is_popular ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-foreground text-background hover:opacity-90'}`}
-                        disabled={syncingPlan || isCurrentPlan || isUnavailable}
+                        className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl py-4 text-xs font-black uppercase tracking-[0.2em] shadow-xl transition-all duration-300 ${isUnavailable ? 'bg-muted text-muted-foreground shadow-none cursor-not-allowed' : entry.is_popular ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-foreground text-background hover:opacity-90'}`}
+                        disabled={syncingPlan || isUnavailable}
                         onClick={() => openCheckout(entry)}
                       >
                         <CreditCard size={16} />

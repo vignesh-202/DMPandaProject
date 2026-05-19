@@ -790,6 +790,7 @@ export default function ReplyTemplatesView() {
   };
 
   const requestDelete = (t: (typeof templates)[0]) => {
+    setShowBackModal(false);
     setDeleteModal({ open: true, id: t.id, name: t.name });
     setDeleteError(null);
     const linked = Array.isArray(t.linked_automations)
@@ -813,7 +814,13 @@ export default function ReplyTemplatesView() {
       );
       const data = await res.json();
       if (res.ok) {
+        const deletedTemplateId = deleteModal.id;
         setDeleteModal({ open: false, id: '', name: '' });
+        setDeleteLinked([]);
+        setDeleteError(null);
+        if (deletedTemplateId === activeEditId) {
+          goBack();
+        }
         fetchList(true);
       } else {
         setDeleteError(data.error || 'Delete failed');
@@ -1070,6 +1077,22 @@ export default function ReplyTemplatesView() {
           cancelLabel="Cancel"
           type="warning"
           isLoading={saving}
+        />
+
+        <ModernConfirmModal
+          isOpen={deleteModal.open}
+          onClose={() => { setDeleteModal({ open: false, id: '', name: '' }); setDeleteLinked([]); setDeleteError(null); }}
+          onConfirm={deleteLinked.length > 0 ? () => {
+            setDeleteModal({ open: false, id: '', name: '' });
+            setDeleteLinked([]);
+            setDeleteError(null);
+          } : confirmDelete}
+          title="Delete template?"
+          description={deleteLinkedDescription}
+          type="danger"
+          confirmLabel={deleteLinked.length > 0 ? 'Close' : 'Delete'}
+          cancelLabel={deleteLinked.length > 0 ? 'Close' : 'Cancel'}
+          oneButton={deleteLinked.length > 0}
         />
       </div>
     );

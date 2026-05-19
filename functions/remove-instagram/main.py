@@ -8,6 +8,20 @@ PAGE_SIZE = 100
 MAX_RETRIES = 3
 
 
+def _env(key: str, default: str = "") -> str:
+    runtime_key = {
+        "APPWRITE_ENDPOINT": "APPWRITE_FUNCTION_API_ENDPOINT",
+        "APPWRITE_PROJECT_ID": "APPWRITE_FUNCTION_PROJECT_ID",
+        "APPWRITE_API_KEY": "APPWRITE_FUNCTION_API_KEY",
+    }.get(key, key.replace("APPWRITE_", "APPWRITE_FUNCTION_"))
+    return str(
+        os.environ.get(key)
+        or os.environ.get(runtime_key)
+        or default
+        or ""
+    ).strip()
+
+
 def _is_transient_error(error: Exception) -> bool:
     message = str(error or "").strip().lower()
     return any(marker in message for marker in {
@@ -127,7 +141,7 @@ def _delete_automation_artifacts(client, db_id, automation_id, dry_run=False):
         return {}
 
     deleted_counts = {}
-    for coll in ('keywords', 'keyword_index', 'automation_collect_destinations'):
+    for coll in ('keywords', 'keyword_index'):
         try:
             deleted_counts[coll] = _delete_by_queries(
                 client,
@@ -179,12 +193,17 @@ def main(context):
         if not account_doc_id:
             return context.res.json({"error": "Missing account_doc_id"}, 400)
 
-        client = Client()
-        client.set_endpoint(os.environ['APPWRITE_ENDPOINT'])
-        client.set_project(os.environ['APPWRITE_PROJECT_ID'])
-        client.set_key(os.environ['APPWRITE_API_KEY'])
+        endpoint = _env("APPWRITE_ENDPOINT")
+        project_id = _env("APPWRITE_PROJECT_ID")
+        api_key = _env("APPWRITE_API_KEY")
+        db_id = _env("APPWRITE_DATABASE_ID")
+        if not endpoint or not project_id or not api_key or not db_id:
+            raise ValueError("Missing required Appwrite runtime configuration.")
 
-        db_id = os.environ['APPWRITE_DATABASE_ID']
+        client = Client()
+        client.set_endpoint(endpoint)
+        client.set_project(project_id)
+        client.set_key(api_key)
         
         # Collection IDs
         IG_ACCOUNTS_COLLECTION = 'ig_accounts'
@@ -233,7 +252,6 @@ def main(context):
                     'automations',
                     'keywords',
                     'keyword_index',
-                    'automation_collect_destinations',
                     'logs',
                     'chat_states',
                     'reply_templates',
@@ -256,7 +274,6 @@ def main(context):
                 ('comment_moderation', 'account_id'),
                 ('logs', 'account_id'),
                 ('chat_states', 'account_id'),
-                ('automation_collect_destinations', 'account_id'),
             ]
             deleted_counts = {}
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AtSign, ArrowLeft, Power, Lightbulb, Mail, MessageSquare, Calendar, Info } from 'lucide-react';
+import { AtSign, ArrowLeft, Power, Lightbulb, Mail, MessageSquare, Calendar, Info, Loader2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
@@ -34,12 +34,31 @@ interface MentionsConfig {
     seen_typing_enabled?: boolean;
 }
 
+type CollectorDestinationState = {
+    destination_type: 'webhook';
+    webhook_url: string;
+    verified: boolean;
+    verified_at: string | null;
+    destination_json: Record<string, unknown>;
+    verification_token: string | null;
+    verification_expires_at: string | null;
+};
+
 const FOLLOWERS_ONLY_MESSAGE_DEFAULT = 'Please follow this account first, then send your message again.';
 const FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT = '?? Follow Account';
 const FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT = "? I've Followed";
 const COLLECT_EMAIL_PROMPT_DEFAULT = '?? Could you share your best email so we can send the details and updates ?';
 const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '?? That email looks invalid. Please send a valid email like name@example.com.';
 const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ?';
+const createCollectorDestinationState = (): CollectorDestinationState => ({
+    destination_type: 'webhook',
+    webhook_url: '',
+    verified: false,
+    verified_at: null,
+    destination_json: {},
+    verification_token: null,
+    verification_expires_at: null
+});
 
 const MentionsView: React.FC = () => {
     const { authenticatedFetch } = useAuth();
@@ -64,6 +83,9 @@ const MentionsView: React.FC = () => {
     const [collectEmailFailRetryMessage, setCollectEmailFailRetryMessage] = useState(COLLECT_EMAIL_FAIL_RETRY_DEFAULT);
     const [collectEmailSuccessReplyMessage, setCollectEmailSuccessReplyMessage] = useState(COLLECT_EMAIL_SUCCESS_DEFAULT);
     const [seenTypingEnabled, setSeenTypingEnabled] = useState(false);
+    const [collectorDestination, setCollectorDestination] = useState<CollectorDestinationState>(createCollectorDestinationState());
+    const [collectorDestinationLoading, setCollectorDestinationLoading] = useState(false);
+    const [collectorDestinationSaving, setCollectorDestinationSaving] = useState(false);
     const [success, setSuccess] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     useDashboardMainScrollLock(true);
@@ -159,6 +181,150 @@ const MentionsView: React.FC = () => {
         fetchConfig();
     }, [activeAccountID, fetchConfig]);
 
+    useEffect(() => {
+        let alive = true;
+        const loadCollectorDestination = async () => {
+            if (!config.doc_id || collectEmailEnabled !== true) {
+                setCollectorDestination(createCollectorDestinationState());
+                setCollectorDestinationLoading(false);
+                return;
+            }
+
+            setCollectorDestinationLoading(true);
+            try {
+                const res = await authenticatedFetch(
+                    `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${config.doc_id}/email-collector-destination`
+                );
+                const data = await res.json();
+                if (!alive) return;
+                if (res.ok && data?.destination) {
+                    setCollectorDestination({
+                        destination_type: data.destination.destination_type || 'webhook',
+                        webhook_url: data.destination.webhook_url || '',
+                        verified: data.destination.verified === true,
+                        verified_at: data.destination.verified_at || null,
+                        destination_json: data.destination.destination_json || {},
+                        verification_token: data.destination.verification_token || data.destination.destination_json?.verification_token || null,
+                        verification_expires_at: data.destination.verification_expires_at || data.destination.destination_json?.verification_expires_at || null
+                    });
+                } else {
+                    setCollectorDestination(createCollectorDestinationState());
+                }
+            } catch (_) {
+                if (alive) setCollectorDestination(createCollectorDestinationState());
+            } finally {
+                if (alive) setCollectorDestinationLoading(false);
+            }
+        };
+
+        loadCollectorDestination();
+        return () => { alive = false; };
+    }, [authenticatedFetch, collectEmailEnabled, config.doc_id]);
+
+    const verifyCollectorDestination = useCallback(async (automationId: string) => {
+        if (!automationId || collectEmailEnabled !== true) return false;
+        const urlValue = String(collectorDestination.webhook_url || '').trim();
+        if (!urlValue) {
+            setError('Enter a webhook URL for the email collector.');
+            return false;
+        }
+        if (!/^https:\/\//i.test(urlValue)) {
+            setError('Webhook URL must start with https://');
+            return false;
+        }
+
+        setCollectorDestinationSaving(true);
+        try {
+            const verifyRes = await authenticatedFetch(
+                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${automationId}/email-collector-destination/verify`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ destination_type: 'webhook', webhook_url: urlValue })
+                }
+            );
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok) {
+                setError(verifyData?.error || 'Failed to verify email collector destination.');
+                return false;
+            }
+            const nextDestination = verifyData?.destination || null;
+            if (nextDestination) {
+                setCollectorDestination({
+                    destination_type: nextDestination.destination_type || 'webhook',
+                    webhook_url: nextDestination.webhook_url || '',
+                    verified: nextDestination.verified === true,
+                    verified_at: nextDestination.verified_at || null,
+                    destination_json: nextDestination.destination_json || {},
+                    verification_token: nextDestination.verification_token || nextDestination.destination_json?.verification_token || null,
+                    verification_expires_at: nextDestination.verification_expires_at || nextDestination.destination_json?.verification_expires_at || null
+                });
+            }
+            return true;
+        } catch (_) {
+            setError('Failed to verify email collector destination.');
+            return false;
+        } finally {
+            setCollectorDestinationSaving(false);
+        }
+    }, [authenticatedFetch, collectEmailEnabled, collectorDestination.webhook_url]);
+
+    const persistCollectorDestination = useCallback(async (automationId: string) => {
+        if (!automationId || collectEmailEnabled !== true) return true;
+        const urlValue = String(collectorDestination.webhook_url || '').trim();
+        if (!urlValue) {
+            setError('Enter a webhook URL for the email collector.');
+            return false;
+        }
+        if (!/^https:\/\//i.test(urlValue)) {
+            setError('Webhook URL must start with https://');
+            return false;
+        }
+        if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
+            setError('Verify the webhook URL before saving the mentions automation.');
+            return false;
+        }
+
+        setCollectorDestinationSaving(true);
+        try {
+            const saveRes = await authenticatedFetch(
+                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${automationId}/email-collector-destination`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        destination_type: 'webhook',
+                        webhook_url: urlValue,
+                        verification_token: collectorDestination.verification_token
+                    })
+                }
+            );
+            const saveData = await saveRes.json();
+            if (!saveRes.ok) {
+                setError(saveData?.error || 'Failed to save email collector destination.');
+                return false;
+            }
+            const nextDestination = saveData?.destination || null;
+            if (nextDestination) {
+                setCollectorDestination({
+                    destination_type: nextDestination.destination_type || 'webhook',
+                    webhook_url: nextDestination.webhook_url || '',
+                    verified: nextDestination.verified === true,
+                    verified_at: nextDestination.verified_at || null,
+                    destination_json: nextDestination.destination_json || {},
+                    verification_token: nextDestination.verification_token || nextDestination.destination_json?.verification_token || null,
+                    verification_expires_at: nextDestination.verification_expires_at || nextDestination.destination_json?.verification_expires_at || null
+                });
+            }
+            return true;
+        } catch (_) {
+            setError('Failed to save email collector destination.');
+            return false;
+        } finally {
+            setCollectorDestinationSaving(false);
+        }
+    }, [authenticatedFetch, collectEmailEnabled, collectorDestination]);
+
     const currentState = useMemo(() => JSON.stringify({
         template_id: selectedTemplate?.id || null,
         is_active: isActive,
@@ -204,6 +370,21 @@ const MentionsView: React.FC = () => {
             setError('Please select a reply template');
             return false;
         }
+        if (collectEmailEnabled) {
+            const webhookUrl = String(collectorDestination.webhook_url || '').trim();
+            if (!webhookUrl) {
+                setError('Enter a webhook URL for the email collector.');
+                return false;
+            }
+            if (!/^https:\/\//i.test(webhookUrl)) {
+                setError('Webhook URL must start with https://');
+                return false;
+            }
+            if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
+                setError('Verify the webhook URL before saving the mentions automation.');
+                return false;
+            }
+        }
 
         setIsSaving(true);
         setError(null);
@@ -232,6 +413,14 @@ const MentionsView: React.FC = () => {
             });
 
             if (res.ok) {
+                const data = await res.json();
+                const savedDocId = String(data?.doc_id || config.doc_id || '').trim();
+                if (collectEmailEnabled) {
+                    const destinationSaved = await persistCollectorDestination(savedDocId);
+                    if (!destinationSaved) {
+                        return false;
+                    }
+                }
                 setSuccess('Mentions template saved successfully!');
                 setInitialState(currentState);
                 setHasUnsavedChanges(false);
@@ -248,7 +437,7 @@ const MentionsView: React.FC = () => {
         } finally {
             setIsSaving(false);
         }
-    }, [activeAccountID, authenticatedFetch, collectEmailEnabled, collectEmailFailRetryMessage, collectEmailOnlyGmail, collectEmailPromptMessage, collectEmailSuccessReplyMessage, currentState, fetchConfig, followersOnly, followersOnlyMessage, followersOnlyPrimaryButtonText, followersOnlySecondaryButtonText, isActive, oncePerUser, seenTypingEnabled, selectedTemplate, setHasUnsavedChanges, suggestMoreEnabled]);
+    }, [activeAccountID, authenticatedFetch, collectEmailEnabled, collectEmailFailRetryMessage, collectEmailOnlyGmail, collectEmailPromptMessage, collectEmailSuccessReplyMessage, config.doc_id, currentState, fetchConfig, followersOnly, followersOnlyMessage, followersOnlyPrimaryButtonText, followersOnlySecondaryButtonText, isActive, oncePerUser, persistCollectorDestination, seenTypingEnabled, selectedTemplate, setHasUnsavedChanges, suggestMoreEnabled]);
 
     useEffect(() => {
         setHasUnsavedChanges(isDirty);
@@ -487,6 +676,39 @@ const MentionsView: React.FC = () => {
                                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Success Message</p>
                                     <textarea value={collectEmailSuccessReplyMessage} onChange={(e) => setCollectEmailSuccessReplyMessage(e.target.value)} className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary" placeholder={COLLECT_EMAIL_SUCCESS_DEFAULT} />
                                     <p className="text-[9px] text-muted-foreground">{new Blob([collectEmailSuccessReplyMessage]).size}/1000 bytes</p>
+                                </div>
+                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Delivery Destination</p>
+                                            <p className="text-[10px] text-muted-foreground">Paste a webhook URL, then verify it with a sample lead payload.</p>
+                                        </div>
+                                        {collectorDestinationLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                                    </div>
+                                    <input
+                                        value={collectorDestination.webhook_url || ''}
+                                        onChange={(e) => setCollectorDestination((prev) => ({ ...prev, destination_type: 'webhook', webhook_url: e.target.value, verified: false, verified_at: null, verification_token: null, verification_expires_at: null }))}
+                                        className="w-full rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                        placeholder="https://example.com/webhook"
+                                    />
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <button
+                                            type="button"
+                                            disabled={!config.doc_id || collectorDestinationSaving}
+                                            onClick={async () => {
+                                                const ok = await verifyCollectorDestination(String(config.doc_id || ''));
+                                                if (ok) setSuccess('Email collector destination verified.');
+                                            }}
+                                            className="rounded-2xl bg-black px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-gray-100"
+                                        >
+                                            {collectorDestinationSaving ? 'Verifying...' : 'Verify Destination'}
+                                        </button>
+                                        <span className={`text-[10px] font-bold ${collectorDestination.verified ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                                            {collectorDestination.verified
+                                                ? `Verified${collectorDestination.verified_at ? ` on ${new Date(collectorDestination.verified_at).toLocaleString()}` : ''}`
+                                                : config.doc_id ? 'Not verified yet' : 'Save the mentions automation once, then verify the destination'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         )}

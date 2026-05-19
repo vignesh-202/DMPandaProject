@@ -55,7 +55,6 @@ module.exports = {
     COMMENT_MODERATION_COLLECTION_ID: 'comment_moderation',
     LOGS_COLLECTION_ID: 'logs',
     CHAT_STATES_COLLECTION_ID: 'chat_states',
-    AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID: 'automation_collect_destinations',
     KEYWORDS_COLLECTION_ID: 'keywords',
     KEYWORD_INDEX_COLLECTION_ID: 'keyword_index',
     // Function IDs

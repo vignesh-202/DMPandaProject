@@ -17,7 +17,6 @@ const {
     KEYWORD_INDEX_COLLECTION_ID,
     LOGS_COLLECTION_ID,
     CHAT_STATES_COLLECTION_ID,
-    AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
     FUNCTION_REMOVE_INSTAGRAM
 } = require('../utils/appwrite');
 const {
@@ -514,6 +513,17 @@ const parseDestinationJson = (value) => {
     return parsed && typeof parsed === 'object' ? parsed : {};
 };
 
+const parseCollectorMetadataCarrier = (value) => {
+    const parsed = parseMaybeJson(value, null);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const carrier = parsed.collector_destination || parsed.__collector_destination__ || null;
+    return carrier && typeof carrier === 'object' && !Array.isArray(carrier) ? carrier : {};
+};
+
+const stringifyCollectorMetadataCarrier = (destination) => JSON.stringify({
+    collector_destination: destination
+});
+
 const getCollectorDestinationDefaults = () => {
     return {
         destination_type: 'webhook',
@@ -521,52 +531,135 @@ const getCollectorDestinationDefaults = () => {
         destination_id: '',
         destination_json: {},
         verified: false,
-        verified_at: null
+        verified_at: null,
+        verification_token: null,
+        verification_expires_at: null
     };
 };
 
-const normalizeCollectorDestinationResponse = (document) => {
-    if (!document) return getCollectorDestinationDefaults();
-    const destinationJson = parseDestinationJson(document.destination_json);
+const getCollectorDestinationPayloadFromAutomation = (automation) => {
+    const destinationJson = parseDestinationJson(automation?.collect_email_destination_json);
+    const fallbackDestination = parseCollectorMetadataCarrier(automation?.template_elements);
+    const normalizedDestination = Object.keys(destinationJson).length > 0 ? destinationJson : fallbackDestination;
+    const webhookUrl = String(automation?.collect_email_webhook_url || fallbackDestination?.webhook_url || '').trim();
     return {
-        $id: document.$id,
-        automation_id: String(document.automation_id || '').trim(),
-        destination_type: normalizeCollectorDestinationType(document.destination_type),
-        webhook_url: String(document.webhook_url || '').trim(),
-        destination_id: String(document.destination_id || '').trim(),
+        $id: automation?.$id,
+        automation_id: String(automation?.$id || '').trim(),
+        destination_type: normalizeCollectorDestinationType(automation?.collect_email_destination_type || fallbackDestination?.destination_type || 'webhook'),
+        webhook_url: webhookUrl,
+        destination_id: String(automation?.collect_email_destination_id || fallbackDestination?.destination_id || '').trim(),
+        destination_json: normalizedDestination,
+        verified: normalizedDestination.verified === true,
+        verified_at: automation?.collect_email_webhook_verified_at || normalizedDestination.verified_at || null,
+        verification_token: normalizedDestination.verification_token || null,
+        verification_expires_at: normalizedDestination.verification_expires_at || null
+    };
+};
+
+const normalizeCollectorDestinationResponse = (documentOrAutomation) => {
+    if (!documentOrAutomation) return getCollectorDestinationDefaults();
+    if (Object.prototype.hasOwnProperty.call(documentOrAutomation, 'collect_email_webhook_url')
+        || Object.prototype.hasOwnProperty.call(documentOrAutomation, 'collect_email_destination_json')) {
+        return getCollectorDestinationPayloadFromAutomation(documentOrAutomation);
+    }
+    const destinationJson = parseDestinationJson(documentOrAutomation.destination_json);
+    return {
+        $id: documentOrAutomation.$id,
+        automation_id: String(documentOrAutomation.automation_id || '').trim(),
+        destination_type: normalizeCollectorDestinationType(documentOrAutomation.destination_type),
+        webhook_url: String(documentOrAutomation.webhook_url || '').trim(),
+        destination_id: String(documentOrAutomation.destination_id || '').trim(),
         destination_json: destinationJson,
         verified: destinationJson.verified === true,
-        verified_at: destinationJson.verified_at || null
+        verified_at: destinationJson.verified_at || null,
+        verification_token: destinationJson.verification_token || null,
+        verification_expires_at: destinationJson.verification_expires_at || null
     };
 };
 
-const loadCollectorDestinationDocument = async (databases, automation) => {
-    try {
-        const collectionInfo = await getCollectionAttributeInfo(databases, AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID);
-        const queries = [Query.limit(1)];
-        if (collectionInfo.keys.has('automation_id')) {
-            queries.unshift(Query.equal('automation_id', String(automation?.$id || '').trim()));
-        }
-        if (collectionInfo.keys.has('account_id')) {
-            queries.unshift(Query.equal('account_id', String(automation?.account_id || '').trim()));
-        }
-        if (collectionInfo.keys.has('user_id')) {
-            queries.unshift(Query.equal('user_id', String(automation?.user_id || '').trim()));
-        }
+const COLLECTOR_VERIFY_TOKEN_TTL_MS = 15 * 60 * 1000;
 
-        const result = await retryAppwriteOperation(() => databases.listDocuments(
-            process.env.APPWRITE_DATABASE_ID,
-            AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
-            queries
-        ));
-        return result.documents?.[0] || null;
-    } catch (error) {
-        if (isMissingCollectionError(error)) {
-            return null;
-        }
-        throw error;
+const isHttpsWebhookUrl = (value) => {
+    const safeValue = String(value || '').trim();
+    if (!safeValue) return false;
+    try {
+        const parsed = new URL(safeValue);
+        return parsed.protocol.toLowerCase() === 'https:';
+    } catch (_) {
+        return false;
     }
 };
+
+const normalizeWebhookUrl = (value) => String(value || '').trim();
+
+const buildCollectorDestinationId = (destinationType, webhookUrl) => {
+    const safeType = String(destinationType || '').trim().toLowerCase() || 'webhook';
+    const safeUrl = normalizeWebhookUrl(webhookUrl);
+    const digest = crypto.createHash('sha256').update(`${safeType}:${safeUrl}`).digest('hex');
+    return `${safeType}_${digest}`.slice(0, 255);
+};
+
+const getCollectorVerificationSecret = () => (
+    String(process.env.COLLECTOR_WEBHOOK_VERIFY_SECRET || process.env.APPWRITE_API_KEY || process.env.SESSION_SECRET || 'dm-panda-collector-secret').trim()
+);
+
+const buildCollectorVerificationToken = ({ automationId, userId, webhookUrl, expiresAt }) => {
+    const payload = JSON.stringify({
+        automation_id: String(automationId || '').trim(),
+        user_id: String(userId || '').trim(),
+        webhook_url: normalizeWebhookUrl(webhookUrl),
+        expires_at: String(expiresAt || '').trim()
+    });
+    const signature = crypto
+        .createHmac('sha256', getCollectorVerificationSecret())
+        .update(payload)
+        .digest('hex');
+    return Buffer.from(JSON.stringify({ payload, signature }), 'utf8').toString('base64url');
+};
+
+const verifyCollectorVerificationToken = ({ token, automationId, userId, webhookUrl }) => {
+    const safeToken = String(token || '').trim();
+    if (!safeToken) return { ok: false, message: 'Verify the webhook before saving it.' };
+
+    try {
+        const decoded = JSON.parse(Buffer.from(safeToken, 'base64url').toString('utf8'));
+        const payload = String(decoded?.payload || '');
+        const signature = String(decoded?.signature || '');
+        if (!payload || !signature) {
+            return { ok: false, message: 'Webhook verification token is invalid.' };
+        }
+
+        const expectedSignature = crypto
+            .createHmac('sha256', getCollectorVerificationSecret())
+            .update(payload)
+            .digest('hex');
+
+        if (signature !== expectedSignature) {
+            return { ok: false, message: 'Webhook verification token is invalid.' };
+        }
+
+        const parsedPayload = JSON.parse(payload);
+        if (String(parsedPayload?.automation_id || '').trim() !== String(automationId || '').trim()) {
+            return { ok: false, message: 'Webhook verification token does not match this automation.' };
+        }
+        if (String(parsedPayload?.user_id || '').trim() !== String(userId || '').trim()) {
+            return { ok: false, message: 'Webhook verification token does not match this user.' };
+        }
+        if (normalizeWebhookUrl(parsedPayload?.webhook_url) !== normalizeWebhookUrl(webhookUrl)) {
+            return { ok: false, message: 'Webhook URL changed after verification. Please verify it again.' };
+        }
+        const expiresAt = new Date(String(parsedPayload?.expires_at || '')).getTime();
+        if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+            return { ok: false, message: 'Webhook verification expired. Please verify again.' };
+        }
+
+        return { ok: true, expiresAt: new Date(expiresAt).toISOString() };
+    } catch (_) {
+        return { ok: false, message: 'Webhook verification token is invalid.' };
+    }
+};
+
+const loadCollectorDestinationDocument = async (_databases, automation) => automation || null;
 
 const getOwnedAutomationDocument = async (databases, userId, automationId) => {
     const automation = await databases.getDocument(
@@ -606,25 +699,14 @@ const buildCollectorVerifySamplePayload = (automation) => ({
     received_at: new Date().toISOString()
 });
 
-const persistCollectorDestinationDocument = async (databases, automation, payload, existingDocument = null) => {
-    const collectionInfo = await getCollectionAttributeInfo(databases, AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID);
+const persistCollectorDestinationDocument = async (databases, automation, payload) => {
+    const collectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
     const sanitizedPayload = sanitizePayloadForCollection(payload, collectionInfo);
-
-    if (existingDocument?.$id) {
-        return databases.updateDocument(
-            process.env.APPWRITE_DATABASE_ID,
-            AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
-            existingDocument.$id,
-            sanitizedPayload
-        );
-    }
-
-    return databases.createDocument(
+    return databases.updateDocument(
         process.env.APPWRITE_DATABASE_ID,
-        AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
-        ID.unique(),
-        sanitizedPayload,
-        [Permission.read(Role.user(String(automation?.user_id || '').trim()))]
+        AUTOMATIONS_COLLECTION_ID,
+        automation.$id,
+        sanitizedPayload
     );
 };
 
@@ -1536,30 +1618,28 @@ const syncKeywordRecords = async (databases, { accountId, automationId, automati
     }
 };
 
-const deleteCollectorDestinationRecords = async (databases, automationId) => {
+const clearCollectorDestinationOnAutomation = async (databases, automationId) => {
     const safeAutomationId = String(automationId || '').trim();
     if (!safeAutomationId) return 0;
 
-    let deleted = 0;
-    try {
-        const existing = await listAllDocuments(databases, AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID, [
-            Query.equal('automation_id', safeAutomationId)
-        ]);
-        for (const doc of existing) {
-            await databases.deleteDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID,
-                doc.$id
-            );
-            deleted += 1;
-        }
-    } catch (error) {
-        if (!isMissingCollectionError(error)) {
-            throw error;
-        }
-    }
+    const collectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
+    const clearedPayload = sanitizePayloadForCollection({
+        collect_email_destination_type: '',
+        collect_email_webhook_url: null,
+        collect_email_destination_id: '',
+        collect_email_destination_json: '',
+        collect_email_webhook_verified_at: null,
+        template_elements: null
+    }, collectionInfo);
 
-    return deleted;
+    await databases.updateDocument(
+        process.env.APPWRITE_DATABASE_ID,
+        AUTOMATIONS_COLLECTION_ID,
+        safeAutomationId,
+        clearedPayload
+    );
+
+    return 1;
 };
 
 const deleteAutomationWithArtifacts = async (databases, automationDoc) => {
@@ -1579,7 +1659,7 @@ const deleteAutomationWithArtifacts = async (databases, automationDoc) => {
         },
         cleanupCollectorDestinations: async () => {
             try {
-                await deleteCollectorDestinationRecords(databases, automationDoc.$id);
+                await clearCollectorDestinationOnAutomation(databases, automationDoc.$id);
             } catch (error) {
                 console.error(`Collector destination cleanup failed: ${error.message}`);
             }
@@ -2772,7 +2852,7 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
             listMentionsDocuments(databases, { userId, accountIds: targetAccountId || allOwnedAccountIds, limit: 1 }),
             databases.listDocuments(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, queries.concat([Query.equal('automation_type', 'welcome_message'), Query.limit(1)])),
             listSuggestMoreDocuments(databases, { userId, accountIds: targetAccountId || allOwnedAccountIds, limit: 1 }),
-            databases.listDocuments(process.env.APPWRITE_DATABASE_ID, AUTOMATION_COLLECT_DESTINATIONS_COLLECTION_ID, accountScopedQueries.concat([Query.limit(1)])),
+            databases.listDocuments(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, accountScopedQueries.concat([Query.equal('collect_email_enabled', true), Query.limit(100)])),
             databases.listDocuments(process.env.APPWRITE_DATABASE_ID, LOGS_COLLECTION_ID, accountScopedQueries.concat([
                 Query.greaterThanEqual('sent_at', new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString()),
                 Query.limit(5000)
@@ -3547,6 +3627,11 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
         }
 
         const doc = await databases.getDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, req.params.id);
+        if (doc.collect_email_enabled !== true) {
+            await clearCollectorDestinationOnAutomation(databases, doc.$id).catch((error) => {
+                console.error(`Collector destination cleanup failed after automation update: ${error.message}`);
+            });
+        }
 
         res.json(doc);
     } catch (err) {
@@ -3571,11 +3656,10 @@ router.get('/instagram/automations/:id/email-collector-destination', loginRequir
             { requireFeature: 'collect_email' }
         );
         if (featureAccessError) return res.status(403).json(featureAccessError);
-        const destinationDoc = await loadCollectorDestinationDocument(databases, automation);
         const planEnvelope = await buildPlanEnvelope(databases, req.user.$id);
 
         res.json({
-            destination: normalizeCollectorDestinationResponse(destinationDoc),
+            destination: normalizeCollectorDestinationResponse(automation),
             ...planEnvelope
         });
     } catch (error) {
@@ -3601,40 +3685,54 @@ router.put('/instagram/automations/:id/email-collector-destination', loginRequir
             { requireFeature: 'collect_email' }
         );
         if (featureAccessError) return res.status(403).json(featureAccessError);
-        const existingDocument = await loadCollectorDestinationDocument(databases, automation);
-
         const destinationType = normalizeCollectorDestinationType(req.body?.destination_type);
         if (!destinationType) {
             return res.status(400).json({ error: 'destination_type must be "webhook"' });
         }
 
-        const webhookUrl = destinationType === 'webhook' ? String(req.body?.webhook_url || '').trim() : '';
+        const webhookUrl = destinationType === 'webhook' ? normalizeWebhookUrl(req.body?.webhook_url) : '';
+        const verificationToken = String(req.body?.verification_token || '').trim();
 
         if (destinationType === 'webhook' && !webhookUrl) {
             return res.status(400).json({ error: 'webhook_url is required for webhook destinations' });
         }
+        if (destinationType === 'webhook' && !isHttpsWebhookUrl(webhookUrl)) {
+            return res.status(400).json({ error: 'webhook_url must start with https://' });
+        }
 
-        const existingResponse = normalizeCollectorDestinationResponse(existingDocument);
-        const destinationChanged = existingResponse.destination_type !== destinationType
-            || existingResponse.webhook_url !== webhookUrl;
-        const nextDestinationJson = destinationChanged
-            ? {
-                verified: false,
-                verified_at: null,
-                verification_error: null
-            }
-            : existingResponse.destination_json;
+        const verificationState = verifyCollectorVerificationToken({
+            token: verificationToken,
+            automationId: automation.$id,
+            userId: req.user.$id,
+            webhookUrl
+        });
+        if (!verificationState.ok) {
+            return res.status(400).json({ error: verificationState.message });
+        }
+
+        const existingResponse = normalizeCollectorDestinationResponse(automation);
+        const nextDestinationJson = {
+            ...existingResponse.destination_json,
+            verified: true,
+            verified_at: new Date().toISOString(),
+            verification_error: null,
+            verification_token: verificationToken,
+            verification_expires_at: verificationState.expiresAt || null
+        };
 
         const savedDoc = await persistCollectorDestinationDocument(databases, automation, {
-            user_id: String(automation.user_id || '').trim(),
-            account_id: String(automation.account_id || '').trim(),
-            automation_id: String(automation.$id || '').trim(),
-            destination_type: destinationType,
-            webhook_url: webhookUrl || null,
-            destination_id: destinationChanged ? null : (existingResponse.destination_id || null),
-            destination_json: JSON.stringify(nextDestinationJson),
-            updated_at: new Date().toISOString()
-        }, existingDocument);
+            collect_email_destination_type: destinationType,
+            collect_email_webhook_url: webhookUrl || null,
+            collect_email_destination_id: buildCollectorDestinationId(destinationType, webhookUrl),
+            collect_email_destination_json: JSON.stringify(nextDestinationJson),
+            collect_email_webhook_verified_at: nextDestinationJson.verified_at || null,
+            template_elements: stringifyCollectorMetadataCarrier({
+                destination_type: destinationType,
+                webhook_url: webhookUrl || null,
+                destination_id: buildCollectorDestinationId(destinationType, webhookUrl),
+                ...nextDestinationJson
+            })
+        });
 
         res.json({
             destination: normalizeCollectorDestinationResponse(savedDoc)
@@ -3644,9 +3742,6 @@ router.put('/instagram/automations/:id/email-collector-destination', loginRequir
         if (error?.statusCode && error?.payload) return res.status(error.statusCode).json(error.payload);
         if (error.statusCode === 403) return res.status(403).json({ error: 'Unauthorized' });
         if (error.code === 404) return res.status(404).json({ error: 'Automation not found' });
-        if (isMissingCollectionError(error)) {
-            return res.status(500).json({ error: 'automation_collect_destinations collection is not available' });
-        }
         res.status(500).json({ error: 'Failed to save email collector destination' });
     }
 });
@@ -3663,55 +3758,52 @@ router.post('/instagram/automations/:id/email-collector-destination/verify', log
             { requireFeature: 'collect_email' }
         );
         if (featureAccessError) return res.status(403).json(featureAccessError);
-        const existingDocument = await loadCollectorDestinationDocument(databases, automation);
-        if (!existingDocument) {
-            return res.status(400).json({ error: 'Save the destination before verifying it' });
-        }
-
-        const normalizedDestination = normalizeCollectorDestinationResponse(existingDocument);
         const now = new Date().toISOString();
-        const destinationJson = {
-            ...normalizedDestination.destination_json,
-            verified: false,
-            verified_at: null,
-            verification_error: null
-        };
-        let destinationId = normalizedDestination.destination_id || null;
-
-        if (normalizedDestination.destination_type !== 'webhook') {
+        const destinationType = normalizeCollectorDestinationType(req.body?.destination_type || 'webhook');
+        const webhookUrl = normalizeWebhookUrl(req.body?.webhook_url);
+        if (destinationType !== 'webhook') {
             return res.status(400).json({ error: 'destination_type must be "webhook"' });
         }
-        if (!normalizedDestination.webhook_url) {
+        if (!webhookUrl) {
             return res.status(400).json({ error: 'webhook_url is required before verification' });
         }
+        if (!isHttpsWebhookUrl(webhookUrl)) {
+            return res.status(400).json({ error: 'webhook_url must start with https://' });
+        }
         const samplePayload = buildCollectorVerifySamplePayload(automation);
-        const webhookResponse = await sendWebhookPayload(normalizedDestination.webhook_url, samplePayload);
-        Object.assign(destinationJson, {
-            verified: true,
-            verified_at: now,
-            last_verify_status: webhookResponse?.status || null,
-            last_verify_sample: samplePayload
+        const webhookResponse = await sendWebhookPayload(webhookUrl, samplePayload);
+        const verificationExpiresAt = new Date(Date.now() + COLLECTOR_VERIFY_TOKEN_TTL_MS).toISOString();
+        const verificationToken = buildCollectorVerificationToken({
+            automationId: automation.$id,
+            userId: req.user.$id,
+            webhookUrl,
+            expiresAt: verificationExpiresAt
         });
 
-        const savedDoc = await persistCollectorDestinationDocument(databases, automation, {
-            destination_type: normalizedDestination.destination_type,
-            webhook_url: normalizedDestination.webhook_url || null,
-            destination_id: destinationId,
-            destination_json: JSON.stringify(destinationJson),
-            updated_at: now
-        }, existingDocument);
-
         res.json({
-            destination: normalizeCollectorDestinationResponse(savedDoc)
+            destination: {
+                destination_type: destinationType,
+                webhook_url: webhookUrl,
+                destination_id: buildCollectorDestinationId(destinationType, webhookUrl),
+                destination_json: {
+                    verified: true,
+                    verified_at: now,
+                    last_verify_status: webhookResponse?.status || null,
+                    last_verify_sample: samplePayload,
+                    verification_token: verificationToken,
+                    verification_expires_at: verificationExpiresAt
+                },
+                verified: true,
+                verified_at: now,
+                verification_token: verificationToken,
+                verification_expires_at: verificationExpiresAt
+            }
         });
     } catch (error) {
         console.error(`Verify Email Collector Destination Error: ${error.message}`);
         if (error?.statusCode && error?.payload) return res.status(error.statusCode).json(error.payload);
         if (error.statusCode === 403) return res.status(403).json({ error: 'Unauthorized' });
         if (error.code === 404) return res.status(404).json({ error: 'Automation not found' });
-        if (isMissingCollectionError(error)) {
-            return res.status(500).json({ error: 'automation_collect_destinations collection is not available' });
-        }
         res.status(400).json({ error: error.message || 'Failed to verify email collector destination' });
     }
 });
@@ -4099,11 +4191,6 @@ const buildInboxMenuFromAutomationDocuments = (documents, templateMap) => (
                 followers_only_secondary_button_text: normalizedOptions.followers_only_secondary_button_text,
                 suggest_more_enabled: normalizedOptions.suggest_more_enabled,
                 once_per_user_24h: normalizedOptions.once_per_user_24h,
-                collect_email_enabled: normalizedOptions.collect_email_enabled,
-                collect_email_only_gmail: normalizedOptions.collect_email_only_gmail,
-                collect_email_prompt_message: normalizedOptions.collect_email_prompt_message,
-                collect_email_fail_retry_message: normalizedOptions.collect_email_fail_retry_message,
-                collect_email_success_reply_message: normalizedOptions.collect_email_success_reply_message,
                 seen_typing_enabled: normalizedOptions.seen_typing_enabled
             };
 
@@ -4165,17 +4252,59 @@ const buildConvoStartersFromAutomationDocuments = (documents, templateMap) => (
             const template = templateId ? templateMap.get(templateId) : null;
 
             return {
+                doc_id: String(doc?.$id || '').trim() || undefined,
                 question: String(doc?.title || '').trim(),
                 payload: templateId || String(doc?.template_content || '').trim(),
                 template_id: templateId || undefined,
                 template_name: template?.name || undefined,
                 template_type: doc?.template_type || template?.template_type || undefined,
                 template_data: template?.parsedTemplateData || undefined,
-                ...normalizeReplyAutomationOptions(doc, { configured: hasConfiguredReplyTemplate(templateId || doc?.template_content) })
+                ...normalizeReplyAutomationOptions(doc, { configured: hasConfiguredReplyTemplate(templateId || doc?.template_content) }),
+                collect_email_enabled: false,
+                collect_email_only_gmail: false,
+                collect_email_prompt_message: '',
+                collect_email_fail_retry_message: '',
+                collect_email_success_reply_message: ''
             };
         })
         .filter((item) => item.question)
 );
+
+const mergeConvoStarterOrder = (savedStarters, automationStarters) => {
+    const saved = Array.isArray(savedStarters) ? savedStarters : [];
+    const docs = Array.isArray(automationStarters) ? automationStarters : [];
+    if (saved.length === 0) return docs;
+
+    const byDocId = new Map();
+    const byQuestion = new Map();
+    docs.forEach((starter) => {
+        const docId = String(starter?.doc_id || '').trim();
+        const questionKey = normalizeTitle(starter?.question || '');
+        if (docId) byDocId.set(docId, starter);
+        if (questionKey && !byQuestion.has(questionKey)) byQuestion.set(questionKey, starter);
+    });
+
+    const usedDocIds = new Set();
+    const ordered = [];
+
+    saved.forEach((starter) => {
+        const docId = String(starter?.doc_id || '').trim();
+        const questionKey = normalizeTitle(starter?.question || '');
+        const match = (docId && byDocId.get(docId)) || (questionKey && byQuestion.get(questionKey)) || null;
+        if (!match) return;
+        const matchDocId = String(match?.doc_id || '').trim();
+        if (matchDocId) usedDocIds.add(matchDocId);
+        ordered.push(match);
+    });
+
+    docs.forEach((starter) => {
+        const docId = String(starter?.doc_id || '').trim();
+        if (docId && usedDocIds.has(docId)) return;
+        ordered.push(starter);
+    });
+
+    return ordered;
+};
 
 const normalizeInboxMenuForComparison = (menuItems) => (
     (Array.isArray(menuItems) ? menuItems : [])
@@ -4462,11 +4591,16 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
                     share_to_admin_enabled: false,
                     once_per_user_24h: isWebUrl ? false : normalizedAutoReplyItem.once_per_user_24h === true,
                     story_scope: 'shown',
-                    collect_email_enabled: isWebUrl ? false : normalizedAutoReplyItem.collect_email_enabled === true,
-                    collect_email_only_gmail: isWebUrl ? false : normalizedAutoReplyItem.collect_email_only_gmail === true,
-                    collect_email_prompt_message: isWebUrl ? '' : normalizedAutoReplyItem.collect_email_prompt_message,
-                    collect_email_fail_retry_message: isWebUrl ? '' : normalizedAutoReplyItem.collect_email_fail_retry_message,
-                    collect_email_success_reply_message: isWebUrl ? '' : normalizedAutoReplyItem.collect_email_success_reply_message,
+                    collect_email_enabled: false,
+                    collect_email_only_gmail: false,
+                    collect_email_prompt_message: '',
+                    collect_email_fail_retry_message: '',
+                    collect_email_success_reply_message: '',
+                    collect_email_destination_type: '',
+                    collect_email_webhook_url: null,
+                    collect_email_destination_id: '',
+                    collect_email_destination_json: '',
+                    collect_email_webhook_verified_at: null,
                     seen_typing_enabled: isWebUrl ? false : normalizedAutoReplyItem.seen_typing_enabled === true,
                     comment_reply: isWebUrl
                         ? toSafeString(item.webview_height_ratio || 'full', 1000)
@@ -4589,6 +4723,7 @@ router.get('/instagram/convo-starters', loginRequired, async (req, res) => {
         });
 
         let dbStarters = [];
+        let savedStarterOrder = [];
         try {
             const starterAutomationDocs = await listConvoStarterDocuments(databases, {
                 userId: req.user.$id,
@@ -4606,14 +4741,21 @@ router.get('/instagram/convo-starters', loginRequired, async (req, res) => {
                     [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
                 if (starterDocs.total > 0) {
                     try {
-                        dbStarters = typeof starterDocs.documents[0].starters === 'string'
+                        savedStarterOrder = typeof starterDocs.documents[0].starters === 'string'
                             ? JSON.parse(starterDocs.documents[0].starters)
                             : (starterDocs.documents[0].starters || []);
+                        if (dbStarters.length === 0) {
+                            dbStarters = savedStarterOrder;
+                        }
                     } catch (e) {
-                        dbStarters = [];
+                        savedStarterOrder = [];
                     }
                 }
             } catch (e) { }
+        }
+
+        if (dbStarters.length > 0 && savedStarterOrder.length > 0) {
+            dbStarters = mergeConvoStarterOrder(savedStarterOrder, dbStarters);
         }
 
         // Try fetching from IG
@@ -4691,6 +4833,7 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
             const templateId = String(starter?.template_id || starter?.payload || '').trim();
             const configured = hasConfiguredReplyTemplate(templateId);
             return {
+                doc_id: String(starter?.doc_id || '').trim() || undefined,
                 question: String(starter?.question || '').trim(),
                 payload: templateId,
                 template_id: templateId || undefined,
@@ -4724,11 +4867,13 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
             limit: 20
         }).catch(() => ({ documents: [] }));
 
-        for (const doc of (existingAutomationDocs.documents || [])) {
-            await deleteAutomationWithArtifacts(databases, doc);
-        }
-
         const automationCollectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
+        const existingDocs = Array.isArray(existingAutomationDocs.documents) ? existingAutomationDocs.documents : [];
+        const existingById = new Map(existingDocs.map((doc) => [String(doc?.$id || '').trim(), doc]));
+        const existingByQuestion = new Map(existingDocs.map((doc) => [normalizeTitle(doc?.title || ''), doc]));
+        const retainedDocIds = new Set();
+        const persistedStarters = [];
+
         for (const starter of normalizedStarters) {
             const docData = sanitizePayloadForCollection({
                 user_id: req.user.$id,
@@ -4758,24 +4903,56 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
                 share_to_admin_enabled: false,
                 once_per_user_24h: starter.once_per_user_24h === true,
                 story_scope: 'shown',
-                collect_email_enabled: starter.collect_email_enabled === true,
-                collect_email_only_gmail: starter.collect_email_only_gmail === true,
-                collect_email_prompt_message: starter.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT,
-                collect_email_fail_retry_message: starter.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
-                collect_email_success_reply_message: starter.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT,
+                collect_email_enabled: false,
+                collect_email_only_gmail: false,
+                collect_email_prompt_message: '',
+                collect_email_fail_retry_message: '',
+                collect_email_success_reply_message: '',
                 seen_typing_enabled: starter.seen_typing_enabled === true,
                 comment_reply: '',
                 linked_media_id: null,
                 linked_media_url: null
             }, automationCollectionInfo);
 
-            await databases.createDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                AUTOMATIONS_COLLECTION_ID,
-                ID.unique(),
-                docData,
-                [Permission.read(Role.user(req.user.$id))]
-            );
+            const requestedDocId = String(starter.doc_id || '').trim();
+            const matchedExisting = existingById.get(requestedDocId) || existingByQuestion.get(normalizeTitle(starter.question || '')) || null;
+
+            let persistedDoc = null;
+            if (matchedExisting?.$id) {
+                persistedDoc = await databases.updateDocument(
+                    process.env.APPWRITE_DATABASE_ID,
+                    AUTOMATIONS_COLLECTION_ID,
+                    matchedExisting.$id,
+                    docData
+                );
+                retainedDocIds.add(String(matchedExisting.$id || '').trim());
+            } else {
+                persistedDoc = await databases.createDocument(
+                    process.env.APPWRITE_DATABASE_ID,
+                    AUTOMATIONS_COLLECTION_ID,
+                    ID.unique(),
+                    docData,
+                    [Permission.read(Role.user(req.user.$id))]
+                );
+                retainedDocIds.add(String(persistedDoc.$id || '').trim());
+            }
+
+            persistedStarters.push({
+                ...starter,
+                doc_id: String(persistedDoc?.$id || matchedExisting?.$id || '').trim() || undefined
+            });
+
+            if (persistedDoc?.$id) {
+                await clearCollectorDestinationOnAutomation(databases, persistedDoc.$id).catch((error) => {
+                    console.error(`Collector destination cleanup failed for convo starter ${persistedDoc.$id}: ${error.message}`);
+                });
+            }
+        }
+
+        for (const doc of existingDocs) {
+            const docId = String(doc?.$id || '').trim();
+            if (!docId || retainedDocIds.has(docId)) continue;
+            await deleteAutomationWithArtifacts(databases, doc);
         }
 
         try {
@@ -4784,7 +4961,7 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
             const docData = {
                 user_id: req.user.$id,
                 account_id,
-                starters: JSON.stringify(normalizedStarters)
+                starters: JSON.stringify(persistedStarters)
             };
 
             if (existing.total > 0) {
@@ -4811,7 +4988,7 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
             } catch (e) { console.error('Failed to publish convo starters to IG:', e.message); }
         }
 
-        res.json({ message: 'Convo starters saved successfully' });
+        res.json({ message: 'Convo starters saved successfully', starters: persistedStarters });
     } catch (err) {
         if (err?.statusCode && err?.payload) {
             return res.status(err.statusCode).json(err.payload);
@@ -5012,7 +5189,7 @@ router.post('/instagram/mentions-config', loginRequired, async (req, res) => {
             linked_media_url: null
         }, automationCollectionInfo);
 
-        await upsertSingletonAutomation({
+        const savedDoc = await upsertSingletonAutomation({
             databases,
             databaseId: process.env.APPWRITE_DATABASE_ID,
             Query,
@@ -5031,7 +5208,13 @@ router.post('/instagram/mentions-config', loginRequired, async (req, res) => {
             }
         });
 
-        res.json({ message: 'Mentions config saved' });
+        if (payload.collect_email_enabled !== true && savedDoc?.$id) {
+            await clearCollectorDestinationOnAutomation(databases, savedDoc.$id).catch((error) => {
+                console.error(`Collector destination cleanup failed for mentions automation ${savedDoc.$id}: ${error.message}`);
+            });
+        }
+
+        res.json({ message: 'Mentions config saved', doc_id: String(savedDoc?.$id || '').trim() || null });
     } catch (err) {
         if (err?.statusCode && err?.payload) {
             return res.status(err.statusCode).json(err.payload);

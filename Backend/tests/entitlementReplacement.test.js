@@ -155,7 +155,7 @@ test('admin override -> new payment clears override immediately', async () => {
     assert.deepEqual(patch, { admin_override_json: null });
 });
 
-test('reset to default with valid transaction restores latest active paid transaction only when it is the newest transaction', () => {
+test('reset to default with valid transactions restores the most recent valid paid transaction', () => {
     const transactions = [
         buildTransaction({
             id: 'tx-old-valid',
@@ -192,7 +192,7 @@ test('reset to default with expired or no transaction becomes free', () => {
     assert.equal(selectLatestTransactionFromDocuments(expiredTransactions, pricingPlans, NOW), null);
 });
 
-test('multiple transaction edge cases use the last transaction only and ignore older active history', () => {
+test('multiple transaction edge cases skip invalid recent transactions and restore the most recent valid one', () => {
     const transactions = [
         buildTransaction({
             id: 'tx-older-valid',
@@ -223,7 +223,8 @@ test('multiple transaction edge cases use the last transaction only and ignore o
     ];
 
     const latest = selectLatestTransactionFromDocuments(transactions, pricingPlans, NOW);
-    assert.equal(latest, null);
+    assert.equal(latest.planId, 'pro');
+    assert.equal(latest.expiryDate, '2026-07-01T00:00:00.000Z');
 });
 
 test('admin override payload stays compact enough for the current live Appwrite schema', () => {

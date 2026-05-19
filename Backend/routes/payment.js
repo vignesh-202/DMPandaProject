@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const Razorpay = require('razorpay');
-const { Databases, Query, ID } = require('node-appwrite');
+const { Databases, Query, ID, Messaging } = require('node-appwrite');
 const { loginRequired } = require('../middleware/auth');
 const {
     getAppwriteClient,
@@ -14,6 +14,7 @@ const {
     PAYMENT_ATTEMPTS_COLLECTION_ID
 } = require('../utils/appwrite');
 const { buildTransactionReceipt } = require('../utils/transactionReceipt');
+const { renderEmailLayout } = require('../utils/emailTemplate');
 const {
     normalizePlanCode,
     normalizePlanDocument,
@@ -359,28 +360,31 @@ const buildTransactionDocumentData = ({
     razorpay_payment_id,
     notes = '',
     paymentAttemptId = null
-}) => ({
-    transactionId: String(razorpay_payment_id || '').trim(),
-    amount: Number(pricing.final_amount || 0),
-    currency: pricing.currency,
-    transactionDate: new Date().toISOString(),
-    status: 'success',
-    userId: String(userId || '').trim(),
-    planCode: String(plan.plan_code || plan.id || '').trim(),
-    planName: String(plan.name || 'Plan').trim(),
-    billingCycle: pricing.billing_cycle,
-    baseAmount: Number(pricing.base_amount || 0),
-    discountAmount: Number(pricing.discount || 0),
-    finalAmount: Number(pricing.final_amount || 0),
-    paymentProvider: 'razorpay',
-    gatewayOrderId: razorpay_order_id || null,
-    gatewayPaymentId: razorpay_payment_id || null,
-    couponId: appliedCoupon?.$id || '',
-    couponCode: appliedCoupon?.code || '',
-    paymentAttemptId: paymentAttemptId || null,
-    notes: String(notes || '').trim(),
-    switchType: 'purchase'
-});
+}) => {
+    const generatedSuffix = ID.unique();
+    return {
+        transactionId: String(razorpay_payment_id || `ctx_${generatedSuffix}`).trim(),
+        amount: Number(pricing.final_amount || 0),
+        currency: pricing.currency,
+        transactionDate: new Date().toISOString(),
+        status: 'success',
+        userId: String(userId || '').trim(),
+        planCode: String(plan.plan_code || plan.id || '').trim(),
+        planName: String(plan.name || 'Plan').trim(),
+        billingCycle: pricing.billing_cycle,
+        baseAmount: Number(pricing.base_amount || 0),
+        discountAmount: Number(pricing.discount || 0),
+        finalAmount: Number(pricing.final_amount || 0),
+        paymentProvider: 'razorpay',
+        gatewayOrderId: razorpay_order_id || `cord_${generatedSuffix}`,
+        gatewayPaymentId: razorpay_payment_id || `cpay_${generatedSuffix}`,
+        couponId: appliedCoupon?.$id || '',
+        couponCode: appliedCoupon?.code || '',
+        paymentAttemptId: paymentAttemptId || null,
+        notes: String(notes || '').trim(),
+        switchType: 'purchase'
+    };
+};
 
 const normalizePaymentAttemptStatus = (value, fallback = 'created') => {
     const normalized = String(value || '').trim().toLowerCase();
@@ -583,12 +587,27 @@ const upsertSuccessfulTransaction = async ({
         return patchExistingTransaction(databases, transaction, payload);
     }
 
-    return retryAppwriteOperation(() => databases.createDocument(
-        APPWRITE_DATABASE_ID,
-        TRANSACTIONS_COLLECTION_ID,
-        ID.unique(),
-        payload
-    ));
+    try {
+        return await retryAppwriteOperation(() => databases.createDocument(
+            APPWRITE_DATABASE_ID,
+            TRANSACTIONS_COLLECTION_ID,
+            ID.unique(),
+            payload
+        ));
+    } catch (error) {
+        if (error.code === 409) {
+            let existingTransaction = razorpay_payment_id
+                ? await findTransactionDocument(databases, userId, razorpay_payment_id)
+                : null;
+            if (!existingTransaction && razorpay_order_id) {
+                existingTransaction = await findTransactionDocument(databases, userId, razorpay_order_id);
+            }
+            if (existingTransaction) {
+                return patchExistingTransaction(databases, existingTransaction, payload);
+            }
+        }
+        throw error;
+    }
 };
 
 const getCapturedPaymentForOrder = async (orderId) => {
@@ -709,10 +728,30 @@ const ensureUserProfileDocument = async (
     });
 
     if (!existingProfile) {
-        return retryAppwriteOperation(() => databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, {
-            user_id: String(userId || '').trim(),
-            ...payload
-        }));
+        try {
+            return await retryAppwriteOperation(() => databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, {
+                user_id: String(userId || '').trim(),
+                ...payload
+            }));
+        } catch (error) {
+            const errorCode = Number(error?.code || error?.response?.code || 0);
+            if (errorCode === 409) {
+                const conflictedProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, profileId)
+                    || (await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
+                        Query.equal('user_id', String(userId || '').trim()),
+                        Query.limit(1)
+                    ])).then((response) => response.documents?.[0] || null).catch(() => null));
+                if (conflictedProfile?.$id) {
+                    return retryAppwriteOperation(() => databases.updateDocument(
+                        APPWRITE_DATABASE_ID,
+                        PROFILES_COLLECTION_ID,
+                        conflictedProfile.$id,
+                        payload
+                    ));
+                }
+            }
+            throw error;
+        }
     }
 
     return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, payload));
@@ -724,6 +763,44 @@ const clearAdminOverrideForUserProfile = async (databases, userId) => {
     return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, existingProfile.$id, {
         admin_override_json: clearAdminOverridePayload()
     }));
+};
+
+const sendSubscriptionSuccessEmail = async (userId, plan, pricing, appliedCoupon, subscriptionExpires) => {
+    try {
+        const messaging = new Messaging(getAppwriteClient({ useApiKey: true }));
+        const planName = String(plan.name || 'Plan').trim();
+        const expiryText = subscriptionExpires ? new Date(subscriptionExpires).toISOString().split('T')[0] : 'Unknown';
+        
+        const html = renderEmailLayout({
+            title: 'Your Subscription is Active!',
+            preheader: `You have successfully subscribed to the ${planName} plan.`,
+            greeting: 'Hello,',
+            intro: `Great news! Your subscription to the ${planName} plan has been successfully activated.`,
+            summaryRows: [
+                ['Plan', planName],
+                ['Billing Cycle', String(pricing.billing_cycle).toUpperCase()],
+                ['Effective until', expiryText],
+                ...(appliedCoupon ? [['Coupon applied', appliedCoupon.code]] : [])
+            ],
+            paragraphs: [
+                'You now have full access to premium automation features included in your plan.',
+                'If you have any questions or need help setting up your automations, feel free to reach out to our support team.'
+            ],
+            ctaLabel: 'Go to Dashboard',
+            ctaUrl: process.env.FRONTEND_ORIGIN ? `${process.env.FRONTEND_ORIGIN}/dashboard` : 'https://dmpanda.com/dashboard',
+            frontendOrigin: process.env.FRONTEND_ORIGIN || ''
+        });
+
+        await messaging.createEmail({
+            messageId: ID.unique(),
+            subject: `Your DM Panda ${planName} Subscription is Active`,
+            content: html,
+            users: [userId],
+            html: true
+        });
+    } catch (err) {
+        console.error('Failed to send subscription success email:', err?.message || String(err));
+    }
 };
 
 const finalizePlanPurchase = async ({
@@ -820,6 +897,8 @@ const finalizePlanPurchase = async ({
         razorpay_payment_id,
         paymentAttemptId
     });
+
+    await sendSubscriptionSuccessEmail(userId, plan, pricing, appliedCoupon, subscriptionExpires);
 
     return {
         message: pricing.final_amount > 0
@@ -1296,7 +1375,7 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
         let appliedCoupon = null;
         if (paymentAttempt) {
             ({ plan, pricing, appliedCoupon } = await resolveAttemptPlanPurchase(databases, paymentAttempt));
-            if (plan_id && normalizePlanCode(plan_id) !== normalizePlanCode(plan.plan_code || plan.id)) {
+            if (plan_id && plan_id !== plan.id && normalizePlanCode(plan_id) !== normalizePlanCode(plan.plan_code)) {
                 return res.status(409).json({ error: 'Payment attempt plan does not match verification request.' });
             }
         } else {

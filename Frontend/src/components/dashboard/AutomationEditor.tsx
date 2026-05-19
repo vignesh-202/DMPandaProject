@@ -26,6 +26,7 @@ const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '⚠️ That email looks invalid. Pleas
 const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ✅';
 const AUTOMATION_TITLE_MAX = 25;
 const getUtf8Length = (value: string) => new TextEncoder().encode(String(value || '')).length;
+const normalizeUrlForVerification = (value: string) => String(value || '').trim();
 
 const trimToUtf8Length = (value: string, maxBytes: number) => {
     const input = String(value || '');
@@ -43,7 +44,9 @@ const createCollectorDestinationState = () => ({
     webhook_url: '',
     verified: false,
     verified_at: null as string | null,
-    destination_json: {} as Record<string, unknown>
+    destination_json: {} as Record<string, unknown>,
+    verification_token: null as string | null,
+    verification_expires_at: null as string | null
 });
 
 const buildHiddenAutomationTitle = (type: AutomationEditorProps['type'], mediaId?: string, override?: string) => {
@@ -476,7 +479,9 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         webhook_url: data.destination.webhook_url || '',
                         verified: data.destination.verified === true,
                         verified_at: data.destination.verified_at || null,
-                        destination_json: data.destination.destination_json || {}
+                        destination_json: data.destination.destination_json || {},
+                        verification_token: data.destination.verification_token || data.destination.destination_json?.verification_token || null,
+                        verification_expires_at: data.destination.verification_expires_at || data.destination.destination_json?.verification_expires_at || null
                     });
                 } else {
                     setCollectorDestination(createCollectorDestinationState());
@@ -498,7 +503,61 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         };
     }, [authenticatedFetch, automation?.$id, automation.collect_email_enabled]);
 
-    const persistCollectorDestination = React.useCallback(async (savedAutomationId: string, shouldVerify = false) => {
+    const verifyCollectorDestination = React.useCallback(async (automationRecordId: string) => {
+        if (!automationRecordId || automation.collect_email_enabled !== true) {
+            return false;
+        }
+
+        const urlValue = String(collectorDestination.webhook_url || '').trim();
+        if (!urlValue) {
+            setError('Enter a webhook URL for the email collector.');
+            return false;
+        }
+        if (!/^https:\/\//i.test(urlValue)) {
+            setError('Webhook URL must start with https://');
+            return false;
+        }
+
+        setCollectorDestinationSaving(true);
+        try {
+            const verifyRes = await authenticatedFetch(
+                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${automationRecordId}/email-collector-destination/verify`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        destination_type: 'webhook',
+                        webhook_url: urlValue
+                    })
+                }
+            );
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok) {
+                setError(verifyData?.error || 'Failed to verify email collector destination.');
+                return false;
+            }
+            const nextDestination = verifyData?.destination || null;
+            if (nextDestination) {
+                setCollectorDestination({
+                    destination_type: nextDestination.destination_type || 'webhook',
+                    webhook_url: nextDestination.webhook_url || '',
+                    verified: nextDestination.verified === true,
+                    verified_at: nextDestination.verified_at || null,
+                    destination_json: nextDestination.destination_json || {},
+                    verification_token: nextDestination.verification_token || nextDestination.destination_json?.verification_token || null,
+                    verification_expires_at: nextDestination.verification_expires_at || nextDestination.destination_json?.verification_expires_at || null
+                });
+            }
+            return true;
+        } catch (_) {
+            setError('Failed to verify email collector destination.');
+            return false;
+        } finally {
+            setCollectorDestinationSaving(false);
+        }
+    }, [authenticatedFetch, automation.collect_email_enabled, collectorDestination.webhook_url]);
+
+    const persistCollectorDestination = React.useCallback(async (savedAutomationId: string) => {
         if (!savedAutomationId || automation.collect_email_enabled !== true) {
             return true;
         }
@@ -507,6 +566,18 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
         if (!urlValue) {
             setError('Enter a webhook URL for the email collector.');
+            return false;
+        }
+        if (!/^https:\/\//i.test(urlValue)) {
+            setError('Webhook URL must start with https://');
+            return false;
+        }
+        if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
+            setError('Verify the webhook URL before saving the automation.');
+            return false;
+        }
+        if (normalizeUrlForVerification(urlValue) !== normalizeUrlForVerification(String(collectorDestination.webhook_url || ''))) {
+            setError('Webhook URL changed after verification. Please verify it again.');
             return false;
         }
 
@@ -519,7 +590,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         destination_type: 'webhook',
-                        webhook_url: urlValue
+                        webhook_url: urlValue,
+                        verification_token: collectorDestination.verification_token
                     })
                 }
             );
@@ -529,27 +601,16 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 return false;
             }
 
-            let nextDestination = saveData?.destination || null;
-            if (shouldVerify) {
-                const verifyRes = await authenticatedFetch(
-                    `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${savedAutomationId}/email-collector-destination/verify`,
-                    { method: 'POST' }
-                );
-                const verifyData = await verifyRes.json();
-                if (!verifyRes.ok) {
-                    setError(verifyData?.error || 'Failed to verify email collector destination.');
-                    return false;
-                }
-                nextDestination = verifyData?.destination || nextDestination;
-            }
-
+            const nextDestination = saveData?.destination || null;
             if (nextDestination) {
                 setCollectorDestination({
                     destination_type: nextDestination.destination_type || 'webhook',
                     webhook_url: nextDestination.webhook_url || '',
                     verified: nextDestination.verified === true,
                     verified_at: nextDestination.verified_at || null,
-                    destination_json: nextDestination.destination_json || {}
+                    destination_json: nextDestination.destination_json || {},
+                    verification_token: nextDestination.verification_token || nextDestination.destination_json?.verification_token || null,
+                    verification_expires_at: nextDestination.verification_expires_at || nextDestination.destination_json?.verification_expires_at || null
                 });
             }
 
@@ -872,6 +933,16 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     setSaving(false);
                     return false;
                 }
+                if (!/^https:\/\//i.test(destinationUrl)) {
+                    setError('Webhook URL must start with https://');
+                    setSaving(false);
+                    return false;
+                }
+                if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
+                    setError('Verify the webhook URL before saving the automation.');
+                    setSaving(false);
+                    return false;
+                }
             }
 
             const payload: any = {
@@ -917,7 +988,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             if (res.ok) {
                 const savedAutomationId = automation.$id || data?.automation_id || data?.$id;
                 if (automation.collect_email_enabled) {
-                    const collectorSaved = await persistCollectorDestination(savedAutomationId, true);
+                    const collectorSaved = await persistCollectorDestination(savedAutomationId);
                     if (!collectorSaved) {
                         return false;
                     }
@@ -1301,7 +1372,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                         <p className="text-[10px] text-muted-foreground">Paste your webhook URL. Verification will send sample lead data to this endpoint.</p>
                                         <input
                                             value={collectorDestination.webhook_url || ''}
-                                            onChange={(e) => setCollectorDestination((prev) => ({ ...prev, destination_type: 'webhook', webhook_url: e.target.value, verified: false, verified_at: null }))}
+                                            onChange={(e) => setCollectorDestination((prev) => ({ ...prev, destination_type: 'webhook', webhook_url: e.target.value, verified: false, verified_at: null, verification_token: null, verification_expires_at: null }))}
                                             className="w-full rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
                                             placeholder="https://example.com/webhook"
                                         />
@@ -1312,7 +1383,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                             type="button"
                                             disabled={!automation.$id || collectorDestinationSaving}
                                             onClick={async () => {
-                                                const ok = await persistCollectorDestination(String(automation.$id || ''), true);
+                                                const ok = await verifyCollectorDestination(String(automation.$id || ''));
                                                 if (ok) {
                                                     setSuccess('Email collector destination verified.');
                                                 }

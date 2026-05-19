@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { MessageSquare, Plus, RefreshCw, AlertCircle, Trash2, CheckCircle2, Instagram, MessageCircle, Loader2, Pencil, Image as ImageIcon, Reply, ArrowLeft, X, HelpCircle, List, Calendar, ChevronDown, Film, Globe, PlusSquare, Edit, LayoutGrid, GripVertical, Power, Lightbulb, Mail, Info } from 'lucide-react';
+import { MessageSquare, Plus, RefreshCw, AlertCircle, Trash2, CheckCircle2, Instagram, MessageCircle, Loader2, Pencil, Image as ImageIcon, Reply, ArrowLeft, X, HelpCircle, List, Calendar, ChevronDown, Film, Globe, PlusSquare, Edit, LayoutGrid, GripVertical, Power, Lightbulb, Info } from 'lucide-react';
 import Card from '../../components/ui/card';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
@@ -23,6 +23,7 @@ let sharedConvoStarterMediaPromise: Promise<any[]> | null = null;
 let sharedConvoStarterMediaKey = '';
 
 interface ConvoStarter {
+    doc_id?: string;
     question: string;
     payload: string;
     template_name?: string;
@@ -35,11 +36,6 @@ interface ConvoStarter {
     followers_only_secondary_button_text?: string;
     suggest_more_enabled?: boolean;
     once_per_user_24h?: boolean;
-    collect_email_enabled?: boolean;
-    collect_email_only_gmail?: boolean;
-    collect_email_prompt_message?: string;
-    collect_email_fail_retry_message?: string;
-    collect_email_success_reply_message?: string;
     seen_typing_enabled?: boolean;
 }
 
@@ -56,9 +52,6 @@ const getByteLength = (str: string) => new Blob([str]).size;
 const FOLLOWERS_ONLY_MESSAGE_DEFAULT = 'Please follow this account first, then send your message again.';
 const FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT = '👤 Follow Account';
 const FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT = "✅ I've Followed";
-const COLLECT_EMAIL_PROMPT_DEFAULT = '📧 Could you share your best email so we can send the details and updates ✨';
-const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '⚠️ That email looks invalid. Please send a valid email like name@example.com.';
-const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ✅';
 const createBlankStarter = (): ConvoStarter => ({
     question: '',
     payload: '',
@@ -68,11 +61,6 @@ const createBlankStarter = (): ConvoStarter => ({
     followers_only_secondary_button_text: FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
     suggest_more_enabled: false,
     once_per_user_24h: false,
-    collect_email_enabled: false,
-    collect_email_only_gmail: false,
-    collect_email_prompt_message: COLLECT_EMAIL_PROMPT_DEFAULT,
-    collect_email_fail_retry_message: COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
-    collect_email_success_reply_message: COLLECT_EMAIL_SUCCESS_DEFAULT,
     seen_typing_enabled: false
 });
 const normalizeQuestion = (value: string) => (value || '').trim().toLowerCase();
@@ -279,7 +267,10 @@ const ConvoStarterView: React.FC = () => {
                 }
             );
             if (res.ok) {
-                setInitialStarters(JSON.parse(JSON.stringify(convoStarters)));
+                const data = await res.json();
+                const savedStarters = Array.isArray(data?.starters) ? data.starters : convoStarters;
+                setConvoStarters(savedStarters);
+                setInitialStarters(JSON.parse(JSON.stringify(savedStarters)));
                 setHasUnsavedChanges(false);
                 setSaving(false);
                 return true;
@@ -294,7 +285,6 @@ const ConvoStarterView: React.FC = () => {
             return false;
         }
     };
-
 
     // Clear success/error messages when account changes
     useEffect(() => {
@@ -560,6 +550,7 @@ const ConvoStarterView: React.FC = () => {
             const cleanedStarters = convoStarters.map(starter => {
                 const templateId = String(starter.template_id || starter.payload || '').trim();
                 return {
+                    doc_id: starter.doc_id || undefined,
                     question: starter.question,
                     payload: templateId,
                     template_id: templateId || undefined,
@@ -570,11 +561,6 @@ const ConvoStarterView: React.FC = () => {
                     followers_only_secondary_button_text: starter.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
                     suggest_more_enabled: starter.suggest_more_enabled === true,
                     once_per_user_24h: starter.once_per_user_24h === true,
-                    collect_email_enabled: starter.collect_email_enabled === true,
-                    collect_email_only_gmail: starter.collect_email_only_gmail === true,
-                    collect_email_prompt_message: starter.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT,
-                    collect_email_fail_retry_message: starter.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
-                    collect_email_success_reply_message: starter.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT,
                     seen_typing_enabled: starter.seen_typing_enabled === true
                 };
             });
@@ -588,8 +574,11 @@ const ConvoStarterView: React.FC = () => {
                 }
             );
             if (res.ok) {
+                const data = await res.json();
+                const savedStarters = Array.isArray(data?.starters) ? data.starters : convoStarters;
+                setConvoStarters(savedStarters);
                 setSuccess('Conversation starters published successfully!');
-                setInitialStarters(JSON.parse(JSON.stringify(convoStarters)));
+                setInitialStarters(JSON.parse(JSON.stringify(savedStarters)));
                 fetchConvoStarters(true);
             } else {
                 const data = await res.json();
@@ -932,66 +921,6 @@ const ConvoStarterView: React.FC = () => {
                                         onUpgrade={() => setCurrentView('My Plan')}
                                         activeIconClassName="text-cyan-500"
                                     />
-
-                                    <div className="space-y-3">
-                                        <LockedFeatureToggle
-                                            icon={<Mail className={`w-5 h-5 ${newItem.collect_email_enabled ? 'text-indigo-500' : 'text-gray-400'}`} />}
-                                            title="Collect Email"
-                                            description="Prompt users for their email address before completing the automation flow."
-                                            checked={Boolean(newItem.collect_email_enabled)}
-                                            onToggle={() => setNewItem({
-                                                ...newItem,
-                                                collect_email_enabled: !newItem.collect_email_enabled,
-                                                collect_email_only_gmail: newItem.collect_email_enabled ? false : newItem.collect_email_only_gmail
-                                            })}
-                                            locked={getPlanGate('collect_email').isLocked}
-                                            note={getPlanGate('collect_email').note}
-                                            onUpgrade={() => setCurrentView('My Plan')}
-                                            activeIconClassName="text-indigo-500"
-                                        />
-                                        {newItem.collect_email_enabled && !getPlanGate('collect_email').isLocked && (
-                                            <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
-                                                <LockedFeatureToggle
-                                                    icon={<Mail className={`w-5 h-5 ${newItem.collect_email_only_gmail ? 'text-indigo-500' : 'text-gray-400'}`} />}
-                                                    title="Allow Only Gmail"
-                                                    description="Only accept @gmail.com email addresses."
-                                                    checked={Boolean(newItem.collect_email_only_gmail)}
-                                                    onToggle={() => setNewItem({ ...newItem, collect_email_only_gmail: !newItem.collect_email_only_gmail })}
-                                                    activeIconClassName="text-indigo-500"
-                                                />
-                                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Prompt Message</p>
-                                                    <textarea
-                                                        value={newItem.collect_email_prompt_message || ''}
-                                                        onChange={(e) => setNewItem({ ...newItem, collect_email_prompt_message: e.target.value })}
-                                                        className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
-                                                        placeholder={COLLECT_EMAIL_PROMPT_DEFAULT}
-                                                    />
-                                                    <p className="text-[9px] text-muted-foreground">{getByteLength(newItem.collect_email_prompt_message || '')}/1000 bytes</p>
-                                                </div>
-                                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Retry Message</p>
-                                                    <textarea
-                                                        value={newItem.collect_email_fail_retry_message || ''}
-                                                        onChange={(e) => setNewItem({ ...newItem, collect_email_fail_retry_message: e.target.value })}
-                                                        className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
-                                                        placeholder={COLLECT_EMAIL_FAIL_RETRY_DEFAULT}
-                                                    />
-                                                    <p className="text-[9px] text-muted-foreground">{getByteLength(newItem.collect_email_fail_retry_message || '')}/1000 bytes</p>
-                                                </div>
-                                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Success Message</p>
-                                                    <textarea
-                                                        value={newItem.collect_email_success_reply_message || ''}
-                                                        onChange={(e) => setNewItem({ ...newItem, collect_email_success_reply_message: e.target.value })}
-                                                        className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
-                                                        placeholder={COLLECT_EMAIL_SUCCESS_DEFAULT}
-                                                    />
-                                                    <p className="text-[9px] text-muted-foreground">{getByteLength(newItem.collect_email_success_reply_message || '')}/1000 bytes</p>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
 
                                     <LockedFeatureToggle
                                         icon={<MessageSquare className={`w-5 h-5 ${newItem.seen_typing_enabled ? 'text-violet-500' : 'text-gray-400'}`} />}

@@ -3,6 +3,22 @@ import requests
 from appwrite.client import Client
 from appwrite.query import Query
 
+PAGE_SIZE = 100
+
+
+def _env(key: str, default: str = "") -> str:
+    runtime_key = {
+        "APPWRITE_ENDPOINT": "APPWRITE_FUNCTION_API_ENDPOINT",
+        "APPWRITE_PROJECT_ID": "APPWRITE_FUNCTION_PROJECT_ID",
+        "APPWRITE_API_KEY": "APPWRITE_FUNCTION_API_KEY",
+    }.get(key, key.replace("APPWRITE_", "APPWRITE_FUNCTION_"))
+    return str(
+        os.environ.get(key)
+        or os.environ.get(runtime_key)
+        or default
+        or ""
+    ).strip()
+
 
 def _call_appwrite(client, method, path, params=None):
     headers = {"content-type": "application/json"}
@@ -55,27 +71,47 @@ def _is_dry_run_request(context):
     headers = _request_header_map(context)
     return headers.get("x-dry-run") in {"1", "true", "yes", "on"}
 
+
+def _list_all_documents(client, db_id, collection_id):
+    rows = []
+    cursor = None
+    while True:
+        queries = [Query.limit(PAGE_SIZE), Query.order_asc("$id")]
+        if cursor:
+            queries.append(Query.cursor_after(cursor))
+        result = _list_documents(client, db_id, collection_id, queries=queries)
+        documents = result.get("documents", []) or []
+        if not documents:
+            break
+        rows.extend(documents)
+        if len(documents) < PAGE_SIZE:
+            break
+        cursor = str(_obj_get(documents[-1], "$id", "") or "").strip()
+        if not cursor:
+            break
+    return rows
+
 # Scheduled function (every 30 days) to refresh Instagram access tokens.
 def main(context):
     try:
         dry_run = _is_dry_run_request(context)
+        endpoint = _env("APPWRITE_ENDPOINT")
+        project_id = _env("APPWRITE_PROJECT_ID")
+        api_key = _env("APPWRITE_API_KEY")
+        db_id = _env("APPWRITE_DATABASE_ID")
+        if not endpoint or not project_id or not api_key or not db_id:
+            raise ValueError("Missing required Appwrite runtime configuration.")
 
         client = Client()
-        client.set_endpoint(os.environ['APPWRITE_ENDPOINT'])
-        client.set_project(os.environ['APPWRITE_PROJECT_ID'])
-        client.set_key(os.environ['APPWRITE_API_KEY'])
-
-        db_id = os.environ['APPWRITE_DATABASE_ID']
+        client.set_endpoint(endpoint)
+        client.set_project(project_id)
+        client.set_key(api_key)
 
         # Refresh tokens for all still-linked accounts so user/admin inactive accounts
         # can be reactivated without forcing an unnecessary reconnect.
-        result = _list_documents(client, db_id, 'ig_accounts', queries=[
-            Query.limit(100)
-        ])
-
         accounts = [
             account
-            for account in result['documents']
+            for account in _list_all_documents(client, db_id, 'ig_accounts')
             if str(account.get('status') or 'active').strip().lower() in {'active', 'inactive'}
         ]
         context.log(f"Found {len(accounts)} linked accounts to refresh.")
@@ -104,7 +140,7 @@ def main(context):
                     "access_token": current_token
                 }
                 
-                response = requests.get(url, params=params)
+                response = requests.get(url, params=params, timeout=30)
                 data = response.json()
 
                 if response.status_code == 200:

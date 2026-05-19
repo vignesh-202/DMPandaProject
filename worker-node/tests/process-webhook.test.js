@@ -946,6 +946,149 @@ test('processMessage matches postback payload for convo starters and menu automa
     }
 });
 
+test('processMessage ignores legacy collect-email flags on convo starters', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    const sentMessages = [];
+    const convoStarterAutomation = {
+        $id: 'auto-convo-legacy-email',
+        title: 'Legacy Starter',
+        title_normalized: 'legacy starter',
+        template_id: 'tpl-convo-legacy',
+        template_content: 'tpl-convo-legacy',
+        account_id: '17841452817679462',
+        is_active: true,
+        automation_type: 'convo_starter',
+        trigger_type: 'ice_breakers',
+        collect_email_enabled: true,
+        collect_email_prompt_message: 'Share your email'
+    };
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations() {
+            return [convoStarterAutomation];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getTemplate(templateId) {
+            if (templateId === 'tpl-convo-legacy') {
+                return { type: 'template_text', payload: { text: 'Legacy convo reply' } };
+            }
+            return null;
+        }
+
+        async getProfile() { return null; }
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+        async getWatermarkPolicy() { return { enabled: false }; }
+        async getConversationState() { return null; }
+        async upsertConversationState() {
+            throw new Error('Convo starters should not enter pending email collection.');
+        }
+        async clearConversationState() { return true; }
+        async recordCollectedEmail() { return true; }
+        buildAutomationTemplate(automation) {
+            return { type: 'template_text', payload: { text: automation.template_content || '' } };
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload) {
+            sentMessages.push({ recipientId, messageType, payload });
+            return true;
+        }
+    }
+
+    try {
+        delete require.cache[appwritePath];
+        delete require.cache[instagramPath];
+        delete require.cache[rendererPath];
+        delete require.cache[watermarkPath];
+        delete require.cache[workerPath];
+
+        require.cache[appwritePath] = { exports: MockAppwriteClient };
+        require.cache[instagramPath] = { exports: MockInstagramAPI };
+        require.cache[rendererPath] = {
+            exports: {
+                render() {
+                    return { type: 'template_text', payload: { text: 'Legacy convo reply' } };
+                }
+            }
+        };
+        require.cache[watermarkPath] = {
+            exports: {
+                planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+                resolveWatermarkPolicy: async () => ({ enabled: false })
+            }
+        };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+        const result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: '845495078336227' },
+                    message: { text: 'legacy starter' }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'convo_starter' });
+        assert.equal(sentMessages.length, 1);
+        assert.equal(sentMessages[0].payload.text, 'Legacy convo reply');
+    } finally {
+        restore();
+    }
+});
+
 test('processMessage sends button postback payload as text reply when no automation matches', async () => {
     const workerPath = require.resolve('../src/worker');
     const appwritePath = require.resolve('../src/appwrite');

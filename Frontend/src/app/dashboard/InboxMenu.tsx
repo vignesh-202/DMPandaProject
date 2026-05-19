@@ -29,6 +29,7 @@ interface MenuItem {
     url?: string;
     webview_height_ratio?: 'full';
     followers_only?: boolean;
+    once_per_user_24h?: boolean;
     seen_typing_enabled?: boolean;
     template_name?: string;
     template_type?: 'template_text' | 'template_carousel' | 'template_buttons' | 'template_media' | 'template_share_post' | 'template_quick_replies';
@@ -112,6 +113,7 @@ const InboxMenu: React.FC = () => {
         title: '',
         type: 'postback',
         followers_only: false,
+        once_per_user_24h: false,
         seen_typing_enabled: false,
         webview_height_ratio: 'full',
         template_type: 'template_text',
@@ -322,6 +324,7 @@ const InboxMenu: React.FC = () => {
             title: '',
             type: 'postback',
             followers_only: false,
+            once_per_user_24h: false,
             seen_typing_enabled: false,
             webview_height_ratio: 'full',
             template_type: 'template_text',
@@ -572,6 +575,7 @@ const InboxMenu: React.FC = () => {
             title: '',
             type: 'postback',
             followers_only: false,
+            once_per_user_24h: false,
             seen_typing_enabled: false,
             webview_height_ratio: 'full',
             template_type: 'template_text',
@@ -658,7 +662,8 @@ const InboxMenu: React.FC = () => {
                     const item: any = {
                         type: m.type,
                         title: m.title,
-                        followers_only: m.followers_only || false
+                        followers_only: m.followers_only || false,
+                        once_per_user_24h: m.once_per_user_24h === true
                     };
 
                     if (m.type === 'web_url') {
@@ -801,6 +806,7 @@ const InboxMenu: React.FC = () => {
             title: '',
             type: 'postback',
             followers_only: false,
+            once_per_user_24h: false,
             seen_typing_enabled: false,
             webview_height_ratio: 'full',
             template_type: 'template_text',
@@ -883,6 +889,7 @@ const InboxMenu: React.FC = () => {
                 title: '',
                 type: 'postback',
                 followers_only: false,
+                once_per_user_24h: false,
                 seen_typing_enabled: false,
                 webview_height_ratio: 'full',
                 template_type: 'template_text',
@@ -1447,27 +1454,15 @@ const InboxMenu: React.FC = () => {
                                                     />
 
                                                     <LockedFeatureToggle
-                                                        icon={<Calendar className={`w-5 h-5 text-gray-400`} />}
+                                                        icon={<Calendar className={`w-5 h-5 ${newItem.once_per_user_24h ? 'text-cyan-500' : 'text-gray-400'}`} />}
                                                         title="Once Per User (24h)"
                                                         description="Prevent the same person from retriggering this automation again for 24 hours."
-                                                        checked={false}
-                                                        onToggle={() => { }}
-                                                        locked={false}
-                                                        note=""
+                                                        checked={newItem.once_per_user_24h === true}
+                                                        onToggle={() => setNewItem({ ...newItem, once_per_user_24h: !(newItem.once_per_user_24h === true) })}
+                                                        locked={getPlanGate('once_per_user_24h').isLocked}
+                                                        note={getPlanGate('once_per_user_24h').note}
+                                                        onUpgrade={() => setCurrentView('My Plan')}
                                                         activeIconClassName="text-cyan-500"
-                                                        actionElement={<span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Coming Soon</span>}
-                                                    />
-
-                                                    <LockedFeatureToggle
-                                                        icon={<Mail className={`w-5 h-5 text-gray-400`} />}
-                                                        title="Collect Email"
-                                                        description="Prompt users for their email address before completing the automation flow."
-                                                        checked={false}
-                                                        onToggle={() => { }}
-                                                        locked={false}
-                                                        note=""
-                                                        activeIconClassName="text-indigo-500"
-                                                        actionElement={<span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Coming Soon</span>}
                                                     />
 
                                                     <LockedFeatureToggle

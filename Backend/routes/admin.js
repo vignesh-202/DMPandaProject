@@ -896,8 +896,8 @@ const getLatestTransactionForUserReset = async (databases, userId) => {
     ]).catch(() => ({ documents: [] }));
     return (Array.isArray(response?.documents) ? response.documents : [])[0] || null;
 };
-const buildEffectivePlanResponse = async (databases, userId, userFallback = null) => {
-    const context = await resolveUserPlanContext(databases, userId, userFallback);
+const buildEffectivePlanResponse = async (databases, userId, userFallback = null, profileFallback = null) => {
+    const context = await resolveUserPlanContext(databases, userId, userFallback, profileFallback);
     const effectivePlanCode = String(context.subscriptionPlanId || context.plan?.plan_code || context.plan?.id || context.profile?.plan_code || 'free').trim() || 'free';
     const effectivePlanName = String(context.plan?.name || context.profile?.plan_name || effectivePlanCode || 'Free Plan').trim() || 'Free Plan';
     const effectivePlanSource = normalizePlanSource(context.profile?.plan_source || context.planSource || 'system', 'system');
@@ -2245,7 +2245,7 @@ router.get('/users/:userId', loginRequired, adminRequired, async (req, res) => {
         const profile = await getProfileForUser(databases, userId);
         const [accountAccessState, effectivePlanResponse, transactionsResponse] = await Promise.all([
             recomputeAccountAccessStateForUser(databases, userId, profile),
-            buildEffectivePlanResponse(databases, userId, user),
+            buildEffectivePlanResponse(databases, userId, user, profile),
             databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
                 Query.equal('userId', userId),
                 Query.limit(250),
@@ -2513,7 +2513,7 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             total_linked_accounts: Number(accountAccessState?.summary?.total_linked_accounts || 0),
             max_allowed_accounts: Number(accountAccessState?.summary?.max_allowed_accounts || 0),
             active_account_limit: Number(accountAccessState?.summary?.active_account_limit || 0),
-            ...(await buildEffectivePlanResponse(databases, userId, updatedUserDocument))
+            ...(await buildEffectivePlanResponse(databases, userId, updatedUserDocument, profile))
         });
     } catch (error) {
         console.error('Admin profile update error:', error?.message || String(error));
@@ -2596,10 +2596,11 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
             nextPlanSource = restoredTransaction ? 'payment' : 'system';
         }
 
+        let finalProfile = profile;
         if (profile) {
             const previousProfileSnapshot = buildProfileRollbackPayload(profile);
             try {
-                const updatedProfile = await databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profile.$id, {
+                finalProfile = await databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profile.$id, {
                     ...buildPlanProfilePayload({
                         currentProfile: profile,
                         plan: nextPlan,
@@ -2613,8 +2614,8 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
                         adminOverrideJson: clearAdminOverridePayload()
                     })
                 });
-                await syncUserIgAccountLimitSnapshots(databases, userId, resolvePlanLimits(nextPlan, updatedProfile)).catch(() => []);
-                await recomputeAccountAccessForUser(databases, userId, updatedProfile);
+                await syncUserIgAccountLimitSnapshots(databases, userId, resolvePlanLimits(nextPlan, finalProfile)).catch(() => []);
+                await recomputeAccountAccessForUser(databases, userId, finalProfile);
                 await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
             } catch (error) {
                 if (previousProfileSnapshot) {
@@ -2623,7 +2624,7 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
                 throw error;
             }
         } else if (action === 'reset_to_paid_snapshot_or_free') {
-            const createdProfile = await databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, userId, {
+            finalProfile = await databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, userId, {
                 user_id: userId,
                 credits: 0,
                 ...buildPlanProfilePayload({
@@ -2640,8 +2641,8 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
                     adminOverrideJson: clearAdminOverridePayload()
                 })
             });
-            await syncUserIgAccountLimitSnapshots(databases, userId, resolvePlanLimits(nextPlan, createdProfile)).catch(() => []);
-            await recomputeAccountAccessForUser(databases, userId, createdProfile);
+            await syncUserIgAccountLimitSnapshots(databases, userId, resolvePlanLimits(nextPlan, finalProfile)).catch(() => []);
+            await recomputeAccountAccessForUser(databases, userId, finalProfile);
             await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
         }
         await writeAdminAuditLog(databases, {
@@ -2667,7 +2668,7 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
                 : (action === 'reset_to_default_plan' || action === 'reset_to_free_plan')
                     ? 'Default plan restored successfully.'
                     : 'Plan reset successfully.',
-            ...(await buildEffectivePlanResponse(databases, userId, updatedUserDocument))
+            ...(await buildEffectivePlanResponse(databases, userId, updatedUserDocument, finalProfile))
         });
     } catch (error) {
         console.error('Admin reset plan error:', error?.message || String(error));
