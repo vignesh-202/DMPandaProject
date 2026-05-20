@@ -716,32 +716,57 @@ const ConvoStarterView: React.FC = () => {
 
             {!isCreatingItem && (
                 <>
-                    <div className="flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-end md:justify-between">
-                        <div className="space-y-2">
-                            <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Convo Starters</h1>
-                            <p className="text-sm font-medium text-muted-foreground">Help new visitors start a conversation. You can keep up to 4 quick starter prompts live on Instagram.</p>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-stretch gap-2 sm:justify-end sm:gap-3">
-                            <button
-                                onClick={() => fetchConvoStarters(true)}
-                                className="p-3 bg-secondary text-muted-foreground rounded-xl hover:bg-secondary/80 transition-all"
-                            >
-                                <RefreshCw className={`w-4 h-4 ${convoStarterLoading ? 'animate-spin' : ''}`} />
-                            </button>
-                            <div className="flex bg-secondary p-1 rounded-xl border border-border">
-                                <button
-                                    onClick={() => setLayoutMode('grid')}
-                                    className={`p-2 rounded-lg transition-all ${layoutMode === 'grid' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                                >
-                                    <LayoutGrid className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => setLayoutMode('rows')}
-                                    className={`p-2 rounded-lg transition-all ${layoutMode === 'rows' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                                >
-                                    <List className="w-4 h-4" />
-                                </button>
+                    <div className="space-y-4 border-b border-border pb-6">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Convo Starters</h1>
+                                    {status === 'match' && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-success-muted/60 text-success text-[10px] font-black uppercase tracking-widest rounded-full">
+                                            <CheckCircle2 className="w-2.5 h-2.5" /> Synced
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-sm font-medium text-muted-foreground">Help new visitors start a conversation. You can keep up to 4 quick starter prompts live on Instagram.</p>
                             </div>
+                            {/* Top row on mobile: Delete left, Refresh+Grid right */}
+                            <div className="flex items-center justify-between gap-2 md:justify-end md:gap-3">
+                                {convoStarters.length > 0 && (
+                                    <button
+                                        onClick={handleDeleteAll}
+                                        disabled={isDeleting}
+                                        className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-destructive px-4 py-3 text-[10px] font-black uppercase tracking-widest text-destructive-foreground shadow-xl shadow-destructive/20 transition-all disabled:opacity-70 md:w-auto md:px-8"
+                                    >
+                                        {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                        Delete
+                                    </button>
+                                )}
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => fetchConvoStarters(true)}
+                                        className="p-3 bg-secondary text-muted-foreground rounded-xl hover:bg-secondary/80 transition-all"
+                                    >
+                                        <RefreshCw className={`w-4 h-4 ${convoStarterLoading ? 'animate-spin' : ''}`} />
+                                    </button>
+                                    <div className="flex bg-secondary p-1 rounded-xl border border-border">
+                                        <button
+                                            onClick={() => setLayoutMode('grid')}
+                                            className={`p-2 rounded-lg transition-all ${layoutMode === 'grid' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                        >
+                                            <LayoutGrid className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setLayoutMode('rows')}
+                                            className={`p-2 rounded-lg transition-all ${layoutMode === 'rows' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                        >
+                                            <List className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Full-width action buttons below */}
+                        <div className="flex flex-col gap-2 md:flex-row md:justify-end md:gap-3">
                             {convoStarters.length < MAX_CONVO_STARTERS && (
                                 <button
                                     onClick={() => {
@@ -751,32 +776,17 @@ const ConvoStarterView: React.FC = () => {
                                         }
                                         void startCreate();
                                     }}
-                                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-4 py-3 text-[10px] font-black uppercase tracking-widest text-background shadow-xl shadow-foreground/10 transition-all sm:w-auto sm:px-8"
+                                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-4 py-3 text-[10px] font-black uppercase tracking-widest text-background shadow-xl shadow-foreground/10 transition-all md:w-auto md:px-8"
                                 >
                                     <Plus className="w-4 h-4" />
                                     Add Question
                                 </button>
                             )}
                             {hasChanges && editingIndex === null && (
-                                <button onClick={handlePublish} disabled={saving} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-xl shadow-primary/20 transition-all sm:w-auto sm:px-8">
+                                <button onClick={handlePublish} disabled={saving} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-xl shadow-primary/20 transition-all md:w-auto md:px-8">
                                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                                     Publish Changes
                                 </button>
-                            )}
-                            {convoStarters.length > 0 && (
-                                <button
-                                    onClick={handleDeleteAll}
-                                    disabled={isDeleting}
-                                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-destructive px-4 py-3 text-[10px] font-black uppercase tracking-widest text-destructive-foreground shadow-xl shadow-destructive/20 transition-all disabled:opacity-70 sm:w-auto sm:px-8"
-                                >
-                                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                    Delete
-                                </button>
-                            )}
-                            {status === 'match' && (
-                                <span className="flex items-center gap-1.5 px-3 py-1 bg-success-muted/60 text-success text-[10px] font-black uppercase tracking-widest rounded-full">
-                                    <CheckCircle2 className="w-3 h-3" /> Synced
-                                </span>
                             )}
                         </div>
                     </div>
@@ -787,7 +797,7 @@ const ConvoStarterView: React.FC = () => {
             {canShowMainWorkspace && (
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                     {/* Left: Form */}
-                    <div className="order-2 space-y-6 xl:order-1 xl:col-span-8 xl:overflow-y-auto xl:pr-2">
+                    <div className="order-2 space-y-6 xl:order-1 xl:col-span-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                         {isCreatingItem && newItem ? (
                             /* Edit Form */
                             <div className="space-y-8 rounded-[2rem] border border-content bg-card p-4 shadow-2xl shadow-foreground/10 sm:rounded-[2.25rem] sm:p-6 lg:space-y-10 lg:rounded-[2.5rem] lg:p-8 xl:space-y-12 xl:p-10">

@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, useDeferredValue } from 'react';
 import {
   LayoutTemplate, Plus, Pencil, Trash2, Loader2, X, AlertCircle,
   FileText, Smartphone, Image as ImageIcon, Reply, MousePointerClick, Share2, ArrowLeft,
-  Grid3x3, List as ListIcon, RefreshCw
+  Grid3x3, List as ListIcon, RefreshCw, Search
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
@@ -169,6 +169,7 @@ export default function ReplyTemplatesView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [editorMode, setEditorMode] = useState<null | 'create' | { editId: string }>(null);
   const [saving, setSaving] = useState(false);
@@ -194,6 +195,7 @@ export default function ReplyTemplatesView() {
   }>({ open: false, templateId: '', templateName: '', automations: [], loading: false, error: null });
 
   const initialValuesRef = useRef<{ name: string; type: TemplateType; data: TemplateData } | null>(null);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   useDashboardMainScrollLock(editorMode !== null);
 
   const fetchList = useCallback(async (force = false) => {
@@ -262,6 +264,21 @@ export default function ReplyTemplatesView() {
     const count = Number(t.automation_count ?? 0);
     return Number.isFinite(count) && count >= 0 ? count : 0;
   };
+
+  const filteredTemplates = useMemo(() => {
+    const needle = deferredSearchQuery.trim().toLowerCase();
+    if (!needle) return templates;
+
+    return templates.filter((template) => {
+      const nameMatch = String(template.name || '').toLowerCase().includes(needle);
+      const typeMatch = String(typeLabel(template.template_type) || '').toLowerCase().includes(needle);
+      const automationMatch = (template.linked_automations || []).some((automation) =>
+        String(automation.title || '').toLowerCase().includes(needle)
+        || String(automation.automation_type || '').toLowerCase().includes(needle)
+      );
+      return nameMatch || typeMatch || automationMatch;
+    });
+  }, [deferredSearchQuery, templates]);
 
     const resolveAutomationView = useCallback((automationTypeRaw: string) => {
       const automationType = (automationTypeRaw || '').toLowerCase();
@@ -905,7 +922,7 @@ export default function ReplyTemplatesView() {
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
           {/* Form column */}
-          <div className="w-full min-w-0 space-y-4 xl:col-span-8 xl:space-y-6 xl:overflow-y-auto xl:pr-2">
+          <div className="w-full min-w-0 space-y-4 xl:col-span-8 xl:space-y-6 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
             <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
                 <button
@@ -1111,7 +1128,27 @@ export default function ReplyTemplatesView() {
             Create reusable templates for DM, Post, Reel, Story, and Live automations
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+        <div className="flex flex-wrap items-center gap-3 sm:justify-end lg:flex-nowrap">
+          <div className="relative w-full min-w-0 md:w-[320px] lg:w-[360px]">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search templates"
+              className="h-11 w-full rounded-xl border-2 border-border bg-card pl-11 pr-10 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
           {/* View Mode Toggle */}
           <div className="flex flex-1 sm:flex-none items-center justify-center sm:justify-start gap-1 p-1 bg-muted rounded-xl">
             <button
@@ -1182,12 +1219,22 @@ export default function ReplyTemplatesView() {
             Create Your First Template
           </button>
         </div>
+      ) : filteredTemplates.length === 0 ? (
+        <div className="py-16 text-center rounded-3xl border-2 border-dashed border-border bg-muted/30">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Search className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-black text-foreground">No matching templates</h3>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Try a different template name, type, or linked automation keyword.
+          </p>
+        </div>
       ) : (
         <div className={viewMode === 'grid'
           ? 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6'
           : 'space-y-4'
         }>
-          {templates.map((t, index) => {
+          {filteredTemplates.map((t, index) => {
             const Icon = TEMPLATE_TYPE_OPTIONS.find(opt => opt.id === t.template_type)?.icon || FileText;
             return (
               <div

@@ -524,7 +524,7 @@ const MentionsView: React.FC = () => {
             {/* Main Content */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                 {/* Editor Section */}
-                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2">
+                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                     <div className="pb-2">
                         <AutomationActionBar
                             hasExisting={Boolean(config.is_setup)}
@@ -553,21 +553,23 @@ const MentionsView: React.FC = () => {
                         />
                     </div>
                     {/* Active Toggle */}
-                    <div className="flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-card rounded-2xl shadow-sm">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
+                        <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+                            <div className="p-2.5 sm:p-3 bg-card rounded-xl sm:rounded-2xl shadow-sm">
                                 <AtSign className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                             </div>
-                            <div>
-                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em]">Enable Mentions Response</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">When enabled, auto-reply to story/post mentions</p>
+                            <div className="min-w-0">
+                                <p className="text-[10px] sm:text-[11px] font-black text-foreground uppercase tracking-[0.14em] sm:tracking-[0.15em]">Enable Mentions Response</p>
+                                <p className="text-[11px] sm:text-[10px] leading-5 sm:leading-normal font-medium text-muted-foreground">When enabled, auto-reply to story/post mentions</p>
                             </div>
                         </div>
-                        <ToggleSwitch
-                            isChecked={isActive}
-                            onChange={() => setIsActive(!isActive)}
-                            variant="plain"
-                        />
+                        <div className="flex w-full justify-end sm:w-auto">
+                            <ToggleSwitch
+                                isChecked={isActive}
+                                onChange={() => setIsActive(!isActive)}
+                                variant="plain"
+                            />
+                        </div>
                     </div>
 
                     <LockedFeatureToggle
@@ -678,10 +680,10 @@ const MentionsView: React.FC = () => {
                                     <p className="text-[9px] text-muted-foreground">{new Blob([collectEmailSuccessReplyMessage]).size}/1000 bytes</p>
                                 </div>
                                 <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
-                                    <div className="flex items-center justify-between gap-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                         <div>
                                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Delivery Destination</p>
-                                            <p className="text-[10px] text-muted-foreground">Paste a webhook URL, then verify it with a sample lead payload.</p>
+                                            <p className="text-[10px] text-muted-foreground mt-1 sm:mt-0">Paste a webhook URL, then verify it with a sample lead payload.</p>
                                         </div>
                                         {collectorDestinationLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                                     </div>
@@ -728,7 +730,7 @@ const MentionsView: React.FC = () => {
 
                     {/* Template Selector */}
                     <div className="bg-card border border-content rounded-2xl p-6 space-y-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                                 Select Reply Action
                             </label>
@@ -761,12 +763,12 @@ const MentionsView: React.FC = () => {
                             </p>
                         )}
                         {selectedTemplate && !showTemplateSelector && (
-                            <div className="p-6 bg-primary/10 border-2 border-primary/20 rounded-3xl flex items-center justify-between">
+                            <div className="p-4 sm:p-6 bg-primary/10 border-2 border-primary/20 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div>
                                     <p className="text-sm font-black text-foreground uppercase tracking-tight">{selectedTemplate.name}</p>
                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{selectedTemplate.template_type.replace('template_', '')}</p>
                                 </div>
-                                <div className="px-3 py-1.5 bg-success-muted/60 text-success text-[9px] font-black uppercase tracking-widest rounded-lg">Selected</div>
+                                <div className="self-start sm:self-auto px-3 py-1.5 bg-success-muted/60 text-success text-[9px] font-black uppercase tracking-widest rounded-lg">Selected</div>
                             </div>
                         )}
                         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">

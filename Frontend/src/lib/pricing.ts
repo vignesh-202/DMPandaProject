@@ -37,6 +37,13 @@ export type PricingPlan = {
   actions_per_month_limit: number | null;
 };
 
+const slugifyIdentifier = (value: unknown) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 const parseStringArray = (value: unknown): string[] => {
   if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean);
   if (typeof value === 'string') {
@@ -67,7 +74,14 @@ const toNullableNumber = (...values: unknown[]): number | null => {
 };
 
 export const normalizePlan = (raw: any): PricingPlan => ({
-  id: String(raw?.id ?? raw?.$id ?? ''),
+  id: String(
+    raw?.id
+    ?? raw?.$id
+    ?? raw?.plan_id
+    ?? raw?.plan_code
+    ?? slugifyIdentifier(raw?.name)
+    ?? ''
+  ).trim(),
   plan_code: String(raw?.plan_code ?? '').trim().toLowerCase(),
   name: String(raw?.name ?? 'Plan'),
   price_monthly_inr: Number(raw?.pricing?.monthly?.inr ?? raw?.price_monthly_inr ?? 0),
@@ -103,8 +117,27 @@ export const normalizePricingPayload = (payload: any): PricingPlan[] => {
       : Array.isArray(payload?.documents)
         ? payload.documents
         : [];
-  return rawPlans
+  const dedupedPlans = new Map<string, PricingPlan>();
+
+  rawPlans
     .map((plan: any) => normalizePlan(plan))
+    .forEach((plan: PricingPlan, index: number) => {
+      const planKey = [
+        normalizeIdentifier(plan.id),
+        normalizeIdentifier(plan.plan_code),
+        normalizeIdentifier(plan.name),
+        String(plan.display_order ?? index)
+      ].find(Boolean) || `plan-${index}`;
+
+      if (!dedupedPlans.has(planKey)) {
+        dedupedPlans.set(planKey, {
+          ...plan,
+          id: plan.id || planKey
+        });
+      }
+    });
+
+  return Array.from(dedupedPlans.values())
     .sort((a: PricingPlan, b: PricingPlan) => {
       if (a.display_order !== b.display_order) return a.display_order - b.display_order;
       return a.name.localeCompare(b.name);

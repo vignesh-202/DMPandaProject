@@ -1591,7 +1591,7 @@ const DMAutomationView: React.FC = () => {
                 <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
                 <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-                    <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2">
+                    <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                         <section className="bg-card rounded-[40px] border border-content shadow-sm">
                             <div className="rounded-t-[40px] border-b border-content/70 bg-card/95 px-8 py-5">
                                 <AutomationActionBar
@@ -1745,27 +1745,29 @@ const DMAutomationView: React.FC = () => {
                                 </div>
 
                                 <div className="pt-6 border-t border-border/60 mt-6 lg:mt-8">
-                                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.is_active !== false ? 'ring-1 ring-primary/15' : ''}`}>
-                                        <div className="flex items-center gap-4">
-                                            <div className={`p-3 rounded-2xl shadow-sm border ${editingAutomation.is_active !== false
+                                    <div className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.is_active !== false ? 'ring-1 ring-primary/15' : ''}`}>
+                                        <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+                                            <div className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-sm border ${editingAutomation.is_active !== false
                                                 ? 'bg-white dark:bg-gray-900 border-emerald-100 dark:border-emerald-500/10'
                                                 : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                                                 }`}>
                                                 <Power className={`w-5 h-5 transition-colors ${editingAutomation.is_active !== false ? 'text-emerald-500' : 'text-gray-400'}`} />
                                             </div>
-                                            <div>
-                                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Automation Status</p>
-                                                <p className="text-[10px] font-medium text-muted-foreground">Turn this DM automation on or off before you publish it.</p>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] sm:text-[11px] font-black text-foreground uppercase tracking-[0.14em] sm:tracking-[0.15em] mb-0.5">Automation Status</p>
+                                                <p className="text-[11px] sm:text-[10px] leading-5 sm:leading-normal font-medium text-muted-foreground">Turn this DM automation on or off before you publish it.</p>
                                             </div>
                                         </div>
-                                        <ToggleSwitch
-                                            isChecked={editingAutomation.is_active !== false}
-                                            onChange={() => {
-                                                const nextIsActive = !(editingAutomation.is_active !== false);
-                                                setEditingAutomation({ ...editingAutomation, is_active: nextIsActive, active: nextIsActive });
-                                            }}
-                                            variant="plain"
-                                        />
+                                        <div className="flex w-full justify-end sm:w-auto">
+                                            <ToggleSwitch
+                                                isChecked={editingAutomation.is_active !== false}
+                                                onChange={() => {
+                                                    const nextIsActive = !(editingAutomation.is_active !== false);
+                                                    setEditingAutomation({ ...editingAutomation, is_active: nextIsActive, active: nextIsActive });
+                                                }}
+                                                variant="plain"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1951,10 +1953,10 @@ const DMAutomationView: React.FC = () => {
                                                 <p className="text-[9px] text-muted-foreground">{getByteLength(editingAutomation.collect_email_success_reply_message || '')}/1000 bytes</p>
                                             </div>
                                             <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
-                                                <div className="flex items-center justify-between gap-3">
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                                     <div>
                                                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Delivery Destination</p>
-                                                        <p className="text-[10px] text-muted-foreground">Choose one verified destination for collected emails.</p>
+                                                        <p className="text-[10px] text-muted-foreground mt-1 sm:mt-0">Choose one verified destination for collected emails.</p>
                                                     </div>
                                                     {collectorDestinationLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                                                 </div>

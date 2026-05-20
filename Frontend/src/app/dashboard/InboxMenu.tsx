@@ -141,8 +141,7 @@ const InboxMenu: React.FC = () => {
     const [isFetchingMedia, setIsFetchingMedia] = useState(false);
     const [itemBeforeEdit, setItemBeforeEdit] = useState<MenuItem | null>(null);
     const [initialFetchDone, setInitialFetchDone] = useState(false);
-    const lastFetchRef = useRef<string>("");
-    const [showMobilePreview, setShowMobilePreview] = useState(false);
+
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [toastVariant, setToastVariant] = useState<'success' | 'error'>('success');
     const [isPreparingEditor, setIsPreparingEditor] = useState(false);
@@ -261,29 +260,7 @@ const InboxMenu: React.FC = () => {
         }
     }, [sharePostDateRange, sharePostSortBy, sharePostCustomRange, newItem.template_type, isCreatingItem, fetchSharePostMedia]);
 
-    // Close mobile preview on Escape key
-    useEffect(() => {
-        const handleEscape = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && showMobilePreview) {
-                setShowMobilePreview(false);
-            }
-        };
 
-        document.addEventListener('keydown', handleEscape);
-        return () => document.removeEventListener('keydown', handleEscape);
-    }, [showMobilePreview]);
-
-    // Prevent body scroll when mobile preview is open
-    useEffect(() => {
-        if (showMobilePreview) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
-        return () => {
-            document.body.style.overflow = '';
-        };
-    }, [showMobilePreview]);
 
 
     // Fetch full automation details when an automation is selected for preview/item creation
@@ -1122,34 +1099,58 @@ const InboxMenu: React.FC = () => {
 
             {!isCreatingItem && (
                 <>
-                    <div className="flex flex-col gap-4 pb-6 md:pb-8 border-b border-border md:flex-row md:items-end md:justify-between">
-                        <div className="space-y-2">
-                            <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Smart Inbox Control</h1>
-                            <p className="text-sm font-medium text-muted-foreground">Set your Instagram menu for quick support, links, and replies.</p>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-end gap-3">
-                            <button
-                                onClick={handleRefreshClick}
-                                className="p-3 bg-secondary text-muted-foreground rounded-xl hover:bg-secondary/80 transition-all"
-                                disabled={inboxMenuLoading || isActionLoading}
-                            >
-                                <RefreshCw className={`w-4 h-4 ${inboxMenuLoading ? 'animate-spin' : ''}`} />
-                            </button>
-                            <div className="flex bg-secondary p-1 rounded-xl border border-border">
-                                <button
-                                    onClick={() => setViewMode('grid')}
-                                    className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                                >
-                                    <LayoutGrid className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('list')}
-                                    className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                                >
-                                    <List className="w-4 h-4" />
-                                </button>
+                    <div className="space-y-4 pb-6 md:pb-8 border-b border-border">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Smart Inbox Control</h1>
+                                    {inboxMenuData?.status === 'match' && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-success-muted text-success text-[10px] font-black uppercase tracking-widest rounded-full">
+                                            <CheckCircle2 className="w-2.5 h-2.5" /> Synced
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-sm font-medium text-muted-foreground">Set your Instagram menu for quick support, links, and replies.</p>
                             </div>
-
+                            {/* Top row: Delete left, Refresh+Grid right */}
+                            <div className="flex items-center justify-between gap-2 md:justify-end md:gap-3">
+                                {!inboxMenuLoading && status === 'match' && (isEditing ? editingMenu : currentDisplayMenu).length > 0 && (
+                                    <button
+                                        onClick={handleDelete}
+                                        disabled={inboxMenuLoading || isActionLoading}
+                                        className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-red-500/20 transition-all disabled:opacity-70 disabled:pointer-events-none md:px-6"
+                                    >
+                                        {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                        Delete
+                                    </button>
+                                )}
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handleRefreshClick}
+                                        className="p-3 bg-secondary text-muted-foreground rounded-xl hover:bg-secondary/80 transition-all"
+                                        disabled={inboxMenuLoading || isActionLoading}
+                                    >
+                                        <RefreshCw className={`w-4 h-4 ${inboxMenuLoading ? 'animate-spin' : ''}`} />
+                                    </button>
+                                    <div className="flex bg-secondary p-1 rounded-xl border border-border">
+                                        <button
+                                            onClick={() => setViewMode('grid')}
+                                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                        >
+                                            <LayoutGrid className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setViewMode('list')}
+                                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                        >
+                                            <List className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Full-width action buttons below */}
+                        <div className="flex flex-col gap-2 md:flex-row md:justify-end md:gap-3">
                             {status === 'match' && !inboxMenuLoading && (
                                 <button
                                     onClick={() => {
@@ -1157,7 +1158,7 @@ const InboxMenu: React.FC = () => {
                                     }}
                                     disabled={isActionLoading || ((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS)}
                                     title={((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS) ? `Maximum ${MAX_INBOX_MENU_ITEMS} menu items allowed.` : undefined}
-                                    className="px-8 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-black/10 flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+                                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-black dark:bg-white text-white dark:text-black px-4 py-3 text-[10px] font-black uppercase tracking-widest shadow-xl shadow-black/10 transition-all disabled:opacity-50 disabled:pointer-events-none md:w-auto md:px-8"
                                 >
                                     <Plus className="w-4 h-4" />
                                     {(editingMenu.length > 0 || currentDisplayMenu.length > 0) ? 'Add Menu Item' : 'Create New Menu'}
@@ -1168,7 +1169,7 @@ const InboxMenu: React.FC = () => {
                                 <button
                                     onClick={handleSaveMenu}
                                     disabled={isActionLoading}
-                                    className="px-6 md:px-8 py-3 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-blue-500/20 transition-all disabled:opacity-70 disabled:pointer-events-none md:w-auto md:px-8"
                                 >
                                     {isPublishing ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1177,22 +1178,6 @@ const InboxMenu: React.FC = () => {
                                     )}
                                     {isPublishing ? 'Publishing...' : 'Publish'}
                                 </button>
-                            )}
-
-                            {!inboxMenuLoading && status === 'match' && (isEditing ? editingMenu : currentDisplayMenu).length > 0 && (
-                                <button
-                                    onClick={handleDelete}
-                                    disabled={inboxMenuLoading || isActionLoading}
-                                    className="px-6 py-3 bg-red-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
-                                >
-                                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                    Delete
-                                </button>
-                            )}
-                            {inboxMenuData?.status === 'match' && (
-                                <span className="flex items-center gap-1.5 px-3 py-1 bg-success-muted text-success text-[10px] font-black uppercase tracking-widest rounded-full">
-                                    <CheckCircle2 className="w-3 h-3" /> Synced
-                                </span>
                             )}
                         </div>
                     </div>
@@ -1323,7 +1308,7 @@ const InboxMenu: React.FC = () => {
                     {canShowMainWorkspace && (
                         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                             {/* Editor/List Section */}
-                            <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:space-y-10 xl:overflow-y-auto xl:pr-2">
+                            <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:space-y-10 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                                 {isCreatingItem ? (
                                     <div className="bg-white dark:bg-gray-950 border border-content rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-10 space-y-8 md:space-y-10 animate-in slide-in-from-left duration-500">
                                         <div className="-mx-2 rounded-[2rem] bg-white/95 px-2 py-2 dark:bg-gray-950/95">
@@ -1925,30 +1910,30 @@ const InboxMenu: React.FC = () => {
                                                     onDrop={(e) => isEditing && !isActionLoading && handleDrop(e, idx)}
                                                     className={`group p-6 transition-all duration-500 relative bg-white dark:bg-gray-950 border ${isEditing && !isActionLoading ? 'border-blue-500/20 ring-1 ring-blue-500/10 cursor-move' : 'border-content'} ${dragOverIndex === idx ? 'ring-2 ring-blue-500 scale-105' : ''} ${draggedIndex === idx ? 'opacity-50' : ''} rounded-[2rem] hover:shadow-2xl`}
                                                 >
-                                                    <div className="flex justify-between items-start mb-6">
+                                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="text-xl font-black text-gray-300 dark:text-gray-700 w-8">
+                                                            <div className="text-xl font-black text-gray-300 dark:text-gray-700 w-8 shrink-0">
                                                                 {String(idx + 1).padStart(2, '0')}
                                                             </div>
                                                             {isEditing && !isActionLoading && (
-                                                                <div className="p-2 bg-gray-100 dark:bg-gray-800 text-gray-400 rounded-lg cursor-grab active:cursor-grabbing">
+                                                                <div className="p-2 bg-gray-100 dark:bg-gray-800 text-gray-400 rounded-lg cursor-grab active:cursor-grabbing shrink-0">
                                                                     <GripVertical className="w-4 h-4" />
                                                                 </div>
                                                             )}
-                                                            <div className="p-4 bg-gray-50 dark:bg-gray-900 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 text-gray-400 group-hover:text-blue-500 rounded-2xl transition-all duration-500">
+                                                            <div className="p-4 bg-gray-50 dark:bg-gray-900 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 text-gray-400 group-hover:text-blue-500 rounded-2xl transition-all duration-500 shrink-0">
                                                                 {item.type === 'web_url' ? <Globe className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
                                                             </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-lg transition-all ${item.type === 'web_url' ? 'bg-orange-500/10 text-orange-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                                                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                                                            <span className={`px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-lg transition-all shrink-0 ${item.type === 'web_url' ? 'bg-orange-500/10 text-orange-500' : 'bg-blue-500/10 text-blue-500'}`}>
                                                                 {item.type === 'web_url' ? 'Web URL' : 'Auto Reply'}
                                                             </span>
                                                             {item.type === 'postback' && !item.template_data && (
-                                                                <span className="px-3 py-1 bg-red-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg animate-pulse">
+                                                                <span className="px-3 py-1 bg-red-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg animate-pulse shrink-0">
                                                                     Broken
                                                                 </span>
                                                             )}
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-2 ml-auto sm:ml-0">
                                                                 <button
                                                                     onClick={() => void handleEditItem(idx)}
                                                                     disabled={isActionLoading}
@@ -2013,7 +1998,7 @@ const InboxMenu: React.FC = () => {
                             </div>
 
                             {/* Real-time Preview Section - Desktop only, sticky on xl */}
-                            <AutomationPreviewPanel showMobileTrigger={false}>
+                            <AutomationPreviewPanel>
                                 <SharedMobilePreview
                                     mode="menu"
                                     items={(isEditing ? editingMenu : currentDisplayMenu) as any}
@@ -2035,62 +2020,7 @@ const InboxMenu: React.FC = () => {
             )
             }
 
-            {/* Mobile Preview Button - only when main workspace is shown */}
-            {
-                canShowMainWorkspace && (
-                    <div className="lg:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
-                        <button
-                            onClick={() => setShowMobilePreview(true)}
-                            className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-instagram-violet via-instagram-pink to-instagram-orange text-white rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-105 active:scale-95"
-                        >
-                            <Eye className="w-5 h-5" />
-                            <span className="font-bold text-sm">Live Preview</span>
-                        </button>
-                    </div>
-                )
-            }
 
-            {/* Mobile Preview Modal */}
-            {
-                showMobilePreview && (
-                    <div
-                        className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300"
-                        onClick={(e) => {
-                            if (e.target === e.currentTarget) {
-                                setShowMobilePreview(false);
-                            }
-                        }}
-                    >
-                        <div className="relative w-full max-w-[340px] animate-in zoom-in-95 duration-300">
-                            {/* Close Button */}
-                            <button
-                                onClick={() => setShowMobilePreview(false)}
-                                className="absolute -top-12 right-0 z-10 p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-all"
-                                aria-label="Close preview"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-
-                            {/* Preview Content */}
-                            <div onClick={(e) => e.stopPropagation()}>
-                                <SharedMobilePreview
-                                    mode="menu"
-                                    items={(isEditing ? editingMenu : currentDisplayMenu) as any}
-                                    automations={dmAutomations}
-                                    fetchedAutomations={fetchedAutomations}
-                                    isEditing={isEditing}
-                                    newItem={(isCreatingItem ? newItem : null) as any}
-                                    activeAccountID={activeAccountID}
-                                    authenticatedFetch={authenticatedFetch}
-                                    lockScroll
-                                    displayName={activeAccount?.username || 'Username'}
-                                    profilePic={activeAccount?.profile_picture_url || undefined}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
 
             {
                 createPortal(

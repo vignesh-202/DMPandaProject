@@ -399,7 +399,7 @@ const GlobalTriggersView: React.FC = () => {
             {editingTrigger ? (
                 <>
                     <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-                        <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2">
+                        <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                             <section className="bg-card p-8 rounded-[40px] border border-content shadow-sm space-y-8 xl:min-h-0">
                                     <AutomationEditor
                                         type="global"

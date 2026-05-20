@@ -36,14 +36,14 @@ const AutomationActionBar: React.FC<AutomationActionBarProps> = ({
 }) => {
     return (
         <div className={`flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between ${className}`.trim()}>
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3 flex-1">
                 {leftContent}
+                {centerContent && (
+                    <div className="min-w-0 flex-1">
+                        {centerContent}
+                    </div>
+                )}
             </div>
-            {centerContent && (
-                <div className="min-w-0 flex-1 sm:order-none">
-                    {centerContent}
-                </div>
-            )}
             <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:items-center sm:justify-end sm:gap-3">
                 {hasExisting && onDelete && (
                     <button

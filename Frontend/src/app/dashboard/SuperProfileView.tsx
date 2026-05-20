@@ -341,7 +341,7 @@ const SuperProfileView: React.FC = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 space-y-8">
             {error && (
                 <div className="p-4 bg-destructive-muted/40 border border-destructive/30 rounded-2xl flex items-center gap-3 text-destructive text-sm font-bold">
                     <AlertCircle className="w-5 h-5 shrink-0" />
@@ -357,7 +357,7 @@ const SuperProfileView: React.FC = () => {
             )}
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:min-h-0 xl:overflow-y-auto xl:pr-2">
+                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:min-h-0 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                     <div className="pb-2">
                         <AutomationActionBar
                             hasExisting={Boolean(publicUrl)}
@@ -420,7 +420,7 @@ const SuperProfileView: React.FC = () => {
                     )}
 
                     {/* Buttons */}
-                    <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                    <div className="bg-card border border-border rounded-2xl p-3 sm:p-6 space-y-4">
                         <div className="flex items-center justify-between">
                             <label className="text-sm font-bold text-foreground">Buttons ({buttons.length}/50)</label>
                             <button
@@ -500,7 +500,7 @@ const SuperProfileView: React.FC = () => {
                                                 </div>
                                                 <div>
                                                     <label className="text-xs font-bold text-muted-foreground mb-2 block">Icon</label>
-                                                    <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
+                                                    <div className="flex flex-wrap gap-2">
                                                         {SOCIAL_ICONS.slice(0, 15).map((icon) => (
                                                             <button
                                                                 key={icon.id}

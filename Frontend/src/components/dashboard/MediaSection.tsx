@@ -308,9 +308,9 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
     const getMediaPreviewUrl = (item: MediaItem) => toBrowserPreviewUrl(item.thumbnail_url || item.media_url || '');
 
     const renderShowcaseCard = (item: MediaItem, isAutomated: boolean) => (
-        <div className="flex h-full flex-col p-2 sm:p-2.5">
+        <div className="flex h-full flex-col p-1 sm:p-2.5">
             <div className={cn(
-                'relative h-[13.5rem] overflow-hidden rounded-[1.2rem] border border-border/70 bg-[#060606] sm:h-[15rem] sm:rounded-[1.35rem] lg:h-[17rem] lg:rounded-[1.5rem]'
+                'relative h-[11rem] overflow-hidden rounded-[1rem] border border-border/70 bg-[#060606] sm:h-[15rem] sm:rounded-[1.35rem] lg:h-[17rem] lg:rounded-[1.5rem]'
             )}>
                 <img
                     src={getMediaPreviewUrl(item)}
@@ -318,35 +318,35 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                     loading="lazy"
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/35" />
-                <div className="absolute left-2.5 top-2.5 flex items-center gap-1.5">
-                    <div className="rounded-full bg-black/60 px-2 py-1 text-[7px] font-black uppercase tracking-[0.22em] text-white backdrop-blur-md">
+                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/35" />
+                <div className="absolute left-1.5 top-1.5 sm:left-2.5 sm:top-2.5 flex flex-wrap items-center gap-1 sm:gap-1.5 max-w-[75%]">
+                    <div className="rounded-full bg-black/60 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[6px] sm:text-[7px] font-black uppercase tracking-[0.22em] text-white backdrop-blur-md">
                         {type === 'reel' ? 'Reel' : type === 'story' ? 'Story' : 'Post'}
                     </div>
-                    <div className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[7px] font-black uppercase tracking-[0.18em] text-white backdrop-blur-md">
+                    <div className="rounded-full border border-white/10 bg-white/10 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[6px] sm:text-[7px] font-black uppercase tracking-[0.18em] text-white backdrop-blur-md">
                         {item.media_type === 'VIDEO' ? 'Video' : item.media_type === 'CAROUSEL_ALBUM' ? 'Carousel' : 'Image'}
                     </div>
                 </div>
                 {isAutomated && (
-                    <div className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-success text-success-foreground shadow-lg">
-                        <Check className="h-3.5 w-3.5 stroke-[3]" />
+                    <div className="absolute right-1.5 top-1.5 sm:right-2.5 sm:top-2.5 flex h-5 w-5 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-success text-success-foreground shadow-lg">
+                        <Check className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 stroke-[3]" />
                     </div>
                 )}
             </div>
-            <div className="flex flex-1 flex-col gap-2 px-0.5 pb-0.5 pt-2.5 sm:pt-3">
+            <div className="flex flex-1 flex-col gap-1.5 sm:gap-2 px-0.5 pb-0.5 pt-2 sm:pt-3">
                 {type !== 'story' && (
-                    <h3 className="line-clamp-2 text-[12px] font-black leading-snug tracking-tight text-foreground sm:text-[13px]">
+                    <h3 className="line-clamp-2 text-[10px] sm:text-[13px] font-black leading-snug tracking-tight text-foreground">
                         {item.caption?.trim() || (type === 'reel' ? 'Reel automation item' : 'Post automation item')}
                     </h3>
                 )}
                 {type === 'story' && (
-                    <h3 className="line-clamp-1 text-[12px] font-black leading-snug tracking-tight text-foreground sm:text-[13px]">
+                    <h3 className="line-clamp-1 text-[10px] sm:text-[13px] font-black leading-snug tracking-tight text-foreground">
                         Story automation item
                     </h3>
                 )}
-                <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-[8px] sm:text-[10px] font-semibold text-muted-foreground">
                     <span>{formatMediaDate(item.timestamp)}</span>
-                    <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+                    <span className="h-1 w-1 rounded-full bg-muted-foreground/40 hidden sm:block" />
                     <span>{formatMediaAge(item.timestamp)}</span>
                 </div>
                 <button
@@ -356,7 +356,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                         onCreateAutomation(item);
                     }}
                     className={cn(
-                        'mt-auto inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl px-3 text-[9px] font-black uppercase tracking-[0.14em] transition-all sm:text-[10px] sm:tracking-[0.16em]',
+                        'mt-auto inline-flex h-7 sm:h-9 w-full items-center justify-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl px-2 sm:px-3 text-[8px] sm:text-[10px] font-black uppercase tracking-[0.14em] transition-all sm:tracking-[0.16em]',
                         isAutomated
                             ? 'bg-primary/12 text-primary hover:bg-primary/18'
                             : 'bg-foreground text-background hover:bg-foreground/90'
@@ -570,50 +570,52 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
     }
 
     return (
-        <div className="bg-white dark:bg-black p-6 rounded-3xl h-full min-h-[500px] flex flex-col border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                <div className="flex items-center gap-4">
-                    {viewMode === 'create' && (type === 'reel' || type === 'post') && (
-                        <button
-                            onClick={() => setViewMode('list')}
-                            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-content bg-card text-foreground transition-all hover:bg-muted/40"
-                            aria-label="Back to list"
-                            title="Back to list"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                        </button>
-                    )}
-                    <div>
-                        <h2 className="text-2xl sm:text-3xl font-black text-black dark:text-white tracking-tight">{title}</h2>
-                        {type === 'story' && (
-                            <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mt-2 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                                Showing active 24h stories
-                            </p>
+        <div className="bg-white dark:bg-black p-3 sm:p-6 rounded-3xl h-full min-h-[500px] flex flex-col border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300">
+            <div className="space-y-4 mb-6 sm:mb-8">
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between gap-4 w-full">
+                        <div className="flex items-center gap-4 min-w-0 flex-1">
+                            {viewMode === 'create' && (type === 'reel' || type === 'post') && (
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-content bg-card text-foreground transition-all hover:bg-muted/40 shrink-0"
+                                    aria-label="Back to list"
+                                    title="Back to list"
+                                >
+                                    <ArrowLeft className="w-4 h-4" />
+                                </button>
+                            )}
+                            <div className="min-w-0 flex-1">
+                                <h2 className="text-2xl sm:text-3xl font-black text-black dark:text-white tracking-tight truncate">{title}</h2>
+                                {type === 'story' && (
+                                    <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mt-2 flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                        Showing active 24h stories
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {activeAccountID && (
+                            <button
+                                onClick={handleRefresh}
+                                disabled={cooldown > 0 || isRefreshing}
+                                className="group relative px-4 py-2 bg-gray-50 dark:bg-gray-900 hover:bg-white dark:hover:bg-gray-800 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all border border-slate-200 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm shrink-0"
+                                title={cooldown > 0 ? `Rate limit active: Wait ${cooldown} seconds` : "Refresh items from Instagram"}
+                            >
+                                <RefreshCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''} group-hover:rotate-180 transition-transform duration-700`} />
+                                {cooldown > 0 ? (
+                                    <span className="text-[10px] font-black tracking-tighter tabular-nums">{cooldown}s</span>
+                                ) : (
+                                    <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Refresh</span>
+                                )}
+                            </button>
                         )}
                     </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2 items-center">
-                    {activeAccountID && (
-                        <button
-                            onClick={handleRefresh}
-                            disabled={cooldown > 0 || isRefreshing}
-                            className="group relative px-4 py-2 bg-gray-50 dark:bg-gray-900 hover:bg-white dark:hover:bg-gray-800 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all border border-slate-200 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm"
-                            title={cooldown > 0 ? `Rate limit active: Wait ${cooldown} seconds` : "Refresh items from Instagram"}
-                        >
-                            <RefreshCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''} group-hover:rotate-180 transition-transform duration-700`} />
-                            {cooldown > 0 ? (
-                                <span className="text-[10px] font-black tracking-tighter tabular-nums">{cooldown}s</span>
-                            ) : (
-                                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Refresh</span>
-                            )}
-                        </button>
-                    )}
 
                     {/* Consolidated Filters in Header */}
-                    {(viewMode === 'create' || type === 'mention') && hasAnyContent && (
-                        <>
+                    {((viewMode === 'create' || type === 'mention') && hasAnyContent) && (
+                        <div className="flex flex-wrap gap-2 items-center justify-end md:justify-start">
                             {/* Date Filter Dropdown */}
                             <div className="relative">
                                 <button
@@ -715,25 +717,26 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                     </>
                                 )}
                             </div>
-                        </>
-                    )}
-
-                    {type !== 'mention' && type !== 'story' && !(viewMode === 'create' && (type === 'reel' || type === 'post')) && hasAnyContent && (
-                        <button
-                            onClick={toggleView}
-                            className="bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-200 px-5 py-2.5 rounded-xl flex items-center transition-all shadow-lg hover:shadow-xl active:scale-95 text-xs font-bold uppercase tracking-wider"
-                        >
-                            {viewMode === 'list' ? (
-                                <>
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Create New
-                                </>
-                            ) : (type === 'reel' || type === 'post') ? null : (
-                                <>View All List</>
-                            )}
-                        </button>
+                        </div>
                     )}
                 </div>
+
+                {/* Full-width Create button below for post/reel */}
+                {type !== 'mention' && type !== 'story' && !(viewMode === 'create' && (type === 'reel' || type === 'post')) && hasAnyContent && (
+                    <button
+                        onClick={toggleView}
+                        className="w-full bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-200 px-5 py-3 rounded-2xl flex items-center justify-center transition-all shadow-lg hover:shadow-xl active:scale-95 text-xs font-bold uppercase tracking-wider md:w-auto"
+                    >
+                        {viewMode === 'list' ? (
+                            <>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Create New
+                            </>
+                        ) : (type === 'reel' || type === 'post') ? null : (
+                            <>View All List</>
+                        )}
+                    </button>
+                )}
             </div>
 
             <div className="flex-1 flex flex-col">
@@ -769,7 +772,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                         )}
 
                         {/* CASE 2: Content exists, but no automations -> CTA State */}
-                        {hasAnyContent && !hasAnyAutomation && viewMode === 'list' && type !== 'mention' && (
+                        {hasAnyContent && !hasAnyAutomation && viewMode === 'list' && type !== 'mention' && type !== 'story' && (
                             <div className="flex-1 flex flex-col items-center justify-center p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                                 <div className="relative mb-8">
                                     <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full"></div>
@@ -811,7 +814,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                             <div className={cn(
                                 'grid gap-6',
                                 useShowcaseCards
-                                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                                    ? 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
                                     : 'grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
                             )}>
                                 {automationsSet.map(item => (
@@ -864,7 +867,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                         )}
 
                         {/* CASE 4: Selection Grid (Create Mode) */}
-                        {((viewMode === 'create' && hasAnyContent) || type === 'mention') && (
+                        {((viewMode === 'create' && hasAnyContent) || type === 'mention' || (type === 'story' && hasAnyContent && !hasAnyAutomation && viewMode === 'list')) && (
                             <div className="relative min-h-[360px] flex-1 sm:min-h-[500px]">
 
                                 {sortedItems.length === 0 ? (
@@ -886,10 +889,10 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                         <div
                                             key={type + mediaDateFilter}
                                             className={cn(
-                                                'grid gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 overflow-y-auto pr-2 max-h-[800px] scrollbar-thin',
+                                                'grid gap-3 sm:gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 overflow-y-auto pr-2 max-h-[800px] scrollbar-thin',
                                                 useShowcaseCards
-                                                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-                                                    : 'grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+                                                    ? 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                                                    : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
                                             )}
                                         >
                                             {sortedItems.map((item) => {

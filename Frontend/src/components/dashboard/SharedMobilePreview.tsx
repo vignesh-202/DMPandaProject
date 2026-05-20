@@ -709,14 +709,14 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
     const activePreviewItem = activeIdx !== null && activeIdx >= 0 && activeIdx < displayItems.length ? displayItems[activeIdx] : null;
 
     return (
-        <div className="mx-auto w-full max-w-[350px] animate-in fade-in slide-in-from-right-8 duration-700 xl:ml-auto">
+        <div className="mx-auto w-full max-w-[330px] animate-in fade-in slide-in-from-right-8 duration-700 sm:max-w-[350px] xl:ml-auto">
             <div className="h-fit flex flex-col items-center">
                 <div
                     className={cn(
                         'relative flex w-full flex-col overflow-hidden rounded-[55px] border-[10px] border-slate-900 bg-white shadow-[0_32px_80px_rgba(15,23,42,0.24)] ring-1 ring-slate-900/15 dark:border-slate-600 dark:bg-black dark:ring-slate-500/60 dark:shadow-[0_36px_90px_rgba(2,6,23,0.6)]',
                         lockScroll
-                            ? 'h-[620px] xl:h-[596px] xl:max-h-[596px]'
-                            : 'h-[640px]'
+                            ? 'h-[560px] sm:h-[620px] xl:h-[596px] xl:max-h-[596px]'
+                            : 'h-[580px] sm:h-[640px]'
                     )}
                 >
                     {/* Notch */}

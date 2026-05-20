@@ -247,7 +247,7 @@ const WelcomeMessageView: React.FC = () => {
             <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
             <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2">
+                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                     <div className="pb-2">
                         <AutomationActionBar
                             hasExisting={Boolean(automationId)}
@@ -282,24 +282,26 @@ const WelcomeMessageView: React.FC = () => {
                     </div>
 
                     {/* Active Toggle */}
-                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${isActive ? 'ring-1 ring-primary/15' : ''}`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-2xl shadow-sm border ${isActive
+                    <div className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${isActive ? 'ring-1 ring-primary/15' : ''}`}>
+                        <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+                            <div className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-sm border ${isActive
                                 ? 'bg-white dark:bg-gray-900 border-emerald-100 dark:border-emerald-500/10'
                                 : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                             }`}>
                                 <Sparkles className={`w-5 h-5 transition-colors ${isActive ? 'text-emerald-500' : 'text-gray-400'}`} />
                             </div>
-                            <div>
-                                <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-0.5">Enable Welcome Message</p>
-                                <p className="text-[10px] font-medium text-muted-foreground">When enabled, auto-reply to new conversations with no matching automation.</p>
+                            <div className="min-w-0">
+                                <p className="text-[10px] sm:text-[11px] font-black text-foreground uppercase tracking-[0.14em] sm:tracking-[0.15em] mb-0.5">Enable Welcome Message</p>
+                                <p className="text-[11px] sm:text-[10px] leading-5 sm:leading-normal font-medium text-muted-foreground">When enabled, auto-reply to new conversations with no matching automation.</p>
                             </div>
                         </div>
-                        <ToggleSwitch
-                            isChecked={isActive}
-                            onChange={() => setIsActive(!isActive)}
-                            variant="plain"
-                        />
+                        <div className="flex w-full justify-end sm:w-auto">
+                            <ToggleSwitch
+                                isChecked={isActive}
+                                onChange={() => setIsActive(!isActive)}
+                                variant="plain"
+                            />
+                        </div>
                     </div>
 
                     <LockedFeatureToggle
@@ -355,23 +357,23 @@ const WelcomeMessageView: React.FC = () => {
                             activeIconClassName="text-yellow-500"
                         />
                         {suggestMoreEnabled && !suggestMoreGate.isLocked && (
-                            <div className="ml-2 flex items-center gap-2 rounded-2xl border border-yellow-200 dark:border-yellow-500/20 bg-yellow-50/60 dark:bg-yellow-500/5 px-4 py-3">
+                            <div className="ml-2 flex items-start gap-3 rounded-2xl border border-yellow-200 dark:border-yellow-500/20 bg-yellow-50/60 dark:bg-yellow-500/5 px-4 py-3">
                                 <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
                                 <p className="text-[10px] font-bold text-yellow-700 dark:text-yellow-300">Suggest More must be configured in the <button type="button" onClick={() => setCurrentView('Suggest More')} className="underline hover:no-underline font-black">Suggest More</button> section for this toggle to take effect.</p>
                             </div>
                         )}
                     </div>
 
-                    <div className="bg-card border border-content rounded-2xl p-6 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    <div className="bg-card border border-content rounded-2xl p-4 sm:p-6 space-y-4">
+                        <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                            <label className="block text-[9px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest text-muted-foreground">
                                 Select Reply Action
                             </label>
                             {selectedTemplate && !showTemplateSelector && (
                                 <button
                                     type="button"
                                     onClick={() => setShowTemplateSelector(true)}
-                                    className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
+                                    className="text-[9px] sm:text-[10px] font-black text-primary uppercase tracking-wider sm:tracking-widest hover:underline whitespace-nowrap"
                                 >
                                     Change Template
                                 </button>
@@ -394,12 +396,12 @@ const WelcomeMessageView: React.FC = () => {
                             </p>
                         )}
                         {selectedTemplate && !showTemplateSelector && (
-                            <div className="p-6 bg-primary/10 border-2 border-primary/20 rounded-3xl flex items-center justify-between">
+                            <div className="p-4 sm:p-6 bg-primary/10 border-2 border-primary/20 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div>
                                     <p className="text-sm font-black text-foreground uppercase tracking-tight">{selectedTemplate.name}</p>
                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{selectedTemplate.template_type.replace('template_', '')}</p>
                                 </div>
-                                <div className="px-3 py-1.5 bg-success-muted/60 text-success text-[9px] font-black uppercase tracking-widest rounded-lg">Selected</div>
+                                <div className="self-start sm:self-auto px-3 py-1.5 bg-success-muted/60 text-success text-[9px] font-black uppercase tracking-widest rounded-lg">Selected</div>
                             </div>
                         )}
                         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">

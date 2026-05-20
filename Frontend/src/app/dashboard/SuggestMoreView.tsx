@@ -232,7 +232,7 @@ const SuggestMoreView: React.FC = () => {
             {/* Main Content */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                 {/* Editor Section */}
-                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2">
+                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                     <div className="pb-2">
                         <AutomationActionBar
                             hasExisting={Boolean(config.is_setup)}
