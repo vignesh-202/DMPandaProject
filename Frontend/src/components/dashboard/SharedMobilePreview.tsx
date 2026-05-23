@@ -59,6 +59,8 @@ export interface AutomationType {
     use_latest_post?: boolean;
     latest_post_type?: 'post' | 'reel';
     template_data?: any;
+    template_id?: string;
+    template_name?: string;
 }
 
 export interface SharedMobilePreviewProps {
@@ -107,6 +109,69 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
+
+    const [fetchedTemplateMap, setFetchedTemplateMap] = useState<Record<string, any>>({});
+    const chatContainerRef = useRef<HTMLDivElement>(null);
+
+    const templateIdsStr = useMemo(() => {
+        const ids = new Set<string>();
+        if (newItem?.template_id) ids.add(newItem.template_id);
+        if (automation?.template_id) ids.add(automation.template_id);
+        items.forEach(item => {
+            if (item?.template_id) ids.add(item.template_id);
+        });
+        return Array.from(ids).filter(Boolean).sort().join(',');
+    }, [items, newItem?.template_id, automation?.template_id]);
+
+    useEffect(() => {
+        if (!activeAccountID || !authenticatedFetch || !templateIdsStr) return;
+
+        const ids = templateIdsStr.split(',').filter(Boolean);
+        const missingIds = ids.filter(id => !fetchedTemplateMap[id]);
+        if (missingIds.length === 0) return;
+
+        let alive = true;
+        (async () => {
+            for (const id of missingIds) {
+                try {
+                    const response = await authenticatedFetch(
+                        `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${id}?account_id=${activeAccountID}`
+                    );
+                    if (response.ok) {
+                        const template = await response.json();
+                        if (alive) {
+                            setFetchedTemplateMap(prev => ({
+                                ...prev,
+                                [id]: template
+                            }));
+                        }
+                    }
+                } catch (err) {
+                    console.error(`Failed to fetch template ${id} in preview:`, err);
+                }
+            }
+        })();
+
+        return () => {
+            alive = false;
+        };
+    }, [activeAccountID, authenticatedFetch, templateIdsStr]);
+
+    const getResolvedTemplateInfo = (templateId?: string, currentType?: string, currentData?: any, currentName?: string) => {
+        if (!templateId) {
+            return {
+                template_type: currentType,
+                template_data: currentData,
+                template_name: currentName
+            };
+        }
+        const fetched = fetchedTemplateMap[templateId];
+        return {
+            template_type: currentType || fetched?.template_type || fetched?.type,
+            template_data: currentData || fetched?.template_data || fetched,
+            template_name: currentName || fetched?.name || fetched?.template_name
+        };
+    };
 
     const isMediaDeleted = propsIsMediaDeleted !== undefined ? propsIsMediaDeleted : localIsMediaDeleted;
     const safeProfilePic = useMemo(() => toBrowserPreviewUrl(String(profilePic || '').trim()), [profilePic]);
@@ -193,7 +258,12 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
     let auto: any = null;
 
     if (mode === 'automation' && automation) {
-        auto = { ...automation };
+        const resolved = getResolvedTemplateInfo(automation.template_id, automation.template_type, automation.template_data);
+        auto = {
+            ...automation,
+            template_type: resolved.template_type,
+            template_data: resolved.template_data
+        };
         const td = getTemplateData(auto.template_data);
         applyTemplateData(auto, td);
         if (!auto.template_type) {
@@ -204,7 +274,8 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
 
         if (activePreviewItem) {
             if (mode === 'menu') {
-                const itemTd = getTemplateData(activePreviewItem.template_data);
+                const resolved = getResolvedTemplateInfo(activePreviewItem.template_id, activePreviewItem.template_type, activePreviewItem.template_data, activePreviewItem.template_name);
+                const itemTd = getTemplateData(resolved.template_data);
                 const autoInList = (!itemTd || Object.keys(itemTd).length === 0)
                     ? automations?.find((a: any) => a.template_id === activePreviewItem?.template_id || a.$id === activePreviewItem?.template_id || a.id === activePreviewItem?.template_id)
                     : null;
@@ -217,21 +288,22 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                 if (!auto || (itemTd && Object.keys(itemTd).length > 0)) {
                     auto = {
                         ...auto,
-                        template_type: activePreviewItem.template_type,
-                        template_content: activePreviewItem.template_type === 'template_text' ? itemTd.text :
-                            activePreviewItem.template_type === 'template_media' ? itemTd.media_url :
-                                activePreviewItem.template_type === 'template_carousel' ? itemTd.elements :
-                                    activePreviewItem.template_type === 'template_quick_replies' ? itemTd.text :
-                                        activePreviewItem.template_type === 'template_buttons' ? itemTd.text :
+                        template_type: resolved.template_type,
+                        template_name: resolved.template_name,
+                        template_content: resolved.template_type === 'template_text' ? itemTd.text :
+                            resolved.template_type === 'template_media' ? itemTd.media_url :
+                                resolved.template_type === 'template_carousel' ? itemTd.elements :
+                                    resolved.template_type === 'template_quick_replies' ? itemTd.text :
+                                        resolved.template_type === 'template_buttons' ? itemTd.text :
                                             undefined,
-                        template_elements: activePreviewItem.template_type === 'template_carousel' ? itemTd.elements : undefined,
-                        replies: activePreviewItem.template_type === 'template_quick_replies' ? itemTd.replies : undefined,
-                        buttons: activePreviewItem.template_type === 'template_buttons' ? itemTd.buttons : undefined,
-                        media_id: activePreviewItem.template_type === 'template_share_post' ? itemTd.media_id : undefined,
-                        media_url: activePreviewItem.template_type === 'template_share_post' ? itemTd.media_url : undefined,
-                        preview_media_url: activePreviewItem.template_type === 'template_share_post' ? itemTd.preview_media_url : undefined,
-                        use_latest_post: activePreviewItem.template_type === 'template_share_post' ? itemTd.use_latest_post : undefined,
-                        latest_post_type: activePreviewItem.template_type === 'template_share_post' ? itemTd.latest_post_type : undefined,
+                        template_elements: resolved.template_type === 'template_carousel' ? itemTd.elements : undefined,
+                        replies: resolved.template_type === 'template_quick_replies' ? itemTd.replies : undefined,
+                        buttons: resolved.template_type === 'template_buttons' ? itemTd.buttons : undefined,
+                        media_id: resolved.template_type === 'template_share_post' ? itemTd.media_id : undefined,
+                        media_url: resolved.template_type === 'template_share_post' ? itemTd.media_url : undefined,
+                        preview_media_url: resolved.template_type === 'template_share_post' ? itemTd.preview_media_url : undefined,
+                        use_latest_post: resolved.template_type === 'template_share_post' ? itemTd.use_latest_post : undefined,
+                        latest_post_type: resolved.template_type === 'template_share_post' ? itemTd.latest_post_type : undefined,
                         template_data: itemTd
                     };
                 }
@@ -239,31 +311,33 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                 if (auto) {
                     applyTemplateData(auto, itemTd);
                     if (!auto.template_type) {
-                        auto.template_type = activePreviewItem.template_type || itemTd.template_type || inferTemplateType(itemTd);
+                        auto.template_type = resolved.template_type || itemTd.template_type || inferTemplateType(itemTd);
                     }
                 }
             } else if (mode === 'convo_starter') {
-                const starterTd = getTemplateData(activePreviewItem.template_data);
+                const resolved = getResolvedTemplateInfo(activePreviewItem.template_id, activePreviewItem.template_type, activePreviewItem.template_data, activePreviewItem.template_name);
+                const starterTd = getTemplateData(resolved.template_data);
                 auto = {
-                    template_type: activePreviewItem.template_type,
+                    template_type: resolved.template_type,
+                    template_name: resolved.template_name,
                     followers_only: activePreviewItem.followers_only,
                     followers_only_message: activePreviewItem.followers_only_message,
                     followers_only_primary_button_text: activePreviewItem.followers_only_primary_button_text,
                     followers_only_secondary_button_text: activePreviewItem.followers_only_secondary_button_text,
-                    template_content: activePreviewItem.template_type === 'template_text' ? starterTd.text :
-                        activePreviewItem.template_type === 'template_media' ? starterTd.media_url :
-                            activePreviewItem.template_type === 'template_carousel' ? starterTd.elements :
-                                activePreviewItem.template_type === 'template_quick_replies' ? starterTd.text :
-                                    activePreviewItem.template_type === 'template_buttons' ? starterTd.text :
+                    template_content: resolved.template_type === 'template_text' ? starterTd.text :
+                        resolved.template_type === 'template_media' ? starterTd.media_url :
+                            resolved.template_type === 'template_carousel' ? starterTd.elements :
+                                resolved.template_type === 'template_quick_replies' ? starterTd.text :
+                                    resolved.template_type === 'template_buttons' ? starterTd.text :
                                         undefined,
-                    template_elements: activePreviewItem.template_type === 'template_carousel' ? starterTd.elements : undefined,
-                    replies: activePreviewItem.template_type === 'template_quick_replies' ? starterTd.replies : undefined,
-                    buttons: activePreviewItem.template_type === 'template_buttons' ? starterTd.buttons : undefined,
-                    media_id: activePreviewItem.template_type === 'template_share_post' ? starterTd.media_id : undefined,
-                    media_url: activePreviewItem.template_type === 'template_share_post' ? starterTd.media_url : undefined,
-                    preview_media_url: activePreviewItem.template_type === 'template_share_post' ? starterTd.preview_media_url : undefined,
-                    use_latest_post: activePreviewItem.template_type === 'template_share_post' ? starterTd.use_latest_post : undefined,
-                    latest_post_type: activePreviewItem.template_type === 'template_share_post' ? starterTd.latest_post_type : undefined,
+                    template_elements: resolved.template_type === 'template_carousel' ? starterTd.elements : undefined,
+                    replies: resolved.template_type === 'template_quick_replies' ? starterTd.replies : undefined,
+                    buttons: resolved.template_type === 'template_buttons' ? starterTd.buttons : undefined,
+                    media_id: resolved.template_type === 'template_share_post' ? starterTd.media_id : undefined,
+                    media_url: resolved.template_type === 'template_share_post' ? starterTd.media_url : undefined,
+                    preview_media_url: resolved.template_type === 'template_share_post' ? starterTd.preview_media_url : undefined,
+                    use_latest_post: resolved.template_type === 'template_share_post' ? starterTd.use_latest_post : undefined,
+                    latest_post_type: resolved.template_type === 'template_share_post' ? starterTd.latest_post_type : undefined,
                     template_data: starterTd
                 };
                 if (!auto.template_type) {
@@ -392,12 +466,16 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
 
     // Reset share-post preview state whenever the selected media changes.
     useEffect(() => {
-        const previewUrl = getPreferredSharePostPreviewUrl(auto);
         setSharePostPreviewFailed(false);
-        if (!(auto?.template_type === 'template_share_post' && previewUrl)) {
-            setIsMediaDeleted(false);
-        }
-    }, [auto?.template_type, auto?.media_url, auto?.thumbnail_url, auto?.preview_media_url, auto?.linked_media_url, auto?.template_data]);
+        setIsMediaDeleted(false);
+    }, [
+        auto?.template_type,
+        auto?.media_id,
+        auto?.media_url,
+        auto?.thumbnail_url,
+        auto?.preview_media_url,
+        auto?.linked_media_url
+    ]);
 
     // Carousel drag handlers
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -435,9 +513,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
         return /\.(mp4|mov|webm)(\?|$)/i.test(value) || value.includes('video.xx.fbcdn.net') || value.includes('mime_type=video');
     };
 
-    const renderSharePostVisual = (url: string, label: string) => {
-        const isVideo = isVideoPreviewUrl(url) || auto.media_type === 'VIDEO';
-
+    const renderSharePostVisual = (url: string, label: string, isVideo: boolean) => {
         if (isVideo) {
             return (
                 <div className="absolute inset-0">
@@ -449,7 +525,6 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                         autoPlay
                         loop
                         onLoadedData={() => {
-                            setSharePostPreviewFailed(false);
                             setIsMediaDeleted(false);
                         }}
                         onError={() => {
@@ -473,7 +548,6 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                     className={`w-full h-full object-cover ${isMediaDeleted ? 'opacity-50' : ''}`}
                     alt=""
                     onLoad={() => {
-                        setSharePostPreviewFailed(false);
                         setIsMediaDeleted(false);
                     }}
                     onError={() => {
@@ -496,27 +570,25 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
         );
     };
 
+    // Detect hex-encoded / corrupted template text and replace with a clean placeholder
+    const sanitizePreviewText = (text: string | undefined | null): string => {
+        if (!text) return '...';
+        const str = String(text).trim();
+        if (!str) return '...';
+        // Detect hex dump patterns like "3a 7a 22 fd 69 bd ec 4e"
+        const hexPattern = /^(?:[0-9a-f]{2}\s){4,}/i;
+        if (hexPattern.test(str)) return '(Template content)';
+        // If the string is excessively long (> 500 chars), truncate for preview
+        if (str.length > 500) return str.slice(0, 500) + '...';
+        return str;
+    };
+
     const renderTemplatePreview = () => {
         if (!auto) return null;
 
         const td = getTemplateData(auto.template_data);
-        if (auto.followers_only) {
-            return (
-                <div className="space-y-2">
-                    <div className={botBubbleClass}>
-                        {String(auto.followers_only_message || 'Please follow this account first, then send your message again.').trim()}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <div className="rounded-2xl border border-blue-500/20 bg-white dark:bg-gray-900 px-4 py-2.5 text-center text-[12px] font-bold text-blue-600 dark:text-blue-400 shadow-sm">
-                            {String(auto.followers_only_primary_button_text || '\u{1F464} Follow Account').trim() || '\u{1F464} Follow Account'}
-                        </div>
-                        <div className="rounded-2xl border border-content/70 bg-white dark:bg-gray-900 px-4 py-2.5 text-center text-[12px] font-bold text-foreground shadow-sm">
-                            {String(auto.followers_only_secondary_button_text || "\u2705 I've Followed").trim() || "\u2705 I've Followed"}
-                        </div>
-                    </div>
-                </div>
-            );
-        }
+        // NOTE: followers_only and other condition toggles are NOT shown in the live preview.
+        // The preview only renders the actual reply template content.
         const sharePostIsVideo = isSharePostVideoSource(auto);
         const sharePostPreviewUrl = getPreferredSharePostPreviewUrl(auto);
         const sharePostFallbackImageUrl = sharePostIsVideo ? getPreferredSharePostImageUrl(auto) : '';
@@ -529,22 +601,32 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
             ? (requestedLatestType === 'reel' ? 'Reel' : 'Post')
             : (requestedLatestType === 'reel' || auto.media_type === 'VIDEO' || td.media_type === 'VIDEO' ? 'Reel' : 'Post');
         const showSharePostMedia = Boolean(activeSharePostUrl);
+        const isVideo = sharePostIsVideo && !sharePostPreviewFailed;
         return (
             <>
                 {(effectiveType === 'template_text' || (!effectiveType && (auto.template_content || td.text))) && (
-                    <div className={botBubbleClass}>
-                        {auto.template_content || td.text || '...'}
+                    <div className={`${botBubbleClass} max-h-[200px] overflow-y-auto`}>
+                        {sanitizePreviewText(auto.template_content || td.text)}
                     </div>
                 )}
 
                 {effectiveType === 'template_quick_replies' && (
-                    <div className={botBubbleClass}>
-                        {auto.template_content || td.text || '...'}
-                    </div>
+                    <>
+                        <div className={`${botBubbleClass} w-full max-w-[220px] max-h-[200px] overflow-y-auto`}>
+                            {sanitizePreviewText(auto.template_content || td.text)}
+                        </div>
+                        <div className="mt-2 flex w-full max-w-[220px] overflow-x-auto gap-2 no-scrollbar pb-1">
+                            {(auto.replies || td.replies || []).map((reply: any, i: number) => (
+                                <div key={i} className="flex-shrink-0 min-h-[32px] rounded-full border border-[#DBDBDB] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#0095F6] shadow-sm dark:border-[#363636] dark:bg-[#262626] whitespace-nowrap">
+                                    {reply.title || 'Reply'}
+                                </div>
+                            ))}
+                        </div>
+                    </>
                 )}
 
                 {effectiveType === 'template_share_post' && (
-                    <div className="min-w-[170px] max-w-[220px] rounded-2xl overflow-hidden shadow-md border border-[#DBDBDB] bg-white animate-in fade-in zoom-in-95 message-bubble flex flex-col dark:border-[#363636] dark:bg-[#262626]">
+                    <div className="w-full min-w-0 max-w-[210px] rounded-2xl overflow-hidden shadow-md border border-[#DBDBDB] bg-white animate-in fade-in zoom-in-95 message-bubble flex flex-col dark:border-[#363636] dark:bg-[#262626]">
                         <div className="p-2 flex items-center gap-2 border-b border-[#EFEFEF] dark:border-[#363636]">
                             <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden ring-1 ring-gray-100 dark:ring-gray-800">
                                 {safeProfilePic ? (
@@ -559,7 +641,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                         </div>
                             <div className={`aspect-square bg-[#FAFAFA] dark:bg-[#121212] flex items-center justify-center relative group ${isMediaDeleted ? 'ring-4 ring-red-500 ring-inset' : ''}`}>
                             {auto.use_latest_post && showSharePostMedia ? (
-                                renderSharePostVisual(activeSharePostUrl, `Latest ${sharePostMediaLabel}`)
+                                renderSharePostVisual(activeSharePostUrl, `Latest ${sharePostMediaLabel}`, isVideo)
                             ) : auto.use_latest_post ? (
                                 <div className="flex flex-col items-center gap-2 p-6">
                                     <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -570,7 +652,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                     </span>
                                 </div>
                             ) : showSharePostMedia ? (
-                                renderSharePostVisual(activeSharePostUrl, sharePostMediaLabel)
+                                renderSharePostVisual(activeSharePostUrl, sharePostMediaLabel, isVideo)
                             ) : sharePostPreviewUrl ? (
                                 <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/60 p-6 text-center">
                                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-card shadow-sm">
@@ -612,7 +694,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                         onMouseLeave={handleMouseLeave}
                         onMouseUp={handleMouseUp}
                         onMouseMove={handleMouseMove}
-                        className="flex gap-3 overflow-x-auto pb-4 scroll-smooth no-scrollbar snap-x snap-mandatory cursor-grab active:cursor-grabbing max-w-full"
+                        className="flex w-full max-w-[220px] gap-3 overflow-x-auto pb-4 scroll-smooth no-scrollbar snap-x snap-mandatory cursor-grab active:cursor-grabbing"
                     >
                         {(auto.template_elements || auto.template_data?.elements || []).map((el: any, i: number) => (
                             <div key={i} className="flex-shrink-0 w-[200px] rounded-xl overflow-hidden border border-[#DBDBDB] bg-white shadow-sm flex flex-col snap-center dark:border-[#363636] dark:bg-[#262626]">
@@ -640,7 +722,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                 )}
 
                 {effectiveType === 'template_buttons' && (
-                    <div className="rounded-xl overflow-hidden shadow-sm border border-[#DBDBDB] bg-white w-[220px] dark:border-[#363636] dark:bg-[#262626]">
+                    <div className="w-full max-w-[220px] rounded-xl overflow-hidden shadow-sm border border-[#DBDBDB] bg-white dark:border-[#363636] dark:bg-[#262626]">
                         <div className="p-3 text-[14px] text-[#262626] dark:text-white border-b border-[#EFEFEF] dark:border-[#363636]">
                             {auto.template_content || auto.text || auto.template_data?.text || 'Button message...'}
                         </div>
@@ -653,7 +735,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                 )}
 
                 {effectiveType === 'template_media' && (
-                    <div className="rounded-xl overflow-hidden shadow-sm border border-[#DBDBDB] bg-white w-[220px] dark:border-[#363636] dark:bg-[#262626]">
+                    <div className="w-full max-w-[220px] rounded-xl overflow-hidden shadow-sm border border-[#DBDBDB] bg-white dark:border-[#363636] dark:bg-[#262626]">
                         {(auto.template_content || auto.template_data?.media_url) ? (
                             toBrowserPreviewUrl(auto.template_content || auto.template_data?.media_url || '') ? (
                                 <img
@@ -674,7 +756,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                 )}
 
                 {effectiveType === 'template_media_attachment' && (
-                    <div className="rounded-xl overflow-hidden shadow-sm border border-[#DBDBDB] bg-white w-[220px] dark:border-[#363636] dark:bg-[#262626]">
+                    <div className="w-full max-w-[220px] rounded-xl overflow-hidden shadow-sm border border-[#DBDBDB] bg-white dark:border-[#363636] dark:bg-[#262626]">
                         {auto.media_url || auto.template_content || auto.template_data?.media_url ? (
                             toBrowserPreviewUrl(auto.media_url || auto.template_content || auto.template_data?.media_url || '') ? (
                                 <img
@@ -708,15 +790,35 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
 
     const activePreviewItem = activeIdx !== null && activeIdx >= 0 && activeIdx < displayItems.length ? displayItems[activeIdx] : null;
 
+    useEffect(() => {
+        const scrollToBottom = () => {
+            if (chatContainerRef.current) {
+                chatContainerRef.current.scrollTo({
+                    top: chatContainerRef.current.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        };
+        // Scroll immediately
+        scrollToBottom();
+        // Scroll again after animation/rendering settles
+        const timer = setTimeout(scrollToBottom, 100);
+        const timer2 = setTimeout(scrollToBottom, 350);
+        return () => {
+            clearTimeout(timer);
+            clearTimeout(timer2);
+        };
+    }, [activeIdx, auto, items, newItem]);
+
     return (
-        <div className="mx-auto w-full max-w-[330px] animate-in fade-in slide-in-from-right-8 duration-700 sm:max-w-[350px] xl:ml-auto">
+        <div className="mx-auto w-full max-w-[346px] animate-in fade-in slide-in-from-right-8 duration-700 sm:max-w-[360px] xl:ml-auto">
             <div className="h-fit flex flex-col items-center">
                 <div
                     className={cn(
                         'relative flex w-full flex-col overflow-hidden rounded-[55px] border-[10px] border-slate-900 bg-white shadow-[0_32px_80px_rgba(15,23,42,0.24)] ring-1 ring-slate-900/15 dark:border-slate-600 dark:bg-black dark:ring-slate-500/60 dark:shadow-[0_36px_90px_rgba(2,6,23,0.6)]',
                         lockScroll
-                            ? 'h-[560px] sm:h-[620px] xl:h-[596px] xl:max-h-[596px]'
-                            : 'h-[580px] sm:h-[640px]'
+                            ? 'h-[588px] sm:h-[636px] xl:h-[610px] xl:max-h-[610px]'
+                            : 'h-[606px] sm:h-[656px]'
                     )}
                 >
                     {/* Notch */}
@@ -782,11 +884,11 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                     </div>
 
                     {/* Chat Area */}
-                    <div className={cn(
-                        'relative flex flex-1 flex-col bg-white custom-scrollbar dark:bg-black',
-                        lockScroll ? 'overflow-hidden' : 'overflow-y-auto'
-                    )}>
-                        <div className="flex-1 p-5 pb-0 space-y-4">
+                    <div
+                        ref={chatContainerRef}
+                        className="relative flex flex-1 flex-col bg-white custom-scrollbar dark:bg-black overflow-y-auto"
+                    >
+                        <div className="flex-1 px-3 py-4 pb-0 space-y-3.5 sm:px-4 sm:py-5">
                             {mode === 'automation' ? (
                                 <>
                                     {/* User Message (Keyword) */}
@@ -807,7 +909,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                                 <Instagram className="w-3 h-3 text-gray-400" />
                                             )}
                                         </div>
-                                        <div className="max-w-[85%] space-y-2">
+                                        <div className="w-full max-w-[92%] space-y-2">
                                             {renderTemplatePreview()}
                                         </div>
                                     </div>
@@ -828,7 +930,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                                 <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800">
                                                     {safeProfilePic ? <img src={safeProfilePic} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" /> : <Instagram className="w-3 h-3 text-gray-400" />}
                                                 </div>
-                                                <div className="max-w-[85%] space-y-2">
+                                                <div className="w-full max-w-[92%] space-y-2">
                                                     {auto ? (
                                                         <>
                                                             {renderTemplatePreview()}
@@ -878,7 +980,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                                 <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800">
                                                     {safeProfilePic ? <img src={safeProfilePic} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" /> : <Instagram className="w-3 h-3 text-gray-400" />}
                                                 </div>
-                                                <div className="max-w-[85%] space-y-2">
+                                                <div className="w-full max-w-[92%] space-y-2">
                                                     {auto ? (
                                                         <>
                                                             {renderTemplatePreview()}
@@ -908,8 +1010,9 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                 </>
                             ) : null}
                         </div>
+                    </div>
 
-                        {/* Bottom Section */}
+                        {/* Bottom Section - Outside scroll wrapper so input bar stays fixed */}
                         {mode === 'menu' && (!activePreviewItem || activePreviewItem.type === 'web_url') && (
                             <div className="bg-white dark:bg-gray-950 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] z-30 pt-4 pb-10 border-t border-gray-100 dark:border-gray-800 animate-in slide-in-from-bottom duration-500">
                                 <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-4" />
@@ -989,9 +1092,9 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                         {mode === 'automation' || (mode === 'menu' && activePreviewItem && activePreviewItem.type === 'postback') || (mode === 'convo_starter' && activePreviewItem) ? (
                             <div className="z-30 bg-background/95 p-3 pb-8 animate-in slide-in-from-bottom duration-500 dark:bg-black">
                                 {effectiveType === 'template_quick_replies' && (
-                                    <div className="flex flex-wrap justify-center gap-2 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-500 px-4">
+                                    <div className="flex w-full overflow-x-auto gap-2.5 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-500 px-4 no-scrollbar pb-1">
                                         {(auto.replies ? (typeof auto.replies === 'string' ? JSON.parse(auto.replies) : auto.replies) : []).map((reply: any, i: number) => (
-                                            <div key={i} className="px-4 py-2 bg-white dark:bg-gray-800 border-2 border-blue-500/20 text-blue-500 rounded-full text-[12px] font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
+                                            <div key={i} className="flex-shrink-0 px-4 py-2 bg-white dark:bg-gray-800 border-2 border-blue-500/20 text-blue-500 rounded-full text-[12px] font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
                                                 {reply.title || `Option ${i + 1}`}
                                             </div>
                                         ))}
@@ -1069,7 +1172,6 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                                     .message-bubble { white-space: pre-wrap; word-break: break-word; }
                                 `}} />
-                    </div>
                 </div>
             </div>
         </div>

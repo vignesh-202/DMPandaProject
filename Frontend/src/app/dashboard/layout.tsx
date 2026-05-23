@@ -334,7 +334,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       {/* Mobile Backdrop */}
       <div
         className={cn(
-        `fixed inset-0 bg-foreground/20 backdrop-blur-sm z-20 lg:hidden ${FAST_TRANSITION}`,
+        `fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[240] lg:hidden ${FAST_TRANSITION}`,
         isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
       )}
       onClick={() => setIsSidebarOpen(false)}
@@ -344,7 +344,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       <aside
         ref={sidebarRef}
         className={cn(
-          `fixed top-0 left-0 h-full max-w-[85vw] flex flex-col ${SMOOTH_TRANSITION} ease-out lg:relative lg:max-w-none z-30`,
+          `fixed top-0 left-0 h-full max-w-[85vw] flex flex-col ${SMOOTH_TRANSITION} ease-out lg:relative lg:max-w-none z-[260]`,
           "bg-sidebar border-r border-sidebar-border shadow-sm",
           isSidebarOpen
             ? "w-64 translate-x-0"

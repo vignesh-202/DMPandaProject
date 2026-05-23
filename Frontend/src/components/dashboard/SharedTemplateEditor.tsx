@@ -570,7 +570,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
     };
 
     const renderButtonsTemplate = () => (
-        <div className="bg-gray-50 dark:bg-gray-800/50 p-8 rounded-2xl border border-content space-y-8">
+        <div className="rounded-2xl border border-content bg-gray-50 p-4 space-y-6 dark:bg-gray-800/50 sm:p-6 lg:p-8 lg:space-y-8">
             <div className="space-y-2">
                 <div className="flex justify-between items-center px-1">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Message Content</label>
@@ -588,7 +588,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                             clearValidationError('button_text');
                         }
                     }}
-                    className={`w-full bg-white dark:bg-gray-900 border-2 ${validationErrors['button_text'] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500/50 outline-none rounded-2xl p-6 text-xs font-bold text-gray-900 dark:text-gray-100 min-h-[120px] shadow-xl shadow-black/5 transition-all resize-none`}
+                    className={`w-full bg-white dark:bg-gray-900 border-2 ${validationErrors['button_text'] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500/50 outline-none rounded-2xl p-4 text-xs font-bold text-gray-900 dark:text-gray-100 min-h-[120px] shadow-xl shadow-black/5 transition-all resize-none sm:p-5`}
                     placeholder="Enter your message here..."
                 />
                 {validationErrors['button_text'] && (
@@ -598,8 +598,8 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                 )}
             </div>
 
-            <div className="pt-8 border-t border-content space-y-4">
-                <div className="flex items-center justify-between">
+            <div className="pt-6 border-t border-content space-y-4 sm:pt-8">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Buttons (Max 3)</h4>
                     <button
                         onClick={() => {
@@ -610,14 +610,14 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                             }
                         }}
                         disabled={(templateData.buttons || []).length >= 3}
-                        className="px-4 py-2 rounded-xl bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest hover:bg-blue-500/20 disabled:opacity-20"
+                        className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-500/20 disabled:opacity-20 sm:min-h-0"
                     >
                         + Add Button
                     </button>
                 </div>
                 <div className="space-y-4">
                     {(templateData.buttons || []).map((btn: any, idx: number) => (
-                        <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end p-4 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-content">
+                        <div key={idx} className="grid grid-cols-1 gap-4 rounded-2xl border border-content bg-white p-4 shadow-sm dark:bg-gray-900 sm:p-5 md:grid-cols-12 md:items-end">
                             <div className="md:col-span-4 space-y-1.5">
                                 <div className="flex justify-between items-center">
                                     <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Title</label>
@@ -641,7 +641,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                             <div className="md:col-span-7 space-y-3">
                                 <div className="space-y-1.5">
                                     <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Action</label>
-                                    <div className="grid grid-cols-2 gap-2 rounded-2xl bg-gray-50 dark:bg-black/30 p-1.5 border border-slate-200 dark:border-slate-800">
+                                    <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-gray-50 p-1.5 dark:border-slate-800 dark:bg-black/30">
                                         {[
                                             { id: 'web_url', label: 'Open URL' },
                                             { id: 'postback', label: 'Text Reply' }
@@ -667,7 +667,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                                     clearValidationError(`btn_${idx}_url`);
                                                     clearValidationError(`btn_${idx}_payload`);
                                                 }}
-                                                className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                className={`min-h-[3.25rem] rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
                                                     (btn.type || 'web_url') === option.id
                                                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
                                                         : 'text-gray-500 hover:text-blue-600'
@@ -723,7 +723,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                     </div>
                                 )}
                             </div>
-                            <div className="md:col-span-1 pb-1">
+                            <div className="flex justify-end md:col-span-1 md:pb-1">
                                 {(templateData.buttons || []).length > 1 && (
                                     <button
                                         onClick={() => {
@@ -745,7 +745,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
 
     const renderMediaTemplate = () => (
         <div className="space-y-6">
-            <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-content space-y-4">
+            <div className="rounded-2xl border border-content bg-gray-50 p-4 space-y-4 dark:bg-gray-800/50 sm:p-6">
                 <div className="space-y-2">
                     <div className="flex justify-between items-center px-1">
                         <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Media URL</label>
@@ -758,7 +758,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                 onUpdate({ ...templateData, media_url: e.target.value });
                                 clearValidationError('media_url');
                             }}
-                            className={`w-full bg-white dark:bg-gray-900 border-2 ${validationErrors['media_url'] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500/50 outline-none rounded-2xl p-4 text-xs font-bold text-gray-900 dark:text-gray-100 shadow-xl shadow-black/5 transition-all`}
+                            className={`w-full bg-white dark:bg-gray-900 border-2 ${validationErrors['media_url'] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} focus:border-blue-500/50 outline-none rounded-2xl p-4 text-xs font-bold text-gray-900 dark:text-gray-100 shadow-xl shadow-black/5 transition-all sm:p-5`}
                             placeholder="Enter image URL..."
                         />
                     </div>
@@ -771,7 +771,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
 
                 {/* Preview - Exact match with InboxMenu */}
                 {templateData.media_url && (
-                    <div className="aspect-video relative rounded-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+                    <div className="relative aspect-video overflow-hidden rounded-2xl border-2 border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                         <img src={toBrowserPreviewUrl(templateData.media_url || '')} className="w-full h-full object-cover" alt="" onError={(e) => { (e.target as HTMLImageElement).src = ''; }} />
                     </div>
                 )}
@@ -828,14 +828,14 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                     </div>
 
                     {/* Latest Post/Reel Option */}
-                    <div className={`flex items-center justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 ${templateData.use_latest_post ? 'ring-1 ring-primary/15' : ''}`}>
-                        <div className="flex items-center gap-4">
+                    <div className={`flex flex-col gap-4 rounded-[28px] border border-content/70 bg-muted/40 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${templateData.use_latest_post ? 'ring-1 ring-primary/15' : ''}`}>
+                        <div className="flex items-start gap-3 sm:items-center sm:gap-4">
                             <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-blue-50 dark:border-blue-500/10">
                                 <Share2 className={`w-5 h-5 transition-colors ${templateData.use_latest_post ? 'text-blue-500' : 'text-gray-400'}`} />
                             </div>
-                            <div>
+                            <div className="min-w-0 flex-1">
                                 <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-0.5">Use Latest Post/Reel</p>
-                                <p className="text-[10px] font-medium text-gray-400">Send the latest post or reel at reply time</p>
+                                <p className="text-[11px] font-medium leading-relaxed text-gray-400">Send the latest post or reel at reply time</p>
                             </div>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
@@ -882,13 +882,13 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
 
                     {!templateData.use_latest_post && (
                         <>
-                            <div className="space-y-6">
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white dark:bg-slate-900/50 rounded-3xl border border-content shadow-sm relative z-50">
+                            <div className="space-y-5 sm:space-y-6">
+                                <div className="relative z-50 flex flex-col gap-4 rounded-3xl border border-content bg-white p-4 shadow-sm dark:bg-slate-900/50 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                                         <div ref={mediaDateDropdownRef} className="relative w-full sm:w-64">
                                             <button
                                                 onClick={(e) => { e.preventDefault(); setMediaDateDropdownOpen(!mediaDateDropdownOpen); setMediaSortDropdownOpen(false); }}
-                                                className="group flex w-full items-center justify-between rounded-2xl border border-border/80 bg-background/90 px-5 py-3 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.7)] transition-all hover:border-primary/35 hover:bg-card"
+                                                className="group flex min-h-[3.6rem] w-full items-center justify-between rounded-2xl border border-border/80 bg-background/90 px-4 py-3 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.7)] transition-all hover:border-primary/35 hover:bg-card sm:px-5"
                                             >
                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                     <Calendar className={`w-4 h-4 shrink-0 ${sharePostDateRange !== 'all' ? 'text-primary' : 'text-muted-foreground/60'} transition-colors group-hover:text-primary`} />
@@ -982,7 +982,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                         <div ref={mediaSortDropdownRef} className="relative w-full sm:w-48">
                                             <button
                                                 onClick={(e) => { e.preventDefault(); setMediaSortDropdownOpen(!mediaSortDropdownOpen); setMediaDateDropdownOpen(false); }}
-                                                className="group flex w-full items-center justify-between rounded-2xl border border-border/80 bg-background/90 px-5 py-3 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.7)] transition-all hover:border-primary/35 hover:bg-card"
+                                                className="group flex min-h-[3.6rem] w-full items-center justify-between rounded-2xl border border-border/80 bg-background/90 px-4 py-3 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.7)] transition-all hover:border-primary/35 hover:bg-card sm:px-5"
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <RefreshCw className="w-4 h-4 text-muted-foreground/60 transition-transform duration-500 group-hover:rotate-180 group-hover:text-primary" />
@@ -1024,7 +1024,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex flex-wrap items-center gap-3">
                                         {isFetchingMedia && <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />}
                                         <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-3 py-1 bg-slate-50 dark:bg-slate-800 rounded-full border border-content">
                                             {sharePostContentType === 'posts' ? 'Feed Posts' : sharePostContentType === 'reels' ? 'Reels Library' : 'All Media'}
@@ -1033,7 +1033,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                 </div>
 
                                 {/* Main Content Area - Exact match with InboxMenu */}
-                                <div className="flex-1 min-h-[400px] relative">
+                                <div className="relative flex-1 min-h-[340px] sm:min-h-[400px]">
                                     {isFetchingMedia && !filteredSharePostMedia.length ? (
                                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
                                             <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
@@ -1058,7 +1058,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                     ) : (
                                         <div
                                             ref={mediaGridRef}
-                                            className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 scrollbar-thin overflow-y-auto max-h-[600px] pr-2"
+                                            className="grid max-h-[560px] grid-cols-2 gap-3 overflow-y-auto pr-1.5 scrollbar-thin animate-in fade-in slide-in-from-bottom-2 duration-500 sm:grid-cols-2 sm:gap-4 sm:pr-2 md:grid-cols-3 lg:grid-cols-4"
                                         >
                                             {sortedMedia.map((media: any) => (
                                                 <button
@@ -1152,22 +1152,22 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
 
 
                     {/* Info Box - Exact match with InboxMenu */}
-                    <div className="p-8 bg-blue-50 dark:bg-blue-500/5 rounded-[32px] border border-blue-100 dark:border-blue-500/10">
-                        <div className="flex items-start gap-4">
-                            <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-blue-50 dark:border-blue-500/10">
+                    <div className="rounded-[28px] border border-blue-100 bg-blue-50 p-4 dark:border-blue-500/10 dark:bg-blue-500/5 sm:rounded-[32px] sm:p-6 lg:p-8">
+                        <div className="flex items-start gap-3 sm:gap-4">
+                            <div className="rounded-2xl border border-blue-50 bg-white p-3 shadow-sm dark:border-blue-500/10 dark:bg-gray-900">
                                 <Info className="w-5 h-5 text-blue-500" />
                             </div>
-                            <div>
+                            <div className="min-w-0 flex-1">
                                 <p className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-widest mb-1">Live Instagram Sync</p>
-                                <p className="text-[10px] font-medium text-gray-400 leading-relaxed mb-3">
+                                <p className="mb-3 text-[11px] font-medium leading-relaxed text-gray-400">
                                     {sharePostDateRange === 'all'
                                         ? `Showing your most recent ${sharePostContentType === 'all' ? 'media' : sharePostContentType} directly from Instagram. Select the one you'd like to share.`
                                         : `Showing ${sharePostContentType === 'all' ? 'media' : sharePostContentType} from ${sharePostDateRange} directly from Instagram.`
                                     }
                                 </p>
-                                <div className="flex items-start gap-3 p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10">
-                                    <AlertCircle className="w-3.5 h-3.5 text-blue-500 mt-0.5" />
-                                    <p className="text-[9px] font-bold text-blue-500/80 uppercase tracking-widest leading-relaxed">
+                                <div className="flex items-start gap-3 rounded-2xl border border-blue-500/10 bg-blue-500/5 p-4">
+                                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
+                                    <p className="text-[10px] font-bold leading-relaxed text-blue-500/80 sm:text-[9px] sm:uppercase sm:tracking-widest">
                                         Note: Instagram allows fetching up to 10,000 recently created posts and reels through the workspace.
                                     </p>
                                 </div>

@@ -380,47 +380,47 @@ const SuperProfileView: React.FC = () => {
                     </div>
 
                     {/* Active Toggle */}
-                    <div className="bg-card border border-border rounded-2xl p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
+                    <div className="bg-card border border-border rounded-2xl p-4 sm:p-6">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="min-w-0">
                                 <label className="text-sm font-bold text-foreground">Profile Active</label>
                                 <p className="text-xs text-muted-foreground mt-1">Make your profile publicly accessible</p>
                             </div>
                             <button
                                 onClick={() => setIsActive(!isActive)}
-                                className={`relative w-12 h-6 rounded-full border-2 transition-colors ${
-                                    isActive ? 'bg-primary border-primary' : 'bg-muted border-border'
+                                className={`relative w-11 h-6 rounded-full transition-colors duration-300 focus:outline-none shrink-0 !min-h-0 ${
+                                    isActive ? 'bg-primary' : 'bg-gray-300 dark:bg-slate-700'
                                 }`}
                             >
-                                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${
-                                    isActive ? 'left-[22px]' : 'left-0.5'
+                                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
+                                    isActive ? 'translate-x-5' : 'translate-x-0'
                                 }`} />
                             </button>
                         </div>
                     </div>
 
                     {getDisplayUrl() && (
-                        <div className="bg-primary rounded-2xl p-6 text-primary-foreground">
-                            <div className="flex items-center gap-2 mb-2">
-                                <LinkIcon className="w-5 h-5" />
-                                <span className="text-sm font-bold">Your Public URL</span>
+                        <div className="bg-card border border-primary/20 dark:border-primary/30 rounded-2xl p-4 sm:p-6 space-y-4">
+                            <div className="flex items-center gap-2 text-primary">
+                                <LinkIcon className="w-5 h-5 shrink-0" />
+                                <span className="text-sm font-bold text-foreground">Your Public URL</span>
                             </div>
-                            <div className="flex items-center gap-2 bg-primary-foreground/10 rounded-lg p-3 backdrop-blur-sm">
-                                <code className="flex-1 text-sm font-mono truncate">{getDisplayUrl()}</code>
+                            <div className="flex items-center gap-2 bg-muted/60 dark:bg-muted/30 border border-border rounded-xl p-3">
+                                <code className="flex-1 text-sm font-mono truncate text-foreground/90">{getDisplayUrl()}</code>
                                 <button
                                     onClick={copyUrl}
-                                    className="p-2 hover:bg-primary-foreground/20 rounded-lg transition-colors"
+                                    className="p-2 hover:bg-muted dark:hover:bg-slate-800 rounded-lg transition-colors text-muted-foreground hover:text-foreground shrink-0"
                                     title="Copy URL"
                                 >
-                                    {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                    {copied ? <CheckCircle2 className="w-4.5 h-4.5 text-success" /> : <Copy className="w-4.5 h-4.5" />}
                                 </button>
                             </div>
-                            <p className="text-xs text-primary-foreground/70 mt-2">Add this URL to your Instagram bio</p>
+                            <p className="text-xs text-muted-foreground">Add this URL to your Instagram bio</p>
                         </div>
                     )}
 
                     {/* Buttons */}
-                    <div className="bg-card border border-border rounded-2xl p-3 sm:p-6 space-y-4">
+                    <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 space-y-4">
                         <div className="flex items-center justify-between">
                             <label className="text-sm font-bold text-foreground">Buttons ({buttons.length}/50)</label>
                             <button

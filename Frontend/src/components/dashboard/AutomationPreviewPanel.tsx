@@ -38,14 +38,14 @@ const AutomationPreviewPanel: React.FC<AutomationPreviewPanelProps> = ({
             </div>
 
             {showMobileTrigger && createPortal(
-                <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[100] w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 px-1 md:hidden">
+                <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[110] w-auto max-w-[calc(100%-2rem)] -translate-x-1/2 px-1 md:hidden">
                     <button
                         type="button"
                         onClick={() => setShowModal(true)}
-                        className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-ig-purple via-ig-pink to-ig-orange px-5 py-3 text-white shadow-xl ${FAST_TRANSITION} hover:shadow-2xl active:scale-[0.99]`}
+                        className={`inline-flex min-h-11 min-w-[12rem] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-ig-purple via-ig-pink to-ig-orange px-4 py-2.5 text-white shadow-xl ${FAST_TRANSITION} hover:shadow-2xl active:scale-[0.99]`}
                     >
-                        <Eye className="w-5 h-5 flex-shrink-0" />
-                        <span className="font-bold text-sm whitespace-nowrap">{mobileTriggerLabel}</span>
+                        <Eye className="h-[18px] w-[18px] flex-shrink-0" />
+                        <span className="whitespace-nowrap text-sm font-bold leading-none">{mobileTriggerLabel}</span>
                     </button>
                 </div>,
                 document.body
@@ -74,8 +74,8 @@ const AutomationPreviewPanel: React.FC<AutomationPreviewPanelProps> = ({
                             </div>
                         )}
                         <div className="flex min-h-0 flex-1 overflow-hidden rounded-[1.75rem] border border-border bg-card/95 shadow-2xl sm:rounded-3xl">
-                            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-muted/40 p-2 sm:p-4">
-                                <div className="flex scale-[0.75] sm:scale-[0.88] md:scale-[0.92] origin-center flex-col items-center justify-center h-[460px] sm:h-auto max-h-full">
+                            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-muted/40 px-1.5 py-2 sm:p-4">
+                                <div className="flex scale-[0.9] sm:scale-[0.94] md:scale-[0.98] origin-center flex-col items-center justify-center h-[560px] sm:h-auto max-h-full">
                                     {children}
                                 </div>
                             </div>

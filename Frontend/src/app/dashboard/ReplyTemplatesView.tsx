@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, useDeferredValue } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutTemplate, Plus, Pencil, Trash2, Loader2, X, AlertCircle,
   FileText, Smartphone, Image as ImageIcon, Reply, MousePointerClick, Share2, ArrowLeft,
@@ -155,6 +156,8 @@ function templateToPreviewAutomation(type: TemplateType, d: TemplateData): Recor
 }
 
 export default function ReplyTemplatesView() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { authenticatedFetch } = useAuth();
   const { activeAccountID, activeAccount, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, setCurrentView } = useDashboard();
   const [templates, setTemplates] = useState<Array<{
@@ -358,19 +361,10 @@ export default function ReplyTemplatesView() {
     }));
   }, [authenticatedFetch, getAutomationCount]);
 
-  // If navigated from an automation with a specific template to edit,
-  // open that template in the editor view once templates are loaded.
-  useEffect(() => {
-    if (loading) return;
-    const editId = takeTransientState<string>('replyTemplateEditId');
-    if (!editId) return;
-    const t = templates.find((tpl) => tpl.id === editId);
-    if (t) {
-      openEdit(t);
+  const openCreate = useCallback((pushRoute = true) => {
+    if (pushRoute && location.pathname !== '/dashboard/reply-templates/create') {
+      navigate('/dashboard/reply-templates/create');
     }
-  }, [loading, templates]);
-
-  const openCreate = () => {
     setEditorMode('create');
     setName('');
     setTemplateType('template_text');
@@ -384,9 +378,12 @@ export default function ReplyTemplatesView() {
       data: getDefaultTemplateData('template_text')
     };
     setHasUnsavedChanges(false);
-  };
+  }, [location.pathname, navigate, setHasUnsavedChanges]);
 
-  const openEdit = async (t: (typeof templates)[0]) => {
+  const openEdit = useCallback(async (t: (typeof templates)[0], pushRoute = true) => {
+    if (pushRoute && location.pathname !== `/dashboard/reply-templates/edit/${t.id}`) {
+      navigate(`/dashboard/reply-templates/edit/${t.id}`);
+    }
     setEditorMode({ editId: t.id });
     setEditorLoading(true);
     setName(''); // Clear name until data is loaded
@@ -433,17 +430,60 @@ export default function ReplyTemplatesView() {
     } finally {
       setEditorLoading(false);
     }
-  };
+  }, [activeAccountID, authenticatedFetch, location.pathname, navigate, setHasUnsavedChanges]);
 
   const [showBackModal, setShowBackModal] = useState(false);
 
-  const goBack = () => {
+  const goBack = useCallback(() => {
+    if (location.pathname !== '/dashboard/reply-templates') {
+      navigate('/dashboard/reply-templates');
+    }
     setEditorMode(null);
     setSaving(false);
     setEditorError(null);
     setShowBackModal(false);
     setHasUnsavedChanges(false);
-  };
+  }, [location.pathname, navigate, setHasUnsavedChanges]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (location.pathname === '/dashboard/reply-templates/create') {
+      if (editorMode !== 'create') {
+        openCreate(false);
+      }
+      return;
+    }
+
+    const editMatch = location.pathname.match(/\/dashboard\/reply-templates\/edit\/([^/]+)/);
+    if (editMatch) {
+      const targetId = editMatch[1];
+      if (editorMode !== null && editorMode !== 'create' && editorMode.editId === targetId) {
+        return;
+      }
+      const template = templates.find((tpl) => tpl.id === targetId);
+      if (template) {
+        void openEdit(template, false);
+      }
+      return;
+    }
+
+    const editId = takeTransientState<string>('replyTemplateEditId');
+    if (editId) {
+      const template = templates.find((tpl) => tpl.id === editId);
+      if (template) {
+        void openEdit(template);
+        return;
+      }
+    }
+
+    if (editorMode !== null) {
+      setEditorMode(null);
+      setShowBackModal(false);
+      setEditorError(null);
+      setHasUnsavedChanges(false);
+    }
+  }, [editorMode, loading, location.pathname, openCreate, openEdit, setHasUnsavedChanges, templates]);
 
   // Validate template data based on template type
   const validateTemplateData = (type: TemplateType, data: TemplateData): Record<string, string> => {
@@ -1184,7 +1224,7 @@ export default function ReplyTemplatesView() {
           </button>
           {/* Create Button */}
           <button
-            onClick={openCreate}
+            onClick={() => openCreate()}
             className="flex w-full sm:w-auto min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 sm:px-6 sm:tracking-widest"
           >
             <Plus className="w-5 h-5" />
@@ -1212,7 +1252,7 @@ export default function ReplyTemplatesView() {
             Create your first reply template to reuse across all your automations
           </p>
           <button
-            onClick={openCreate}
+            onClick={() => openCreate()}
             className="px-6 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
           >
             <Plus className="w-5 h-5 inline mr-2" />

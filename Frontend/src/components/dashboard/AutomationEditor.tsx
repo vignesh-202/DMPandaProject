@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import {
-    FileText, Smartphone, Image as ImageIcon, Reply, Save, Loader2, X, Instagram,
+    FileText, Image as ImageIcon, Reply, Save, Loader2, X, Instagram,
     MessageSquare, AlertCircle, CheckCircle2, Trash2, HelpCircle, Power, Globe,
     MousePointerClick, Share2, Film, Radio, BookText, Plus, ChevronRight, Share2 as ShareIcon,
     Calendar, ChevronDown, Check, Info, Lightbulb, LayoutTemplate, Mail
@@ -13,6 +12,7 @@ import LoadingOverlay from '../ui/LoadingOverlay';
 import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate, prefetchReplyTemplates } from './TemplateSelector';
 import SharedMobilePreview from './SharedMobilePreview';
 import AutomationActionBar from './AutomationActionBar';
+import AutomationPreviewPanel from './AutomationPreviewPanel';
 import LockedFeatureToggle from '../ui/LockedFeatureToggle';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import { normalizeAutomationKeywords } from '../../lib/automationKeywords';
@@ -173,25 +173,9 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-    const [showMobilePreviewModal, setShowMobilePreviewModal] = useState(false);
     const [isPlanInvalid, setIsPlanInvalid] = useState(false);
     const [planInvalidFeatures, setPlanInvalidFeatures] = useState<string[]>([]);
     const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
-
-    // Automatically close mobile preview on large screens and ensure scroll position is reset
-    useEffect(() => {
-        const handleResize = () => {
-            if (window.innerWidth >= 1024) {
-                setShowMobilePreviewModal(false);
-                // When switching to desktop, ensure we scroll to top so the user doesn't stay 
-                // in the middle of a long form without realizing the preview is now visible on the right.
-                document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' });
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
 
     const [automation, setAutomation] = useState<any>({
         title: '',
@@ -1792,34 +1776,6 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         </div>
     );
 
-    const renderMobilePreviewToggle = () => (
-        <>
-            <button
-                onClick={() => setShowMobilePreviewModal(true)}
-                className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[9999] flex min-h-12 w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 items-center justify-center gap-2 rounded-2xl border border-white/20 bg-primary px-6 py-3 font-bold text-primary-foreground shadow-2xl transition-all active:scale-[0.99] lg:hidden"
-            >
-                <Smartphone className="w-5 h-5" />
-                <span>Live Preview</span>
-            </button>
-            {showMobilePreviewModal && createPortal(
-                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-background/90 p-4 backdrop-blur-xl lg:hidden">
-                    <div className="relative flex w-full max-w-md flex-col">
-                        <button
-                            onClick={() => setShowMobilePreviewModal(false)}
-                            className="absolute -right-2 -top-12 flex h-10 w-10 items-center justify-center rounded-full bg-muted/80 text-foreground shadow-lg transition-all hover:bg-muted z-[10010]"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                        <div className="max-h-[min(78vh,42rem)] overflow-y-auto rounded-3xl">
-                            {renderPreview()}
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
-        </>
-    );
-
     const effectiveVariant = isStandalone ? 'card' : (useParentLayout && type === 'global' ? 'embedded' : variant);
 
     if (effectiveVariant === 'card') {
@@ -1845,6 +1801,13 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         </div>
                     </div>
                 </div>
+                <AutomationPreviewPanel
+                    title="Live Preview"
+                    wrapperClassName="lg:hidden"
+                    minHeightClassName="min-h-0"
+                >
+                    {renderPreview()}
+                </AutomationPreviewPanel>
                 <ModernConfirmModal
                     isOpen={modalConfig.isOpen}
                     onClose={closeModal}
@@ -1855,7 +1818,6 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     confirmLabel={modalConfig.confirmLabel}
                     cancelLabel={modalConfig.cancelLabel}
                 />
-                {renderMobilePreviewToggle()}
             </div>
         );
     }
@@ -1877,7 +1839,13 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     confirmLabel={modalConfig.confirmLabel}
                     cancelLabel={modalConfig.cancelLabel}
                 />
-                {renderMobilePreviewToggle()}
+                <AutomationPreviewPanel
+                    title="Live Preview"
+                    wrapperClassName="lg:hidden"
+                    minHeightClassName="min-h-0"
+                >
+                    {renderPreview()}
+                </AutomationPreviewPanel>
             </div>
         );
     }
@@ -1906,7 +1874,13 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         </div>
                     </div>
                 </div>
-                {renderMobilePreviewToggle()}
+                <AutomationPreviewPanel
+                    title="Live Preview"
+                    wrapperClassName="lg:hidden"
+                    minHeightClassName="min-h-0"
+                >
+                    {renderPreview()}
+                </AutomationPreviewPanel>
             </div>
             <ModernConfirmModal
                 isOpen={modalConfig.isOpen}

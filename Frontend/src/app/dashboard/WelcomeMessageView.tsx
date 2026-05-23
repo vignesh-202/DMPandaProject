@@ -423,6 +423,7 @@ const WelcomeMessageView: React.FC = () => {
                             displayName={activeAccount?.username || 'username'}
                             lockScroll
                             isLoadingPreview={isSelectedTemplateLoading}
+                            hideAutomationPrompt
                         />
                     ) : (
                         <SharedMobilePreview
@@ -434,6 +435,7 @@ const WelcomeMessageView: React.FC = () => {
                             displayName={activeAccount?.username || 'username'}
                             lockScroll
                             isLoadingPreview={isSelectedTemplateLoading}
+                            hideAutomationPrompt
                         />
                     )}
                 </AutomationPreviewPanel>

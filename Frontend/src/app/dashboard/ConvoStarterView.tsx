@@ -1035,36 +1035,38 @@ const ConvoStarterView: React.FC = () => {
                                                     ${dragIdx === index ? 'opacity-50 scale-95' : ''}
                                                 `}
                                             >
-                                                <div className="mb-4 flex items-start justify-between sm:mb-6">
-                                                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                                                        <div className="w-7 text-lg font-black text-muted-foreground/60 sm:w-8 sm:text-xl">
+                                                <div className="mb-4 flex items-center justify-between sm:mb-6">
+                                                    <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+                                                        <div className="w-6 text-base font-black text-muted-foreground/60 sm:w-8 sm:text-xl">
                                                             {String(index + 1).padStart(2, '0')}
                                                         </div>
-                                                        <div className="p-2 bg-muted text-muted-foreground rounded-lg cursor-grab active:cursor-grabbing">
-                                                            <GripVertical className="w-4 h-4" />
+                                                        <div className="p-1.5 bg-muted text-muted-foreground rounded-lg cursor-grab active:cursor-grabbing sm:p-2">
+                                                            <GripVertical className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                                         </div>
-                                                        <div className="rounded-2xl bg-muted/40 p-3 text-muted-foreground transition-all duration-500 group-hover:bg-primary/10 group-hover:text-primary sm:p-4">
-                                                            <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+                                                        <div className="rounded-2xl bg-muted/40 p-2 text-muted-foreground transition-all duration-500 group-hover:bg-primary/10 group-hover:text-primary sm:p-4">
+                                                            <MessageCircle className="h-4 w-4 sm:h-6 sm:w-6" />
                                                         </div>
                                                     </div>
-                                                    <div className="ml-2 flex flex-wrap items-center justify-end gap-2">
-                                                        <span className="rounded-lg bg-primary/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.14em] text-primary sm:px-3 sm:tracking-widest">
+                                                    <div className="ml-2 flex items-center justify-end gap-1.5 flex-nowrap">
+                                                        <span className="rounded-lg bg-primary/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-primary sm:px-3 sm:py-1 sm:tracking-widest whitespace-nowrap">
                                                             {starter.template_type?.replace('template_', '') || 'Reply'}
                                                         </span>
-                                                        <button
-                                                            onClick={() => void handleEditStarter(starter, index)}
-                                                            className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-primary-foreground transition-all shadow-sm"
-                                                            title="Edit"
-                                                        >
-                                                            <Pencil className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleRemove(index)}
-                                                            className="p-1.5 bg-destructive-muted/40 text-destructive rounded-lg hover:bg-destructive hover:text-destructive-foreground transition-all shadow-sm"
-                                                            title="Remove"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <button
+                                                                onClick={() => void handleEditStarter(starter, index)}
+                                                                className="p-1 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-primary-foreground transition-all shadow-sm sm:p-1.5"
+                                                                title="Edit"
+                                                            >
+                                                                <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleRemove(index)}
+                                                                className="p-1 bg-destructive-muted/40 text-destructive rounded-lg hover:bg-destructive hover:text-destructive-foreground transition-all shadow-sm sm:p-1.5"
+                                                                title="Remove"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="space-y-4">

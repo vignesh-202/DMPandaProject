@@ -91,6 +91,15 @@ class AppwriteClient {
         return digest.slice(0, Math.max(8, Math.min(64, Number(length || 32))));
     }
 
+    _isLikelyDocumentId(value) {
+        const token = String(value || '').trim();
+        if (!token) return false;
+        if (token.length > 128) return false;
+        if (token.startsWith('_')) return false;
+        if (/\s/.test(token)) return false;
+        return /^[A-Za-z0-9_-]+$/.test(token);
+    }
+
     _buildEventLockDocumentId({ accountId, eventKey, eventType = 'message' }) {
         const token = `${String(accountId || '').trim()}|${String(eventType || 'message').trim()}|${String(eventKey || '').trim()}`;
         return `evt_${this._hashToken(token, 32)}`;
@@ -205,9 +214,61 @@ class AppwriteClient {
         }
     }
 
+    async _loadConvoStarterAutomationsFromAutomationsCollection(accountIds) {
+        const normalizedAccountIds = this.normalizeAccountIds(accountIds);
+        if (normalizedAccountIds.length === 0) return [];
+
+        try {
+            let response = await withAppwriteRetry(() => this.databases.listDocuments(
+                this.databaseId,
+                process.env.AUTOMATIONS_COLLECTION_ID,
+                [
+                    Query.equal('account_id', normalizedAccountIds),
+                    Query.equal('automation_type', 'convo_starter'),
+                    Query.equal('is_active', true),
+                    Query.limit(100)
+                ]
+            ), {
+                operationName: 'get_convo_starter_automations_fallback',
+                context: { account_ids: normalizedAccountIds }
+            });
+
+            let documents = Array.isArray(response?.documents) ? response.documents : [];
+            if (documents.length === 0) {
+                response = await withAppwriteRetry(() => this.databases.listDocuments(
+                    this.databaseId,
+                    process.env.AUTOMATIONS_COLLECTION_ID,
+                    [
+                        Query.equal('account_id', normalizedAccountIds),
+                        Query.equal('automation_type', 'convo_starter'),
+                        Query.limit(100)
+                    ]
+                ), {
+                    operationName: 'get_convo_starter_automations_fallback_legacy',
+                    context: { account_ids: normalizedAccountIds }
+                });
+                documents = (response?.documents || []).filter((document) => this._toBoolean(document?.is_active, true));
+            }
+
+            return documents.map((document) => this._normalizeAutomation(document));
+        } catch (error) {
+            console.warn(
+                `Failed automations-collection convo starter fallback for ${JSON.stringify(normalizedAccountIds)}:`,
+                error?.message || error
+            );
+            return [];
+        }
+    }
+
     async _loadConvoStarterFallbacks(accountIds) {
         const normalizedAccountIds = this.normalizeAccountIds(accountIds);
         if (normalizedAccountIds.length === 0) return [];
+
+        const automationDocs = await this._loadConvoStarterAutomationsFromAutomationsCollection(normalizedAccountIds);
+        if (automationDocs.length > 0) {
+            return automationDocs;
+        }
+
         try {
             const response = await withAppwriteRetry(() => this.databases.listDocuments(
                 this.databaseId,
@@ -299,6 +360,23 @@ class AppwriteClient {
         }
     }
 
+    async getAutomation(automationId) {
+        try {
+            const response = await withAppwriteRetry(() => this.databases.getDocument(
+                this.databaseId,
+                process.env.AUTOMATIONS_COLLECTION_ID,
+                automationId
+            ), {
+                operationName: 'get_automation',
+                context: { automation_id: automationId }
+            });
+            return response ? this._normalizeAutomation(response) : null;
+        } catch (error) {
+            console.error(`Error fetching automation ${automationId}:`, error);
+            return null;
+        }
+    }
+
     async getActiveAutomations(accountIds, automationTypes = ['dm', 'global', 'convo_starter', 'inbox_menu']) {
         try {
             const normalizedAccountIds = this.normalizeAccountIds(accountIds);
@@ -312,7 +390,8 @@ class AppwriteClient {
                 [
                     Query.equal('account_id', normalizedAccountIds),
                     Query.equal('automation_type', normalizedTypes),
-                    Query.equal('is_active', true)
+                    Query.equal('is_active', true),
+                    Query.limit(200)
                 ]
             ), {
                 operationName: 'get_active_automations',
@@ -402,6 +481,10 @@ class AppwriteClient {
     }
 
     async getTemplate(templateId, accountId = null) {
+        if (!this._isLikelyDocumentId(templateId)) {
+            return null;
+        }
+
         try {
             const template = await this.databases.getDocument(
                 this.databaseId,

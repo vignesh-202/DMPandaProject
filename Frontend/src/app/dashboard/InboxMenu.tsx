@@ -141,6 +141,7 @@ const InboxMenu: React.FC = () => {
     const [isFetchingMedia, setIsFetchingMedia] = useState(false);
     const [itemBeforeEdit, setItemBeforeEdit] = useState<MenuItem | null>(null);
     const [initialFetchDone, setInitialFetchDone] = useState(false);
+    const lastFetchRef = useRef<string>('');
 
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [toastVariant, setToastVariant] = useState<'success' | 'error'>('success');

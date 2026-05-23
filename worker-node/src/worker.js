@@ -86,6 +86,15 @@ const looksLikeInternalReference = (value) => {
     return false;
 };
 
+const looksLikeAppwriteDocumentId = (value) => {
+    const token = String(value || '').trim();
+    if (!token) return false;
+    if (token.length > 128) return false;
+    if (token.startsWith('_')) return false;
+    if (/\s/.test(token)) return false;
+    return /^[A-Za-z0-9_-]+$/.test(token);
+};
+
 class DMWorker {
     constructor() {
         this.appwrite = new AppwriteClient();
@@ -1092,6 +1101,84 @@ class DMWorker {
         return String(payload || '').trim().split(':').slice(1).join(':').trim();
     }
 
+    _matchAutomationCandidates(candidates, automations) {
+        const normalizedCandidates = uniqueNonEmptyStrings(candidates);
+        if (normalizedCandidates.length === 0 || !Array.isArray(automations) || automations.length === 0) {
+            return null;
+        }
+
+        const specificAutomations = automations.filter((automation) => {
+            const automationType = String(automation?.automation_type || '').trim().toLowerCase();
+            return automationType !== 'global';
+        });
+        specificAutomations.sort((a, b) => {
+            const typeA = String(a?.automation_type || '').trim().toLowerCase();
+            const typeB = String(b?.automation_type || '').trim().toLowerCase();
+            const isMenuOrStarterA = ['convo_starter', 'inbox_menu'].includes(typeA);
+            const isMenuOrStarterB = ['convo_starter', 'inbox_menu'].includes(typeB);
+            if (isMenuOrStarterA && !isMenuOrStarterB) return -1;
+            if (!isMenuOrStarterA && isMenuOrStarterB) return 1;
+            return 0;
+        });
+        const globalAutomations = automations.filter((automation) => String(automation?.automation_type || '').trim().toLowerCase() === 'global');
+
+        for (const candidate of normalizedCandidates) {
+            const specificMatch = AutomationMatcher.matchDM(candidate, specificAutomations);
+            if (specificMatch) {
+                return specificMatch;
+            }
+
+            const globalMatch = AutomationMatcher.matchDM(candidate, globalAutomations);
+            if (globalMatch) {
+                return globalMatch;
+            }
+        }
+
+        return null;
+    }
+
+    async _findMatchedAutomation({
+        automations,
+        inboundCandidates,
+        postbackPayload,
+        automationAccountIds
+    }) {
+        const followersRetryAutomationId = this._extractFollowersRetryAutomationId(postbackPayload);
+        if (followersRetryAutomationId) {
+            let retryAutomation = (automations || []).find(
+                (automation) => String(automation?.$id || '').trim() === followersRetryAutomationId
+            ) || null;
+            if (!retryAutomation) {
+                const convoStarterAutomations = await this.appwrite.getActiveAutomations(automationAccountIds, ['convo_starter', 'inbox_menu']);
+                retryAutomation = convoStarterAutomations.find(
+                    (automation) => String(automation?.$id || '').trim() === followersRetryAutomationId
+                ) || null;
+            }
+            if (!retryAutomation) {
+                retryAutomation = await this.appwrite.getAutomation(followersRetryAutomationId);
+            }
+            if (retryAutomation) {
+                console.log(`Followers-only retry requested for automation ${followersRetryAutomationId}.`);
+                return retryAutomation;
+            }
+            console.warn(`Followers-only retry target ${followersRetryAutomationId} was not found.`);
+        }
+
+        let matchedAutomation = this._matchAutomationCandidates(inboundCandidates, automations);
+        if (matchedAutomation) {
+            return matchedAutomation;
+        }
+
+        const convoStarterAutomations = await this.appwrite.getActiveAutomations(automationAccountIds, ['convo_starter', 'inbox_menu']);
+        matchedAutomation = this._matchAutomationCandidates(inboundCandidates, convoStarterAutomations);
+        if (matchedAutomation) {
+            console.log(`Recovered automation match from targeted convo-starter lookup: ${matchedAutomation.title || matchedAutomation.$id}`);
+            return matchedAutomation;
+        }
+
+        return null;
+    }
+
     _buildCollectedEmailDeliveryPayload({
         email,
         normalizedEmail,
@@ -1154,7 +1241,10 @@ class DMWorker {
         const explicitTemplateId = String(automation?.template_id || '').trim();
         const legacyTemplateRef = String(automation?.template_content || '').trim();
         const candidateTemplateIds = Array.from(new Set(
-            [explicitTemplateId, legacyTemplateRef].filter(Boolean)
+            [explicitTemplateId, legacyTemplateRef].filter((value) => {
+                const token = String(value || '').trim();
+                return token && looksLikeAppwriteDocumentId(token);
+            })
         ));
 
         for (const candidateTemplateId of candidateTemplateIds) {
@@ -2037,24 +2127,12 @@ class DMWorker {
 
             // 3. Match the message against automation rules
             console.log(`Matching message: "${inboundText}"`);
-            let matchedAutomation = null;
-            const followersRetryAutomationId = this._extractFollowersRetryAutomationId(postback?.payload);
-            if (followersRetryAutomationId) {
-                matchedAutomation = automations.find((automation) => String(automation?.$id || '').trim() === followersRetryAutomationId) || null;
-                console.log(`Followers-only retry requested for automation ${followersRetryAutomationId}.`);
-            } else {
-                const specificAutomations = automations.filter((automation) => {
-                    const automationType = String(automation?.automation_type || '').trim().toLowerCase();
-                    return automationType !== 'global';
-                });
-                const globalAutomations = automations.filter((automation) => String(automation?.automation_type || '').trim().toLowerCase() === 'global');
-                for (const candidate of inboundCandidates) {
-                    matchedAutomation = AutomationMatcher.matchDM(candidate, specificAutomations);
-                    if (matchedAutomation) break;
-                    matchedAutomation = AutomationMatcher.matchDM(candidate, globalAutomations);
-                    if (matchedAutomation) break;
-                }
-            }
+            let matchedAutomation = await this._findMatchedAutomation({
+                automations,
+                inboundCandidates,
+                postbackPayload: postback?.payload,
+                automationAccountIds
+            });
             if (!matchedAutomation) {
                 console.log(`No keyword match for: ${inboundText}`);
 

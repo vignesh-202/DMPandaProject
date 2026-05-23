@@ -44,6 +44,16 @@ const ROUTE_TITLES: Record<string, string> = {
   '/login': 'Login | DM Panda'
 };
 
+const getRouteTitle = (path: string) => {
+  if (path === '/dashboard/reply-templates/create') {
+    return 'Create Reply Template | DM Panda';
+  }
+  if (/^\/dashboard\/reply-templates\/edit\/[^/]+$/.test(path)) {
+    return 'Edit Reply Template | DM Panda';
+  }
+  return ROUTE_TITLES[path] || 'DM Panda';
+};
+
 const AppContent: React.FC = () => {
   const location = useLocation();
   const { setForceLightMode } = React.useContext(ThemeContext);
@@ -59,7 +69,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const path = location.pathname || '/';
     const isDashboardLike = path.startsWith('/dashboard') || path.startsWith('/auth/');
-    document.title = ROUTE_TITLES[path] || 'DM Panda';
+    document.title = getRouteTitle(path);
 
     let robotsTag = document.querySelector('meta[name="robots"]');
     if (!robotsTag) {
