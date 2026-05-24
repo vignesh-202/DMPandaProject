@@ -2683,7 +2683,7 @@ router.get('/instagram/insights-summary', loginRequired, async (req, res) => {
 // Get Media
 router.get('/instagram/media', loginRequired, async (req, res) => {
     try {
-        const { account_id, type, after } = req.query;
+        const { account_id, type, after, media_id } = req.query;
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
@@ -2700,6 +2700,65 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
         if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
         const normalizedAccountId = getIgProfessionalAccountId(account);
         const accessToken = account.access_token;
+
+        if (media_id) {
+            try {
+                const response = await axios.get(`https://graph.instagram.com/${media_id}`, {
+                    params: {
+                        fields: 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,shortcode',
+                        access_token: accessToken
+                    }
+                });
+
+                const item = response.data;
+                let hasAutomation = false;
+                let automationId = null;
+                let automationType = null;
+                try {
+                    const automationDocs = await databases.listDocuments(
+                        process.env.APPWRITE_DATABASE_ID,
+                        AUTOMATIONS_COLLECTION_ID,
+                        [
+                            Query.equal('user_id', req.user.$id),
+                            Query.equal('account_id', normalizedAccountId),
+                            Query.equal('media_id', String(media_id)),
+                            Query.limit(1)
+                        ]
+                    );
+                    if (automationDocs.documents && automationDocs.documents.length > 0) {
+                        const doc = automationDocs.documents[0];
+                        hasAutomation = true;
+                        automationId = doc.$id;
+                        automationType = doc.automation_type || null;
+                    }
+                } catch (_) {}
+
+                const resultItem = {
+                    id: item.id,
+                    caption: item.caption || '',
+                    media_type: item.media_type || '',
+                    media_product_type: item.media_product_type || '',
+                    media_url: item.media_url || '',
+                    thumbnail_url: item.thumbnail_url || '',
+                    permalink: item.permalink || '',
+                    timestamp: item.timestamp || '',
+                    shortcode: item.shortcode || '',
+                    has_automation: hasAutomation,
+                    automation_id: automationId,
+                    automation_type: automationType
+                };
+
+                return res.json({
+                    data: [resultItem]
+                });
+            } catch (err) {
+                console.error(`IG Single Media Fetch Error: ${err.message}`);
+                if (err.response && (err.response.status === 404 || err.response.status === 400)) {
+                    return res.status(404).json({ error: 'Media not found or deleted on Instagram.' });
+                }
+                throw err;
+            }
+        }
 
         const apiEdge = type === 'story' ? 'stories' : type === 'live' ? 'live_media' : 'media';
 

@@ -186,7 +186,7 @@ export const resolveSelectedSharePostPreview = async ({
 
   const requestPromise = (async () => {
     try {
-      const url = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/media?account_id=${encodeURIComponent(activeAccountID)}&type=all&limit=100&sort=recent`;
+      const url = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/media?account_id=${encodeURIComponent(activeAccountID)}&media_id=${encodeURIComponent(normalizedMediaId)}`;
       const res = await authenticatedFetch(url);
 
       if (!res.ok) {
