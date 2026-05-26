@@ -791,46 +791,46 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                 <div id="field_media_id" className="bg-gray-50 dark:bg-black/40 p-4 sm:p-8 rounded-[32px] border border-content space-y-6 sm:space-y-8">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 shrink-0">Select Media to Share</h3>
-                        <div className="flex items-center gap-2 overflow-x-auto">
-                            <div className="flex bg-white dark:bg-gray-900 p-1.5 rounded-2xl shadow-sm border border-content min-w-max">
+                        <div className="w-full overflow-x-auto no-scrollbar">
+                            <div className="flex bg-white dark:bg-gray-900 p-1 rounded-xl shadow-sm border border-content w-full">
                                 <button
                                     onClick={(e) => { e.preventDefault(); setSharePostContentType('posts'); }}
-                                    className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${sharePostContentType === 'posts' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:text-gray-600'}`}
+                                    className={`flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${sharePostContentType === 'posts' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:text-gray-600'}`}
                                 >
                                     <ImageIcon className="w-3.5 h-3.5" />
-                                    Posts
+                                    <span>Posts</span>
                                 </button>
                                 <button
                                     onClick={(e) => { e.preventDefault(); setSharePostContentType('reels'); }}
-                                    className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${sharePostContentType === 'reels' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:text-gray-600'}`}
+                                    className={`flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${sharePostContentType === 'reels' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:text-gray-600'}`}
                                 >
                                     <Film className="w-3.5 h-3.5" />
-                                    Reels
+                                    <span>Reels</span>
                                 </button>
                                 <button
                                     onClick={(e) => { e.preventDefault(); setSharePostContentType('all'); }}
-                                    className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${sharePostContentType === 'all' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:text-gray-600'}`}
+                                    className={`flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${sharePostContentType === 'all' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:text-gray-600'}`}
                                 >
                                     <Globe className="w-3.5 h-3.5" />
-                                    All
+                                    <span>All</span>
                                 </button>
-                                <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-2" />
+                                <div className="w-[1px] h-5 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0 self-center" />
                                 <button
                                     onClick={(e) => { e.preventDefault(); fetchSharePostMedia(); }}
                                     disabled={isFetchingMedia}
-                                    className="px-4 py-2 text-gray-400 hover:text-blue-500 rounded-xl transition-all disabled:opacity-50 group"
+                                    className="px-2.5 py-1.5 text-gray-400 hover:text-blue-500 rounded-lg transition-all disabled:opacity-50 group shrink-0"
                                     title="Refresh media"
                                 >
-                                    <RefreshCw className={`w-4 h-4 ${isFetchingMedia ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                                    <RefreshCw className={`w-3.5 h-3.5 ${isFetchingMedia ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
                                 </button>
                             </div>
                         </div>
                     </div>
-
+ 
                     {/* Latest Post/Reel Option */}
-                    <div className={`flex flex-col gap-4 rounded-[28px] border border-content/70 bg-muted/40 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${templateData.use_latest_post ? 'ring-1 ring-primary/15' : ''}`}>
-                        <div className="flex items-start gap-3 sm:items-center sm:gap-4">
-                            <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-blue-50 dark:border-blue-500/10">
+                    <div className={`flex flex-row items-center justify-between gap-4 rounded-[28px] border border-content/70 bg-muted/40 p-4 sm:p-5 ${templateData.use_latest_post ? 'ring-1 ring-primary/15' : ''}`}>
+                        <div className="flex items-start gap-3 sm:items-center sm:gap-4 min-w-0 flex-1">
+                            <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-blue-50 dark:border-blue-500/10 shrink-0">
                                 <Share2 className={`w-5 h-5 transition-colors ${templateData.use_latest_post ? 'text-blue-500' : 'text-gray-400'}`} />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -838,7 +838,7 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                 <p className="text-[11px] font-medium leading-relaxed text-gray-400">Send the latest post or reel at reply time</p>
                             </div>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
                             <input
                                 type="checkbox"
                                 checked={templateData.use_latest_post || false}

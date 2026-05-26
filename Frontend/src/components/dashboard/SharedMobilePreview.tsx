@@ -183,17 +183,21 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
         : [];
 
     // Set active index for editing mode
+    const prevIsEditingRef = useRef(isEditing);
     useEffect(() => {
         if (isEditing && newItem) {
             if (mode === 'menu' && newItem.type === 'postback') {
                 setActiveIdx(0);
             } else if (mode === 'convo_starter') {
                 setActiveIdx(0);
+            } else {
+                setActiveIdx(null);
             }
-        } else {
+        } else if (prevIsEditingRef.current && !isEditing) {
             setActiveIdx(null);
         }
-    }, [isEditing, newItem, mode, items]);
+        prevIsEditingRef.current = isEditing;
+    }, [isEditing, newItem, mode]);
 
     // Get template type icon
     const getTemplateTypeIcon = (type?: string) => {
@@ -611,18 +615,9 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                 )}
 
                 {effectiveType === 'template_quick_replies' && (
-                    <>
-                        <div className={`${botBubbleClass} w-full max-w-[220px] max-h-[200px] overflow-y-auto`}>
-                            {sanitizePreviewText(auto.template_content || td.text)}
-                        </div>
-                        <div className="mt-2 flex w-full max-w-[220px] overflow-x-auto gap-2 no-scrollbar pb-1">
-                            {(auto.replies || td.replies || []).map((reply: any, i: number) => (
-                                <div key={i} className="flex-shrink-0 min-h-[32px] rounded-full border border-[#DBDBDB] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#0095F6] shadow-sm dark:border-[#363636] dark:bg-[#262626] whitespace-nowrap">
-                                    {reply.title || 'Reply'}
-                                </div>
-                            ))}
-                        </div>
-                    </>
+                    <div className={`${botBubbleClass} w-full max-w-[220px] max-h-[200px] overflow-y-auto`}>
+                        {sanitizePreviewText(auto.template_content || td.text)}
+                    </div>
                 )}
 
                 {effectiveType === 'template_share_post' && (
@@ -874,7 +869,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                     className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                                     title={mode === 'menu' ? 'Show menu' : 'Show questions'}
                                 >
-                                    {mode === 'menu' ? <Menu className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />}
+                                    <RefreshCcw className="w-4 h-4" />
                                 </button>
                             )}
                             {!activePreviewItem && mode !== 'automation' && (
@@ -886,7 +881,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                     {/* Chat Area */}
                     <div
                         ref={chatContainerRef}
-                        className="relative flex flex-1 flex-col bg-white custom-scrollbar dark:bg-black overflow-y-auto"
+                        className="relative flex flex-1 min-h-0 flex-col bg-white custom-scrollbar dark:bg-black overflow-y-auto"
                     >
                         <div className="flex-1 px-3 py-4 pb-0 space-y-3.5 sm:px-4 sm:py-5">
                             {mode === 'automation' ? (
@@ -1093,11 +1088,15 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                             <div className="z-30 bg-background/95 p-3 pb-8 animate-in slide-in-from-bottom duration-500 dark:bg-black">
                                 {effectiveType === 'template_quick_replies' && (
                                     <div className="flex w-full overflow-x-auto gap-2.5 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-500 px-4 no-scrollbar pb-1">
-                                        {(auto.replies ? (typeof auto.replies === 'string' ? JSON.parse(auto.replies) : auto.replies) : []).map((reply: any, i: number) => (
-                                            <div key={i} className="flex-shrink-0 px-4 py-2 bg-white dark:bg-gray-800 border-2 border-blue-500/20 text-blue-500 rounded-full text-[12px] font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
-                                                {reply.title || `Option ${i + 1}`}
-                                            </div>
-                                        ))}
+                                        {(() => {
+                                            const raw = auto?.replies || getTemplateData(auto?.template_data)?.replies || [];
+                                            const repliesList = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return []; } })() : (Array.isArray(raw) ? raw : []);
+                                            return repliesList.map((reply: any, i: number) => (
+                                                <div key={i} className="flex-shrink-0 px-4 py-2 bg-white dark:bg-gray-800 border-2 border-blue-500/20 text-blue-500 rounded-full text-[12px] font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
+                                                    {reply.title || `Option ${i + 1}`}
+                                                </div>
+                                            ));
+                                        })()}
                                     </div>
                                 )}
                                 <div className="flex items-center gap-3">

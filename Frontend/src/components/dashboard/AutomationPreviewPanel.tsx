@@ -75,7 +75,7 @@ const AutomationPreviewPanel: React.FC<AutomationPreviewPanelProps> = ({
                         )}
                         <div className="flex min-h-0 flex-1 overflow-hidden rounded-[1.75rem] border border-border bg-card/95 shadow-2xl sm:rounded-3xl">
                             <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-muted/40 px-1.5 py-2 sm:p-4">
-                                <div className="flex scale-[0.9] sm:scale-[0.94] md:scale-[0.98] origin-center flex-col items-center justify-center h-[560px] sm:h-auto max-h-full">
+                                <div className="flex scale-[0.85] xs:scale-[0.9] sm:scale-[0.94] md:scale-[0.98] origin-center flex-col items-center justify-center w-full h-auto max-h-full">
                                     {children}
                                 </div>
                             </div>

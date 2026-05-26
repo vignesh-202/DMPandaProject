@@ -1190,10 +1190,10 @@ export default function ReplyTemplatesView() {
             )}
           </div>
           {/* View Mode Toggle */}
-          <div className="flex flex-1 sm:flex-none items-center justify-center sm:justify-start gap-1 p-1 bg-muted rounded-xl">
+          <div className="h-11 flex flex-1 sm:flex-none items-center gap-1 p-1 bg-muted rounded-xl">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg transition-all ${viewMode === 'grid'
+              className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid'
                 ? 'bg-card text-primary shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
                 }`}
@@ -1203,7 +1203,7 @@ export default function ReplyTemplatesView() {
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition-all ${viewMode === 'list'
+              className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list'
                 ? 'bg-card text-primary shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
                 }`}
@@ -1216,7 +1216,7 @@ export default function ReplyTemplatesView() {
           <button
             onClick={() => fetchList(true)}
             disabled={loading}
-            className="flex flex-1 sm:flex-none items-center justify-center gap-2 p-3 rounded-xl border-2 border-border bg-card text-foreground hover:bg-muted/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex h-11 flex-1 sm:flex-none items-center justify-center gap-2 px-4 rounded-xl border-2 border-border bg-card text-foreground hover:bg-muted/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             title="Refresh templates"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -1225,7 +1225,7 @@ export default function ReplyTemplatesView() {
           {/* Create Button */}
           <button
             onClick={() => openCreate()}
-            className="flex w-full sm:w-auto min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-black uppercase tracking-[0.14em] text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 sm:px-6 sm:tracking-widest"
+            className="flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-black uppercase tracking-[0.14em] text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 sm:px-6 sm:tracking-widest"
           >
             <Plus className="w-5 h-5" />
             Create Template
