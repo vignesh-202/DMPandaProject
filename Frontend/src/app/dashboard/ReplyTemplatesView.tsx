@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import SharedTemplateEditor, { TemplateType, TemplateData } from '../../components/dashboard/SharedTemplateEditor';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
 import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
@@ -160,6 +161,7 @@ export default function ReplyTemplatesView() {
   const navigate = useNavigate();
   const { authenticatedFetch } = useAuth();
   const { activeAccountID, activeAccount, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, setCurrentView } = useDashboard();
+  const { showSuccess, showError } = useNotification();
   const [templates, setTemplates] = useState<Array<{
     id: string;
     name: string;
@@ -221,6 +223,7 @@ export default function ReplyTemplatesView() {
         setError(d.error);
         replyTemplatesListCache = { templates: d.templates, timestamp: Date.now() };
       } catch {
+        showError('Network error');
         setError('Network error');
       }
       setLoading(false);
@@ -252,6 +255,7 @@ export default function ReplyTemplatesView() {
       setError(d.error);
       replyTemplatesListCache = { templates: d.templates, timestamp: Date.now() };
     } catch {
+      showError('Network error');
       setError('Network error');
     } finally {
       if (!force) replyTemplatesListPromise = null;
@@ -766,6 +770,7 @@ export default function ReplyTemplatesView() {
         const rec = { id: data.id, name: data.name, type: data.type, template_type: data.template_type, template_data: data.template_data, linked_automations: data.linked_automations || [], automation_count: data.automation_count || 0 };
         if (!isEdit) setTemplates(prev => [...prev, rec]);
         else setTemplates(prev => prev.map(t => t.id === data.id ? { ...t, ...rec } : t));
+        showSuccess(isEdit ? 'Template updated successfully!' : 'Template created successfully!');
         return true;
       }
       if (data.field === 'name') {
@@ -775,6 +780,7 @@ export default function ReplyTemplatesView() {
         setEditorFieldErrors({ name: `Template name already exists. Suggested: ${suggested}` });
       }
       setEditorError(data.error || 'Save failed');
+      showError(data.error || 'Save failed');
       if (data.fields) {
         // Backend now returns correct field keys (button_text, template_text, etc.)
         setEditorFieldErrors(data.fields);
@@ -800,6 +806,7 @@ export default function ReplyTemplatesView() {
       }
       return false;
     } catch (e) {
+      showError('Network error');
       setEditorError('Network error');
       return false;
     } finally {
@@ -875,11 +882,13 @@ export default function ReplyTemplatesView() {
         setDeleteModal({ open: false, id: '', name: '' });
         setDeleteLinked([]);
         setDeleteError(null);
+        showSuccess('Template deleted successfully!');
         if (deletedTemplateId === activeEditId) {
           goBack();
         }
         fetchList(true);
       } else {
+        showError(data.error || 'Delete failed');
         setDeleteError(data.error || 'Delete failed');
         if (data.linked && Array.isArray(data.linked)) {
           setDeleteLinked(data.linked.map((a: any) => ({
@@ -890,6 +899,7 @@ export default function ReplyTemplatesView() {
         }
       }
     } catch (e) {
+      showError('Network error');
       setDeleteError('Network error');
     }
   };

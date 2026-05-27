@@ -1,5 +1,6 @@
 import React from 'react';
 import ToggleSwitch from './ToggleSwitch';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface LockedFeatureToggleProps {
     icon: React.ReactNode;
@@ -12,6 +13,8 @@ interface LockedFeatureToggleProps {
     onUpgrade?: () => void;
     activeIconClassName?: string;
     actionElement?: React.ReactNode;
+    isCollapsed?: boolean;
+    onCollapseToggle?: () => void;
 }
 
 const LockedFeatureToggle: React.FC<LockedFeatureToggleProps> = ({
@@ -24,7 +27,9 @@ const LockedFeatureToggle: React.FC<LockedFeatureToggleProps> = ({
     note = '',
     onUpgrade = () => {},
     activeIconClassName = 'text-primary',
-    actionElement
+    actionElement,
+    isCollapsed = false,
+    onCollapseToggle
 }) => (
     <div className={`rounded-[22px] border p-4 transition-all sm:rounded-[28px] sm:p-5 ${locked ? 'border-amber-300/70 bg-amber-50/80 dark:border-amber-500/30 dark:bg-amber-500/10' : 'border-content/70 bg-muted/40 hover:bg-muted/55'} ${checked && !locked ? 'ring-1 ring-primary/15' : ''}`}>
         <div className="flex flex-row items-center justify-between gap-4">
@@ -37,7 +42,7 @@ const LockedFeatureToggle: React.FC<LockedFeatureToggleProps> = ({
                     <p className="text-[11px] leading-5 text-muted-foreground sm:text-[10px] sm:leading-normal">{description}</p>
                 </div>
             </div>
-            <div className="flex shrink-0">
+            <div className="flex shrink-0 items-center gap-2">
                 {locked ? (
                     <button
                         type="button"
@@ -49,11 +54,26 @@ const LockedFeatureToggle: React.FC<LockedFeatureToggleProps> = ({
                 ) : actionElement ? (
                     actionElement
                 ) : (
-                    <ToggleSwitch
-                        isChecked={checked}
-                        onChange={onToggle}
-                        variant="plain"
-                    />
+                    <>
+                        {checked && onCollapseToggle && (
+                            <button
+                                type="button"
+                                onClick={onCollapseToggle}
+                                className="p-2 rounded-xl hover:bg-white/50 dark:hover:bg-gray-800/50 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                            >
+                                {isCollapsed ? (
+                                    <ChevronDown className="w-5.5 h-5.5" />
+                                ) : (
+                                    <ChevronUp className="w-5.5 h-5.5" />
+                                )}
+                            </button>
+                        )}
+                        <ToggleSwitch
+                            isChecked={checked}
+                            onChange={onToggle}
+                            variant="plain"
+                        />
+                    </>
                 )}
             </div>
         </div>

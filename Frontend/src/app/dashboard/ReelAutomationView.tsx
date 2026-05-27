@@ -7,9 +7,9 @@ import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { ArrowLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import AutomationToast from '../../components/ui/AutomationToast';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import { fetchReplyTemplateById, prefetchReplyTemplates, ReplyTemplate } from '../../components/dashboard/TemplateSelector';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
@@ -20,10 +20,10 @@ const ReelAutomationView: React.FC = () => {
   const [selectedMedia, setSelectedMedia] = useState<any>(null);
   const [editorDirty, setEditorDirty] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [isSavingLeave, setIsSavingLeave] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [replyTemplatesList, setReplyTemplatesList] = useState<ReplyTemplate[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const { showSuccess, showError } = useNotification();
   const [isPreparingEditor, setIsPreparingEditor] = useState(false);
   const [editorLoadingMessage, setEditorLoadingMessage] = useState('Preparing reel automation editor');
   const [prefetchedAutomation, setPrefetchedAutomation] = useState<any>(null);
@@ -106,7 +106,7 @@ const ReelAutomationView: React.FC = () => {
   const handleDeletedAutomationFallback = useCallback(() => {
     navigate('/dashboard/reel-automation');
     setMediaRefreshKey((value) => value + 1);
-    setError('Automation not found. It may have been deleted.');
+    showError('Automation not found. It may have been deleted.');
   }, [navigate]);
 
   const handleCreateAutomation = useCallback(async (media: any) => {
@@ -136,8 +136,8 @@ const ReelAutomationView: React.FC = () => {
 
   const handleSave = useCallback(() => {
     navigate('/dashboard/reel-automation');
-    setSuccess('Automation saved successfully!');
-  }, [navigate]);
+    showSuccess('Automation saved successfully!');
+  }, [navigate, showSuccess]);
 
   // Track unsaved changes when automation editor is open
   useEffect(() => {
@@ -222,7 +222,7 @@ const ReelAutomationView: React.FC = () => {
         });
         setEditorDirty(false);
       } catch (_) {
-        setError('Could not open automation.');
+        showError('Could not open automation.');
       } finally {
         setIsPreparingEditor(false);
       }
@@ -248,8 +248,6 @@ const ReelAutomationView: React.FC = () => {
   if (selectedMedia && activeAccountID) {
     return (
       <div className="mx-auto max-w-7xl min-h-screen space-y-6 px-3 sm:space-y-8 sm:px-4 md:px-6">
-        <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
-        <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
           <div className="w-full min-w-0 space-y-6 xl:col-span-8 xl:space-y-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
             <section className="space-y-6 rounded-[28px] border border-content bg-card p-4 shadow-sm sm:space-y-8 sm:rounded-[34px] sm:p-6 lg:rounded-[40px] lg:p-8 xl:min-h-0">
@@ -324,10 +322,17 @@ const ReelAutomationView: React.FC = () => {
         <ModernConfirmModal
           isOpen={showLeaveModal}
           onClose={() => setShowLeaveModal(false)}
+          isLoading={isSavingLeave}
           onConfirm={async () => {
-            const ok = await saveHandlerRef.current();
-            if (ok) {
-              setShowLeaveModal(false);
+            setIsSavingLeave(true);
+            try {
+              const ok = await saveHandlerRef.current();
+              if (ok) {
+                setShowLeaveModal(false);
+                closeEditor();
+              }
+            } finally {
+              setIsSavingLeave(false);
             }
           }}
           onSecondary={() => {
@@ -347,8 +352,6 @@ const ReelAutomationView: React.FC = () => {
 
   return (
     <div className="relative h-full">
-      <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
-      <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
       <MediaSection
         key={`reel-media-${activeAccountID || 'none'}-${mediaRefreshKey}`}
         title="Reel Automation"

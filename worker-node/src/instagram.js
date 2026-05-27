@@ -34,43 +34,51 @@ class InstagramAPI {
 
     async _post(path, data, params, meta = {}) {
         let success = false;
+        let allowed = false;
         try {
             await this._ensureRequestAllowed({
                 method: 'POST',
                 path,
                 ...meta
             });
+            allowed = true;
             const response = await axios.post(`${this.baseUrl}${path}`, data, { params });
             success = response.status >= 200 && response.status < 300;
             return response;
         } finally {
-            await this._notifyRequestComplete({
-                method: 'POST',
-                path,
-                success,
-                ...meta
-            });
+            if (allowed) {
+                await this._notifyRequestComplete({
+                    method: 'POST',
+                    path,
+                    success,
+                    ...meta
+                });
+            }
         }
     }
 
     async _get(path, params, meta = {}) {
         let success = false;
+        let allowed = false;
         try {
             await this._ensureRequestAllowed({
                 method: 'GET',
                 path,
                 ...meta
             });
+            allowed = true;
             const response = await axios.get(`${this.baseUrl}${path}`, { params });
             success = response.status >= 200 && response.status < 300;
             return response;
         } finally {
-            await this._notifyRequestComplete({
-                method: 'GET',
-                path,
-                success,
-                ...meta
-            });
+            if (allowed) {
+                await this._notifyRequestComplete({
+                    method: 'GET',
+                    path,
+                    success,
+                    ...meta
+                });
+            }
         }
     }
 

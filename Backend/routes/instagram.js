@@ -558,23 +558,7 @@ const getCollectorDestinationPayloadFromAutomation = (automation) => {
 
 const normalizeCollectorDestinationResponse = (documentOrAutomation) => {
     if (!documentOrAutomation) return getCollectorDestinationDefaults();
-    if (Object.prototype.hasOwnProperty.call(documentOrAutomation, 'collect_email_webhook_url')
-        || Object.prototype.hasOwnProperty.call(documentOrAutomation, 'collect_email_destination_json')) {
-        return getCollectorDestinationPayloadFromAutomation(documentOrAutomation);
-    }
-    const destinationJson = parseDestinationJson(documentOrAutomation.destination_json);
-    return {
-        $id: documentOrAutomation.$id,
-        automation_id: String(documentOrAutomation.automation_id || '').trim(),
-        destination_type: normalizeCollectorDestinationType(documentOrAutomation.destination_type),
-        webhook_url: String(documentOrAutomation.webhook_url || '').trim(),
-        destination_id: String(documentOrAutomation.destination_id || '').trim(),
-        destination_json: destinationJson,
-        verified: destinationJson.verified === true,
-        verified_at: destinationJson.verified_at || null,
-        verification_token: destinationJson.verification_token || null,
-        verification_expires_at: destinationJson.verification_expires_at || null
-    };
+    return getCollectorDestinationPayloadFromAutomation(documentOrAutomation);
 };
 
 const COLLECTOR_VERIFY_TOKEN_TTL_MS = 15 * 60 * 1000;
@@ -1986,7 +1970,8 @@ const buildAutomationDocumentData = ({
 
 const getTitleScopedAutomationTypes = (automationType) => {
     const normalized = String(automationType || '').toLowerCase();
-    if (normalized === 'dm' || normalized === 'global') return ['dm', 'global'];
+    if (normalized === 'dm') return ['dm'];
+    if (normalized === 'global') return ['global'];
     return [normalized || 'dm'];
 };
 

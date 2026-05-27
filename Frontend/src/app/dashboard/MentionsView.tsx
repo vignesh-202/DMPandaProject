@@ -3,6 +3,7 @@ import { AtSign, ArrowLeft, Power, Lightbulb, Mail, MessageSquare, Calendar, Inf
 import { useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
 import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
@@ -11,7 +12,6 @@ import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate } from '../../components/dashboard/TemplateSelector';
-import AutomationToast from '../../components/ui/AutomationToast';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 
@@ -83,11 +83,12 @@ const MentionsView: React.FC = () => {
     const [collectEmailFailRetryMessage, setCollectEmailFailRetryMessage] = useState(COLLECT_EMAIL_FAIL_RETRY_DEFAULT);
     const [collectEmailSuccessReplyMessage, setCollectEmailSuccessReplyMessage] = useState(COLLECT_EMAIL_SUCCESS_DEFAULT);
     const [seenTypingEnabled, setSeenTypingEnabled] = useState(false);
+    const [followersOnlyCollapsed, setFollowersOnlyCollapsed] = useState(false);
+    const [collectEmailCollapsed, setCollectEmailCollapsed] = useState(false);
     const [collectorDestination, setCollectorDestination] = useState<CollectorDestinationState>(createCollectorDestinationState());
     const [collectorDestinationLoading, setCollectorDestinationLoading] = useState(false);
     const [collectorDestinationSaving, setCollectorDestinationSaving] = useState(false);
-    const [success, setSuccess] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const { showSuccess, showError } = useNotification();
     useDashboardMainScrollLock(true);
 
     const [modalConfig, setModalConfig] = useState<{
@@ -184,7 +185,7 @@ const MentionsView: React.FC = () => {
     useEffect(() => {
         let alive = true;
         const loadCollectorDestination = async () => {
-            if (!config.doc_id || collectEmailEnabled !== true) {
+            if (!config.doc_id) {
                 setCollectorDestination(createCollectorDestinationState());
                 setCollectorDestinationLoading(false);
                 return;
@@ -219,17 +220,17 @@ const MentionsView: React.FC = () => {
 
         loadCollectorDestination();
         return () => { alive = false; };
-    }, [authenticatedFetch, collectEmailEnabled, config.doc_id]);
+    }, [authenticatedFetch, config.doc_id]);
 
     const verifyCollectorDestination = useCallback(async (automationId: string) => {
         if (!automationId || collectEmailEnabled !== true) return false;
         const urlValue = String(collectorDestination.webhook_url || '').trim();
         if (!urlValue) {
-            setError('Enter a webhook URL for the email collector.');
+            showError('Enter a webhook URL for the email collector.');
             return false;
         }
         if (!/^https:\/\//i.test(urlValue)) {
-            setError('Webhook URL must start with https://');
+            showError('Webhook URL must start with https://');
             return false;
         }
 
@@ -245,7 +246,7 @@ const MentionsView: React.FC = () => {
             );
             const verifyData = await verifyRes.json();
             if (!verifyRes.ok) {
-                setError(verifyData?.error || 'Failed to verify email collector destination.');
+                showError(verifyData?.error || 'Failed to verify email collector destination.');
                 return false;
             }
             const nextDestination = verifyData?.destination || null;
@@ -262,7 +263,7 @@ const MentionsView: React.FC = () => {
             }
             return true;
         } catch (_) {
-            setError('Failed to verify email collector destination.');
+            showError('Failed to verify email collector destination.');
             return false;
         } finally {
             setCollectorDestinationSaving(false);
@@ -273,15 +274,15 @@ const MentionsView: React.FC = () => {
         if (!automationId || collectEmailEnabled !== true) return true;
         const urlValue = String(collectorDestination.webhook_url || '').trim();
         if (!urlValue) {
-            setError('Enter a webhook URL for the email collector.');
+            showError('Enter a webhook URL for the email collector.');
             return false;
         }
         if (!/^https:\/\//i.test(urlValue)) {
-            setError('Webhook URL must start with https://');
+            showError('Webhook URL must start with https://');
             return false;
         }
         if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
-            setError('Verify the webhook URL before saving the mentions automation.');
+            showError('Verify the webhook URL before saving the mentions automation.');
             return false;
         }
 
@@ -301,7 +302,7 @@ const MentionsView: React.FC = () => {
             );
             const saveData = await saveRes.json();
             if (!saveRes.ok) {
-                setError(saveData?.error || 'Failed to save email collector destination.');
+                showError(saveData?.error || 'Failed to save email collector destination.');
                 return false;
             }
             const nextDestination = saveData?.destination || null;
@@ -318,7 +319,7 @@ const MentionsView: React.FC = () => {
             }
             return true;
         } catch (_) {
-            setError('Failed to save email collector destination.');
+            showError('Failed to save email collector destination.');
             return false;
         } finally {
             setCollectorDestinationSaving(false);
@@ -367,27 +368,26 @@ const MentionsView: React.FC = () => {
         if (!activeAccountID) return false;
 
         if (!selectedTemplate) {
-            setError('Please select a reply template');
+            showError('Please select a reply template');
             return false;
         }
         if (collectEmailEnabled) {
             const webhookUrl = String(collectorDestination.webhook_url || '').trim();
             if (!webhookUrl) {
-                setError('Enter a webhook URL for the email collector.');
+                showError('Enter a webhook URL for the email collector.');
                 return false;
             }
             if (!/^https:\/\//i.test(webhookUrl)) {
-                setError('Webhook URL must start with https://');
+                showError('Webhook URL must start with https://');
                 return false;
             }
             if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
-                setError('Verify the webhook URL before saving the mentions automation.');
+                showError('Verify the webhook URL before saving the mentions automation.');
                 return false;
             }
         }
 
         setIsSaving(true);
-        setError(null);
         try {
             const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/mentions-config`, {
                 method: 'POST',
@@ -421,18 +421,18 @@ const MentionsView: React.FC = () => {
                         return false;
                     }
                 }
-                setSuccess('Mentions template saved successfully!');
+                showSuccess('Mentions template saved successfully!');
                 setInitialState(currentState);
                 setHasUnsavedChanges(false);
                 fetchConfig();
                 return true;
             } else {
-                const data = await res.json();
-                setError(data.error || 'Failed to save');
+                const data = await res.json().catch(() => ({}));
+                showError(data.error || 'Failed to save');
                 return false;
             }
         } catch (err) {
-            setError('Network error');
+            showError('Network error');
             return false;
         } finally {
             setIsSaving(false);
@@ -519,8 +519,6 @@ const MentionsView: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
-            <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
-            <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
             {/* Main Content */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                 {/* Editor Section */}
@@ -577,14 +575,22 @@ const MentionsView: React.FC = () => {
                         title="Followers Only"
                         description="Only respond to users who already follow your account."
                         checked={followersOnly}
-                        onToggle={() => setFollowersOnly(!followersOnly)}
+                        onToggle={() => {
+                            const nextFollowersOnly = !followersOnly;
+                            setFollowersOnly(nextFollowersOnly);
+                            if (nextFollowersOnly) {
+                                setFollowersOnlyCollapsed(false);
+                            }
+                        }}
                         locked={getPlanGate('followers_only').isLocked}
                         note={getPlanGate('followers_only').note}
                         onUpgrade={() => setCurrentView('My Plan')}
                         activeIconClassName="text-blue-500"
+                        isCollapsed={followersOnlyCollapsed}
+                        onCollapseToggle={() => setFollowersOnlyCollapsed(!followersOnlyCollapsed)}
                     />
 
-                    {followersOnly && (
+                    {followersOnly && !followersOnlyCollapsed && (
                         <div className="bg-card border border-content rounded-2xl p-6 space-y-3">
                             <textarea
                                 value={followersOnlyMessage}
@@ -647,14 +653,22 @@ const MentionsView: React.FC = () => {
                             title="Collect Email"
                             description="Prompt users for their email address before completing the automation flow."
                             checked={collectEmailEnabled}
-                            onToggle={() => setCollectEmailEnabled(!collectEmailEnabled)}
+                            onToggle={() => {
+                                const nextVal = !collectEmailEnabled;
+                                setCollectEmailEnabled(nextVal);
+                                if (nextVal) {
+                                    setCollectEmailCollapsed(false);
+                                }
+                            }}
                             locked={collectEmailGate.isLocked}
                             note={collectEmailGate.note}
                             onUpgrade={() => setCurrentView('My Plan')}
                             activeIconClassName="text-indigo-500"
+                            isCollapsed={collectEmailCollapsed}
+                            onCollapseToggle={() => setCollectEmailCollapsed(!collectEmailCollapsed)}
                         />
 
-                        {collectEmailEnabled && !collectEmailGate.isLocked && (
+                        {collectEmailEnabled && !collectEmailGate.isLocked && !collectEmailCollapsed && (
                             <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
                                 <LockedFeatureToggle
                                     icon={<Mail className={`w-5 h-5 ${collectEmailOnlyGmail ? 'text-indigo-500' : 'text-gray-400'}`} />}
@@ -699,7 +713,7 @@ const MentionsView: React.FC = () => {
                                             disabled={!config.doc_id || collectorDestinationSaving}
                                             onClick={async () => {
                                                 const ok = await verifyCollectorDestination(String(config.doc_id || ''));
-                                                if (ok) setSuccess('Email collector destination verified.');
+                                                if (ok) showSuccess('Email collector destination verified.');
                                             }}
                                             className="rounded-2xl bg-black px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-gray-100"
                                         >

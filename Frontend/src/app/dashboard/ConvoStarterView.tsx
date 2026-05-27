@@ -7,8 +7,8 @@ import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview'
 import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
 import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
 import TemplateSelector, { ReplyTemplate, prefetchReplyTemplates } from '../../components/dashboard/TemplateSelector';
-import AutomationToast from '../../components/ui/AutomationToast';
 import { useDashboard, ViewType } from '../../contexts/DashboardContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
@@ -134,8 +134,7 @@ const ConvoStarterView: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [syncing, setSyncing] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
+    const { showSuccess, showError } = useNotification();
 
     // Editing state
     const [isEditing, setIsEditing] = useState(false);
@@ -144,6 +143,7 @@ const ConvoStarterView: React.FC = () => {
     const [newItem, setNewItem] = useState<ConvoStarter | null>(null);
     const [selectedTemplate, setSelectedTemplate] = useState<ReplyTemplate | null>(null);
     const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+    const [followersOnlyCollapsed, setFollowersOnlyCollapsed] = useState(false);
     const [layoutMode, setLayoutMode] = useState<'grid' | 'rows'>('grid');
     const [initialStarters, setInitialStarters] = useState<ConvoStarter[]>([]);
     const [isHydratingInitialData, setIsHydratingInitialData] = useState(Boolean(activeAccountID));
@@ -256,7 +256,6 @@ const ConvoStarterView: React.FC = () => {
 
     const handleSaveConvoStarters = async (): Promise<boolean> => {
         setSaving(true);
-        setError(null);
         try {
             const res = await authenticatedFetch(
                 `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/convo-starters?account_id=${activeAccountID}`,
@@ -276,11 +275,11 @@ const ConvoStarterView: React.FC = () => {
                 return true;
             }
             const data = await res.json();
-            setError(data.error || 'Failed to save');
+            showError(data.error || 'Failed to save');
             setSaving(false);
             return false;
         } catch (err) {
-            setError('Network error');
+            showError('Network error');
             setSaving(false);
             return false;
         }
@@ -288,8 +287,6 @@ const ConvoStarterView: React.FC = () => {
 
     // Clear success/error messages when account changes
     useEffect(() => {
-        setSuccess(null);
-        setError(null);
         setValidationErrors({});
         setIsHydratingInitialData(Boolean(activeAccountID));
         if (!activeAccountID) {
@@ -453,7 +450,7 @@ const ConvoStarterView: React.FC = () => {
         const errors = validateConvoStarter(newItem, selectedTemplate);
         if (Object.keys(errors).length > 0) {
             setValidationErrors(errors);
-            setError('Please fix the validation errors');
+            showError('Please fix the validation errors');
             return;
         }
 
@@ -472,7 +469,7 @@ const ConvoStarterView: React.FC = () => {
                     setNewItem({ ...newItem, question: suggested });
                 }
                 setValidationErrors({ question: `Question already exists. Suggested: ${suggested}` });
-                setError(`Please use a unique question title. Suggested: ${suggested}`);
+                showError(`Please use a unique question title. Suggested: ${suggested}`);
                 return;
             }
         }
@@ -539,13 +536,11 @@ const ConvoStarterView: React.FC = () => {
         if (editingIndex === null) return;
         setConvoStarters(convoStarters.filter((_, idx) => idx !== editingIndex));
         handleCloseEditor();
-        setSuccess('Conversation starter removed from the draft.');
+        showSuccess('Conversation starter removed from the draft.');
     };
 
     const handlePublish = async () => {
         setSaving(true);
-        setError(null);
-        setSuccess(null);
         try {
             const cleanedStarters = convoStarters.map(starter => {
                 const templateId = String(starter.template_id || starter.payload || '').trim();
@@ -577,15 +572,15 @@ const ConvoStarterView: React.FC = () => {
                 const data = await res.json();
                 const savedStarters = Array.isArray(data?.starters) ? data.starters : convoStarters;
                 setConvoStarters(savedStarters);
-                setSuccess('Conversation starters published successfully!');
+                showSuccess('Conversation starters published successfully!');
                 setInitialStarters(JSON.parse(JSON.stringify(savedStarters)));
                 fetchConvoStarters(true);
             } else {
                 const data = await res.json();
-                setError(data.error || 'Failed to publish');
+                showError(data.error || 'Failed to publish');
             }
         } catch (err) {
-            setError('Network error');
+            showError('Network error');
         } finally {
             setSaving(false);
         }
@@ -601,13 +596,12 @@ const ConvoStarterView: React.FC = () => {
             if (res.ok) {
                 setConvoStarters([]);
                 setInitialStarters([]);
-                setSuccess('Conversation starters removed.');
+                showSuccess('Conversation starters removed.');
                 fetchConvoStarters(true);
             }
         } catch (err) {
-            setError('Failed to delete');
-        } finally {
-            setIsDeleting(false);
+            showError('Failed to delete');
+        } finally {            setIsDeleting(false);
         }
     };
 
@@ -637,14 +631,14 @@ const ConvoStarterView: React.FC = () => {
                 }
             );
             if (res.ok) {
-                setSuccess('Synced successfully!');
+                showSuccess('Synced successfully!');
                 fetchConvoStarters(true);
             } else {
                 const data = await res.json();
-                setError(data.error || 'Sync failed');
+                showError(data.error || 'Sync failed');
             }
         } catch (err) {
-            setError('Network error');
+            showError('Network error');
         } finally {
             setSyncing(false);
         }
@@ -703,16 +697,6 @@ const ConvoStarterView: React.FC = () => {
 
     return (
         <div className="mx-auto max-w-7xl space-y-6 px-3 sm:space-y-8 sm:px-4 md:px-6">
-            <AutomationToast
-                message={success}
-                variant="success"
-                onClose={() => setSuccess(null)}
-            />
-            <AutomationToast
-                message={error}
-                variant="error"
-                onClose={() => setError(null)}
-            />
 
             {!isCreatingItem && (
                 <>
@@ -770,10 +754,6 @@ const ConvoStarterView: React.FC = () => {
                             {convoStarters.length < MAX_CONVO_STARTERS && (
                                 <button
                                     onClick={() => {
-                                        if (convoStarters.length >= MAX_CONVO_STARTERS) {
-                                            setError(`Maximum ${MAX_CONVO_STARTERS} conversation starters allowed.`);
-                                            return;
-                                        }
                                         void startCreate();
                                     }}
                                     className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-4 py-3 text-[10px] font-black uppercase tracking-widest text-background shadow-xl shadow-foreground/10 transition-all md:w-auto md:px-8"
@@ -847,20 +827,26 @@ const ConvoStarterView: React.FC = () => {
                                         title="Followers Only"
                                         description="Only respond to users who already follow your account."
                                         checked={Boolean(newItem.followers_only)}
-                                        onToggle={() => setNewItem({
-                                            ...newItem,
-                                            followers_only: !newItem.followers_only,
-                                            followers_only_message: !newItem.followers_only
-                                                ? (newItem.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
-                                                : ''
-                                        })}
+                                        onToggle={() => {
+                                            const nextFollowersOnly = !newItem.followers_only;
+                                            setNewItem({
+                                                ...newItem,
+                                                followers_only: nextFollowersOnly,
+                                                followers_only_message: newItem.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT
+                                            });
+                                            if (nextFollowersOnly) {
+                                                setFollowersOnlyCollapsed(false);
+                                            }
+                                        }}
                                         locked={getPlanGate('followers_only').isLocked}
                                         note={getPlanGate('followers_only').note}
                                         onUpgrade={() => setCurrentView('My Plan')}
                                         activeIconClassName="text-blue-500"
+                                        isCollapsed={followersOnlyCollapsed}
+                                        onCollapseToggle={() => setFollowersOnlyCollapsed(!followersOnlyCollapsed)}
                                     />
 
-                                    {newItem.followers_only && (
+                                    {newItem.followers_only && !followersOnlyCollapsed && (
                                         <div className="space-y-4 rounded-2xl border border-content bg-card p-4 sm:p-6">
                                             <div className="space-y-2">
                                                 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Followers-Only Message</label>

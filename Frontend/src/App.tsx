@@ -120,13 +120,17 @@ const AppContent: React.FC = () => {
   );
 };
 
+import { NotificationProvider } from './contexts/NotificationContext';
+
 function App() {
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ScrollToTop />
       <ThemeProvider>
         <AuthProvider>
-          <AppContent />
+          <NotificationProvider>
+            <AppContent />
+          </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>

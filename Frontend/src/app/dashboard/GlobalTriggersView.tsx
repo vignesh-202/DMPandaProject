@@ -2,20 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
-import {
-    MessageSquare, Plus, Trash2, Save, AlertCircle, Radio, BookText,
-    MousePointerClick, Smartphone, Loader2, Instagram, CheckCircle2, Globe, Pencil, Lightbulb, PencilLine, HelpCircle, Film, RefreshCcw, Calendar, ChevronDown, Check, Info, ArrowLeft, MoreHorizontal, Settings, X, Search,
-    Image as ImageIcon, Video, Music, FileText, Share2, Reply, ChevronRight, Link as LinkIcon, Power, LayoutTemplate, Zap
-} from 'lucide-react';
-import ModernCalendar from '../../components/ui/ModernCalendar';
-import LoadingOverlay from '../../components/ui/LoadingOverlay';
-import ToggleSwitch from '../../components/ui/ToggleSwitch';
-import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
-import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate, prefetchReplyTemplates } from '../../components/dashboard/TemplateSelector';
-import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
-import AutomationEditor from '../../components/dashboard/AutomationEditor';
-import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
-import AutomationToast from '../../components/ui/AutomationToast';
+import { useNotification } from '../../contexts/NotificationContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
@@ -29,14 +16,26 @@ import {
     CAROUSEL_TITLE_MAX,
     CAROUSEL_SUBTITLE_MAX,
 } from '../../lib/templateLimits';
+import {
+    MessageSquare, Plus, Trash2, Save, AlertCircle, Radio, BookText,
+    MousePointerClick, Smartphone, Loader2, Instagram, CheckCircle2, Globe, Pencil, Lightbulb, PencilLine, HelpCircle, Film, RefreshCcw, Calendar, ChevronDown, Check, Info, ArrowLeft, MoreHorizontal, Settings, X, Search,
+    Image as ImageIcon, Video, Music, FileText, Share2, Reply, ChevronRight, Link as LinkIcon, Power, LayoutTemplate, Zap
+} from 'lucide-react';
+import ModernCalendar from '../../components/ui/ModernCalendar';
+import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import ToggleSwitch from '../../components/ui/ToggleSwitch';
+import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
+import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate, prefetchReplyTemplates } from '../../components/dashboard/TemplateSelector';
+import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
+import AutomationEditor from '../../components/dashboard/AutomationEditor';
+import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
 
 const GlobalTriggersView: React.FC = () => {
     const { activeAccountID, activeAccount, globalTriggers, setGlobalTriggers, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges } = useDashboard();
     const { authenticatedFetch } = useAuth();
+    const { showSuccess, showError } = useNotification();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
     const [editingTrigger, setEditingTrigger] = useState<any>(null);
     const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
@@ -52,6 +51,7 @@ const GlobalTriggersView: React.FC = () => {
     const fetchingRef = useRef(false);
     const [editorDirty, setEditorDirty] = useState(false);
     const [showLeaveModal, setShowLeaveModal] = useState(false);
+    const [isSavingLeave, setIsSavingLeave] = useState(false);
     const saveHandlerRef = useRef<() => Promise<boolean>>(async () => true);
     useDashboardMainScrollLock(Boolean(editingTrigger || isPreparingEditor));
     const location = useLocation();
@@ -67,7 +67,6 @@ const GlobalTriggersView: React.FC = () => {
         if (fetchingRef.current) return;
         fetchingRef.current = true;
         if (!isManual) setLoading(true);
-        setError(null);
         try {
             const res = await authenticatedFetch(
                 `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations?account_id=${activeAccountID}&type=global&summary=1`
@@ -81,15 +80,15 @@ const GlobalTriggersView: React.FC = () => {
                 }));
                 setGlobalTriggers(normalized);
             } else {
-                setError(data.error || 'Failed to load global triggers.');
+                showError(data.error || 'Failed to load global triggers.');
             }
         } catch (e) {
-            setError('Network error.');
+            showError('Network error loading global triggers.');
         } finally {
             setLoading(false);
             fetchingRef.current = false;
         }
-    }, [activeAccountID, authenticatedFetch, setGlobalTriggers]);
+    }, [activeAccountID, authenticatedFetch, setGlobalTriggers, showError]);
 
     const handleTemplatesLoaded = useCallback((templates: ReplyTemplate[]) => {
         setReplyTemplatesList((current) => {
@@ -290,12 +289,18 @@ const GlobalTriggersView: React.FC = () => {
         setGlobalTriggers((prev: any) => prev.map((x: any) => (x.$id === trigger.$id ? { ...x, active: next, is_active: next } : x)));
 
         try {
-            await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${trigger.$id}`, {
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${trigger.$id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_active: next })
             });
+            if (res.ok) {
+                showSuccess(next ? 'Global trigger activated.' : 'Global trigger paused.');
+            } else {
+                throw new Error();
+            }
         } catch {
+            showError('Failed to update global trigger status.');
             setGlobalTriggers((prev: any) => prev.map((x: any) => (x.$id === trigger.$id ? { ...x, active: !!trigger.active, is_active: !!trigger.is_active } : x)));
         } finally {
             setTogglingIds((s) => { const n = new Set(s); n.delete(trigger.$id); return n; });
@@ -313,10 +318,17 @@ const GlobalTriggersView: React.FC = () => {
                 setModalConfig((prev) => ({ ...prev, isOpen: false }));
                 setDeletingIds((s) => new Set(s).add(id));
                 try {
-                    await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}`, {
+                    const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}`, {
                         method: 'DELETE'
                     });
-                    setGlobalTriggers((prev: any) => prev.filter((x: any) => x.$id !== id));
+                    if (res.ok) {
+                        setGlobalTriggers((prev: any) => prev.filter((x: any) => x.$id !== id));
+                        showSuccess('Global trigger deleted successfully.');
+                    } else {
+                        showError('Failed to delete global trigger.');
+                    }
+                } catch {
+                    showError('Failed to delete global trigger.');
                 } finally {
                     setDeletingIds((s) => { const n = new Set(s); n.delete(id); return n; });
                 }
@@ -393,8 +405,6 @@ const GlobalTriggersView: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
-            <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
-            <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
             {/* Editor Mode */}
             {editingTrigger ? (
                 <>
@@ -648,10 +658,17 @@ const GlobalTriggersView: React.FC = () => {
             <ModernConfirmModal
                 isOpen={showLeaveModal}
                 onClose={() => setShowLeaveModal(false)}
+                isLoading={isSavingLeave}
                 onConfirm={async () => {
-                    const ok = await saveHandlerRef.current();
-                    if (ok) {
-                        setShowLeaveModal(false);
+                    setIsSavingLeave(true);
+                    try {
+                        const ok = await saveHandlerRef.current();
+                        if (ok) {
+                            setShowLeaveModal(false);
+                            handleClose();
+                        }
+                    } finally {
+                        setIsSavingLeave(false);
                     }
                 }}
                 onSecondary={() => {

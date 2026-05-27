@@ -2053,9 +2053,10 @@ class DMWorker {
                 return false;
             }
 
+            const quickReplyPayload = message?.quick_reply?.payload;
             const inboundCandidates = postback
-                ? uniqueNonEmptyStrings([postback?.payload, postback?.title, message?.text])
-                : uniqueNonEmptyStrings([message?.text, postback?.payload, postback?.title]);
+                ? uniqueNonEmptyStrings([postback?.payload, postback?.title, quickReplyPayload, message?.text])
+                : uniqueNonEmptyStrings([quickReplyPayload, message?.text, postback?.payload, postback?.title]);
             const inboundText = inboundCandidates[0] || '';
 
             if (!inboundText) {
@@ -2136,6 +2137,69 @@ class DMWorker {
             if (!matchedAutomation) {
                 console.log(`No keyword match for: ${inboundText}`);
 
+                // Check if the event is a click of a quick reply or postback, and the payload is a valid template ID in the database
+                const isFromClick = Boolean(quickReplyPayload || postback);
+                if (isFromClick && looksLikeInternalReference(inboundText) && typeof this.appwrite.getTemplate === 'function') {
+                    console.log(`Payload "${inboundText}" is from a click. Checking for direct reply template...`);
+                    const directTemplate = await this.appwrite.getTemplate(inboundText, primaryAccountId);
+                    if (directTemplate) {
+                        console.log(`Found direct template for ID "${inboundText}": ${directTemplate.title || directTemplate.$id}`);
+                        
+                        const context = {
+                            sender_id: senderId,
+                            recipient_id: recipientId,
+                            message_text: inboundText,
+                        };
+                        const watermarkPolicy = await this._getWatermarkPolicyForUser(igAccount.user_id);
+                        const chainState = { preReplyHintsSent: false };
+                        await this._maybeSendSeenTypingPrelude(instagram, senderId, null, chainState);
+                        
+                        const success = await this.sendRenderedTemplate(
+                            instagram,
+                            senderId,
+                            directTemplate,
+                            context,
+                            watermarkPolicy,
+                            {
+                                actionUserId: igAccount.user_id,
+                                logContext: {
+                                    accountId: primaryAccountId,
+                                    recipientId: senderId,
+                                    senderName: senderId,
+                                    automationId: null,
+                                    automationType: 'quick_reply_template',
+                                    eventType: String(options?.meta?.eventType || 'message').trim() || 'message',
+                                    source: 'worker_node'
+                                }
+                            }
+                        );
+                        
+                        let nextConversationState = this._normalizeConversationState(conversationState);
+                        if (success) {
+                            if (nextConversationState.pendingEmail) {
+                                nextConversationState.pendingEmail = null;
+                            }
+                            const hasCooldowns = Object.keys(nextConversationState.automationCooldowns || {}).length > 0;
+                            if (hasCooldowns) {
+                                await this._saveConversationState({
+                                    userId: igAccount.user_id,
+                                    accountId: primaryAccountId,
+                                    conversationKey,
+                                    senderId,
+                                    recipientId
+                                }, nextConversationState);
+                            } else {
+                                await this._clearConversationState(primaryAccountId, conversationKey);
+                            }
+                        }
+                        
+                        return {
+                            handled: success,
+                            automationType: 'quick_reply_template'
+                        };
+                    }
+                }
+
                 const isHumanReadablePostbackReply = Boolean(
                     postback
                     && inboundText
@@ -2151,6 +2215,24 @@ class DMWorker {
                     return {
                         handled: fallbackSent,
                         automationType: 'postback_text_reply'
+                    };
+                }
+
+                const isHumanReadableQuickReplyReply = Boolean(
+                    quickReplyPayload
+                    && inboundText
+                    && !looksLikeInternalReference(inboundText)
+                );
+                if (isHumanReadableQuickReplyReply) {
+                    const fallbackSent = await instagram.sendMessage(senderId, 'template_text', {
+                        text: inboundText
+                    });
+                    if (fallbackSent) {
+                        console.log(`Sent quick reply payload back as text reply: "${inboundText}"`);
+                    }
+                    return {
+                        handled: fallbackSent,
+                        automationType: 'quick_reply_payload_reply'
                     };
                 }
 

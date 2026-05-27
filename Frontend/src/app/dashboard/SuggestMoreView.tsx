@@ -3,6 +3,7 @@ import { Lightbulb, ArrowLeft } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
 import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
@@ -10,7 +11,6 @@ import AutomationActionBar from '../../components/dashboard/AutomationActionBar'
 import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate } from '../../components/dashboard/TemplateSelector';
-import AutomationToast from '../../components/ui/AutomationToast';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 
@@ -32,8 +32,7 @@ const SuggestMoreView: React.FC = () => {
     const [isSelectedTemplateLoading, setIsSelectedTemplateLoading] = useState(false);
     const [showTemplateSelector, setShowTemplateSelector] = useState(true);
     const [isActive, setIsActive] = useState(true);
-    const [success, setSuccess] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const { showSuccess, showError } = useNotification();
     useDashboardMainScrollLock(true);
 
     const [modalConfig, setModalConfig] = useState<{
@@ -133,17 +132,16 @@ const SuggestMoreView: React.FC = () => {
     const handleSave = useCallback(async (): Promise<boolean> => {
         if (!activeAccountID) return false;
         if (!suggestMoreAvailable) {
-            setError('Suggest More is not included in your current plan.');
+            showError('Suggest More is not included in your current plan.');
             return false;
         }
 
         if (!selectedTemplate) {
-            setError('Please select a reply template');
+            showError('Please select a reply template');
             return false;
         }
 
         setIsSaving(true);
-        setError(null);
         try {
             const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/suggest-more`, {
                 method: 'POST',
@@ -156,18 +154,18 @@ const SuggestMoreView: React.FC = () => {
             });
 
             if (res.ok) {
-                setSuccess('Suggest More saved successfully!');
+                showSuccess('Suggest More saved successfully!');
                 setInitialState(currentState);
                 setHasUnsavedChanges(false);
                 fetchConfig();
                 return true;
             } else {
-                const data = await res.json();
-                setError(data.error || 'Failed to save');
+                const data = await res.json().catch(() => ({}));
+                showError(data.error || 'Failed to save');
                 return false;
             }
         } catch (err) {
-            setError('Network error');
+            showError('Network error');
             return false;
         } finally {
             setIsSaving(false);
@@ -227,8 +225,6 @@ const SuggestMoreView: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
-            <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
-            <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
             {/* Main Content */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                 {/* Editor Section */}

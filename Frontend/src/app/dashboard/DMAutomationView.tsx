@@ -9,10 +9,10 @@ import {
 } from 'lucide-react';
 import ModernCalendar from '../../components/ui/ModernCalendar';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import { useNotification } from '../../contexts/NotificationContext';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
-import AutomationToast from '../../components/ui/AutomationToast';
 import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
 import TemplateSelector, { ReplyTemplate } from '../../components/dashboard/TemplateSelector';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
@@ -159,12 +159,20 @@ const validateMediaUrl = async (url: string, type: string): Promise<{ valid: boo
 const DMAutomationView: React.FC = () => {
     const { activeAccountID, activeAccount, dmAutomations, setDmAutomations, automationInitialLoaded, setAutomationInitialLoaded, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges, setCurrentView, getPlanGate } = useDashboard();
     const { authenticatedFetch, user } = useAuth();
+    const { showSuccess, showError } = useNotification();
+    const setError = useCallback((msg: string | null) => {
+        if (msg) showError(msg);
+    }, [showError]);
+    const setSuccess = useCallback((msg: string | null) => {
+        if (msg) showSuccess(msg);
+    }, [showSuccess]);
     const [loading, setLoading] = useState(!automationInitialLoaded['dm']);
     const [saving, setSaving] = useState(false);
+    const [isSavingLeave, setIsSavingLeave] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
     const [editingAutomation, setEditingAutomation] = useState<any>(null);
+    const [followersOnlyCollapsed, setFollowersOnlyCollapsed] = useState(false);
+    const [collectEmailCollapsed, setCollectEmailCollapsed] = useState(false);
     const [collectorDestination, setCollectorDestination] = useState(createCollectorDestinationState);
     const [collectorDestinationLoading, setCollectorDestinationLoading] = useState(false);
     const [collectorDestinationSaving, setCollectorDestinationSaving] = useState(false);
@@ -300,7 +308,7 @@ const DMAutomationView: React.FC = () => {
             }
         } catch (err) {
             console.error("Failed to fetch automations", err);
-            setError("Could not load your DM automations.");
+            showError("Could not load your DM automations.");
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -308,11 +316,7 @@ const DMAutomationView: React.FC = () => {
         }
     }, [activeAccountID, authenticatedFetch, setDmAutomations, setAutomationInitialLoaded]);
 
-    // Clear success/error messages when account changes
-    useEffect(() => {
-        setSuccess(null);
-        setError(null);
-    }, [activeAccountID]);
+
 
     useEffect(() => {
         if (!automationInitialLoaded['dm'] && activeAccountID) {
@@ -391,7 +395,7 @@ const DMAutomationView: React.FC = () => {
     useEffect(() => {
         let alive = true;
         const loadCollectorDestination = async () => {
-            if (!editingAutomation?.$id || editingAutomation.collect_email_enabled !== true) {
+            if (!editingAutomation?.$id) {
                 setCollectorDestination(createCollectorDestinationState());
                 setCollectorDestinationLoading(false);
                 return;
@@ -428,7 +432,7 @@ const DMAutomationView: React.FC = () => {
         return () => {
             alive = false;
         };
-    }, [authenticatedFetch, editingAutomation?.$id, editingAutomation?.collect_email_enabled]);
+    }, [authenticatedFetch, editingAutomation?.$id]);
 
     const verifyCollectorDestination = useCallback(async (automationRecordId: string) => {
         if (!automationRecordId || editingAutomation?.collect_email_enabled !== true) {
@@ -496,11 +500,11 @@ const DMAutomationView: React.FC = () => {
             return false;
         }
         if (!/^https:\/\//i.test(urlValue)) {
-            setError('Webhook URL must start with https://');
+            showError('Webhook URL must start with https://');
             return false;
         }
         if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
-            setError('Verify the webhook URL before saving the automation.');
+            showError('Verify the webhook URL before saving the automation.');
             return false;
         }
 
@@ -520,7 +524,7 @@ const DMAutomationView: React.FC = () => {
             );
             const saveData = await saveRes.json();
             if (!saveRes.ok) {
-                setError(saveData?.error || 'Failed to save email collector destination.');
+                showError(saveData?.error || 'Failed to save email collector destination.');
                 return false;
             }
 
@@ -539,7 +543,7 @@ const DMAutomationView: React.FC = () => {
 
             return true;
         } catch (_) {
-            setError('Failed to save email collector destination.');
+            showError('Failed to save email collector destination.');
             return false;
         } finally {
             setCollectorDestinationSaving(false);
@@ -559,7 +563,7 @@ const DMAutomationView: React.FC = () => {
             const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${targetId}?account_id=${activeAccountID}`);
             if (!res.ok) {
                 if (res.status === 404) {
-                    setError("Automation not found. It may have been deleted.");
+                    showError("Automation not found. It may have been deleted.");
                     setPreparing(false);
                     fetchAutomations(true);
                     openingRef.current = null;
@@ -645,14 +649,12 @@ const DMAutomationView: React.FC = () => {
                 setKeywordWarnings({});
                 setFieldErrors({});
                 setDuplicateErrorKeywords(new Set());
-                setSuccess(null);
-                setError(null);
                 setPreparing(false);
                 openingRef.current = null;
             }, 600);
         } catch (err) {
             console.error(err);
-            setError("Could not load rule details.");
+            showError("Could not load rule details.");
             setPreparing(false);
             fetchAutomations(true, true);
             openingRef.current = null;
@@ -751,7 +753,7 @@ const DMAutomationView: React.FC = () => {
     const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
     const [duplicateErrorKeywords, setDuplicateErrorKeywords] = useState<Set<string>>(new Set());
 
-    const handleSave = async () => {
+    const handleSave = async (): Promise<boolean> => {
         setSaving(true);
         setError(null);
         setSuccess(null);
@@ -976,7 +978,7 @@ const DMAutomationView: React.FC = () => {
                     modalEl.scrollTo({ top: 0, behavior: 'smooth' });
                 }
             }, 100);
-            return;
+            return false;
         }
 
         try {
@@ -1024,13 +1026,14 @@ const DMAutomationView: React.FC = () => {
                 if (editingAutomation.collect_email_enabled) {
                     const collectorSaved = await persistCollectorDestination(savedAutomationId);
                     if (!collectorSaved) {
-                        return;
+                        return false;
                     }
                 }
-                setSuccess(editingAutomation.$id ? "Automation updated!" : "Automation published!");
+                showSuccess(editingAutomation.$id ? "Automation updated!" : "Automation published!");
                 setEditingAutomation(null);
                 fetchAutomations(true);
                 navigate('/dashboard/dm-automation', { replace: true });
+                return true;
             } else {
                 // Handle Multi-Field Errors (New Format)
                 if (data.fields) {
@@ -1086,16 +1089,17 @@ const DMAutomationView: React.FC = () => {
                         }
                     }, 100);
                 } else {
-                    setError(data.error || "Failed to save.");
+                    showError(data.error || "Failed to save.");
                 }
+                return false;
             }
             // Clear notifications after 4s
             setTimeout(() => {
-                setSuccess(null);
-                setError(null);
+                // Done globally
             }, 4000);
         } catch (err) {
-            setError("Network error.");
+            showError("Network error.");
+            return false;
         } finally {
             setSaving(false);
         }
@@ -1115,9 +1119,17 @@ const DMAutomationView: React.FC = () => {
                 confirmLabel: 'Save Changes',
                 secondaryLabel: 'Discard & Leave',
                 cancelLabel: 'Keep Editing',
-                onConfirm: () => {
-                    closeModal();
-                    handleSave();
+                onConfirm: async () => {
+                    setIsSavingLeave(true);
+                    try {
+                        const ok = await handleSave();
+                        if (ok) {
+                            closeModal();
+                            resetEditorState();
+                        }
+                    } finally {
+                        setIsSavingLeave(false);
+                    }
                 },
                 onSecondary: () => {
                     closeModal();
@@ -1170,10 +1182,17 @@ const DMAutomationView: React.FC = () => {
                     confirmLabel: 'Save Changes',
                     secondaryLabel: 'Discard & Leave',
                     cancelLabel: 'Keep Editing',
-                    onConfirm: () => {
-                        closeModal();
-                        void handleSaveRef.current();
-                        resolve(true);
+                    onConfirm: async () => {
+                        setIsSavingLeave(true);
+                        try {
+                            const ok = await handleSaveRef.current();
+                            if (ok) {
+                                closeModal();
+                                resolve(true);
+                            }
+                        } finally {
+                            setIsSavingLeave(false);
+                        }
                     },
                     onSecondary: () => {
                         closeModal();
@@ -1515,13 +1534,13 @@ const DMAutomationView: React.FC = () => {
                     if (res.ok) {
                         if (editingAutomation?.$id === id) setEditingAutomation(null);
                         fetchAutomations(true, true);
-                        showAlert('Deleted', 'The automation rule has been successfully removed.', 'success');
+                        showSuccess('The automation rule has been successfully removed.');
                     } else {
                         const err = await res.json();
-                        showAlert('Delete Failed', err.error || 'Failed to delete automation.', 'danger');
+                        showError(err.error || 'Failed to delete automation.');
                     }
                 } catch (error) {
-                    showAlert('Error', 'A network error occurred while deleting.', 'danger');
+                    showError('A network error occurred while deleting.');
                 } finally {
                     setDeletingIds(prev => {
                         const next = new Set(prev);
@@ -1543,8 +1562,13 @@ const DMAutomationView: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_active: !originalStatus })
             });
-            if (!res.ok) throw new Error();
+            if (res.ok) {
+                showSuccess(!originalStatus ? 'Automation activated.' : 'Automation paused.');
+            } else {
+                throw new Error();
+            }
         } catch (e) {
+            showError('Failed to toggle automation status.');
             setDmAutomations(prev => prev.map(a => a.$id === auto.$id ? { ...a, active: originalStatus, is_active: originalStatus } : a));
         } finally {
             setTogglingIds(prev => { const n = new Set(prev); n.delete(auto.$id); return n; });
@@ -1588,8 +1612,6 @@ const DMAutomationView: React.FC = () => {
 
         return (
             <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
-                <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
-                <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                     <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                         <section className="bg-card rounded-[40px] border border-content shadow-sm">
@@ -1782,10 +1804,11 @@ const DMAutomationView: React.FC = () => {
                                             setEditingAutomation({
                                                 ...editingAutomation,
                                                 followers_only: nextFollowersOnly,
-                                                followers_only_message: nextFollowersOnly
-                                                    ? (editingAutomation.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
-                                                    : ''
+                                                followers_only_message: editingAutomation.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT
                                             });
+                                            if (nextFollowersOnly) {
+                                                setFollowersOnlyCollapsed(false);
+                                            }
                                             if (!nextFollowersOnly) {
                                                 setFieldErrors((prev) => {
                                                     const next = { ...prev };
@@ -1798,9 +1821,11 @@ const DMAutomationView: React.FC = () => {
                                         note={getPlanGate('followers_only').note}
                                         onUpgrade={() => setCurrentView('My Plan')}
                                         activeIconClassName="text-blue-500"
+                                        isCollapsed={followersOnlyCollapsed}
+                                        onCollapseToggle={() => setFollowersOnlyCollapsed(!followersOnlyCollapsed)}
                                     />
                                 </div>
-                                {editingAutomation.followers_only && (
+                                {editingAutomation.followers_only && !followersOnlyCollapsed && (
                                     <div className="mt-4 bg-card/50 p-4 rounded-2xl border border-primary/15 space-y-4">
                                         <div className="flex justify-between items-center px-1 mb-2">
                                             <label id="field_followers_only_message" className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Followers-Only Message</label>
@@ -1902,26 +1927,34 @@ const DMAutomationView: React.FC = () => {
                                         title="Collect Email"
                                         description="Prompt users for their email address before completing the automation flow."
                                         checked={editingAutomation.collect_email_enabled === true}
-                                        onToggle={() => setEditingAutomation({
-                                            ...editingAutomation,
-                                            collect_email_enabled: !(editingAutomation.collect_email_enabled === true),
-                                            collect_email_only_gmail: editingAutomation.collect_email_enabled ? false : editingAutomation.collect_email_only_gmail
-                                        })}
+                                        onToggle={() => {
+                                            const nextVal = !editingAutomation.collect_email_enabled;
+                                            setEditingAutomation({
+                                                ...editingAutomation,
+                                                collect_email_enabled: nextVal,
+                                                collect_email_only_gmail: nextVal ? editingAutomation.collect_email_only_gmail : false
+                                            });
+                                            if (nextVal) {
+                                                setCollectEmailCollapsed(false);
+                                            }
+                                        }}
                                         locked={getPlanGate('collect_email').isLocked}
                                         note={getPlanGate('collect_email').note}
                                         onUpgrade={() => setCurrentView('My Plan')}
                                         activeIconClassName="text-indigo-500"
+                                        isCollapsed={collectEmailCollapsed}
+                                        onCollapseToggle={() => setCollectEmailCollapsed(!collectEmailCollapsed)}
                                     />
-                                    {editingAutomation.collect_email_enabled && !getPlanGate('collect_email').isLocked && (
-                                        <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
-                                            <LockedFeatureToggle
-                                                icon={<Mail className={`w-5 h-5 ${editingAutomation.collect_email_only_gmail ? 'text-indigo-500' : 'text-gray-400'}`} />}
-                                                title="Allow Only Gmail"
-                                                description="Only accept @gmail.com email addresses."
-                                                checked={editingAutomation.collect_email_only_gmail === true}
-                                                onToggle={() => setEditingAutomation({ ...editingAutomation, collect_email_only_gmail: !(editingAutomation.collect_email_only_gmail === true) })}
-                                                activeIconClassName="text-indigo-500"
-                                            />
+                                    {editingAutomation.collect_email_enabled && !getPlanGate('collect_email').isLocked && !collectEmailCollapsed && (
+                                    <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
+                                        <LockedFeatureToggle
+                                            icon={<Mail className={`w-5 h-5 ${editingAutomation.collect_email_only_gmail ? 'text-indigo-500' : 'text-gray-400'}`} />}
+                                            title="Allow Only Gmail"
+                                            description="Only accept @gmail.com email addresses."
+                                            checked={editingAutomation.collect_email_only_gmail === true}
+                                            onToggle={() => setEditingAutomation({ ...editingAutomation, collect_email_only_gmail: !(editingAutomation.collect_email_only_gmail === true) })}
+                                            activeIconClassName="text-indigo-500"
+                                        />
                                             <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
                                                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Prompt Message</p>
                                                 <textarea
@@ -3138,6 +3171,7 @@ const DMAutomationView: React.FC = () => {
                     cancelLabel={modalConfig.cancelLabel}
                     secondaryLabel={modalConfig.secondaryLabel}
                     oneButton={modalConfig.oneButton}
+                    isLoading={isSavingLeave}
                 />
             </div>
         );
@@ -3145,8 +3179,6 @@ const DMAutomationView: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-12">
-            <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
-            <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-8">
                 <div className="space-y-2">
@@ -3294,6 +3326,7 @@ const DMAutomationView: React.FC = () => {
                 cancelLabel={modalConfig.cancelLabel}
                 secondaryLabel={modalConfig.secondaryLabel}
                 oneButton={modalConfig.oneButton}
+                isLoading={isSavingLeave}
             />
         </div>
     );

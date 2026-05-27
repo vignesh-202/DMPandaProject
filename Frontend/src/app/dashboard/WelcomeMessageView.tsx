@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Power, Lightbulb, ArrowLeft, Info, Sparkles } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
 import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
@@ -10,7 +11,6 @@ import LockedFeatureToggle from '../../components/ui/LockedFeatureToggle';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import ModernConfirmModal from '../../components/ui/ModernConfirmModal';
 import TemplateSelector, { fetchReplyTemplateById, ReplyTemplate } from '../../components/dashboard/TemplateSelector';
-import AutomationToast from '../../components/ui/AutomationToast';
 import { buildPreviewAutomationFromTemplate } from '../../lib/templatePreview';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 
@@ -30,12 +30,12 @@ const WelcomeMessageView: React.FC = () => {
     const [showTemplateSelector, setShowTemplateSelector] = useState(true);
     const [automationId, setAutomationId] = useState<string | null>(null);
     const [followersOnly, setFollowersOnly] = useState(false);
+    const [followersOnlyCollapsed, setFollowersOnlyCollapsed] = useState(false);
     const [followersOnlyMessage, setFollowersOnlyMessage] = useState(FOLLOWERS_ONLY_MESSAGE_DEFAULT);
     const [followersOnlyPrimaryButtonText, setFollowersOnlyPrimaryButtonText] = useState(FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT);
     const [followersOnlySecondaryButtonText, setFollowersOnlySecondaryButtonText] = useState(FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT);
     const [suggestMoreEnabled, setSuggestMoreEnabled] = useState(false);
-    const [success, setSuccess] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const { showSuccess, showError } = useNotification();
     const [initialState, setInitialState] = useState('');
     useDashboardMainScrollLock(true);
 
@@ -53,7 +53,6 @@ const WelcomeMessageView: React.FC = () => {
     const fetchConfig = useCallback(async () => {
         if (!activeAccountID) return;
         setIsLoading(true);
-        setError(null);
         try {
             const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations?account_id=${activeAccountID}&type=welcome_message`);
             if (!res.ok) {
@@ -104,7 +103,7 @@ const WelcomeMessageView: React.FC = () => {
                 setShowTemplateSelector(true);
             }
         } catch (err: any) {
-            setError(String(err?.message || 'Failed to load welcome message.'));
+            showError(String(err?.message || 'Failed to load welcome message.'));
         } finally {
             setIsSelectedTemplateLoading(false);
             setIsLoading(false);
@@ -138,12 +137,11 @@ const WelcomeMessageView: React.FC = () => {
     async function handleSave() {
         if (!activeAccountID) return false;
         if (!selectedTemplate) {
-            setError('Please select a reply template for the welcome message.');
+            showError('Please select a reply template for the welcome message.');
             return false;
         }
 
         setIsSaving(true);
-        setError(null);
         try {
             const payload = {
                 title: 'Welcome Message',
@@ -175,13 +173,13 @@ const WelcomeMessageView: React.FC = () => {
                 throw new Error(body?.error || 'Failed to save welcome message.');
             }
 
-            setSuccess(automationId ? 'Welcome message updated.' : 'Welcome message created.');
+            showSuccess(automationId ? 'Welcome message updated.' : 'Welcome message created.');
             setInitialState(currentState);
             setHasUnsavedChanges(false);
             await fetchConfig();
             return true;
         } catch (err: any) {
-            setError(String(err?.message || 'Failed to save welcome message.'));
+            showError(String(err?.message || 'Failed to save welcome message.'));
             return false;
         } finally {
             setIsSaving(false);
@@ -221,7 +219,7 @@ const WelcomeMessageView: React.FC = () => {
                     }));
                     setHasUnsavedChanges(false);
                 } catch (err) {
-                    setError('Failed to delete welcome message.');
+                    showError('Failed to delete welcome message.');
                 } finally {
                     setIsSaving(false);
                 }
@@ -244,8 +242,6 @@ const WelcomeMessageView: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
-            <AutomationToast message={success} variant="success" onClose={() => setSuccess(null)} />
-            <AutomationToast message={error} variant="error" onClose={() => setError(null)} />
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                 <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                     <div className="pb-2">
@@ -309,14 +305,22 @@ const WelcomeMessageView: React.FC = () => {
                         title="Followers Only"
                         description="Only respond to users who already follow your account."
                         checked={followersOnly}
-                        onToggle={() => setFollowersOnly(!followersOnly)}
+                        onToggle={() => {
+                            const nextFollowersOnly = !followersOnly;
+                            setFollowersOnly(nextFollowersOnly);
+                            if (nextFollowersOnly) {
+                                setFollowersOnlyCollapsed(false);
+                            }
+                        }}
                         locked={getPlanGate('followers_only').isLocked}
                         note={getPlanGate('followers_only').note}
                         onUpgrade={() => setCurrentView('My Plan')}
                         activeIconClassName="text-blue-500"
+                        isCollapsed={followersOnlyCollapsed}
+                        onCollapseToggle={() => setFollowersOnlyCollapsed(!followersOnlyCollapsed)}
                     />
 
-                    {followersOnly && (
+                    {followersOnly && !followersOnlyCollapsed && (
                         <div className="bg-card border border-content rounded-2xl p-6 space-y-3">
                             <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                                 Followers-Only Message

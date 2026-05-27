@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import { Shield, Trash2, Eye, X, Save, Loader2, AlertCircle, CheckCircle2, Plus } from 'lucide-react';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 
@@ -64,13 +65,11 @@ const CommentModerationView: React.FC = () => {
     const [keywordInputs, setKeywordInputs] = useState<Record<ModerationAction, string>>({ hide: '', delete: '' });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
+    const { showSuccess, showError } = useNotification();
 
     const fetchRules = useCallback(async (signal?: AbortSignal) => {
         if (!activeAccountID) return;
         setLoading(true);
-        setError(null);
         try {
             const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/comment-moderation?account_id=${activeAccountID}`, {
                 signal
@@ -79,12 +78,12 @@ const CommentModerationView: React.FC = () => {
             if (res.ok) {
                 setKeywordLists(normalizeRulesToLists(data.rules || []));
             } else {
-                setError(data.error || 'Failed to load rules');
+                showError(data.error || 'Failed to load rules');
             }
         } catch (err: any) {
             if (err.name === 'AbortError') return;
             console.error('Error fetching comment moderation rules:', err);
-            setError('Network error loading rules');
+            showError('Network error loading rules');
         } finally {
             if (!signal?.aborted) {
                 setLoading(false);
@@ -117,7 +116,7 @@ const CommentModerationView: React.FC = () => {
         ));
 
         if (keywordTakenElsewhere) {
-            setError(`"${normalized}" is already assigned to the other moderation action.`);
+            showError(`"${normalized}" is already assigned to the other moderation action.`);
             return;
         }
 
@@ -126,7 +125,6 @@ const CommentModerationView: React.FC = () => {
             [action]: prev[action].includes(normalized) ? prev[action] : [...prev[action], normalized]
         }));
         setKeywordInputs((prev) => ({ ...prev, [action]: '' }));
-        setError(null);
     };
 
     const removeKeyword = (action: ModerationAction, keyword: string) => {
@@ -139,8 +137,6 @@ const CommentModerationView: React.FC = () => {
     const handleSave = async () => {
         if (!activeAccountID) return;
         setSaving(true);
-        setError(null);
-        setSuccess(null);
 
         try {
             const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/comment-moderation?account_id=${activeAccountID}`, {
@@ -150,14 +146,13 @@ const CommentModerationView: React.FC = () => {
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                setSuccess('Comment moderation rules saved successfully.');
-                setTimeout(() => setSuccess(null), 3000);
+                showSuccess('Comment moderation rules saved successfully.');
             } else {
-                setError(data.error || 'Failed to save rules');
+                showError(data.error || 'Failed to save rules');
             }
         } catch (err) {
             console.error('Error saving comment moderation rules:', err);
-            setError('Network error saving rules');
+            showError('Network error saving rules');
         } finally {
             setSaving(false);
         }
@@ -196,20 +191,6 @@ const CommentModerationView: React.FC = () => {
                     </p>
                 </div>
             </div>
-
-            {error && (
-                <div className="mb-6 p-4 bg-destructive-muted/40 border border-destructive/20 rounded-2xl flex items-center gap-3 text-destructive text-xs font-bold animate-in fade-in slide-in-from-top-2">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    {error}
-                </div>
-            )}
-
-            {success && (
-                <div className="mb-6 p-4 bg-success-muted/60 border border-success/30 rounded-2xl flex items-center gap-3 text-success text-xs font-bold animate-in fade-in slide-in-from-top-2">
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    {success}
-                </div>
-            )}
 
             <div className="mb-6 rounded-[2rem] border border-content bg-card/80 p-5">
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">Keyword Protection</p>

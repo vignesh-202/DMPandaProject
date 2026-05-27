@@ -6,6 +6,7 @@ import {
     Calendar, ChevronDown, Check, Info, Lightbulb, LayoutTemplate, Mail
 } from 'lucide-react';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import ModernConfirmModal from '../ui/ModernConfirmModal';
 import ToggleSwitch from '../ui/ToggleSwitch';
 import LoadingOverlay from '../ui/LoadingOverlay';
@@ -170,12 +171,19 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     type, onClose, onSave, authenticatedFetch, activeAccountID, onDelete, automationId, mediaId, isStandalone, titleOverride, onChange, onTemplateSelect, onTemplatesLoaded, useParentLayout, variant = 'modal', existingTitles: _existingTitles, actionBarLeft, initialAutomationData, initialSelectedTemplate, showActionCancel = true, saveButtonLabel, registerSaveHandler, autoCloseOnSave = true
 }) => {
     const { activeAccount, setCurrentView, hasPlanFeature, getPlanGate } = useDashboard();
+    const { showSuccess, showError } = useNotification();
+    const setError = React.useCallback((msg: string | null) => {
+        if (msg) showError(msg);
+    }, [showError]);
+    const setSuccess = React.useCallback((msg: string | null) => {
+        if (msg) showSuccess(msg);
+    }, [showSuccess]);
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
     const [isPlanInvalid, setIsPlanInvalid] = useState(false);
     const [planInvalidFeatures, setPlanInvalidFeatures] = useState<string[]>([]);
     const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+    const [followersOnlyCollapsed, setFollowersOnlyCollapsed] = useState(false);
+    const [collectEmailCollapsed, setCollectEmailCollapsed] = useState(false);
 
     const [automation, setAutomation] = useState<any>({
         title: '',
@@ -444,7 +452,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     useEffect(() => {
         let alive = true;
         const loadCollectorDestination = async () => {
-            if (!automation?.$id || automation.collect_email_enabled !== true) {
+            if (!automation?.$id) {
                 setCollectorDestination(createCollectorDestinationState());
                 setCollectorDestinationLoading(false);
                 return;
@@ -485,7 +493,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         return () => {
             alive = false;
         };
-    }, [authenticatedFetch, automation?.$id, automation.collect_email_enabled]);
+    }, [authenticatedFetch, automation?.$id]);
 
     const verifyCollectorDestination = React.useCallback(async (automationRecordId: string) => {
         if (!automationRecordId || automation.collect_email_enabled !== true) {
@@ -977,22 +985,24 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         return false;
                     }
                 }
-                const nextSnapshot = serializeAutomationState(payload);
-                setBaselineSnapshot(nextSnapshot);
-                setSuccess(automation.$id ? "Automation updated successfully!" : "Automation activated successfully!");
+                // Reset baseline to current automation state so isDirty becomes false.
+                // We must use `automation` (not `payload`) because isDirty compares
+                // against serializeAutomationState(automation), and payload has fields
+                // deleted/transformed (keywords, active, comment_reply_text) that would
+                // cause a permanent mismatch.
+                setBaselineSnapshot(serializeAutomationState(automation));
+                showSuccess(automation.$id ? "Automation updated successfully!" : "Automation activated successfully!");
                 onSave(data);
                 if (!isStandalone && autoCloseOnSave) {
-                    setTimeout(() => {
-                        onClose();
-                    }, 1500);
+                    onClose();
                 }
                 return true;
             } else {
-                setError(data.error || "Failed to save automation.");
+                showError(data.error || "Failed to save automation.");
                 return false;
             }
         } catch (err) {
-            setError("Network error occurred.");
+            showError("Network error occurred.");
             return false;
         } finally {
             setSaving(false);
@@ -1015,18 +1025,6 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
     const renderForm = () => (
         <div className={`space-y-6 pb-16 sm:space-y-8 ${type === 'global' && useParentLayout ? '' : 'border-r border-slate-100 p-4 dark:border-slate-900 sm:p-6 lg:p-8'}`}>
-            {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-600 text-xs font-bold">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    {error}
-                </div>
-            )}
-            {success && (
-                <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-center gap-3 text-green-600 text-xs font-bold">
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    {success}
-                </div>
-            )}
             {isPlanInvalid && (
                 <div className="p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-amber-700 dark:text-amber-300 text-xs font-semibold">
                     <div className="flex items-center gap-2">
@@ -1175,10 +1173,11 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         setAutomation({
                             ...automation,
                             followers_only: nextFollowersOnly,
-                            followers_only_message: nextFollowersOnly
-                                ? (automation.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
-                                : ''
+                            followers_only_message: automation.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT
                         });
+                        if (nextFollowersOnly) {
+                            setFollowersOnlyCollapsed(false);
+                        }
                         if (!nextFollowersOnly && fieldErrors['followers_only_message']) {
                             setFieldErrors((prev: any) => {
                                 const next = { ...prev };
@@ -1191,8 +1190,10 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     note={getPlanGate('followers_only').note}
                     onUpgrade={() => setCurrentView('My Plan')}
                     activeIconClassName="text-blue-500"
+                    isCollapsed={followersOnlyCollapsed}
+                    onCollapseToggle={() => setFollowersOnlyCollapsed(!followersOnlyCollapsed)}
                 />
-                {automation.followers_only && (
+                {automation.followers_only && !followersOnlyCollapsed && (
                     <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-blue-100 dark:border-blue-500/10 space-y-4">
                         <div className="flex justify-between items-center px-1 mb-2">
                             <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Followers-Only Message</label>
@@ -1296,17 +1297,25 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                             title="Collect Email"
                             description="Prompt users for their email address before completing the automation flow."
                             checked={automation.collect_email_enabled === true}
-                            onToggle={() => setAutomation({
-                                ...automation,
-                                collect_email_enabled: !(automation.collect_email_enabled === true),
-                                collect_email_only_gmail: automation.collect_email_enabled ? false : automation.collect_email_only_gmail
-                            })}
+                            onToggle={() => {
+                                const nextVal = !(automation.collect_email_enabled === true);
+                                setAutomation({
+                                    ...automation,
+                                    collect_email_enabled: nextVal,
+                                    collect_email_only_gmail: nextVal ? automation.collect_email_only_gmail : false
+                                });
+                                if (nextVal) {
+                                    setCollectEmailCollapsed(false);
+                                }
+                            }}
                             locked={collectEmailLocked}
                             note={collectEmailGate.note}
                             onUpgrade={() => setCurrentView('My Plan')}
                             activeIconClassName="text-indigo-500"
+                            isCollapsed={collectEmailCollapsed}
+                            onCollapseToggle={() => setCollectEmailCollapsed(!collectEmailCollapsed)}
                         />
-                        {automation.collect_email_enabled && !collectEmailLocked && (
+                        {automation.collect_email_enabled && !collectEmailLocked && !collectEmailCollapsed && (
                             <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
                                 <LockedFeatureToggle
                                     icon={<Mail className={`w-5 h-5 ${automation.collect_email_only_gmail ? 'text-indigo-500' : 'text-gray-400'}`} />}

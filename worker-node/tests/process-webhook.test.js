@@ -2309,3 +2309,457 @@ test('comment events honor all-comments global automations alongside specific ma
         restore();
     }
 });
+
+test('processMessage handles quick reply clicks by fetching and sending the template directly if the payload is a valid template ID', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const matcherPath = require.resolve('../src/matcher');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [matcherPath, require.cache[matcherPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    const sentMessages = [];
+    const templateId = '699a9d980030b6ff8be9';
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations() {
+            return [];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getTemplate(id, accountId) {
+            assert.equal(id, templateId);
+            assert.equal(accountId, '17841452817679462');
+            return { type: 'template_text', payload: { text: 'Direct reply from quick reply template!' } };
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async clearConversationState() {
+            return true;
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload) {
+            sentMessages.push({ recipientId, messageType, payload });
+            return true;
+        }
+    }
+
+    try {
+        delete require.cache[workerPath];
+        require.cache[appwritePath] = { id: appwritePath, filename: appwritePath, loaded: true, exports: MockAppwriteClient };
+        require.cache[instagramPath] = { id: instagramPath, filename: instagramPath, loaded: true, exports: MockInstagramAPI };
+        require.cache[matcherPath] = {
+            id: matcherPath,
+            filename: matcherPath,
+            loaded: true,
+            exports: { matchDM: () => null }
+        };
+        require.cache[rendererPath] = {
+            id: rendererPath,
+            filename: rendererPath,
+            loaded: true,
+            exports: { render: (template) => template }
+        };
+        require.cache[watermarkPath] = {
+            id: watermarkPath,
+            filename: watermarkPath,
+            loaded: true,
+            exports: {
+                planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+                resolveWatermarkPolicy: () => ({ enabled: false })
+            }
+        };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+        const result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: 'sender-1' },
+                    recipient: { id: '17841452817679462' },
+                    message: {
+                        text: 'Click here',
+                        quick_reply: {
+                            payload: templateId
+                        }
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'quick_reply_template' });
+        assert.equal(sentMessages.length, 1);
+        assert.deepEqual(sentMessages[0], {
+            recipientId: 'sender-1',
+            messageType: 'template_text',
+            payload: { text: 'Direct reply from quick reply template!' }
+        });
+    } finally {
+        restore();
+    }
+});
+
+test('processWebhook handles quick reply clicks end-to-end and increments action usage in Appwrite', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const matcherPath = require.resolve('../src/matcher');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [matcherPath, require.cache[matcherPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    const sentMessages = [];
+    const templateId = '699a9d980030b6ff8be9';
+    let incrementActionUsageArgs = null;
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations() {
+            return [];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getTemplate(id, accountId) {
+            assert.equal(id, templateId);
+            assert.equal(accountId, '17841452817679462');
+            return { type: 'template_text', payload: { text: 'Direct reply from quick reply template!' } };
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async clearConversationState() {
+            return true;
+        }
+
+        async incrementActionUsage(userId, incrementBy) {
+            incrementActionUsageArgs = { userId, incrementBy };
+            return { $id: 'account-1' };
+        }
+    }
+
+    class MockInstagramAPI {
+        constructor(accessToken, options = {}) {
+            this.accessToken = accessToken;
+            this.onBeforeRequest = options.onBeforeRequest;
+            this.onRequestComplete = options.onRequestComplete;
+        }
+
+        async sendMessage(recipientId, messageType, payload) {
+            sentMessages.push({ recipientId, messageType, payload });
+            if (this.onBeforeRequest) await this.onBeforeRequest();
+            if (this.onRequestComplete) await this.onRequestComplete();
+            return true;
+        }
+    }
+
+    try {
+        delete require.cache[workerPath];
+        require.cache[appwritePath] = { id: appwritePath, filename: appwritePath, loaded: true, exports: MockAppwriteClient };
+        require.cache[instagramPath] = { id: instagramPath, filename: instagramPath, loaded: true, exports: MockInstagramAPI };
+        require.cache[matcherPath] = {
+            id: matcherPath,
+            filename: matcherPath,
+            loaded: true,
+            exports: { matchDM: () => null }
+        };
+        require.cache[rendererPath] = {
+            id: rendererPath,
+            filename: rendererPath,
+            loaded: true,
+            exports: { render: (template) => template }
+        };
+        require.cache[watermarkPath] = {
+            id: watermarkPath,
+            filename: watermarkPath,
+            loaded: true,
+            exports: {
+                planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+                resolveWatermarkPolicy: () => ({ enabled: false })
+            }
+        };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+        const result = await worker.processWebhook({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: 'sender-1' },
+                    recipient: { id: '17841452817679462' },
+                    message: {
+                        text: 'Click here',
+                        quick_reply: {
+                            payload: templateId
+                        }
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'quick_reply_template' });
+        assert.equal(sentMessages.length, 1);
+        assert.deepEqual(sentMessages[0], {
+            recipientId: 'sender-1',
+            messageType: 'template_text',
+            payload: { text: 'Direct reply from quick reply template!' }
+        });
+
+        assert.ok(incrementActionUsageArgs, 'incrementActionUsage was not called');
+        assert.equal(incrementActionUsageArgs.userId, '17841452817679462');
+        assert.equal(incrementActionUsageArgs.incrementBy, 1);
+    } finally {
+        restore();
+    }
+});
+
+test('processMessage sends quick reply payload as text reply when no automation matches', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const matcherPath = require.resolve('../src/matcher');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [matcherPath, require.cache[matcherPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    const sentMessages = [];
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null,
+                hourly_actions_used: 0,
+                daily_actions_used: 0,
+                monthly_actions_used: 0
+            };
+        }
+
+        async getActiveAutomations() {
+            return [];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 })
+                }
+            };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async clearConversationState() {
+            return true;
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload) {
+            sentMessages.push({ recipientId, messageType, payload });
+            return true;
+        }
+    }
+
+    try {
+        delete require.cache[workerPath];
+        require.cache[appwritePath] = { id: appwritePath, filename: appwritePath, loaded: true, exports: MockAppwriteClient };
+        require.cache[instagramPath] = { id: instagramPath, filename: instagramPath, loaded: true, exports: MockInstagramAPI };
+        require.cache[matcherPath] = {
+            id: matcherPath,
+            filename: matcherPath,
+            loaded: true,
+            exports: { matchDM: () => null }
+        };
+        require.cache[rendererPath] = {
+            id: rendererPath,
+            filename: rendererPath,
+            loaded: true,
+            exports: { render: (template) => template }
+        };
+        require.cache[watermarkPath] = {
+            id: watermarkPath,
+            filename: watermarkPath,
+            loaded: true,
+            exports: {
+                planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+                resolveWatermarkPolicy: () => ({ enabled: false })
+            }
+        };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+        const result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: 'sender-1' },
+                    recipient: { id: '17841452817679462' },
+                    message: {
+                        text: 'gfg',
+                        quick_reply: {
+                            payload: 'You selected: gfg'
+                        }
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'quick_reply_payload_reply' });
+        assert.equal(sentMessages.length, 1);
+        assert.deepEqual(sentMessages[0], {
+            recipientId: 'sender-1',
+            messageType: 'template_text',
+            payload: { text: 'You selected: gfg' }
+        });
+    } finally {
+        restore();
+    }
+});
+

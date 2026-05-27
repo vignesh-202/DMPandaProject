@@ -15,11 +15,11 @@ import TemplateSelector, { ReplyTemplate, prefetchReplyTemplates } from '../../c
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
 import AutomationPreviewPanel from '../../components/dashboard/AutomationPreviewPanel';
 import AutomationActionBar from '../../components/dashboard/AutomationActionBar';
-import AutomationToast from '../../components/ui/AutomationToast';
 import { useNavigate } from 'react-router-dom';
 import { takeTransientState } from '../../lib/transientState';
 import useDashboardMainScrollLock from '../../hooks/useDashboardMainScrollLock';
 import { toBrowserPreviewUrl } from '../../lib/templatePreview';
+import { useNotification } from '../../contexts/NotificationContext';
 
 interface MenuItem {
     title: string;
@@ -143,8 +143,7 @@ const InboxMenu: React.FC = () => {
     const [initialFetchDone, setInitialFetchDone] = useState(false);
     const lastFetchRef = useRef<string>('');
 
-    const [toastMessage, setToastMessage] = useState<string | null>(null);
-    const [toastVariant, setToastVariant] = useState<'success' | 'error'>('success');
+    const { showSuccess, showError } = useNotification();
     const [isPreparingEditor, setIsPreparingEditor] = useState(false);
     useDashboardMainScrollLock(Boolean(editingItemIndex !== null || isPreparingEditor));
     const [editorLoadingMessage, setEditorLoadingMessage] = useState('Preparing inbox menu editor');
@@ -153,9 +152,12 @@ const InboxMenu: React.FC = () => {
     const discardActionRef = useRef<() => void>(() => { });
 
     const showToast = useCallback((message: string, variant: 'success' | 'error') => {
-        setToastVariant(variant);
-        setToastMessage(message);
-    }, []);
+        if (variant === 'success') {
+            showSuccess(message);
+        } else {
+            showError(message);
+        }
+    }, [showSuccess, showError]);
 
     const waitForEditorPaint = useCallback(async () => {
         if (typeof window === 'undefined') return;
@@ -1092,11 +1094,6 @@ const InboxMenu: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-500 px-3 sm:px-4 md:px-6">
-            <AutomationToast
-                message={toastMessage}
-                variant={toastVariant}
-                onClose={() => setToastMessage(null)}
-            />
 
             {!isCreatingItem && (
                 <>
