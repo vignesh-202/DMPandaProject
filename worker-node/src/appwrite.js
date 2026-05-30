@@ -10,6 +10,8 @@ const CONVO_STARTERS_COLLECTION_ID = process.env.CONVO_STARTERS_COLLECTION_ID ||
 const PRICING_COLLECTION_ID = process.env.PRICING_COLLECTION_ID || 'pricing';
 const SYSTEM_CONFIG_COLLECTION_ID = process.env.SYSTEM_CONFIG_COLLECTION_ID || 'system_config';
 const LOGS_COLLECTION_ID = process.env.LOGS_COLLECTION_ID || 'logs';
+const COMMENT_MODERATION_COLLECTION_ID = process.env.COMMENT_MODERATION_COLLECTION_ID || 'comment_moderation';
+const KEYWORDS_COLLECTION_ID = process.env.KEYWORDS_COLLECTION_ID || 'keywords';
 const WATERMARK_POLICY_DOCUMENT_ID = 'watermark_policy';
 const PLAN_BENEFIT_KEYS = Object.freeze(sharedPlanFeatures.benefitKeys || []);
 const PLAN_BENEFIT_STORAGE_KEYS = Object.freeze(sharedPlanFeatures.benefitStorageKeys || {});
@@ -214,6 +216,52 @@ class AppwriteClient {
         }
     }
 
+    _normalizeKeywordToken(value) {
+        return String(value || '').trim().toLowerCase();
+    }
+
+    _normalizeModerationRules(rules) {
+        return (Array.isArray(rules) ? rules : [])
+            .map((rule) => ({
+                action: String(rule?.action || '').trim().toLowerCase() === 'delete' ? 'delete' : 'hide',
+                keywords: Array.from(new Set(
+                    (Array.isArray(rule?.keywords) ? rule.keywords : [])
+                        .map((keyword) => this._normalizeKeywordToken(keyword))
+                        .filter(Boolean)
+                ))
+            }))
+            .filter((rule) => rule.keywords.length > 0);
+    }
+
+    _buildCommentModerationRulesFromKeywordDocuments(documents) {
+        const rulesByAction = {
+            hide: new Set(),
+            delete: new Set()
+        };
+
+        (Array.isArray(documents) ? documents : []).forEach((doc) => {
+            const automationType = String(doc?.automation_type || '').trim().toLowerCase();
+            const action = automationType === 'moderation_delete'
+                ? 'delete'
+                : automationType === 'moderation_hide'
+                    ? 'hide'
+                    : null;
+            if (!action) return;
+
+            const keyword = this._normalizeKeywordToken(doc?.keyword_normalized || doc?.keyword);
+            if (keyword) {
+                rulesByAction[action].add(keyword);
+            }
+        });
+
+        return ['hide', 'delete']
+            .map((action) => ({
+                action,
+                keywords: Array.from(rulesByAction[action])
+            }))
+            .filter((rule) => rule.keywords.length > 0);
+    }
+
     async _loadConvoStarterAutomationsFromAutomationsCollection(accountIds) {
         const normalizedAccountIds = this.normalizeAccountIds(accountIds);
         if (normalizedAccountIds.length === 0) return [];
@@ -358,6 +406,61 @@ class AppwriteClient {
             console.error(`Error fetching IG account ${accountId}:`, error);
             return null;
         }
+    }
+
+    async getCommentModerationRules({ userId, accountIds }) {
+        const normalizedAccountIds = this.normalizeAccountIds(accountIds);
+        const safeUserId = String(userId || '').trim();
+        if (!safeUserId || normalizedAccountIds.length === 0) {
+            return [];
+        }
+
+        for (const accountId of normalizedAccountIds) {
+            try {
+                const keywordResponse = await withAppwriteRetry(() => this.databases.listDocuments(
+                    this.databaseId,
+                    KEYWORDS_COLLECTION_ID,
+                    [
+                        Query.equal('account_id', accountId),
+                        Query.equal('automation_type', ['moderation_hide', 'moderation_delete']),
+                        Query.limit(200)
+                    ]
+                ), {
+                    operationName: 'get_comment_moderation_keyword_rules',
+                    context: { user_id: safeUserId, account_id: accountId }
+                });
+                const keywordRules = this._buildCommentModerationRulesFromKeywordDocuments(keywordResponse?.documents || []);
+                if (keywordRules.length > 0) {
+                    return keywordRules;
+                }
+
+                const response = await withAppwriteRetry(() => this.databases.listDocuments(
+                    this.databaseId,
+                    COMMENT_MODERATION_COLLECTION_ID,
+                    [
+                        Query.equal('user_id', safeUserId),
+                        Query.equal('account_id', accountId),
+                        Query.limit(10)
+                    ]
+                ), {
+                    operationName: 'get_comment_moderation_rules',
+                    context: { user_id: safeUserId, account_id: accountId }
+                });
+                const documents = Array.isArray(response?.documents) ? response.documents : [];
+                if (documents.length === 0) continue;
+
+                const doc = documents[0] || {};
+                const parsedRules = this._parseJson(doc?.rules, []);
+                const normalizedRules = this._normalizeModerationRules(parsedRules);
+                if (normalizedRules.length > 0 && this._toBoolean(doc?.is_active, true)) {
+                    return normalizedRules;
+                }
+            } catch (error) {
+                console.warn(`Failed to fetch comment moderation rules for ${accountId}:`, error?.message || error);
+            }
+        }
+
+        return [];
     }
 
     async getAutomation(automationId) {

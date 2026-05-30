@@ -2763,3 +2763,910 @@ test('processMessage sends quick reply payload as text reply when no automation 
     }
 });
 
+test('comment events send private reply by passing commentId in options', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    const sentMessages = [];
+    const commentAutomation = {
+        $id: 'auto-comment-reply',
+        title: 'Comment Automation',
+        template_id: 'tpl-comment',
+        account_id: '17841452817679462',
+        automation_type: 'post',
+        trigger_type: 'keywords',
+        media_id: 'media-1',
+        trigger_keyword: ['promo']
+    };
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations() {
+            return [commentAutomation];
+        }
+
+        async getTemplate(templateId) {
+            if (templateId === 'tpl-comment') {
+                return { type: 'template_text', payload: { text: 'Promo code: HELLO' } };
+            }
+            return null;
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async upsertConversationState() {
+            return null;
+        }
+
+        async clearConversationState() {
+            return true;
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        buildAutomationTemplate(automation) {
+            return { type: 'template_text', payload: { text: automation.title } };
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload, options) {
+            sentMessages.push({ recipientId, messageType, payload, options });
+            return true;
+        }
+
+        async replyToComment() {
+            return true;
+        }
+
+        async getUserProfile() {
+            return { is_user_follow_business: true };
+        }
+    }
+
+    try {
+        delete require.cache[workerPath];
+        require.cache[appwritePath] = { id: appwritePath, filename: appwritePath, loaded: true, exports: MockAppwriteClient };
+        require.cache[instagramPath] = { id: instagramPath, filename: instagramPath, loaded: true, exports: MockInstagramAPI };
+        require.cache[rendererPath] = {
+            id: rendererPath,
+            filename: rendererPath,
+            loaded: true,
+            exports: { render: (template) => template }
+        };
+        require.cache[watermarkPath] = {
+            id: watermarkPath,
+            filename: watermarkPath,
+            loaded: true,
+            exports: {
+                planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+                resolveWatermarkPolicy: () => ({ enabled: false })
+            }
+        };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+        const result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                changes: [{
+                    field: 'comments',
+                    value: {
+                        id: 'comment-123',
+                        media: { id: 'media-1' },
+                        from: { id: 'sender-1' },
+                        text: 'promo'
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'post' });
+        assert.equal(sentMessages.length, 1);
+        assert.deepEqual(sentMessages[0], {
+            recipientId: 'sender-1',
+            messageType: 'template_text',
+            payload: { text: 'Promo code: HELLO' },
+            options: { commentId: 'comment-123' }
+        });
+    } finally {
+        restore();
+    }
+});
+
+test('comment events fall back to public reply when private reply fails', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    const publicReplies = [];
+    const commentAutomation = {
+        $id: 'auto-comment-reply-fallback',
+        title: 'Comment Automation Fallback',
+        template_id: 'tpl-comment-fallback',
+        account_id: '17841452817679462',
+        automation_type: 'post',
+        trigger_type: 'keywords',
+        media_id: 'media-2',
+        trigger_keyword: ['fallback_keyword']
+    };
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations() {
+            return [commentAutomation];
+        }
+
+        async getTemplate(templateId) {
+            if (templateId === 'tpl-comment-fallback') {
+                return { type: 'template_text', payload: { text: 'Public Fallback Content' } };
+            }
+            return null;
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async upsertConversationState() {
+            return null;
+        }
+
+        async clearConversationState() {
+            return true;
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        buildAutomationTemplate(automation) {
+            return { type: 'template_text', payload: { text: automation.title } };
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload, options) {
+            // Simulate failure (e.g. outside allowed window error)
+            return false;
+        }
+
+        async replyToComment(commentId, message) {
+            publicReplies.push({ commentId, message });
+            return true;
+        }
+
+        async getUserProfile() {
+            return { is_user_follow_business: true };
+        }
+    }
+
+    try {
+        delete require.cache[workerPath];
+        require.cache[appwritePath] = { id: appwritePath, filename: appwritePath, loaded: true, exports: MockAppwriteClient };
+        require.cache[instagramPath] = { id: instagramPath, filename: instagramPath, loaded: true, exports: MockInstagramAPI };
+        require.cache[rendererPath] = {
+            id: rendererPath,
+            filename: rendererPath,
+            loaded: true,
+            exports: { render: (template) => template }
+        };
+        require.cache[watermarkPath] = {
+            id: watermarkPath,
+            filename: watermarkPath,
+            loaded: true,
+            exports: {
+                planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+                resolveWatermarkPolicy: () => ({ enabled: false })
+            }
+        };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+        const result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                changes: [{
+                    field: 'comments',
+                    value: {
+                        id: 'comment-fallback-123',
+                        media: { id: 'media-2' },
+                        from: { id: 'sender-1' },
+                        text: 'fallback_keyword'
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'post' });
+        assert.equal(publicReplies.length, 1);
+        assert.deepEqual(publicReplies[0], {
+            commentId: 'comment-fallback-123',
+            message: 'Public Fallback Content'
+        });
+    } finally {
+        restore();
+    }
+});
+
+test('global trigger comments: send comment reply first, then DM, and consume action budget correctly', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    const callOrder = [];
+    const incrementedCounts = new Map();
+    const globalAutomation = {
+        $id: 'auto-global-keyword',
+        title: 'Global Keyword',
+        template_id: 'tpl-global-dm',
+        account_id: '17841452817679462',
+        automation_type: 'global',
+        trigger_type: 'keywords',
+        trigger_keyword: ['global_key'],
+        comment_reply: '',
+        comment_reply_text: 'Thanks! Check DMs.'
+    };
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations() {
+            return [globalAutomation];
+        }
+
+        async getTemplate(templateId) {
+            if (templateId === 'tpl-global-dm') {
+                return { type: 'template_text', payload: { text: 'DM Content' } };
+            }
+            return null;
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async upsertConversationState() {
+            return null;
+        }
+
+        async clearConversationState() {
+            return true;
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async incrementActionUsage(userId, count) {
+            incrementedCounts.set(userId, (incrementedCounts.get(userId) || 0) + count);
+        }
+
+        buildAutomationTemplate(automation) {
+            return { type: 'template_text', payload: { text: automation.title } };
+        }
+    }
+
+    class MockInstagramAPI {
+        constructor(accessToken, options = {}) {
+            this.accessToken = accessToken;
+            this.onBeforeRequest = options.onBeforeRequest;
+            this.onRequestComplete = options.onRequestComplete;
+        }
+
+        async replyToComment(commentId, message) {
+            if (this.onBeforeRequest) await this.onBeforeRequest();
+            callOrder.push({ type: 'public_reply', commentId, message });
+            if (this.onRequestComplete) await this.onRequestComplete();
+            return true;
+        }
+
+        async sendMessage(recipientId, messageType, payload, options) {
+            if (this.onBeforeRequest) await this.onBeforeRequest();
+            callOrder.push({ type: 'private_dm', recipientId, messageType, payload, options });
+            if (this.onRequestComplete) await this.onRequestComplete();
+            return true;
+        }
+
+        async getUserProfile() {
+            return { is_user_follow_business: true };
+        }
+    }
+
+    try {
+        delete require.cache[workerPath];
+        require.cache[appwritePath] = { id: appwritePath, filename: appwritePath, loaded: true, exports: MockAppwriteClient };
+        require.cache[instagramPath] = { id: instagramPath, filename: instagramPath, loaded: true, exports: MockInstagramAPI };
+        require.cache[rendererPath] = {
+            id: rendererPath,
+            filename: rendererPath,
+            loaded: true,
+            exports: { render: (template) => template }
+        };
+        require.cache[watermarkPath] = {
+            id: watermarkPath,
+            filename: watermarkPath,
+            loaded: true,
+            exports: {
+                planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+                resolveWatermarkPolicy: () => ({ enabled: false })
+            }
+        };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+        const result = await worker.processWebhook({
+            entry: [{
+                id: '17841452817679462',
+                changes: [{
+                    field: 'comments',
+                    value: {
+                        id: 'comment-global-123',
+                        media: { id: 'media-reel-1' },
+                        from: { id: 'sender-1' },
+                        text: 'global_key'
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'global' });
+        
+        // Assert execution order: public reply first, then private DM
+        assert.equal(callOrder.length, 2);
+        assert.deepEqual(callOrder[0], {
+            type: 'public_reply',
+            commentId: 'comment-global-123',
+            message: 'Thanks! Check DMs.'
+        });
+        assert.deepEqual(callOrder[1], {
+            type: 'private_dm',
+            recipientId: 'sender-1',
+            messageType: 'template_text',
+            payload: { text: 'DM Content' },
+            options: { commentId: 'comment-global-123' }
+        });
+
+        // Assert action budget consumption: 2 actions consumed (1 for public comment reply, 1 for private DM)
+        assert.equal(incrementedCounts.get('17841452817679462'), 2);
+
+    } finally {
+        restore();
+    }
+});
+
+test('comment moderation hides matching comments before automation replies run', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    const calls = [];
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getCommentModerationRules() {
+            return [{ action: 'hide', keywords: ['spam'] }];
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async getActiveAutomations() {
+            calls.push({ type: 'get_automations' });
+            return [];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getProfile() {
+            return null;
+        }
+    }
+
+    class MockInstagramAPI {
+        async hideComment(commentId, hidden) {
+            calls.push({ type: 'hide_comment', commentId, hidden });
+            return true;
+        }
+
+        async getComment(commentId) {
+            calls.push({ type: 'get_comment', commentId });
+            return { id: commentId, hidden: true };
+        }
+
+        async deleteComment(commentId) {
+            calls.push({ type: 'delete_comment', commentId });
+            return true;
+        }
+    }
+
+    try {
+        delete require.cache[workerPath];
+        require.cache[appwritePath] = { id: appwritePath, filename: appwritePath, loaded: true, exports: MockAppwriteClient };
+        require.cache[instagramPath] = { id: instagramPath, filename: instagramPath, loaded: true, exports: MockInstagramAPI };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+        const result = await worker.processWebhook({
+            entry: [{
+                id: '17841452817679462',
+                changes: [{
+                    field: 'comments',
+                    value: {
+                        id: 'comment-moderation-hide-1',
+                        media: { id: 'media-1' },
+                        from: { id: 'sender-1' },
+                        text: 'this is spam content'
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'moderation_hide' });
+        assert.deepEqual(calls, [
+            {
+                type: 'hide_comment',
+                commentId: 'comment-moderation-hide-1',
+                hidden: true
+            },
+            {
+                type: 'get_comment',
+                commentId: 'comment-moderation-hide-1'
+            }
+        ]);
+    } finally {
+        restore();
+    }
+});
+
+test('comment moderation deletes matching comments before automation replies run', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    const calls = [];
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getCommentModerationRules() {
+            return [{ action: 'delete', keywords: ['banword'] }];
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async getActiveAutomations() {
+            calls.push({ type: 'get_automations' });
+            return [];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getProfile() {
+            return null;
+        }
+    }
+
+    class MockInstagramAPI {
+        async hideComment(commentId, hidden) {
+            calls.push({ type: 'hide_comment', commentId, hidden });
+            return true;
+        }
+
+        async deleteComment(commentId) {
+            calls.push({ type: 'delete_comment', commentId });
+            return true;
+        }
+    }
+
+    try {
+        delete require.cache[workerPath];
+        require.cache[appwritePath] = { id: appwritePath, filename: appwritePath, loaded: true, exports: MockAppwriteClient };
+        require.cache[instagramPath] = { id: instagramPath, filename: instagramPath, loaded: true, exports: MockInstagramAPI };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+        const result = await worker.processWebhook({
+            entry: [{
+                id: '17841452817679462',
+                changes: [{
+                    field: 'comments',
+                    value: {
+                        id: 'comment-moderation-delete-1',
+                        media: { id: 'media-1' },
+                        from: { id: 'sender-1' },
+                        text: 'contains banword inside'
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'moderation_delete' });
+        assert.deepEqual(calls, [{
+            type: 'delete_comment',
+            commentId: 'comment-moderation-delete-1'
+        }]);
+    } finally {
+        restore();
+    }
+});
+
+test('comment moderation uses whole-keyword matching so overlapping hide/delete rules do not conflict', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    const calls = [];
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getCommentModerationRules() {
+            return [
+                { action: 'hide', keywords: ['ladu'] },
+                { action: 'delete', keywords: ['lad'] }
+            ];
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async getActiveAutomations() {
+            return [];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getProfile() {
+            return null;
+        }
+    }
+
+    class MockInstagramAPI {
+        async hideComment(commentId, hidden) {
+            calls.push({ type: 'hide_comment', commentId, hidden });
+            return true;
+        }
+
+        async getComment(commentId) {
+            calls.push({ type: 'get_comment', commentId });
+            return { id: commentId, hidden: true };
+        }
+
+        async deleteComment(commentId) {
+            calls.push({ type: 'delete_comment', commentId });
+            return true;
+        }
+    }
+
+    try {
+        delete require.cache[workerPath];
+        require.cache[appwritePath] = { id: appwritePath, filename: appwritePath, loaded: true, exports: MockAppwriteClient };
+        require.cache[instagramPath] = { id: instagramPath, filename: instagramPath, loaded: true, exports: MockInstagramAPI };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+        const result = await worker.processWebhook({
+            entry: [{
+                id: '17841452817679462',
+                changes: [{
+                    field: 'comments',
+                    value: {
+                        id: 'comment-overlap-1',
+                        media: { id: 'media-1' },
+                        from: { id: 'sender-1' },
+                        text: 'ladu'
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'moderation_hide' });
+        assert.deepEqual(calls, [
+            { type: 'hide_comment', commentId: 'comment-overlap-1', hidden: true },
+            { type: 'get_comment', commentId: 'comment-overlap-1' }
+        ]);
+    } finally {
+        restore();
+    }
+});

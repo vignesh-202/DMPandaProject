@@ -175,7 +175,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
 
     const isMediaDeleted = propsIsMediaDeleted !== undefined ? propsIsMediaDeleted : localIsMediaDeleted;
     const safeProfilePic = useMemo(() => toBrowserPreviewUrl(String(profilePic || '').trim()), [profilePic]);
-    const botBubbleClass = "rounded-[18px] rounded-bl-[4px] border border-[#DBDBDB] bg-[#EFEFEF] px-3 py-3 text-[14px] text-[#262626] shadow-sm break-words whitespace-normal dark:border-[#363636] dark:bg-[#262626] dark:text-white";
+    const botBubbleClass = "rounded-[20px] rounded-bl-[4px] border border-slate-200 bg-slate-100/90 px-4 py-3 text-[14px] text-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] break-words whitespace-normal dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100";
 
     // Determine display items based on mode
     const displayItems = mode === 'menu' || mode === 'convo_starter'
@@ -621,8 +621,8 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                 )}
 
                 {effectiveType === 'template_share_post' && (
-                    <div className="w-full min-w-0 max-w-[210px] rounded-2xl overflow-hidden shadow-md border border-[#DBDBDB] bg-white animate-in fade-in zoom-in-95 message-bubble flex flex-col dark:border-[#363636] dark:bg-[#262626]">
-                        <div className="p-2 flex items-center gap-2 border-b border-[#EFEFEF] dark:border-[#363636]">
+                    <div className="w-full min-w-0 max-w-[210px] rounded-2xl overflow-hidden shadow-md border border-gray-200 dark:border-zinc-800 bg-white animate-in fade-in zoom-in-95 message-bubble flex flex-col dark:bg-zinc-900">
+                        <div className="p-2.5 flex items-center gap-2 border-b border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                             <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden ring-1 ring-gray-100 dark:ring-gray-800">
                                 {safeProfilePic ? (
                                     <img src={safeProfilePic} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" />
@@ -630,7 +630,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                     <Instagram className="w-2.5 h-2.5 text-gray-400" />
                                 )}
                             </div>
-                            <span className="text-[10px] font-bold text-gray-900 dark:text-gray-100 truncate">
+                            <span className="text-[10px] font-bold text-slate-800 dark:text-zinc-200 truncate">
                                 {displayName}
                             </span>
                         </div>
@@ -672,8 +672,8 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                             )}
                         </div>
                         {(auto.caption || td.caption) && (
-                            <div className="p-3 bg-white border-t border-[#EFEFEF] dark:bg-[#262626] dark:border-[#363636]">
-                                <p className="text-[10px] text-gray-900 dark:text-gray-100 line-clamp-3 font-medium leading-normal">
+                            <div className="p-3 bg-white border-t border-gray-100 dark:bg-zinc-900 dark:border-zinc-800">
+                                <p className="text-[10px] text-slate-800 dark:text-zinc-200 line-clamp-3 font-medium leading-normal">
                                     <span className="font-bold mr-1">{displayName}</span>
                                     {auto.caption || td.caption}
                                 </p>
@@ -692,7 +692,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                         className="flex w-full max-w-[220px] gap-3 overflow-x-auto pb-4 scroll-smooth no-scrollbar snap-x snap-mandatory cursor-grab active:cursor-grabbing"
                     >
                         {(auto.template_elements || auto.template_data?.elements || []).map((el: any, i: number) => (
-                            <div key={i} className="flex-shrink-0 w-[200px] rounded-xl overflow-hidden border border-[#DBDBDB] bg-white shadow-sm flex flex-col snap-center dark:border-[#363636] dark:bg-[#262626]">
+                            <div key={i} className="flex-shrink-0 w-[200px] rounded-xl overflow-hidden border border-gray-200 bg-white shadow-md flex flex-col snap-center dark:border-zinc-800 dark:bg-zinc-900">
                                 <div className="aspect-square bg-gray-100 dark:bg-gray-900 relative">
                                     {el.image_url ? (
                                         <img src={toBrowserPreviewUrl(el.image_url)} referrerPolicy="no-referrer" className="w-full h-full object-cover" draggable={false} alt="" />
@@ -702,12 +702,12 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                         </div>
                                     )}
                                 </div>
-                                <div className="p-2 border-b border-[#EFEFEF] dark:border-[#363636] space-y-0.5">
-                                    <div className="font-bold text-[11px] truncate leading-tight">{el.title || 'Headline'}</div>
-                                    {el.subtitle && <div className="text-[9px] text-gray-500 truncate leading-tight">{el.subtitle}</div>}
+                                <div className="p-2 border-b border-gray-100 dark:border-zinc-800 space-y-0.5">
+                                    <div className="font-bold text-[11px] text-slate-900 dark:text-white truncate leading-tight">{el.title || 'Headline'}</div>
+                                    {el.subtitle && <div className="text-[9px] text-gray-500 dark:text-zinc-400 truncate leading-tight">{el.subtitle}</div>}
                                 </div>
                                 {(el.buttons || []).map((btn: any, bi: number) => (
-                                    <div key={bi} className="py-2.5 text-center text-[11px] font-bold text-[#0095F6] border-b last:border-b-0 border-[#EFEFEF] px-2 truncate hover:bg-[#FAFAFA] transition-colors dark:border-[#363636] dark:hover:bg-[#1A1A1A]">
+                                    <div key={bi} className="py-2.5 text-center text-[11px] font-extrabold text-[#0095F6] dark:text-[#3897f0] border-b last:border-b-0 border-gray-100 px-2 truncate hover:bg-gray-50 transition-colors dark:border-zinc-800 dark:hover:bg-zinc-800/50">
                                         {btn.title || 'Button'}
                                     </div>
                                 ))}
@@ -717,12 +717,12 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                 )}
 
                 {effectiveType === 'template_buttons' && (
-                    <div className="w-full max-w-[220px] rounded-xl overflow-hidden shadow-sm border border-[#DBDBDB] bg-white dark:border-[#363636] dark:bg-[#262626]">
-                        <div className="p-3 text-[14px] text-[#262626] dark:text-white border-b border-[#EFEFEF] dark:border-[#363636]">
+                    <div className="w-full max-w-[220px] rounded-xl overflow-hidden shadow-md border border-gray-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+                        <div className="p-3 text-[14px] text-slate-800 dark:text-zinc-100 border-b border-gray-100 dark:border-zinc-800">
                             {auto.template_content || auto.text || auto.template_data?.text || 'Button message...'}
                         </div>
                         {(auto.buttons || auto.template_data?.buttons || []).map((btn: any, i: number) => (
-                            <div key={i} className="py-2.5 text-center text-[13px] font-bold text-[#0095F6] border-b last:border-b-0 border-[#EFEFEF] dark:border-[#363636]">
+                            <div key={i} className="py-2.5 text-center text-[13px] font-extrabold text-[#0095F6] dark:text-[#3897f0] border-b last:border-b-0 border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
                                 {btn.title || 'Button'}
                             </div>
                         ))}
@@ -730,7 +730,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                 )}
 
                 {effectiveType === 'template_media' && (
-                    <div className="w-full max-w-[220px] rounded-xl overflow-hidden shadow-sm border border-[#DBDBDB] bg-white dark:border-[#363636] dark:bg-[#262626]">
+                    <div className="w-full max-w-[220px] rounded-xl overflow-hidden shadow-md border border-gray-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
                         {(auto.template_content || auto.template_data?.media_url) ? (
                             toBrowserPreviewUrl(auto.template_content || auto.template_data?.media_url || '') ? (
                                 <img
@@ -807,18 +807,18 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
 
     return (
         <div className="mx-auto w-full max-w-[346px] animate-in fade-in slide-in-from-right-8 duration-700 sm:max-w-[360px] xl:ml-auto">
-            <div className="h-fit flex flex-col items-center">
+            <div className="h-fit flex flex-col items-center w-full">
                 <div
                     className={cn(
-                        'relative flex w-full flex-col overflow-hidden rounded-[55px] border-[10px] border-slate-900 bg-white shadow-[0_32px_80px_rgba(15,23,42,0.24)] ring-1 ring-slate-900/15 dark:border-slate-600 dark:bg-black dark:ring-slate-500/60 dark:shadow-[0_36px_90px_rgba(2,6,23,0.6)]',
+                        'relative flex w-full flex-col overflow-hidden rounded-[55px] border-[10px] border-slate-950 bg-white shadow-[0_24px_50px_-12px_rgba(0,0,0,0.15)] ring-1 ring-black/10 dark:border-zinc-800 dark:bg-black dark:ring-zinc-800 dark:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)]',
                         lockScroll
                             ? 'h-[588px] sm:h-[636px] xl:h-[610px] xl:max-h-[610px]'
                             : 'h-[606px] sm:h-[656px]'
                     )}
                 >
-                    {/* Notch */}
-                    <div className="absolute top-0 left-1/2 z-40 flex h-7 w-32 -translate-x-1/2 items-center justify-center rounded-b-3xl bg-slate-900 dark:bg-slate-700">
-                        <div className="h-1.5 w-10 rounded-full bg-slate-500/80 dark:bg-slate-500/80" />
+                    {/* Notch / Dynamic Island */}
+                    <div className="absolute top-2.5 left-1/2 z-40 flex h-5 w-24 -translate-x-1/2 items-center justify-center rounded-full bg-slate-950 shadow-[0_2px_8px_rgba(0,0,0,0.15)] dark:bg-zinc-900">
+                        <div className="h-1.5 w-8 rounded-full bg-slate-800/80 dark:bg-zinc-800" />
                     </div>
 
                     {/* Status Bar */}
@@ -838,9 +838,9 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                     )}
 
                     {/* Instagram Header */}
-                    <div className="px-5 py-3 border-b border-[#DBDBDB] dark:border-[#262626] flex items-center justify-between bg-white dark:bg-black mt-2">
+                    <div className="px-5 py-3 border-b border-slate-100 dark:border-zinc-900 flex items-center justify-between bg-white dark:bg-black mt-2">
                         <div className="flex items-center gap-3">
-                            <ChevronRight className="w-5 h-5 rotate-180" />
+                            <ChevronRight className="w-5 h-5 rotate-180 text-slate-900 dark:text-white" />
                             <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-400 to-purple-600 p-[1.5px]">
                                 <div className="w-full h-full rounded-full bg-white dark:bg-black p-[1px]">
                                     <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
@@ -853,7 +853,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                 </div>
                             </div>
                             <div>
-                                <div className="text-[13px] font-bold dark:text-white truncate max-w-[120px]">@{displayName}</div>
+                                <div className="text-[13px] font-bold text-slate-900 dark:text-white truncate max-w-[120px]">@{displayName}</div>
                                 <div className="text-[10px] text-gray-400">Instagram</div>
                             </div>
                         </div>
@@ -1100,17 +1100,15 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                     </div>
                                 )}
                                 <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-400 to-purple-600 p-[1px] flex items-center justify-center">
-                                        <div className="w-full h-full rounded-full bg-white dark:bg-black flex items-center justify-center">
-                                            <Camera className="w-5 h-5 text-gray-900 dark:text-white" />
-                                        </div>
+                                    <div className="w-9 h-9 rounded-full bg-[#0095F6] flex items-center justify-center text-white shadow-sm shrink-0">
+                                        <Camera className="w-4.5 h-4.5" />
                                     </div>
-                                    <div className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-full px-4 py-2.5 flex items-center justify-between group focus-within:border-blue-500/50 transition-all">
-                                        <span className="text-[14px] text-gray-400 font-medium">Message...</span>
-                                        <div className="flex items-center gap-3 text-gray-400">
-                                            <Mic className="w-4 h-4 cursor-pointer hover:text-gray-600 transition-colors" />
-                                            <ImageIcon className="w-4 h-4 cursor-pointer hover:text-gray-600 transition-colors" />
-                                            <PlusSquare className="w-4 h-4 cursor-pointer hover:text-gray-600 transition-colors" />
+                                    <div className="flex-1 bg-slate-100/90 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-full px-4 py-2 flex items-center justify-between group focus-within:border-blue-500 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                                        <span className="text-[13px] text-slate-500 dark:text-zinc-400 font-semibold">Message...</span>
+                                        <div className="flex items-center gap-2.5 text-slate-500 dark:text-zinc-400">
+                                            <Mic className="w-4 h-4 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors" />
+                                            <ImageIcon className="w-4 h-4 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors" />
+                                            <PlusSquare className="w-4 h-4 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors" />
                                         </div>
                                     </div>
                                 </div>
@@ -1143,17 +1141,15 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                 </div>
                                 <div className="p-3 pb-8">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-400 to-purple-600 p-[1px] flex items-center justify-center">
-                                            <div className="w-full h-full rounded-full bg-white dark:bg-black flex items-center justify-center">
-                                                <Camera className="w-5 h-5 text-gray-900 dark:text-white" />
-                                            </div>
+                                        <div className="w-9 h-9 rounded-full bg-[#0095F6] flex items-center justify-center text-white shadow-sm shrink-0">
+                                            <Camera className="w-4.5 h-4.5" />
                                         </div>
-                                        <div className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-full px-4 py-2.5 flex items-center justify-between group focus-within:border-blue-500/50 transition-all">
-                                            <span className="text-[14px] text-gray-400 font-medium">Message...</span>
-                                            <div className="flex items-center gap-3 text-gray-400">
-                                                <Mic className="w-4 h-4 cursor-pointer hover:text-gray-600 transition-colors" />
-                                                <ImageIcon className="w-4 h-4 cursor-pointer hover:text-gray-600 transition-colors" />
-                                                <PlusSquare className="w-4 h-4 cursor-pointer hover:text-gray-600 transition-colors" />
+                                        <div className="flex-1 bg-slate-100/90 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-full px-4 py-2 flex items-center justify-between group focus-within:border-blue-500 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                                            <span className="text-[13px] text-slate-500 dark:text-zinc-400 font-semibold">Message...</span>
+                                            <div className="flex items-center gap-2.5 text-slate-500 dark:text-zinc-400">
+                                                <Mic className="w-4 h-4 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors" />
+                                                <ImageIcon className="w-4 h-4 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors" />
+                                                <PlusSquare className="w-4 h-4 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors" />
                                             </div>
                                         </div>
                                     </div>

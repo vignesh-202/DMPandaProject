@@ -184,6 +184,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
     const [followersOnlyCollapsed, setFollowersOnlyCollapsed] = useState(false);
     const [collectEmailCollapsed, setCollectEmailCollapsed] = useState(false);
+    const [commentReplyCollapsed, setCommentReplyCollapsed] = useState(false);
 
     const [automation, setAutomation] = useState<any>({
         title: '',
@@ -221,6 +222,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
     const [suggestMoreSetup, setSuggestMoreSetup] = useState(false);
     const [keywordInput, setKeywordInput] = useState('');
+    const [isEditingKeyword, setIsEditingKeyword] = useState(true);
 
     // Media Sharing states
     const [mediaItems, setMediaItems] = useState<any[]>([]);
@@ -354,6 +356,9 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         setPlanInvalidFeatures(nextInvalidFeatures);
         if (type === 'global' && keywordArray.length > 0) {
             setKeywordInput(keywordArray[0]);
+            setIsEditingKeyword(false);
+        } else if (type === 'global') {
+            setIsEditingKeyword(true);
         }
 
         if (template) {
@@ -678,6 +683,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             emitTemplateSelect(null);
             setIsPlanInvalid(false);
             setPlanInvalidFeatures([]);
+            setIsEditingKeyword(true);
+            setKeywordInput('');
             setAutomation({
                 title: '',
                 keyword: '',
@@ -787,6 +794,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         keywords: [val] // Keep keywords array for compatibility
                     }));
                     setFieldErrors((prev: any) => { const n = { ...prev }; delete n['keywords']; return n; });
+                    setIsEditingKeyword(false);
                 }
             }
         } else {
@@ -877,7 +885,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             let keywordArray: string[] = [];
             if (type === 'global') {
                 // For global, use single keyword
-                keywordArray = automation.keyword ? [automation.keyword] : [];
+                const kw = isEditingKeyword && keywordInput.trim() ? keywordInput.trim().toUpperCase() : automation.keyword;
+                keywordArray = kw ? [kw] : [];
             } else {
                 keywordArray = automation.keywords || automation.keyword || [];
             }
@@ -1069,33 +1078,55 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Trigger Keyword</label>
                                         <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">{keywordInput?.length || 0}/15</span>
                                     </div>
-                                    <div className="relative">
+                                    <div className="relative flex items-center gap-2">
                                         <input
-                                            value={keywordInput || automation.keyword || ''}
+                                            value={isEditingKeyword ? keywordInput : (automation.keyword || '')}
+                                            disabled={!isEditingKeyword}
                                             onChange={e => {
                                                 const val = e.target.value.toUpperCase();
                                                 setKeywordInput(val);
-                                                setAutomation((prev: any) => ({ ...prev, keyword: val, keywords: val ? [val] : [] }));
-                                                setFieldErrors((prev: any) => { const n = { ...prev }; delete n['keywords']; return n; });
                                             }}
                                             onKeyDown={handleKeywordKeyDown}
-                                            className={`w-full bg-blue-50 dark:bg-blue-600/5 border-2 ${fieldErrors['keywords'] ? 'border-red-500' : 'border-transparent'} focus:border-blue-500 outline-none rounded-2xl py-4 px-6 pr-12 text-sm font-black text-blue-600 dark:text-blue-400 placeholder:text-blue-200 transition-all`}
+                                            className={`w-full bg-blue-50 dark:bg-blue-600/5 border-2 ${
+                                                fieldErrors['keywords'] ? 'border-red-500' : 'border-transparent'
+                                            } focus:border-blue-500 outline-none rounded-2xl py-4 px-6 pr-20 text-sm font-black text-blue-600 dark:text-blue-400 placeholder:text-blue-200 transition-all ${
+                                                !isEditingKeyword ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : ''
+                                            }`}
                                             placeholder="Type keyword and press Enter..."
                                             maxLength={15}
                                         />
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                            <Globe className="w-4 h-4 text-blue-300" />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
+                                            {isEditingKeyword ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const val = keywordInput.trim().toUpperCase();
+                                                        if (val) {
+                                                            setAutomation((prev: any) => ({
+                                                                ...prev,
+                                                                keyword: val,
+                                                                keywords: [val]
+                                                            }));
+                                                            setIsEditingKeyword(false);
+                                                            setFieldErrors((prev: any) => { const n = { ...prev }; delete n['keywords']; return n; });
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Add
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsEditingKeyword(true)}
+                                                    className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Edit
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                    <p className="text-[9px] text-gray-400 font-medium px-2">Required: Set at least one keyword that triggers this reply.</p>
-                                    {automation.keyword && (
-                                        <div className="flex flex-wrap gap-2 min-h-[40px] p-2 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-content">
-                                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider bg-blue-600 text-white">
-                                                {automation.keyword}
-                                                <button type="button" onClick={() => removeKeyword(automation.keyword)} className="hover:bg-white/20 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
-                                            </div>
-                                        </div>
-                                    )}
+                                    <p className="text-[9px] text-gray-400 font-medium px-2">Required: Set a single keyword that triggers this reply.</p>
                                     {fieldErrors['keywords'] && <p className="text-[9px] font-bold text-red-500 px-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {fieldErrors['keywords']}</p>}
                                 </div>
                             </div>
@@ -1484,35 +1515,55 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     <div className="space-y-4 pt-6 border-t border-slate-100 dark:border-slate-800">
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2 ml-1">Trigger Keyword</h3>
                         <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                            <div className="relative group">
+                            <div className="relative flex items-center gap-2">
                                 <input
-                                    value={keywordInput || automation.keyword || ''}
+                                    value={isEditingKeyword ? keywordInput : (automation.keyword || '')}
+                                    disabled={!isEditingKeyword}
                                     onChange={e => {
                                         const val = e.target.value.toUpperCase();
                                         setKeywordInput(val);
-                                        setAutomation((prev: any) => ({
-                                            ...prev,
-                                            keyword: val,
-                                            keywords: val ? [val] : []
-                                        }));
-                                        setFieldErrors((prev: any) => { const n = { ...prev }; delete n['keywords']; return n; });
                                     }}
                                     onKeyDown={handleKeywordKeyDown}
-                                    className={`w-full bg-blue-50 dark:bg-blue-600/5 border-2 ${fieldErrors['keywords'] ? 'border-red-500' : 'border-transparent'} focus:border-blue-500 outline-none rounded-2xl py-4 px-6 text-sm font-black text-blue-600 dark:text-blue-400 placeholder:text-blue-200 transition-all`}
+                                    className={`w-full bg-blue-50 dark:bg-blue-600/5 border-2 ${
+                                        fieldErrors['keywords'] ? 'border-red-500' : 'border-transparent'
+                                    } focus:border-blue-500 outline-none rounded-2xl py-4 px-6 pr-20 text-sm font-black text-blue-600 dark:text-blue-400 placeholder:text-blue-200 transition-all ${
+                                        !isEditingKeyword ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : ''
+                                    }`}
                                     placeholder="Enter keyword (e.g., PRICE, HELP, INFO)..."
                                     maxLength={15}
                                 />
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
+                                    {isEditingKeyword ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const val = keywordInput.trim().toUpperCase();
+                                                if (val) {
+                                                    setAutomation((prev: any) => ({
+                                                        ...prev,
+                                                        keyword: val,
+                                                        keywords: [val]
+                                                    }));
+                                                    setIsEditingKeyword(false);
+                                                    setFieldErrors((prev: any) => { const n = { ...prev }; delete n['keywords']; return n; });
+                                                }
+                                            }}
+                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                        >
+                                            Add
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsEditingKeyword(true)}
+                                            className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                        >
+                                            Edit
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             <p className="text-[9px] text-gray-400 font-medium px-2">Required: Enter a single keyword that will trigger this automation across all posts, reels, stories, and live.</p>
-
-                            {automation.keyword && (
-                                <div className="flex flex-wrap gap-2 px-1">
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest animate-in zoom-in-95">
-                                        {automation.keyword}
-                                        <X className="w-3.5 h-3.5 cursor-pointer hover:scale-110 transition-transform" onClick={() => removeKeyword(automation.keyword)} />
-                                    </div>
-                                </div>
-                            )}
                             {fieldErrors['keywords'] && <p className="text-[10px] text-red-500 font-bold px-2">{fieldErrors['keywords']}</p>}
                         </div>
                     </div>
@@ -1538,17 +1589,32 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                             title="Comment Reply"
                             description="Post a public reply when this automation is triggered from a comment."
                             checked={commentReplyEnabled}
-                            onToggle={() => setAutomation({
-                                ...automation,
-                                comment_reply_text: commentReplyEnabled ? '' : (automation.comment_reply_text || 'Thanks for your comment! Check your DMs for the details.')
-                            })}
+                            onToggle={() => {
+                                const nextCommentReplyEnabled = !commentReplyEnabled;
+                                setAutomation({
+                                    ...automation,
+                                    comment_reply_text: nextCommentReplyEnabled ? (automation.comment_reply_text || 'Thanks for your comment! Check your DMs for the details.') : ''
+                                });
+                                if (nextCommentReplyEnabled) {
+                                    setCommentReplyCollapsed(false);
+                                }
+                                if (!nextCommentReplyEnabled && fieldErrors['comment_reply_text']) {
+                                    setFieldErrors((prev: any) => {
+                                        const next = { ...prev };
+                                        delete next['comment_reply_text'];
+                                        return next;
+                                    });
+                                }
+                            }}
                             locked={commentReplyLocked}
                             note={commentReplyGate.note}
                             onUpgrade={() => setCurrentView('My Plan')}
                             activeIconClassName="text-violet-500"
+                            isCollapsed={commentReplyCollapsed}
+                            onCollapseToggle={() => setCommentReplyCollapsed(!commentReplyCollapsed)}
                         />
-                        {commentReplyEnabled && !commentReplyLocked && (
-                            <div className="space-y-2">
+                        {commentReplyEnabled && !commentReplyLocked && !commentReplyCollapsed && (
+                            <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-violet-100 dark:border-violet-500/10 space-y-4">
                                 <div className="flex justify-between items-center px-1">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Public Comment Reply</label>
                                 </div>
@@ -1556,7 +1622,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                     id="field_comment_reply_text"
                                     value={automation.comment_reply_text || ''}
                                     onChange={e => setAutomation({ ...automation, comment_reply_text: e.target.value })}
-                                    className={`w-full min-h-[100px] rounded-2xl border-2 ${fieldErrors['comment_reply_text'] ? 'border-destructive' : 'border-content/70'} bg-card/90 p-4 text-xs font-bold text-foreground shadow-inner outline-none transition-all focus:border-primary`}
+                                    className={`w-full min-h-[100px] rounded-2xl border-2 ${fieldErrors['comment_reply_text'] ? 'border-red-500' : 'border-transparent'} bg-gray-50 dark:bg-gray-950 p-4 text-xs font-bold text-foreground outline-none transition-all focus:border-violet-500`}
                                     placeholder="Enter the public comment reply text (this will be posted as a comment on Instagram)..."
                                 />
                                 <p className="text-[9px] text-gray-400 font-medium px-2">This reply will be posted publicly on Instagram when the comment-based automation runs.</p>
@@ -1804,19 +1870,15 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         {renderActionBar()}
                         {renderForm()}
                     </div>
-                    <div className="hidden lg:flex items-center justify-center border-t border-border/70 p-4 sm:p-6 md:p-8 lg:min-h-0 lg:border-l lg:border-t-0 lg:overflow-hidden">
-                        <div className="w-full max-w-[320px] lg:max-w-none">
-                            {renderPreview()}
-                        </div>
-                    </div>
+                    <AutomationPreviewPanel
+                        title="Live Preview"
+                        breakpoint="lg"
+                        wrapperClassName="hidden lg:flex lg:flex-col items-center justify-center border-t border-border/70 p-4 sm:p-6 md:p-8 lg:min-h-0 lg:border-l lg:border-t-0 lg:overflow-hidden"
+                        minHeightClassName="min-h-0 w-full"
+                    >
+                        {renderPreview()}
+                    </AutomationPreviewPanel>
                 </div>
-                <AutomationPreviewPanel
-                    title="Live Preview"
-                    wrapperClassName="lg:hidden"
-                    minHeightClassName="min-h-0"
-                >
-                    {renderPreview()}
-                </AutomationPreviewPanel>
                 <ModernConfirmModal
                     isOpen={modalConfig.isOpen}
                     onClose={closeModal}
@@ -1848,13 +1910,6 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     confirmLabel={modalConfig.confirmLabel}
                     cancelLabel={modalConfig.cancelLabel}
                 />
-                <AutomationPreviewPanel
-                    title="Live Preview"
-                    wrapperClassName="lg:hidden"
-                    minHeightClassName="min-h-0"
-                >
-                    {renderPreview()}
-                </AutomationPreviewPanel>
             </div>
         );
     }
@@ -1885,7 +1940,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 </div>
                 <AutomationPreviewPanel
                     title="Live Preview"
-                    wrapperClassName="lg:hidden"
+                    breakpoint="lg"
+                    wrapperClassName="hidden"
                     minHeightClassName="min-h-0"
                 >
                     {renderPreview()}

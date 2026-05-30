@@ -442,14 +442,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 }}
                 className={cn(
                   'relative flex h-10 w-10 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm transition-all hover:border-primary/40 hover:text-foreground',
-                  unreadNotificationCount > 0 && 'border-primary/40 text-primary shadow-primary/10'
+                  unreadNotificationCount > 0 && 'border-red-500/30 text-red-500 shadow-red-500/10 bg-red-500/5 dark:bg-red-500/10'
                 )}
                 aria-label="Notifications"
                 aria-expanded={isNotificationMenuOpen}
               >
-                <Bell className="h-4.5 w-4.5" />
+                <Bell className={cn("h-4.5 w-4.5", unreadNotificationCount > 0 && "fill-red-500/10")} />
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex min-w-[1.15rem] items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-black text-primary-foreground shadow-lg">
+                  <span className="absolute -right-1 -top-1 flex min-w-[1.15rem] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-black text-white shadow-lg shadow-red-500/20">
                     {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
                   </span>
                 )}

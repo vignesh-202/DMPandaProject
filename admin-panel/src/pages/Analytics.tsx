@@ -529,12 +529,12 @@ const DonutChartCard = ({
                                     backgroundColor: hoveredSegment?.key === segment.key ? `${segment.color}20` : `${segment.color}12`
                                 }}
                             >
-                                <div className="flex items-center justify-between gap-3">
-                                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-foreground">
-                                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color }} />
-                                        {segment.label}
+                                <div className="flex items-start justify-between gap-3 min-h-[2.25rem]">
+                                    <div className="flex items-start gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-foreground">
+                                        <span className="h-2.5 w-2.5 rounded-full mt-0.5 flex-shrink-0" style={{ backgroundColor: segment.color }} />
+                                        <span className="break-words leading-tight">{segment.label}</span>
                                     </div>
-                                    <span className="text-[11px] font-black" style={segment.muted ? undefined : { color: segment.color }}>
+                                    <span className="text-[11px] font-black shrink-0 mt-px" style={segment.muted ? undefined : { color: segment.color }}>
                                         {segment.muted ? '0%' : `${segment.percent}%`}
                                     </span>
                                 </div>

@@ -77,6 +77,9 @@ const uniqueNonEmptyStrings = (values) => Array.from(new Set(
         .map((value) => String(value || '').trim())
         .filter(Boolean)
 ));
+const normalizeModerationKeywordToken = (value) => String(value || '').trim().toLowerCase();
+const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const normalizeModerationText = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
 const looksLikeInternalReference = (value) => {
     const token = String(value || '').trim();
@@ -318,7 +321,7 @@ class DMWorker {
             return Array.from(new Set(required.map((feature) => resolveCanonicalFeatureKey(feature)).filter(Boolean)));
         }
         const commentReplyFeature = COMMENT_REPLY_FEATURE_MAP[type] || (type === 'global' ? 'post_comment_reply_automation' : '');
-        if (String(automation?.comment_reply ?? automation?.comment_reply_text ?? '').trim() && commentReplyFeature) {
+        if (String(automation?.comment_reply || automation?.comment_reply_text || '').trim() && commentReplyFeature) {
             required.push(commentReplyFeature);
         }
         const isShareTrigger = getTriggerType(automation) === 'share_to_admin'
@@ -653,6 +656,30 @@ class DMWorker {
         };
     }
 
+    _getPlainTextsFromTemplate(templateType, payload) {
+        if (!payload) return '';
+        if (templateType === 'text' || templateType === 'template_text') {
+            return String(payload.text || '').trim();
+        }
+        if (templateType === 'quick_replies' || templateType === 'template_quick_replies') {
+            return String(payload.text || '').trim();
+        }
+        if (templateType === 'button' || templateType === 'template_buttons') {
+            return String(payload.text || '').trim();
+        }
+        if (templateType === 'carousel' || templateType === 'template_carousel') {
+            const elements = payload.elements || [];
+            return elements.map(el => [el.title, el.subtitle].filter(Boolean).join(' - ')).filter(Boolean).join('\n');
+        }
+        if (templateType === 'media' || templateType === 'template_media' || templateType === 'template_media_attachment') {
+            return String(payload.media_url || '').trim();
+        }
+        if (templateType === 'template_share_post') {
+            return `Check out our post: ${payload.media_id || payload.post_id || ''}`;
+        }
+        return '';
+    }
+
     async sendRenderedTemplate(instagram, senderId, template, context, watermarkPolicy, options = {}) {
         const logContext = options?.logContext && typeof options.logContext === 'object'
             ? options.logContext
@@ -670,11 +697,35 @@ class DMWorker {
             policy: watermarkPolicy
         });
 
-        const success = await instagram.sendMessage(
+        let success = await instagram.sendMessage(
             senderId,
             renderedTemplate.type,
-            watermarkPlan.primaryPayload
+            watermarkPlan.primaryPayload,
+            { commentId: options?.commentId }
         );
+
+        if (!success && options?.commentId) {
+            console.info(`Private message failed. Attempting public comment reply fallback.`);
+            const plainText = this._getPlainTextsFromTemplate(renderedTemplate.type, watermarkPlan.primaryPayload);
+            if (plainText) {
+                success = await instagram.replyToComment(options.commentId, plainText);
+                if (success && logContext?.accountId) {
+                    await this._recordAutomationLog({
+                        accountId: logContext.accountId,
+                        recipientId: logContext.recipientId || senderId,
+                        senderName: logContext.senderName || senderId,
+                        automationId: logContext.automationId || null,
+                        automationType: logContext.automationType || null,
+                        eventType: logContext.eventType || 'comment',
+                        source: 'worker_node_public_fallback',
+                        message: 'Sent public comment reply fallback',
+                        payload: { comment_id: options.commentId, text: plainText },
+                        status: 'success'
+                    });
+                }
+            }
+        }
+
         if (logContext?.accountId) {
             await this._recordAutomationLog({
                 accountId: logContext.accountId,
@@ -902,10 +953,12 @@ class DMWorker {
         commentId = null,
         ownerUserId = null,
         eventType = 'message',
-        accountId = null
+        accountId = null,
+        commentReplySent = false
     }) {
-        if (commentId && automation?.comment_reply) {
-            const commentReplySent = await instagram.replyToComment(commentId, automation.comment_reply);
+        const commentReplyText = String(automation?.comment_reply || automation?.comment_reply_text || '').trim();
+        if (commentId && commentReplyText && !commentReplySent) {
+            const commentReplySentResult = await instagram.replyToComment(commentId, commentReplyText);
             if (accountId) {
                 await this._recordAutomationLog({
                     accountId,
@@ -915,9 +968,9 @@ class DMWorker {
                     automationType: automation?.automation_type || 'comment',
                     eventType: 'comment',
                     source: 'worker_node_comment_reply',
-                    message: commentReplySent ? 'Sent public comment reply' : 'Failed public comment reply',
-                    payload: { comment_id: commentId, text: String(automation.comment_reply || '').trim() },
-                    status: commentReplySent ? 'success' : 'failed'
+                    message: commentReplySentResult ? 'Sent public comment reply' : 'Failed public comment reply',
+                    payload: { comment_id: commentId, text: commentReplyText },
+                    status: commentReplySentResult ? 'success' : 'failed'
                 });
             }
         }
@@ -939,6 +992,7 @@ class DMWorker {
             },
             watermarkPolicy,
             {
+                commentId,
                 actionUserId: automation?.user_id,
                 fallbackActionUserId: ownerUserId,
                 logContext: {
@@ -1272,7 +1326,7 @@ class DMWorker {
         return this.appwrite.buildAutomationTemplate(automation);
     }
 
-    async _sendFollowersOnlyPrompt(instagram, senderId, igAccount, automation) {
+    async _sendFollowersOnlyPrompt(instagram, senderId, igAccount, automation, commentId = null) {
         const automationDefaults = await this._getAutomationDefaults();
         const promptText = String(
             automation?.followers_only_message
@@ -1306,10 +1360,16 @@ class DMWorker {
             payload: `followers_only_retry:${String(automation?.$id || '').trim()}`
         });
 
-        const sent = await instagram.sendMessage(senderId, 'template_buttons', {
+        let sent = await instagram.sendMessage(senderId, 'template_buttons', {
             text: promptText,
             buttons
-        });
+        }, { commentId });
+
+        if (!sent && commentId) {
+            console.info(`Private reply failed for followers-only prompt. Attempting public comment reply fallback.`);
+            sent = await instagram.replyToComment(commentId, promptText);
+        }
+
         const accountId = String(igAccount?.ig_user_id || igAccount?.account_id || '').trim();
         if (accountId) {
             await this._recordAutomationLog({
@@ -1626,6 +1686,39 @@ class DMWorker {
         return result;
     }
 
+    _matchCommentModerationRule(commentText, rules) {
+        const normalizedText = normalizeModerationText(commentText);
+        if (!normalizedText) return null;
+
+        const normalizedRules = Array.isArray(rules) ? rules : [];
+        const deleteRule = normalizedRules.find((rule) => String(rule?.action || '').trim().toLowerCase() === 'delete');
+        const hideRule = normalizedRules.find((rule) => String(rule?.action || '').trim().toLowerCase() === 'hide');
+
+        const findMatchedKeyword = (rule) => {
+            const normalizedKeywords = (Array.isArray(rule?.keywords) ? rule.keywords : [])
+                .map((keyword) => normalizeModerationText(keyword))
+                .filter(Boolean)
+                .sort((a, b) => b.length - a.length);
+
+            return normalizedKeywords.find((keyword) => {
+                const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(keyword)}([^a-z0-9]|$)`, 'i');
+                return pattern.test(normalizedText);
+            });
+        };
+
+        const deleteKeyword = findMatchedKeyword(deleteRule);
+        if (deleteKeyword) {
+            return { action: 'delete', keyword: deleteKeyword };
+        }
+
+        const hideKeyword = findMatchedKeyword(hideRule);
+        if (hideKeyword) {
+            return { action: 'hide', keyword: hideKeyword };
+        }
+
+        return null;
+    }
+
     async _processCommentEvent(webhookData, options = {}) {
         const commentEvent = this._extractCommentEvent(webhookData);
         if (!commentEvent?.recipientId || !commentEvent?.senderId || !commentEvent?.text) {
@@ -1654,6 +1747,55 @@ class DMWorker {
         const instagram = this._createInstagramClient(igAccount.access_token, accountBudgetKey, options?.metaApiUsageTracker, executionProfile);
         const primaryAccountId = String(igAccount.ig_user_id || igAccount.account_id || commentEvent.recipientId).trim() || String(commentEvent.recipientId || '').trim();
         const automationAccountIds = this.getAutomationAccountIds(igAccount, primaryAccountId);
+        const moderationRules = this.appwrite && typeof this.appwrite.getCommentModerationRules === 'function'
+            ? await this.appwrite.getCommentModerationRules({
+                userId: igAccount.user_id,
+                accountIds: automationAccountIds
+            })
+            : [];
+        const moderationMatch = this._matchCommentModerationRule(commentEvent.text, moderationRules);
+        if (commentEvent.commentId && moderationMatch) {
+            let moderationSuccess = false;
+            if (moderationMatch.action === 'delete') {
+                moderationSuccess = await instagram.deleteComment(commentEvent.commentId);
+            } else {
+                moderationSuccess = await instagram.hideComment(commentEvent.commentId, true);
+                if (moderationSuccess && typeof instagram.getComment === 'function') {
+                    const verifyComment = await instagram.getComment(commentEvent.commentId);
+                    const hiddenApplied = verifyComment?.hidden === true;
+                    if (!hiddenApplied) {
+                        await this._delay(500);
+                        moderationSuccess = await instagram.hideComment(commentEvent.commentId, true);
+                    }
+                }
+            }
+
+            if (primaryAccountId) {
+                await this._recordAutomationLog({
+                    accountId: primaryAccountId,
+                    recipientId: commentEvent.senderId,
+                    senderName: commentEvent.senderId,
+                    automationId: `comment_moderation_${moderationMatch.action}:${primaryAccountId}`,
+                    automationType: `moderation_${moderationMatch.action}`,
+                    eventType: 'comment',
+                    source: 'worker_node_comment_moderation',
+                    message: moderationSuccess
+                        ? `${moderationMatch.action === 'delete' ? 'Deleted' : 'Hidden'} comment for moderation keyword`
+                        : `Failed to ${moderationMatch.action} comment for moderation keyword`,
+                    payload: {
+                        comment_id: commentEvent.commentId,
+                        keyword: moderationMatch.keyword,
+                        action: moderationMatch.action
+                    },
+                    status: moderationSuccess ? 'success' : 'failed'
+                });
+            }
+
+            return {
+                handled: moderationSuccess,
+                automationType: `moderation_${moderationMatch.action}`
+            };
+        }
         const conversationKey = `${commentEvent.recipientId}:${commentEvent.senderId}`;
         const conversationState = await this._getConversationState(primaryAccountId, conversationKey);
         const automations = await this.appwrite.getActiveAutomations(automationAccountIds, ['post', 'reel', 'live', 'global']);
@@ -1723,12 +1865,36 @@ class DMWorker {
                 continue;
             }
 
+            // Send public comment reply first (if configured and commentId is present)
+            const commentReplyText = String(matchedAutomation.comment_reply || matchedAutomation.comment_reply_text || '').trim();
+            console.log('[DEBUG COMMENT REPLY] matchedAutomation:', matchedAutomation?.$id, 'commentReplyText:', commentReplyText, 'commentEvent:', commentEvent);
+            let commentReplySent = false;
+            if (commentEvent.commentId && commentReplyText) {
+                console.log('[DEBUG COMMENT REPLY] Dispatching replyToComment now...');
+                commentReplySent = await instagram.replyToComment(commentEvent.commentId, commentReplyText);
+                console.log('[DEBUG COMMENT REPLY] replyToComment result:', commentReplySent);
+                if (primaryAccountId) {
+                    await this._recordAutomationLog({
+                        accountId: primaryAccountId,
+                        recipientId: commentEvent.senderId,
+                        senderName: commentEvent.senderId,
+                        automationId: matchedAutomation?.$id || null,
+                        automationType: matchedAutomation?.automation_type || 'comment',
+                        eventType: 'comment',
+                        source: 'worker_node_comment_reply',
+                        message: commentReplySent ? 'Sent public comment reply' : 'Failed public comment reply',
+                        payload: { comment_id: commentEvent.commentId, text: commentReplyText },
+                        status: commentReplySent ? 'success' : 'failed'
+                    });
+                }
+            }
+
             if (matchedAutomation.followers_only === true) {
                 if (!followStatusProfile) {
                     followStatusProfile = await instagram.getUserProfile(commentEvent.senderId);
                 }
                 if (followStatusProfile?.is_user_follow_business !== true) {
-                    await this._sendFollowersOnlyPrompt(instagram, commentEvent.senderId, igAccount, matchedAutomation);
+                    await this._sendFollowersOnlyPrompt(instagram, commentEvent.senderId, igAccount, matchedAutomation, commentEvent.commentId || null);
                     return {
                         handled: true,
                         automationType
@@ -1748,14 +1914,23 @@ class DMWorker {
                     };
                 }
 
-            const automationDefaults = await this._getAutomationDefaults();
-            const promptSent = await instagram.sendMessage(commentEvent.senderId, 'template_text', {
-                text: String(
-                    matchedAutomation.collect_email_prompt_message
-                    || automationDefaults.collect_email_prompt_message
-                    || DEFAULT_COLLECT_EMAIL_PROMPT
-                ).trim() || DEFAULT_COLLECT_EMAIL_PROMPT
-            });
+                const automationDefaults = await this._getAutomationDefaults();
+                let promptSent = await instagram.sendMessage(commentEvent.senderId, 'template_text', {
+                    text: String(
+                        matchedAutomation.collect_email_prompt_message
+                        || automationDefaults.collect_email_prompt_message
+                        || DEFAULT_COLLECT_EMAIL_PROMPT
+                    ).trim() || DEFAULT_COLLECT_EMAIL_PROMPT
+                }, { commentId: commentEvent.commentId || null });
+
+                if (!promptSent && commentEvent.commentId) {
+                    console.info(`Private reply failed for email collection prompt. Attempting public comment reply fallback.`);
+                    promptSent = await instagram.replyToComment(commentEvent.commentId, String(
+                        matchedAutomation.collect_email_prompt_message
+                        || automationDefaults.collect_email_prompt_message
+                        || DEFAULT_COLLECT_EMAIL_PROMPT
+                    ).trim() || DEFAULT_COLLECT_EMAIL_PROMPT);
+                }
 
                 if (promptSent) {
                     await this._saveConversationState({
@@ -1801,7 +1976,8 @@ class DMWorker {
                 commentId: commentEvent.commentId || null,
                 ownerUserId: igAccount.user_id,
                 eventType: 'comment',
-                accountId: primaryAccountId
+                accountId: primaryAccountId,
+                commentReplySent
             });
 
             handled = handled || success === true;

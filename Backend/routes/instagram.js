@@ -233,7 +233,7 @@ const collectLockedAutomationFeatures = (payload) => {
         }
         return Array.from(new Set(locked));
     }
-    const hasCommentReply = Boolean(String(source.comment_reply ?? source.comment_reply_text ?? '').trim());
+    const hasCommentReply = Boolean(String(source.comment_reply || source.comment_reply_text || '').trim());
     const commentReplyFeature = COMMENT_REPLY_FEATURES[automationType] || (automationType === 'global' ? 'post_comment_reply_automation' : '');
     if (hasCommentReply && commentReplyFeature) {
         locked.push(commentReplyFeature);
@@ -1961,7 +1961,7 @@ const buildAutomationDocumentData = ({
             exclude_existing_customers: source.exclude_existing_customers === true,
             send_to: toSafeString(source.send_to || 'everyone', 50),
             delay_seconds: Number(source.delay_seconds || 0),
-            comment_reply: toSafeString(source.comment_reply ?? source.comment_reply_text, 1000),
+            comment_reply: toSafeString(source.comment_reply || source.comment_reply_text, 1000),
             linked_media_id: source.linked_media_id ? toSafeString(source.linked_media_id, 255) : null,
             linked_media_url: toSafeString(source.linked_media_url, MEDIA_URL_MAX),
         }

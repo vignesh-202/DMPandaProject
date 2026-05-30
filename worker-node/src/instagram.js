@@ -82,22 +82,49 @@ class InstagramAPI {
         }
     }
 
-    async sendMessage(recipientId, messageType, payload) {
+    async _delete(path, params, meta = {}) {
+        let success = false;
+        let allowed = false;
+        try {
+            await this._ensureRequestAllowed({
+                method: 'DELETE',
+                path,
+                ...meta
+            });
+            allowed = true;
+            const response = await axios.delete(`${this.baseUrl}${path}`, { params });
+            success = response.status >= 200 && response.status < 300;
+            return response;
+        } finally {
+            if (allowed) {
+                await this._notifyRequestComplete({
+                    method: 'DELETE',
+                    path,
+                    success,
+                    ...meta
+                });
+            }
+        }
+    }
+
+    async sendMessage(recipientId, messageType, payload, options = {}) {
         const params = { access_token: this.accessToken };
 
         const messageData = {
-            recipient: { id: recipientId },
+            recipient: options?.commentId ? { comment_id: options.commentId } : { id: recipientId },
             message: this._buildMessagePayload(messageType, payload)
         };
+        console.info('Sending message with data:', JSON.stringify(messageData, null, 2));
 
         try {
             const response = await this._post('/me/messages', messageData, params, {
                 requestType: 'send_message',
                 recipientId: String(recipientId || '').trim(),
-                messageType: String(messageType || '').trim()
+                messageType: String(messageType || '').trim(),
+                commentId: options?.commentId || null
             });
             if (response.status === 200) {
-                console.info(`Message sent successfully: ${response.data.message_id}`);
+                console.info(`Message sent successfully: ${response.data.message_id || response.data.id}`);
                 return true;
             }
             return false;
@@ -267,6 +294,53 @@ class InstagramAPI {
         }
     }
 
+    async hideComment(commentId, shouldHide = true) {
+        const safeCommentId = String(commentId || '').trim();
+        if (!safeCommentId) return false;
+
+        const params = {
+            access_token: this.accessToken,
+            hide: shouldHide === true
+        };
+
+        try {
+            const response = await this._post(`/${safeCommentId}`, {}, params, {
+                requestType: 'hide_comment',
+                commentId: safeCommentId
+            });
+            return response.status >= 200 && response.status < 300;
+        } catch (error) {
+            console.error(
+                `Failed to ${shouldHide ? 'hide' : 'unhide'} comment ${safeCommentId}:`,
+                error.response ? error.response.data : error.message
+            );
+            return false;
+        }
+    }
+
+    async deleteComment(commentId) {
+        const safeCommentId = String(commentId || '').trim();
+        if (!safeCommentId) return false;
+
+        const params = {
+            access_token: this.accessToken
+        };
+
+        try {
+            const response = await this._delete(`/${safeCommentId}`, params, {
+                requestType: 'delete_comment',
+                commentId: safeCommentId
+            });
+            return response.status >= 200 && response.status < 300;
+        } catch (error) {
+            console.error(
+                `Failed to delete comment ${safeCommentId}:`,
+                error.response ? error.response.data : error.message
+            );
+            return false;
+        }
+    }
+
     async sendSenderAction(recipientId, action) {
         const safeRecipientId = String(recipientId || '').trim();
         const safeAction = String(action || '').trim().toLowerCase();
@@ -317,6 +391,30 @@ class InstagramAPI {
         } catch (error) {
             console.error(
                 `Failed to fetch user profile for ${igScopedId}:`,
+                error.response ? error.response.data : error.message
+            );
+            return null;
+        }
+    }
+
+    async getComment(commentId) {
+        const safeCommentId = String(commentId || '').trim();
+        if (!safeCommentId) return null;
+
+        const params = {
+            fields: 'id,hidden,text,username',
+            access_token: this.accessToken
+        };
+
+        try {
+            const response = await this._get(`/${safeCommentId}`, params, {
+                requestType: 'get_comment',
+                commentId: safeCommentId
+            });
+            return response.data || null;
+        } catch (error) {
+            console.warn(
+                `Failed to fetch comment ${safeCommentId}:`,
                 error.response ? error.response.data : error.message
             );
             return null;

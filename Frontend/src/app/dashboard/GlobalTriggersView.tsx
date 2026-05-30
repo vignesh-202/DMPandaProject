@@ -185,13 +185,20 @@ const GlobalTriggersView: React.FC = () => {
                 return;
             }
 
+            // Always fetch the full automation document so that all fields
+            // (collect_email_webhook_url, template_elements, etc.) are populated.
+            // The preloadedTrigger from the list uses summary=1 and is missing these fields.
             let resolvedTrigger = preloadedTrigger || { $id: targetId };
             let resolvedTemplate: ReplyTemplate | null = null;
 
-            if (!preloadedTrigger && targetId) {
-                const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${targetId}?account_id=${activeAccountID}`);
-                if (res.ok) {
-                    resolvedTrigger = await res.json();
+            if (targetId) {
+                try {
+                    const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${targetId}?account_id=${activeAccountID}`);
+                    if (res.ok) {
+                        resolvedTrigger = await res.json();
+                    }
+                } catch (_) {
+                    // fall back to preloadedTrigger / stub
                 }
             }
 
@@ -404,13 +411,13 @@ const GlobalTriggersView: React.FC = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
+        <div className="max-w-7xl mx-auto min-h-screen space-y-8 px-3 sm:px-4 md:px-6">
             {/* Editor Mode */}
             {editingTrigger ? (
                 <>
-                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-                        <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
-                            <section className="bg-card p-8 rounded-[40px] border border-content shadow-sm space-y-8 xl:min-h-0">
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
+                        <div className="w-full min-w-0 space-y-6 xl:col-span-8 xl:space-y-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
+                            <section className="space-y-6 rounded-[28px] border border-content bg-card p-4 shadow-sm sm:space-y-8 sm:rounded-[34px] sm:p-6 lg:rounded-[40px] lg:p-8 xl:min-h-0">
                                     <AutomationEditor
                                         type="global"
                                         isStandalone={false}

@@ -22,7 +22,7 @@ const requiredFeaturesForAutomation = (automation = {}) => {
         if (automation?.[field] === true) required.push(featureKey);
     });
     const commentReplyFeature = COMMENT_REPLY_FEATURE_MAP[type] || (type === 'global' ? 'post_comment_reply_automation' : '');
-    if (String(automation.comment_reply ?? automation.comment_reply_text ?? '').trim() && commentReplyFeature) {
+    if (String(automation.comment_reply || automation.comment_reply_text || '').trim() && commentReplyFeature) {
         required.push(commentReplyFeature);
     }
     const isShareTrigger = String(automation.trigger_type || '').trim().toLowerCase() === 'share_to_admin'
