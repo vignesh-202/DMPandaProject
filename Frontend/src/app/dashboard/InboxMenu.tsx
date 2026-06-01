@@ -113,7 +113,7 @@ const InboxMenu: React.FC = () => {
         title: '',
         type: 'postback',
         followers_only: false,
-        once_per_user_24h: false,
+        once_per_user_24h: true,
         seen_typing_enabled: false,
         webview_height_ratio: 'full',
         template_type: 'template_text',
@@ -304,7 +304,7 @@ const InboxMenu: React.FC = () => {
             title: '',
             type: 'postback',
             followers_only: false,
-            once_per_user_24h: false,
+            once_per_user_24h: true,
             seen_typing_enabled: false,
             webview_height_ratio: 'full',
             template_type: 'template_text',
@@ -555,7 +555,7 @@ const InboxMenu: React.FC = () => {
             title: '',
             type: 'postback',
             followers_only: false,
-            once_per_user_24h: false,
+            once_per_user_24h: true,
             seen_typing_enabled: false,
             webview_height_ratio: 'full',
             template_type: 'template_text',
@@ -786,7 +786,7 @@ const InboxMenu: React.FC = () => {
             title: '',
             type: 'postback',
             followers_only: false,
-            once_per_user_24h: false,
+            once_per_user_24h: true,
             seen_typing_enabled: false,
             webview_height_ratio: 'full',
             template_type: 'template_text',
@@ -869,7 +869,7 @@ const InboxMenu: React.FC = () => {
                 title: '',
                 type: 'postback',
                 followers_only: false,
-                once_per_user_24h: false,
+                once_per_user_24h: true,
                 seen_typing_enabled: false,
                 webview_height_ratio: 'full',
                 template_type: 'template_text',
@@ -1439,7 +1439,7 @@ const InboxMenu: React.FC = () => {
                                                     <LockedFeatureToggle
                                                         icon={<Calendar className={`w-5 h-5 ${newItem.once_per_user_24h ? 'text-cyan-500' : 'text-gray-400'}`} />}
                                                         title="Once Per User (24h)"
-                                                        description="Prevent the same person from retriggering this automation again for 24 hours."
+                                                        description="Prevent the same person from retriggering this automation again for 24 hours. Turn on to save action limits."
                                                         checked={newItem.once_per_user_24h === true}
                                                         onToggle={() => setNewItem({ ...newItem, once_per_user_24h: !(newItem.once_per_user_24h === true) })}
                                                         locked={getPlanGate('once_per_user_24h').isLocked}

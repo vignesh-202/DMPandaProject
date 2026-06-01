@@ -716,7 +716,8 @@ const DMAutomationView: React.FC = () => {
                     global_reels: true,
                     global_live: false,
                     global_stories: false,
-                    automation_type: 'dm'
+                    automation_type: 'dm',
+                    once_per_user_24h: true
                 };
                 setEditingAutomation(loaded);
                 setOriginalAutomation(JSON.parse(JSON.stringify(loaded)));
@@ -1911,7 +1912,7 @@ const DMAutomationView: React.FC = () => {
                                     <LockedFeatureToggle
                                         icon={<Calendar className={`w-5 h-5 ${editingAutomation.once_per_user_24h ? 'text-cyan-500' : 'text-gray-400'}`} />}
                                         title="Once Per User (24h)"
-                                        description="Prevent the same person from retriggering this automation again for 24 hours."
+                                        description="Prevent the same person from retriggering this automation again for 24 hours. Turn on to save action limits."
                                         checked={editingAutomation.once_per_user_24h === true}
                                         onToggle={() => setEditingAutomation({ ...editingAutomation, once_per_user_24h: !(editingAutomation.once_per_user_24h === true) })}
                                         locked={getPlanGate('once_per_user_24h').isLocked}

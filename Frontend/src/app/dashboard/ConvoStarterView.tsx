@@ -60,7 +60,7 @@ const createBlankStarter = (): ConvoStarter => ({
     followers_only_primary_button_text: FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
     followers_only_secondary_button_text: FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
     suggest_more_enabled: false,
-    once_per_user_24h: false,
+    once_per_user_24h: true,
     seen_typing_enabled: false
 });
 const normalizeQuestion = (value: string) => (value || '').trim().toLowerCase();
@@ -909,7 +909,7 @@ const ConvoStarterView: React.FC = () => {
                                     <LockedFeatureToggle
                                         icon={<Calendar className={`w-5 h-5 ${newItem.once_per_user_24h ? 'text-cyan-500' : 'text-gray-400'}`} />}
                                         title="Once Per User (24h)"
-                                        description="Prevent the same person from retriggering this automation again for 24 hours."
+                                        description="Prevent the same person from retriggering this automation again for 24 hours. Turn on to save action limits."
                                         checked={Boolean(newItem.once_per_user_24h)}
                                         onToggle={() => setNewItem({ ...newItem, once_per_user_24h: !newItem.once_per_user_24h })}
                                         locked={getPlanGate('once_per_user_24h').isLocked}
