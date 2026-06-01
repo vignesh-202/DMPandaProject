@@ -8,6 +8,7 @@ import { useDashboard } from '../../contexts/DashboardContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 import { toBrowserPreviewUrl } from '../../lib/templatePreview';
+import ToggleSwitch from '../ui/ToggleSwitch';
 
 interface MediaItem {
     id: string;
@@ -18,6 +19,9 @@ interface MediaItem {
     caption?: string;
     timestamp: string;
     has_automation?: boolean;
+    automation_id?: string;
+    automation_type?: string;
+    is_active?: boolean;
 }
 
 interface MediaSectionProps {
@@ -280,6 +284,56 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
 
     const automationsSet = mediaItems.filter(item => item.has_automation);
 
+    const handleToggleAutomationStatus = async (item: MediaItem) => {
+        if (!item.automation_id) return;
+
+        const newStatus = item.is_active === false;
+
+        // Optimistically update local state
+        setMediaItems(prev => prev.map(m => {
+            if (m.id === item.id) {
+                return { ...m, is_active: newStatus };
+            }
+            return m;
+        }));
+
+        try {
+            const baseUrl = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram`;
+            const res = await authenticatedFetch(`${baseUrl}/automations/${item.automation_id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    is_active: newStatus
+                })
+            });
+
+            if (!res.ok) {
+                throw new Error('Failed to update automation status');
+            }
+
+            // Update cache
+            const updatedItems = mediaItems.map(m => {
+                if (m.id === item.id) {
+                    return { ...m, is_active: newStatus };
+                }
+                return m;
+            });
+            updateMediaCache(cacheKey, updatedItems);
+
+        } catch (err) {
+            console.error("Failed to toggle automation status", err);
+            // Revert state on error
+            setMediaItems(prev => prev.map(m => {
+                if (m.id === item.id) {
+                    return { ...m, is_active: !newStatus };
+                }
+                return m;
+            }));
+        }
+    };
+
     const toggleView = () => {
         setViewMode(viewMode === 'list' ? 'create' : 'list');
     };
@@ -328,8 +382,15 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                     </div>
                 </div>
                 {isAutomated && (
-                    <div className="absolute right-1.5 top-1.5 sm:right-2.5 sm:top-2.5 flex h-5 w-5 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-success text-success-foreground shadow-lg">
-                        <Check className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 stroke-[3]" />
+                    <div className={cn(
+                        'absolute right-1.5 top-1.5 sm:right-2.5 sm:top-2.5 flex h-5 w-5 sm:h-7 sm:w-7 items-center justify-center rounded-full shadow-lg transition-all text-white',
+                        item.is_active !== false ? 'bg-success' : 'bg-amber-500'
+                    )}>
+                        {item.is_active !== false ? (
+                            <Check className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 stroke-[3]" />
+                        ) : (
+                            <X className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 stroke-[3]" />
+                        )}
                     </div>
                 )}
             </div>
@@ -349,22 +410,40 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                     <span className="h-1 w-1 rounded-full bg-muted-foreground/40 hidden sm:block" />
                     <span>{formatMediaAge(item.timestamp)}</span>
                 </div>
-                <button
-                    type="button"
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        onCreateAutomation(item);
-                    }}
-                    className={cn(
-                        'mt-auto inline-flex h-7 sm:h-9 w-full items-center justify-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl px-2 sm:px-3 text-[8px] sm:text-[10px] font-black uppercase tracking-[0.14em] transition-all sm:tracking-[0.16em]',
-                        isAutomated
-                            ? 'bg-primary/12 text-primary hover:bg-primary/18'
-                            : 'bg-foreground text-background hover:bg-foreground/90'
+                <div className="mt-auto flex items-center gap-1.5 sm:gap-2 w-full">
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onCreateAutomation(item);
+                        }}
+                        className={cn(
+                            'inline-flex h-7 sm:h-9 items-center justify-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl px-2 sm:px-3 text-[8px] sm:text-[10px] font-black uppercase tracking-[0.14em] transition-all sm:tracking-[0.16em] flex-1',
+                            isAutomated
+                                ? 'bg-primary/12 text-primary hover:bg-primary/18'
+                                : 'bg-foreground text-background hover:bg-foreground/90'
+                        )}
+                    >
+                        {isAutomated ? <Pencil className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                        {isAutomated ? 'Edit' : 'Setup'}
+                    </button>
+                    {isAutomated && (
+                        <div 
+                            className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg sm:rounded-xl h-7 sm:h-9"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <ToggleSwitch
+                                isChecked={item.is_active !== false}
+                                onChange={() => handleToggleAutomationStatus(item)}
+                                variant="plain"
+                                size="sm"
+                            />
+                            <span className="text-[6px] sm:text-[9px] font-black uppercase tracking-wider text-muted-foreground min-w-[28px] sm:min-w-[36px] text-center">
+                                {item.is_active !== false ? 'Active' : 'Paused'}
+                            </span>
+                        </div>
                     )}
-                >
-                    {isAutomated ? <Pencil className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-                    {isAutomated ? 'Edit' : 'Setup'}
-                </button>
+                </div>
             </div>
         </div>
     );

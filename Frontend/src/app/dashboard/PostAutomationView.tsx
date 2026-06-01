@@ -24,7 +24,7 @@ const PostAutomationView: React.FC = () => {
   const [isSavingLeave, setIsSavingLeave] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [replyTemplatesList, setReplyTemplatesList] = useState<ReplyTemplate[]>([]);
-  const { showSuccess, showError } = useNotification();
+  const { showError } = useNotification();
   const [isPreparingEditor, setIsPreparingEditor] = useState(false);
   const [editorLoadingMessage, setEditorLoadingMessage] = useState('Preparing post automation editor');
   const [prefetchedAutomation, setPrefetchedAutomation] = useState<any>(null);
@@ -136,9 +136,10 @@ const PostAutomationView: React.FC = () => {
   };
 
   const handleSave = useCallback(() => {
+    setEditorDirty(false);
+    setHasUnsavedChanges(false);
     navigate('/dashboard/post-automation');
-    showSuccess('Automation saved successfully!');
-  }, [navigate, showSuccess]);
+  }, [navigate, setHasUnsavedChanges]);
 
   // Track unsaved changes when automation editor is open
   useEffect(() => {

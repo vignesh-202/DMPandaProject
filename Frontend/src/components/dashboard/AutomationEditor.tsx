@@ -219,8 +219,18 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     const [collectorDestination, setCollectorDestination] = useState(createCollectorDestinationState);
     const [collectorDestinationLoading, setCollectorDestinationLoading] = useState(false);
     const [collectorDestinationSaving, setCollectorDestinationSaving] = useState(false);
+    const [initialCollectorDestination, setInitialCollectorDestination] = useState<any>(null);
 
     const [suggestMoreSetup, setSuggestMoreSetup] = useState(false);
+
+    const isCollectorDestinationChanged = React.useMemo(() => {
+        const initialUrl = String(initialCollectorDestination?.webhook_url || '').trim();
+        const currentUrl = String(collectorDestination.webhook_url || '').trim();
+        return (
+            (initialCollectorDestination?.destination_type || 'webhook') !== (collectorDestination.destination_type || 'webhook') ||
+            normalizeUrlForVerification(initialUrl) !== normalizeUrlForVerification(currentUrl)
+        );
+    }, [initialCollectorDestination, collectorDestination]);
     const [keywordInput, setKeywordInput] = useState('');
     const [isEditingKeyword, setIsEditingKeyword] = useState(true);
 
@@ -458,7 +468,9 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         let alive = true;
         const loadCollectorDestination = async () => {
             if (!automation?.$id) {
-                setCollectorDestination(createCollectorDestinationState());
+                const defaultDest = createCollectorDestinationState();
+                setCollectorDestination(defaultDest);
+                setInitialCollectorDestination(defaultDest);
                 setCollectorDestinationLoading(false);
                 return;
             }
@@ -471,7 +483,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 const data = await res.json();
                 if (!alive) return;
                 if (res.ok && data?.destination) {
-                    setCollectorDestination({
+                    const loadedDest = {
                         destination_type: data.destination.destination_type || 'webhook',
                         webhook_url: data.destination.webhook_url || '',
                         verified: data.destination.verified === true,
@@ -479,13 +491,19 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         destination_json: data.destination.destination_json || {},
                         verification_token: data.destination.verification_token || data.destination.destination_json?.verification_token || null,
                         verification_expires_at: data.destination.verification_expires_at || data.destination.destination_json?.verification_expires_at || null
-                    });
+                    };
+                    setCollectorDestination(loadedDest);
+                    setInitialCollectorDestination(loadedDest);
                 } else {
-                    setCollectorDestination(createCollectorDestinationState());
+                    const defaultDest = createCollectorDestinationState();
+                    setCollectorDestination(defaultDest);
+                    setInitialCollectorDestination(defaultDest);
                 }
             } catch (_) {
                 if (alive) {
-                    setCollectorDestination(createCollectorDestinationState());
+                    const defaultDest = createCollectorDestinationState();
+                    setCollectorDestination(defaultDest);
+                    setInitialCollectorDestination(defaultDest);
                 }
             } finally {
                 if (alive) {
@@ -569,6 +587,11 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             setError('Webhook URL must start with https://');
             return false;
         }
+
+        if (!isCollectorDestinationChanged) {
+            return true;
+        }
+
         if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
             setError('Verify the webhook URL before saving the automation.');
             return false;
@@ -600,7 +623,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
             const nextDestination = saveData?.destination || null;
             if (nextDestination) {
-                setCollectorDestination({
+                const updatedDest = {
                     destination_type: nextDestination.destination_type || 'webhook',
                     webhook_url: nextDestination.webhook_url || '',
                     verified: nextDestination.verified === true,
@@ -608,7 +631,9 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     destination_json: nextDestination.destination_json || {},
                     verification_token: nextDestination.verification_token || nextDestination.destination_json?.verification_token || null,
                     verification_expires_at: nextDestination.verification_expires_at || nextDestination.destination_json?.verification_expires_at || null
-                });
+                };
+                setCollectorDestination(updatedDest);
+                setInitialCollectorDestination(updatedDest);
             }
 
             return true;
@@ -618,7 +643,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         } finally {
             setCollectorDestinationSaving(false);
         }
-    }, [authenticatedFetch, automation.collect_email_enabled, collectorDestination]);
+    }, [authenticatedFetch, automation.collect_email_enabled, collectorDestination, isCollectorDestinationChanged]);
 
     useEffect(() => {
         if (!activeAccountID || !authenticatedFetch) return;
@@ -830,15 +855,28 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     };
 
     const handleSave = React.useCallback(async () => {
-        // Auto-generate title if hidden and missing
+        if (saving) return false;
+        // Auto-generate title if hidden and missing or invalid length
         const isTitleHidden = (type !== 'dm' && type !== 'global');
-        let currentTitle = automation.title;
-        if (isTitleHidden && !currentTitle.trim()) {
-            currentTitle = buildHiddenAutomationTitle(type, mediaId, titleOverride);
+        let currentTitle = automation.title || '';
+        if (isTitleHidden) {
+            if (!currentTitle.trim() || getUtf8Length(currentTitle) > AUTOMATION_TITLE_MAX) {
+                currentTitle = buildHiddenAutomationTitle(type, mediaId, titleOverride);
+            } else {
+                currentTitle = trimToUtf8Length(currentTitle.trim(), AUTOMATION_TITLE_MAX);
+            }
         }
 
         const errors: { [key: string]: string } = {};
-        if (!isTitleHidden && !currentTitle.trim()) errors.title = "Identification title is required";
+        if (!isTitleHidden) {
+            if (!currentTitle.trim()) {
+                errors.title = "Identification title is required";
+            } else if (getUtf8Length(currentTitle) > AUTOMATION_TITLE_MAX) {
+                errors.title = `Identification title must be at most ${AUTOMATION_TITLE_MAX} UTF-8 bytes`;
+            } else if (getUtf8Length(currentTitle) < 2) {
+                errors.title = `Identification title must be at least 2 UTF-8 bytes`;
+            }
+        }
 
         if (type === 'global') {
             // For global, check single keyword
@@ -939,10 +977,12 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     setSaving(false);
                     return false;
                 }
-                if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
-                    setError('Verify the webhook URL before saving the automation.');
-                    setSaving(false);
-                    return false;
+                if (isCollectorDestinationChanged) {
+                    if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
+                        setError('Verify the webhook URL before saving the automation.');
+                        setSaving(false);
+                        return false;
+                    }
                 }
             }
 
@@ -1002,9 +1042,6 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 setBaselineSnapshot(serializeAutomationState(automation));
                 showSuccess(automation.$id ? "Automation updated successfully!" : "Automation activated successfully!");
                 onSave(data);
-                if (!isStandalone && autoCloseOnSave) {
-                    onClose();
-                }
                 return true;
             } else {
                 showError(data.error || "Failed to save automation.");

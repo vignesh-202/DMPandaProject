@@ -1931,6 +1931,45 @@ test('appwrite config automation lookup falls back to legacy records without is_
     assert.equal(automation.$id, 'auto-welcome-legacy');
 });
 
+test('appwrite convo starter fallback disables repeated legacy collection lookups when the collection is unavailable', async () => {
+    const client = new AppwriteClient();
+    let listCalls = 0;
+    const originalWarn = console.warn;
+    const warnings = [];
+
+    console.warn = (...args) => {
+        warnings.push(args.map((item) => String(item)).join(' '));
+    };
+
+    client.databases = {
+        async listDocuments(_databaseId, collectionId) {
+            listCalls += 1;
+            if (collectionId === process.env.AUTOMATIONS_COLLECTION_ID) {
+                return { documents: [] };
+            }
+            const error = new Error(`Collection with the requested ID '${collectionId}' could not be found.`);
+            error.code = 404;
+            throw error;
+        }
+    };
+
+    try {
+        const first = await client.getActiveAutomations(['acct-1'], ['convo_starter']);
+        const second = await client.getActiveAutomations(['acct-1'], ['convo_starter']);
+
+        assert.deepEqual(first, []);
+        assert.deepEqual(second, []);
+        assert.equal(client._convoStarterFallbackUnavailable, true);
+        assert.equal(listCalls, 7);
+        assert.equal(
+            warnings.filter((message) => message.includes('legacy fallback lookups are disabled')).length,
+            1
+        );
+    } finally {
+        console.warn = originalWarn;
+    }
+});
+
 test('instagram client bootstraps a missing meta api tracker', async () => {
     const worker = Object.create(DMWorker.prototype);
     worker._trackMetaApiAction = DMWorker.prototype._trackMetaApiAction;
@@ -3666,6 +3705,1339 @@ test('comment moderation uses whole-keyword matching so overlapping hide/delete 
             { type: 'hide_comment', commentId: 'comment-overlap-1', hidden: true },
             { type: 'get_comment', commentId: 'comment-overlap-1' }
         ]);
+    } finally {
+        restore();
+    }
+});
+
+test('mediaShareSent: prevents duplicate dispatches in DM, comments, and email collection workflows', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const matcherPath = require.resolve('../src/matcher');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [matcherPath, require.cache[matcherPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    let sentMessages = [];
+    let savedState = null;
+
+    const matchedAutomation = {
+        $id: 'auto-share-1',
+        title: 'Share Admin Post',
+        template_id: 'tpl-share-1',
+        account_id: '17841452817679462',
+        automation_type: 'dm',
+        trigger_type: 'keywords',
+        trigger_keyword: ['share'],
+        template_type: 'template_share_post',
+        share_to_admin_enabled: true
+    };
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations() {
+            return [matchedAutomation];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getTemplate(templateId) {
+            if (templateId === 'tpl-share-1') {
+                return { type: 'template_share_post', payload: { media_id: 'media-123' } };
+            }
+            return null;
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return savedState ? { state_json: savedState } : null;
+        }
+
+        async upsertConversationState({ stateData }) {
+            savedState = stateData;
+            return { state_json: stateData };
+        }
+
+        async clearConversationState() {
+            savedState = null;
+            return true;
+        }
+
+        buildAutomationTemplate(automation) {
+            return { type: 'template_share_post', payload: { media_id: 'media-123' } };
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload) {
+            sentMessages.push({ recipientId, messageType, payload });
+            return true;
+        }
+
+        async getUserProfile() {
+            return { is_user_follow_business: true };
+        }
+    }
+
+    try {
+        delete require.cache[workerPath];
+        require.cache[appwritePath] = { id: appwritePath, filename: appwritePath, loaded: true, exports: MockAppwriteClient };
+        require.cache[instagramPath] = { id: instagramPath, filename: instagramPath, loaded: true, exports: MockInstagramAPI };
+        require.cache[matcherPath] = {
+            id: matcherPath,
+            filename: matcherPath,
+            loaded: true,
+            exports: { matchDM: () => matchedAutomation }
+        };
+        require.cache[rendererPath] = {
+            id: rendererPath,
+            filename: rendererPath,
+            loaded: true,
+            exports: { render: (template) => template }
+        };
+        require.cache[watermarkPath] = {
+            id: watermarkPath,
+            filename: watermarkPath,
+            loaded: true,
+            exports: {
+                planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+                resolveWatermarkPolicy: () => ({ enabled: false })
+            }
+        };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+
+        // 1. Initial run: mediaShareSent is false. It should send the template.
+        let result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: 'sender-1' },
+                    message: { text: 'share' }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'dm' });
+        assert.equal(sentMessages.length, 1);
+        assert.equal(savedState.mediaShareSent, true);
+
+        // Reset sent messages
+        sentMessages = [];
+
+        // 2. Second run: mediaShareSent is true in savedState. It should skip sending the template.
+        result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: 'sender-1' },
+                    message: { text: 'share' }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'dm' });
+        assert.equal(sentMessages.length, 0); // No message sent!
+    } finally {
+        restore();
+    }
+});
+
+test('share_to_admin: matches and dispatches when a post/reel is shared to the admin (even if self-authored)', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const matcherPath = require.resolve('../src/matcher');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [matcherPath, require.cache[matcherPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    let sentMessages = [];
+    const sharedMediaId = 'media-share-123';
+
+    const matchedAutomation = {
+        $id: 'auto-share-to-admin-1',
+        title: 'Share To Admin Auto',
+        template_id: 'tpl-share-to-admin-1',
+        account_id: '17841452817679462',
+        automation_type: 'dm',
+        trigger_type: 'share_to_admin',
+        is_active: true,
+        media_id: sharedMediaId,
+        share_to_admin_enabled: true
+    };
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations() {
+            return [matchedAutomation];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getTemplate(templateId) {
+            if (templateId === 'tpl-share-to-admin-1') {
+                return { type: 'template_share_post', payload: { media_id: sharedMediaId } };
+            }
+            return null;
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async upsertConversationState() {
+            return true;
+        }
+
+        async recordActionUsage() {
+            return true;
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload) {
+            sentMessages.push({ recipientId, messageType, payload });
+            return true;
+        }
+        async markSeen() {}
+        async setTyping() {}
+    }
+
+    delete require.cache[workerPath];
+    delete require.cache[appwritePath];
+    delete require.cache[instagramPath];
+    delete require.cache[matcherPath];
+    delete require.cache[rendererPath];
+    delete require.cache[watermarkPath];
+
+    require.cache[appwritePath] = {
+        id: appwritePath,
+        filename: appwritePath,
+        loaded: true,
+        exports: MockAppwriteClient
+    };
+    require.cache[instagramPath] = {
+        id: instagramPath,
+        filename: instagramPath,
+        loaded: true,
+        exports: MockInstagramAPI
+    };
+    require.cache[matcherPath] = {
+        id: matcherPath,
+        filename: matcherPath,
+        loaded: true,
+        exports: { matchDM: () => null }
+    };
+    require.cache[rendererPath] = {
+        id: rendererPath,
+        filename: rendererPath,
+        loaded: true,
+        exports: { render: (template) => template }
+    };
+    require.cache[watermarkPath] = {
+        id: watermarkPath,
+        filename: watermarkPath,
+        loaded: true,
+        exports: {
+            planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+            resolveWatermarkPolicy: () => ({ enabled: false })
+        }
+    };
+
+    const FreshWorker = require('../src/worker');
+    const worker = new FreshWorker();
+
+    try {
+        const result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: '17841452817679462' }, // self-authored
+                    recipient: { id: '17841452817679462' },
+                    message: {
+                        mid: 'mid-share-admin-123',
+                        attachments: [{
+                            type: 'share',
+                            payload: {
+                                ig_post_media_id: sharedMediaId,
+                                url: `https://instagram.com/p/shortcode`
+                            }
+                        }]
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'dm' });
+        assert.equal(sentMessages.length, 1);
+        assert.equal(sentMessages[0].messageType, 'template_share_post');
+        assert.equal(sentMessages[0].recipientId, '17841452817679462');
+        assert.deepEqual(sentMessages[0].payload, { media_id: sharedMediaId });
+    } finally {
+        restore();
+    }
+});
+
+test('share_to_admin: matches and dispatches when a post/reel is shared to the admin using message.share payload', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const matcherPath = require.resolve('../src/matcher');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [matcherPath, require.cache[matcherPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    let sentMessages = [];
+    const sharedMediaId = 'media-share-567';
+
+    const matchedAutomation = {
+        $id: 'auto-share-to-admin-2',
+        title: 'Share To Admin Auto 2',
+        template_id: 'tpl-share-to-admin-2',
+        account_id: '17841452817679462',
+        automation_type: 'dm',
+        trigger_type: 'share_to_admin',
+        is_active: true,
+        media_id: sharedMediaId,
+        share_to_admin_enabled: true
+    };
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations() {
+            return [matchedAutomation];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getTemplate(templateId) {
+            if (templateId === 'tpl-share-to-admin-2') {
+                return { type: 'template_share_post', payload: { media_id: sharedMediaId } };
+            }
+            return null;
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async upsertConversationState() {
+            return true;
+        }
+
+        async recordActionUsage() {
+            return true;
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload) {
+            sentMessages.push({ recipientId, messageType, payload });
+            return true;
+        }
+        async markSeen() {}
+        async setTyping() {}
+    }
+
+    delete require.cache[workerPath];
+    delete require.cache[appwritePath];
+    delete require.cache[instagramPath];
+    delete require.cache[matcherPath];
+    delete require.cache[rendererPath];
+    delete require.cache[watermarkPath];
+
+    require.cache[appwritePath] = {
+        id: appwritePath,
+        filename: appwritePath,
+        loaded: true,
+        exports: MockAppwriteClient
+    };
+    require.cache[instagramPath] = {
+        id: instagramPath,
+        filename: instagramPath,
+        loaded: true,
+        exports: MockInstagramAPI
+    };
+    require.cache[matcherPath] = {
+        id: matcherPath,
+        filename: matcherPath,
+        loaded: true,
+        exports: { matchDM: () => null }
+    };
+    require.cache[rendererPath] = {
+        id: rendererPath,
+        filename: rendererPath,
+        loaded: true,
+        exports: { render: (template) => template }
+    };
+    require.cache[watermarkPath] = {
+        id: watermarkPath,
+        filename: watermarkPath,
+        loaded: true,
+        exports: {
+            planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+            resolveWatermarkPolicy: () => ({ enabled: false })
+        }
+    };
+
+    const FreshWorker = require('../src/worker');
+    const worker = new FreshWorker();
+
+    try {
+        const result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: '17841452817679462' }, // self-authored
+                    recipient: { id: '17841452817679462' },
+                    message: {
+                        mid: 'mid-share-admin-567',
+                        share: {
+                            id: sharedMediaId,
+                            link: `https://instagram.com/p/shortcode`
+                        }
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'dm' });
+        assert.equal(sentMessages.length, 1);
+        assert.equal(sentMessages[0].messageType, 'template_share_post');
+        assert.equal(sentMessages[0].recipientId, '17841452817679462');
+        assert.deepEqual(sentMessages[0].payload, { media_id: sharedMediaId });
+    } finally {
+        restore();
+    }
+});
+
+test('share_to_admin: matches by permalink when Instagram share webhook omits media id', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const matcherPath = require.resolve('../src/matcher');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [matcherPath, require.cache[matcherPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    let sentMessages = [];
+
+    const matchedAutomation = {
+        $id: 'auto-share-to-admin-url-1',
+        title: 'Share To Admin Permalink',
+        template_id: 'tpl-share-to-admin-url-1',
+        account_id: '17841452817679462',
+        automation_type: 'dm',
+        trigger_type: 'share_to_admin',
+        is_active: true,
+        media_id: '1789-not-in-webhook',
+        permalink: 'https://www.instagram.com/p/C8SharePostAbc/',
+        linked_media_url: 'https://www.instagram.com/p/C8SharePostAbc/',
+        share_to_admin_enabled: true
+    };
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations() {
+            return [matchedAutomation];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getTemplate(templateId) {
+            if (templateId === 'tpl-share-to-admin-url-1') {
+                return { type: 'template_text', payload: { text: 'Share reply template sent.' } };
+            }
+            return null;
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async upsertConversationState() {
+            return true;
+        }
+
+        async recordActionUsage() {
+            return true;
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload) {
+            sentMessages.push({ recipientId, messageType, payload });
+            return true;
+        }
+        async markSeen() {}
+        async setTyping() {}
+    }
+
+    delete require.cache[workerPath];
+    delete require.cache[appwritePath];
+    delete require.cache[instagramPath];
+    delete require.cache[matcherPath];
+    delete require.cache[rendererPath];
+    delete require.cache[watermarkPath];
+
+    require.cache[appwritePath] = {
+        id: appwritePath,
+        filename: appwritePath,
+        loaded: true,
+        exports: MockAppwriteClient
+    };
+    require.cache[instagramPath] = {
+        id: instagramPath,
+        filename: instagramPath,
+        loaded: true,
+        exports: MockInstagramAPI
+    };
+    require.cache[matcherPath] = {
+        id: matcherPath,
+        filename: matcherPath,
+        loaded: true,
+        exports: { matchDM: () => null }
+    };
+    require.cache[rendererPath] = {
+        id: rendererPath,
+        filename: rendererPath,
+        loaded: true,
+        exports: { render: (template) => template }
+    };
+    require.cache[watermarkPath] = {
+        id: watermarkPath,
+        filename: watermarkPath,
+        loaded: true,
+        exports: {
+            planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+            resolveWatermarkPolicy: () => ({ enabled: false })
+        }
+    };
+
+    const FreshWorker = require('../src/worker');
+    const worker = new FreshWorker();
+
+    try {
+        const result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: '893292439759295' },
+                    recipient: { id: '17841452817679462' },
+                    message: {
+                        mid: 'mid-share-admin-permalink-1',
+                        attachments: [{
+                            type: 'share',
+                            payload: {
+                                url: 'https://instagram.com/p/C8SharePostAbc/?igsh=tracking'
+                            }
+                        }]
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'dm' });
+        assert.equal(sentMessages.length, 1);
+        assert.equal(sentMessages[0].messageType, 'template_text');
+        assert.equal(sentMessages[0].recipientId, '893292439759295');
+        assert.deepEqual(sentMessages[0].payload, { text: 'Share reply template sent.' });
+    } finally {
+        restore();
+    }
+});
+
+test('share_to_admin: falls back to the sole active share automation when webhook only includes opaque CDN url', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const matcherPath = require.resolve('../src/matcher');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [matcherPath, require.cache[matcherPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    let sentMessages = [];
+
+    const matchedAutomation = {
+        $id: 'auto-share-to-admin-cdn-1',
+        title: 'Share To Admin CDN Fallback',
+        template_id: 'tpl-share-to-admin-cdn-1',
+        account_id: '17841452817679462',
+        automation_type: 'dm',
+        trigger_type: 'share_to_admin',
+        is_active: true,
+        media_id: 'configured-media-id-not-in-webhook',
+        share_to_admin_enabled: true
+    };
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations() {
+            return [matchedAutomation];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getTemplate(templateId) {
+            if (templateId === 'tpl-share-to-admin-cdn-1') {
+                return { type: 'template_text', payload: { text: 'Opaque share URL still triggers reply.' } };
+            }
+            return null;
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async upsertConversationState() {
+            return true;
+        }
+
+        async recordActionUsage() {
+            return true;
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload) {
+            sentMessages.push({ recipientId, messageType, payload });
+            return true;
+        }
+        async markSeen() {}
+        async setTyping() {}
+    }
+
+    delete require.cache[workerPath];
+    delete require.cache[appwritePath];
+    delete require.cache[instagramPath];
+    delete require.cache[matcherPath];
+    delete require.cache[rendererPath];
+    delete require.cache[watermarkPath];
+
+    require.cache[appwritePath] = {
+        id: appwritePath,
+        filename: appwritePath,
+        loaded: true,
+        exports: MockAppwriteClient
+    };
+    require.cache[instagramPath] = {
+        id: instagramPath,
+        filename: instagramPath,
+        loaded: true,
+        exports: MockInstagramAPI
+    };
+    require.cache[matcherPath] = {
+        id: matcherPath,
+        filename: matcherPath,
+        loaded: true,
+        exports: { matchDM: () => null }
+    };
+    require.cache[rendererPath] = {
+        id: rendererPath,
+        filename: rendererPath,
+        loaded: true,
+        exports: { render: (template) => template }
+    };
+    require.cache[watermarkPath] = {
+        id: watermarkPath,
+        filename: watermarkPath,
+        loaded: true,
+        exports: {
+            planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+            resolveWatermarkPolicy: () => ({ enabled: false })
+        }
+    };
+
+    const FreshWorker = require('../src/worker');
+    const worker = new FreshWorker();
+
+    try {
+        const result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: '893292439759295' },
+                    recipient: { id: '17841452817679462' },
+                    message: {
+                        mid: 'mid-share-admin-cdn-1',
+                        attachments: [{
+                            type: 'share',
+                            payload: {
+                                url: 'https://lookaside.fbsbx.com/ig_messaging_cdn/?asset_id=18109567273171822&signature=test'
+                            }
+                        }]
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'dm' });
+        assert.equal(sentMessages.length, 1);
+        assert.equal(sentMessages[0].messageType, 'template_text');
+        assert.equal(sentMessages[0].recipientId, '893292439759295');
+        assert.deepEqual(sentMessages[0].payload, { text: 'Opaque share URL still triggers reply.' });
+    } finally {
+        restore();
+    }
+});
+
+test('share_to_admin: loads post and reel automations during share-event processing without affecting normal DM lookups', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const matcherPath = require.resolve('../src/matcher');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [matcherPath, require.cache[matcherPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    let sentMessages = [];
+    const getActiveAutomationsCalls = [];
+    const shareAutomation = {
+        $id: 'auto-share-post-lookup-1',
+        title: 'Post Share Automation',
+        template_id: 'tpl-share-post-lookup-1',
+        account_id: '17841452817679462',
+        automation_type: 'post',
+        trigger_type: 'share_to_admin',
+        is_active: true,
+        share_to_admin_enabled: true
+    };
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations(accountIds, automationTypes = ['dm', 'global', 'convo_starter', 'inbox_menu']) {
+            getActiveAutomationsCalls.push({
+                accountIds: Array.isArray(accountIds) ? [...accountIds] : accountIds,
+                automationTypes: Array.isArray(automationTypes) ? [...automationTypes] : automationTypes
+            });
+
+            const normalizedTypes = Array.isArray(automationTypes) ? automationTypes : [automationTypes];
+            if (normalizedTypes.includes('post') || normalizedTypes.includes('reel')) {
+                return [shareAutomation];
+            }
+            return [];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getTemplate(templateId) {
+            if (templateId === 'tpl-share-post-lookup-1') {
+                return { type: 'template_text', payload: { text: 'Share reply through post lookup.' } };
+            }
+            return null;
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async upsertConversationState() {
+            return true;
+        }
+
+        async recordActionUsage() {
+            return true;
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload) {
+            sentMessages.push({ recipientId, messageType, payload });
+            return true;
+        }
+        async markSeen() {}
+        async setTyping() {}
+    }
+
+    delete require.cache[workerPath];
+    delete require.cache[appwritePath];
+    delete require.cache[instagramPath];
+    delete require.cache[matcherPath];
+    delete require.cache[rendererPath];
+    delete require.cache[watermarkPath];
+
+    require.cache[appwritePath] = {
+        id: appwritePath,
+        filename: appwritePath,
+        loaded: true,
+        exports: MockAppwriteClient
+    };
+    require.cache[instagramPath] = {
+        id: instagramPath,
+        filename: instagramPath,
+        loaded: true,
+        exports: MockInstagramAPI
+    };
+    require.cache[matcherPath] = {
+        id: matcherPath,
+        filename: matcherPath,
+        loaded: true,
+        exports: { matchDM: () => null }
+    };
+    require.cache[rendererPath] = {
+        id: rendererPath,
+        filename: rendererPath,
+        loaded: true,
+        exports: { render: (template) => template }
+    };
+    require.cache[watermarkPath] = {
+        id: watermarkPath,
+        filename: watermarkPath,
+        loaded: true,
+        exports: {
+            planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+            resolveWatermarkPolicy: () => ({ enabled: false })
+        }
+    };
+
+    const FreshWorker = require('../src/worker');
+    const worker = new FreshWorker();
+
+    try {
+        const result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: '893292439759295' },
+                    recipient: { id: '17841452817679462' },
+                    message: {
+                        mid: 'mid-share-post-lookup-1',
+                        attachments: [{
+                            type: 'share',
+                            payload: {
+                                url: 'https://lookaside.fbsbx.com/ig_messaging_cdn/?asset_id=18109567273171822&signature=test'
+                            }
+                        }]
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'post' });
+        assert.equal(sentMessages.length, 1);
+        assert.equal(sentMessages[0].messageType, 'template_text');
+        assert.deepEqual(sentMessages[0].payload, { text: 'Share reply through post lookup.' });
+        assert.deepEqual(getActiveAutomationsCalls, [
+            {
+                accountIds: ['17841452817679462'],
+                automationTypes: ['dm', 'global', 'convo_starter', 'inbox_menu']
+            },
+            {
+                accountIds: ['17841452817679462'],
+                automationTypes: ['post', 'reel']
+            }
+        ]);
+    } finally {
+        restore();
+    }
+});
+
+test('share_to_admin: real share webhooks are not blocked by stale mediaShareSent conversation state', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const matcherPath = require.resolve('../src/matcher');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [matcherPath, require.cache[matcherPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    let sentMessages = [];
+    let savedState = { mediaShareSent: true, automationCooldowns: {} };
+
+    const matchedAutomation = {
+        $id: 'auto-share-real-event-1',
+        title: 'Post 011250',
+        template_id: 'tpl-share-real-event-1',
+        account_id: '17841452817679462',
+        automation_type: 'post',
+        trigger_type: 'share_to_admin',
+        is_active: true,
+        media_id: '18031795967011250',
+        share_to_admin_enabled: true
+    };
+
+    class MockAppwriteClient {
+        async getIGAccount() {
+            return {
+                username: 'demo_account',
+                access_token: 'token',
+                user_id: 'user-1',
+                ig_user_id: '17841452817679462',
+                account_id: '17841452817679462',
+                effective_access: true,
+                access_state: 'active',
+                access_reason: null
+            };
+        }
+
+        async getActiveAutomations(accountIds, automationTypes = ['dm', 'global', 'convo_starter', 'inbox_menu']) {
+            const normalizedTypes = Array.isArray(automationTypes) ? automationTypes : [automationTypes];
+            if (normalizedTypes.includes('post') || normalizedTypes.includes('reel')) {
+                return [matchedAutomation];
+            }
+            return [];
+        }
+
+        async getActiveConfigAutomation() {
+            return null;
+        }
+
+        async getTemplate(templateId) {
+            if (templateId === 'tpl-share-real-event-1') {
+                return { type: 'template_text', payload: { text: 'Real share event should send.' } };
+            }
+            return null;
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return { state_json: savedState };
+        }
+
+        async upsertConversationState({ stateData }) {
+            savedState = stateData;
+            return { state_json: stateData };
+        }
+
+        async clearConversationState() {
+            savedState = null;
+            return true;
+        }
+
+        async recordActionUsage() {
+            return true;
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage(recipientId, messageType, payload) {
+            sentMessages.push({ recipientId, messageType, payload });
+            return true;
+        }
+        async markSeen() {}
+        async setTyping() {}
+    }
+
+    delete require.cache[workerPath];
+    delete require.cache[appwritePath];
+    delete require.cache[instagramPath];
+    delete require.cache[matcherPath];
+    delete require.cache[rendererPath];
+    delete require.cache[watermarkPath];
+
+    require.cache[appwritePath] = {
+        id: appwritePath,
+        filename: appwritePath,
+        loaded: true,
+        exports: MockAppwriteClient
+    };
+    require.cache[instagramPath] = {
+        id: instagramPath,
+        filename: instagramPath,
+        loaded: true,
+        exports: MockInstagramAPI
+    };
+    require.cache[matcherPath] = {
+        id: matcherPath,
+        filename: matcherPath,
+        loaded: true,
+        exports: { matchDM: () => null }
+    };
+    require.cache[rendererPath] = {
+        id: rendererPath,
+        filename: rendererPath,
+        loaded: true,
+        exports: { render: (template) => template }
+    };
+    require.cache[watermarkPath] = {
+        id: watermarkPath,
+        filename: watermarkPath,
+        loaded: true,
+        exports: {
+            planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+            resolveWatermarkPolicy: () => ({ enabled: false })
+        }
+    };
+
+    const FreshWorker = require('../src/worker');
+    const worker = new FreshWorker();
+
+    try {
+        const result = await worker.processMessage({
+            entry: [{
+                id: '17841452817679462',
+                messaging: [{
+                    sender: { id: '893292439759295' },
+                    recipient: { id: '17841452817679462' },
+                    message: {
+                        mid: 'mid-share-real-event-1',
+                        attachments: [{
+                            type: 'share',
+                            payload: {
+                                ig_post_media_id: '18031795967011250'
+                            }
+                        }]
+                    }
+                }]
+            }]
+        });
+
+        assert.deepEqual(result, { handled: true, automationType: 'post' });
+        assert.equal(sentMessages.length, 1);
+        assert.equal(sentMessages[0].messageType, 'template_text');
+        assert.deepEqual(sentMessages[0].payload, { text: 'Real share event should send.' });
+        assert.equal(savedState.mediaShareSent, true);
     } finally {
         restore();
     }

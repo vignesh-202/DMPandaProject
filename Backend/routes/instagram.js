@@ -561,7 +561,7 @@ const normalizeCollectorDestinationResponse = (documentOrAutomation) => {
     return getCollectorDestinationPayloadFromAutomation(documentOrAutomation);
 };
 
-const COLLECTOR_VERIFY_TOKEN_TTL_MS = 15 * 60 * 1000;
+const COLLECTOR_VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const isHttpsWebhookUrl = (value) => {
     const safeValue = String(value || '').trim();
@@ -1892,7 +1892,11 @@ const buildAutomationDocumentData = ({
         keywords: source.keywords
     });
     const keywordArray = KEYWORD_TYPES.has(automationType) ? keywordInfo.keywords : [];
-    const title = toSafeString(source.title, 255);
+    const isTitleHidden = (automationType !== 'dm' && automationType !== 'global');
+    // Ensure hidden titles (which users cannot see/edit) conform to AUTOMATION_TITLE_MAX limit of 25 bytes
+    const title = isTitleHidden
+        ? toSafeString(source.title, AUTOMATION_TITLE_MAX)
+        : toSafeString(source.title, 255);
     const titleNormalized = normalizeTitle(title);
     const followersOnly = source.followers_only === true;
     const defaultIsActive = source.is_active !== undefined ? source.is_active : true;
@@ -2699,6 +2703,7 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
                 let hasAutomation = false;
                 let automationId = null;
                 let automationType = null;
+                let isActive = false;
                 try {
                     const automationDocs = await databases.listDocuments(
                         process.env.APPWRITE_DATABASE_ID,
@@ -2715,6 +2720,7 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
                         hasAutomation = true;
                         automationId = doc.$id;
                         automationType = doc.automation_type || null;
+                        isActive = doc.is_active !== false;
                     }
                 } catch (_) {}
 
@@ -2730,7 +2736,8 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
                     shortcode: item.shortcode || '',
                     has_automation: hasAutomation,
                     automation_id: automationId,
-                    automation_type: automationType
+                    automation_type: automationType,
+                    is_active: isActive
                 };
 
                 return res.json({
@@ -2810,7 +2817,8 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
                 if (!mediaId || automationByMediaId.has(mediaId)) continue;
                 automationByMediaId.set(mediaId, {
                     automation_id: doc.$id,
-                    automation_type: doc.automation_type || null
+                    automation_type: doc.automation_type || null,
+                    is_active: doc.is_active !== false
                 });
             }
         } catch (_) { }
@@ -2821,6 +2829,7 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
             if (match) {
                 item.automation_id = match.automation_id;
                 item.automation_type = match.automation_type;
+                item.is_active = match.is_active;
             }
         });
 
@@ -3744,25 +3753,37 @@ router.put('/instagram/automations/:id/email-collector-destination', loginRequir
             return res.status(400).json({ error: 'webhook_url must start with https://' });
         }
 
-        const verificationState = verifyCollectorVerificationToken({
-            token: verificationToken,
-            automationId: automation.$id,
-            userId: req.user.$id,
-            webhookUrl
-        });
-        if (!verificationState.ok) {
-            return res.status(400).json({ error: verificationState.message });
-        }
-
         const existingResponse = normalizeCollectorDestinationResponse(automation);
-        const nextDestinationJson = {
-            ...existingResponse.destination_json,
-            verified: true,
-            verified_at: new Date().toISOString(),
-            verification_error: null,
-            verification_token: verificationToken,
-            verification_expires_at: verificationState.expiresAt || null
-        };
+        const isAlreadyVerified = 
+            existingResponse?.verified === true && 
+            existingResponse?.webhook_url && 
+            normalizeWebhookUrl(existingResponse.webhook_url) === normalizeWebhookUrl(webhookUrl);
+
+        let nextDestinationJson;
+        if (isAlreadyVerified) {
+            nextDestinationJson = {
+                ...existingResponse.destination_json,
+                verified: true
+            };
+        } else {
+            const verificationState = verifyCollectorVerificationToken({
+                token: verificationToken,
+                automationId: automation.$id,
+                userId: req.user.$id,
+                webhookUrl
+            });
+            if (!verificationState.ok) {
+                return res.status(400).json({ error: verificationState.message });
+            }
+            nextDestinationJson = {
+                ...existingResponse.destination_json,
+                verified: true,
+                verified_at: new Date().toISOString(),
+                verification_error: null,
+                verification_token: verificationToken,
+                verification_expires_at: verificationState.expiresAt || null
+            };
+        }
 
         const savedDoc = await persistCollectorDestinationDocument(databases, automation, {
             collect_email_destination_type: destinationType,

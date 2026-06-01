@@ -23,7 +23,7 @@ const LiveAutomationView: React.FC = () => {
     const [isSavingLeave, setIsSavingLeave] = useState(false);
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
     const [replyTemplatesList, setReplyTemplatesList] = useState<ReplyTemplate[]>([]);
-    const { showSuccess, showError } = useNotification();
+    const { showError } = useNotification();
     const [isPreparingEditor, setIsPreparingEditor] = useState(false);
     const [editorLoadingMessage, setEditorLoadingMessage] = useState('Preparing live automation editor');
     const [prefetchedAutomation, setPrefetchedAutomation] = useState<any>(null);
@@ -150,9 +150,10 @@ const LiveAutomationView: React.FC = () => {
     };
 
     const handleSave = useCallback(() => {
+        setEditorDirty(false);
+        setHasUnsavedChanges(false);
         navigate('/dashboard/live-automation');
-        showSuccess('Automation saved successfully!');
-    }, [navigate, showSuccess]);
+    }, [navigate, setHasUnsavedChanges]);
 
     useEffect(() => {
         if (selectedMedia) {

@@ -28,6 +28,19 @@ const SEEN_TYPING_DELAY_MS = Math.max(
 const getTriggerType = (automation) => String(automation?.trigger_type || 'keywords').trim().toLowerCase();
 const isKeywordTrigger = (automation) => getTriggerType(automation) === 'keywords';
 const isAllCommentsTrigger = (automation) => getTriggerType(automation) === 'all_comments';
+
+const normalizeShareUrl = (value) => String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[?#].*$/, '')
+    .replace(/\/+$/, '');
+
+const extractInstagramShortcode = (value) => {
+    const normalized = normalizeShareUrl(value);
+    if (!normalized) return '';
+    const match = normalized.match(/instagram\.com\/(?:p|reel|reels|tv)\/([^/?#]+)/i);
+    return String(match?.[1] || '').trim().toLowerCase();
+};
 const FEATURE_ALIASES = Object.freeze(sharedPlanFeatures.benefitAliases || {});
 const TOGGLE_FEATURE_MAP = Object.freeze(sharedPlanFeatures.toggleFeatureMap || {});
 const AUTOMATION_TYPE_FEATURE_MAP = Object.freeze(sharedPlanFeatures.automationTypeFeatureMap || {});
@@ -1063,6 +1076,8 @@ class DMWorker {
                 receiverName: String(source.pendingEmail.receiverName || '').trim(),
                 sourceEventType: String(source.pendingEmail.sourceEventType || 'message').trim() || 'message',
                 commentId: String(source.pendingEmail.commentId || '').trim() || null,
+                commentReplySent: source.pendingEmail.commentReplySent === true,
+                mediaShareSent: source.pendingEmail.mediaShareSent === true,
                 automationSnapshot: source.pendingEmail.automationSnapshot && typeof source.pendingEmail.automationSnapshot === 'object'
                     ? source.pendingEmail.automationSnapshot
                     : null
@@ -1082,7 +1097,8 @@ class DMWorker {
 
         return {
             pendingEmail,
-            automationCooldowns: cooldowns
+            automationCooldowns: cooldowns,
+            mediaShareSent: source.mediaShareSent === true
         };
     }
 
@@ -1191,12 +1207,109 @@ class DMWorker {
         return null;
     }
 
+    _isShareToAdminAutomation(automation) {
+        if (!automation) return false;
+        const triggerType = String(automation.trigger_type || '').trim().toLowerCase();
+        const templateType = String(automation.template_type || '').trim().toLowerCase();
+        return triggerType === 'share_to_admin'
+            || automation.share_to_admin_enabled === true
+            || templateType === 'template_share_post';
+    }
+
+    _matchesSharedUrl(automation, sharedUrl) {
+        const normalizedSharedUrl = normalizeShareUrl(sharedUrl);
+        if (!normalizedSharedUrl) return false;
+
+        const sharedShortcode = extractInstagramShortcode(normalizedSharedUrl);
+        const candidates = [
+            automation?.permalink,
+            automation?.linked_media_url,
+            automation?.media_url,
+            automation?.url,
+            automation?.shortcode
+        ]
+            .map((value) => String(value || '').trim())
+            .filter(Boolean);
+
+        return candidates.some((candidate) => {
+            const normalizedCandidate = normalizeShareUrl(candidate);
+            if (!normalizedCandidate) return false;
+
+            if (normalizedCandidate === normalizedSharedUrl) {
+                return true;
+            }
+
+            if (normalizedSharedUrl.includes(normalizedCandidate) || normalizedCandidate.includes(normalizedSharedUrl)) {
+                return true;
+            }
+
+            const candidateShortcode = extractInstagramShortcode(normalizedCandidate) || normalizeShareUrl(automation?.shortcode);
+            return Boolean(sharedShortcode && candidateShortcode && sharedShortcode === candidateShortcode);
+        });
+    }
+
     async _findMatchedAutomation({
         automations,
         inboundCandidates,
         postbackPayload,
-        automationAccountIds
+        automationAccountIds,
+        isShareEvent = false,
+        sharedMediaId = null,
+        sharedUrl = null
     }) {
+        if (isShareEvent) {
+            const shareAutomations = (automations || []).filter(automation => {
+                const isShare = getTriggerType(automation) === 'share_to_admin' || automation.share_to_admin_enabled === true;
+                return isShare;
+            });
+
+            if (shareAutomations.length > 0) {
+                // 1. Try matching by specific media_id
+                if (sharedMediaId) {
+                    const specificMatch = shareAutomations.find(automation => {
+                        const autoMedia = String(automation.media_id || automation.linked_media_id || '').trim();
+                        return autoMedia && autoMedia === String(sharedMediaId).trim();
+                    });
+                    if (specificMatch) {
+                        console.log(`Matched specific share automation by media ID ${sharedMediaId}: ${specificMatch.title || specificMatch.$id}`);
+                        return specificMatch;
+                    }
+                }
+
+                // 2. Try matching by URL contains
+                if (sharedUrl) {
+                    const urlMatch = shareAutomations.find(automation => {
+                        const autoMedia = String(automation.media_id || automation.linked_media_id || '').trim();
+                        return (autoMedia && String(sharedUrl).includes(autoMedia))
+                            || this._matchesSharedUrl(automation, sharedUrl);
+                    });
+                    if (urlMatch) {
+                        console.log(`Matched specific share automation by URL match: ${urlMatch.title || urlMatch.$id}`);
+                        return urlMatch;
+                    }
+                }
+
+                // 3. Fallback to global/any share automation
+                const globalShareMatch = shareAutomations.find(automation => {
+                    const type = String(automation.automation_type || 'dm').trim().toLowerCase();
+                    return type === 'global' || !(automation.media_id || automation.linked_media_id);
+                });
+                if (globalShareMatch) {
+                    console.log(`Matched global/fallback share automation: ${globalShareMatch.title || globalShareMatch.$id}`);
+                    return globalShareMatch;
+                }
+
+                // Real Instagram share webhooks can omit the underlying media id and only send
+                // an opaque CDN URL. If there is exactly one active share automation, prefer it
+                // over falling back to welcome-message automation.
+                if (shareAutomations.length === 1) {
+                    const onlyShareAutomation = shareAutomations[0];
+                    console.log(`Matched sole share automation without resolvable media metadata: ${onlyShareAutomation.title || onlyShareAutomation.$id}`);
+                    return onlyShareAutomation;
+                }
+            }
+        }
+
         const followersRetryAutomationId = this._extractFollowersRetryAutomationId(postbackPayload);
         if (followersRetryAutomationId) {
             let retryAutomation = (automations || []).find(
@@ -1522,35 +1635,41 @@ class DMWorker {
         );
 
         const template = await this._resolveAutomationTemplate(automation, automation.account_id);
+        let sent = false;
         if (template) {
-            if (pendingEmail.sourceEventType === 'comment' && pendingEmail.commentId && automation.comment_reply) {
+            if (pendingEmail.sourceEventType === 'comment' && pendingEmail.commentId && automation.comment_reply && !pendingEmail.commentReplySent) {
                 await instagram.replyToComment(pendingEmail.commentId, automation.comment_reply);
             }
-            const chainState = { preReplyHintsSent: false };
-            await this._maybeSendSeenTypingPrelude(instagram, senderId, automation, chainState);
-            const sent = await this.sendRenderedTemplate(
-                instagram,
-                senderId,
-                template,
-                {
-                    sender_id: senderId,
-                    recipient_id: recipientId,
-                    message_text: pendingEmail.originalMessageText || String(messageText || '').trim()
-                },
-                watermarkPolicy,
-                {
-                    actionUserId: userId,
-                    logContext: {
-                        accountId,
-                        recipientId: senderId,
-                        senderName: senderId,
-                        automationId: automation?.$id || null,
-                        automationType: automation?.automation_type || pendingEmail.automationType || 'dm',
-                        eventType: pendingEmail.sourceEventType || 'message',
-                        source: 'worker_node'
+            if (this._isShareToAdminAutomation(automation) && (pendingEmail.mediaShareSent === true || state?.mediaShareSent === true)) {
+                console.log(`Skipping media share for email collection automation ${automation.$id} because it was already sent.`);
+                sent = true;
+            } else {
+                const chainState = { preReplyHintsSent: false };
+                await this._maybeSendSeenTypingPrelude(instagram, senderId, automation, chainState);
+                sent = await this.sendRenderedTemplate(
+                    instagram,
+                    senderId,
+                    template,
+                    {
+                        sender_id: senderId,
+                        recipient_id: recipientId,
+                        message_text: pendingEmail.originalMessageText || String(messageText || '').trim()
+                    },
+                    watermarkPolicy,
+                    {
+                        actionUserId: userId,
+                        logContext: {
+                            accountId,
+                            recipientId: senderId,
+                            senderName: senderId,
+                            automationId: automation?.$id || null,
+                            automationType: automation?.automation_type || pendingEmail.automationType || 'dm',
+                            eventType: pendingEmail.sourceEventType || 'message',
+                            source: 'worker_node'
+                        }
                     }
-                }
-            );
+                );
+            }
 
             await this._sendSuggestMoreFollowUp({
                 instagram,
@@ -1564,6 +1683,18 @@ class DMWorker {
                 eventType: pendingEmail.sourceEventType || 'message',
                 accountId
             });
+        }
+
+        if (sent && this._isShareToAdminAutomation(automation)) {
+            const finalState = this._normalizeConversationState(nextState);
+            finalState.mediaShareSent = true;
+            await this._saveConversationState({
+                userId,
+                accountId,
+                conversationKey,
+                senderId,
+                recipientId
+            }, finalState);
         }
 
         if (automation.once_per_user_24h === true) {
@@ -1831,6 +1962,7 @@ class DMWorker {
         let handled = false;
         let lastAutomationType = 'global';
         let nextConversationState = this._normalizeConversationState(conversationState);
+        let commentReplySent = false;
 
         for (const matchedAutomation of candidates) {
             if (!matchedAutomation) continue;
@@ -1865,14 +1997,15 @@ class DMWorker {
                 continue;
             }
 
+            if (this._isShareToAdminAutomation(matchedAutomation) && nextConversationState.mediaShareSent === true) {
+                console.log(`Skipping media share for automation ${matchedAutomation.$id} because it was already sent.`);
+                continue;
+            }
+
             // Send public comment reply first (if configured and commentId is present)
             const commentReplyText = String(matchedAutomation.comment_reply || matchedAutomation.comment_reply_text || '').trim();
-            console.log('[DEBUG COMMENT REPLY] matchedAutomation:', matchedAutomation?.$id, 'commentReplyText:', commentReplyText, 'commentEvent:', commentEvent);
-            let commentReplySent = false;
-            if (commentEvent.commentId && commentReplyText) {
-                console.log('[DEBUG COMMENT REPLY] Dispatching replyToComment now...');
+            if (commentEvent.commentId && commentReplyText && !commentReplySent) {
                 commentReplySent = await instagram.replyToComment(commentEvent.commentId, commentReplyText);
-                console.log('[DEBUG COMMENT REPLY] replyToComment result:', commentReplySent);
                 if (primaryAccountId) {
                     await this._recordAutomationLog({
                         accountId: primaryAccountId,
@@ -1906,6 +2039,10 @@ class DMWorker {
                 ? await this._getCollectorDestinationOrFallback(matchedAutomation.$id, primaryAccountId)
                 : null;
             if (this._isCollectEmailEnabledForAutomation(matchedAutomation)) {
+                if (this._isShareToAdminAutomation(matchedAutomation) && nextConversationState.mediaShareSent === true) {
+                    console.log(`Skipping email collect prompt for share automation because it was already sent.`);
+                    continue;
+                }
                 if (!destination?.verified) {
                     console.warn(`Skipping collector-gated automation ${matchedAutomation.$id} because no verified destination exists.`);
                     return {
@@ -1952,6 +2089,8 @@ class DMWorker {
                             receiverName: String(igAccount.username || '').trim(),
                             sourceEventType: 'comment',
                             commentId: commentEvent.commentId || null,
+                            commentReplySent: commentReplySent === true,
+                            mediaShareSent: false,
                             automationSnapshot: matchedAutomation
                         },
                         automationCooldowns: nextConversationState.automationCooldowns || {}
@@ -1977,21 +2116,27 @@ class DMWorker {
                 ownerUserId: igAccount.user_id,
                 eventType: 'comment',
                 accountId: primaryAccountId,
-                commentReplySent
+                commentReplySent: true
             });
 
             handled = handled || success === true;
-            if (success && automationType === 'welcome_message') {
-                this._rememberWelcomeReply(conversationKey);
-            }
-            if (success && matchedAutomation.once_per_user_24h === true) {
-                nextConversationState = this._withAutomationCooldown(nextConversationState, matchedAutomation.$id);
+            if (success) {
+                if (this._isShareToAdminAutomation(matchedAutomation)) {
+                    nextConversationState.mediaShareSent = true;
+                }
+                if (automationType === 'welcome_message') {
+                    this._rememberWelcomeReply(conversationKey);
+                }
+                if (matchedAutomation.once_per_user_24h === true) {
+                    nextConversationState = this._withAutomationCooldown(nextConversationState, matchedAutomation.$id);
+                }
             }
         }
 
         if (handled) {
             const hasCooldowns = Object.keys(nextConversationState.automationCooldowns || {}).length > 0;
-            if (hasCooldowns) {
+            const hasMediaShare = nextConversationState.mediaShareSent === true;
+            if (hasCooldowns || hasMediaShare) {
                 await this._saveConversationState({
                     userId: igAccount.user_id,
                     accountId: primaryAccountId,
@@ -2039,6 +2184,7 @@ class DMWorker {
         const automationAccountIds = this.getAutomationAccountIds(igAccount, primaryAccountId);
         const conversationKey = `${mentionEvent.recipientId}:${mentionEvent.senderId}`;
         const conversationState = await this._getConversationState(primaryAccountId, conversationKey);
+        let nextConversationState = this._normalizeConversationState(conversationState);
 
         let matchedAutomation = await this.appwrite.getActiveConfigAutomation(automationAccountIds, 'mentions');
         if (!matchedAutomation) {
@@ -2079,7 +2225,12 @@ class DMWorker {
             });
             return { handled: false, automationType: creditGate.reason };
         }
-        if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(conversationState, matchedAutomation.$id)) {
+        if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
+            return { handled: true, automationType };
+        }
+
+        if (this._isShareToAdminAutomation(matchedAutomation) && nextConversationState.mediaShareSent === true) {
+            console.log(`Skipping media share for automation ${matchedAutomation.$id} because it was already sent.`);
             return { handled: true, automationType };
         }
 
@@ -2095,6 +2246,10 @@ class DMWorker {
             ? await this._getCollectorDestinationOrFallback(matchedAutomation.$id, primaryAccountId)
             : null;
         if (this._isCollectEmailEnabledForAutomation(matchedAutomation)) {
+            if (this._isShareToAdminAutomation(matchedAutomation) && nextConversationState.mediaShareSent === true) {
+                console.log(`Skipping email collect prompt for share automation because it was already sent.`);
+                return { handled: true, automationType };
+            }
             if (!destination?.verified) {
                 return { handled: false, automationType };
             }
@@ -2128,9 +2283,10 @@ class DMWorker {
                         receiverName: String(igAccount.username || '').trim(),
                         sourceEventType: 'mention',
                         commentId: null,
+                        mediaShareSent: false,
                         automationSnapshot: matchedAutomation
                     },
-                    automationCooldowns: conversationState.automationCooldowns || {}
+                    automationCooldowns: nextConversationState.automationCooldowns || {}
                 });
             }
 
@@ -2152,17 +2308,22 @@ class DMWorker {
             accountId: primaryAccountId
         });
 
-        let nextConversationState = this._normalizeConversationState(conversationState);
-        if (success && automationType === 'welcome_message') {
-            this._rememberWelcomeReply(conversationKey);
-        }
-        if (success && matchedAutomation.once_per_user_24h === true) {
-            nextConversationState = this._withAutomationCooldown(nextConversationState, matchedAutomation.$id);
+        if (success) {
+            if (this._isShareToAdminAutomation(matchedAutomation)) {
+                nextConversationState.mediaShareSent = true;
+            }
+            if (automationType === 'welcome_message') {
+                this._rememberWelcomeReply(conversationKey);
+            }
+            if (matchedAutomation.once_per_user_24h === true) {
+                nextConversationState = this._withAutomationCooldown(nextConversationState, matchedAutomation.$id);
+            }
         }
 
         if (success) {
             const hasCooldowns = Object.keys(nextConversationState.automationCooldowns || {}).length > 0;
-            if (hasCooldowns) {
+            const hasMediaShare = nextConversationState.mediaShareSent === true;
+            if (hasCooldowns || hasMediaShare) {
                 await this._saveConversationState({
                     userId: igAccount.user_id,
                     accountId: primaryAccountId,
@@ -2224,7 +2385,31 @@ class DMWorker {
                 return false;
             }
 
-            if (recipientId && senderId && String(recipientId).trim() === String(senderId).trim()) {
+            // Extract share event info early
+            const attachments = message?.attachments || [];
+            const hasShareAttachment = attachments.some(att => 
+                att.type === 'share' || 
+                att.type === 'ig_post' || 
+                att.type === 'ig_reel' || 
+                att.type === 'reel' || 
+                att.payload?.url
+            );
+            const hasShareProperty = Boolean(message?.share || message?.share?.link || message?.share?.id);
+            const isShareEvent = hasShareAttachment || hasShareProperty;
+
+            const sharedMediaId = (message?.share?.id) 
+                || attachments.map(att => 
+                    att.payload?.ig_post_media_id 
+                    || att.payload?.media_id 
+                    || att.payload?.video_id
+                ).find(Boolean) 
+                || null;
+
+            const sharedUrl = (message?.share?.link) 
+                || attachments.map(att => att.payload?.url).find(Boolean) 
+                || null;
+
+            if (recipientId && senderId && String(recipientId).trim() === String(senderId).trim() && !isShareEvent) {
                 console.log(`Ignoring self-authored business message event from ${senderId}.`);
                 return false;
             }
@@ -2235,12 +2420,12 @@ class DMWorker {
                 : uniqueNonEmptyStrings([quickReplyPayload, message?.text, postback?.payload, postback?.title]);
             const inboundText = inboundCandidates[0] || '';
 
-            if (!inboundText) {
+            if (!inboundText && !isShareEvent) {
                 console.log('No message or postback text found, skipping.');
                 return false;
             }
 
-            console.log(`Processing message from ${senderId}: "${inboundText}"`);
+            console.log(`Processing message from ${senderId}: "${inboundText || '[Share Event]'}"`);
 
             // 1. Get the IG Account from Appwrite to get the access token
             console.log(`Fetching IG account for recipient: ${recipientId}`);
@@ -2270,7 +2455,7 @@ class DMWorker {
             const automationAccountIds = this.getAutomationAccountIds(igAccount, primaryAccountId);
             const businessIdentifiers = new Set(automationAccountIds);
 
-            if (businessIdentifiers.has(String(senderId || '').trim())) {
+            if (businessIdentifiers.has(String(senderId || '').trim()) && !isShareEvent) {
                 console.log(`Ignoring self-authored business message event from ${senderId}.`);
                 return false;
             }
@@ -2278,6 +2463,7 @@ class DMWorker {
             const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || recipientId).trim();
             const instagram = this._createInstagramClient(accessToken, accountBudgetKey, options?.metaApiUsageTracker, executionProfile);
             const conversationState = await this._getConversationState(primaryAccountId, conversationKey);
+            let nextConversationState = this._normalizeConversationState(conversationState);
 
             const pendingEmailResult = await this._handlePendingEmailCollection({
                 instagram,
@@ -2285,7 +2471,7 @@ class DMWorker {
                 messageText: inboundText,
                 accountId: primaryAccountId,
                 conversationKey,
-                state: conversationState,
+                state: nextConversationState,
                 userId: igAccount.user_id,
                 recipientId
             });
@@ -2295,7 +2481,24 @@ class DMWorker {
 
             // 2. Get active automations for this account
             console.log(`Fetching active automations for account identifiers: ${automationAccountIds.join(', ')}`);
-            const automations = await this.appwrite.getActiveAutomations(automationAccountIds) || [];
+            let automations = await this.appwrite.getActiveAutomations(automationAccountIds) || [];
+            if (isShareEvent) {
+                const shareAutomations = await this.appwrite.getActiveAutomations(automationAccountIds, ['post', 'reel']) || [];
+                if (shareAutomations.length > 0) {
+                    const seenAutomationIds = new Set(
+                        automations
+                            .map((automation) => String(automation?.$id || '').trim())
+                            .filter(Boolean)
+                    );
+                    for (const automation of shareAutomations) {
+                        const automationId = String(automation?.$id || '').trim();
+                        if (!automationId || !seenAutomationIds.has(automationId)) {
+                            automations.push(automation);
+                            if (automationId) seenAutomationIds.add(automationId);
+                        }
+                    }
+                }
+            }
             if (automations.length === 0) {
                 console.log(`No active DM automations for account ${recipientId}.`);
             } else {
@@ -2308,7 +2511,10 @@ class DMWorker {
                 automations,
                 inboundCandidates,
                 postbackPayload: postback?.payload,
-                automationAccountIds
+                automationAccountIds,
+                isShareEvent,
+                sharedMediaId,
+                sharedUrl
             });
             if (!matchedAutomation) {
                 console.log(`No keyword match for: ${inboundText}`);
@@ -2350,13 +2556,13 @@ class DMWorker {
                             }
                         );
                         
-                        let nextConversationState = this._normalizeConversationState(conversationState);
                         if (success) {
                             if (nextConversationState.pendingEmail) {
                                 nextConversationState.pendingEmail = null;
                             }
                             const hasCooldowns = Object.keys(nextConversationState.automationCooldowns || {}).length > 0;
-                            if (hasCooldowns) {
+                            const hasMediaShare = nextConversationState.mediaShareSent === true;
+                            if (hasCooldowns || hasMediaShare) {
                                 await this._saveConversationState({
                                     userId: igAccount.user_id,
                                     accountId: primaryAccountId,
@@ -2466,8 +2672,16 @@ class DMWorker {
                 };
             }
 
-            if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(conversationState, matchedAutomation.$id)) {
+            if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
                 console.log(`Skipping automation ${matchedAutomation.$id || matchedAutomation.title || automationType} due to 24h cooldown.`);
+                return {
+                    handled: true,
+                    automationType
+                };
+            }
+
+            if (this._isShareToAdminAutomation(matchedAutomation) && !isShareEvent && nextConversationState.mediaShareSent === true) {
+                console.log(`Skipping media share for automation ${matchedAutomation.$id} because it was already sent.`);
                 return {
                     handled: true,
                     automationType
@@ -2497,6 +2711,13 @@ class DMWorker {
                 ? await this._getCollectorDestinationOrFallback(matchedAutomation.$id, primaryAccountId)
                 : null;
             if (this._isCollectEmailEnabledForAutomation(matchedAutomation)) {
+                if (this._isShareToAdminAutomation(matchedAutomation) && !isShareEvent && nextConversationState.mediaShareSent === true) {
+                    console.log(`Skipping email collect prompt for share automation because it was already sent.`);
+                    return {
+                        handled: true,
+                        automationType
+                    };
+                }
                 const automationDefaults = await this._getAutomationDefaults();
                 if (!collectorDestination?.verified) {
                     console.warn(
@@ -2517,7 +2738,6 @@ class DMWorker {
                 });
 
                 if (promptSent) {
-                    let nextConversationState = this._normalizeConversationState(conversationState);
                     nextConversationState.pendingEmail = {
                         automationId: String(matchedAutomation.$id || '').trim() || null,
                         automationType,
@@ -2530,6 +2750,7 @@ class DMWorker {
                         receiverName: String(igAccount.username || '').trim(),
                         sourceEventType: 'message',
                         commentId: null,
+                        mediaShareSent: false,
                         automationSnapshot: matchedAutomation
                     };
                     await this._saveConversationState({
@@ -2586,13 +2807,16 @@ class DMWorker {
                 }
             );
 
-            let nextConversationState = this._normalizeConversationState(conversationState);
-            if (success && automationType === 'welcome_message') {
-                this._rememberWelcomeReply(conversationKey);
-            }
-
-            if (success && matchedAutomation.once_per_user_24h === true) {
-                nextConversationState = this._withAutomationCooldown(nextConversationState, matchedAutomation.$id);
+            if (success) {
+                if (this._isShareToAdminAutomation(matchedAutomation)) {
+                    nextConversationState.mediaShareSent = true;
+                }
+                if (automationType === 'welcome_message') {
+                    this._rememberWelcomeReply(conversationKey);
+                }
+                if (matchedAutomation.once_per_user_24h === true) {
+                    nextConversationState = this._withAutomationCooldown(nextConversationState, matchedAutomation.$id);
+                }
             }
 
             if (success) {
@@ -2616,7 +2840,8 @@ class DMWorker {
 
             if (success) {
                 const hasCooldowns = Object.keys(nextConversationState.automationCooldowns || {}).length > 0;
-                if (nextConversationState.pendingEmail || hasCooldowns) {
+                const hasMediaShare = nextConversationState.mediaShareSent === true;
+                if (nextConversationState.pendingEmail || hasCooldowns || hasMediaShare) {
                     await this._saveConversationState({
                         userId: igAccount.user_id,
                         accountId: primaryAccountId,
@@ -2719,6 +2944,9 @@ class DMWorker {
                 return result;
             }
 
+            // Mark the event as processed locally to prevent concurrent duplicates
+            this._rememberProcessedEvent(meta, EVENT_DEDUPE_TTL_MS);
+
             let claim = null;
             if (shouldClaim) {
                 claim = await this.appwrite.claimProcessingEvent(meta, {
@@ -2775,6 +3003,15 @@ class DMWorker {
                 });
                 return result;
             } catch (error) {
+                // Remove from local processed events to allow retry if processing failed
+                const eventKey = String(meta?.eventKey || '').trim();
+                const accountId = String(meta?.accountId || '').trim();
+                const eventType = String(meta?.eventType || 'message').trim() || 'message';
+                if (eventKey && accountId) {
+                    const compositeKey = `${accountId}:${eventType}:${eventKey}`;
+                    this.localProcessedEvents.delete(compositeKey);
+                }
+
                 await this._flushMetaApiActionUsage(metaApiUsageTracker);
                 if (claim?.claimed) {
                     await this.appwrite.finalizeProcessingEvent(claim, {

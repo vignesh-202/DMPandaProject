@@ -39,6 +39,7 @@ class AppwriteClient {
         this._pricingExpiresAt = 0;
         this._watermarkPolicyCache = null;
         this._watermarkPolicyExpiresAt = 0;
+        this._convoStarterFallbackUnavailable = false;
         this.workerInstanceId = String(
             process.env.WORKER_INSTANCE_ID
             || process.env.HOSTNAME
@@ -311,6 +312,7 @@ class AppwriteClient {
     async _loadConvoStarterFallbacks(accountIds) {
         const normalizedAccountIds = this.normalizeAccountIds(accountIds);
         if (normalizedAccountIds.length === 0) return [];
+        if (this._convoStarterFallbackUnavailable) return [];
 
         const automationDocs = await this._loadConvoStarterAutomationsFromAutomationsCollection(normalizedAccountIds);
         if (automationDocs.length > 0) {
@@ -366,6 +368,18 @@ class AppwriteClient {
             }
             return automations;
         } catch (error) {
+            const message = String(error?.message || '').trim();
+            if (
+                Number(error?.code) === 404
+                || /collection with the requested id/i.test(message)
+                || /could not be found/i.test(message)
+            ) {
+                this._convoStarterFallbackUnavailable = true;
+                console.warn(
+                    `Convo starter fallback collection "${CONVO_STARTERS_COLLECTION_ID}" is unavailable; legacy fallback lookups are disabled for this worker session.`
+                );
+                return [];
+            }
             console.warn(`Failed convo starter fallback lookup for ${JSON.stringify(normalizedAccountIds)}:`, error?.message || error);
             return [];
         }

@@ -283,12 +283,14 @@ const GlobalTriggersView: React.FC = () => {
     }, [editorDirty, handleClose]);
 
     const handleSave = useCallback(async (savedAutomation?: any) => {
+        setEditorDirty(false);
+        setHasUnsavedChanges(false);
         await fetchTriggers(true);
         const savedId = String(savedAutomation?.automation_id || savedAutomation?.$id || editingTrigger?.$id || '').trim();
         if (savedId && location.pathname.endsWith('/edit/new')) {
             navigate(`/dashboard/global-triggers/edit/${savedId}`, { replace: true });
         }
-    }, [editingTrigger?.$id, fetchTriggers, location.pathname, navigate]);
+    }, [editingTrigger?.$id, fetchTriggers, location.pathname, navigate, setHasUnsavedChanges]);
 
     const handleToggleActive = async (trigger: any) => {
         setTogglingIds((s) => new Set(s).add(trigger.$id));

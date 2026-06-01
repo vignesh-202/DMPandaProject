@@ -23,7 +23,7 @@ const StoryAutomationView: React.FC = () => {
   const [isSavingLeave, setIsSavingLeave] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [replyTemplatesList, setReplyTemplatesList] = useState<ReplyTemplate[]>([]);
-  const { showSuccess, showError } = useNotification();
+  const { showError } = useNotification();
   const [isPreparingEditor, setIsPreparingEditor] = useState(false);
   const [editorLoadingMessage, setEditorLoadingMessage] = useState('Preparing story automation editor');
   const [prefetchedAutomation, setPrefetchedAutomation] = useState<any>(null);
@@ -136,9 +136,10 @@ const StoryAutomationView: React.FC = () => {
   };
 
   const handleSave = useCallback(() => {
+    setEditorDirty(false);
+    setHasUnsavedChanges(false);
     navigate('/dashboard/story-automation');
-    showSuccess('Automation saved successfully!');
-  }, [navigate, showSuccess]);
+  }, [navigate, setHasUnsavedChanges]);
 
   useEffect(() => {
     if (selectedMedia) {
