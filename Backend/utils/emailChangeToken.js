@@ -220,11 +220,18 @@ const sendEmailChangeVerificationEmail = async ({ userId, newEmail, token, oldEm
                 html: true
             });
             console.log(`Email change verification sent to user ${userId} at new email ${newEmail}`);
-        } finally {
-            await users.deleteTarget(userId, targetId).catch((e) => {
+        } catch (mailErr) {
+            await users.deleteTarget(userId, targetId).catch(() => null);
+            throw mailErr;
+        }
+
+        // Deleting the target immediately causes a race condition where the Appwrite background
+        // mail worker cannot find the target to deliver the message. Delete after a delay instead.
+        setTimeout(() => {
+            users.deleteTarget(userId, targetId).catch((e) => {
                 console.warn(`Failed to delete temporary email target ${targetId}: ${e.message}`);
             });
-        }
+        }, 120000); // 2 minutes delay
     } catch (err) {
         console.error(`Failed to send email change verification email: ${err.message}`);
         throw new Error('Failed to send verification email. Please try again.');
