@@ -172,6 +172,12 @@ const AccountSettingsView = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
 
+  // Email Change State
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailChangePassword, setEmailChangePassword] = useState('');
+  const [isRequestingEmailChange, setIsRequestingEmailChange] = useState(false);
+
   // Delete Account State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
@@ -303,28 +309,59 @@ const AccountSettingsView = () => {
     e.preventDefault();
     resetMessages();
 
-    const emailChanged = email !== user.email;
-
-    if (emailChanged && !hasPassword) {
-      setMsg('profile', 'error', 'Please set a password before changing your email.');
-      setShowSetPassword(true);
-      return;
-    }
-
-    if (emailChanged && hasPassword && !password) {
-      setMsg('profile', 'error', 'Please enter your password to change your email.');
-      return;
-    }
-
     setIsSubmittingInfo(true);
 
     try {
-      const body: { name: string; email: string; password?: string } = { name, email };
-      if (email !== user.email && hasPassword) {
-        body.password = password;
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/update`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMsg('profile', 'success', 'Account details updated successfully!');
+        await checkAuth();
+      } else {
+        setMsg('profile', 'error', data.error || 'Failed to update account details.');
+      }
+    } catch (error) {
+      setMsg('profile', 'error', 'An error occurred. Please try again.');
+    } finally {
+      setIsSubmittingInfo(false);
+    }
+  };
+
+  const handleEmailChangeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    resetMessages();
+
+    if (!newEmail) {
+      setMsg('profile', 'error', 'New email address is required.');
+      return;
+    }
+
+    if (newEmail.toLowerCase() === user?.email?.toLowerCase()) {
+      setMsg('profile', 'error', 'New email address must be different from current email.');
+      return;
+    }
+
+    if (hasPassword && !emailChangePassword) {
+      setMsg('profile', 'error', 'Password is required to request an email change.');
+      return;
+    }
+
+    setIsRequestingEmailChange(true);
+    try {
+      const body: { newEmail: string; password?: string } = { newEmail };
+      if (hasPassword) {
+        body.password = emailChangePassword;
       }
 
-      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/update`, {
+      const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/request-email-change`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -335,16 +372,17 @@ const AccountSettingsView = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setMsg('profile', 'success', 'Account details updated successfully!');
-        await checkAuth();
-        setPassword('');
+        setMsg('profile', 'success', 'Verification link sent! Please check your new email to verify the change.');
+        setShowEmailModal(false);
+        setNewEmail('');
+        setEmailChangePassword('');
       } else {
-        setMsg('profile', 'error', data.error || 'Failed to update account details.');
+        setMsg('profile', 'error', data.error || 'Failed to request email change.');
       }
     } catch (error) {
       setMsg('profile', 'error', 'An error occurred. Please try again.');
     } finally {
-      setIsSubmittingInfo(false);
+      setIsRequestingEmailChange(false);
     }
   };
 
@@ -646,20 +684,32 @@ const AccountSettingsView = () => {
                       <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your Name" className="h-12 rounded-xl" />
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="email" className="text-sm font-semibold text-foreground">Email Address</label>
-                      <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" className="h-12 rounded-xl" />
+                      <label htmlFor="email" className="text-sm font-semibold text-foreground flex items-center justify-between">
+                        <span>Email Address</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!hasPassword) {
+                              setMsg('profile', 'error', 'Please set a password first before changing your email.');
+                              setShowSetPassword(true);
+                            } else {
+                              setShowEmailModal(true);
+                            }
+                          }}
+                          className="text-xs text-primary hover:underline font-bold"
+                        >
+                          Change Email
+                        </button>
+                      </label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={user?.email || ''}
+                        disabled
+                        className="h-12 rounded-xl bg-muted/50 border-border text-muted-foreground cursor-not-allowed"
+                      />
                     </div>
                   </div>
-
-                  {email !== user?.email && hasPassword && (
-                    <PasswordInput
-                      label="Confirm Password to Change Email"
-                      id="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="max-w-md"
-                    />
-                  )}
 
                   <Button type="submit" disabled={isSubmittingInfo} className="px-6 h-12 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold w-full sm:w-auto shadow-lg shadow-primary/10 hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 flex items-center justify-center gap-2">
                     {isSubmittingInfo && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -1292,6 +1342,78 @@ const AccountSettingsView = () => {
                     className="w-full h-12 text-muted-foreground hover:text-foreground"
                   >
                     Maybe Later
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </Card>
+        </div>,
+        sectionOverlayRoot || document.body
+      )}
+
+      {/* Change Email Modal */}
+      {showEmailModal && typeof document !== 'undefined' && createPortal(
+        <div className={sectionModalClass}>
+          <Card className="w-full max-w-md p-5 sm:p-8 shadow-2xl border border-border bg-card rounded-3xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-primary"></div>
+            <button onClick={() => { setShowEmailModal(false); setNewEmail(''); setEmailChangePassword(''); }} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
+              <X className="h-6 w-6" />
+            </button>
+
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                <User className="h-8 w-8 text-primary" />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xl sm:text-2xl font-bold text-foreground">Change Email</h3>
+                <p className="text-sm text-muted-foreground">
+                  Enter your new email address and password to request a secure email change.
+                </p>
+              </div>
+
+              <form onSubmit={handleEmailChangeSubmit} className="w-full space-y-6 pt-2">
+                <div className="text-left space-y-2">
+                  <label htmlFor="newEmailInput" className="text-sm font-semibold text-foreground">New Email Address</label>
+                  <Input
+                    id="newEmailInput"
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder="new-email@example.com"
+                    className="h-12 rounded-xl"
+                    required
+                  />
+                </div>
+
+                {hasPassword && (
+                  <div className="text-left">
+                    <PasswordInput
+                      label="Current Password"
+                      id="emailChangePassword"
+                      value={emailChangePassword}
+                      onChange={(e) => setEmailChangePassword(e.target.value)}
+                      placeholder="Enter your current password"
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-col w-full gap-3">
+                  <Button
+                    type="submit"
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 rounded-xl font-bold shadow-lg shadow-primary/20"
+                    disabled={!newEmail || (hasPassword && !emailChangePassword) || isRequestingEmailChange}
+                  >
+                    {isRequestingEmailChange ? <Loader2 className="h-5 w-5 animate-spin mr-2 shrink-0" /> : null}
+                    Send Verification Email
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => { setShowEmailModal(false); setNewEmail(''); setEmailChangePassword(''); }}
+                    className="w-full h-12 text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
                   </Button>
                 </div>
               </form>

@@ -18,6 +18,7 @@ const LoginPageLazy = React.lazy(() => import('./app/login/page'));
 const RefundPolicyPageLazy = React.lazy(() => import('./app/refund-policy/page'));
 const NotFoundPageLazy = React.lazy(() => import('./app/not-found'));
 const VerifyEmailPageLazy = React.lazy(() => import('./app/auth/verify/page'));
+const VerifyEmailChangePageLazy = React.lazy(() => import('./app/auth/verify-email-change/page'));
 const SuperProfilePublicPageLazy = React.lazy(() => import('./app/superprofile/page'));
 
 const DeleteAccountGuidePageLazy = React.lazy(() => import('./app/delete-account-guide/page'));
@@ -101,6 +102,7 @@ const AppContent: React.FC = () => {
             <Route path="/dashboard/*" element={<ProtectedRoute><DashboardPageLazy /></ProtectedRoute>} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/auth/verify" element={<VerifyEmailPageLazy />} />
+            <Route path="/auth/verify-email-change" element={<VerifyEmailChangePageLazy />} />
             <Route path="/auth/recovery" element={<PasswordRecoveryPageLazy />} />
             <Route path="/auth/ig-callback" element={<InstagramCallbackPageLazy />} />
             <Route path="/pricing" element={<PricingPageLazy />} />
