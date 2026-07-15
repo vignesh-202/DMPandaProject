@@ -601,12 +601,20 @@ router.get('/api/auth/google-callback', async (req, res) => {
         const databases = new Databases(serverClient);
 
         // Find the actual Google email from identities if possible, fallback to user.email
+        let identitiesList = [];
+        try {
+            const result = await users.listIdentities([
+                Query.equal('userId', currentUserId)
+            ]);
+            identitiesList = result.identities || [];
+        } catch (identErr) {
+            console.warn(`Failed to list identities for user ${currentUserId}: ${identErr.message}`);
+        }
+
         let oauthProviderEmail = null;
-        if (user.identities && Array.isArray(user.identities)) {
-            const googleIdentity = user.identities.find(id => id.provider === 'google');
-            if (googleIdentity) {
-                oauthProviderEmail = googleIdentity.providerEmail || googleIdentity.email || null;
-            }
+        const googleIdentity = identitiesList.find(id => id.provider === 'google');
+        if (googleIdentity) {
+            oauthProviderEmail = googleIdentity.providerEmail || googleIdentity.email || null;
         }
         const normalizedOAuthEmail = normalizeEmail(oauthProviderEmail || user.email || '');
         const email = oauthProviderEmail || user.email;
@@ -632,8 +640,8 @@ router.get('/api/auth/google-callback', async (req, res) => {
                 // Dissociate the Google identity from this account since they don't match,
                 // so that the next time the user tries to sign in, it will create a new account.
                 try {
-                    if (user.identities && Array.isArray(user.identities)) {
-                        for (const identity of user.identities) {
+                    if (identitiesList.length > 0) {
+                        for (const identity of identitiesList) {
                             if (identity.provider === 'google') {
                                 console.log(`Unlinking mismatching Google identity ${identity.$id} from user ${currentUserId} due to email discrepancy.`);
                                 await users.deleteIdentity(identity.$id);

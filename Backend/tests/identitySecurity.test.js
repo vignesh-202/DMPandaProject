@@ -21,9 +21,17 @@ async function handleGoogleOAuthCallback({
     if (databaseUser && databaseUser.email) {
         const currentDbEmail = databaseUser.email.trim().toLowerCase();
         if (currentDbEmail !== normalizedOAuthEmail) {
+            let identitiesList = [];
+            try {
+                const result = await mockAppwriteUsers.listIdentities(currentUserId);
+                identitiesList = result.identities || [];
+            } catch (identErr) {
+                console.warn(identErr.message);
+            }
+
             // Unlink Google identity from old account
-            if (currentUser.identities && Array.isArray(currentUser.identities)) {
-                for (const identity of currentUser.identities) {
+            if (identitiesList.length > 0) {
+                for (const identity of identitiesList) {
                     if (identity.provider === 'google') {
                         await mockAppwriteUsers.deleteIdentity(identity.$id);
                     }
@@ -92,6 +100,10 @@ test('OAuth email mismatch -> unlinks identity and logs into / creates target ac
         createdSessions: [],
         listByEmail(email) {
             return this.users.filter(u => u.email === email);
+        },
+        async listIdentities(userId) {
+            const user = this.users.find(u => u.$id === userId);
+            return { identities: user ? user.identities : [] };
         },
         async deleteIdentity(identityId) {
             const user = this.users.find(u => u.identities && u.identities.some(i => i.$id === identityId));

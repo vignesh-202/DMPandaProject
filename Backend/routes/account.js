@@ -283,8 +283,18 @@ router.post('/verify-email-change', async (req, res) => {
         }
 
         // 9. Unlink OAuth identities (Google etc.) since the email is changing
-        if (currentUser.identities && Array.isArray(currentUser.identities)) {
-            for (const identity of currentUser.identities) {
+        let identitiesList = [];
+        try {
+            const result = await users.listIdentities([
+                Query.equal('userId', userId)
+            ]);
+            identitiesList = result.identities || [];
+        } catch (identErr) {
+            console.warn(`Failed to list identities for user ${userId}: ${identErr.message}`);
+        }
+
+        if (identitiesList.length > 0) {
+            for (const identity of identitiesList) {
                 if (identity.provider !== 'email') {
                     try {
                         console.log(`Unlinking identity ${identity.provider} (${identity.$id}) for user ${userId} due to verified email change.`);
