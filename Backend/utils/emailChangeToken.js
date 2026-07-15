@@ -12,8 +12,8 @@ const TOKEN_BYTE_LENGTH = 32;
 const generateToken = () => crypto.randomBytes(TOKEN_BYTE_LENGTH).toString('base64url');
 
 /**
- * Expire all pending email-change tokens for a given user.
- * Prevents stale tokens from lingering after a new request is made.
+ * Delete all existing email-change tokens for a given user.
+ * Ensures only one token exists per user at any time.
  */
 const expirePendingTokensForUser = async (databases, userId) => {
     try {
@@ -22,22 +22,20 @@ const expirePendingTokensForUser = async (databases, userId) => {
             EMAIL_CHANGE_TOKENS_COLLECTION_ID,
             [
                 Query.equal('user_id', String(userId)),
-                Query.equal('status', 'pending'),
-                Query.limit(50)
+                Query.limit(100)
             ]
         );
         await Promise.allSettled(
             (existing.documents || []).map((doc) =>
-                databases.updateDocument(
+                databases.deleteDocument(
                     APPWRITE_DATABASE_ID,
                     EMAIL_CHANGE_TOKENS_COLLECTION_ID,
-                    doc.$id,
-                    { status: 'expired' }
+                    doc.$id
                 ).catch(() => null)
             )
         );
     } catch (err) {
-        console.warn(`Failed to expire old email-change tokens for user ${userId}: ${err.message}`);
+        console.warn(`Failed to delete old email-change tokens for user ${userId}: ${err.message}`);
     }
 };
 

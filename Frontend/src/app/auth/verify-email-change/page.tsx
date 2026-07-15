@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../contexts/AuthContext';
 import LoadingOverlay from '../../../components/ui/LoadingOverlay';
 
 const VerifyEmailChangePage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState('Verifying your email change...');
 
@@ -29,6 +31,7 @@ const VerifyEmailChangePage: React.FC = () => {
         const data = await response.json();
 
         if (response.ok) {
+          logout(); // Clear all frontend auth state (Hint, user, etc.)
           setMessage('Email change verified successfully! Redirecting to login...');
           setTimeout(() => {
             navigate(`/login?success=email_changed&message=${encodeURIComponent(data.message || 'Email changed successfully. Please log in with your new email.')}`, { replace: true });

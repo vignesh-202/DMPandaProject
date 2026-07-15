@@ -302,6 +302,17 @@ router.post('/verify-email-change', async (req, res) => {
         // 11. Expire any other pending tokens for this user
         await expirePendingTokensForUser(databases, userId);
 
+        // 12. De-authorize all active sessions for this user on the server (security best practice)
+        try {
+            await users.deleteSessions(userId);
+        } catch (sessionErr) {
+            console.warn(`Failed to delete active sessions for user ${userId}: ${sessionErr.message}`);
+        }
+
+        // 13. Clear session cookies for the client that triggered verification
+        clearSessionCookie(res, 'frontend');
+        clearSessionCookie(res, 'admin');
+
         console.log(`Email change finalized for user ${userId}: ${oldEmail} → ${newEmail}`);
 
         res.json({

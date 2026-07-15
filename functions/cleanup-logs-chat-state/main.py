@@ -334,6 +334,50 @@ def main(context):
                 automations_collection,
             )
 
+        # Cleanup function execution history
+        executions_deleted = 0
+        executions_failed = 0
+        execution_details = {}
+
+        try:
+            funcs_response = _call_appwrite(client, "get", "/functions")
+            funcs = _obj_get(funcs_response, "functions", []) or []
+            for func in funcs:
+                func_id = _obj_get(func, "$id", "")
+                if not func_id:
+                    continue
+                try:
+                    execs_response = _call_appwrite(client, "get", f"/functions/{func_id}/executions", {"limit": 100})
+                    execs = _obj_get(execs_response, "executions", []) or []
+                    execs.sort(key=lambda x: _obj_get(x, "$createdAt", ""), reverse=True)
+                    to_delete = execs[5:]
+                    func_deleted = 0
+                    func_failed = 0
+                    for exec_doc in to_delete:
+                        exec_id = _obj_get(exec_doc, "$id", "")
+                        if not exec_id:
+                            continue
+                        if not dry_run:
+                            try:
+                                _call_appwrite(client, "delete", f"/functions/{func_id}/executions/{exec_id}")
+                                func_deleted += 1
+                            except Exception:  # noqa: BLE001
+                                func_failed += 1
+                        else:
+                            func_deleted += 1
+                    executions_deleted += func_deleted
+                    executions_failed += func_failed
+                    execution_details[func_id] = {
+                        "before": len(execs),
+                        "deleted": func_deleted,
+                        "failed": func_failed,
+                        "after": len(execs) - func_deleted if not dry_run else len(execs)
+                    }
+                except Exception as e:  # noqa: BLE001
+                    context.error(f"Failed to clean executions for function {func_id}: {e}")
+        except Exception as e:  # noqa: BLE001
+            context.error(f"Failed to fetch functions for execution cleanup: {e}")
+
         return context.res.json(
             {
                 "status": "ok",
@@ -348,6 +392,9 @@ def main(context):
                 "collect_email_notifications_deleted": collect_email_cleanup["deleted"],
                 "collect_email_notifications_failed": collect_email_cleanup["failed"],
                 "collect_email_notifications_skipped": collect_email_cleanup["skipped"],
+                "executions_deleted": executions_deleted,
+                "executions_failed": executions_failed,
+                "execution_details": execution_details,
             }
         )
     except Exception as err:  # noqa: BLE001
