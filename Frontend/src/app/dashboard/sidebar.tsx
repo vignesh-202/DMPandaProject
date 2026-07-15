@@ -293,7 +293,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                   const requiredFeature = viewFeatureMap[item.name];
                   const lockedByPlan = requiredFeature ? !hasPlanFeature(requiredFeature) : false;
                   const lockedByAutomationAccess = section.title === 'Automation' && (automationLockedByBan || automationLockedBySelectedAccount);
-                  const isLocked = lockedByPlan || lockedByAutomationAccess;
+                  const isLocked = lockedByPlan || lockedByAutomationAccess || (section.title === 'Automation' && !hasAutomationAccountAccess);
 
                   return (
                     <button

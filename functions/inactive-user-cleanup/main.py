@@ -880,6 +880,67 @@ def main(context):
                     continue
 
                 profile_doc = _get_profile_for_user(client, db_id, profiles_collection, user_id)
+
+                # Check if unverified, no IG accounts, and older than 24h
+                is_unverified = not bool(_obj_get(auth_user, "emailVerification", False))
+                user_created_at = _parse_datetime(_obj_get(user_doc, "$createdAt"))
+                is_older_than_24h = False
+                if user_created_at:
+                    is_older_than_24h = (now - user_created_at) >= timedelta(hours=24)
+
+                ig_accounts = _list_all(client, db_id, collections["ig_accounts"], [Query.equal("user_id", user_id)])
+                has_linked_ig = len(ig_accounts) > 0
+
+                if is_unverified and not has_linked_ig and is_older_than_24h:
+                    if dry_run:
+                        summary["candidates"] += 1
+                        summary["reports"].append({
+                            "user_id": user_id,
+                            "email": email,
+                            "last_active_at": _to_iso(user_created_at),
+                            "scheduled_delete_at": "immediate (unverified empty 24h)",
+                            "days_until_delete": 0,
+                            "warning_due": None,
+                        })
+                        continue
+
+                    _write_audit_log(
+                        client,
+                        db_id,
+                        audit_collection,
+                        user_doc=user_doc,
+                        action="delete_started",
+                        reason="unverified_empty_24h_deletion_due",
+                        details={
+                            "user_id": user_id,
+                            "email": email,
+                            "created_at": _to_iso(user_created_at)
+                        },
+                        dry_run=False
+                    )
+                    delete_summary = _delete_user_data(client, db_id, collections, user_doc)
+                    _delete_auth_user(client, user_id)
+                    if profile_doc and str(_obj_get(profile_doc, "$id") or "").strip():
+                        _delete_document(client, db_id, profiles_collection, str(_obj_get(profile_doc, "$id") or "").strip())
+                    _delete_document(client, db_id, users_collection, user_id)
+                    summary["deleted"] += 1
+                    _write_audit_log(
+                        client,
+                        db_id,
+                        audit_collection,
+                        user_doc=user_doc,
+                        action="delete_completed",
+                        reason="unverified_empty_24h_deleted",
+                        details={
+                            "user_id": user_id,
+                            "email": email,
+                            "created_at": _to_iso(user_created_at),
+                            **delete_summary
+                        },
+                        dry_run=False
+                    )
+                    continue
+
                 latest_tx_at = _latest_success_transaction_at(client, db_id, transactions_collection, user_id)
                 self_subscription = _latest_self_subscription_from_transactions(client, db_id, transactions_collection, user_id, now)
                 evaluation = _evaluate_user(user_doc, profile_doc, latest_tx_at, now, self_subscription)
