@@ -446,6 +446,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsAuthenticated(false);
   }, [checkAuth]);
 
+  // Synchronize authentication state across tabs using storage events
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === AUTH_HINT_KEY) {
+        if (event.newValue === '1') {
+          void checkAuth(true);
+        } else if (!event.newValue) {
+          setIsAuthenticated(false);
+          setAuthHint(false);
+          setUser(null);
+          setAccessState(null);
+          setIsVerified(false);
+          setHasPassword(false);
+          setHasLinkedInstagram(false);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [checkAuth]);
+
   return (
     <AuthContext.Provider value={{ isAuthenticated, authHint, isLoading, isVerified, user, accessState, hasPassword, hasLinkedInstagram, login, logout, checkAuth, checkHasPassword, setHasPasswordManually, authenticatedFetch }}>
       {children}
