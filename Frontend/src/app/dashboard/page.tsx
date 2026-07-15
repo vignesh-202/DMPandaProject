@@ -87,9 +87,15 @@ const DashboardContent: React.FC = () => {
 
   const needsAccount = protectedViews.includes(currentView);
   const hasSelectedAccount = Boolean(activeAccountID);
+  const isTokenExpired = activeAccount?.token_expires_at
+    ? new Date(activeAccount.token_expires_at).getTime() <= Date.now()
+    : false;
+  const isReconnectRequired = activeAccount?.status === 'reconnect_required' ||
+    activeAccount?.access_reason === 'reconnect_required' ||
+    isTokenExpired;
   const accountAutomationLocked = Boolean(
     activeAccount
-    && (activeAccount.status !== 'active' || activeAccount?.effective_access === false)
+    && (activeAccount.status !== 'active' || activeAccount?.effective_access === false || isReconnectRequired)
   );
   const automationLockedViews = [
     'DM Automation', 'Story Automation', 'Post Automation', 'Reel Automation', 'Live Automation',

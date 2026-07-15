@@ -422,6 +422,13 @@ class AppwriteClient {
         }
     }
 
+    async isManagedInstagramAccount(accountId) {
+        const safeAccountId = String(accountId || '').trim();
+        if (!safeAccountId) return false;
+        const account = await this.getIGAccount(safeAccountId);
+        return Boolean(account);
+    }
+
     async getCommentModerationRules({ userId, accountIds }) {
         const normalizedAccountIds = this.normalizeAccountIds(accountIds);
         const safeUserId = String(userId || '').trim();

@@ -75,6 +75,180 @@ test('processMessage ignores Instagram read receipt events', async () => {
     assert.equal(result, false);
 });
 
+test('processMessage ignores DMs sent from another managed Instagram account to avoid automation loops', async () => {
+    const workerPath = require.resolve('../src/worker');
+    const appwritePath = require.resolve('../src/appwrite');
+    const instagramPath = require.resolve('../src/instagram');
+    const matcherPath = require.resolve('../src/matcher');
+    const rendererPath = require.resolve('../src/renderer');
+    const watermarkPath = require.resolve('../src/watermark');
+
+    const originalEntries = new Map([
+        [workerPath, require.cache[workerPath]],
+        [appwritePath, require.cache[appwritePath]],
+        [instagramPath, require.cache[instagramPath]],
+        [matcherPath, require.cache[matcherPath]],
+        [rendererPath, require.cache[rendererPath]],
+        [watermarkPath, require.cache[watermarkPath]]
+    ]);
+
+    const restore = () => {
+        for (const [modulePath, entry] of originalEntries.entries()) {
+            if (entry) {
+                require.cache[modulePath] = entry;
+            } else {
+                delete require.cache[modulePath];
+            }
+        }
+    };
+
+    let sendCount = 0;
+    let automationLookupCount = 0;
+
+    class MockAppwriteClient {
+        async getIGAccount(accountId) {
+            if (accountId === 'recipient-account') {
+                return {
+                    $id: 'doc-recipient',
+                    username: 'recipient_account',
+                    access_token: 'token',
+                    user_id: 'user-recipient',
+                    ig_user_id: 'recipient-account',
+                    account_id: 'recipient-account',
+                    effective_access: true,
+                    access_state: 'active',
+                    access_reason: null
+                };
+            }
+
+            if (accountId === 'sender-managed-account') {
+                return {
+                    $id: 'doc-sender',
+                    username: 'sender_account',
+                    access_token: 'sender-token',
+                    user_id: 'user-sender',
+                    ig_user_id: 'sender-managed-account',
+                    account_id: 'sender-managed-account',
+                    effective_access: true,
+                    access_state: 'active',
+                    access_reason: null
+                };
+            }
+
+            return null;
+        }
+
+        async isManagedInstagramAccount(accountId) {
+            return accountId === 'sender-managed-account';
+        }
+
+        async getExecutionState() {
+            return {
+                accessState: { kill_switch_enabled: true, automation_locked: false },
+                profile: {
+                    limits_json: JSON.stringify({ hourly_action_limit: 1000, daily_action_limit: 1000, monthly_action_limit: 1000 }),
+                    hourly_actions_used: 0,
+                    daily_actions_used: 0,
+                    monthly_actions_used: 0
+                }
+            };
+        }
+
+        async getActiveAutomations() {
+            automationLookupCount += 1;
+            return [];
+        }
+
+        async getActiveConfigAutomation() {
+            automationLookupCount += 1;
+            return null;
+        }
+
+        async getProfile() {
+            return null;
+        }
+
+        async getWatermarkPolicy() {
+            return { enabled: false };
+        }
+
+        async getConversationState() {
+            return null;
+        }
+
+        async upsertConversationState() {
+            return null;
+        }
+
+        async clearConversationState() {
+            return true;
+        }
+
+        async recordActionUsage() {
+            return true;
+        }
+    }
+
+    class MockInstagramAPI {
+        async sendMessage() {
+            sendCount += 1;
+            return true;
+        }
+
+        async markSeen() {}
+        async setTyping() {}
+        async getUserProfile() {
+            return { is_user_follow_business: true };
+        }
+    }
+
+    try {
+        delete require.cache[workerPath];
+        require.cache[appwritePath] = { id: appwritePath, filename: appwritePath, loaded: true, exports: MockAppwriteClient };
+        require.cache[instagramPath] = { id: instagramPath, filename: instagramPath, loaded: true, exports: MockInstagramAPI };
+        require.cache[matcherPath] = {
+            id: matcherPath,
+            filename: matcherPath,
+            loaded: true,
+            exports: { matchDM: () => ({ $id: 'auto-loop', template_id: 'tpl-loop', automation_type: 'dm' }) }
+        };
+        require.cache[rendererPath] = {
+            id: rendererPath,
+            filename: rendererPath,
+            loaded: true,
+            exports: { render: (template) => template }
+        };
+        require.cache[watermarkPath] = {
+            id: watermarkPath,
+            filename: watermarkPath,
+            loaded: true,
+            exports: {
+                planWatermark: ({ payload }) => ({ primaryPayload: payload, secondaryPayload: null }),
+                resolveWatermarkPolicy: () => ({ enabled: false })
+            }
+        };
+
+        const FreshWorker = require('../src/worker');
+        const worker = new FreshWorker();
+        const result = await worker.processMessage({
+            entry: [{
+                id: 'recipient-account',
+                messaging: [{
+                    sender: { id: 'sender-managed-account' },
+                    recipient: { id: 'recipient-account' },
+                    message: { text: 'hello from another managed account' }
+                }]
+            }]
+        });
+
+        assert.equal(result, false);
+        assert.equal(sendCount, 0);
+        assert.equal(automationLookupCount, 0);
+    } finally {
+        restore();
+    }
+});
+
 test('processMessage sends suggest more follow-up from automations config', async () => {
     const workerPath = require.resolve('../src/worker');
     const appwritePath = require.resolve('../src/appwrite');

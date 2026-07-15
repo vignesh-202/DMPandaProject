@@ -806,14 +806,11 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
     }, [activeIdx, auto, items, newItem]);
 
     return (
-        <div className="mx-auto w-full max-w-[346px] animate-in fade-in slide-in-from-right-8 duration-700 sm:max-w-[360px] xl:ml-auto">
-            <div className="h-fit flex flex-col items-center w-full">
+        <div className="mx-auto w-[300px] flex-shrink-0 animate-in fade-in slide-in-from-right-8 duration-700 xl:ml-auto overflow-hidden">
+            <div className="h-fit flex flex-col items-center w-full overflow-hidden">
                 <div
                     className={cn(
-                        'relative flex w-full flex-col overflow-hidden rounded-[55px] border-[10px] border-slate-950 bg-white shadow-[0_24px_50px_-12px_rgba(0,0,0,0.15)] ring-1 ring-black/10 dark:border-zinc-800 dark:bg-black dark:ring-zinc-800 dark:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)]',
-                        lockScroll
-                            ? 'h-[588px] sm:h-[636px] xl:h-[610px] xl:max-h-[610px]'
-                            : 'h-[606px] sm:h-[656px]'
+                        'relative flex w-[300px] h-[550px] flex-col overflow-hidden rounded-[55px] border-[10px] border-slate-950 bg-white shadow-[0_24px_50px_-12px_rgba(0,0,0,0.15)] ring-1 ring-black/10 dark:border-zinc-800 dark:bg-black dark:ring-zinc-800 dark:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)]'
                     )}
                 >
                     {/* Notch / Dynamic Island */}

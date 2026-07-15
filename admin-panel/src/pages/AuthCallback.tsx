@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import httpClient from '../lib/httpClient';
@@ -9,9 +9,13 @@ export const AuthCallback: React.FC = () => {
     const location = useLocation();
     const { checkUser } = useAuth();
     const [error, setError] = useState<string | null>(null);
+    const processedRef = useRef(false);
 
     useEffect(() => {
         const finalizeGoogleLogin = async () => {
+            if (processedRef.current) return;
+            processedRef.current = true;
+
             const params = new URLSearchParams(location.search);
             const userId = params.get('userId');
             const secret = params.get('secret');

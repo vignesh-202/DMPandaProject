@@ -59,6 +59,7 @@ const DashboardAppFrame = ({ mode, src, label }: { mode: 'light' | 'dark'; src: 
             alt={label}
             className={`relative z-10 w-full h-auto object-contain rounded-lg sm:rounded-xl shadow-lg border ${isDark ? 'border-white/10' : 'border-black/5'}`}
             loading="eager"
+            fetchPriority="high"
          />
       </div>
     </div>
@@ -219,10 +220,44 @@ const RevealSection: React.FC<{ children: React.ReactNode; className?: string; d
   );
 };
 
+import { useSEO } from '../../hooks/useSEO';
+
 /* ==========================================
    Home Page
    ========================================== */
 const HomePage: React.FC = () => {
+  useSEO({
+    title: 'DM Panda | Certified Instagram DM Automation Tool',
+    description: 'Automate your Instagram DMs, comments, shares, and stories with DM Panda. Certified Meta Business Partner since 2021. No Facebook page required. Safe, simple, and affordable.',
+    keywords: 'instagram automation, instagram dm automation, comment auto reply, auto send message instagram, link in bio page, dm panda',
+    schema: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        'name': 'DM Panda',
+        'url': 'https://dmpanda.com',
+        'logo': 'https://dmpanda.com/images/logo.png',
+        'sameAs': [
+          'https://www.facebook.com/dmpanda',
+          'https://twitter.com/dmpanda',
+          'https://www.instagram.com/dmpanda',
+          'https://www.linkedin.com/company/dmpanda'
+        ]
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        'name': 'DM Panda',
+        'url': 'https://dmpanda.com',
+        'potentialAction': {
+          '@type': 'SearchAction',
+          'target': 'https://dmpanda.com/login',
+          'query-input': 'required name=search_term_string'
+        }
+      }
+    ]
+  });
+
   const animatedTexts = [
     "Automate Your Instagram DM's",
     "No Facebook page needed",

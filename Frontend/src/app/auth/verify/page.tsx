@@ -29,7 +29,7 @@ const VerifyEmailPage: React.FC = () => {
 
           if (response.ok) {
             setMessage('Verification successful! Logging you in...');
-            await login();
+            await login(true);  // bust cache to force fresh emailVerification state
             navigate('/dashboard', { replace: true });
           } else {
             throw new Error(data.error || 'Failed to verify email.');

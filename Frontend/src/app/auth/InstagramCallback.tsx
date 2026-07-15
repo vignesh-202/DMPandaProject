@@ -12,6 +12,7 @@ const InstagramCallback: React.FC = () => {
     useEffect(() => {
         const code = searchParams.get('code');
         const error = searchParams.get('error');
+        const state = searchParams.get('state');
 
         if (processedRef.current || isAuthenticated === false) {
             if (isAuthenticated === false) {
@@ -40,7 +41,7 @@ const InstagramCallback: React.FC = () => {
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ code }),
+                        body: JSON.stringify({ code, state }),
                     });
 
                     if (response.ok) {

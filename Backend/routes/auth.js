@@ -21,6 +21,12 @@ const { resolveUserPlanContext } = require('../utils/planConfig');
 const { recomputeAccountAccessStateForUser } = require('../utils/accountAccess');
 
 const processedOAuthSecrets = new Map(); // Cache for duplicate prevention
+const OAUTH_CACHE_TTL_MS = 60_000; // 60 seconds
+
+const setOAuthCache = (key, value) => {
+    processedOAuthSecrets.set(key, value);
+    setTimeout(() => processedOAuthSecrets.delete(key), OAUTH_CACHE_TTL_MS);
+};
 
 // Helper: get session secret (handles both object and dict-like responses)
 const getSessionSecret = (session) => {
@@ -36,27 +42,6 @@ const buildRequestOrigin = (req) => {
 
     if (!hostHeader) return '';
     return `${protocol}://${hostHeader}`.replace(/\/+$/, '');
-};
-
-const isTrustedDynamicOAuthOrigin = (origin) => {
-    const normalizedOrigin = normalizeOrigin(origin);
-    if (!normalizedOrigin) return false;
-
-    try {
-        const parsed = new URL(normalizedOrigin);
-        const hostname = parsed.hostname.toLowerCase();
-        const protocol = parsed.protocol.toLowerCase();
-        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
-        const isDevTunnel = hostname.endsWith('.devtunnels.ms');
-
-        if (isLocalhost) {
-            return protocol === 'http:' || protocol === 'https:';
-        }
-
-        return isDevTunnel && protocol === 'https:';
-    } catch (_) {
-        return false;
-    }
 };
 
 const getAllowedOAuthOrigins = () => (
@@ -77,7 +62,7 @@ const resolveOAuthOrigin = (req) => {
     const target = String(req.query.target || '').trim().toLowerCase();
     const allowedOrigins = getAllowedOAuthOrigins();
 
-    if (requestedOrigin && (allowedOrigins.includes(requestedOrigin) || isTrustedDynamicOAuthOrigin(requestedOrigin))) {
+    if (requestedOrigin && allowedOrigins.includes(requestedOrigin)) {
         return requestedOrigin;
     }
 
@@ -101,7 +86,7 @@ const resolveOAuthClientOrigin = (req) => {
 
     if (requestedOrigin) {
         const allowedOrigins = getAllowedOAuthOrigins();
-        if (allowedOrigins.includes(requestedOrigin) || isTrustedDynamicOAuthOrigin(requestedOrigin)) {
+        if (allowedOrigins.includes(requestedOrigin)) {
             return requestedOrigin;
         }
     }
@@ -176,6 +161,52 @@ const findUsersByNormalizedEmail = async (users, email, options = {}) => {
     const normalizedTarget = normalizeEmail(email);
     const excludeUserId = String(options.excludeUserId || '').trim();
     const matches = [];
+
+    // 1. Primary Indexed Query: Try direct Appwrite query (O(1) / O(log N) scalable lookup)
+    try {
+        const directResponse = await users.list([
+            Query.equal('email', normalizedTarget),
+            Query.limit(10)
+        ]);
+        const directUsers = Array.isArray(directResponse?.users) ? directResponse.users : [];
+        for (const candidate of directUsers) {
+            const candidateId = String(candidate?.$id || '').trim();
+            if (excludeUserId && candidateId === excludeUserId) continue;
+            matches.push(candidate);
+        }
+        if (matches.length > 0) {
+            return matches;
+        }
+    } catch (queryErr) {
+        console.warn(`Direct email query on Appwrite users failed, falling back to paginated scan: ${queryErr.message}`);
+    }
+
+    // 2. Secondary Fallback Query: Try with the literal raw email address (in case normalization altered it)
+    try {
+        const rawEmail = String(email || '').trim();
+        if (rawEmail && rawEmail.toLowerCase() !== normalizedTarget) {
+            const directResponse = await users.list([
+                Query.equal('email', rawEmail),
+                Query.limit(10)
+            ]);
+            const directUsers = Array.isArray(directResponse?.users) ? directResponse.users : [];
+            for (const candidate of directUsers) {
+                const candidateId = String(candidate?.$id || '').trim();
+                if (excludeUserId && candidateId === excludeUserId) continue;
+                // Double check normalization match
+                if (normalizeEmail(candidate?.email || '') === normalizedTarget) {
+                    matches.push(candidate);
+                }
+            }
+            if (matches.length > 0) {
+                return matches;
+            }
+        }
+    } catch (rawQueryErr) {
+        console.warn(`Raw email query on Appwrite users failed: ${rawQueryErr.message}`);
+    }
+
+    // 3. Last Resort Fallback (Paging through first 5000 users)
     const limit = 100;
     let offset = 0;
 
@@ -524,17 +555,30 @@ router.get('/api/auth/google-callback', async (req, res) => {
         return res.status(400).json({ error: 'Missing userId or secret' });
     }
 
-    // Duplicate request protection
+    // Duplicate request protection with concurrency lock
     const cacheKey = `${userId}:${secret.substring(0, 16)}`;
     if (processedOAuthSecrets.has(cacheKey)) {
-        const cachedToken = processedOAuthSecrets.get(cacheKey);
-        if (cachedToken) {
+        let cachedToken = processedOAuthSecrets.get(cacheKey);
+        
+        // If another request is currently processing this session, wait for it
+        if (cachedToken === 'processing') {
+            for (let i = 0; i < 25; i++) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                cachedToken = processedOAuthSecrets.get(cacheKey);
+                if (cachedToken !== 'processing') break;
+            }
+        }
+
+        if (cachedToken && cachedToken !== 'processing') {
             setSessionCookie(res, cachedToken, appContext);
             return res.json({ token: cachedToken });
         } else {
-            return res.status(400).json({ error: 'This OAuth session has already been processed.' });
+            return res.status(400).json({ error: 'This OAuth session has already been processed or failed.' });
         }
     }
+
+    // Set lock state immediately
+    setOAuthCache(cacheKey, 'processing');
 
     try {
         // Use a server-side client with API key to create the session
@@ -552,18 +596,95 @@ router.get('/api/auth/google-callback', async (req, res) => {
         const userClient = getAppwriteClient({ sessionToken });
         const user = await new Account(userClient).get();
 
-        const email = user.email;
-        const normalizedOAuthEmail = normalizeEmail(email || '');
         const currentUserId = user.$id;
         const labels = Array.isArray(user.labels) ? user.labels : [];
         const databases = new Databases(serverClient);
+
+        // Find the actual Google email from identities if possible, fallback to user.email
+        let oauthProviderEmail = null;
+        if (user.identities && Array.isArray(user.identities)) {
+            const googleIdentity = user.identities.find(id => id.provider === 'google');
+            if (googleIdentity) {
+                oauthProviderEmail = googleIdentity.providerEmail || googleIdentity.email || null;
+            }
+        }
+        const normalizedOAuthEmail = normalizeEmail(oauthProviderEmail || user.email || '');
+        const email = oauthProviderEmail || user.email;
+
+        // Verify that the email returned by Google matches the email currently in their profile database.
+        // If the user changed their email, the old Google account should no longer log them in.
+        let databaseUser = null;
+        try {
+            databaseUser = await databases.getDocument(
+                process.env.APPWRITE_DATABASE_ID,
+                USERS_COLLECTION_ID,
+                currentUserId
+            );
+        } catch (dbErr) {
+            // Document might not exist if this is a brand new user signing up for the first time
+        }
+
+        if (databaseUser && databaseUser.email) {
+            const currentDbEmail = normalizeEmail(databaseUser.email);
+            if (currentDbEmail !== normalizedOAuthEmail) {
+                console.log(`Google email ${normalizedOAuthEmail} does not match profile email ${currentDbEmail} for userId ${currentUserId}. Re-linking to a new/correct account...`);
+                
+                // Dissociate the Google identity from this account since they don't match,
+                // so that the next time the user tries to sign in, it will create a new account.
+                try {
+                    if (user.identities && Array.isArray(user.identities)) {
+                        for (const identity of user.identities) {
+                            if (identity.provider === 'google') {
+                                console.log(`Unlinking mismatching Google identity ${identity.$id} from user ${currentUserId} due to email discrepancy.`);
+                                await users.deleteIdentity(currentUserId, identity.$id);
+                            }
+                        }
+                    }
+                } catch (unlinkErr) {
+                    console.warn(`Failed to unlink mismatching Google identity: ${unlinkErr.message}`);
+                }
+
+                try {
+                    await users.deleteSession(currentUserId, session.$id);
+                } catch (cleanupErr) {
+                    console.warn(`Failed to clean up Google OAuth session: ${cleanupErr.message}`);
+                }
+
+                // Check if a user with normalizedOAuthEmail already exists
+                let targetUser = null;
+                const existingTargetUsers = await findUsersByNormalizedEmail(users, normalizedOAuthEmail);
+                if (existingTargetUsers.length > 0) {
+                    targetUser = existingTargetUsers[0];
+                    console.log(`Found existing user ${targetUser.$id} matching Google email ${normalizedOAuthEmail}.`);
+                } else {
+                    console.log(`Creating new user account for Google email ${normalizedOAuthEmail}...`);
+                    targetUser = await users.create(ID.unique(), normalizedOAuthEmail, null, null, user.name);
+                    try {
+                        await users.updateLabels(targetUser.$id, ['user']);
+                    } catch (labelError) {
+                        console.error(`Failed to assign 'user' label to new OAuth user: ${labelError.message}`);
+                    }
+                }
+
+                // Create a session for the target/new user account
+                const nextSession = await users.createSession(targetUser.$id);
+                const nextToken = getSessionSecret(nextSession);
+
+                // Manage user document and set session cookie
+                await manageUserOnLogin(targetUser);
+                setSessionCookie(res, nextToken, appContext);
+                setOAuthCache(cacheKey, nextToken);
+
+                return res.json({ token: nextToken });
+            }
+        }
 
         if (email) {
             // 1. Strict Check: Disposable Email
             if (isDisposableEmail(email)) {
                 console.warn(`Blocking disposable email login: ${email}`);
                 await users.delete(currentUserId);
-                processedOAuthSecrets.set(cacheKey, null);
+                setOAuthCache(cacheKey, null);
                 return res.status(400).json({ error: 'Disposable email addresses are not allowed.' });
             }
 
@@ -576,7 +697,7 @@ router.get('/api/auth/google-callback', async (req, res) => {
 
                 console.warn(`User ${currentUserId} is a duplicate of ${originalUser.$id}. Deleting new user.`);
                 await users.delete(currentUserId);
-                processedOAuthSecrets.set(cacheKey, null);
+                setOAuthCache(cacheKey, null);
                 return res.status(409).json({ error: 'An account with this email already exists. Please log in with your password.' });
             }
         }
@@ -593,11 +714,11 @@ router.get('/api/auth/google-callback', async (req, res) => {
             if (!existsOnFrontend) {
                 console.warn(`Deleting non-frontend Google auth user ${currentUserId} after denied admin access.`);
                 await users.delete(currentUserId);
-                processedOAuthSecrets.set(cacheKey, null);
+                setOAuthCache(cacheKey, null);
                 return res.status(403).json({ error: 'This Google account is not registered for DM Panda. Please sign up on the frontend first.' });
             }
 
-            processedOAuthSecrets.set(cacheKey, null);
+            setOAuthCache(cacheKey, null);
             return res.status(403).json({ error: 'Only users with the admin label can access this dashboard.' });
         }
 
@@ -617,13 +738,13 @@ router.get('/api/auth/google-callback', async (req, res) => {
         }
 
         // Cache the token for duplicate request protection
-        processedOAuthSecrets.set(cacheKey, sessionToken);
+        setOAuthCache(cacheKey, sessionToken);
 
         setSessionCookie(res, sessionToken, appContext);
         res.json({ token: sessionToken });
 
     } catch (err) {
-        processedOAuthSecrets.set(cacheKey, null);
+        setOAuthCache(cacheKey, null);
         console.error(`Google callback API error: ${err.message}, Code: ${err.code}`);
         if (err?.statusCode === 403 && err?.payload) {
             return res.status(403).json(err.payload);
@@ -641,13 +762,14 @@ router.post('/api/auth/verify-callback', async (req, res) => {
     if (!userId || !secret) return res.status(400).json({ error: 'Missing user ID or secret' });
 
     try {
-        // Use the Admin API Key to securely validate the secret
+        // Use a guest client to validate the secret, avoiding API key mismatch issues
+        const guestClient = getAppwriteClient({ useApiKey: false });
+        const guestAccount = new Account(guestClient);
         const serverClient = getAppwriteClient({ useApiKey: true });
-        const account = new Account(serverClient);
         const users = new Users(serverClient);
 
         // Validate the verification secret
-        await account.updateVerification(userId, secret);
+        await guestAccount.updateVerification({ userId, secret });
 
         // Create a new session for the user
         const session = await users.createSession(userId);

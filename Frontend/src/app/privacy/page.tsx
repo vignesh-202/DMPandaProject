@@ -1,6 +1,21 @@
 import React from 'react';
 
+import { useSEO } from '../../hooks/useSEO';
+
 const PrivacyPage: React.FC = () => {
+  useSEO({
+    title: 'Privacy Policy | DM Panda',
+    description: 'Read the privacy policy of DM Panda. Learn how we collect, store, secure, and use personal and platform data to provide compliant Instagram automations.',
+    keywords: 'privacy policy dm panda, instagram data privacy, meta platform compliance',
+    schema: {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      'name': 'Privacy Policy | DM Panda',
+      'description': 'Privacy Policy of DM Panda regarding data privacy and platform compliance.',
+      'url': 'https://dmpanda.com/privacy'
+    }
+  });
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-16 sm:pb-24 max-w-4xl">

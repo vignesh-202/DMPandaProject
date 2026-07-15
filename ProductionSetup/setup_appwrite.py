@@ -222,6 +222,40 @@ SYSTEM_CONFIG_COLLECTION = {
     ],
 }
 
+EMAIL_CHANGE_TOKENS_COLLECTION = {
+    "id": "email_change_tokens",
+    "name": "Email Change Tokens",
+    "enabled": True,
+    "documentSecurity": False,
+    "permissions": [
+        "read(\"label:admin\")",
+        "create(\"label:admin\")",
+        "update(\"label:admin\")",
+        "delete(\"label:admin\")",
+    ],
+    "attributes": [
+        {"key": "user_id", "type": "string", "size": 128, "required": True, "array": False, "default": None},
+        {"key": "old_email", "type": "string", "size": 320, "required": True, "array": False, "default": None},
+        {"key": "new_email", "type": "string", "size": 320, "required": True, "array": False, "default": None},
+        {"key": "token", "type": "string", "size": 128, "required": True, "array": False, "default": None},
+        {
+            "key": "status",
+            "type": "string",
+            "required": False,
+            "array": False,
+            "default": "pending",
+            "elements": ["pending", "used", "expired"],
+        },
+        {"key": "expires_at", "type": "datetime", "required": True, "array": False, "default": None},
+        {"key": "created_at", "type": "datetime", "required": True, "array": False, "default": None},
+    ],
+    "indexes": [
+        {"key": "idx_token_value", "type": "unique", "attributes": ["token"], "orders": []},
+        {"key": "idx_token_user_status", "type": "key", "attributes": ["user_id", "status"], "orders": []},
+        {"key": "idx_token_expires_at", "type": "key", "attributes": ["expires_at"], "orders": []},
+    ],
+}
+
 ADDITIONAL_ATTRIBUTES = {
     "users": [
         {"key": "kill_switch_enabled", "type": "boolean", "required": False, "array": False, "default": True},
@@ -236,7 +270,8 @@ ADDITIONAL_ATTRIBUTES = {
         {"key": "expiry_date", "type": "datetime", "required": False, "array": False, "default": None},
         {"key": "features_json", "type": "string", "required": False, "array": False, "default": None, "size": 600},
         {"key": "paid_plan_snapshot_json", "type": "string", "required": False, "array": False, "default": None, "size": 600},
-        {"key": "admin_override_json", "type": "string", "required": False, "array": False, "default": None, "size": 600},
+        {"key": "admin_override_json", "type": "string", "required": False, "array": False, "default": None, "size": 2000},
+        {"key": "feature_overrides_json", "type": "string", "required": False, "array": False, "default": None, "size": 2000},
         {"key": "kill_switch_enabled", "type": "boolean", "required": False, "array": False, "default": True},
         *deepcopy(BENEFIT_ATTRIBUTES),
     ],
@@ -297,7 +332,7 @@ ADDITIONAL_ATTRIBUTES = {
         {
             "key": "status",
             "type": "string",
-            "required": True,
+            "required": False,
             "array": False,
             "default": "created",
             "elements": ["created", "paid", "failed", "cancelled", "expired"],
@@ -368,6 +403,7 @@ ACTIVE_COLLECTION_IDS = {
     "job_locks",
     "inactive_user_cleanup_audit",
     "system_config",
+    "email_change_tokens",
 }
 
 DEPRECATED_COLLECTIONS = {
@@ -467,6 +503,7 @@ def load_schema_definitions():
         JOB_LOCKS_COLLECTION,
         INACTIVE_USER_CLEANUP_AUDIT_COLLECTION,
         SYSTEM_CONFIG_COLLECTION,
+        EMAIL_CHANGE_TOKENS_COLLECTION,
     ):
         if extra["id"] not in merged:
             merged[extra["id"]] = deepcopy(extra)
@@ -787,7 +824,9 @@ def attribute_needs_update(existing_attribute, attribute_definition):
         return list(existing_attribute.get("elements") or []) != list(attribute_definition.get("elements") or [])
 
     if attr_type == "string":
-        return int(existing_attribute.get("size") or 0) != int(attribute_definition.get("size") or 0)
+        existing_size = int(existing_attribute.get("size") or 0)
+        desired_size = int(attribute_definition.get("size") or 0)
+        return existing_size < desired_size
 
     if attr_type in {"integer", "double"}:
         return (
@@ -881,6 +920,12 @@ def ensure_attributes(databases, definition):
             if attribute_needs_update(existing.get(key), attribute):
                 if bool(existing[key].get("array", False)) != bool(attribute.get("array", False)):
                     print(f" [WARN] Attribute '{collection_id}.{key}' array mode differs. Manual migration required.")
+                    continue
+                if bool(existing[key].get("required", False)) != bool(attribute.get("required", False)):
+                    print(f" [WARN] Attribute '{collection_id}.{key}' required status differs (existing: {existing[key].get('required')}, desired: {attribute.get('required')}). Manual migration required.")
+                    continue
+                if attribute.get("elements") and list(existing[key].get("elements") or []) != list(attribute.get("elements") or []):
+                    print(f" [WARN] Attribute '{collection_id}.{key}' enum elements differ. Manual migration required.")
                     continue
                 print(f" [~] Updating attribute '{collection_id}.{key}' to match desired schema...")
                 try:

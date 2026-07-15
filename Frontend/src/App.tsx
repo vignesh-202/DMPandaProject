@@ -69,23 +69,26 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const path = location.pathname || '/';
     const isDashboardLike = path.startsWith('/dashboard') || path.startsWith('/auth/');
-    document.title = getRouteTitle(path);
 
-    let robotsTag = document.querySelector('meta[name="robots"]');
-    if (!robotsTag) {
-      robotsTag = document.createElement('meta');
-      robotsTag.setAttribute('name', 'robots');
-      document.head.appendChild(robotsTag);
-    }
-    robotsTag.setAttribute('content', isDashboardLike ? 'noindex,nofollow' : 'index,follow');
+    if (isDashboardLike) {
+      document.title = getRouteTitle(path);
 
-    let canonicalTag = document.querySelector('link[rel="canonical"]');
-    if (!canonicalTag) {
-      canonicalTag = document.createElement('link');
-      canonicalTag.setAttribute('rel', 'canonical');
-      document.head.appendChild(canonicalTag);
+      let robotsTag = document.querySelector('meta[name="robots"]');
+      if (!robotsTag) {
+        robotsTag = document.createElement('meta');
+        robotsTag.setAttribute('name', 'robots');
+        document.head.appendChild(robotsTag);
+      }
+      robotsTag.setAttribute('content', 'noindex,nofollow');
+
+      let canonicalTag = document.querySelector('link[rel="canonical"]');
+      if (!canonicalTag) {
+        canonicalTag = document.createElement('link');
+        canonicalTag.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonicalTag);
+      }
+      canonicalTag.setAttribute('href', `${SITE_ORIGIN}${path === '/' ? '' : path}`);
     }
-    canonicalTag.setAttribute('href', `${SITE_ORIGIN}${path === '/' ? '' : path}`);
   }, [location.pathname]);
 
   return (

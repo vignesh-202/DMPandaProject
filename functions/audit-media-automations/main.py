@@ -19,11 +19,29 @@ MAX_RETRIES = 3
 RETRY_SLEEP_SECONDS = 0.2
 SUPPORT_EMAIL = "support@dmpanda.com"
 STORY_MAX_AGE_HOURS = 25
+SYSTEM_CONFIG_COLLECTION_ID = "system_config"
+FRONTEND_RUNTIME_ORIGIN_DOC_ID = "frontend_runtime_origin"
 
 
 def _call_appwrite(client, method, path, params=None):
     headers = {"content-type": "application/json"}
     return client.call(method, path=path, headers=headers, params=params or {}, response_type="json")
+
+
+def _resolve_frontend_origin(client=None, db_id: str = "") -> str:
+    if client and db_id:
+        try:
+            document = _call_appwrite(
+                client,
+                "get",
+                f"/databases/{db_id}/collections/{SYSTEM_CONFIG_COLLECTION_ID}/documents/{FRONTEND_RUNTIME_ORIGIN_DOC_ID}",
+            )
+            runtime_origin = str(_obj_get(document, "updated_by", "") or "").rstrip("/")
+            if runtime_origin.startswith(("http://", "https://")):
+                return runtime_origin
+        except Exception:
+            pass
+    return str(_env("FRONTEND_ORIGIN") or "").rstrip("/")
 
 
 def _env(key: str, default: str = "") -> str:
@@ -316,7 +334,7 @@ def _story_should_exist(
 
 def _send_report_email(messaging: Messaging, user_id: str, rows: list[dict], ts: str):
     subject = f"Automation Cleanup Report: {len(rows)} invalid automations removed"
-    frontend_origin = str(_env("FRONTEND_ORIGIN") or "").rstrip("/")
+    frontend_origin = _resolve_frontend_origin(client, db_id)
     dashboard_url = f"{frontend_origin}/dashboard" if frontend_origin else ""
     detail_rows = "".join(
         "<tr>"

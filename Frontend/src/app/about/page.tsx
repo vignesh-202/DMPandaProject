@@ -1,6 +1,21 @@
 import React from 'react';
 
+import { useSEO } from '../../hooks/useSEO';
+
 const AboutPage: React.FC = () => {
+  useSEO({
+    title: 'About Us | DM Panda - Our Story & Mission',
+    description: 'Learn how DM Panda helps creators, brands, and businesses scale their Instagram engagement with secure, compliant direct message automation.',
+    keywords: 'about dm panda, instagram automation company, instagram marketing tool team',
+    schema: {
+      '@context': 'https://schema.org',
+      '@type': 'AboutPage',
+      'name': 'About DM Panda',
+      'description': 'Your partner in automating Instagram direct messages efficiently and effectively.',
+      'url': 'https://dmpanda.com/about'
+    }
+  });
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-16 sm:pb-24 max-w-5xl">

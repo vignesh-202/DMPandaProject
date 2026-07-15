@@ -7,18 +7,28 @@ const AccountBarrier: React.FC = () => {
   const { activeAccount, setCurrentView } = useDashboard();
 
   const isAdminDisabled = activeAccount?.admin_status === 'inactive' || activeAccount?.disabled_by_admin === true;
-  const isUserInactive = activeAccount?.status === 'inactive' || activeAccount?.disabled_by_user === true;
+  const isTokenExpired = activeAccount?.token_expires_at
+    ? new Date(activeAccount.token_expires_at).getTime() <= Date.now()
+    : false;
+  const isReconnectRequired = activeAccount?.status === 'reconnect_required' ||
+    activeAccount?.access_reason === 'reconnect_required' ||
+    isTokenExpired;
+  const isUserInactive = !isReconnectRequired && (activeAccount?.status === 'inactive' || activeAccount?.disabled_by_user === true);
   const isInactive = activeAccount && (isAdminDisabled || isUserInactive);
   const isPlanLocked = activeAccount && activeAccount.plan_locked === true;
   const isAutomationLocked = activeAccount && activeAccount.effective_access === false;
-  const title = isInactive
+  const title = isReconnectRequired
+    ? 'Reconnect Instagram To Resume Automation'
+    : isInactive
     ? 'Automation Paused For This Account'
     : isPlanLocked
       ? 'Plan Limit Reached'
       : isAutomationLocked
         ? 'Automation Access Restricted'
         : 'No Instagram Account Linked';
-  const description = isInactive
+  const description = isReconnectRequired
+    ? `@${activeAccount.username} needs to be linked again before DM Panda can continue automations. We paused automation immediately when Instagram access could no longer be refreshed. Open settings and reconnect this same account to resume.`
+    : isInactive
     ? (isAdminDisabled
       ? `@${activeAccount.username} is still linked, but an admin has disabled this account. Automation is paused until support or an admin reactivates it. You can still review the account in settings and analytics.`
       : isUserInactive
@@ -39,7 +49,7 @@ const AccountBarrier: React.FC = () => {
             <Instagram className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground" />
           </div>
         </div>
-        <div className="absolute -bottom-2 -right-2 w-10 h-10 sm:w-12 sm:h-12 bg-destructive rounded-xl flex items-center justify-center border-4 border-background shadow-lg shadow-destructive/30">
+        <div className={`absolute -bottom-2 -right-2 w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center border-4 border-background shadow-lg ${isReconnectRequired ? 'bg-red-600 shadow-red-600/30' : 'bg-destructive shadow-destructive/30'}`}>
           <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-destructive-foreground" />
         </div>
       </div>
@@ -57,13 +67,18 @@ const AccountBarrier: React.FC = () => {
       {/* Action Button */}
       <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
         <Button
-          onClick={() => setCurrentView('Account Settings')}
+          onClick={() => {
+            setCurrentView('Account Settings');
+            if (isReconnectRequired) {
+              window.location.hash = '#instagram-accounts-section';
+            }
+          }}
           size="lg"
           className="flex-1"
           leftIcon={(isInactive || isPlanLocked || isAutomationLocked) ? <Settings className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           rightIcon={<ChevronRight className="w-4 h-4" />}
         >
-          {(isInactive || isPlanLocked || isAutomationLocked) ? 'Go to Settings' : 'Link Account'}
+          {(isReconnectRequired || isInactive || isPlanLocked || isAutomationLocked) ? 'Go to Settings' : 'Link Account'}
         </Button>
       </div>
 

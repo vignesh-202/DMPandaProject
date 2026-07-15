@@ -1,6 +1,26 @@
 import React from 'react';
 
+import { useSEO } from '../../hooks/useSEO';
+
 const ContactPage: React.FC = () => {
+  useSEO({
+    title: 'Contact Support | DM Panda',
+    description: 'Get in touch with the DM Panda support team. Contact us for account configuration, billing queries, Instagram connection troubleshooting, or developer assistance.',
+    keywords: 'contact dm panda, support dm panda, instagram automation help, contact email dm panda',
+    schema: {
+      '@context': 'https://schema.org',
+      '@type': 'ContactPage',
+      'name': 'Contact Support | DM Panda',
+      'description': 'Email DM Panda support for billing, account linking, or automation help.',
+      'url': 'https://dmpanda.com/contact',
+      'mainEntity': {
+        '@type': 'ContactPoint',
+        'email': 'support@dmpanda.com',
+        'contactType': 'customer support'
+      }
+    }
+  });
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans flex items-center justify-center p-4 transition-colors duration-500">
       <div className="container mx-auto max-w-4xl pt-24 sm:pt-28 pb-12">

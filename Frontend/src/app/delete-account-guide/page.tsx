@@ -4,7 +4,22 @@ import { Button } from '../../components/ui/button';
 import Card from '../../components/ui/card';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 
+import { useSEO } from '../../hooks/useSEO';
+
 const DeleteAccountGuidePage = () => {
+    useSEO({
+        title: 'Delete Account Guide | DM Panda',
+        description: 'Learn how to delete your DM Panda account. Please note that account deletion is permanent and deletes all your Instagram campaigns and settings.',
+        keywords: 'delete account dm panda, dm panda account deletion, remove instagram bot account',
+        schema: {
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            'name': 'Delete Account Guide | DM Panda',
+            'description': 'Guide explaining the steps to permanently delete your DM Panda account.',
+            'url': 'https://dmpanda.com/delete-account-guide'
+        }
+    });
+
     return (
         <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 flex flex-col items-center justify-center p-4 transition-colors duration-500">
             <Card className="max-w-md w-full p-6 sm:p-8 space-y-5 sm:space-y-6 bg-white dark:bg-white/[0.04] shadow-xl border border-gray-200 dark:border-white/[0.06] rounded-2xl">

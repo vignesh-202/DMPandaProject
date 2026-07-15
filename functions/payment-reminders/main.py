@@ -14,6 +14,8 @@ from email_template import render_email_html
 
 PAGE_SIZE = 100
 STALE_AFTER_HOURS = 24
+SYSTEM_CONFIG_COLLECTION_ID = "system_config"
+FRONTEND_RUNTIME_ORIGIN_DOC_ID = "frontend_runtime_origin"
 def _env(key: str, default: str = "") -> str:
     runtime_key = {
         "APPWRITE_ENDPOINT": "APPWRITE_FUNCTION_API_ENDPOINT",
@@ -63,6 +65,22 @@ def _to_iso(value):
 def _call_appwrite(client: Client, method: str, path: str, params=None):
     headers = {"content-type": "application/json"}
     return client.call(method, path=path, headers=headers, params=params or {}, response_type="json")
+
+
+def _resolve_frontend_origin(client: Client = None, db_id: str = "") -> str:
+    if client and db_id:
+        try:
+            document = _call_appwrite(
+                client,
+                "get",
+                f"/databases/{db_id}/collections/{SYSTEM_CONFIG_COLLECTION_ID}/documents/{FRONTEND_RUNTIME_ORIGIN_DOC_ID}",
+            )
+            runtime_origin = str(_obj_get(document, "updated_by", "") or "").rstrip("/")
+            if runtime_origin.startswith(("http://", "https://")):
+                return runtime_origin
+        except Exception:
+            pass
+    return str(_env("FRONTEND_ORIGIN") or "").rstrip("/")
 
 
 def _is_duplicate_conflict(error: Exception) -> bool:
@@ -340,7 +358,7 @@ def _send_payment_reminder(client, attempt):
     attempt_id = str(_obj_get(attempt, "$id", "") or "").strip()
     plan_name = str(_obj_get(attempt, "plan_name") or "DM Panda Plan").strip()
     billing_cycle = str(_obj_get(attempt, "billing_cycle") or "monthly").strip()
-    frontend_origin = str(_env("FRONTEND_ORIGIN") or "").rstrip("/")
+    frontend_origin = _resolve_frontend_origin(client, db_id)
     pricing_url = f"{frontend_origin}/pricing" if frontend_origin else ""
     dashboard_url = f"{frontend_origin}/dashboard" if frontend_origin else ""
     subject = "Complete your DM Panda subscription checkout"

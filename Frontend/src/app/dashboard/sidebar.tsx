@@ -55,6 +55,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
   const automationLockedBySelectedAccount = Boolean(
     activeAccount && (activeAccount.status !== 'active' || activeAccount.effective_access === false)
   );
+  const selectedAccountNeedsReconnect = activeAccount?.status === 'reconnect_required' || activeAccount?.access_reason === 'reconnect_required';
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -158,6 +159,23 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
     }
 
     if (lockedByPlan || lockedByAutomationAccess || (automationFeatures.includes(viewName) && !hasAutomationAccountAccess)) {
+      if (selectedAccountNeedsReconnect && automationFeatures.includes(viewName)) {
+        setModalConfig({
+          isOpen: true,
+          title: 'Reconnect Instagram Required',
+          description: `@${activeAccount?.username || 'This account'} needs to be linked again before automations can continue. Open account settings to reconnect this same Instagram account.`,
+          type: 'warning',
+          confirmLabel: 'Go to Settings',
+          oneButton: false,
+          secondaryLabel: 'Cancel',
+          onConfirm: () => {
+            closeModal();
+            setCurrentView('Account Settings');
+            onItemClick?.();
+          }
+        });
+        return;
+      }
       setCurrentView(viewName);
       onItemClick?.();
       return;
@@ -334,19 +352,21 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                 Switch Account
               </div>
 
-              {/* Account List */}
+              {/* Account List - scrollable, shows ~3 accounts */}
               {igAccounts && igAccounts.length > 0 ? (
-                <div className="max-h-[56vh] sm:max-h-[62vh] overflow-y-auto custom-scrollbar space-y-0.5 px-1 pr-0.5">
+                <div className="max-h-[190px] overflow-y-auto custom-scrollbar space-y-0.5 px-1 pr-0.5">
                   {igAccounts.map((account) => {
                     const accountKey = account.ig_user_id || account.id;
                     const isSelected = activeAccountID === accountKey;
+                    const isReconnectRequired = account.status === 'reconnect_required' || account.access_reason === 'reconnect_required';
                     const isInactive = account.status !== 'active' || account.effective_access === false;
                     const isPlanLocked = account.plan_locked === true;
                     const isAdminDisabled = account.admin_status === 'inactive' || account.disabled_by_admin === true;
-                    const isUserInactive = account.status === 'inactive' || account.disabled_by_user === true;
+                    const isUserInactive = !isReconnectRequired && (account.status === 'inactive' || account.disabled_by_user === true);
 
                     let accountSubtitle = 'Connected';
-                    if (isAdminDisabled) accountSubtitle = 'Admin Disabled';
+                    if (isReconnectRequired) accountSubtitle = 'Reconnect Required';
+                    else if (isAdminDisabled) accountSubtitle = 'Admin Disabled';
                     else if (isUserInactive) accountSubtitle = 'Inactive';
                     else if (account.status !== 'active') accountSubtitle = 'Inactive';
                     else if (isPlanLocked) accountSubtitle = 'Plan Locked';
@@ -364,7 +384,8 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                           isSelected
                             ? "bg-primary/10"
                             : "hover:bg-muted",
-                          isInactive && "opacity-60"
+                          isInactive && "opacity-60",
+                          isReconnectRequired && "bg-red-500/5"
                         )}
                       >
                         {/* Profile Picture with Instagram ring */}
@@ -383,7 +404,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                           </div>
                           <div className={cn(
                             "absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card",
-                            account.status === 'active' ? "bg-success" : "bg-muted-foreground/40"
+                              isReconnectRequired ? "bg-red-500" : (account.status === 'active' ? "bg-success" : "bg-muted-foreground/40")
                           )} />
                         </div>
 
@@ -405,7 +426,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                             </div>
                             <p className={cn(
                               "text-2xs font-medium uppercase tracking-wide",
-                              account.status === 'active' && account.effective_access !== false ? "text-success" : "text-muted-foreground"
+                              isReconnectRequired ? "text-red-500" : (account.status === 'active' && account.effective_access !== false ? "text-success" : "text-muted-foreground")
                             )}>
                               {accountSubtitle}
                             </p>

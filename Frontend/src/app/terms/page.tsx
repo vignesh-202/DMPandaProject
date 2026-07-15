@@ -1,6 +1,21 @@
 import React from 'react';
 
+import { useSEO } from '../../hooks/useSEO';
+
 const TermsPage: React.FC = () => {
+  useSEO({
+    title: 'Terms & Conditions | DM Panda',
+    description: 'Read the terms and conditions for using DM Panda. Learn about user accounts, subscriptions, licenses, acceptable use, and limitations of liability.',
+    keywords: 'terms and conditions dm panda, user terms dm panda, instagram automation legal terms',
+    schema: {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      'name': 'Terms & Conditions | DM Panda',
+      'description': 'Terms and Conditions outlining rules and regulations for using DM Panda.',
+      'url': 'https://dmpanda.com/terms'
+    }
+  });
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-16 sm:pb-24 max-w-4xl">

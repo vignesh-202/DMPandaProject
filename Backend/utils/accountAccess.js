@@ -6,6 +6,7 @@ const {
 
 const ACCOUNT_ACCESS_CACHE_TTL_MS = 5000;
 const accountAccessCache = new Map();
+const RECONNECT_PERMISSION_MARKER = 'dm_panda_reconnect_required';
 
 const isTransientFetchError = (error) => {
     const message = String(error?.message || '').trim().toLowerCase();
@@ -100,6 +101,12 @@ const normalizeAccountAccess = (account = null) => {
     const normalizedAdminStatus = normalizeLinkedAccountStatus(account?.admin_status, 'active');
     const adminActive = normalizedAdminStatus === 'active';
     const userActive = normalizedStatus === 'active';
+    const storedAccessReason = String(account?.access_reason || '').trim().toLowerCase();
+    const permissionValues = String(account?.permissions || '')
+        .split(',')
+        .map((value) => String(value || '').trim().toLowerCase())
+        .filter(Boolean);
+    const hasReconnectMarker = permissionValues.includes(RECONNECT_PERMISSION_MARKER);
 
     let accessState = 'active';
     let accessReason = '';
@@ -109,9 +116,13 @@ const normalizeAccountAccess = (account = null) => {
         accessState = 'inactive';
         accessReason = 'admin_inactive';
         effectiveAccess = false;
+    } else if (hasReconnectMarker) {
+        accessState = 'inactive';
+        accessReason = 'reconnect_required';
+        effectiveAccess = false;
     } else if (!userActive) {
         accessState = 'inactive';
-        accessReason = 'inactive';
+        accessReason = storedAccessReason || 'inactive';
         effectiveAccess = false;
     } else if (planLocked) {
         accessState = 'plan_locked';

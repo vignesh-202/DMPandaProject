@@ -17,9 +17,9 @@ interface AuthContextProps {
   } | null;
   hasPassword?: boolean;
   hasLinkedInstagram?: boolean;
-  login: () => Promise<boolean>;
+  login: (bustCache?: boolean) => Promise<boolean>;
   logout: () => void;
-  checkAuth: () => Promise<boolean>;
+  checkAuth: (bustCache?: boolean) => Promise<boolean>;
   checkHasPassword: (force?: boolean) => Promise<void>;
   setHasPasswordManually: (value: boolean) => void;
   authenticatedFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -34,7 +34,7 @@ const AuthContext = createContext<AuthContextProps>({
   accessState: null,
   login: async () => false,
   logout: () => { },
-  checkAuth: async () => false,
+  checkAuth: async (_bustCache?: boolean) => false,
   checkHasPassword: async () => { },
   setHasPasswordManually: () => { },
   authenticatedFetch: async () => new Response(),
@@ -48,11 +48,17 @@ const FRONTEND_APP_CONTEXT = 'frontend';
 const shouldAutoCheckAuth = () => {
   if (typeof window === 'undefined') return true;
 
+  // Never auto-check on the OAuth callback path — the AuthCallback component
+  // manages its own login flow after receiving the session cookie.
+  const pathname = window.location.pathname || '/';
+  if (pathname.startsWith('/auth/callback')) {
+    return false;
+  }
+
   if (readAuthHint()) {
     return true;
   }
 
-  const pathname = window.location.pathname || '/';
   return pathname.startsWith('/dashboard');
 };
 
@@ -126,8 +132,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [applyFrontendHeaders]);
 
-  const checkAuth = useCallback(async (): Promise<boolean> => {
-    if (checkAuthPromiseRef.current) {
+  const checkAuth = useCallback(async (bustCache: boolean = false): Promise<boolean> => {
+    // If busting cache, skip deduplication so we always get a fresh request
+    if (!bustCache && checkAuthPromiseRef.current) {
       return checkAuthPromiseRef.current;
     }
 
@@ -138,7 +145,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
-      const apiUrl = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/me`;
+      const cacheBuster = bustCache ? `?t=${Date.now()}` : '';
+      const apiUrl = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/me${cacheBuster}`;
 
       const response = await fetch(apiUrl, {
         credentials: 'include',
@@ -221,8 +229,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return checkAuthPromiseRef.current;
   }, [applyFrontendHeaders, checkHasPassword, isAuthenticated]);
 
-  const login = useCallback(async () => {
-    return checkAuth();
+  const login = useCallback(async (bustCache: boolean = false) => {
+    return checkAuth(bustCache);
   }, [checkAuth]);
 
   const logout = useCallback(() => {

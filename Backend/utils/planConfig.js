@@ -610,11 +610,12 @@ const parseAdminOverride = (profile = null) => {
     };
 };
 
-const hasActiveAdminOverride = (override = null) => {
+const hasActiveAdminOverride = (override = null, now = Date.now()) => {
     if (!override?.expires_at) return false;
     const parsed = new Date(override.expires_at);
     if (Number.isNaN(parsed.getTime())) return false;
-    return parsed.getTime() > Date.now();
+    const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
+    return parsed.getTime() > nowMs;
 };
 
 const buildAdminOverridePayload = ({
@@ -771,7 +772,7 @@ const resolveEntitlementReplacementDecision = ({
         clearAdminOverride: false
     } : null;
     const override = parseAdminOverride(profile);
-    if (override && hasActiveAdminOverride(override)) {
+    if (override && hasActiveAdminOverride(override, now)) {
         return {
             plan: findPlanByIdentifier(plans, override.plan_id) || freePlan,
             planId: override.plan_id,
@@ -812,7 +813,7 @@ const resolveEntitlementReplacementDecision = ({
     }
     const runtimeIdentity = getRuntimePlanIdentity(profile);
     const runtimePlanId = runtimeIdentity.plan_code || 'free';
-    const runtimeExpired = isExpiredSubscription(runtimePlanId, runtimeIdentity.expiry_date);
+    const runtimeExpired = isExpiredSubscription(runtimePlanId, runtimeIdentity.expiry_date, now);
     const runtimePlan = findPlanByIdentifier(plans, runtimePlanId) || null;
     const runtimeSource = inferPlanSource(profile);
     const runtimeExpiryMs = runtimeIdentity.expiry_date ? new Date(runtimeIdentity.expiry_date).getTime() : NaN;
@@ -915,12 +916,13 @@ const getUserSelfMemory = async (databases, userId, _userFallback = null, pricin
     };
 };
 
-const isExpiredSubscription = (planId, expiresAt) => {
+const isExpiredSubscription = (planId, expiresAt, now = Date.now()) => {
     if (normalizePlanCode(planId) === 'free') return false;
     if (!expiresAt) return false;
     const parsed = new Date(expiresAt);
     if (Number.isNaN(parsed.getTime())) return false;
-    return parsed.getTime() < Date.now();
+    const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
+    return parsed.getTime() < nowMs;
 };
 
 const parseProfileConfig = (profile = null) => {

@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server.js",
+    "serve": "npm run build && node server.js"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.1.0",
@@ -15,6 +17,7 @@
     "@fortawesome/react-fontawesome": "^3.1.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "express": "^4.22.2",
     "lucide-react": "^0.303.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

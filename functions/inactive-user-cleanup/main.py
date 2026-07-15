@@ -18,6 +18,8 @@ PAGE_SIZE = 100
 MAX_RETRIES = 3
 DEFAULT_BATCH_SIZE = 50
 DEFAULT_FREE_PLAN = "free"
+SYSTEM_CONFIG_COLLECTION_ID = "system_config"
+FRONTEND_RUNTIME_ORIGIN_DOC_ID = "frontend_runtime_origin"
 
 def _env(key: str, default: str = "") -> str:
     runtime_key = {
@@ -88,6 +90,22 @@ def _call_appwrite(client: Client, method: str, path: str, params=None):
                 raise
             time.sleep(0.25 * (attempt + 1))
     raise last_error
+
+
+def _resolve_frontend_origin(client: Client = None, db_id: str = "") -> str:
+    if client and db_id:
+        try:
+            document = _call_appwrite(
+                client,
+                "get",
+                f"/databases/{db_id}/collections/{SYSTEM_CONFIG_COLLECTION_ID}/documents/{FRONTEND_RUNTIME_ORIGIN_DOC_ID}",
+            )
+            runtime_origin = str(_obj_get(document, "updated_by", "") or "").rstrip("/")
+            if runtime_origin.startswith(("http://", "https://")):
+                return runtime_origin
+        except Exception:
+            pass
+    return str(_env("FRONTEND_ORIGIN") or "").rstrip("/")
 
 
 def _list_all(client: Client, db_id: str, collection_id: str, queries=None, page_size: int = PAGE_SIZE):
@@ -797,7 +815,7 @@ def main(context):
             or _env("INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID")
             or "inactive_user_cleanup_audit"
         )
-        frontend_origin = _env("FRONTEND_ORIGIN")
+        frontend_origin = _resolve_frontend_origin(client, db_id)
         protected_emails = _parse_csv_set(_env("INACTIVE_CLEANUP_PROTECTED_EMAILS"))
         protected_domains = _parse_csv_set(_env("INACTIVE_CLEANUP_PROTECTED_EMAIL_DOMAINS"))
 

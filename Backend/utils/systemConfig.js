@@ -4,6 +4,7 @@ const {
 } = require('./appwrite');
 
 const WATERMARK_POLICY_CONFIG_KEY = 'watermark_policy';
+const FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY = 'frontend_runtime_origin';
 const SYSTEM_CONFIG_CACHE_TTL_MS = 30000;
 const VALID_WATERMARK_TYPES = new Set(['text']);
 const VALID_WATERMARK_POSITIONS = new Set(['secondary_message', 'inline_when_possible']);
@@ -87,6 +88,92 @@ const readWatermarkPolicy = async (databases) => {
     }
 };
 
+const normalizeRuntimeOrigin = (value) => {
+    const raw = String(value || '').trim().replace(/\/+$/, '');
+    if (!raw) return '';
+    try {
+        const parsed = new URL(raw);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return '';
+        return `${parsed.protocol}//${parsed.host}`;
+    } catch {
+        return '';
+    }
+};
+
+const readRuntimeFrontendOrigin = async (databases) => {
+    const cached = readCache(FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY);
+    if (cached?.origin) return normalizeRuntimeOrigin(cached.origin);
+
+    try {
+        const document = await databases.getDocument(
+            APPWRITE_DATABASE_ID,
+            SYSTEM_CONFIG_COLLECTION_ID,
+            FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY
+        );
+        const origin = normalizeRuntimeOrigin(document?.updated_by || '');
+        if (!origin) return '';
+        writeCache(FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY, { origin });
+        return origin;
+    } catch {
+        return '';
+    }
+};
+
+const saveRuntimeFrontendOrigin = async (databases, origin) => {
+    const normalizedOrigin = normalizeRuntimeOrigin(origin);
+    if (!normalizedOrigin) return '';
+
+    const existingOrigin = await readRuntimeFrontendOrigin(databases);
+    if (existingOrigin === normalizedOrigin) {
+        return normalizedOrigin;
+    }
+
+    const payload = {
+        key: FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY,
+        enabled: true,
+        type: 'origin',
+        position: 'frontend_runtime',
+        updated_by: normalizedOrigin,
+        updated_at: new Date().toISOString()
+    };
+
+    try {
+        await databases.updateDocument(
+            APPWRITE_DATABASE_ID,
+            SYSTEM_CONFIG_COLLECTION_ID,
+            FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY,
+            payload
+        );
+    } catch (error) {
+        const code = Number(error?.code || error?.response?.code || 0);
+        if (code !== 404) throw error;
+        try {
+            await databases.createDocument(
+                APPWRITE_DATABASE_ID,
+                SYSTEM_CONFIG_COLLECTION_ID,
+                FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY,
+                payload
+            );
+        } catch (createError) {
+            const createCode = Number(createError?.code || createError?.response?.code || 0);
+            if (createCode === 409 || String(createError?.message).toLowerCase().includes('already exists')) {
+                // If it was created by a concurrent request, try updating it
+                await databases.updateDocument(
+                    APPWRITE_DATABASE_ID,
+                    SYSTEM_CONFIG_COLLECTION_ID,
+                    FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY,
+                    payload
+                ).catch(() => {});
+            } else {
+                throw createError;
+            }
+        }
+    }
+
+    writeCache(FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY, { origin: normalizedOrigin });
+    return normalizedOrigin;
+};
+
 const saveWatermarkPolicy = async (databases, policy) => {
     const nextPolicy = sanitizeWatermarkPolicy({
         ...policy,
@@ -126,9 +213,13 @@ const saveWatermarkPolicy = async (databases, policy) => {
 
 module.exports = {
     DEFAULT_WATERMARK_POLICY,
+    FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY,
     VALID_WATERMARK_TYPES,
     VALID_WATERMARK_POSITIONS,
     WATERMARK_POLICY_CONFIG_KEY,
+    normalizeRuntimeOrigin,
+    readRuntimeFrontendOrigin,
+    saveRuntimeFrontendOrigin,
     sanitizeWatermarkPolicy,
     readWatermarkPolicy,
     saveWatermarkPolicy

@@ -49,7 +49,8 @@
     "entrypoint": "main.py",
     "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
     "timeout": 900,
-    "schedule": "0 0 1 * *"
+    "schedule": "0 0 1 * *",
+    "scopes": ["documents.read", "documents.write", "messages.write"]
   },
   {
     "functionId": "sync-instagram-account-profiles",
@@ -124,5 +125,16 @@
     "timeout": 900,
     "schedule": "0 2 * * *",
     "scopes": ["documents.read", "documents.write", "users.read", "users.write", "messages.write"]
+  },
+  {
+    "functionId": "cleanup-email-tokens",
+    "name": "cleanup-email-tokens",
+    "runtime": "python-3.9",
+    "path": "cleanup-email-tokens",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
+    "timeout": 900,
+    "schedule": "*/15 * * * *",
+    "scopes": ["documents.read", "documents.write"]
   }
 ]

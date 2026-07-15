@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
@@ -8,9 +8,13 @@ const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const processedRef = useRef(false);
 
   useEffect(() => {
     const handleAuth = async () => {
+      if (processedRef.current) return;
+      processedRef.current = true;
+
       const params = new URLSearchParams(location.search);
       const userId = params.get('userId');
       const secret = params.get('secret');
@@ -41,7 +45,7 @@ const AuthCallback: React.FC = () => {
               return;
             }
 
-            const sessionReady = await login();
+            const sessionReady = await login(true);
             if (!sessionReady) {
               throw new Error('Google sign-in completed, but the session was not established. Please try again.');
             }

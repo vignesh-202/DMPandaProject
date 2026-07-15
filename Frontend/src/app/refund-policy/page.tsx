@@ -1,6 +1,21 @@
 import React from 'react';
 
+import { useSEO } from '../../hooks/useSEO';
+
 const RefundPolicyPage: React.FC = () => {
+  useSEO({
+    title: 'Refund Policy | DM Panda',
+    description: 'Read the refund policy of DM Panda. Learn about our terms for subscription refunds, service-side issues, and wrongful payment claim timelines.',
+    keywords: 'refund policy dm panda, dm panda refund, instagram automation subscription refund',
+    schema: {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      'name': 'Refund Policy | DM Panda',
+      'description': 'Refund Policy of DM Panda regarding subscriptions and transaction issues.',
+      'url': 'https://dmpanda.com/refund-policy'
+    }
+  });
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-16 sm:pb-24 max-w-4xl">

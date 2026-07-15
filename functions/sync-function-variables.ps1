@@ -119,6 +119,11 @@ $functionVariables = @{
         @{ key = "EXPIRY_REMINDER_LEAD_DAYS"; value = (Get-EnvValue -Key "EXPIRY_REMINDER_LEAD_DAYS" -Default "3"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
     )
+    "refresh-instagram-tokens" = @(
+        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
+        @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false; optional = $true }
+    )
     "sync-instagram-account-profiles" = @(
         @{ key = "FUNCTION_APPWRITE_ENDPOINT"; value = $appwriteEndpoint; secret = $false }
         @{ key = "FUNCTION_APPWRITE_PROJECT_ID"; value = $appwriteProjectId; secret = $false }
@@ -143,6 +148,10 @@ $functionVariables = @{
         @{ key = "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID" -Default (Get-EnvValue -Key "INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID" -Default "inactive_user_cleanup_audit")); secret = $false }
         @{ key = "INACTIVE_CLEANUP_AUDIT_RETENTION_DAYS"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_AUDIT_RETENTION_DAYS" -Default "90"); secret = $false }
         @{ key = "JOB_LOCKS_RETENTION_HOURS"; value = (Get-EnvValue -Key "JOB_LOCKS_RETENTION_HOURS" -Default "24"); secret = $false }
+    )
+    "cleanup-email-tokens" = @(
+        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        @{ key = "EMAIL_CHANGE_TOKENS_COLLECTION_ID"; value = (Get-EnvValue -Key "EMAIL_CHANGE_TOKENS_COLLECTION_ID" -Default "email_change_tokens"); secret = $false }
     )
 }
 

@@ -352,7 +352,10 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         )}
       >
         {/* Sidebar Header */}
-        <div className="border-b border-sidebar-border px-4 sm:px-6 py-3.5">
+        <div className={cn(
+          "border-b border-sidebar-border py-3.5 flex items-center justify-center h-[73px] transition-all duration-200",
+          isSidebarOpen ? "px-4 sm:px-6" : "px-0"
+        )}>
           {isSidebarOpen ? (
             <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full">
               <div aria-hidden />
@@ -363,20 +366,19 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               </Link>
               <button
                 onClick={toggleSidebar}
-                className="absolute top-2 right-2 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+                className="absolute top-4 right-2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
           ) : (
-            <div className="flex justify-center">
-              <button
-                onClick={toggleSidebar}
-                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
-              >
-                <Menu size={18} />
-              </button>
-            </div>
+            <button
+              onClick={toggleSidebar}
+              className="h-11 w-11 rounded-xl text-muted-foreground hover:text-foreground hover:bg-sidebar-accent hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center border border-border/50 shadow-sm"
+              title="Expand Sidebar"
+            >
+              <Menu size={22} />
+            </button>
           )}
         </div>
 

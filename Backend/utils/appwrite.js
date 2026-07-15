@@ -57,6 +57,7 @@ module.exports = {
     CHAT_STATES_COLLECTION_ID: 'chat_states',
     KEYWORDS_COLLECTION_ID: 'keywords',
     KEYWORD_INDEX_COLLECTION_ID: 'keyword_index',
+    EMAIL_CHANGE_TOKENS_COLLECTION_ID: 'email_change_tokens',
     // Function IDs
     FUNCTION_REMOVE_INSTAGRAM: process.env.FUNCTION_REMOVE_INSTAGRAM,
     FUNCTION_INACTIVE_USER_CLEANUP: process.env.FUNCTION_INACTIVE_USER_CLEANUP

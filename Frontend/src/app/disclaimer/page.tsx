@@ -1,6 +1,21 @@
 import React from 'react';
 
+import { useSEO } from '../../hooks/useSEO';
+
 const DisclaimerPage: React.FC = () => {
+  useSEO({
+    title: 'Disclaimer | DM Panda',
+    description: 'Read the legal disclaimer for DM Panda. Understand terms of service compliance, Instagram limitations, and liability policies for social media automation.',
+    keywords: 'disclaimer dm panda, legal disclaimer dm panda, instagram automation liability',
+    schema: {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      'name': 'Disclaimer | DM Panda',
+      'description': 'Legal disclaimer regarding using DM Panda and third-party platform integrations.',
+      'url': 'https://dmpanda.com/disclaimer'
+    }
+  });
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-16 sm:pb-24 max-w-4xl">

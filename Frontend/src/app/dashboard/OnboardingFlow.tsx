@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Check, X, Eye, EyeOff, Instagram, CheckCircle, Mail, Lock, RefreshCw, LogOut, Trash2, Pencil } from 'lucide-react';
+import { Check, X, Eye, EyeOff, Instagram, CheckCircle, Mail, Lock, RefreshCw, LogOut, Trash2, Pencil, Loader2 } from 'lucide-react';
 import PasswordStrengthIndicator from '../../components/ui/PasswordStrength';
 
 // Modern spinning loader component
@@ -48,6 +48,7 @@ const OnboardingFlow: React.FC = () => {
     // Loading states
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isVerifyingInstagram, setIsVerifyingInstagram] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Form states
     const [password, setPassword] = useState('');
@@ -185,6 +186,38 @@ const OnboardingFlow: React.FC = () => {
             setError(err.message);
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleRefreshStatus = async () => {
+        setIsRefreshing(true);
+        setError(null);
+        setSuccessMessage(null);
+        try {
+            const response = await fetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/me?t=${Date.now()}`, {
+                credentials: 'include',
+                headers: {
+                    'X-App-Context': 'frontend'
+                }
+            });
+            if (response.ok) {
+                const userData = await response.json();
+                if (userData.emailVerification === true) {
+                    setSuccessMessage('Status updated! Redirecting...');
+                    await login();
+                    setTimeout(() => {
+                        navigate('/dashboard');
+                    }, 1500);
+                } else {
+                    setError('Verification status is still unverified. Please check your inbox and verify your email first.');
+                }
+            } else {
+                setError('Failed to check verification status. Please try again.');
+            }
+        } catch (err: any) {
+            setError(err.message || 'Failed to refresh status.');
+        } finally {
+            setIsRefreshing(false);
         }
     };
 
@@ -327,81 +360,118 @@ const OnboardingFlow: React.FC = () => {
         </div>
     );
 
-    const renderVerificationStep = () => (
-        <div className="animate-[fadeIn_0.3s_ease-out]">
-            <div className="text-center mb-4 sm:mb-6">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center transition-transform hover:scale-105">
-                    <Mail className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">Verify Your Email</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                    We sent a verification link to:
-                </p>
-                <p className="font-semibold text-gray-900 dark:text-white mt-1 text-sm sm:text-base break-all">{user?.email}</p>
-            </div>
+    const renderVerificationStep = () => {
+        if (showEmailChange) {
+            return (
+                <div className="animate-[fadeIn_0.3s_ease-out] space-y-4 text-left">
+                    <div className="text-center mb-6">
+                        <div className="w-14 h-14 mx-auto mb-3 bg-blue-100 dark:bg-blue-950/50 rounded-full flex items-center justify-center">
+                            <Pencil className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Change Email Address</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Current: <span className="font-medium text-gray-700 dark:text-gray-300 break-all">{user?.email}</span>
+                        </p>
+                    </div>
 
-            {!showEmailChange ? (
-                <div className="space-y-3 sm:space-y-4">
+                    <form onSubmit={handleEmailChange} className="space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                New Email Address
+                            </label>
+                            <Input
+                                type="email"
+                                placeholder="name@example.com"
+                                value={newEmail}
+                                onChange={(e) => setNewEmail(e.target.value)}
+                                required
+                                className="w-full text-black dark:text-white text-sm border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <Button
+                                type="button"
+                                onClick={() => {
+                                    setShowEmailChange(false);
+                                    setNewEmail('');
+                                    setError(null);
+                                }}
+                                variant="outline"
+                                className="flex-1 text-sm border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                disabled={isSubmitting}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                className="flex-1 bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 transition-colors text-sm font-semibold"
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting ? <ModernLoader size="sm" /> : 'Update Email'}
+                            </Button>
+                        </div>
+                    </form>
+                    <p className="text-xs text-center text-gray-500 dark:text-gray-400 leading-relaxed">
+                        A new verification link will be sent to the updated address.
+                    </p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="animate-[fadeIn_0.3s_ease-out] space-y-6">
+                <div className="text-center">
+                    <div className="relative w-20 h-20 mx-auto mb-4 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-25 animate-ping"></span>
+                        <Mail className="w-9 h-9 text-white relative z-10" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Verify Your Email</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                        We sent a verification link to:
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 max-w-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse flex-shrink-0"></span>
+                        <span className="text-sm font-semibold text-blue-700 dark:text-blue-300 truncate max-w-[240px] sm:max-w-[300px]">
+                            {user?.email}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
                     <Button
                         onClick={handleResendVerification}
-                        className="w-full bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 transition-all duration-300 transform hover:scale-[1.02] text-sm sm:text-base py-2 sm:py-3"
+                        className="w-full bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 transition-all duration-300 transform hover:scale-[1.01] text-sm sm:text-base py-3 font-semibold shadow-md"
                         disabled={isSubmitting}
                     >
                         {isSubmitting ? (
-                            <ModernLoader size="sm" />
+                            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                         ) : (
-                            <>
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                                Resend Verification Email
-                            </>
+                            <span className="flex items-center justify-center gap-2">
+                                <RefreshCw className="h-4 w-4" />
+                                Resend Verification Link
+                            </span>
                         )}
                     </Button>
 
                     <Button
-                        onClick={() => {
-                            setSuccessMessage(null);
-                            login();
-                        }}
+                        onClick={handleRefreshStatus}
                         variant="outline"
-                        className="w-full bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm py-2"
+                        className="w-full border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm py-3 font-semibold transition-all"
+                        disabled={isRefreshing || isSubmitting}
                     >
-                        <RefreshCw className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                        I've verified → Refresh
+                        {isRefreshing ? (
+                            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                        ) : (
+                            <span className="flex items-center justify-center gap-2">
+                                <RefreshCw className="h-4 w-4" />
+                                I've verified → Refresh Status
+                            </span>
+                        )}
                     </Button>
                 </div>
-            ) : (
-                <form onSubmit={handleEmailChange} className="space-y-3 sm:space-y-4 animate-[fadeIn_0.2s_ease-out]">
-                    <Input
-                        type="email"
-                        placeholder="New email address"
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                        required
-                        className="w-full text-black dark:text-white text-sm sm:text-base"
-                    />
-                    <div className="flex gap-2">
-                        <Button
-                            type="button"
-                            onClick={() => {
-                                setShowEmailChange(false);
-                                setNewEmail('');
-                            }}
-                            className="flex-1 bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors text-sm"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            className="flex-1 bg-black text-white hover:bg-gray-800 transition-colors text-sm"
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? <ModernLoader size="sm" /> : 'Update'}
-                        </Button>
-                    </div>
-                </form>
-            )}
-        </div>
-    );
+            </div>
+        );
+    };
 
     const renderPasswordStep = () => (
         <div className="animate-[fadeIn_0.3s_ease-out]">
@@ -576,24 +646,35 @@ const OnboardingFlow: React.FC = () => {
                                 Delete Account
                             </button>
                         </div>
-                    ) : (
-                        // Verify/Password steps: Change Email + Logout
+                    ) : currentStep === 'verify' ? (
+                        // Verify step: Change Email + Logout
                         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                            <button
-                                onClick={() => setShowEmailChange(true)}
-                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-sm font-medium transition-all duration-200 hover:scale-[1.02]"
-                            >
-                                <Pencil size={16} />
-                                Change Email
-                            </button>
+                            {!showEmailChange && (
+                                <button
+                                    onClick={() => setShowEmailChange(true)}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-sm font-medium transition-all duration-200 hover:scale-[1.02]"
+                                >
+                                    <Pencil size={16} />
+                                    Change Email
+                                </button>
+                            )}
                             <button
                                 onClick={logout}
-                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium transition-all duration-200 hover:scale-[1.02]"
+                                className={`${showEmailChange ? 'w-full' : 'flex-1'} flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium transition-all duration-200 hover:scale-[1.02]`}
                             >
                                 <LogOut size={16} />
                                 Logout
                             </button>
                         </div>
+                    ) : (
+                        // Password step: Logout only
+                        <button
+                            onClick={logout}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium transition-all duration-200 hover:scale-[1.02]"
+                        >
+                            <LogOut size={16} />
+                            Logout
+                        </button>
                     )}
                 </div>
             </div>
@@ -621,7 +702,7 @@ const OnboardingFlow: React.FC = () => {
                                     setDeletePassword(e.target.value);
                                     if (deleteError) setDeleteError(null);
                                 }}
-                                className="w-full text-black dark:text-white text-sm"
+                                className="w-full text-sm border-2 border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-neutral-950 focus:border-destructive focus:ring-2 focus:ring-destructive/20 transition-all"
                                 error={deleteError || undefined}
                             />
 
@@ -671,60 +752,6 @@ const OnboardingFlow: React.FC = () => {
                     </div>
                 </div>,
                 document.body
-            )}
-
-            {/* Global Email Change Modal */}
-            {showEmailChange && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="w-full max-w-sm bg-white dark:bg-gray-900 shadow-2xl rounded-xl p-6 border border-gray-200 dark:border-gray-800 animate-[fadeIn_0.2s_ease-out]">
-                        <div className="text-center mb-4">
-                            <div className="w-12 h-12 mx-auto mb-3 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                                <Pencil className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Change Email</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                Current: <span className="font-medium">{user?.email}</span>
-                            </p>
-                        </div>
-
-                        <form onSubmit={handleEmailChange} className="space-y-3">
-                            <Input
-                                type="email"
-                                placeholder="New email address"
-                                value={newEmail}
-                                onChange={(e) => setNewEmail(e.target.value)}
-                                required
-                                className="w-full text-black dark:text-white text-sm"
-                            />
-
-                            <div className="flex gap-2">
-                                <Button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowEmailChange(false);
-                                        setNewEmail('');
-                                        setError(null);
-                                    }}
-                                    className="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                                    disabled={isSubmitting}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
-                                    disabled={isSubmitting}
-                                >
-                                    {isSubmitting ? <ModernLoader size="sm" /> : 'Update'}
-                                </Button>
-                            </div>
-                        </form>
-
-                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-3">
-                            You'll need to verify the new email address.
-                        </p>
-                    </div>
-                </div>
             )}
         </div>
     );

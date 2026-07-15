@@ -188,7 +188,22 @@ const FeatureSection = ({ feature, index }: { feature: (typeof features)[0], ind
   );
 };
 
+import { useSEO } from '../../hooks/useSEO';
+
 const FeaturesPage: React.FC = () => {
+  useSEO({
+    title: 'Features | DM Panda - Smart Instagram Automation Suite',
+    description: 'Explore DM Panda\'s powerful features: inbox menus, link-in-bio super profiles, automated DM replies, follow-gates, email capture in DMs, post/reel comment auto-replies, and story mentions.',
+    keywords: 'instagram automation features, comment reply bot, story mention auto reply, follow gate instagram dms, link in bio creator',
+    schema: {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      'name': 'Instagram Automation Features | DM Panda',
+      'description': 'Explore DM Panda\'s full suite of Instagram automation features.',
+      'url': 'https://dmpanda.com/features'
+    }
+  });
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-16 sm:pb-24">

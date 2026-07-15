@@ -79,6 +79,26 @@ const loginRequired = async (req, res, next) => {
             return res.status(403).json(payload);
         }
 
+        // Email Verification Enforcement
+        const cleanPath = (req.originalUrl || req.url || '').split('?')[0];
+        const isBypassPath =
+            cleanPath.startsWith('/api/admin') ||
+            cleanPath === '/api/me' ||
+            cleanPath === '/api/account/resend-verification' ||
+            cleanPath === '/api/account/change-unverified-email' ||
+            cleanPath === '/api/account/has-password' ||
+            cleanPath === '/api/account/set-password' ||
+            cleanPath === '/api/account/delete' ||
+            cleanPath === '/api/account/verify-email-change' ||
+            cleanPath === '/logout';
+
+        if (!user.emailVerification && !isBypassPath && !adminOverrideAllowed) {
+            return res.status(403).json({
+                error: 'Email verification required',
+                email_verification_required: true
+            });
+        }
+
         req.user = user;
         req.userDocument = userDocument;
         req.accessState = accessState;

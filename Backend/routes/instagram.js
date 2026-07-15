@@ -54,6 +54,8 @@ const {
 const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID;
 const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET;
 const INSTAGRAM_REDIRECT_URI = process.env.INSTAGRAM_REDIRECT_URL || process.env.INSTAGRAM_REDIRECT_URI;
+const RECONNECT_REQUIRED_REASON = 'reconnect_required';
+const RECONNECT_PERMISSION_MARKER = 'dm_panda_reconnect_required';
 
 // ==============================================================================
 // AUTOMATION VALIDATION + TEMPLATE LINKING
@@ -930,6 +932,88 @@ const fetchInstagramProfileSnapshot = async (accessToken) => {
         }
     });
     return response.data || {};
+};
+
+const buildInstagramRelinkState = (payload = {}) => {
+    const serializedPayload = Buffer.from(JSON.stringify(payload || {}), 'utf8').toString('base64url');
+    const signature = crypto
+        .createHmac('sha256', String(INSTAGRAM_APP_SECRET || ''))
+        .update(serializedPayload)
+        .digest('base64url');
+    return `${serializedPayload}.${signature}`;
+};
+
+const parseInstagramRelinkState = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw || !INSTAGRAM_APP_SECRET || !raw.includes('.')) return {};
+    const [serializedPayload, providedSignature] = raw.split('.', 2);
+    const expectedSignature = crypto
+        .createHmac('sha256', String(INSTAGRAM_APP_SECRET || ''))
+        .update(serializedPayload)
+        .digest('base64url');
+    if (providedSignature !== expectedSignature) return {};
+    try {
+        const parsed = JSON.parse(Buffer.from(serializedPayload, 'base64url').toString('utf8'));
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) {
+        return {};
+    }
+};
+
+const appendReconnectPermissionMarker = (permissions) => {
+    const values = String(permissions || '')
+        .split(',')
+        .map((value) => String(value || '').trim())
+        .filter(Boolean);
+    if (!values.includes(RECONNECT_PERMISSION_MARKER)) {
+        values.push(RECONNECT_PERMISSION_MARKER);
+    }
+    return values.join(',').slice(0, 1024);
+};
+
+const removeReconnectPermissionMarker = (permissions) => {
+    return String(permissions || '')
+        .split(',')
+        .map((value) => String(value || '').trim())
+        .filter((value) => value && value !== RECONNECT_PERMISSION_MARKER)
+        .join(',')
+        .slice(0, 1024);
+};
+
+const hasReconnectPermissionMarker = (permissions) =>
+    String(permissions || '')
+        .split(',')
+        .map((value) => String(value || '').trim())
+        .includes(RECONNECT_PERMISSION_MARKER);
+
+const isInstagramAuthError = (error) => {
+    if (!error) return false;
+    const responseData = error.response?.data;
+    const errObj = responseData?.error || {};
+    const code = Number(errObj.code);
+    const subcode = Number(errObj.error_subcode);
+    const message = String(errObj.message || error.message || '').toLowerCase();
+
+    if (code === 190) return true;
+    if (code === 102 && subcode === 459) return true;
+    if (message.includes('oauth') || message.includes('access token') || message.includes('session has expired') || message.includes('revoked') || message.includes('deauthorized')) {
+        return true;
+    }
+    return false;
+};
+
+const handleInstagramApiError = async (err, databases, account) => {
+    if (isInstagramAuthError(err) && account) {
+        try {
+            await updateIgAccountDocument(databases, account.$id || account.id, {
+                status: 'inactive',
+                permissions: appendReconnectPermissionMarker(account.permissions)
+            });
+            console.log(`[Reconciliation] Automatically flagged account ${account.$id || account.id} (@${account.username}) as reconnect-required due to Meta auth error: ${err.message}`);
+        } catch (e) {
+            console.error(`[Reconciliation] Failed to mark account ${account.$id || account.id} as reconnect-required:`, e.message);
+        }
+    }
 };
 
 const ACCOUNT_INSIGHT_DEFINITIONS = [
@@ -2080,7 +2164,7 @@ router.get('/auth/instagram', (req, res) => {
 
 // Instagram Callback
 router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
-    const { code } = req.body;
+    const { code, state } = req.body;
     const user = req.user;
 
     if (!code) return res.status(400).json({ error: 'Authorization code is required' });
@@ -2089,6 +2173,9 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
     }
 
     try {
+        const parsedState = parseInstagramRelinkState(state);
+        const relinkAccountDocId = String(parsedState?.relink_account_id || '').trim();
+
         // Step 1: Exchange code for short-lived access token
         const formData = new URLSearchParams();
         formData.append('client_id', INSTAGRAM_APP_ID);
@@ -2185,12 +2272,29 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
             IG_ACCOUNTS_COLLECTION_ID,
             [Query.equal('account_id', igProfessionalAccountId)]
         );
+        let relinkTargetAccount = null;
+        if (relinkAccountDocId) {
+            try {
+                relinkTargetAccount = await databases.getDocument(
+                    process.env.APPWRITE_DATABASE_ID,
+                    IG_ACCOUNTS_COLLECTION_ID,
+                    relinkAccountDocId
+                );
+            } catch (_) {
+                relinkTargetAccount = null;
+            }
+            if (!relinkTargetAccount || !isOwnedIgAccount(relinkTargetAccount, user.$id)) {
+                return res.status(404).json({ error: 'Reconnect target account not found.' });
+            }
+        }
 
         if (existingAccounts.total > 0) {
             const existingAccount = existingAccounts.documents[0];
             if (!isOwnedIgAccount(existingAccount, user.$id)) {
                 return res.status(409).json({ error: `This Instagram account (@${igUsername}) is already linked to another user.` });
             } else {
+                const relinkMatchesSameAccount = !relinkTargetAccount
+                    || String(getIgProfessionalAccountId(relinkTargetAccount) || '').trim() === igProfessionalAccountId;
                 // Update
                 await updateIgAccountDocument(databases, existingAccount.$id, {
                         // user_id = app user id (owner)
@@ -2207,7 +2311,7 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                         permissions: permissionsText,
                         status: 'active',
                         admin_status: String(existingAccount?.admin_status || 'active').trim().toLowerCase() || 'active',
-                        linked_at: new Date().toISOString(),
+                        linked_at: existingAccount?.linked_at || new Date().toISOString(),
                         hourly_actions_used: Number(existingAccount?.hourly_actions_used || 0),
                         daily_actions_used: Number(existingAccount?.daily_actions_used || 0),
                         monthly_actions_used: Number(existingAccount?.monthly_actions_used || 0),
@@ -2215,8 +2319,18 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                         daily_window_started_at: existingAccount?.daily_window_started_at || windowStartedAt,
                         monthly_window_started_at: existingAccount?.monthly_window_started_at || windowStartedAt,
                     });
+                if (relinkTargetAccount && !relinkMatchesSameAccount) {
+                    await updateIgAccountDocument(databases, relinkTargetAccount.$id, {
+                        status: 'inactive',
+                        permissions: appendReconnectPermissionMarker(relinkTargetAccount?.permissions)
+                    });
+                }
                 await recomputeAccountAccessForUser(databases, user.$id, profileContext.profile);
-                return res.json({ message: `Instagram account @${igUsername} updated successfully.` });
+                return res.json({
+                    message: relinkMatchesSameAccount
+                        ? `Instagram account @${igUsername} reconnected successfully.`
+                        : `Instagram account @${igUsername} linked successfully. Reconnect the original paused account separately to reactivate it.`
+                });
             }
         } else {
             const connectionLimitError = await enforceInstagramConnectionLimit(
@@ -2254,8 +2368,18 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                 }, [
                     Permission.read(Role.user(user.$id))
                 ]);
+            if (relinkTargetAccount) {
+                await updateIgAccountDocument(databases, relinkTargetAccount.$id, {
+                    status: 'inactive',
+                    permissions: appendReconnectPermissionMarker(relinkTargetAccount?.permissions)
+                });
+            }
             await recomputeAccountAccessForUser(databases, user.$id, profileContext.profile);
-            return res.json({ message: `Instagram account @${igUsername} linked successfully.` });
+            return res.json({
+                message: relinkTargetAccount
+                    ? `Instagram account @${igUsername} linked successfully. Reconnect the original paused account separately to reactivate it.`
+                    : `Instagram account @${igUsername} linked successfully.`
+            });
         }
 
     } catch (err) {
@@ -2322,6 +2446,12 @@ const unlinkIgAccountHandler = async (req, res) => {
         const nextStatus = String(req.body?.status || '').trim().toLowerCase();
         if (!['active', 'inactive'].includes(nextStatus)) {
             return res.status(400).json({ error: 'A valid account status is required.' });
+        }
+        if (nextStatus === 'active' && hasReconnectPermissionMarker(account?.permissions)) {
+            return res.status(409).json({
+                error: 'This Instagram account must be reconnected before automation can be activated again.',
+                reconnect_required: true
+            });
         }
 
         await databases.updateDocument(
@@ -2448,7 +2578,8 @@ router.post('/account/ig-accounts/relink/:accountId', loginRequired, async (req,
             accountId,
             {
                 status: 'active',
-                linked_at: new Date().toISOString()
+                permissions: removeReconnectPermissionMarker(account?.permissions),
+                linked_at: account?.linked_at || new Date().toISOString()
             }
         );
         const profileContext = await resolveUserPlanContext(databases, req.user.$id);
@@ -2464,10 +2595,12 @@ router.post('/account/ig-accounts/relink/:accountId', loginRequired, async (req,
 
 // Get Stats
 router.get('/instagram/stats', loginRequired, async (req, res) => {
+    let account = null;
+    let databases = null;
     try {
         const { account_id } = req.query;
         const serverClient = getAppwriteClient({ useApiKey: true });
-        const databases = new Databases(serverClient);
+        databases = new Databases(serverClient);
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const profileContext = await resolveUserPlanContext(databases, req.user.$id);
         const recomputedAccounts = await recomputeAccountAccessForUser(
@@ -2479,7 +2612,7 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
 
         if (recomputedAccounts.length === 0) return res.status(404).json({ error: 'No Instagram account linked.' });
 
-        const account = account_id
+        account = account_id
             ? recomputedAccounts.find((doc) => matchesIgAccountIdentifier(doc, account_id))
             : recomputedAccounts[0];
         if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
@@ -2584,6 +2717,9 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
 
     } catch (err) {
         console.error(`IG Stats Error: ${err.message}`);
+        if (account) {
+            await handleInstagramApiError(err, databases, account);
+        }
         if (err.response) {
             return res.status(err.response.status).json({ error: 'Failed to fetch Instagram stats.' });
         }
@@ -2592,10 +2728,12 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
 });
 
 router.get('/instagram/insights', loginRequired, async (req, res) => {
+    let account = null;
+    let databases = null;
     try {
         const { account_id, period = 'days_28' } = req.query;
         const serverClient = getAppwriteClient({ useApiKey: true });
-        const databases = new Databases(serverClient);
+        databases = new Databases(serverClient);
         const profileContext = await resolveUserPlanContext(databases, req.user.$id);
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const recomputedAccounts = await recomputeAccountAccessForUser(
@@ -2605,7 +2743,7 @@ router.get('/instagram/insights', loginRequired, async (req, res) => {
             accounts.documents || []
         );
 
-        const account = account_id
+        account = account_id
             ? recomputedAccounts.find((doc) => matchesIgAccountIdentifier(doc, account_id))
             : recomputedAccounts[0];
         if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
@@ -2624,14 +2762,19 @@ router.get('/instagram/insights', loginRequired, async (req, res) => {
         });
     } catch (err) {
         console.error(`IG Insights Error: ${err.message}`);
+        if (account) {
+            await handleInstagramApiError(err, databases, account);
+        }
         return res.status(500).json({ error: 'Failed to fetch Instagram insights.' });
     }
 });
 
 router.get('/instagram/insights-summary', loginRequired, async (req, res) => {
+    let account = null;
+    let databases = null;
     try {
         const serverClient = getAppwriteClient({ useApiKey: true });
-        const databases = new Databases(serverClient);
+        databases = new Databases(serverClient);
         const profileContext = await resolveUserPlanContext(databases, req.user.$id);
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const recomputedAccounts = await recomputeAccountAccessForUser(
@@ -2641,7 +2784,7 @@ router.get('/instagram/insights-summary', loginRequired, async (req, res) => {
             accounts.documents || []
         );
 
-        const account = req.query?.account_id
+        account = req.query?.account_id
             ? recomputedAccounts.find((doc) => matchesIgAccountIdentifier(doc, req.query.account_id))
             : recomputedAccounts[0];
         if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
@@ -2665,6 +2808,9 @@ router.get('/instagram/insights-summary', loginRequired, async (req, res) => {
         });
     } catch (err) {
         console.error(`IG Insights Summary Error: ${err.message}`);
+        if (account) {
+            await handleInstagramApiError(err, databases, account);
+        }
         return res.status(500).json({ error: 'Failed to fetch Instagram insights.' });
     }
 });
@@ -2852,7 +2998,25 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
 // ============================================================================
 router.get('/auth/instagram/url', loginRequired, async (req, res) => {
     const scopes = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights';
-    const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${INSTAGRAM_APP_ID}&redirect_uri=${INSTAGRAM_REDIRECT_URI}&response_type=code&scope=${scopes}`;
+    const relinkAccountId = String(req.query?.relink_account_id || '').trim();
+    let stateSuffix = '';
+
+    if (relinkAccountId) {
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+        const account = await databases.getDocument(
+            process.env.APPWRITE_DATABASE_ID,
+            IG_ACCOUNTS_COLLECTION_ID,
+            relinkAccountId
+        );
+        if (!isOwnedIgAccount(account, req.user.$id)) {
+            return res.status(404).json({ error: 'Reconnect target account not found.' });
+        }
+        const signedState = buildInstagramRelinkState({ relink_account_id: relinkAccountId });
+        stateSuffix = `&state=${encodeURIComponent(signedState)}`;
+    }
+
+    const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${INSTAGRAM_APP_ID}&redirect_uri=${INSTAGRAM_REDIRECT_URI}&response_type=code&scope=${scopes}${stateSuffix}`;
     res.json({ url: authUrl });
 });
 
@@ -3004,30 +3168,35 @@ router.post('/account/ig-accounts/refresh-profiles', loginRequired, async (req, 
 
         const candidates = recomputedAccounts.filter((account) => isLinkedAccountActive(account) && account.access_token);
         const results = await Promise.allSettled(candidates.map(async (account) => {
-            const snapshot = await fetchInstagramProfileSnapshot(account.access_token);
-            const patch = {};
-            if (snapshot.profile_picture_url !== undefined && snapshot.profile_picture_url !== account.profile_picture_url) {
-                patch.profile_picture_url = snapshot.profile_picture_url || '';
-            }
-            if (snapshot.username !== undefined && snapshot.username !== account.username) {
-                patch.username = snapshot.username || '';
-            }
-            if (snapshot.name !== undefined && snapshot.name !== account.name) {
-                patch.name = snapshot.name || '';
-            }
-            const nextAccount = Object.keys(patch).length > 0
-                ? await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, account.$id, patch)
-                : account;
+            try {
+                const snapshot = await fetchInstagramProfileSnapshot(account.access_token);
+                const patch = {};
+                if (snapshot.profile_picture_url !== undefined && snapshot.profile_picture_url !== account.profile_picture_url) {
+                    patch.profile_picture_url = snapshot.profile_picture_url || '';
+                }
+                if (snapshot.username !== undefined && snapshot.username !== account.username) {
+                    patch.username = snapshot.username || '';
+                }
+                if (snapshot.name !== undefined && snapshot.name !== account.name) {
+                    patch.name = snapshot.name || '';
+                }
+                const nextAccount = Object.keys(patch).length > 0
+                    ? await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, account.$id, patch)
+                    : account;
 
-            return {
-                account_id: account.$id,
-                username: snapshot.username || account.username || '',
-                updated: Object.keys(patch).length > 0,
-                account: serializeIgAccount({
-                    ...nextAccount,
-                    ...normalizeAccountAccess(nextAccount)
-                })
-            };
+                return {
+                    account_id: account.$id,
+                    username: snapshot.username || account.username || '',
+                    updated: Object.keys(patch).length > 0,
+                    account: serializeIgAccount({
+                        ...nextAccount,
+                        ...normalizeAccountAccess(nextAccount)
+                    })
+                };
+            } catch (err) {
+                await handleInstagramApiError(err, databases, account);
+                throw err;
+            }
         }));
 
         const refreshedAccounts = await recomputeAccountAccessForUser(databases, req.user.$id, profileContext.profile);
@@ -4514,7 +4683,12 @@ router.get('/instagram/inbox-menu', loginRequired, async (req, res) => {
                 const defaultMenu = persistentMenu.find(m => m.locale === 'default') || persistentMenu[0];
                 igMenu = defaultMenu?.call_to_actions || [];
             }
-        } catch (e) { /* IG menu fetch may fail - not all accounts support it */ }
+        } catch (e) {
+            console.error('Failed to fetch menu from IG:', e.message);
+            if (igAccount) {
+                await handleInstagramApiError(e, databases, igAccount);
+            }
+        }
 
         // Determine status
         const comparableDbMenu = normalizeInboxMenuForComparison(dbMenu);
@@ -4548,13 +4722,81 @@ router.get('/instagram/inbox-menu', loginRequired, async (req, res) => {
 router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
     try {
         const { account_id, menu_items, action } = req.body;
-        if (!account_id) return res.status(400).json({ error: 'account_id is required' });
+        const accountId = account_id || req.query.account_id;
+        if (!accountId) return res.status(400).json({ error: 'account_id is required' });
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
         const menuFeatureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'inbox_menu' });
         if (menuFeatureAccessError) return res.status(403).json(menuFeatureAccessError);
-        const { account: igAccount, normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, account_id);
+        const { account: igAccount, normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, accountId);
+
+        if (action === 'sync') {
+            let dbMenu = [];
+            try {
+                const automationDocs = await listInboxMenuDocuments(databases, {
+                    userId: req.user.$id,
+                    accountIds: [normalizedAccountId, accountId],
+                    limit: 50
+                });
+                const templateMap = await buildReplyTemplateMap(databases, {
+                    userId: req.user.$id,
+                    accountIds: [normalizedAccountId, accountId]
+                });
+                dbMenu = buildInboxMenuFromAutomationDocuments(automationDocs.documents, templateMap);
+            } catch (e) {
+                dbMenu = [];
+            }
+
+            if (dbMenu.length === 0) {
+                try {
+                    const menuDocs = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, INBOX_MENUS_COLLECTION_ID,
+                        [Query.equal('user_id', req.user.$id), Query.equal('account_id', accountId), Query.limit(1)]);
+                    if (menuDocs.total > 0) {
+                        const rawMenu = typeof menuDocs.documents[0].menu_items === 'string'
+                            ? JSON.parse(menuDocs.documents[0].menu_items)
+                            : (menuDocs.documents[0].menu_items || []);
+                        const templateMap = await buildReplyTemplateMap(databases, {
+                            userId: req.user.$id,
+                            accountIds: [normalizedAccountId, accountId]
+                        });
+                        dbMenu = (Array.isArray(rawMenu) ? rawMenu : [])
+                            .map((item) => hydrateInboxMenuItem(item, templateMap))
+                            .filter(Boolean);
+                    }
+                } catch (e) {
+                    dbMenu = [];
+                }
+            }
+
+            if (dbMenu.length > 0 && igAccount) {
+                try {
+                    const igMenuItems = dbMenu.map(m => {
+                        const item = { type: m.type, title: m.title };
+                        if (m.type === 'web_url') {
+                            item.url = m.url;
+                            item.webview_height_ratio = m.webview_height_ratio || 'full';
+                        } else if (m.type === 'postback') {
+                            item.payload = m.payload || m.template_id || '';
+                        }
+                        return item;
+                    });
+                    await axios.post(`https://graph.instagram.com/v24.0/me/messenger_profile`, {
+                        persistent_menu: [{
+                            locale: 'default',
+                            composer_input_disabled: false,
+                            call_to_actions: igMenuItems
+                        }]
+                    }, {
+                        params: { access_token: igAccount.access_token }
+                    });
+                } catch (e) {
+                    console.error('Failed to sync menu to IG:', e.message);
+                    return res.status(500).json({ error: `Instagram persistent menu update failed: ${e.message}` });
+                }
+            }
+            return res.json({ message: 'Menu synced successfully', menu_items: dbMenu });
+        }
 
         // Duplicate title validation (case-insensitive)
         if (Array.isArray(menu_items)) {
@@ -4707,11 +4949,20 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
                         params: { access_token: igAccount.access_token }
                     });
                 }
-            } catch (e) { console.error('Failed to publish menu to IG:', e.message); }
+            } catch (e) {
+                console.error('Failed to publish menu to IG:', e.message);
+                if (igAccount) {
+                    await handleInstagramApiError(e, databases, igAccount);
+                }
+                throw e;
+            }
         }
 
         res.json({ message: 'Menu saved successfully', menu_items: menuItems });
     } catch (err) {
+        if (igAccount) {
+            await handleInstagramApiError(err, databases, igAccount);
+        }
         if (err?.statusCode && err?.payload) {
             return res.status(err.statusCode).json(err.payload);
         }
@@ -4833,7 +5084,12 @@ router.get('/instagram/convo-starters', loginRequired, async (req, res) => {
             if (iceBreakers && Array.isArray(iceBreakers)) {
                 igStarters = iceBreakers;
             }
-        } catch (e) { }
+        } catch (e) {
+            console.error('Failed to fetch convo starters from IG:', e.message);
+            if (igAccount) {
+                await handleInstagramApiError(e, databases, igAccount);
+            }
+        }
 
         const comparableDbStarters = dbStarters.map((starter) => ({
             question: String(starter?.question || '').trim(),
@@ -4869,17 +5125,71 @@ router.get('/instagram/convo-starters', loginRequired, async (req, res) => {
     }
 });
 
-// Save convo starters
 router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
     try {
-        const { account_id, starters, publish } = req.body;
-        if (!account_id) return res.status(400).json({ error: 'account_id is required' });
+        const { account_id, starters, publish, action } = req.body;
+        const accountId = account_id || req.query.account_id;
+        if (!accountId) return res.status(400).json({ error: 'account_id is required' });
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
         const starterFeatureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'convo_starters' });
         if (starterFeatureAccessError) return res.status(403).json(starterFeatureAccessError);
-        const { account: igAccount, normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, account_id);
+        const { account: igAccount, normalizedAccountId } = await ensureAccessibleOwnedIgAccount(databases, req.user.$id, accountId);
+
+        if (action === 'sync') {
+            let dbStarters = [];
+            let savedStarterOrder = [];
+            try {
+                const starterAutomationDocs = await listConvoStarterDocuments(databases, {
+                    userId: req.user.$id,
+                    accountIds: [normalizedAccountId, accountId],
+                    limit: 20
+                });
+                const templateMap = await buildReplyTemplateMap(databases, {
+                    userId: req.user.$id,
+                    accountIds: [normalizedAccountId, accountId]
+                });
+                dbStarters = buildConvoStartersFromAutomationDocuments(starterAutomationDocs.documents, templateMap);
+            } catch (e) {
+                dbStarters = [];
+            }
+
+            if (dbStarters.length === 0) {
+                try {
+                    const starterDocs = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID,
+                        [Query.equal('user_id', req.user.$id), Query.equal('account_id', accountId), Query.limit(1)]);
+                    if (starterDocs.total > 0) {
+                        savedStarterOrder = typeof starterDocs.documents[0].starters === 'string'
+                            ? JSON.parse(starterDocs.documents[0].starters)
+                            : (starterDocs.documents[0].starters || []);
+                        if (dbStarters.length === 0) {
+                            dbStarters = savedStarterOrder;
+                        }
+                    }
+                } catch (e) { }
+            }
+
+            if (dbStarters.length > 0 && igAccount) {
+                try {
+                    await axios.post(`https://graph.instagram.com/v24.0/me/messenger_profile`, {
+                        ice_breakers: dbStarters.map((starter) => ({
+                            question: starter.question,
+                            payload: starter.payload || starter.template_id || starter.question
+                        }))
+                    }, {
+                        params: { access_token: igAccount.access_token }
+                    });
+                } catch (e) {
+                    console.error('Failed to sync convo starters to IG:', e.message);
+                    if (igAccount) {
+                        await handleInstagramApiError(e, databases, igAccount);
+                    }
+                    return res.status(500).json({ error: `Instagram ice breakers update failed: ${e.message}` });
+                }
+            }
+            return res.json({ message: 'Convo starters synced successfully', starters: dbStarters });
+        }
 
         // Duplicate question validation (case-insensitive)
         if (Array.isArray(starters)) {
@@ -5050,11 +5360,20 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
                         params: { access_token: igAccount.access_token }
                     });
                 }
-            } catch (e) { console.error('Failed to publish convo starters to IG:', e.message); }
+            } catch (e) {
+                console.error('Failed to publish convo starters to IG:', e.message);
+                if (igAccount) {
+                    await handleInstagramApiError(e, databases, igAccount);
+                }
+                throw e;
+            }
         }
 
         res.json({ message: 'Convo starters saved successfully', starters: persistedStarters });
     } catch (err) {
+        if (igAccount) {
+            await handleInstagramApiError(err, databases, igAccount);
+        }
         if (err?.statusCode && err?.payload) {
             return res.status(err.statusCode).json(err.payload);
         }

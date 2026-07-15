@@ -186,9 +186,9 @@ const AutomationPreviewPanel: React.FC<AutomationPreviewPanelProps> = ({
                             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{title}</span>
                         </div>
                     )}
-                    <div className={`relative flex flex-col items-center justify-center overflow-visible p-5 ${minHeightClassName}`.trim()}>
+                    <div className={`relative flex flex-col items-center justify-center overflow-hidden p-5 ${minHeightClassName}`.trim()}>
                         <SpaceDustBackground />
-                        <div className="relative z-10 w-full flex flex-col items-center justify-center">
+                        <div className="relative z-10 w-full flex flex-col items-center justify-center overflow-hidden">
                             {children}
                         </div>
                     </div>

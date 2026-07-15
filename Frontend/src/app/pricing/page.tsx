@@ -18,7 +18,29 @@ let pricingPageBootstrapPromise: Promise<{
   plans: PricingPlan[];
 }> | null = null;
 
+import { useSEO } from '../../hooks/useSEO';
+
 const PricingPage: React.FC = () => {
+  useSEO({
+    title: 'Pricing Plans | DM Panda - Flexible Instagram Automation',
+    description: 'Find the best pricing plan for automating your Instagram DMs. Start free, upgrade as you grow. Safe, certified, and compliant pricing starting at $0.',
+    keywords: 'dm panda pricing, instagram dm bot pricing, cheap instagram dm automations, instagram auto reply cost',
+    schema: {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      'name': 'DM Panda Instagram Automation Subscription',
+      'description': 'Certified Instagram direct message, comment, share, and story automation service.',
+      'image': 'https://dmpanda.com/images/logo.png',
+      'offers': {
+        '@type': 'AggregateOffer',
+        'priceCurrency': 'USD',
+        'lowPrice': '0.00',
+        'highPrice': '99.00',
+        'offerCount': '4'
+      }
+    }
+  });
+
   const [isYearly, setIsYearly] = useState(true);
   const [currency, setCurrency] = useState<'INR' | 'USD'>('USD');
   const [isIndianUser, setIsIndianUser] = useState(false);

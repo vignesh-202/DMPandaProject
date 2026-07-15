@@ -2460,6 +2460,16 @@ class DMWorker {
                 return false;
             }
 
+            if (!isShareEvent && typeof this.appwrite?.isManagedInstagramAccount === 'function') {
+                const senderIsManagedAccount = await this.appwrite.isManagedInstagramAccount(String(senderId || '').trim());
+                if (senderIsManagedAccount) {
+                    console.log(
+                        `Ignoring DM from managed Instagram account ${senderId} to avoid cross-account automation loops.`
+                    );
+                    return false;
+                }
+            }
+
             const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || recipientId).trim();
             const instagram = this._createInstagramClient(accessToken, accountBudgetKey, options?.metaApiUsageTracker, executionProfile);
             const conversationState = await this._getConversationState(primaryAccountId, conversationKey);

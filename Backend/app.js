@@ -2,32 +2,14 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
+const { Databases } = require('node-appwrite');
+const { getAppwriteClient } = require('./utils/appwrite');
+const { saveRuntimeFrontendOrigin, normalizeRuntimeOrigin } = require('./utils/systemConfig');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 const normalizeOrigin = (value) => String(value || '').trim().replace(/\/+$/, '');
-
-const isTrustedDynamicOrigin = (origin) => {
-    const normalizedOrigin = normalizeOrigin(origin);
-    if (!normalizedOrigin) return false;
-
-    try {
-        const parsed = new URL(normalizedOrigin);
-        const hostname = parsed.hostname.toLowerCase();
-        const protocol = parsed.protocol.toLowerCase();
-        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
-        const isDevTunnel = hostname.endsWith('.devtunnels.ms');
-
-        if (isLocalhost) {
-            return protocol === 'http:' || protocol === 'https:';
-        }
-
-        return isDevTunnel && protocol === 'https:';
-    } catch (_) {
-        return false;
-    }
-};
 
 // Middleware
 app.use('/api/razorpay/webhook', express.raw({ type: 'application/json' }));
@@ -44,17 +26,39 @@ const allowedOrigins = new Set([
     'http://localhost:3000'
 ].map(normalizeOrigin).filter(Boolean));
 
+const isDevOrigin = (origin) => {
+    if (!origin) return false;
+    const normalized = normalizeOrigin(origin).toLowerCase();
+    // Allow any devtunnels.ms origin
+    if (normalized.endsWith('.devtunnels.ms')) return true;
+    // Allow any localhost origin
+    if (normalized.startsWith('http://localhost:') || normalized.startsWith('http://127.0.0.1:')) return true;
+    return false;
+};
+
 app.use(cors({
     origin: (origin, callback) => {
         const normalizedOrigin = normalizeOrigin(origin);
-        if (!origin || allowedOrigins.has(normalizedOrigin) || isTrustedDynamicOrigin(normalizedOrigin)) {
+        if (!origin || allowedOrigins.has(normalizedOrigin) || isDevOrigin(origin)) {
             callback(null, true);
         } else {
+            console.log(`CORS blocked for origin: "${origin}" (normalized: "${normalizedOrigin}"). Allowed origins:`, Array.from(allowedOrigins));
             callback(new Error('Not allowed by CORS'));
         }
     },
     credentials: true
 }));
+
+app.use((req, _res, next) => {
+    const requestOrigin = normalizeRuntimeOrigin(req.get('origin') || req.get('referer') || '');
+    if (requestOrigin && (allowedOrigins.has(requestOrigin) || isDevOrigin(requestOrigin))) {
+        const databases = new Databases(getAppwriteClient({ useApiKey: true }));
+        saveRuntimeFrontendOrigin(databases, requestOrigin).catch((error) => {
+            console.warn(`Failed to capture runtime frontend origin: ${error?.message || String(error)}`);
+        });
+    }
+    next();
+});
 
 // Routes
 
@@ -65,8 +69,10 @@ const dashboardRoutes = require('./routes/dashboard');
 const paymentRoutes = require('./routes/payment');
 const instagramRoutes = require('./routes/instagram');
 const adminRoutes = require('./routes/admin');
+const seoRoutes = require('./routes/seo');
 
 app.use('/', authRoutes); // Mount at root to allow /api/register and /auth/google
+app.use('/', seoRoutes);  // Mount sitemap.xml and robots.txt at root
 app.use('/api/account', accountRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api', paymentRoutes);

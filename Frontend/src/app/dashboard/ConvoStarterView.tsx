@@ -627,7 +627,7 @@ const ConvoStarterView: React.FC = () => {
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'sync' })
+                    body: JSON.stringify({ account_id: activeAccountID, action: 'sync' })
                 }
             );
             if (res.ok) {
@@ -652,6 +652,21 @@ const ConvoStarterView: React.FC = () => {
             type: 'danger',
             confirmLabel: 'Delete All',
             onConfirm: executeDeleteConvo
+        });
+    };
+
+    const handleDeleteFromStatusCenter = () => {
+        if (!activeAccountID) return;
+        setModalConfig({
+            isOpen: true,
+            title: 'Delete?',
+            description: 'This will remove the conversation starters from Instagram and our database. You can create new ones after.',
+            type: 'danger',
+            confirmLabel: 'Delete',
+            onConfirm: async () => {
+                closeModal();
+                await executeDeleteConvo();
+            }
         });
     };
 
@@ -693,7 +708,7 @@ const ConvoStarterView: React.FC = () => {
     }
 
     const status = convoStarterData?.status || 'none';
-    const canShowMainWorkspace = isCreatingItem || isConvoStarterReady;
+    const canShowMainWorkspace = status === 'match' || isCreatingItem;
 
     return (
         <div className="mx-auto max-w-7xl space-y-6 px-3 sm:space-y-8 sm:px-4 md:px-6">
@@ -715,7 +730,7 @@ const ConvoStarterView: React.FC = () => {
                             </div>
                             {/* Top row on mobile: Delete left, Refresh+Grid right */}
                             <div className="flex items-center justify-between gap-2 md:justify-end md:gap-3">
-                                {convoStarters.length > 0 && (
+                                {status === 'match' && convoStarters.length > 0 && (
                                     <button
                                         onClick={handleDeleteAll}
                                         disabled={isDeleting}
@@ -732,45 +747,160 @@ const ConvoStarterView: React.FC = () => {
                                     >
                                         <RefreshCw className={`w-4 h-4 ${convoStarterLoading ? 'animate-spin' : ''}`} />
                                     </button>
-                                    <div className="flex bg-secondary p-1 rounded-xl border border-border">
-                                        <button
-                                            onClick={() => setLayoutMode('grid')}
-                                            className={`p-2 rounded-lg transition-all ${layoutMode === 'grid' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                                        >
-                                            <LayoutGrid className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => setLayoutMode('rows')}
-                                            className={`p-2 rounded-lg transition-all ${layoutMode === 'rows' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                                        >
-                                            <List className="w-4 h-4" />
-                                        </button>
-                                    </div>
+                                    {status === 'match' && (
+                                        <div className="flex bg-secondary p-1 rounded-xl border border-border">
+                                            <button
+                                                onClick={() => setLayoutMode('grid')}
+                                                className={`p-2 rounded-lg transition-all ${layoutMode === 'grid' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                            >
+                                                <LayoutGrid className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => setLayoutMode('rows')}
+                                                className={`p-2 rounded-lg transition-all ${layoutMode === 'rows' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                            >
+                                                <List className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
                         {/* Full-width action buttons below */}
-                        <div className="flex flex-col gap-2 md:flex-row md:justify-end md:gap-3">
-                            {convoStarters.length < MAX_CONVO_STARTERS && (
-                                <button
-                                    onClick={() => {
-                                        void startCreate();
-                                    }}
-                                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-4 py-3 text-[10px] font-black uppercase tracking-widest text-background shadow-xl shadow-foreground/10 transition-all md:w-auto md:px-8"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    Add Question
-                                </button>
-                            )}
-                            {hasChanges && editingIndex === null && (
-                                <button onClick={handlePublish} disabled={saving} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-xl shadow-primary/20 transition-all md:w-auto md:px-8">
-                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                    Publish Changes
-                                </button>
-                            )}
-                        </div>
+                        {status === 'match' && (
+                            <div className="flex flex-col gap-2 md:flex-row md:justify-end md:gap-3">
+                                {convoStarters.length < MAX_CONVO_STARTERS && (
+                                    <button
+                                        onClick={() => {
+                                            void startCreate();
+                                        }}
+                                        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-4 py-3 text-[10px] font-black uppercase tracking-widest text-background shadow-xl shadow-foreground/10 transition-all md:w-auto md:px-8"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        Add Question
+                                    </button>
+                                )}
+                                {hasChanges && editingIndex === null && (
+                                    <button onClick={handlePublish} disabled={saving} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-xl shadow-primary/20 transition-all md:w-auto md:px-8">
+                                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                        Publish Changes
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </>
+            )}
+
+            {/* Status Action Center - Based on convo starter status */}
+            {!isCreatingItem && convoStarterData && ['mismatch', 'ig_only', 'db_only', 'none'].includes(convoStarterData.status) && (
+                <div className={`flex flex-col items-center justify-center py-12 px-6 bg-white dark:bg-gray-950 border-2 rounded-[2.5rem] shadow-lg ${convoStarterData.status === 'db_only' || convoStarterData.status === 'none' || convoStarterData.status === 'mismatch'
+                    ? 'border-blue-200 dark:border-blue-900/30'
+                    : 'border-red-200 dark:border-red-900/30'
+                    }`}>
+                    <div className={`p-6 rounded-3xl mb-6 ${convoStarterData.status === 'db_only' || convoStarterData.status === 'none' || convoStarterData.status === 'mismatch'
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500'
+                        : 'bg-red-50 dark:bg-red-900/20 text-red-500'
+                        }`}>
+                        {convoStarterData.status === 'db_only' || convoStarterData.status === 'mismatch' ? (
+                            <RefreshCw className="w-10 h-10" />
+                        ) : convoStarterData.status === 'none' ? (
+                            <PlusSquare className="w-10 h-10" />
+                        ) : (
+                            <AlertCircle className="w-10 h-10" />
+                        )}
+                    </div>
+                    <h2 className={`text-2xl font-black mb-2 text-center ${convoStarterData.status === 'db_only' || convoStarterData.status === 'none' || convoStarterData.status === 'mismatch'
+                        ? 'text-blue-900 dark:text-blue-300'
+                        : 'text-red-900 dark:text-red-300'
+                        }`}>
+                        {convoStarterData.status === 'db_only' ? 'Starters Ready to Sync' :
+                            convoStarterData.status === 'ig_only' ? 'Manual Starters Detected' :
+                                convoStarterData.status === 'mismatch' ? 'Starters Out of Sync' : 'No Starters Yet'}
+                    </h2>
+                    <p className={`font-bold text-center max-w-lg mb-8 text-sm ${convoStarterData.status === 'db_only' || convoStarterData.status === 'none' || convoStarterData.status === 'mismatch'
+                        ? 'text-blue-700 dark:text-blue-300'
+                        : 'text-red-700 dark:text-red-300'
+                        }`}>
+                        {convoStarterData.status === 'db_only'
+                            ? 'You have saved conversation starters in our database that are not yet live on Instagram. Use Sync to push them to Instagram, or Delete to remove them and start over.'
+                            : convoStarterData.status === 'ig_only'
+                                ? 'We found conversation starters on Instagram but no saved configuration in our database. Delete the existing starters, then you can create new ones.'
+                                : convoStarterData.status === 'mismatch'
+                                    ? 'The conversation starters on Instagram differ from your saved settings. Use Sync to update Instagram with your database settings, or Delete to remove both and start over.'
+                                    : 'No conversation starters exist in your database or on Instagram. Create new starters to get started.'}
+                    </p>
+
+                    <div className="flex flex-wrap items-center justify-center gap-4">
+                        {/* Case 1: db_only - Sync (DB→IG) + Delete (DB only) */}
+                        {convoStarterData.status === 'db_only' && (
+                            <>
+                                <button
+                                    onClick={handleSync}
+                                    disabled={saving || syncing || isDeleting}
+                                    className="px-10 py-4 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                >
+                                    {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                    Sync
+                                </button>
+                                <button
+                                    onClick={handleDeleteFromStatusCenter}
+                                    disabled={saving || syncing || isDeleting}
+                                    className="px-10 py-4 bg-red-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-red-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                >
+                                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                    Delete
+                                </button>
+                            </>
+                        )}
+
+                        {/* Case 2: ig_only - Delete (IG only), then user can create */}
+                        {convoStarterData.status === 'ig_only' && (
+                            <button
+                                onClick={handleDeleteFromStatusCenter}
+                                disabled={saving || syncing || isDeleting}
+                                className="px-10 py-4 bg-red-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-red-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                            >
+                                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                Delete
+                            </button>
+                        )}
+
+                        {/* Case 3: mismatch - Sync (DB→IG) + Delete (both) */}
+                        {convoStarterData.status === 'mismatch' && (
+                            <>
+                                <button
+                                    onClick={handleSync}
+                                    disabled={saving || syncing || isDeleting}
+                                    className="px-10 py-4 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                >
+                                    {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                    Sync
+                                </button>
+                                <button
+                                    onClick={handleDeleteFromStatusCenter}
+                                    disabled={saving || syncing || isDeleting}
+                                    className="px-10 py-4 bg-red-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-red-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                >
+                                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                    Delete
+                                </button>
+                            </>
+                        )}
+
+                        {/* Case 4: none - Show Create button */}
+                        {convoStarterData.status === 'none' && (
+                            <button
+                                onClick={() => void startCreate()}
+                                disabled={saving || syncing || isDeleting}
+                                className="px-10 py-4 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Create New Starters
+                            </button>
+                        )}
+                    </div>
+                </div>
             )}
 
             {/* Main Workspace */}

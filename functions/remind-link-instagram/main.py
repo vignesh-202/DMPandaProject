@@ -17,6 +17,8 @@ from email_template import render_email_html
 PAGE_SIZE = 100
 MAX_RETRIES = 3
 RETRY_SLEEP_SECONDS = 0.2
+SYSTEM_CONFIG_COLLECTION_ID = "system_config"
+FRONTEND_RUNTIME_ORIGIN_DOC_ID = "frontend_runtime_origin"
 SIGNUP_REMINDER_DELAY_HOURS = 24
 EXPIRY_REMINDER_LEAD_DAYS = 3
 ACTIVE_ACCOUNT_STATUSES = {"active"}
@@ -48,6 +50,22 @@ def _env(key: str, default: str = "") -> str:
 
 def _trim_trailing_slash(value: str = "") -> str:
     return str(value or "").rstrip("/")
+
+
+def _resolve_frontend_origin(client=None, db_id: str = "") -> str:
+    if client and db_id:
+        try:
+            document = _call_appwrite(
+                client,
+                "get",
+                f"/databases/{db_id}/collections/{SYSTEM_CONFIG_COLLECTION_ID}/documents/{FRONTEND_RUNTIME_ORIGIN_DOC_ID}",
+            )
+            runtime_origin = _trim_trailing_slash(_obj_get(document, "updated_by", ""))
+            if runtime_origin.startswith(("http://", "https://")):
+                return runtime_origin
+        except Exception:
+            pass
+    return _trim_trailing_slash(_env("FRONTEND_ORIGIN"))
 
 
 def _with_retry(fn):
@@ -109,8 +127,8 @@ def _list_all(client: Client, db_id: str, collection_id: str, queries=None):
     return rows
 
 
-def _build_dashboard_account_settings_url():
-    frontend_origin = _trim_trailing_slash(_env("FRONTEND_ORIGIN"))
+def _build_dashboard_account_settings_url(client=None, db_id: str = ""):
+    frontend_origin = _resolve_frontend_origin(client, db_id)
     if not frontend_origin:
         return ""
     return f"{frontend_origin}/dashboard/account-settings"
@@ -190,10 +208,10 @@ def _resolve_reminder_type(
     return None
 
 
-def _build_reminder_payload(reminder_type: str, user_name: str, expires_at):
-    action_url = _build_dashboard_account_settings_url()
+def _build_reminder_payload(client: Client, db_id: str, reminder_type: str, user_name: str, expires_at):
+    action_url = _build_dashboard_account_settings_url(client, db_id)
     safe_name = user_name or "there"
-    frontend_origin = _trim_trailing_slash(_env("FRONTEND_ORIGIN"))
+    frontend_origin = _resolve_frontend_origin(client, db_id)
     dashboard_url = f"{frontend_origin}/dashboard" if frontend_origin else ""
 
     if reminder_type == "expired":
@@ -278,9 +296,9 @@ def _build_reminder_payload(reminder_type: str, user_name: str, expires_at):
     }
 
 
-def _send_reminder_email(messaging: Messaging, user_id: str, reminder_type: str, user_name: str, expires_at):
-    payload = _build_reminder_payload(reminder_type, user_name, expires_at)
-    frontend_origin = _trim_trailing_slash(_env("FRONTEND_ORIGIN"))
+def _send_reminder_email(client: Client, db_id: str, messaging: Messaging, user_id: str, reminder_type: str, user_name: str, expires_at):
+    payload = _build_reminder_payload(client, db_id, reminder_type, user_name, expires_at)
+    frontend_origin = _resolve_frontend_origin(client, db_id)
     _with_retry(
         lambda: messaging.create_email(
             message_id=ID.unique(),
@@ -398,7 +416,7 @@ def main(context):
                 expires_at = _parse_iso_datetime(_obj_get(profile_doc, "expiry_date"))
 
                 if not dry_run:
-                    _send_reminder_email(messaging, user_id, reminder_type, user_name, expires_at)
+                    _send_reminder_email(client, db_id, messaging, user_id, reminder_type, user_name, expires_at)
                     updated_prefs = _build_updated_prefs(prefs, reminder_type, now, expires_at, "")
                     _with_retry(lambda: users.update_prefs(user_id=user_id, prefs=updated_prefs))
                 counts[f"{reminder_type}_reminded"] += 1

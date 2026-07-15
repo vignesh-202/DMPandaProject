@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { SocialIcon } from '../../lib/superProfileIcons';
+import { useSEO } from '../../hooks/useSEO';
 
 interface PublicProfile {
   slug: string;
@@ -137,26 +138,33 @@ const SuperProfilePublicPage: React.FC = () => {
     run();
   }, [slug]);
 
-  useEffect(() => {
-    if (typeof document === 'undefined' || !profile) return;
+  const seoTitle = profile?.username
+    ? `@${profile.username} | Super Profile`
+    : 'Super Profile';
 
-    const title = profile.username
-      ? `@${profile.username} | Super Profile`
-      : 'Super Profile';
-    document.title = title;
+  const seoDescription = profile?.name
+    ? `${profile.name}'s Super Profile links. Powered by DM Panda.`
+    : 'Super Profile links. Powered by DM Panda.';
 
-    const descriptionContent = profile.name
-      ? `${profile.name}'s Super Profile links.`
-      : 'Super Profile links.';
-
-    let meta = document.querySelector('meta[name="description"]');
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.setAttribute('name', 'description');
-      document.head.appendChild(meta);
+  const seoSchema = profile ? {
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    'name': profile.name || profile.username || 'Super Profile',
+    'url': typeof window !== 'undefined' ? window.location.href : '',
+    'mainEntity': {
+      '@type': 'Person',
+      'name': profile.name || profile.username,
+      'alternateName': profile.username,
+      'image': profile.profile_picture_url || `${typeof window !== 'undefined' ? window.location.origin : ''}/images/logo.png`
     }
-    meta.setAttribute('content', descriptionContent);
-  }, [profile]);
+  } : undefined;
+
+  useSEO({
+    title: seoTitle,
+    description: seoDescription,
+    ogImage: profile?.profile_picture_url,
+    schema: seoSchema
+  });
 
   if (loading || !minimumDelayDone) {
     return <PublicSuperProfileLoading isDark={isDark} />;

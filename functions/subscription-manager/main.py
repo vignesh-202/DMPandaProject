@@ -16,6 +16,8 @@ from email_template import render_email_html
 PAGE_SIZE = 100
 DEFAULT_FREE_PLAN = "free"
 MAX_RETRIES = 3
+SYSTEM_CONFIG_COLLECTION_ID = "system_config"
+FRONTEND_RUNTIME_ORIGIN_DOC_ID = "frontend_runtime_origin"
 BENEFIT_KEYS = [
     "unlimited_contacts",
     "post_comment_dm_reply",
@@ -234,6 +236,22 @@ def _call_appwrite(client: Client, method: str, path: str, params=None):
                 raise
             time.sleep(0.25 * (attempt + 1))
     raise last_error
+
+
+def _resolve_frontend_origin(client: Client = None, db_id: str = "") -> str:
+    if client and db_id:
+        try:
+            document = _call_appwrite(
+                client,
+                "get",
+                f"/databases/{db_id}/collections/{SYSTEM_CONFIG_COLLECTION_ID}/documents/{FRONTEND_RUNTIME_ORIGIN_DOC_ID}",
+            )
+            runtime_origin = str(_obj_get(document, "updated_by", "") or "").rstrip("/")
+            if runtime_origin.startswith(("http://", "https://")):
+                return runtime_origin
+        except Exception:
+            pass
+    return str(_env("FRONTEND_ORIGIN") or "").rstrip("/")
 
 
 def _list_all(client: Client, db_id: str, collection_id: str, queries=None):
@@ -660,7 +678,7 @@ def _maybe_send_reminder(client, db_id, profiles_collection, profile, stage, anc
 
     expiry_text = anchor_expiry.date().isoformat()
     plan_name = str(_obj_get(profile, "plan_name") or "DM Panda Plan").strip()
-    subject, html = _build_email_content(stage, plan_name, expiry_text, _env("FRONTEND_ORIGIN"))
+    subject, html = _build_email_content(stage, plan_name, expiry_text, _resolve_frontend_origin(client, db_id))
     _send_email(client, user_id, subject, html)
     _update_document(client, db_id, profiles_collection, profile_id, {
         reminder_field: _to_iso(datetime.now(timezone.utc))
