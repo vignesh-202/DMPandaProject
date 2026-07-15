@@ -625,11 +625,17 @@ const OnboardingFlow: React.FC = () => {
                 {currentStep === 'verify' && renderVerificationStep()}
                 {currentStep === 'password' && renderPasswordStep()}
                 {currentStep === 'instagram' && renderInstagramStep()}
-
-                {/* Footer Buttons - Different for each step */}
                 <div className="mt-6 sm:mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    {currentStep === 'instagram' ? (
-                        // Instagram step: Logout + Delete Account
+                    <div className="flex flex-col gap-2 sm:gap-3">
+                        {currentStep === 'verify' && !showEmailChange && (
+                            <button
+                                onClick={() => setShowEmailChange(true)}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-sm font-medium transition-all duration-200 hover:scale-[1.02]"
+                            >
+                                <Pencil size={16} />
+                                Change Email
+                            </button>
+                        )}
                         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                             <button
                                 onClick={logout}
@@ -646,36 +652,7 @@ const OnboardingFlow: React.FC = () => {
                                 Delete Account
                             </button>
                         </div>
-                    ) : currentStep === 'verify' ? (
-                        // Verify step: Change Email + Logout
-                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                            {!showEmailChange && (
-                                <button
-                                    onClick={() => setShowEmailChange(true)}
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-sm font-medium transition-all duration-200 hover:scale-[1.02]"
-                                >
-                                    <Pencil size={16} />
-                                    Change Email
-                                </button>
-                            )}
-                            <button
-                                onClick={logout}
-                                className={`${showEmailChange ? 'w-full' : 'flex-1'} flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium transition-all duration-200 hover:scale-[1.02]`}
-                            >
-                                <LogOut size={16} />
-                                Logout
-                            </button>
-                        </div>
-                    ) : (
-                        // Password step: Logout only
-                        <button
-                            onClick={logout}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium transition-all duration-200 hover:scale-[1.02]"
-                        >
-                            <LogOut size={16} />
-                            Logout
-                        </button>
-                    )}
+                    </div>
                 </div>
             </div>
 
@@ -694,17 +671,19 @@ const OnboardingFlow: React.FC = () => {
                         </div>
 
                         <div className="space-y-3">
-                            <Input
-                                type="password"
-                                placeholder="Enter your password to confirm"
-                                value={deletePassword}
-                                onChange={(e) => {
-                                    setDeletePassword(e.target.value);
-                                    if (deleteError) setDeleteError(null);
-                                }}
-                                className="w-full text-sm border-2 border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-neutral-950 focus:border-destructive focus:ring-2 focus:ring-destructive/20 transition-all"
-                                error={deleteError || undefined}
-                            />
+                            {hasPassword !== false && (
+                                <Input
+                                    type="password"
+                                    placeholder="Enter your password to confirm"
+                                    value={deletePassword}
+                                    onChange={(e) => {
+                                        setDeletePassword(e.target.value);
+                                        if (deleteError) setDeleteError(null);
+                                    }}
+                                    className="w-full text-sm border-2 border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-neutral-950 focus:border-destructive focus:ring-2 focus:ring-destructive/20 transition-all"
+                                    error={deleteError || undefined}
+                                />
+                            )}
 
                             <div className="flex gap-2">
                                 <Button
@@ -716,7 +695,7 @@ const OnboardingFlow: React.FC = () => {
                                 </Button>
                                 <Button
                                     onClick={async () => {
-                                        if (!deletePassword) {
+                                        if (hasPassword !== false && !deletePassword) {
                                             setDeleteError('Please enter your password.');
                                             return;
                                         }

@@ -358,24 +358,45 @@ router.post('/change-password', loginRequired, async (req, res) => {
 // Delete Account
 router.delete('/delete', loginRequired, async (req, res) => {
     const { password } = req.body;
-    if (!password) return res.status(400).json({ error: 'Password is required to delete account.' });
+    const user = req.user;
+
+    // Check if the user has a password set.
+    let hasPassword = !!(user.passwordUpdate && user.passwordUpdate !== '');
+    if (!hasPassword && user.identities) {
+        hasPassword = user.identities.some(id => id.provider === 'email');
+    }
+
+    const isUnverified = !user.emailVerification;
+
+    // If the user has a password and is not in onboarding (unverified state), password is required to delete
+    if (hasPassword && !isUnverified) {
+        if (!password) return res.status(400).json({ error: 'Password is required to delete account.' });
+
+        try {
+            const userEmail = normalizeEmail(user.email);
+            const tempClient = getAppwriteClient();
+            const tempAccount = new Account(tempClient);
+            const validationSession = await tempAccount.createEmailPasswordSession(userEmail, password);
+
+            const serverClient = getAppwriteClient({ useApiKey: true });
+            const users = new Users(serverClient);
+            try {
+                await users.deleteSession(user.$id, validationSession.$id);
+            } catch (cleanupErr) {
+                console.warn(`Temporary delete-account session cleanup failed: ${cleanupErr.message}`);
+            }
+        } catch (authErr) {
+            console.error(`Delete Account Auth Error: ${authErr.message}`);
+            if (isInvalidPasswordError(authErr)) return res.status(401).json({ error: 'Invalid password.' });
+            return res.status(500).json({ error: 'Failed to authenticate password before deletion.' });
+        }
+    }
 
     try {
-        const userId = String(req.user.$id);
-        const userEmail = normalizeEmail(req.user.email);
-        const tempClient = getAppwriteClient();
-        const tempAccount = new Account(tempClient);
-        const validationSession = await tempAccount.createEmailPasswordSession(userEmail, password);
-
+        const userId = String(user.$id);
         const serverClient = getAppwriteClient({ useApiKey: true });
         const users = new Users(serverClient);
         const databases = new Databases(serverClient);
-
-        try {
-            await users.deleteSession(userId, validationSession.$id);
-        } catch (cleanupErr) {
-            console.warn(`Temporary delete-account session cleanup failed: ${cleanupErr.message}`);
-        }
 
         await cleanupUserOwnedData(databases, userId, { retainFinancialRecords: false });
         try {
@@ -392,7 +413,6 @@ router.delete('/delete', loginRequired, async (req, res) => {
 
     } catch (err) {
         console.error(`Delete Account Error: ${err.message}`);
-        if (isInvalidPasswordError(err)) return res.status(401).json({ error: 'Invalid password.' });
         res.status(500).json({ error: 'Failed to delete account.' });
     }
 });
