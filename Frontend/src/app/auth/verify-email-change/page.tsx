@@ -42,7 +42,7 @@ const VerifyEmailChangePage: React.FC = () => {
       } catch (err: any) {
         setError(err.message);
         setTimeout(() => {
-          navigate(`/login?error=email_change_failed&message=${encodeURIComponent(err.message)}`, { replace: true });
+          navigate(`/login?popup_reason=email_change_failed&message=${encodeURIComponent(err.message)}`, { replace: true });
         }, 4000);
       }
     };

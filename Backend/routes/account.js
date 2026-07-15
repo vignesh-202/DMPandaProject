@@ -288,7 +288,7 @@ router.post('/verify-email-change', async (req, res) => {
                 if (identity.provider !== 'email') {
                     try {
                         console.log(`Unlinking identity ${identity.provider} (${identity.$id}) for user ${userId} due to verified email change.`);
-                        await users.deleteIdentity(userId, identity.$id);
+                        await users.deleteIdentity(identity.$id);
                     } catch (identityErr) {
                         console.warn(`Failed to delete identity ${identity.$id}: ${identityErr.message}`);
                     }

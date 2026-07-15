@@ -25,7 +25,7 @@ async function handleGoogleOAuthCallback({
             if (currentUser.identities && Array.isArray(currentUser.identities)) {
                 for (const identity of currentUser.identities) {
                     if (identity.provider === 'google') {
-                        await mockAppwriteUsers.deleteIdentity(currentUserId, identity.$id);
+                        await mockAppwriteUsers.deleteIdentity(identity.$id);
                     }
                 }
             }
@@ -93,9 +93,10 @@ test('OAuth email mismatch -> unlinks identity and logs into / creates target ac
         listByEmail(email) {
             return this.users.filter(u => u.email === email);
         },
-        async deleteIdentity(userId, identityId) {
+        async deleteIdentity(identityId) {
+            const user = this.users.find(u => u.identities && u.identities.some(i => i.$id === identityId));
+            const userId = user ? user.$id : null;
             this.deletedIdentities.push({ userId, identityId });
-            const user = this.users.find(u => u.$id === userId);
             if (user) {
                 user.identities = user.identities.filter(i => i.$id !== identityId);
             }

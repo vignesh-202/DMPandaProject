@@ -636,7 +636,7 @@ router.get('/api/auth/google-callback', async (req, res) => {
                         for (const identity of user.identities) {
                             if (identity.provider === 'google') {
                                 console.log(`Unlinking mismatching Google identity ${identity.$id} from user ${currentUserId} due to email discrepancy.`);
-                                await users.deleteIdentity(currentUserId, identity.$id);
+                                await users.deleteIdentity(identity.$id);
                             }
                         }
                     }

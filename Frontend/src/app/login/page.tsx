@@ -48,12 +48,15 @@ const LoginPage: React.FC = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const popupReason = urlParams.get('popup_reason');
+    const successReason = urlParams.get('success') || urlParams.get('success_reason');
     const message = urlParams.get('message');
     const normalizedMessage = message ? decodeURIComponent(message) : null;
 
     if (popupReason) {
       if (popupReason === 'user_banned' || popupReason === 'hard_ban') {
         setHardBanMessage(normalizedMessage || 'Your account has been hard banned. Dashboard access has been blocked.');
+      } else if (popupReason === 'email_change_failed') {
+        setError(normalizedMessage || 'Failed to verify email change.');
       } else if (normalizedMessage) {
         setError(normalizedMessage);
       } else if (popupReason === 'not_logged_in') {
@@ -69,6 +72,8 @@ const LoginPage: React.FC = () => {
       } else if (popupReason === 'auth_error') {
         setError('An unexpected authentication error occurred. Please try again.');
       }
+    } else if (successReason && normalizedMessage) {
+      setSuccessMessage(normalizedMessage);
     }
   }, []);
 
