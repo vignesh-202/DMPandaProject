@@ -260,6 +260,20 @@ router.post('/verify-email-change', async (req, res) => {
             return res.status(409).json({ error: 'This email address is no longer available. Another account has claimed it.' });
         }
 
+        // 5.5 Clean up temporary email targets to prevent Appwrite target ID conflict
+        try {
+            const targetsList = await users.listTargets(userId);
+            const targets = targetsList.targets || [];
+            for (const target of targets) {
+                if (target.providerType === 'email' && target.identifier === normalizeEmail(newEmail)) {
+                    console.log(`Deleting temporary/conflicting target ${target.$id} for user ${userId}`);
+                    await users.deleteTarget(userId, target.$id);
+                }
+            }
+        } catch (targetErr) {
+            console.warn(`Failed to clean up temporary targets for user ${userId}: ${targetErr.message}`);
+        }
+
         // 6. Finalize: Update the email in Appwrite Auth
         await users.updateEmail(userId, normalizeEmail(newEmail));
 
