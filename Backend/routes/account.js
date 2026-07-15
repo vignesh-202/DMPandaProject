@@ -332,7 +332,7 @@ router.post('/verify-email-change', async (req, res) => {
 
     } catch (err) {
         console.error(`Verify Email Change Error: ${err.message}`);
-        res.status(500).json({ error: 'Failed to verify email change. Please try again.' });
+        res.status(500).json({ error: `Failed to verify email change. Reason: ${err.message}` });
     }
 });
 
