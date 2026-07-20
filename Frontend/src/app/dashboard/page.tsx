@@ -56,6 +56,8 @@ const SupportView = lazy(() => import('./SupportView'));
 const GlobalTriggersView = lazy(() => import('./GlobalTriggersView'));
 const SuperProfileView = lazyWithRetry(() => import('./SuperProfileView'), { retries: 2, retryDelayMs: 500 });
 const DashboardOverviewView = lazy(() => import('./DashboardOverviewView'));
+const FlowView = lazy(() => import('./FlowView'));
+const ApiView = lazy(() => import('./ApiView'));
 
 import AccountBarrier from '../../components/dashboard/AccountBarrier';
 import LockedFeatureModal from '../../components/ui/LockedFeatureModal';
@@ -82,7 +84,7 @@ const DashboardContent: React.FC = () => {
     'Overview', 'DM Automation', 'Story Automation', 'Post Automation',
     'Reel Automation', 'Live Automation', 'Mentions', 'Email Collector',
     'Welcome Message',
-    'Suggest More', 'Convo Starter', 'Global Trigger', 'Analytics', 'Insights', 'Reply Templates', 'Inbox Menu', 'Super Profile'
+    'Suggest More', 'Convo Starter', 'Global Trigger', 'Analytics', 'Insights', 'Reply Templates', 'Inbox Menu', 'Super Profile', 'Flow'
   ];
 
   const needsAccount = protectedViews.includes(currentView);
@@ -100,7 +102,7 @@ const DashboardContent: React.FC = () => {
   const automationLockedViews = [
     'DM Automation', 'Story Automation', 'Post Automation', 'Reel Automation', 'Live Automation',
     'Mentions', 'Email Collector', 'Welcome Message', 'Suggest More', 'Convo Starter',
-    'Global Trigger', 'Reply Templates', 'Inbox Menu', 'Super Profile', 'Comment Moderation'
+    'Global Trigger', 'Reply Templates', 'Inbox Menu', 'Super Profile', 'Comment Moderation', 'Flow'
   ];
 
   if (accessState?.automation_locked && automationLockedViews.includes(currentView)) {
@@ -199,6 +201,8 @@ const DashboardContent: React.FC = () => {
       {currentView === 'Account Settings' && <AccountSettingsView />}
       {currentView === 'Support' && <SupportView />}
       {currentView === 'Contact' && <SupportView mode="contact" />}
+      {currentView === 'Flow' && <FlowView />}
+      {currentView === 'API' && <ApiView />}
     </Suspense>
   );
 };

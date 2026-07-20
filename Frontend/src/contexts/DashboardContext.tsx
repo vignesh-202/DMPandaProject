@@ -34,7 +34,9 @@ export type ViewType =
     | 'Share Automation'
     | 'Mention Automation'
     | 'Comment Moderation'
-    | 'Automation Not working?';
+    | 'Automation Not working?'
+    | 'Flow'
+    | 'API';
 
 interface DashboardContextProps {
     currentView: ViewType;
@@ -168,7 +170,9 @@ const VIEW_PATHS: Record<ViewType, string> = {
     'Share Automation': 'share-automation',
     'Mention Automation': 'mention-automation',
     'Comment Moderation': 'comment-moderation',
-    'Automation Not working?': 'automation-not-working'
+    'Automation Not working?': 'automation-not-working',
+    'Flow': 'flow',
+    'API': 'api',
 };
 
 const PATH_ALIASES: Record<string, string> = {

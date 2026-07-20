@@ -181,7 +181,7 @@ const DashboardHero: React.FC = () => {
 };
 
 /* ==========================================
-   Scroll-reveal hook
+   Scroll-reveal hook — GPU-optimised
    ========================================== */
 const useReveal = (threshold = 0.15) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -191,8 +191,13 @@ const useReveal = (threshold = 0.15) => {
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold }
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect(); // Stop observing after revealed
+        }
+      },
+      { threshold, rootMargin: '50px' }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -201,24 +206,28 @@ const useReveal = (threshold = 0.15) => {
   return { ref, visible };
 };
 
-const RevealSection: React.FC<{ children: React.ReactNode; className?: string; delay?: number }> = ({
-  children,
-  className = '',
-  delay = 0,
-}) => {
+const RevealSection: React.FC<{ children: React.ReactNode; className?: string; delay?: number }> = React.memo((
+  { children, className = '', delay = 0 }
+) => {
   const { ref, visible } = useReveal();
   return (
     <div
       ref={ref}
-      className={`transition-all duration-700 ease-out ${
-        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      className={`transition-[opacity,transform] duration-700 ease-out ${
+        visible
+          ? 'opacity-100 translate-y-0'
+          : 'opacity-0 translate-y-8'
       } ${className}`}
-      style={{ transitionDelay: `${delay}ms` }}
+      style={{
+        transitionDelay: `${delay}ms`,
+        willChange: visible ? 'auto' : 'opacity, transform',
+      }}
     >
       {children}
     </div>
   );
-};
+});
+RevealSection.displayName = 'RevealSection';
 
 import { useSEO } from '../../hooks/useSEO';
 
@@ -227,9 +236,9 @@ import { useSEO } from '../../hooks/useSEO';
    ========================================== */
 const HomePage: React.FC = () => {
   useSEO({
-    title: 'DM Panda | Certified Instagram DM Automation Tool',
-    description: 'Automate your Instagram DMs, comments, shares, and stories with DM Panda. Certified Meta Business Partner since 2021. No Facebook page required. Safe, simple, and affordable.',
-    keywords: 'instagram automation, instagram dm automation, comment auto reply, auto send message instagram, link in bio page, dm panda',
+    title: 'DM Panda | #1 Instagram DM Automation & Comment Auto-Reply Tool',
+    description: 'Automate your Instagram DMs, post comments, reels, story mentions, and link-in-bio with DM Panda. Certified Meta Business Partner since 2021. Safe, reliable, and affordable.',
+    keywords: 'instagram automation, instagram dm automation tool, comment auto reply, auto send message instagram, story mention auto reply, reel comment automation, link in bio page, dm panda',
     schema: [
       {
         '@context': 'https://schema.org',
@@ -253,6 +262,24 @@ const HomePage: React.FC = () => {
           '@type': 'SearchAction',
           'target': 'https://dmpanda.com/login',
           'query-input': 'required name=search_term_string'
+        }
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        'name': 'DM Panda',
+        'operatingSystem': 'Web-based',
+        'applicationCategory': 'BusinessApplication',
+        'description': 'Certified Meta Partner Instagram automation platform for DMs, comments, reels, stories, and link-in-bio.',
+        'offers': {
+          '@type': 'Offer',
+          'price': '0',
+          'priceCurrency': 'USD'
+        },
+        'aggregateRating': {
+          '@type': 'AggregateRating',
+          'ratingValue': '4.9',
+          'ratingCount': '22000'
         }
       }
     ]

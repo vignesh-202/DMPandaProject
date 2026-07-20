@@ -11,7 +11,16 @@ const Navbar: React.FC = () => {
   const location = useLocation();
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 10);
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(() => {
+          setScrolled(window.scrollY > 10);
+          ticking = false;
+        });
+      }
+    };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -59,6 +68,7 @@ const Navbar: React.FC = () => {
   const navLinks = [
     { to: '/features', label: 'Features' },
     { to: '/pricing', label: 'Pricing' },
+    { to: '/blog', label: 'Blog' },
     { to: '/about', label: 'About Us' },
     { to: '/contact', label: 'Contact' },
   ];

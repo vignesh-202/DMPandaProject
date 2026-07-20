@@ -94,7 +94,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
     automations = [],
     fetchedAutomations = {},
     isMediaDeleted: propsIsMediaDeleted,
-    lockScroll = false,
+    lockScroll: _lockScroll = false,
     hideAutomationPrompt = false,
     isLoadingPreview = false
 }) => {

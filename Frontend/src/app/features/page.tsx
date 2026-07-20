@@ -130,7 +130,7 @@ const features = [
   },
 ];
 
-/* Scroll reveal hook */
+/* Scroll reveal hook — optimised */
 const useReveal = (threshold = 0.1) => {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -138,8 +138,13 @@ const useReveal = (threshold = 0.1) => {
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold }
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold, rootMargin: '80px' }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -154,7 +159,7 @@ const FeatureSection = ({ feature, index }: { feature: (typeof features)[0], ind
   return (
     <div ref={ref} className="group grid md:grid-cols-2 gap-8 sm:gap-12 md:gap-20 lg:gap-32 items-center mb-20 sm:mb-32 lg:mb-40 last:mb-0">
       <div
-        className={`transition-all duration-700 ease-out ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${isEven ? 'md:order-1' : 'md:order-2'}`}
+        className={`transition-[opacity,transform] duration-700 ease-out ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${isEven ? 'md:order-1' : 'md:order-2'}`}
       >
         <div className="inline-block px-4 py-1.5 mb-4 sm:mb-6 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-bold tracking-[0.15em] uppercase">
           Feature {index + 1}
@@ -169,7 +174,7 @@ const FeatureSection = ({ feature, index }: { feature: (typeof features)[0], ind
       </div>
 
       <div
-        className={`transition-all duration-700 ease-out delay-200 ${visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'} ${isEven ? 'md:order-2' : 'md:order-1'}`}
+        className={`transition-[opacity,transform] duration-700 ease-out delay-200 ${visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'} ${isEven ? 'md:order-2' : 'md:order-1'}`}
       >
         <div className="relative aspect-[4/3] md:aspect-square flex items-center justify-center rounded-2xl sm:rounded-3xl overflow-hidden bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.06] group-hover:border-blue-500/20 dark:group-hover:border-blue-400/20 transition-all duration-500 p-6 sm:p-8 md:p-12 shadow-lg group-hover:shadow-xl dark:shadow-black/20">
           <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/[0.03] via-transparent to-purple-500/[0.03] opacity-0 group-hover:opacity-100 transition-opacity duration-700 dark:from-blue-500/[0.05] dark:to-purple-500/[0.05]" />

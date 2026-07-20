@@ -24,6 +24,8 @@ const SuperProfilePublicPageLazy = React.lazy(() => import('./app/superprofile/p
 const DeleteAccountGuidePageLazy = React.lazy(() => import('./app/delete-account-guide/page'));
 const PasswordRecoveryPageLazy = React.lazy(() => import('./app/auth/recovery/page'));
 const InstagramCallbackPageLazy = React.lazy(() => import('./app/auth/InstagramCallback'));
+const BlogIndexPageLazy = React.lazy(() => import('./app/blog/page'));
+const BlogPostPageLazy = React.lazy(() => import('./app/blog/post'));
 
 import Navbar from './components/ui/Navbar';
 import Footer from './components/ui/Footer';
@@ -42,7 +44,8 @@ const ROUTE_TITLES: Record<string, string> = {
   '/terms': 'Terms & Conditions | DM Panda',
   '/refund-policy': 'Refund Policy | DM Panda',
   '/delete-account-guide': 'Delete Account Guide | DM Panda',
-  '/login': 'Login | DM Panda'
+  '/login': 'Login | DM Panda',
+  '/blog': 'Blog | DM Panda',
 };
 
 const getRouteTitle = (path: string) => {
@@ -96,7 +99,11 @@ const AppContent: React.FC = () => {
     <>
       {isPublicPage && !isSuperProfilePage && <Navbar />}
       <div className="page-transition">
-        <Suspense fallback={isPublicPage ? null : <DashboardLoading />}>
+        <Suspense fallback={isPublicPage ? (
+          <div className="min-h-screen flex items-center justify-center bg-white dark:bg-neutral-950">
+            <div className="w-8 h-8 border-2 border-gray-200 dark:border-gray-700 border-t-[#833AB4] rounded-full animate-spin" />
+          </div>
+        ) : <DashboardLoading />}>
           <Routes>
             <Route path="/" element={<HomePageLazy />} />
             <Route path="/dashboard/*" element={<ProtectedRoute><DashboardPageLazy /></ProtectedRoute>} />
@@ -114,6 +121,8 @@ const AppContent: React.FC = () => {
             <Route path="/terms" element={<TermsPageLazy />} />
             <Route path="/superprofile/:slug" element={<SuperProfilePublicPageLazy />} />
             <Route path="/login" element={<PublicRoute><LoginPageLazy /></PublicRoute>} />
+            <Route path="/blog" element={<BlogIndexPageLazy />} />
+            <Route path="/blog/:slug" element={<BlogPostPageLazy />} />
             <Route path="/refund-policy" element={<RefundPolicyPageLazy />} />
             <Route path="/delete-account-guide" element={<DeleteAccountGuidePageLazy />} />
             <Route path="*" element={<NotFoundPageLazy />} />

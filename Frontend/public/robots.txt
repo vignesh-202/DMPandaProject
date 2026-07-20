@@ -2,5 +2,9 @@ User-agent: *
 Allow: /
 Disallow: /dashboard
 Disallow: /auth/
+Disallow: /api/
+
+# Crawl-delay for polite bots
+Crawl-delay: 1
 
 Sitemap: https://dmpanda.com/sitemap.xml

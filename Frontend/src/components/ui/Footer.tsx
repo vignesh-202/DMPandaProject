@@ -2,7 +2,31 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin } from 'react-icons/fa';
 
-const Footer: React.FC = () => {
+const socialLinks = [
+  { icon: FaFacebook, href: '#', label: 'Facebook' },
+  { icon: FaTwitter, href: '#', label: 'Twitter' },
+  { icon: FaInstagram, href: '#', label: 'Instagram' },
+  { icon: FaLinkedin, href: '#', label: 'LinkedIn' },
+];
+
+const quickLinks = [
+  { to: '/', label: 'Home' },
+  { to: '/features', label: 'Features' },
+  { to: '/about', label: 'About Us' },
+  { to: '/pricing', label: 'Pricing' },
+  { to: '/blog', label: 'Blog' },
+  { to: '/contact', label: 'Contact' },
+];
+
+const legalLinks = [
+  { to: '/privacy', label: 'Privacy Policy' },
+  { to: '/terms', label: 'Terms & Conditions' },
+  { to: '/disclaimer', label: 'Disclaimer' },
+  { to: '/refund-policy', label: 'Refund Policy' },
+  { to: '/delete-account-guide', label: 'Delete Account' },
+];
+
+const Footer: React.FC = React.memo(() => {
   return (
     <footer className="bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 border-t border-gray-100 dark:border-white/[0.06] transition-colors duration-500">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 max-w-7xl">
@@ -14,15 +38,11 @@ const Footer: React.FC = () => {
               Automate Your Instagram DMs with Ease.
             </p>
             <div className="flex space-x-3">
-              {[
-                { icon: FaFacebook, href: '#' },
-                { icon: FaTwitter, href: '#' },
-                { icon: FaInstagram, href: '#' },
-                { icon: FaLinkedin, href: '#' },
-              ].map(({ icon: Icon, href }, i) => (
+              {socialLinks.map(({ icon: Icon, href, label }, i) => (
                 <a
                   key={i}
                   href={href}
+                  aria-label={label}
                   className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-white/[0.06] text-gray-500 dark:text-gray-400 hover:bg-gradient-to-br hover:from-[#833AB4] hover:to-[#405DE6] hover:text-white transition-all duration-300 hover:scale-105"
                 >
                   <Icon size={18} />
@@ -35,13 +55,7 @@ const Footer: React.FC = () => {
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">Quick Links</h3>
             <ul className="space-y-2.5">
-              {[
-                { to: '/', label: 'Home' },
-                { to: '/features', label: 'Features' },
-                { to: '/about', label: 'About Us' },
-                { to: '/pricing', label: 'Pricing' },
-                { to: '/contact', label: 'Contact' },
-              ].map((link) => (
+              {quickLinks.map((link) => (
                 <li key={link.to}>
                   <Link to={link.to} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm transition-colors duration-200">
                     {link.label}
@@ -55,13 +69,7 @@ const Footer: React.FC = () => {
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">Legal</h3>
             <ul className="space-y-2.5">
-              {[
-                { to: '/privacy', label: 'Privacy Policy' },
-                { to: '/terms', label: 'Terms & Conditions' },
-                { to: '/disclaimer', label: 'Disclaimer' },
-                { to: '/refund-policy', label: 'Refund Policy' },
-                { to: '/delete-account-guide', label: 'Delete Account' },
-              ].map((link) => (
+              {legalLinks.map((link) => (
                 <li key={link.to}>
                   <Link to={link.to} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm transition-colors duration-200">
                     {link.label}
@@ -81,6 +89,8 @@ const Footer: React.FC = () => {
       </div>
     </footer>
   );
-};
+});
+
+Footer.displayName = 'Footer';
 
 export default Footer;

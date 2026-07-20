@@ -28,6 +28,8 @@ import {
   RefreshCw,
   Lock,
   Sparkles,
+  GitBranch,
+  Code,
 } from 'lucide-react';
 import { toBrowserPreviewUrl } from '../../lib/templatePreview';
 import { useAuth } from '../../contexts/AuthContext';
@@ -117,7 +119,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
       'Reply Templates', 'Super Profile', 'Inbox Menu', 'Convo Starter',
       'Global Trigger', 'DM Automation', 'Post Automation', 'Reel Automation',
       'Story Automation', 'Live Automation', 'Mentions',
-      'Comment Moderation', 'Suggest More'
+      'Comment Moderation', 'Suggest More', 'Flow'
     ];
     const requiredFeature = viewFeatureMap[viewName];
     const lockedByPlan = requiredFeature ? !hasPlanFeature(requiredFeature) : false;
@@ -240,6 +242,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
           { name: 'Mentions', icon: AtSign },
           { name: 'Suggest More', icon: Lightbulb },
           { name: 'Comment Moderation', icon: Shield },
+          { name: 'Flow', icon: GitBranch },
         ]
       },
       {
@@ -248,6 +251,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
           { name: 'My Plan', icon: Tag },
           { name: 'Transactions', icon: Landmark },
           { name: 'Account Settings', icon: Settings },
+          { name: 'API', icon: Code },
           { name: 'Support', icon: HelpCircle },
           { name: 'Contact', icon: Mail },
         ]

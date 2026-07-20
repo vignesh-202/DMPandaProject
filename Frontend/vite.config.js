@@ -8,6 +8,12 @@ export default defineConfig({
     react(),
   ],
   build: {
+    // Enable CSS code splitting so each route only loads what it needs
+    cssCodeSplit: true,
+    // Target modern browsers for smaller output
+    target: 'es2020',
+    // Terser for slightly smaller bundles (optional, esbuild is faster)
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -47,6 +53,10 @@ export default defineConfig({
         },
       },
     },
+    // Report compressed output sizes
+    reportCompressedSize: true,
+    // Increase inline limit for very small assets (< 8KB inlined as base64)
+    assetsInlineLimit: 8192,
   },
   resolve: {
     alias: {

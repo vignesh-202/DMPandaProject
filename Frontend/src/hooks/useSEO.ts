@@ -103,7 +103,7 @@ export function useSEO({
     };
 
     Object.entries(twitterTags).forEach(([name, content]) => {
-      let twMeta = document.querySelector(`meta[name="${name}"]`);
+      let twMeta = document.querySelector(`meta[name="${name}"], meta[property="${name}"]`);
       if (!twMeta) {
         twMeta = document.createElement('meta');
         twMeta.setAttribute('name', name);
