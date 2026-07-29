@@ -70,6 +70,8 @@ const paymentRoutes = require('./routes/payment');
 const instagramRoutes = require('./routes/instagram');
 const adminRoutes = require('./routes/admin');
 const seoRoutes = require('./routes/seo');
+const apiV1Routes = require('./routes/apiV1');
+const subscriptionSlotsRoutes = require('./routes/subscriptionSlots');
 
 app.use('/', authRoutes); // Mount at root to allow /api/register and /auth/google
 app.use('/', seoRoutes);  // Mount sitemap.xml and robots.txt at root
@@ -77,7 +79,9 @@ app.use('/api/account', accountRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api', paymentRoutes);
 app.use('/api', instagramRoutes);
+app.use('/api/subscription-slots', subscriptionSlotsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/v1', apiV1Routes);
 
 
 // Root endpoint

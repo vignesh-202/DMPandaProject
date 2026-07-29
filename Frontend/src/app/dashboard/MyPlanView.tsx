@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Calendar, Check, CreditCard, Zap } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDashboard } from '../../contexts/DashboardContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import InfoPopover from '../../components/ui/InfoPopover';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
@@ -23,11 +24,8 @@ type UserPlan = {
     name: string;
     features: string[];
     price_monthly_inr: number;
-    price_monthly_usd: number;
     price_yearly_inr?: number;
-    price_yearly_usd?: number;
     price_yearly_monthly_inr?: number;
-    price_yearly_monthly_usd?: number;
     yearly_bonus?: string;
   } | null;
   limits?: {
@@ -39,6 +37,7 @@ type UserPlan = {
 
 const MyPlanView: React.FC = () => {
   const { authenticatedFetch, checkAuth } = useAuth();
+  const { igAccounts } = useDashboard();
   const [plan, setPlan] = useState<UserPlan | null>(null);
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,8 +45,7 @@ const MyPlanView: React.FC = () => {
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null);
   const [syncingPlan, setSyncingPlan] = useState(false);
   const [isYearly, setIsYearly] = useState(false);
-  const [currency, setCurrency] = useState<'INR' | 'USD'>('USD');
-  const [isIndianUser, setIsIndianUser] = useState(false);
+  const currency = 'INR';
   const [countryCode, setCountryCode] = useState<string | null>(null);
   const [plansError, setPlansError] = useState<string | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -96,8 +94,6 @@ const MyPlanView: React.FC = () => {
       try {
         const geo = await detectGeoCurrency();
         setCountryCode(geo.countryCode);
-        setIsIndianUser(geo.isIndianUser);
-        setCurrency(geo.defaultCurrency);
         const headers = buildCountryHeaders(geo.countryCode);
         const [planResponse, pricingResponse] = await Promise.all([
           authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/my-plan`, { headers }),
@@ -316,14 +312,6 @@ const MyPlanView: React.FC = () => {
                   Yearly
                 </button>
               </div>
-              {isIndianUser && (
-                <button
-                  onClick={() => setCurrency((current) => current === 'INR' ? 'USD' : 'INR')}
-                  className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-                >
-                  {currency}
-                </button>
-              )}
             </div>
           </div>
 
@@ -357,10 +345,10 @@ const MyPlanView: React.FC = () => {
                     <div className="mb-6 flex h-20 flex-col justify-center">
                       <div className="flex items-baseline gap-1">
                         <span className="text-4xl font-bold">{formatMoney(bigPrice, currency)}</span>
-                        <span className="text-sm text-muted-foreground">/month</span>
+                        <span className="text-sm text-muted-foreground">/account /month</span>
                       </div>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        {isYearly ? 'Yearly total is shown in checkout.' : 'Monthly total is shown in checkout.'}
+                        {isYearly ? 'Yearly per-account total is shown in checkout.' : 'Monthly per-account total is shown in checkout.'}
                       </p>
                       {isYearly && entry.yearly_bonus && (
                         <p className="mt-1 text-sm font-medium text-success">{entry.yearly_bonus}</p>
@@ -428,11 +416,10 @@ const MyPlanView: React.FC = () => {
         defaultBillingCycle={isYearly ? 'yearly' : 'monthly'}
         currency={currency}
         countryCode={countryCode}
-        canToggleCurrency={isIndianUser}
-        onCurrencyToggle={() => setCurrency((current) => current === 'INR' ? 'USD' : 'INR')}
         authenticatedFetch={authenticatedFetch}
         loadingPlanId={paymentLoading}
         syncingPlan={syncingPlan}
+        igAccounts={igAccounts}
         onClose={() => setCheckoutOpen(false)}
         onPaymentSuccess={() => {
           setPaymentLoading(null);

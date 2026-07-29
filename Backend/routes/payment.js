@@ -11,6 +11,7 @@ const {
     COUPON_REDEMPTIONS_COLLECTION_ID,
     TRANSACTIONS_COLLECTION_ID,
     PROFILES_COLLECTION_ID,
+    IG_ACCOUNTS_COLLECTION_ID,
     PAYMENT_ATTEMPTS_COLLECTION_ID
 } = require('../utils/appwrite');
 const { buildTransactionReceipt } = require('../utils/transactionReceipt');
@@ -87,7 +88,8 @@ const retryAppwriteOperation = async (operation, {
 };
 
 const normalizeCouponCode = (value) => String(value || '').trim().toUpperCase().replace(/\s+/g, '');
-const normalizeCurrency = (value) => (String(value || '').trim().toUpperCase() === 'INR' ? 'INR' : 'USD');
+const normalizeCurrency = () => 'INR';
+const normalizeAccountsCount = (value) => Math.max(1, Math.min(50, parseInt(value || 1, 10) || 1));
 
 const getRequestCountryCode = (req) => {
     const candidates = [
@@ -106,13 +108,11 @@ const getRequestCountryCode = (req) => {
 
 const resolveRequestCurrency = (req, requestedCurrency) => {
     const countryCode = getRequestCountryCode(req);
-    const defaultCurrency = countryCode === 'IN' ? 'INR' : 'USD';
-    const requested = requestedCurrency ? normalizeCurrency(requestedCurrency) : defaultCurrency;
     return {
         countryCode,
-        currency: requested,
-        defaultCurrency,
-        allowedCurrencies: countryCode === 'IN' ? ['INR', 'USD'] : ['USD', 'INR']
+        currency: 'INR',
+        defaultCurrency: 'INR',
+        allowedCurrencies: ['INR']
     };
 };
 
@@ -121,20 +121,13 @@ const sortPlans = (plans) => plans.sort((a, b) => {
     return a.name.localeCompare(b.name);
 });
 
-const resolvePlanPrice = (plan, billingCycle, currency) => {
+const resolvePlanPrice = (plan, billingCycle) => {
     const cycle = normalizeBillingCycle(billingCycle);
-    const normalizedCurrency = normalizeCurrency(currency);
-    if (normalizedCurrency === 'INR') {
-        return cycle === 'yearly' ? Number(plan.price_yearly_inr || 0) : Number(plan.price_monthly_inr || 0);
-    }
-    return cycle === 'yearly' ? Number(plan.price_yearly_usd || 0) : Number(plan.price_monthly_usd || 0);
+    return cycle === 'yearly' ? Number(plan.price_yearly_inr || 0) : Number(plan.price_monthly_inr || 0);
 };
 
-const resolveYearlyMonthlyDisplayPrice = (plan, currency) => {
-    const normalizedCurrency = normalizeCurrency(currency);
-    return normalizedCurrency === 'INR'
-        ? Number(plan.price_yearly_monthly_inr || 0)
-        : Number(plan.price_yearly_monthly_usd || 0);
+const resolveYearlyMonthlyDisplayPrice = (plan) => {
+    return Number(plan.price_yearly_monthly_inr || 0);
 };
 
 const addDaysIso = (days) => {
@@ -275,8 +268,23 @@ const describeError = (error) => {
 
 const getPricingRequestKey = ({ countryCode, currency }) => {
     const normalizedCountry = String(countryCode || 'unknown').trim().toUpperCase() || 'UNKNOWN';
-    const normalizedCurrency = normalizeCurrency(currency || 'USD');
+    const normalizedCurrency = normalizeCurrency(currency || 'INR');
     return `${normalizedCountry}:${normalizedCurrency}`;
+};
+
+const getLinkedInstagramAccountCount = async (databases, userId) => {
+    const safeUserId = String(userId || '').trim();
+    if (!safeUserId) return 0;
+    const response = await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
+        Query.equal('user_id', safeUserId),
+        Query.limit(200)
+    ]));
+    return Number(response.total ?? response.documents?.length ?? 0) || 0;
+};
+
+const resolveBillableAccountsCount = async (databases, userId, requestedCount = 1) => {
+    const linkedCount = await getLinkedInstagramAccountCount(databases, userId).catch(() => 0);
+    return Math.max(normalizeAccountsCount(requestedCount), linkedCount, 1);
 };
 
 const getLivePricingPayload = async (currencyPolicy) => {
@@ -501,10 +509,12 @@ const buildPricingFromPaymentAttempt = (attempt) => {
     return {
         billing_cycle,
         currency,
+        accounts_count: normalizeAccountsCount(meta.accounts_count || meta.requested_accounts_count || 1),
+        unit_base_amount: Number(meta.unit_base_amount || 0),
         base_amount: Number(attempt?.base_amount || 0),
         discount: Number(attempt?.discount_amount || 0),
         final_amount: Number(attempt?.final_amount || 0),
-        yearly_monthly_display_price: Number(attempt?.base_amount || 0),
+        yearly_monthly_display_price: Number(meta.yearly_monthly_display_price || attempt?.base_amount || 0),
         validity_days: getValidityDays(billing_cycle)
     };
 };
@@ -722,6 +732,7 @@ const ensureUserProfileDocument = async (
         billingCycle: options.billingCycle || 'monthly',
         subscriptionStatus: 'active',
         subscriptionExpires,
+        limitOverrides: options.limitOverrides,
         paidPlanSnapshot: options.paidPlanSnapshot || null,
         resetReminderState: true,
         credits: existingProfile ? undefined : 0
@@ -778,12 +789,14 @@ const sendSubscriptionSuccessEmail = async (userId, plan, pricing, appliedCoupon
             intro: `Great news! Your subscription to the ${planName} plan has been successfully activated.`,
             summaryRows: [
                 ['Plan', planName],
+                ['Instagram accounts billed', String(pricing?.accounts_count || 1)],
+                ['Per-account rate', `${pricing.currency} ${Number(pricing?.unit_base_amount || 0).toLocaleString('en-IN')}`],
                 ['Billing Cycle', String(pricing.billing_cycle).toUpperCase()],
                 ['Effective until', expiryText],
                 ...(appliedCoupon ? [['Coupon applied', appliedCoupon.code]] : [])
             ],
             paragraphs: [
-                'You now have full access to premium automation features included in your plan.',
+                `Your subscription is priced per linked Instagram account. This purchase covers ${pricing?.accounts_count || 1} connected Instagram account(s), with plan action limits applied separately to each account.`,
                 'If you have any questions or need help setting up your automations, feel free to reach out to our support team.'
             ],
             ctaLabel: 'Go to Dashboard',
@@ -820,14 +833,16 @@ const finalizePlanPurchase = async ({
         durationDays: pricing.validity_days
     });
     const planLimits = getPlanLimitSnapshot(plan);
+    const purchasedAccountsCount = normalizeAccountsCount(pricing.accounts_count || 1);
+    const planActionLimits = resolvePlanLimits(plan);
     const paidPlanSnapshot = buildPaidPlanSnapshot({
         plan,
         billingCycle: pricing.billing_cycle,
         expires: subscriptionExpires,
         status: 'active',
         limits: {
-            instagram_connections_limit: Number(resolvePlanLimits(plan).instagram_connections_limit || 0),
-            instagram_link_limit: Number(resolvePlanLimits(plan).instagram_link_limit || resolvePlanLimits(plan).instagram_connections_limit || 0),
+            instagram_connections_limit: purchasedAccountsCount,
+            instagram_link_limit: purchasedAccountsCount,
             hourly_action_limit: Number(planLimits.hourly_action_limit || 0),
             daily_action_limit: Number(planLimits.daily_action_limit || 0),
             monthly_action_limit: planLimits.monthly_action_limit == null
@@ -848,6 +863,36 @@ const finalizePlanPurchase = async ({
         paymentAttemptId
     });
 
+    try {
+        const slotPlanCode = plan.plan_code || plan.id;
+        const slotBillingCycle = pricing.billing_cycle || 'monthly';
+        const nowIso = new Date().toISOString();
+        const pairedAccountId = options.pairedAccountId || options.igAccountId || null;
+
+        for (let i = 0; i < purchasedAccountsCount; i++) {
+            const targetAccountForSlot = (i === 0) ? pairedAccountId : null;
+            await databases.createDocument(
+                APPWRITE_DATABASE_ID,
+                'subscription_slots',
+                ID.unique(),
+                {
+                    user_id: String(userId || '').trim(),
+                    plan_code: slotPlanCode,
+                    billing_cycle: slotBillingCycle,
+                    status: 'active',
+                    expires_at: subscriptionExpires,
+                    paired_account_id: targetAccountForSlot,
+                    paired_at: targetAccountForSlot ? nowIso : null,
+                    transaction_id: transaction?.$id || transaction?.id || null,
+                    created_at: nowIso,
+                    updated_at: nowIso
+                }
+            ).catch((err) => console.warn('Failed to create subscription slot doc:', err.message));
+        }
+    } catch (slotErr) {
+        console.warn('Error creating subscription slot(s):', slotErr.message);
+    }
+
     await ensureUserProfileDocument(
         databases,
         userId,
@@ -855,6 +900,13 @@ const finalizePlanPurchase = async ({
         subscriptionExpires,
         {
             billingCycle: pricing.billing_cycle,
+            limitOverrides: {
+                instagram_connections_limit: purchasedAccountsCount,
+                instagram_link_limit: purchasedAccountsCount,
+                hourly_action_limit: Number(planActionLimits.hourly_action_limit || 0),
+                daily_action_limit: Number(planActionLimits.daily_action_limit || 0),
+                monthly_action_limit: planActionLimits.monthly_action_limit == null ? null : Number(planActionLimits.monthly_action_limit || 0)
+            },
             paidPlanSnapshot
         }
     );
@@ -1087,14 +1139,16 @@ const recordCouponRedemptionIfNeeded = async ({
     return redemption;
 };
 
-const buildPricingQuote = ({ plan, billingCycle, currency, coupon }) => {
+const buildPricingQuote = ({ plan, billingCycle, currency, coupon, accountsCount = 1 }) => {
     const normalizedPlan = normalizePlanDocument(plan);
     const cycle = normalizeBillingCycle(billingCycle);
     const normalizedCurrency = normalizeCurrency(currency);
-    const base_amount = resolvePlanPrice(normalizedPlan, cycle, normalizedCurrency);
+    const count = normalizeAccountsCount(accountsCount);
+    const unit_base_amount = resolvePlanPrice(normalizedPlan, cycle, normalizedCurrency);
+    const base_amount = unit_base_amount * count;
     const yearly_monthly_display_price = cycle === 'yearly'
         ? resolveYearlyMonthlyDisplayPrice(normalizedPlan, normalizedCurrency)
-        : base_amount;
+        : unit_base_amount;
     let discount = 0;
     if (coupon) {
         if (String(coupon.type || '').toLowerCase() === 'percent') {
@@ -1107,6 +1161,8 @@ const buildPricingQuote = ({ plan, billingCycle, currency, coupon }) => {
     return {
         billing_cycle: cycle,
         currency: normalizedCurrency,
+        accounts_count: count,
+        unit_base_amount,
         base_amount,
         discount,
         final_amount,
@@ -1163,11 +1219,8 @@ const buildUserPlanPayload = (plan, profile, _subscriptionStatus, subscriptionPl
             feature_items: apiPlan.feature_items,
             comparison: normalizedPlan.comparison,
             price_monthly_inr: normalizedPlan.price_monthly_inr,
-            price_monthly_usd: normalizedPlan.price_monthly_usd,
             price_yearly_inr: normalizedPlan.price_yearly_inr,
-            price_yearly_usd: normalizedPlan.price_yearly_usd,
             price_yearly_monthly_inr: normalizedPlan.price_yearly_monthly_inr,
-            price_yearly_monthly_usd: normalizedPlan.price_yearly_monthly_usd,
             yearly_bonus: normalizedPlan.yearly_bonus
         },
         limits: {
@@ -1185,17 +1238,18 @@ const buildUserPlanPayload = (plan, profile, _subscriptionStatus, subscriptionPl
 router.post('/coupons/validate', loginRequired, async (req, res) => {
     try {
         const databases = getDatabases();
-        const { plan_id, billing_cycle = 'monthly', currency, coupon_code } = req.body || {};
+        const { plan_id, billing_cycle = 'monthly', currency, coupon_code, accounts_count = 1 } = req.body || {};
         const plan = await getPlanByIdentifier(databases, plan_id);
         if (!plan) {
             return res.status(404).json({ valid: false, error: 'Plan not found' });
         }
+        const billableAccountsCount = await resolveBillableAccountsCount(databases, req.user.$id, accounts_count);
         const currencyPolicy = resolveRequestCurrency(req, currency);
         if (!coupon_code) {
             return res.json({
                 valid: false,
                 reason: 'missing',
-                pricing: buildPricingQuote({ plan, billingCycle: billing_cycle, currency: currencyPolicy.currency }),
+                pricing: buildPricingQuote({ plan, billingCycle: billing_cycle, currency: currencyPolicy.currency, accountsCount: billableAccountsCount }),
                 plan
             });
         }
@@ -1210,7 +1264,7 @@ router.post('/coupons/validate', loginRequired, async (req, res) => {
             return res.json({
                 valid: false,
                 reason: result.reason,
-                pricing: buildPricingQuote({ plan, billingCycle: billing_cycle, currency: currencyPolicy.currency }),
+                pricing: buildPricingQuote({ plan, billingCycle: billing_cycle, currency: currencyPolicy.currency, accountsCount: billableAccountsCount }),
                 plan
             });
         }
@@ -1221,7 +1275,8 @@ router.post('/coupons/validate', loginRequired, async (req, res) => {
                 plan,
                 billingCycle: billing_cycle,
                 currency: currencyPolicy.currency,
-                coupon: result.coupon
+                coupon: result.coupon,
+                accountsCount: billableAccountsCount
             }),
             plan
         });
@@ -1233,7 +1288,7 @@ router.post('/coupons/validate', loginRequired, async (req, res) => {
 
 router.post('/create-order', loginRequired, async (req, res) => {
     try {
-        const { plan_id, coupon_code } = req.body || {};
+        const { plan_id, coupon_code, accounts_count = 1 } = req.body || {};
         const billingCycle = normalizeBillingCycle(req.body?.billing_cycle);
         const currencyPolicy = resolveRequestCurrency(req, req.body?.currency);
         if (!plan_id) return res.status(400).json({ error: 'plan_id is required' });
@@ -1244,6 +1299,7 @@ router.post('/create-order', loginRequired, async (req, res) => {
         if (plan.plan_code === 'free') {
             return res.status(400).json({ error: 'Selected plan does not require payment.', reason: 'free_plan' });
         }
+        const billableAccountsCount = await resolveBillableAccountsCount(databases, req.user.$id, accounts_count);
 
         let appliedCoupon = null;
         if (coupon_code) {
@@ -1264,7 +1320,8 @@ router.post('/create-order', loginRequired, async (req, res) => {
             plan,
             billingCycle,
             currency: currencyPolicy.currency,
-            coupon: appliedCoupon
+            coupon: appliedCoupon,
+            accountsCount: billableAccountsCount
         });
 
         if (pricing.final_amount <= 0) {
@@ -1292,7 +1349,11 @@ router.post('/create-order', loginRequired, async (req, res) => {
             appliedCoupon,
             meta: {
                 requested_currency: currencyPolicy.currency,
-                requested_billing_cycle: billingCycle
+                requested_billing_cycle: billingCycle,
+                requested_accounts_count: billableAccountsCount,
+                accounts_count: billableAccountsCount,
+                unit_base_amount: pricing.unit_base_amount,
+                yearly_monthly_display_price: pricing.yearly_monthly_display_price
             }
         });
 
@@ -1308,7 +1369,8 @@ router.post('/create-order', loginRequired, async (req, res) => {
                     user_id: req.user.$id,
                     plan_code: String(plan.plan_code || plan.id || '').trim(),
                     billing_cycle: pricing.billing_cycle,
-                    coupon_code: appliedCoupon?.code || ''
+                    coupon_code: appliedCoupon?.code || '',
+                    accounts_count: String(pricing.accounts_count || 1)
                 }
             });
         } catch (error) {
@@ -1324,6 +1386,10 @@ router.post('/create-order', loginRequired, async (req, res) => {
             meta_json: JSON.stringify({
                 requested_currency: currencyPolicy.currency,
                 requested_billing_cycle: billingCycle,
+                requested_accounts_count: billableAccountsCount,
+                accounts_count: billableAccountsCount,
+                unit_base_amount: pricing.unit_base_amount,
+                yearly_monthly_display_price: pricing.yearly_monthly_display_price,
                 razorpay_order_status: order.status || null
             })
         });
@@ -1355,7 +1421,8 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
             razorpay_signature,
             plan_id,
             coupon_code,
-            payment_attempt_id
+            payment_attempt_id,
+            accounts_count = 1
         } = req.body || {};
         const billingCycle = normalizeBillingCycle(req.body?.billing_cycle);
         const currencyPolicy = resolveRequestCurrency(req, req.body?.currency);
@@ -1405,7 +1472,8 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
                 plan,
                 billingCycle,
                 currency: currencyPolicy.currency,
-                coupon: appliedCoupon
+                coupon: appliedCoupon,
+                accountsCount: await resolveBillableAccountsCount(databases, req.user.$id, accounts_count)
             });
         }
 

@@ -42,6 +42,7 @@ module.exports = {
     TRANSACTIONS_COLLECTION_ID: 'transactions',
     PAYMENT_ATTEMPTS_COLLECTION_ID: 'payment_attempts',
     PRICING_COLLECTION_ID: 'pricing',
+    SUBSCRIPTION_SLOTS_COLLECTION_ID: 'subscription_slots',
     COUPONS_COLLECTION_ID: 'coupons',
     COUPON_REDEMPTIONS_COLLECTION_ID: 'coupon_redemptions',
     INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID: 'inactive_user_cleanup_audit',

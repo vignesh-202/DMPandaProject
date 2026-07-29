@@ -84,7 +84,8 @@ const DEFAULT_PLAN_FEATURES = Object.freeze({
         'mentions',
         'instagram_live_automation',
         'priority_support',
-        'once_per_user_24h'
+        'once_per_user_24h',
+        'api_access'
     ],
     benefitStorageKeys: {
         post_comment_reply_automation: 'post_comment_reply',
@@ -344,10 +345,7 @@ const normalizePlanDocument = (plan) => {
         name: String(plan?.name || 'Plan').trim() || 'Plan',
         price_monthly_inr: Number(plan?.price_monthly_inr || 0),
         price_yearly_inr: Number(plan?.price_yearly_inr || 0),
-        price_monthly_usd: Number(plan?.price_monthly_usd || 0),
-        price_yearly_usd: Number(plan?.price_yearly_usd || 0),
         price_yearly_monthly_inr: Number(plan?.price_yearly_monthly_inr || 0),
-        price_yearly_monthly_usd: Number(plan?.price_yearly_monthly_usd || 0),
         is_custom: Boolean(plan?.is_custom),
         is_popular: Boolean(plan?.is_popular),
         display_order: Number(plan?.display_order || 0),
@@ -431,16 +429,13 @@ const buildPlanApiPayload = (plan, profile = null) => {
         is_custom: normalized.is_custom,
         pricing: {
             monthly: {
-                inr: normalized.price_monthly_inr,
-                usd: normalized.price_monthly_usd
+                inr: normalized.price_monthly_inr
             },
             yearly: {
-                inr: normalized.price_yearly_inr,
-                usd: normalized.price_yearly_usd
+                inr: normalized.price_yearly_inr
             },
             yearly_monthly_display: {
-                inr: normalized.price_yearly_monthly_inr,
-                usd: normalized.price_yearly_monthly_usd
+                inr: normalized.price_yearly_monthly_inr
             }
         },
         duration_days: {
@@ -459,11 +454,8 @@ const buildPlanApiPayload = (plan, profile = null) => {
             value: item.enabled
         })),
         price_monthly_inr: normalized.price_monthly_inr,
-        price_monthly_usd: normalized.price_monthly_usd,
         price_yearly_inr: normalized.price_yearly_inr,
-        price_yearly_usd: normalized.price_yearly_usd,
         price_yearly_monthly_inr: normalized.price_yearly_monthly_inr,
-        price_yearly_monthly_usd: normalized.price_yearly_monthly_usd,
         instagram_connections_limit: limits.instagram_connections_limit,
         instagram_link_limit: limits.instagram_link_limit,
         active_account_limit: limits.active_account_limit,
@@ -490,12 +482,12 @@ const buildPricingApiPayload = (plans = [], currencyPolicy = {}) => {
         feature_layer_map: FEATURE_LAYER_MAP,
         currency: {
             country_code: currencyPolicy.countryCode || null,
-            default: currencyPolicy.defaultCurrency || 'USD',
-            allowed: currencyPolicy.allowedCurrencies || ['USD', 'INR']
+            default: 'INR',
+            allowed: ['INR']
         },
         country_code: currencyPolicy.countryCode || null,
-        default_currency: currencyPolicy.defaultCurrency || 'USD',
-        allowed_currencies: currencyPolicy.allowedCurrencies || ['USD', 'INR']
+        default_currency: 'INR',
+        allowed_currencies: ['INR']
     };
 };
 
@@ -1446,6 +1438,44 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null, pr
     };
 };
 
+const hasUltraPlanAccess = async (databases, userId) => {
+    try {
+        const safeUserId = String(userId || '').trim();
+        if (!safeUserId) return false;
+
+        const profile = await databases.getDocument(
+            APPWRITE_DATABASE_ID,
+            PROFILES_COLLECTION_ID,
+            safeUserId
+        ).catch(() => null);
+
+        if (profile) {
+            const planCode = String(profile.plan_code || '').trim().toLowerCase();
+            const status = String(profile.subscription_status || 'active').trim().toLowerCase();
+            if (planCode === 'ultra' && status !== 'inactive' && status !== 'expired') {
+                return true;
+            }
+            if (profile.benefit_api_access === true) {
+                return true;
+            }
+        }
+
+        const slotsResponse = await databases.listDocuments(
+            APPWRITE_DATABASE_ID,
+            'subscription_slots',
+            [
+                Query.equal('user_id', safeUserId),
+                Query.equal('plan_code', 'ultra'),
+                Query.equal('status', 'active')
+            ]
+        ).catch(() => ({ documents: [] }));
+
+        return (slotsResponse.documents || []).length > 0;
+    } catch (_) {
+        return false;
+    }
+};
+
 module.exports = {
     parseJsonArray,
     parseJsonObject,
@@ -1518,5 +1548,6 @@ module.exports = {
     resolvePlanLimits,
     updateUserSelfPlanMemory,
     upsertEffectiveProfile,
-    resolveUserPlanContext
+    resolveUserPlanContext,
+    hasUltraPlanAccess
 };

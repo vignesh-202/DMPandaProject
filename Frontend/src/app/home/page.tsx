@@ -274,7 +274,7 @@ const HomePage: React.FC = () => {
         'offers': {
           '@type': 'Offer',
           'price': '0',
-          'priceCurrency': 'USD'
+          'priceCurrency': 'INR'
         },
         'aggregateRating': {
           '@type': 'AggregateRating',

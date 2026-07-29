@@ -12,7 +12,7 @@ const socialLinks = [
 const quickLinks = [
   { to: '/', label: 'Home' },
   { to: '/features', label: 'Features' },
-  { to: '/about', label: 'About Us' },
+  { to: '/docs', label: 'Documentation' },
   { to: '/pricing', label: 'Pricing' },
   { to: '/blog', label: 'Blog' },
   { to: '/contact', label: 'Contact' },

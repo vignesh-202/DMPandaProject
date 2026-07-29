@@ -15,11 +15,8 @@ export type PricingPlan = {
   plan_code: string;
   name: string;
   price_monthly_inr: number;
-  price_monthly_usd: number;
   price_yearly_inr: number;
-  price_yearly_usd: number;
   price_yearly_monthly_inr: number;
-  price_yearly_monthly_usd: number;
   is_custom: boolean;
   is_popular: boolean;
   display_order: number;
@@ -85,11 +82,8 @@ export const normalizePlan = (raw: any): PricingPlan => ({
   plan_code: String(raw?.plan_code ?? '').trim().toLowerCase(),
   name: String(raw?.name ?? 'Plan'),
   price_monthly_inr: Number(raw?.pricing?.monthly?.inr ?? raw?.price_monthly_inr ?? 0),
-  price_monthly_usd: Number(raw?.pricing?.monthly?.usd ?? raw?.price_monthly_usd ?? 0),
   price_yearly_inr: Number(raw?.pricing?.yearly?.inr ?? raw?.price_yearly_inr ?? 0),
-  price_yearly_usd: Number(raw?.pricing?.yearly?.usd ?? raw?.price_yearly_usd ?? 0),
   price_yearly_monthly_inr: Number(raw?.pricing?.yearly_monthly_display?.inr ?? raw?.price_yearly_monthly_inr ?? 0),
-  price_yearly_monthly_usd: Number(raw?.pricing?.yearly_monthly_display?.usd ?? raw?.price_yearly_monthly_usd ?? 0),
   is_custom: Boolean(raw?.is_custom),
   is_popular: Boolean(raw?.is_popular),
   display_order: Number(raw?.display_order ?? 0),
@@ -198,31 +192,18 @@ export const getPaidCheckoutPlans = (
   });
 };
 
-export const getPlanBigPrice = (plan: PricingPlan, currency: 'INR' | 'USD', isYearly: boolean): number => {
-  if (currency === 'INR') {
-    return isYearly ? plan.price_yearly_monthly_inr : plan.price_monthly_inr;
-  }
-  return isYearly ? plan.price_yearly_monthly_usd : plan.price_monthly_usd;
+export const getPlanBigPrice = (plan: PricingPlan, _currency?: string, isYearly: boolean = false): number => {
+  return isYearly ? plan.price_yearly_monthly_inr : plan.price_monthly_inr;
 };
 
-export const getPlanBilledTotal = (plan: PricingPlan, currency: 'INR' | 'USD', isYearly: boolean): number => {
-  if (currency === 'INR') {
-    return isYearly ? plan.price_yearly_inr : plan.price_monthly_inr;
-  }
-  return isYearly ? plan.price_yearly_usd : plan.price_monthly_usd;
+export const getPlanBilledTotal = (plan: PricingPlan, _currency?: string, isYearly: boolean = false): number => {
+  return isYearly ? plan.price_yearly_inr : plan.price_monthly_inr;
 };
 
-export const formatMoney = (value: number, currency: 'INR' | 'USD') => {
-  if (currency === 'INR') {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(Number(value || 0));
-  }
-  return new Intl.NumberFormat('en-US', {
+export const formatMoney = (value: number, _currency?: string) => {
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'INR',
     maximumFractionDigits: 0
   }).format(Number(value || 0));
 };
@@ -242,7 +223,7 @@ const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
 }> = [
   {
     key: 'instagram_connections_limit',
-    label: 'Instagram connections',
+    label: 'Instagram account slots',
     value: (plan) => formatPlanLimit(plan.instagram_connections_limit)
   },
   {
@@ -263,7 +244,7 @@ const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
 ];
 
 export const buildPlanLimitItems = (plan: PricingPlan): Array<{ label: string; value: string }> => ([
-  { label: 'Instagram connections', value: formatPlanLimit(plan.instagram_connections_limit) },
+  { label: 'Instagram account slots', value: formatPlanLimit(plan.instagram_connections_limit) },
   { label: 'Actions / hour', value: formatPlanLimit(plan.actions_per_hour_limit) },
   { label: 'Actions / day', value: formatPlanLimit(plan.actions_per_day_limit) },
   { label: 'Actions / month', value: formatPlanLimit(plan.actions_per_month_limit) }

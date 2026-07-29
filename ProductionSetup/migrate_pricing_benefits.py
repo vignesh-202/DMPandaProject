@@ -48,6 +48,8 @@ BENEFIT_KEYS = [
     "followers_only",
     "seen_typing",
     "no_watermark",
+    "once_per_user_24h",
+    "api_access",
 ]
 
 BENEFIT_LABELS = {
@@ -74,6 +76,8 @@ BENEFIT_LABELS = {
     "followers_only": "Followers Only",
     "seen_typing": "Seen + Typing",
     "no_watermark": "No Watermark",
+    "once_per_user_24h": "Once Per User / 24h",
+    "api_access": "API Access",
 }
 
 BENEFIT_STORAGE_KEYS = {
@@ -88,7 +92,8 @@ def benefit_attribute_key(key):
 PLAN_DEFINITIONS = {
     "free": {
         "name": "Free Plan",
-        "limits": (3, 100, 100, 1000),
+        "prices": (0, 0, 0),
+        "limits": (1, 100, 100, 1000),
         "benefits": [
             "unlimited_contacts",
             "post_comment_dm_automation",
@@ -101,7 +106,8 @@ PLAN_DEFINITIONS = {
     },
     "basic": {
         "name": "Basic Plan",
-        "limits": (3, 100, 1000, 25000),
+        "prices": (199, 1800, 150),
+        "limits": (1, 100, 1000, 25000),
         "benefits": [
             "unlimited_contacts",
             "post_comment_dm_automation",
@@ -124,7 +130,8 @@ PLAN_DEFINITIONS = {
     },
     "pro": {
         "name": "Pro Plan",
-        "limits": (5, 200, 2500, 70000),
+        "prices": (299, 2388, 199),
+        "limits": (1, 200, 2500, 70000),
         "benefits": [
             "unlimited_contacts",
             "post_comment_dm_automation",
@@ -149,11 +156,14 @@ PLAN_DEFINITIONS = {
             "followers_only",
             "seen_typing",
             "no_watermark",
+            "once_per_user_24h",
+            "api_access",
         ],
     },
     "ultra": {
         "name": "Ultra Plan",
-        "limits": (10, 400, 5000, 100000),
+        "prices": (499, 3588, 299),
+        "limits": (1, 400, 5000, 100000),
         "benefits": [
             "unlimited_contacts",
             "post_comment_dm_automation",
@@ -178,6 +188,8 @@ PLAN_DEFINITIONS = {
             "followers_only",
             "seen_typing",
             "no_watermark",
+            "once_per_user_24h",
+            "api_access",
         ],
     },
 }
@@ -265,11 +277,15 @@ def _normalize_plan_code(value):
 
 def _pricing_payload(plan_code, existing):
     definition = PLAN_DEFINITIONS[plan_code]
+    monthly_price, yearly_price, yearly_monthly_price = definition["prices"]
     instagram, hourly, daily, monthly = definition["limits"]
     benefits = definition["benefits"]
     payload = {
         "name": str(existing.get("name") or definition["name"]),
         "plan_code": plan_code,
+        "price_monthly_inr": int(monthly_price),
+        "price_yearly_inr": int(yearly_price),
+        "price_yearly_monthly_inr": int(yearly_monthly_price),
         "yearly_bonus": "",
         "instagram_connections_limit": instagram,
         "instagram_link_limit": instagram,
@@ -355,9 +371,8 @@ def _profile_payload(profile, pricing_by_code):
         return {
             **benefits,
             "admin_override_json": _json_compact(override),
-            "features_json": _json_compact(runtime_features),
+            "features_json": _json_compact({k: v for k, v in runtime_features.items() if v}),
             "limits_json": _json_compact(runtime_limits),
-            "instagram_link_limit": int(runtime_limits["instagram_link_limit"] or 0),
             "hourly_action_limit": int(runtime_limits["hourly_action_limit"] or 0),
             "daily_action_limit": int(runtime_limits["daily_action_limit"] or 0),
             "monthly_action_limit": 0 if runtime_limits["monthly_action_limit"] is None else int(runtime_limits["monthly_action_limit"] or 0),
@@ -366,9 +381,8 @@ def _profile_payload(profile, pricing_by_code):
     runtime_limits = _runtime_limits(pricing, profile)
     return {
         **defaults,
-        "features_json": _json_compact(runtime_features),
+        "features_json": _json_compact({k: v for k, v in runtime_features.items() if v}),
         "limits_json": _json_compact(runtime_limits),
-        "instagram_link_limit": int(runtime_limits["instagram_link_limit"] or 0),
         "hourly_action_limit": int(runtime_limits["hourly_action_limit"] or 0),
         "daily_action_limit": int(runtime_limits["daily_action_limit"] or 0),
         "monthly_action_limit": 0 if runtime_limits["monthly_action_limit"] is None else int(runtime_limits["monthly_action_limit"] or 0),

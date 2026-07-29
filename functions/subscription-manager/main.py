@@ -43,6 +43,7 @@ BENEFIT_KEYS = [
     "instagram_live_automation",
     "priority_support",
     "once_per_user_24h",
+    "api_access",
 ]
 BENEFIT_STORAGE_KEYS = {
     "post_comment_reply_automation": "post_comment_reply",
@@ -551,7 +552,7 @@ def _build_email_content(stage: str, plan_name: str, expiry: str, frontend_origi
             "tone": "warning",
             "title": "Action recommended",
             "lines": [
-                "Renew before the expiry date to keep your current automation access and paid limits without interruption."
+                "Renew before the expiry date to keep your current automation access and paid per-account limits without interruption."
             ],
         }]
     elif stage == "day0":
@@ -562,7 +563,7 @@ def _build_email_content(stage: str, plan_name: str, expiry: str, frontend_origi
             "tone": "warning",
             "title": "Renew today to avoid disruption",
             "lines": [
-                "If renewal is not completed, your account will fall back to free-plan access and premium automation capacity will stop."
+                "If renewal is not completed, your account will fall back to free-plan access and premium per-account automation capacity will stop."
             ],
         }]
     elif stage == "day1":
@@ -585,7 +586,7 @@ def _build_email_content(stage: str, plan_name: str, expiry: str, frontend_origi
             "tone": "info",
             "title": "When you renew",
             "lines": [
-                "Your paid plan limits and premium automation access will be restored as soon as the renewal is completed."
+                "Your paid per-account limits and premium automation access will be restored as soon as the renewal is completed."
             ],
         }]
     html = render_email_html(
@@ -601,13 +602,13 @@ def _build_email_content(stage: str, plan_name: str, expiry: str, frontend_origi
         ],
         paragraphs=[
             "You are receiving this email because your DM Panda account currently has or recently had an active paid subscription.",
-            "Renewing keeps your automation setup available and prevents avoidable interruptions to account access."
+            "Renewing keeps your billed Instagram account slots available and prevents avoidable interruptions to account access."
             if stage in {"3d", "day0"}
-            else "Renewing restores paid limits so you can continue using your premium automation setup."
+            else "Renewing restores paid per-account limits so you can continue using your premium automation setup."
         ],
         bullets=[
-            "Linked Instagram accounts above the free-plan limit remain locked until your paid plan is active again.",
-            "Your account data stays in place. This notice is only about subscription access and plan entitlements.",
+            "Pricing is based on the number of Instagram accounts linked to your DM Panda account.",
+            "Linked Instagram accounts above the active paid or free account-slot limit remain locked until paid access is restored.",
         ],
         cta_label="Review plans and renew",
         cta_url=pricing_url,

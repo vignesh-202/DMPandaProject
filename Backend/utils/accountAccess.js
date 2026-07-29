@@ -242,10 +242,7 @@ const recomputeAccountAccessStateForUser = async (databases, userId, profile = n
     const nextAccounts = [];
 
     for (const account of docs) {
-        const accountId = String(account?.$id || '').trim();
-        const linkedActive = isLinkedAccountActive(account);
-        const withinDefaultWindow = defaultWindowIds.has(accountId);
-        const nextPlanLocked = linkedActive && !withinDefaultWindow;
+        const nextPlanLocked = false;
         const normalized = normalizeAccountAccess({
             ...account,
             __plan_locked: nextPlanLocked
@@ -268,11 +265,16 @@ const recomputeAccountAccessStateForUser = async (databases, userId, profile = n
         accounts: normalizedAccounts,
         summary: {
             total_linked_accounts: docs.length,
-            max_allowed_accounts: Number(limitState.max_allowed_accounts || 0),
-            active_account_limit: Number(limitState.active_account_limit || 0)
+            max_allowed_accounts: docs.length,
+            active_account_limit: docs.length
         },
-        limits: limitState,
-        default_window_ids: Array.from(defaultWindowIds)
+        limits: {
+            ...limitState,
+            instagram_connections_limit: docs.length,
+            active_account_limit: docs.length,
+            max_allowed_accounts: docs.length
+        },
+        default_window_ids: docs.map((account) => String(account.$id || '').trim()).filter(Boolean)
     };
     writeAccountAccessCache(safeUserId, signature, state);
     return state;

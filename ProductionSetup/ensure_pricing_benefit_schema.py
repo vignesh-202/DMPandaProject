@@ -56,6 +56,8 @@ BENEFIT_KEYS = [
     "followers_only",
     "seen_typing",
     "no_watermark",
+    "once_per_user_24h",
+    "api_access",
 ]
 
 BENEFIT_STORAGE_KEYS = {

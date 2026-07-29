@@ -4,6 +4,7 @@ import Card from '../../components/ui/card';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import InfoPopover from '../../components/ui/InfoPopover';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDashboard } from '../../contexts/DashboardContext';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
 import { PricingPlan, formatMoney, formatPlanLimit, getPaidCheckoutPlans, getPlanBigPrice, getPlanBilledTotal, normalizePricingPayload, pricingPlanMatchesIdentifier } from '../../lib/pricing';
 import PlanCheckoutModal from '../../components/dashboard/PlanCheckoutModal';
@@ -17,14 +18,14 @@ type UserPlanSummary = {
 
 const PricingView: React.FC = () => {
   const { authenticatedFetch, checkAuth } = useAuth();
+  const { igAccounts } = useDashboard();
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<UserPlanSummary>(null);
   const [loading, setLoading] = useState(true);
   const [syncingPlan, setSyncingPlan] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null);
   const [isYearly, setIsYearly] = useState(false);
-  const [currency, setCurrency] = useState<'INR' | 'USD'>('USD');
-  const [isIndianUser, setIsIndianUser] = useState(false);
+  const currency = 'INR';
   const [countryCode, setCountryCode] = useState<string | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedCheckoutPlanId, setSelectedCheckoutPlanId] = useState<string | null>(null);
@@ -52,8 +53,6 @@ const PricingView: React.FC = () => {
       try {
         const geo = await detectGeoCurrency();
         setCountryCode(geo.countryCode);
-        setIsIndianUser(geo.isIndianUser);
-        setCurrency(geo.defaultCurrency);
         const headers = buildCountryHeaders(geo.countryCode);
         const [pricingResponse, currentPlanResponse] = await Promise.all([
           authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/pricing`, { headers }),
@@ -137,19 +136,6 @@ const PricingView: React.FC = () => {
                 Yearly
               </button>
             </div>
-
-            {isIndianUser && (
-              <div className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
-                <span className={currency === 'INR' ? 'text-foreground' : ''}>INR</span>
-                <button
-                  onClick={() => setCurrency((current) => current === 'INR' ? 'USD' : 'INR')}
-                  className="relative h-5 w-10 rounded-full bg-muted"
-                >
-                  <div className={`absolute top-1 h-3 w-3 rounded-full bg-card transition-all ${currency === 'INR' ? 'left-1' : 'left-6'}`} />
-                </button>
-                <span className={currency === 'USD' ? 'text-foreground' : ''}>USD</span>
-              </div>
-            )}
           </div>
         </div>
 
@@ -160,7 +146,7 @@ const PricingView: React.FC = () => {
             const isCurrentPlan = isCurrentPricingPlan(plan);
             const isUnavailable = plan.plan_code === 'free' || isCurrentPlan;
             const planLimits = [
-              { label: 'Instagram connections', value: formatPlanLimit(plan.instagram_connections_limit) },
+              { label: 'Instagram account slots', value: formatPlanLimit(plan.instagram_connections_limit) },
               { label: 'Actions / hour', value: formatPlanLimit(plan.actions_per_hour_limit) },
               { label: 'Actions / day', value: formatPlanLimit(plan.actions_per_day_limit) },
               { label: 'Actions / month', value: formatPlanLimit(plan.actions_per_month_limit) },
@@ -180,15 +166,22 @@ const PricingView: React.FC = () => {
 
                 <div className="mb-8">
                   <h3 className="mb-2 text-xl font-bold text-foreground">{plan.name}</h3>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-black text-foreground">{formatMoney(bigPrice, currency)}</span>
-                    <span className="text-sm text-muted-foreground">/month</span>
+                  <div className="flex items-baseline gap-1 flex-wrap">
+                    <span className="text-4xl font-black text-foreground">{plan.plan_code === 'free' ? 'Free' : formatMoney(bigPrice, currency)}</span>
+                    <span className="text-xs font-bold text-muted-foreground">{plan.plan_code === 'free' ? '' : '/account /month'}</span>
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {isYearly
-                      ? `Billed yearly at ${formatMoney(billedTotal, currency)} for 364 days.`
-                      : `Billed every 30 days at ${formatMoney(billedTotal, currency)}.`}
-                  </p>
+                  {plan.plan_code !== 'free' && (
+                    <div className="mt-3 space-y-1.5 rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Monthly billing:</span>
+                        <span className="font-bold text-foreground">{formatMoney(plan.price_monthly_inr, currency)}/mo <span className="text-[11px] font-semibold text-muted-foreground">({formatMoney(plan.price_monthly_inr * 12, currency)}/yr)</span></span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Yearly billing:</span>
+                        <span className="font-bold text-emerald-500">{formatMoney(plan.price_yearly_monthly_inr, currency)}/mo <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">({formatMoney(plan.price_yearly_inr, currency)}/yr)</span></span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mb-6 rounded-2xl border border-border/70 bg-muted/30 p-4">
@@ -217,14 +210,14 @@ const PricingView: React.FC = () => {
                 <div className="mb-8 flex-grow space-y-4">
                   {(() => {
                     const allFeatures = plan.feature_items
-                      ? plan.feature_items.map((item) => ({ label: item.label || item.key, enabled: item.enabled }))
-                      : plan.features.map((f) => ({ label: f, enabled: true }));
+                      ? plan.feature_items.map((item) => ({ label: item.label || item.key, enabled: Boolean(item.enabled) }))
+                      : (Array.isArray(plan.features) ? plan.features : []).map((f) => ({ label: String(f), enabled: true }));
                     return allFeatures.map((feature, i) => (
                       <div key={`${plan.id}-${i}`} className={`flex items-start gap-3 text-sm ${!feature.enabled ? 'opacity-50' : ''}`}>
                         <div className={`mt-0.5 flex-shrink-0 ${feature.enabled ? 'text-green-500' : 'text-muted-foreground'}`}>
                           {feature.enabled ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={3} />}
                         </div>
-                        <span className={`text-muted-foreground ${!feature.enabled ? 'line-through decoration-muted-foreground' : ''}`}>{feature.label}</span>
+                        <span className={`text-muted-foreground font-medium ${!feature.enabled ? 'line-through decoration-muted-foreground' : ''}`}>{feature.label}</span>
                       </div>
                     ));
                   })()}
@@ -252,11 +245,10 @@ const PricingView: React.FC = () => {
         defaultBillingCycle={isYearly ? 'yearly' : 'monthly'}
         currency={currency}
         countryCode={countryCode}
-        canToggleCurrency={isIndianUser}
-        onCurrencyToggle={() => setCurrency((current) => current === 'INR' ? 'USD' : 'INR')}
         authenticatedFetch={authenticatedFetch}
         loadingPlanId={paymentLoading}
         syncingPlan={syncingPlan}
+        igAccounts={igAccounts}
         onClose={() => setCheckoutOpen(false)}
         onPaymentSuccess={() => {
           setPaymentLoading(null);

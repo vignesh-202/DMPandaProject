@@ -1,6 +1,6 @@
 export type GeoCurrencyState = {
   countryCode: string | null;
-  defaultCurrency: 'INR' | 'USD';
+  defaultCurrency: 'INR';
   isIndianUser: boolean;
 };
 
@@ -12,13 +12,13 @@ export const detectGeoCurrency = async (): Promise<GeoCurrencyState> => {
     const isIndianUser = countryCode === 'IN';
     return {
       countryCode,
-      defaultCurrency: isIndianUser ? 'INR' : 'USD',
+      defaultCurrency: 'INR',
       isIndianUser
     };
   } catch {
     return {
       countryCode: null,
-      defaultCurrency: 'USD',
+      defaultCurrency: 'INR',
       isIndianUser: false
     };
   }

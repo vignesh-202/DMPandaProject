@@ -32,6 +32,7 @@ BENEFIT_KEYS = [
     "instagram_live_automation",
     "priority_support",
     "once_per_user_24h",
+    "api_access",
 ]
 
 BENEFIT_STORAGE_KEYS = {

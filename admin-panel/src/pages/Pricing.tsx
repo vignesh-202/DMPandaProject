@@ -7,7 +7,6 @@ import {
   Layers3,
   ArrowUpDown,
   BadgeIndianRupee,
-  DollarSign,
   Plus,
   Trash2
 } from 'lucide-react';
@@ -20,11 +19,8 @@ type PricingPlan = {
   name: string;
   plan_code: string;
   price_monthly_inr: number;
-  price_monthly_usd: number;
   price_yearly_inr: number;
-  price_yearly_usd: number;
   price_yearly_monthly_inr: number;
-  price_yearly_monthly_usd: number;
   yearly_bonus: string;
   button_text: string;
   is_popular: boolean;
@@ -49,21 +45,12 @@ const inrFormatter = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 0
 });
 
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0
-});
-
 const numericFields: Array<{ key: keyof PricingPlan; label: string }> = [
-  { key: 'price_monthly_inr', label: 'Monthly INR' },
-  { key: 'price_monthly_usd', label: 'Monthly USD' },
-  { key: 'price_yearly_inr', label: 'Yearly INR' },
-  { key: 'price_yearly_usd', label: 'Yearly USD' },
-  { key: 'price_yearly_monthly_inr', label: 'Yearly monthly INR' },
-  { key: 'price_yearly_monthly_usd', label: 'Yearly monthly USD' },
-  { key: 'instagram_connections_limit', label: 'Instagram accounts' },
-  { key: 'instagram_link_limit', label: 'Linked account slots' },
+  { key: 'price_monthly_inr', label: 'Monthly INR / account' },
+  { key: 'price_yearly_inr', label: 'Yearly INR / account' },
+  { key: 'price_yearly_monthly_inr', label: 'Yearly monthly INR / account' },
+  { key: 'instagram_connections_limit', label: 'Default account slots' },
+  { key: 'instagram_link_limit', label: 'Default linked slots' },
   { key: 'actions_per_hour_limit', label: 'Actions per hour' },
   { key: 'actions_per_day_limit', label: 'Actions per day' },
   { key: 'actions_per_month_limit', label: 'Actions per month' },
@@ -314,7 +301,7 @@ export const PricingPage: React.FC = () => {
             <StatTile label="Plans" value={String(stats.totalPlans)} />
             <StatTile label="Popular" value={String(stats.popularPlans)} />
             <StatTile label="Custom" value={String(stats.customPlans)} />
-            <StatTile label="Top monthly INR" value={inrFormatter.format(stats.topMonthlyInr)} />
+            <StatTile label="Top monthly INR / account" value={inrFormatter.format(stats.topMonthlyInr)} />
           </div>
         </div>
       </section>
@@ -349,14 +336,14 @@ export const PricingPage: React.FC = () => {
                     <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
                       <SummaryMetric
                         icon={BadgeIndianRupee}
-                        label="Monthly"
-                        value={`${inrFormatter.format(Number(plan.price_monthly_inr || 0))} / ${usdFormatter.format(Number(plan.price_monthly_usd || 0))}`}
+                        label="Monthly / account"
+                        value={`${inrFormatter.format(Number(plan.price_monthly_inr || 0))}`}
                         accent="bg-primary/12 text-primary"
                       />
                       <SummaryMetric
-                        icon={DollarSign}
-                        label="Yearly"
-                        value={`${inrFormatter.format(Number(plan.price_yearly_inr || 0))} / ${usdFormatter.format(Number(plan.price_yearly_usd || 0))}`}
+                        icon={BadgeIndianRupee}
+                        label="Yearly / account"
+                        value={`${inrFormatter.format(Number(plan.price_yearly_inr || 0))}`}
                         accent="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                       />
                       <SummaryMetric
@@ -450,9 +437,9 @@ export const PricingPage: React.FC = () => {
 
                       <div className="mt-5 grid gap-3 sm:grid-cols-2">
                         <div className="rounded-[20px] border border-border/60 bg-card/80 px-4 py-4">
-                          <p className="text-[10px] font-black text-muted-foreground">Annual monthly</p>
+                          <p className="text-[10px] font-black text-muted-foreground">Annual monthly / account</p>
                           <p className="mt-2 text-sm font-extrabold text-foreground">
-                            {inrFormatter.format(Number(plan.price_yearly_monthly_inr || 0))} / {usdFormatter.format(Number(plan.price_yearly_monthly_usd || 0))}
+                            {inrFormatter.format(Number(plan.price_yearly_monthly_inr || 0))}
                           </p>
                         </div>
                         <div className="rounded-[20px] border border-border/60 bg-card/80 px-4 py-4">

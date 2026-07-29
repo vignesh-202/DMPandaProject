@@ -3718,32 +3718,6 @@
         "default": null
       },
       {
-        "key": "price_monthly_usd",
-        "type": "integer",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-02-10T10:48:33.402+00:00",
-        "$updatedAt": "2026-02-10T10:48:33.423+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
-        "default": null
-      },
-      {
-        "key": "price_yearly_usd",
-        "type": "integer",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-02-10T10:48:33.864+00:00",
-        "$updatedAt": "2026-02-10T10:48:33.888+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
-        "default": null
-      },
-      {
         "key": "is_custom",
         "type": "boolean",
         "status": "available",
@@ -3904,19 +3878,6 @@
         "array": false,
         "$createdAt": "2026-03-26T18:42:25.121+00:00",
         "$updatedAt": "2026-03-26T18:42:25.344+00:00",
-        "min": -1.7976931348623157e+308,
-        "max": 1.7976931348623157e+308,
-        "default": 0
-      },
-      {
-        "key": "price_yearly_monthly_usd",
-        "type": "double",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-03-26T18:42:26.150+00:00",
-        "$updatedAt": "2026-03-26T18:42:26.187+00:00",
         "min": -1.7976931348623157e+308,
         "max": 1.7976931348623157e+308,
         "default": 0

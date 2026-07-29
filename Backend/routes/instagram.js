@@ -269,31 +269,7 @@ const enforceAutomationFeatureAccess = async (databases, userId, payload, option
 };
 
 const enforceInstagramConnectionLimit = async (databases, userId, nextAccountId = '') => {
-    const { limits } = await loadUserPlanAccess(databases, userId);
-    const connectionLimit = Number(limits?.instagram_link_limit || limits?.instagram_connections_limit || 0);
-    if (connectionLimit <= 0) {
-        return {
-            error: 'Your current plan does not include Instagram connections.',
-            field: 'subscription',
-            limit: 0,
-            current_count: 0
-        };
-    }
-
-    const accounts = await listOwnedIgAccounts(databases, userId);
-    const normalizedNextAccountId = String(nextAccountId || '').trim();
-    const alreadyConnected = accounts.documents.some((account) => matchesIgAccountIdentifier(account, normalizedNextAccountId));
-    const currentCount = accounts.documents.length;
-
-    if (!alreadyConnected && currentCount >= connectionLimit) {
-        return {
-            error: `Your current plan allows ${connectionLimit} Instagram connection${connectionLimit === 1 ? '' : 's'} only.`,
-            field: 'subscription',
-            limit: connectionLimit,
-            current_count: currentCount
-        };
-    }
-
+    // Free plan and all plans allow unlimited Instagram account links
     return null;
 };
 

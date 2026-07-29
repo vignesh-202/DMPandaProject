@@ -64,6 +64,7 @@ BENEFIT_KEYS = [
     "mentions",
     "instagram_live_automation",
     "priority_support",
+    "api_access",
 ]
 
 BENEFIT_STORAGE_KEYS = {
@@ -253,6 +254,36 @@ EMAIL_CHANGE_TOKENS_COLLECTION = {
         {"key": "idx_token_value", "type": "unique", "attributes": ["token"], "orders": []},
         {"key": "idx_token_user_status", "type": "key", "attributes": ["user_id", "status"], "orders": []},
         {"key": "idx_token_expires_at", "type": "key", "attributes": ["expires_at"], "orders": []},
+    ],
+}
+
+SUBSCRIPTION_SLOTS_COLLECTION = {
+    "id": "subscription_slots",
+    "name": "Subscription Slots",
+    "enabled": True,
+    "documentSecurity": False,
+    "permissions": [
+        "read(\"label:admin\")",
+        "create(\"label:admin\")",
+        "update(\"label:admin\")",
+        "delete(\"label:admin\")",
+    ],
+    "attributes": [
+        {"key": "user_id", "type": "string", "size": 255, "required": True, "array": False, "default": None},
+        {"key": "plan_code", "type": "string", "size": 32, "required": True, "array": False, "default": None},
+        {"key": "billing_cycle", "type": "string", "size": 32, "required": False, "array": False, "default": "monthly"},
+        {"key": "status", "type": "string", "size": 32, "required": False, "array": False, "default": "active"},
+        {"key": "expires_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "paired_account_id", "type": "string", "size": 255, "required": False, "array": False, "default": None},
+        {"key": "paired_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "transaction_id", "type": "string", "size": 255, "required": False, "array": False, "default": None},
+        {"key": "created_at", "type": "datetime", "required": True, "array": False, "default": None},
+        {"key": "updated_at", "type": "datetime", "required": True, "array": False, "default": None},
+    ],
+    "indexes": [
+        {"key": "idx_slots_user_id", "type": "key", "attributes": ["user_id"], "orders": []},
+        {"key": "idx_slots_paired_account", "type": "key", "attributes": ["paired_account_id"], "orders": []},
+        {"key": "idx_slots_status_expires", "type": "key", "attributes": ["status", "expires_at"], "orders": []},
     ],
 }
 
@@ -449,6 +480,11 @@ DEPRECATED_ATTRIBUTES = {
         "daily_action_limit",
         "monthly_action_limit",
     },
+    "pricing": {
+        "price_monthly_usd",
+        "price_yearly_usd",
+        "price_yearly_monthly_usd",
+    },
 }
 
 DEPRECATED_INDEXES = {
@@ -509,9 +545,11 @@ def load_schema_definitions():
             merged[extra["id"]] = deepcopy(extra)
         else:
             for key in ("attributes", "indexes"):
-                current = {item["key"]: item for item in merged[extra["id"]].get(key, [])}
+                raw_items = merged[extra["id"]].get(key, [])
+                current = {item["key"]: item for item in raw_items if isinstance(item, dict) and "key" in item}
                 for item in extra.get(key, []):
-                    current[item["key"]] = item
+                    if isinstance(item, dict) and "key" in item:
+                        current[item["key"]] = item
                 merged[extra["id"]][key] = list(current.values())
 
     for collection_id, attributes in ADDITIONAL_ATTRIBUTES.items():
@@ -1053,10 +1091,7 @@ def build_pricing_seed_documents():
             "plan_code": plan_code,
             "price_monthly_inr": int(prices.get("monthly_inr") or 0),
             "price_yearly_inr": int(prices.get("yearly_inr") or 0),
-            "price_monthly_usd": int(prices.get("monthly_usd") or 0),
-            "price_yearly_usd": int(prices.get("yearly_usd") or 0),
             "price_yearly_monthly_inr": int(prices.get("yearly_monthly_inr") or 0),
-            "price_yearly_monthly_usd": int(prices.get("yearly_monthly_usd") or 0),
             "is_custom": bool(definition.get("is_custom", False)),
             "is_popular": bool(definition.get("is_popular", False)),
             "display_order": int(definition.get("display_order") or 0),

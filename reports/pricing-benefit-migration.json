@@ -1,0 +1,12 @@
+{
+  "apply": true,
+  "dry_run": false,
+  "resume": false,
+  "checkpoint": "C:\\Users\\vigan\\PycharmProjects\\DMPandaProject\\reports\\pricing-benefit-migration.checkpoint.json",
+  "backup": "C:\\Users\\vigan\\PycharmProjects\\DMPandaProject\\reports\\migration_backups\\pricing_profiles_backup_20260723T110523Z.json",
+  "pricing_updates": [],
+  "profiles_scanned": 4,
+  "profiles_updated": 4,
+  "manual_review": [],
+  "failures": []
+}

@@ -47,7 +47,7 @@ Generated from live Appwrite verification on `2026-04-22`.
 - Key columns:
   - `plan_code`
   - `name`
-  - price fields
+  - INR price fields only: `price_monthly_inr`, `price_yearly_inr`, `price_yearly_monthly_inr`
   - `instagram_connections_limit`
   - `actions_per_hour_limit`
   - `actions_per_day_limit`
@@ -108,6 +108,9 @@ Generated from live Appwrite verification on `2026-04-22`.
   - `profiles.plan_status`
   - `profiles.billing_cycle`
   - `profiles.expires_at`
+  - `pricing.price_monthly_usd`
+  - `pricing.price_yearly_usd`
+  - `pricing.price_yearly_monthly_usd`
 
 ## Verification Notes
 - Verified with Appwrite CLI:

@@ -14,7 +14,7 @@ type Transaction = {
   plan_name: string;
   billing_cycle: 'monthly' | 'yearly';
   validity_days: number;
-  currency: 'INR' | 'USD';
+  currency: 'INR';
   base_amount: number;
   discount_amount: number;
   final_amount: number;
@@ -185,7 +185,7 @@ const TransactionsView: React.FC = () => {
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Total Spent</p>
                 <p className="mt-2 text-2xl font-black text-foreground">
-                  {formatMoney(summary.totalSpent, transactions[0]?.currency || 'USD')}
+                  {formatMoney(summary.totalSpent, 'INR')}
                 </p>
               </div>
               <Wallet className="h-5 w-5 text-primary" />

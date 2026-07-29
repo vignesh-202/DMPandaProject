@@ -28,6 +28,7 @@ import { cn } from '../../lib/utils';
 import { Skeleton } from '../../components/ui/skeleton';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import { toBrowserPreviewUrl } from '../../lib/templatePreview';
+import SlotPairingManager from '../../components/dashboard/SlotPairingManager';
 
 const calculateStrength = (pwd: string) => {
   let strength = 0;
@@ -1024,14 +1025,12 @@ const AccountSettingsView = () => {
 
                   <div className="pt-6 border-t border-border">
                     <InlineMessage section="instagram" />
-                    {instagramConnectionLimit != null && (
-                      <p className="mt-4 text-xs font-semibold text-muted-foreground">
-                        {igAccounts.length} of {instagramConnectionLimit} Instagram connections used.
-                      </p>
-                    )}
+                    <p className="mt-4 text-xs font-semibold text-muted-foreground">
+                      {igAccounts.length} Instagram account{igAccounts.length === 1 ? '' : 's'} linked. Free plan allows unlimited account links.
+                    </p>
                     <Button
                       onClick={() => handleInstagramLink('new')}
-                      disabled={linkingAccountID === 'new' || !canAddAnotherInstagramAccount}
+                      disabled={linkingAccountID === 'new'}
                       className="w-full mt-4 h-12 bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 transition-all duration-200 rounded-xl border-0 font-semibold flex items-center justify-center gap-2.5 group relative overflow-hidden"
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
@@ -1051,14 +1050,17 @@ const AccountSettingsView = () => {
                         <span className="text-sm font-semibold">
                           {linkingAccountID === 'new'
                             ? 'Connecting to Instagram...'
-                            : !canAddAnotherInstagramAccount
-                              ? 'Instagram Limit Reached'
-                              : 'Add Instagram Account'}
+                            : 'Add Instagram Account'}
                         </span>
                       </div>
                     </Button>
                   </div>
                 </div>
+              </Card>
+
+              {/* Slot Pairing Drag & Drop Section */}
+              <Card className="rounded-[32px] border border-border/70 bg-card p-6 shadow-sm">
+                <SlotPairingManager igAccounts={igAccounts} />
               </Card>
             </div>
           )}

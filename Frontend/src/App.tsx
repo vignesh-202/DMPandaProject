@@ -26,6 +26,7 @@ const PasswordRecoveryPageLazy = React.lazy(() => import('./app/auth/recovery/pa
 const InstagramCallbackPageLazy = React.lazy(() => import('./app/auth/InstagramCallback'));
 const BlogIndexPageLazy = React.lazy(() => import('./app/blog/page'));
 const BlogPostPageLazy = React.lazy(() => import('./app/blog/post'));
+const DocsPageLazy = React.lazy(() => import('./app/docs/page'));
 
 import Navbar from './components/ui/Navbar';
 import Footer from './components/ui/Footer';
@@ -38,6 +39,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/pricing': 'Pricing | DM Panda',
   '/about': 'About | DM Panda',
   '/features': 'Features | DM Panda',
+  '/docs': 'Documentation | DM Panda',
   '/contact': 'Contact | DM Panda',
   '/disclaimer': 'Disclaimer | DM Panda',
   '/privacy': 'Privacy Policy | DM Panda',
@@ -115,7 +117,9 @@ const AppContent: React.FC = () => {
             <Route path="/pricing" element={<PricingPageLazy />} />
             <Route path="/about" element={<AboutPageLazy />} />
             <Route path="/features" element={<FeaturesPageLazy />} />
+            <Route path="/docs" element={<DocsPageLazy />} />
             <Route path="/contact" element={<ContactPageLazy />} />
+
             <Route path="/disclaimer" element={<DisclaimerPageLazy />} />
             <Route path="/privacy" element={<PrivacyPageLazy />} />
             <Route path="/terms" element={<TermsPageLazy />} />

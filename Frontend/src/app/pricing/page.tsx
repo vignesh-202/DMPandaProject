@@ -23,7 +23,7 @@ import { useSEO } from '../../hooks/useSEO';
 const PricingPage: React.FC = () => {
   useSEO({
     title: 'Pricing Plans | DM Panda - Flexible Instagram Automation',
-    description: 'Find the best pricing plan for automating your Instagram DMs. Start free, upgrade as you grow. Safe, certified, and compliant pricing starting at $0.',
+    description: 'Find the best pricing plan for automating your Instagram DMs. Start free, upgrade as you grow. Safe, certified, and compliant pricing.',
     keywords: 'dm panda pricing, instagram dm bot pricing, cheap instagram dm automations, instagram auto reply cost',
     schema: {
       '@context': 'https://schema.org',
@@ -33,17 +33,17 @@ const PricingPage: React.FC = () => {
       'image': 'https://dmpanda.com/images/logo.png',
       'offers': {
         '@type': 'AggregateOffer',
-        'priceCurrency': 'USD',
+        'priceCurrency': 'INR',
         'lowPrice': '0.00',
-        'highPrice': '99.00',
+        'highPrice': '499.00',
         'offerCount': '4'
       }
     }
   });
 
   const [isYearly, setIsYearly] = useState(true);
-  const [currency, setCurrency] = useState<'INR' | 'USD'>('USD');
-  const [isIndianUser, setIsIndianUser] = useState(false);
+  const [accountsCount, setAccountsCount] = useState(1);
+  const currency = 'INR';
   const [allExpanded, setAllExpanded] = useState(false);
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,11 +73,9 @@ const PricingPage: React.FC = () => {
           });
         }
 
-        const { geo, plans: normalizedPlans } = await pricingPageBootstrapPromise;
+        const { plans: normalizedPlans } = await pricingPageBootstrapPromise;
         if (cancelled) return;
 
-        setIsIndianUser(geo.isIndianUser);
-        setCurrency(geo.defaultCurrency);
         setPlans(normalizedPlans);
       } catch (error) {
         if (cancelled) return;
@@ -138,25 +136,6 @@ const PricingPage: React.FC = () => {
               </span>
             </button>
           </div>
-
-          {isIndianUser && (
-            <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium dark:border-white/[0.08] dark:bg-white/[0.04]">
-              <span className={currency === 'INR' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}>INR</span>
-              <button
-                onClick={() => setCurrency(currency === 'INR' ? 'USD' : 'INR')}
-                className={`h-6 w-12 rounded-xl p-1 transition-colors duration-300 ${
-                  currency === 'INR' ? 'bg-gray-900 dark:bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
-              >
-                <div
-                  className={`h-4 w-4 rounded-full bg-white transition-transform duration-300 ${
-                    currency === 'INR' ? 'translate-x-0' : 'translate-x-6'
-                  }`}
-                />
-              </button>
-              <span className={currency === 'USD' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}>USD</span>
-            </div>
-          )}
         </div>
 
         {loading ? (
@@ -165,13 +144,18 @@ const PricingPage: React.FC = () => {
           <div className="mb-16 grid grid-cols-1 gap-4 sm:mb-24 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4 lg:gap-8">
             {plans.map((plan) => {
               const allFeatures = plan.feature_items
-                ? plan.feature_items.map((item) => ({ key: item.key || item.label, label: item.label || item.key, enabled: item.enabled }))
-                : plan.features.map((f) => ({ key: f, label: f, enabled: true }));
+                ? plan.feature_items.map((item) => ({ key: item.key || item.label, label: item.label || item.key, enabled: Boolean(item.enabled) }))
+                : (Array.isArray(plan.features) ? plan.features : []).map((f) => ({ key: String(f), label: String(f), enabled: true }));
               const visibleFeatures = allExpanded ? allFeatures : allFeatures.slice(0, 6);
               const hasMoreFeatures = allFeatures.length > 6;
               const isPopular = plan.is_popular;
-              const price = getPlanBigPrice(plan, currency, isYearly);
-              const billedTotal = getPlanBilledTotal(plan, currency, isYearly);
+              const unitMonthly = plan.price_monthly_inr;
+              const unitYearly = plan.price_yearly_inr;
+              const unitYearlyMonthly = plan.price_yearly_monthly_inr;
+              
+              const totalMonthlyCost = unitMonthly * accountsCount;
+              const totalYearlyCost = unitYearly * accountsCount;
+              const effectiveMonthlyCost = isYearly ? unitYearlyMonthly * accountsCount : totalMonthlyCost;
               const planLimits = buildPlanLimitItems(plan);
 
               return (
@@ -189,20 +173,94 @@ const PricingPage: React.FC = () => {
                     </div>
                   )}
 
-                  <h3 className="mb-2 text-xl font-bold sm:text-2xl">{plan.name}</h3>
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold">{plan.name}</h3>
+                    <p className="mt-2 text-3xl font-extrabold sm:text-4xl">
+                      {plan.plan_code === 'free' ? 'Free' : formatMoney(effectiveMonthlyCost, currency)}
+                      <span className="text-sm font-normal text-gray-500 dark:text-gray-400">/mo per account</span>
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {accountsCount} {accountsCount === 1 ? 'account' : 'accounts'} total: {formatMoney(effectiveMonthlyCost, currency)}/mo billed {isYearly ? 'yearly' : 'monthly'}
+                    </p>
+
+                    {isYearly && plan.price_yearly_monthly_inr > 0 && (
+                      <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                        <span>Save with yearly billing: {formatMoney(unitYearlyMonthly, currency)}/mo per account ({formatMoney(unitYearly, currency)}/yr total per account)</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={`mb-4 flex items-center justify-between rounded-xl border p-3 ${
+                    isPopular ? 'border-white/10 bg-white/10' : 'border-gray-200 bg-gray-50 dark:border-white/[0.08] dark:bg-white/[0.04]'
+                  }`}>
+                    <label htmlFor={`accounts-count-${plan.id}`} className={`text-xs font-bold ${isPopular ? 'text-gray-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                      Accounts:
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setAccountsCount(Math.max(1, accountsCount - 1))}
+                        className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold transition ${
+                          isPopular
+                            ? 'bg-white/15 text-white hover:bg-white/25'
+                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-white/10 dark:text-white dark:hover:bg-white/20'
+                        }`}
+                        aria-label="Decrease accounts count"
+                      >
+                        -
+                      </button>
+                      <input
+                        id={`accounts-count-${plan.id}`}
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={accountsCount}
+                        onChange={(e) => setAccountsCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                        className={`w-10 text-center text-xs font-bold bg-transparent focus:outline-none ${isPopular ? 'text-white' : 'text-gray-900 dark:text-white'}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setAccountsCount(Math.min(100, accountsCount + 1))}
+                        className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold transition ${
+                          isPopular
+                            ? 'bg-white/15 text-white hover:bg-white/25'
+                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-white/10 dark:text-white dark:hover:bg-white/20'
+                        }`}
+                        aria-label="Increase accounts count"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="mb-6 flex h-auto min-h-20 flex-col justify-center">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold sm:text-4xl">{formatMoney(price, currency)}</span>
-                      <span className={`text-sm ${isPopular ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>/month</span>
+                    <div className="flex items-baseline gap-1 flex-wrap">
+                      <span className="text-3xl font-bold sm:text-4xl">
+                        {plan.plan_code === 'free' ? 'Free' : formatMoney(effectiveMonthlyCost, currency)}
+                      </span>
+                      <span className={`text-xs font-semibold ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                        /month {accountsCount > 1 ? `(${accountsCount} accounts)` : ''}
+                      </span>
                     </div>
                     {isYearly && plan.yearly_bonus && (
                       <p className="mt-1 text-sm font-medium text-green-500 dark:text-green-400">{plan.yearly_bonus}</p>
                     )}
-                    <p className={`mt-2 text-xs ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                      {isYearly
-                        ? `Billed yearly at ${formatMoney(billedTotal, currency)} for 364 days.`
-                        : `Billed every 30 days at ${formatMoney(billedTotal, currency)}.`}
-                    </p>
+                    {plan.plan_code !== 'free' && (
+                      <div className={`mt-3 space-y-1.5 rounded-xl p-3 border text-xs ${
+                        isPopular
+                          ? 'border-white/10 bg-white/5 text-gray-200'
+                          : 'border-gray-200 bg-gray-50 dark:border-white/[0.08] dark:bg-white/[0.03] text-gray-600 dark:text-gray-300'
+                      }`}>
+                        <div className="flex justify-between items-center">
+                          <span>Monthly billing:</span>
+                          <span className="font-bold">{formatMoney(totalMonthlyCost, currency)}/mo <span className="text-[10px] font-normal opacity-80">({formatMoney(totalMonthlyCost * 12, currency)}/yr total)</span></span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Yearly billing:</span>
+                          <span className="font-bold text-green-500 dark:text-green-400">{formatMoney(effectiveMonthlyCost, currency)}/mo <span className="text-[10px] font-semibold opacity-90">({formatMoney(totalYearlyCost, currency)}/yr total)</span></span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div
@@ -240,10 +298,10 @@ const PricingPage: React.FC = () => {
                   <div className="flex-grow space-y-3 sm:space-y-4">
                     {visibleFeatures.map((feature) => (
                       <div key={`${plan.id || plan.plan_code}-${feature.key}`} className={`flex items-start gap-3 text-sm ${!feature.enabled ? 'opacity-50' : ''}`}>
-                        <div className={`mt-0.5 ${feature.enabled ? (isPopular ? 'text-green-400' : 'text-green-600 dark:text-green-400') : 'text-gray-400'}`}>
+                        <div className={`mt-0.5 ${feature.enabled ? (isPopular ? 'text-green-400' : 'text-green-600 dark:text-green-400') : 'text-gray-400 dark:text-gray-500'}`}>
                           {feature.enabled ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={3} />}
                         </div>
-                        <span className={feature.enabled ? '' : 'line-through decoration-gray-400'}>{feature.label}</span>
+                        <span className={feature.enabled ? 'font-medium' : 'line-through decoration-gray-400 dark:decoration-gray-500'}>{feature.label}</span>
                       </div>
                     ))}
                   </div>

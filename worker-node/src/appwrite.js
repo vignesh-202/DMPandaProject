@@ -1644,6 +1644,22 @@ class AppwriteClient {
             }
         });
     }
+
+    async getUserWebhookUrl(userId) {
+        if (!userId) return null;
+        try {
+            const PROFILES_COLLECTION_ID = process.env.PROFILES_COLLECTION_ID || 'profiles';
+            const res = await this.databases.listDocuments(
+                this.databaseId,
+                PROFILES_COLLECTION_ID,
+                [Query.equal('user_id', userId), Query.limit(1)]
+            );
+            const url = res.documents?.[0]?.webhook_url;
+            return url && typeof url === 'string' && url.startsWith('http') ? url.trim() : null;
+        } catch (_) {
+            return null;
+        }
+    }
 }
 
 module.exports = AppwriteClient;

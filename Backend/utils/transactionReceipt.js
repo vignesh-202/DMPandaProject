@@ -32,9 +32,9 @@ const FOOTER_META_WIDTH = 170;
 const FOOTER_LINE_OFFSET = 10;
 
 const formatMoney = (value, currency) => {
-    const code = String(currency || 'USD').toUpperCase() === 'INR' ? 'INR' : 'USD';
+    const code = 'INR';
     const amount = Number(value || 0);
-    return `${code} ${amount.toLocaleString(code === 'INR' ? 'en-IN' : 'en-US', {
+    return `${code} ${amount.toLocaleString('en-IN', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     })}`;
@@ -66,14 +66,14 @@ const normalizeStatus = (status) => String(status || 'success').trim().toUpperCa
 const roundCurrency = (value) => Math.round(Number(value || 0) * 100) / 100;
 
 const computeGatewayTax = (gatewaySurcharge, currency) => {
-    const normalizedCurrency = String(currency || 'USD').toUpperCase();
+    const normalizedCurrency = 'INR';
     if (gatewaySurcharge <= 0 || normalizedCurrency !== 'INR') return 0;
     return roundCurrency((gatewaySurcharge * 18) / 118);
 };
 
 const formatSentenceMoney = (value, currency) => {
-    const code = String(currency || 'USD').toUpperCase() === 'INR' ? 'INR' : 'USD';
-    const amount = Number(value || 0).toLocaleString(code === 'INR' ? 'en-IN' : 'en-US', {
+    const code = 'INR';
+    const amount = Number(value || 0).toLocaleString('en-IN', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });

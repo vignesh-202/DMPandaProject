@@ -358,6 +358,10 @@ def _send_payment_reminder(client, attempt):
     attempt_id = str(_obj_get(attempt, "$id", "") or "").strip()
     plan_name = str(_obj_get(attempt, "plan_name") or "DM Panda Plan").strip()
     billing_cycle = str(_obj_get(attempt, "billing_cycle") or "monthly").strip()
+    meta = _parse_json_object(_obj_get(attempt, "meta_json"), {})
+    accounts_count = _safe_int(meta.get("accounts_count") or meta.get("requested_accounts_count"), 1)
+    final_amount = _safe_int(_obj_get(attempt, "final_amount"), 0)
+    unit_amount = _safe_int(meta.get("unit_base_amount"), 0)
     frontend_origin = _resolve_frontend_origin(client, db_id)
     pricing_url = f"{frontend_origin}/pricing" if frontend_origin else ""
     dashboard_url = f"{frontend_origin}/dashboard" if frontend_origin else ""
@@ -378,11 +382,14 @@ def _send_payment_reminder(client, attempt):
         summary_rows=[
             ("Plan", plan_name),
             ("Billing cycle", billing_cycle.title()),
+            ("Instagram accounts", str(max(1, accounts_count))),
+            ("Per-account rate", f"INR {unit_amount:,}" if unit_amount > 0 else "INR 0"),
+            ("Checkout total", f"INR {final_amount:,}" if final_amount > 0 else "INR 0"),
             ("Checkout status", "Not completed"),
         ],
         paragraphs=[
             "You are receiving this email because your account started a subscription purchase that did not finish.",
-            "To continue with paid access, start a fresh checkout from the pricing page or your dashboard."
+            "DM Panda pricing is calculated per linked Instagram account. To continue with paid access, start a fresh checkout from the pricing page or your dashboard."
         ],
         cta_label="Continue subscription checkout",
         cta_url=pricing_url,
