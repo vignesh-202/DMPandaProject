@@ -27,7 +27,7 @@ const AccountBarrier: React.FC = () => {
         ? 'Automation Access Restricted'
         : 'No Instagram Account Linked';
   const description = isReconnectRequired
-    ? `@${activeAccount.username} needs to be linked again before DM Panda can continue automations. We paused automation immediately when Instagram access could no longer be refreshed. Open settings and reconnect this same account to resume.`
+    ? `@${activeAccount.username} needs to be linked again before DM Panda can continue automations. Open account settings to reconnect this account, or run 'Check Connection' to verify if the token is still valid.`
     : isInactive
     ? (isAdminDisabled
       ? `@${activeAccount.username} is still linked, but an admin has disabled this account. Automation is paused until support or an admin reactivates it. You can still review the account in settings and analytics.`
@@ -78,7 +78,7 @@ const AccountBarrier: React.FC = () => {
           leftIcon={(isInactive || isPlanLocked || isAutomationLocked) ? <Settings className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           rightIcon={<ChevronRight className="w-4 h-4" />}
         >
-          {(isReconnectRequired || isInactive || isPlanLocked || isAutomationLocked) ? 'Go to Settings' : 'Link Account'}
+          {isReconnectRequired ? 'Go to Settings to Verify / Reconnect' : ((isInactive || isPlanLocked || isAutomationLocked) ? 'Go to Settings' : 'Link Account')}
         </Button>
       </div>
 

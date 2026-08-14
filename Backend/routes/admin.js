@@ -2767,7 +2767,16 @@ router.delete('/users/:userId', loginRequired, adminRequired, async (req, res) =
         }
 
         if (String(req.user?.$id || '') === userId) {
-            return fail(res, 400, 'You cannot delete the currently signed-in admin account from the admin panel.');
+            return fail(res, 403, 'You cannot delete your own administrative account from the admin panel.');
+        }
+
+        // Fetch target user to verify if they are an admin
+        const targetAccount = await users.get(userId).catch(() => null);
+        if (targetAccount) {
+            const targetLabels = Array.isArray(targetAccount.labels) ? targetAccount.labels : [];
+            if (targetLabels.includes('admin')) {
+                return fail(res, 403, 'You cannot delete another administrative account from the admin panel.');
+            }
         }
 
         await cleanupUserOwnedData(databases, userId, { retainFinancialRecords: false });
@@ -2786,7 +2795,7 @@ router.delete('/users/:userId', loginRequired, adminRequired, async (req, res) =
         if (error?.code === 404) {
             return fail(res, 404, 'User not found.');
         }
-        return fail(res, 500, 'Failed to delete user.');
+        return fail(res, 500, error?.message || 'Failed to delete user.');
     }
 });
 

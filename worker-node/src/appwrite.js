@@ -969,15 +969,19 @@ class AppwriteClient {
         return hydrated;
     }
 
-    async getProfile(userId) {
+    async getProfile(userId, accountId = null) {
         try {
+            const collectionId = process.env.ACCOUNT_FEATURES_COLLECTION_ID || process.env.PROFILES_COLLECTION_ID || 'account_features';
+            const queries = accountId
+                ? [Query.equal('account_id', String(accountId)), Query.limit(1)]
+                : [Query.equal('user_id', String(userId)), Query.limit(1)];
             const response = await withAppwriteRetry(() => this.databases.listDocuments(
                 this.databaseId,
-                process.env.PROFILES_COLLECTION_ID || 'profiles',
-                [Query.equal('user_id', String(userId)), Query.limit(1)]
+                collectionId,
+                queries
             ), {
                 operationName: 'get_profile',
-                context: { user_id: userId }
+                context: { user_id: userId, account_id: accountId }
             });
             return this._hydrateProfilePlan(response.documents[0] || null);
         } catch (error) {
@@ -1643,22 +1647,6 @@ class AppwriteClient {
                 event_type: safeEventType
             }
         });
-    }
-
-    async getUserWebhookUrl(userId) {
-        if (!userId) return null;
-        try {
-            const PROFILES_COLLECTION_ID = process.env.PROFILES_COLLECTION_ID || 'profiles';
-            const res = await this.databases.listDocuments(
-                this.databaseId,
-                PROFILES_COLLECTION_ID,
-                [Query.equal('user_id', userId), Query.limit(1)]
-            );
-            const url = res.documents?.[0]?.webhook_url;
-            return url && typeof url === 'string' && url.startsWith('http') ? url.trim() : null;
-        } catch (_) {
-            return null;
-        }
     }
 }
 

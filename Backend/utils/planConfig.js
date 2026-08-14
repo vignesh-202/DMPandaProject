@@ -84,8 +84,7 @@ const DEFAULT_PLAN_FEATURES = Object.freeze({
         'mentions',
         'instagram_live_automation',
         'priority_support',
-        'once_per_user_24h',
-        'api_access'
+        'once_per_user_24h'
     ],
     benefitStorageKeys: {
         post_comment_reply_automation: 'post_comment_reply',
@@ -1455,22 +1454,19 @@ const hasUltraPlanAccess = async (databases, userId) => {
             if (planCode === 'ultra' && status !== 'inactive' && status !== 'expired') {
                 return true;
             }
-            if (profile.benefit_api_access === true) {
-                return true;
-            }
         }
 
-        const slotsResponse = await databases.listDocuments(
+        const featResponse = await databases.listDocuments(
             APPWRITE_DATABASE_ID,
-            'subscription_slots',
+            'account_features',
             [
                 Query.equal('user_id', safeUserId),
                 Query.equal('plan_code', 'ultra'),
-                Query.equal('status', 'active')
+                Query.limit(1)
             ]
         ).catch(() => ({ documents: [] }));
 
-        return (slotsResponse.documents || []).length > 0;
+        return (featResponse.documents || []).length > 0;
     } catch (_) {
         return false;
     }

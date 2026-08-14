@@ -158,7 +158,7 @@ def _classify_collection(collection_id: str, references: List[str]) -> Tuple[str
 
 def _classify_attribute(attribute_key: str, references: List[str]) -> Tuple[str, str]:
     if attribute_key in {"plan_id", "plan_expires_at"}:
-        return "manual_review", "legacy subscription memory field kept for compatibility and rollback"
+        return "deprecated", "legacy user plan status field removed from users table; plans are managed per IG account"
     if attribute_key.startswith("benefit_"):
         return "keep", "current plan benefit field"
     if references:

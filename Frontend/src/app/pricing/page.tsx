@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AuthRedirectButton from '../../components/ui/AuthRedirectButton';
-import { ChevronDown, ChevronUp, Check, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check, X, Sparkles, Zap } from 'lucide-react';
 import InfoPopover from '../../components/ui/InfoPopover';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
 import {
@@ -8,8 +8,6 @@ import {
   buildPlanLimitItems,
   buildPricingComparisonRows,
   formatMoney,
-  getPlanBigPrice,
-  getPlanBilledTotal,
   normalizePricingPayload
 } from '../../lib/pricing';
 
@@ -42,7 +40,6 @@ const PricingPage: React.FC = () => {
   });
 
   const [isYearly, setIsYearly] = useState(true);
-  const [accountsCount, setAccountsCount] = useState(1);
   const currency = 'INR';
   const [allExpanded, setAllExpanded] = useState(false);
   const [plans, setPlans] = useState<PricingPlan[]>([]);
@@ -101,239 +98,198 @@ const PricingPage: React.FC = () => {
   return (
     <section className="min-h-screen bg-white text-gray-900 transition-colors duration-500 dark:bg-neutral-950 dark:text-gray-100 font-sans pt-28 pb-16 sm:pt-32 sm:pb-24">
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto mb-12 max-w-3xl text-center sm:mb-16">
-          <h2 className="mb-4 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:mb-6 sm:text-4xl lg:text-5xl">
-            Flexible Pricing for Everyone
-          </h2>
-          <p className="text-base text-gray-600 dark:text-gray-400 sm:text-lg lg:text-xl">
-            Choose the plan that&apos;s right for you. Start free, upgrade as you grow.
+        
+        {/* Header Section */}
+        <div className="mx-auto mb-10 max-w-3xl text-center sm:mb-14">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-bold uppercase tracking-wider mb-4 border border-purple-500/20">
+            <Sparkles size={14} />
+            <span>Simple, Transparent Pricing</span>
+          </div>
+          <h1 className="mb-4 text-3xl font-black tracking-tight text-gray-900 dark:text-white sm:mb-6 sm:text-4xl lg:text-5xl">
+            Flexible Plans for Every Creator
+          </h1>
+          <p className="text-base text-gray-600 dark:text-gray-400 sm:text-lg lg:text-xl leading-relaxed">
+            Choose the plan that fits your growth. Start completely free and upgrade per account as your audience expands.
           </p>
         </div>
 
-        <div className="mb-12 flex flex-col items-center space-y-6 sm:mb-16 sm:space-y-8">
-          <div className="relative inline-flex rounded-2xl bg-gray-100 p-1 dark:bg-white/[0.06]">
+        {/* Monthly / Yearly Toggle */}
+        <div className="mb-12 flex justify-center sm:mb-16">
+          <div className="relative inline-flex items-center rounded-2xl bg-gray-100 p-1.5 shadow-inner dark:bg-white/[0.06] border border-gray-200/60 dark:border-white/[0.08]">
             <button
+              type="button"
               onClick={() => setIsYearly(false)}
               className={`relative z-10 rounded-xl px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:px-8 sm:py-3 ${
                 !isYearly
-                  ? 'bg-white text-gray-900 shadow-md dark:bg-white/[0.1] dark:text-white'
+                  ? 'bg-white text-gray-900 shadow-md dark:bg-white/[0.12] dark:text-white'
                   : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
               }`}
             >
               Monthly
             </button>
             <button
+              type="button"
               onClick={() => setIsYearly(true)}
               className={`relative z-10 flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:px-8 sm:py-3 ${
                 isYearly
-                  ? 'bg-white text-gray-900 shadow-md dark:bg-white/[0.1] dark:text-white'
+                  ? 'bg-white text-gray-900 shadow-md dark:bg-white/[0.12] dark:text-white'
                   : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
               }`}
             >
-              Yearly
-              <span className="rounded-lg bg-green-100 px-2 py-0.5 text-[10px] uppercase tracking-wider text-green-700 dark:bg-green-500/20 dark:text-green-400">
-                Save
+              <span>Yearly</span>
+              <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                Save 20%+
               </span>
             </button>
           </div>
         </div>
 
+        {/* Pricing Cards Grid */}
         {loading ? (
-          <div className="py-12 text-center text-gray-500 dark:text-gray-500">Loading pricing...</div>
+          <div className="py-16 text-center text-gray-500 dark:text-gray-400 font-medium">
+            <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+            Loading pricing plans...
+          </div>
         ) : (
-          <div className="mb-16 grid grid-cols-1 gap-4 sm:mb-24 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4 lg:gap-8">
+          <div className="mb-16 grid grid-cols-1 gap-6 sm:mb-24 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8 items-stretch">
             {plans.map((plan) => {
               const allFeatures = plan.feature_items
                 ? plan.feature_items.map((item) => ({ key: item.key || item.label, label: item.label || item.key, enabled: Boolean(item.enabled) }))
                 : (Array.isArray(plan.features) ? plan.features : []).map((f) => ({ key: String(f), label: String(f), enabled: true }));
-              const visibleFeatures = allExpanded ? allFeatures : allFeatures.slice(0, 6);
-              const hasMoreFeatures = allFeatures.length > 6;
+              const visibleFeatures = allExpanded ? allFeatures : allFeatures.slice(0, 7);
+              const hasMoreFeatures = allFeatures.length > 7;
               const isPopular = plan.is_popular;
               const unitMonthly = plan.price_monthly_inr;
               const unitYearly = plan.price_yearly_inr;
               const unitYearlyMonthly = plan.price_yearly_monthly_inr;
-              
-              const totalMonthlyCost = unitMonthly * accountsCount;
-              const totalYearlyCost = unitYearly * accountsCount;
-              const effectiveMonthlyCost = isYearly ? unitYearlyMonthly * accountsCount : totalMonthlyCost;
+              const effectiveDisplayPrice = isYearly && unitYearlyMonthly > 0 ? unitYearlyMonthly : unitMonthly;
               const planLimits = buildPlanLimitItems(plan);
 
               return (
                 <div
                   key={plan.id || plan.plan_code}
-                  className={`relative flex flex-col rounded-3xl p-6 transition-all duration-300 sm:p-8 ${
+                  className={`relative flex flex-col justify-between rounded-3xl p-6 sm:p-7 transition-all duration-300 hover:translate-y-[-2px] ${
                     isPopular
-                      ? 'z-10 scale-[1.02] bg-gray-900 text-white shadow-2xl ring-1 ring-gray-800 sm:scale-105 dark:bg-gradient-to-b dark:from-purple-500/20 dark:to-blue-500/10 dark:ring-purple-500/20'
-                      : 'border border-gray-200 bg-white text-gray-900 hover:border-gray-300 hover:shadow-xl dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-gray-100 dark:hover:border-white/[0.12]'
+                      ? 'z-10 bg-gray-900 text-white shadow-2xl ring-2 ring-purple-500/50 dark:bg-gradient-to-b dark:from-purple-950/40 dark:via-neutral-900 dark:to-neutral-950'
+                      : 'border border-gray-200 bg-white text-gray-900 hover:border-gray-300 hover:shadow-xl dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100 dark:hover:border-white/[0.14]'
                   }`}
                 >
                   {isPopular && (
-                    <div className="absolute right-0 top-0 rounded-bl-xl rounded-tr-2xl bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-1.5 text-xs font-bold text-white">
-                      POPULAR
+                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 px-4 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-lg shadow-purple-500/25">
+                      Most Popular
                     </div>
                   )}
 
-                  <div className="mb-6">
-                    <h3 className="text-xl font-bold">{plan.name}</h3>
-                    <p className="mt-2 text-3xl font-extrabold sm:text-4xl">
-                      {plan.plan_code === 'free' ? 'Free' : formatMoney(effectiveMonthlyCost, currency)}
-                      <span className="text-sm font-normal text-gray-500 dark:text-gray-400">/mo per account</span>
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {accountsCount} {accountsCount === 1 ? 'account' : 'accounts'} total: {formatMoney(effectiveMonthlyCost, currency)}/mo billed {isYearly ? 'yearly' : 'monthly'}
-                    </p>
-
-                    {isYearly && plan.price_yearly_monthly_inr > 0 && (
-                      <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                        <span>Save with yearly billing: {formatMoney(unitYearlyMonthly, currency)}/mo per account ({formatMoney(unitYearly, currency)}/yr total per account)</span>
+                  <div>
+                    {/* Plan Header */}
+                    <div className="mb-6 pt-2">
+                      <h3 className="text-xl font-black">{plan.name}</h3>
+                      <div className="mt-3 flex items-baseline gap-1.5 flex-wrap">
+                        <span className="text-3xl font-black sm:text-4xl">
+                          {plan.plan_code === 'free' ? 'Free' : formatMoney(effectiveDisplayPrice, currency)}
+                        </span>
+                        <span className={`text-xs font-semibold ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                          /month per account
+                        </span>
                       </div>
-                    )}
-                  </div>
 
-                  <div className={`mb-4 flex items-center justify-between rounded-xl border p-3 ${
-                    isPopular ? 'border-white/10 bg-white/10' : 'border-gray-200 bg-gray-50 dark:border-white/[0.08] dark:bg-white/[0.04]'
-                  }`}>
-                    <label htmlFor={`accounts-count-${plan.id}`} className={`text-xs font-bold ${isPopular ? 'text-gray-200' : 'text-gray-700 dark:text-gray-300'}`}>
-                      Accounts:
-                    </label>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setAccountsCount(Math.max(1, accountsCount - 1))}
-                        className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold transition ${
-                          isPopular
-                            ? 'bg-white/15 text-white hover:bg-white/25'
-                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-white/10 dark:text-white dark:hover:bg-white/20'
-                        }`}
-                        aria-label="Decrease accounts count"
-                      >
-                        -
-                      </button>
-                      <input
-                        id={`accounts-count-${plan.id}`}
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={accountsCount}
-                        onChange={(e) => setAccountsCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-                        className={`w-10 text-center text-xs font-bold bg-transparent focus:outline-none ${isPopular ? 'text-white' : 'text-gray-900 dark:text-white'}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setAccountsCount(Math.min(100, accountsCount + 1))}
-                        className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold transition ${
-                          isPopular
-                            ? 'bg-white/15 text-white hover:bg-white/25'
-                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-white/10 dark:text-white dark:hover:bg-white/20'
-                        }`}
-                        aria-label="Increase accounts count"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
+                      {plan.plan_code !== 'free' ? (
+                        <p className={`mt-2 text-xs font-medium ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                          {isYearly
+                            ? `Billed annually • ${formatMoney(unitYearly, currency)} / yr per account`
+                            : 'Billed monthly • Cancel anytime'}
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                          Forever free for personal use
+                        </p>
+                      )}
 
-                  <div className="mb-6 flex h-auto min-h-20 flex-col justify-center">
-                    <div className="flex items-baseline gap-1 flex-wrap">
-                      <span className="text-3xl font-bold sm:text-4xl">
-                        {plan.plan_code === 'free' ? 'Free' : formatMoney(effectiveMonthlyCost, currency)}
-                      </span>
-                      <span className={`text-xs font-semibold ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                        /month {accountsCount > 1 ? `(${accountsCount} accounts)` : ''}
-                      </span>
+                      {isYearly && plan.price_yearly_monthly_inr > 0 && (
+                        <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <Zap size={13} className="fill-current" />
+                          <span>Save with yearly billing</span>
+                        </div>
+                      )}
                     </div>
-                    {isYearly && plan.yearly_bonus && (
-                      <p className="mt-1 text-sm font-medium text-green-500 dark:text-green-400">{plan.yearly_bonus}</p>
-                    )}
-                    {plan.plan_code !== 'free' && (
-                      <div className={`mt-3 space-y-1.5 rounded-xl p-3 border text-xs ${
+
+                    {/* Plan Limits Box */}
+                    <div
+                      className={`mb-6 rounded-2xl border p-4 ${
                         isPopular
-                          ? 'border-white/10 bg-white/5 text-gray-200'
-                          : 'border-gray-200 bg-gray-50 dark:border-white/[0.08] dark:bg-white/[0.03] text-gray-600 dark:text-gray-300'
-                      }`}>
-                        <div className="flex justify-between items-center">
-                          <span>Monthly billing:</span>
-                          <span className="font-bold">{formatMoney(totalMonthlyCost, currency)}/mo <span className="text-[10px] font-normal opacity-80">({formatMoney(totalMonthlyCost * 12, currency)}/yr total)</span></span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span>Yearly billing:</span>
-                          <span className="font-bold text-green-500 dark:text-green-400">{formatMoney(effectiveMonthlyCost, currency)}/mo <span className="text-[10px] font-semibold opacity-90">({formatMoney(totalYearlyCost, currency)}/yr total)</span></span>
-                        </div>
+                          ? 'border-white/10 bg-white/5'
+                          : 'border-gray-200 bg-gray-50/80 dark:border-white/[0.08] dark:bg-white/[0.02]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <p className={`text-[11px] font-bold uppercase tracking-wider ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                          Account Limits
+                        </p>
+                        <InfoPopover
+                          title="Account Usage Limits"
+                          description="Every connected Instagram account gets its own independent action budget and limits."
+                          formula="Limits reset every hourly, daily, and monthly rolling window."
+                          className="shrink-0"
+                        />
                       </div>
-                    )}
-                  </div>
-
-                  <div
-                    className={`mb-6 rounded-2xl border p-4 ${
-                      isPopular
-                        ? 'border-white/10 bg-white/5'
-                        : 'border-gray-200 bg-gray-50 dark:border-white/[0.08] dark:bg-white/[0.03]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                        Plan limits
-                      </p>
-                      <InfoPopover
-                        title="Plan limits"
-                        description="These limits apply individually to each linked Instagram account, not as one shared limit across the whole user."
-                        formula="Every linked Instagram account gets its own hourly, daily, and monthly usage window."
-                        notes={[
-                          'If a user links two Instagram accounts, both accounts receive their own plan limits.',
-                          'Usage is tracked separately for each linked Instagram account.'
-                        ]}
-                        className="shrink-0"
-                      />
+                      <div className="space-y-2.5">
+                        {planLimits.map((item) => (
+                          <div key={`${plan.id}-${item.label}`} className="flex items-center justify-between gap-4 text-xs">
+                            <span className={isPopular ? 'text-gray-300' : 'text-gray-600 dark:text-gray-400'}>{item.label}</span>
+                            <span className="font-bold">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="mt-4 space-y-3">
-                      {planLimits.map((item) => (
-                        <div key={`${plan.id}-${item.label}`} className="flex items-center justify-between gap-4 text-sm">
-                          <span className={isPopular ? 'text-gray-300' : 'text-gray-600 dark:text-gray-400'}>{item.label}</span>
-                          <span className="font-semibold">{item.value}</span>
+
+                    {/* Features List */}
+                    <div className="space-y-3">
+                      <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                        Included Features
+                      </p>
+                      {visibleFeatures.map((feature) => (
+                        <div key={`${plan.id || plan.plan_code}-${feature.key}`} className={`flex items-start gap-2.5 text-xs sm:text-sm ${!feature.enabled ? 'opacity-40' : ''}`}>
+                          <div className={`mt-0.5 shrink-0 ${feature.enabled ? (isPopular ? 'text-emerald-400' : 'text-emerald-600 dark:text-emerald-400') : 'text-gray-400 dark:text-gray-500'}`}>
+                            {feature.enabled ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={2.5} />}
+                          </div>
+                          <span className={feature.enabled ? 'font-medium leading-snug' : 'line-through text-muted-foreground'}>{feature.label}</span>
                         </div>
                       ))}
                     </div>
+
+                    {hasMoreFeatures && (
+                      <button
+                        type="button"
+                        onClick={toggleAllCards}
+                        className={`mt-4 flex items-center gap-1.5 text-xs font-bold hover:underline ${
+                          isPopular ? 'text-purple-300' : 'text-primary'
+                        }`}
+                      >
+                        {allExpanded ? (
+                          <>
+                            <span>Show fewer features</span>
+                            <ChevronUp size={14} />
+                          </>
+                        ) : (
+                          <>
+                            <span>View all features</span>
+                            <ChevronDown size={14} />
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
 
-                  <div className="flex-grow space-y-3 sm:space-y-4">
-                    {visibleFeatures.map((feature) => (
-                      <div key={`${plan.id || plan.plan_code}-${feature.key}`} className={`flex items-start gap-3 text-sm ${!feature.enabled ? 'opacity-50' : ''}`}>
-                        <div className={`mt-0.5 ${feature.enabled ? (isPopular ? 'text-green-400' : 'text-green-600 dark:text-green-400') : 'text-gray-400 dark:text-gray-500'}`}>
-                          {feature.enabled ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={3} />}
-                        </div>
-                        <span className={feature.enabled ? 'font-medium' : 'line-through decoration-gray-400 dark:decoration-gray-500'}>{feature.label}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {hasMoreFeatures && (
-                    <button
-                      onClick={toggleAllCards}
-                      className={`mb-4 mt-6 flex items-center justify-center gap-2 text-sm font-medium hover:underline ${
-                        isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'
-                      }`}
-                    >
-                      {allExpanded ? (
-                        <>
-                          Show Less <ChevronUp size={14} />
-                        </>
-                      ) : (
-                        <>
-                          View all features <ChevronDown size={14} />
-                        </>
-                      )}
-                    </button>
-                  )}
-
-                  <div className={`mt-8 border-t pt-6 ${isPopular ? 'border-gray-700 dark:border-white/[0.1]' : 'border-gray-100 dark:border-white/[0.06]'}`}>
+                  {/* CTA Button */}
+                  <div className={`mt-8 border-t pt-5 ${isPopular ? 'border-white/10' : 'border-gray-100 dark:border-white/[0.06]'}`}>
                     <AuthRedirectButton
-                      className={`flex h-12 w-full items-center justify-center rounded-xl py-3.5 text-xs font-black uppercase tracking-[0.2em] shadow-lg transition-all duration-300 sm:h-14 sm:py-4 ${
+                      className={`flex h-12 w-full items-center justify-center rounded-2xl text-xs font-black uppercase tracking-wider shadow-md transition-all duration-200 active:scale-98 ${
                         isPopular
-                          ? 'bg-white text-gray-900 shadow-white/5 hover:bg-gray-100'
-                          : 'bg-gray-900 text-white shadow-black/10 hover:bg-gray-800 dark:bg-white/[0.1] dark:hover:bg-white/[0.15]'
+                          ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 text-white shadow-purple-500/20 hover:opacity-95'
+                          : 'bg-gray-900 text-white shadow-black/5 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100'
                       }`}
                     >
-                      {plan.button_text}
+                      {plan.button_text || (plan.plan_code === 'free' ? 'Get Started Free' : 'Get Started')}
                     </AuthRedirectButton>
                   </div>
                 </div>
@@ -342,20 +298,27 @@ const PricingPage: React.FC = () => {
           </div>
         )}
 
+        {/* Comparison Table Section */}
         {comparisonRows.length > 0 && (
-          <div className="mt-16 sm:mt-32">
-            <h2 className="mb-12 text-center text-3xl font-bold text-gray-900 dark:text-white sm:mb-16 sm:text-4xl">
-              Compare features
-            </h2>
-            <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-xl dark:border-white/[0.08] sm:rounded-3xl">
-              <table className="w-full bg-white text-left dark:bg-white/[0.02]">
+          <div className="mt-16 sm:mt-24">
+            <div className="text-center mb-8 sm:mb-12">
+              <h2 className="text-2xl font-black text-gray-900 dark:text-white sm:text-3xl lg:text-4xl">
+                Compare All Features Side by Side
+              </h2>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 sm:text-base">
+                Explore full capability breakdown across every subscription tier.
+              </p>
+            </div>
+            
+            <div className="overflow-x-auto rounded-3xl border border-gray-200 shadow-xl dark:border-white/[0.08] bg-white dark:bg-neutral-900/60 backdrop-blur-sm">
+              <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50 dark:border-white/[0.08] dark:bg-white/[0.04]">
-                    <th className="sticky left-0 bg-gray-50 p-4 text-sm font-bold text-gray-900 dark:bg-neutral-900 dark:text-white sm:p-6">
-                      Features
+                  <tr className="border-b border-gray-200 bg-gray-50/80 dark:border-white/[0.08] dark:bg-white/[0.04]">
+                    <th className="sticky left-0 bg-gray-50 p-4 sm:p-5 text-sm font-black text-gray-900 dark:bg-neutral-900 dark:text-white">
+                      Feature Comparison
                     </th>
                     {plans.map((plan) => (
-                      <th key={plan.id} className="p-4 text-center text-sm font-bold text-gray-900 dark:text-white sm:p-6">
+                      <th key={plan.id} className="p-4 sm:p-5 text-center text-sm font-black text-gray-900 dark:text-white">
                         {plan.name.replace(' Plan', '')}
                       </th>
                     ))}
@@ -363,16 +326,16 @@ const PricingPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-white/[0.06]">
                   {comparisonRows.map((row) => (
-                    <tr key={`comp-row-${row.key}`} className="transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                      <td className="sticky left-0 bg-white p-4 text-sm font-medium text-gray-900 hover:bg-gray-50 dark:bg-neutral-950 dark:text-gray-200 dark:hover:bg-white/[0.02] sm:p-6">
+                    <tr key={`comp-row-${row.key}`} className="transition-colors hover:bg-gray-50/60 dark:hover:bg-white/[0.02]">
+                      <td className="sticky left-0 bg-white p-4 sm:p-5 text-sm font-semibold text-gray-900 hover:bg-gray-50 dark:bg-neutral-900 dark:text-gray-200 dark:hover:bg-white/[0.02]">
                         {row.label}
                       </td>
                       {plans.map((plan, planIdx) => {
                         const value = row.values[plan.plan_code || plan.id];
                         return (
-                          <td key={`comp-cell-${row.key}-${planIdx}`} className="p-4 text-center text-sm text-gray-600 dark:text-gray-400 sm:p-6">
+                          <td key={`comp-cell-${row.key}-${planIdx}`} className="p-4 sm:p-5 text-center text-sm text-gray-600 dark:text-gray-400">
                             {typeof value === 'boolean'
-                              ? (value ? <Check className="mx-auto text-green-500" size={20} /> : <X className="mx-auto text-gray-300 dark:text-gray-600" size={20} />)
+                              ? (value ? <Check className="mx-auto text-emerald-500" size={18} strokeWidth={2.5} /> : <X className="mx-auto text-gray-300 dark:text-gray-600" size={18} strokeWidth={2} />)
                               : (value == null || value === '' ? '-' : String(value))}
                           </td>
                         );
@@ -384,6 +347,7 @@ const PricingPage: React.FC = () => {
             </div>
           </div>
         )}
+
       </div>
     </section>
   );

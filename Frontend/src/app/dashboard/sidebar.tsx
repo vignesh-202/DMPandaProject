@@ -119,7 +119,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
       'Reply Templates', 'Super Profile', 'Inbox Menu', 'Convo Starter',
       'Global Trigger', 'DM Automation', 'Post Automation', 'Reel Automation',
       'Story Automation', 'Live Automation', 'Mentions',
-      'Comment Moderation', 'Suggest More', 'Flow'
+      'Comment Moderation', 'Suggest More'
     ];
     const requiredFeature = viewFeatureMap[viewName];
     const lockedByPlan = requiredFeature ? !hasPlanFeature(requiredFeature) : false;
@@ -242,7 +242,6 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
           { name: 'Mentions', icon: AtSign },
           { name: 'Suggest More', icon: Lightbulb },
           { name: 'Comment Moderation', icon: Shield },
-          { name: 'Flow', icon: GitBranch },
         ]
       },
       {
@@ -251,7 +250,6 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
           { name: 'My Plan', icon: Tag },
           { name: 'Transactions', icon: Landmark },
           { name: 'Account Settings', icon: Settings },
-          { name: 'API', icon: Code },
           { name: 'Support', icon: HelpCircle },
           { name: 'Contact', icon: Mail },
         ]
@@ -359,7 +357,19 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
               {/* Account List - scrollable, shows ~3 accounts */}
               {igAccounts && igAccounts.length > 0 ? (
                 <div className="max-h-[190px] overflow-y-auto custom-scrollbar space-y-0.5 px-1 pr-0.5">
-                  {igAccounts.map((account) => {
+                  {[...igAccounts]
+                    .sort((a, b) => {
+                      const getVal = (acc: any) => {
+                        const raw = acc.$createdAt || acc.created_at || acc.createdAt || 0;
+                        const parsed = new Date(raw).getTime();
+                        return Number.isNaN(parsed) ? 0 : parsed;
+                      };
+                      const timeA = getVal(a);
+                      const timeB = getVal(b);
+                      if (timeA !== timeB) return timeA - timeB;
+                      return String(a.username || '').localeCompare(String(b.username || ''));
+                    })
+                    .map((account) => {
                     const accountKey = account.ig_user_id || account.id;
                     const isSelected = activeAccountID === accountKey;
                     const isReconnectRequired = account.status === 'reconnect_required' || account.access_reason === 'reconnect_required';

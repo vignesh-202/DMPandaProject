@@ -25,9 +25,7 @@
     "global_trigger",
     "mentions",
     "instagram_live_automation",
-    "priority_support",
-    "api_access",
-    "n8n_flow"
+    "priority_support"
   ],
   "benefitStorageKeys": {
     "post_comment_reply_automation": "post_comment_reply",
@@ -130,9 +128,7 @@
     "mentions": "Mentions",
     "instagram_live_automation": "Instagram Live Automation",
     "priority_support": "Priority Support",
-    "once_per_user_24h": "Once Per User / 24h",
-    "api_access": "API Access",
-    "n8n_flow": "n8n Flow / Integration"
+    "once_per_user_24h": "Once Per User / 24h"
   },
   "planCatalog": {
     "free": {
@@ -262,9 +258,9 @@
       "is_popular": false,
       "is_custom": false,
       "prices": {
-        "monthly_inr": 350,
-        "yearly_inr": 3588,
-        "yearly_monthly_inr": 299
+        "monthly_inr": 499,
+        "yearly_inr": 4788,
+        "yearly_monthly_inr": 399
       },
       "limits": {
         "instagram_connections_limit": 1,
@@ -297,9 +293,7 @@
         "global_trigger",
         "mentions",
         "instagram_live_automation",
-        "priority_support",
-        "api_access",
-        "n8n_flow"
+        "priority_support"
       ]
     }
   },
@@ -327,7 +321,6 @@
     "super_profile": { "frontendSection": "SuperProfileView", "backendRoutes": ["/api/super-profile"], "workerBehavior": "Public profile availability" },
     "no_watermark": { "frontendSection": "template sending", "backendRoutes": ["plan context"], "workerBehavior": "Suppress watermark" },
     "priority_support": { "frontendSection": "plan/display only", "backendRoutes": [], "workerBehavior": "Display only" },
-    "unlimited_contacts": { "frontendSection": "plan/display only", "backendRoutes": [], "workerBehavior": "Display only" },
-    "api_access": { "frontendSection": "plan/display only", "backendRoutes": [], "workerBehavior": "API Access feature" }
+    "unlimited_contacts": { "frontendSection": "plan/display only", "backendRoutes": [], "workerBehavior": "Display only" }
   }
 }

@@ -288,10 +288,12 @@ const buildTransactionReceipt = ({ transaction, user }) => {
         { width: CARD.full.width - 32 }
     );
 
+    const linkedIgAccountText = transaction.linked_ig_accounts || transaction.ig_account_name || user?.ig_username || 'Linked to account';
     const transactionRows = [
         { label: 'Transaction ID', value: transaction.id },
         { label: 'Transaction date', value: formatShortUtcDate(transaction.created_at) },
         { label: 'Plan', value: transaction.plan_name || 'Plan' },
+        { label: 'Linked IG Account(s)', value: linkedIgAccountText },
         { label: 'Billing cycle', value: String(transaction.billing_cycle || 'monthly').replace(/^./, (v) => v.toUpperCase()) },
         { label: 'Coverage until', value: coverageUntil },
         { label: 'Status', value: normalizeStatus(transaction.status) }

@@ -49,7 +49,6 @@ BENEFIT_KEYS = [
     "seen_typing",
     "no_watermark",
     "once_per_user_24h",
-    "api_access",
 ]
 
 BENEFIT_LABELS = {
@@ -77,7 +76,6 @@ BENEFIT_LABELS = {
     "seen_typing": "Seen + Typing",
     "no_watermark": "No Watermark",
     "once_per_user_24h": "Once Per User / 24h",
-    "api_access": "API Access",
 }
 
 BENEFIT_STORAGE_KEYS = {
@@ -157,7 +155,6 @@ PLAN_DEFINITIONS = {
             "seen_typing",
             "no_watermark",
             "once_per_user_24h",
-            "api_access",
         ],
     },
     "ultra": {
@@ -189,7 +186,6 @@ PLAN_DEFINITIONS = {
             "seen_typing",
             "no_watermark",
             "once_per_user_24h",
-            "api_access",
         ],
     },
 }
@@ -283,9 +279,9 @@ def _pricing_payload(plan_code, existing):
     payload = {
         "name": str(existing.get("name") or definition["name"]),
         "plan_code": plan_code,
-        "price_monthly_inr": int(monthly_price),
-        "price_yearly_inr": int(yearly_price),
-        "price_yearly_monthly_inr": int(yearly_monthly_price),
+        "price_monthly_inr": monthly_price,
+        "price_yearly_inr": yearly_price,
+        "price_yearly_monthly_inr": yearly_monthly_price,
         "yearly_bonus": "",
         "instagram_connections_limit": instagram,
         "instagram_link_limit": instagram,
@@ -373,9 +369,9 @@ def _profile_payload(profile, pricing_by_code):
             "admin_override_json": _json_compact(override),
             "features_json": _json_compact({k: v for k, v in runtime_features.items() if v}),
             "limits_json": _json_compact(runtime_limits),
-            "hourly_action_limit": int(runtime_limits["hourly_action_limit"] or 0),
-            "daily_action_limit": int(runtime_limits["daily_action_limit"] or 0),
-            "monthly_action_limit": 0 if runtime_limits["monthly_action_limit"] is None else int(runtime_limits["monthly_action_limit"] or 0),
+            "hourly_action_limit": runtime_limits["hourly_action_limit"] or 0,
+            "daily_action_limit": runtime_limits["daily_action_limit"] or 0,
+            "monthly_action_limit": 0 if runtime_limits["monthly_action_limit"] is None else (runtime_limits["monthly_action_limit"] or 0),
         }
     runtime_features = _runtime_features(pricing, profile)
     runtime_limits = _runtime_limits(pricing, profile)
@@ -383,9 +379,9 @@ def _profile_payload(profile, pricing_by_code):
         **defaults,
         "features_json": _json_compact({k: v for k, v in runtime_features.items() if v}),
         "limits_json": _json_compact(runtime_limits),
-        "hourly_action_limit": int(runtime_limits["hourly_action_limit"] or 0),
-        "daily_action_limit": int(runtime_limits["daily_action_limit"] or 0),
-        "monthly_action_limit": 0 if runtime_limits["monthly_action_limit"] is None else int(runtime_limits["monthly_action_limit"] or 0),
+        "hourly_action_limit": runtime_limits["hourly_action_limit"] or 0,
+        "daily_action_limit": runtime_limits["daily_action_limit"] or 0,
+        "monthly_action_limit": 0 if runtime_limits["monthly_action_limit"] is None else (runtime_limits["monthly_action_limit"] or 0),
     }
 
 
@@ -440,6 +436,7 @@ def main():
         raise SystemExit("--resume requires --apply and cannot be used with --dry-run.")
 
     databases = Databases(_client())
+    assert DATABASE_ID is not None
     pricing_docs = _list_all(databases, PRICING_COLLECTION_ID)
     pricing_by_code = {
         _normalize_plan_code(doc.get("plan_code") or doc.get("name")): doc
@@ -478,7 +475,7 @@ def main():
         _save_checkpoint(args.checkpoint, checkpoint)
 
     report = {
-        "apply": bool(should_apply),
+        "apply": should_apply,
         "dry_run": not should_apply,
         "resume": bool(args.resume),
         "checkpoint": str(Path(args.checkpoint)),
@@ -522,7 +519,7 @@ def main():
                     "error": str(error),
                 }
                 report["failures"].append(failure)
-                checkpoint["failed"] = checkpoint.get("failed", []) + [failure]
+                checkpoint["failed"] = (checkpoint.get("failed") or []) + [failure]
                 _save_checkpoint(args.checkpoint, checkpoint)
         else:
             pricing_by_code[plan_code] = {**existing, **payload}
@@ -552,7 +549,7 @@ def main():
                     "error": str(error),
                 }
                 report["failures"].append(failure)
-                checkpoint["failed"] = checkpoint.get("failed", []) + [failure]
+                checkpoint["failed"] = (checkpoint.get("failed") or []) + [failure]
                 _save_checkpoint(args.checkpoint, checkpoint)
 
     report_path = Path(args.report)

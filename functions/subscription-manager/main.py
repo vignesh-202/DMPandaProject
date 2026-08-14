@@ -11,7 +11,7 @@ from appwrite.id import ID
 from appwrite.query import Query
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from email_template import render_email_html
+from email_template import render_email_html  # pyright: ignore[reportMissingImports]
 
 PAGE_SIZE = 100
 DEFAULT_FREE_PLAN = "free"
@@ -43,7 +43,6 @@ BENEFIT_KEYS = [
     "instagram_live_automation",
     "priority_support",
     "once_per_user_24h",
-    "api_access",
 ]
 BENEFIT_STORAGE_KEYS = {
     "post_comment_reply_automation": "post_comment_reply",
@@ -81,7 +80,7 @@ ADMIN_OVERRIDE_LIMIT_KEY_MAP = {
 
 def _to_base36(value: int) -> str:
     digits = "0123456789abcdefghijklmnopqrstuvwxyz"
-    number = max(0, int(value))
+    number = max(0, value)
     if number == 0:
         return "0"
     chars = []
@@ -225,21 +224,22 @@ def _parse_json_object(value, fallback=None):
     return {} if fallback is None else fallback
 
 
-def _call_appwrite(client: Client, method: str, path: str, params=None):
-    headers = {"content-type": "application/json"}
-    last_error = None
+def _call_appwrite(client: Client, method: str, path: str, headers=None, params=None):
+    last_error: Exception | None = None
     for attempt in range(MAX_RETRIES):
         try:
-            return client.call(method, path=path, headers=headers, params=params or {}, response_type="json")
+            return client.call(method, path=path, headers=headers or {"content-type": "application/json"}, params=params or {}, response_type="json")
         except Exception as error:
             last_error = error
             if attempt >= (MAX_RETRIES - 1) or not _is_transient_error(error):
                 raise
             time.sleep(0.25 * (attempt + 1))
-    raise last_error
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Failed to call Appwrite endpoint")
 
 
-def _resolve_frontend_origin(client: Client = None, db_id: str = "") -> str:
+def _resolve_frontend_origin(client: Client | None = None, db_id: str = "") -> str:
     if client and db_id:
         try:
             document = _call_appwrite(
@@ -252,7 +252,7 @@ def _resolve_frontend_origin(client: Client = None, db_id: str = "") -> str:
                 return runtime_origin
         except Exception:
             pass
-    return str(_env("FRONTEND_ORIGIN") or "").rstrip("/")
+    return _env("FRONTEND_ORIGIN").rstrip("/")
 
 
 def _list_all(client: Client, db_id: str, collection_id: str, queries=None):
@@ -468,7 +468,7 @@ def _parse_admin_override(profile):
     feature_overrides = {}
     for key, value in raw_feature_overrides.items():
         expanded_key = ADMIN_OVERRIDE_FEATURE_KEY_MAP.get(str(key or "").strip(), str(key or "").strip())
-        normalized_key = str(expanded_key or "").strip().lower()
+        normalized_key = expanded_key.strip().lower()
         if normalized_key:
             feature_overrides[normalized_key] = value
     return {
@@ -540,14 +540,34 @@ def _update_user_memory(client, db_id, users_collection, user_id, plan_id, expir
     return None
 
 
-def _build_email_content(stage: str, plan_name: str, expiry: str, frontend_origin: str = ""):
-    frontend_base = str(frontend_origin or "").rstrip("/")
-    pricing_url = f"{frontend_base}/pricing" if frontend_base else ""
-    dashboard_url = f"{frontend_base}/dashboard" if frontend_base else ""
+def _get_linked_ig_names(client: Client, db_id: str, user_id: str, ig_accounts_collection: str = "ig_accounts") -> str:
+    if not user_id or not db_id:
+        return "No connected IG account"
+    try:
+        accounts = _list_all(client, db_id, ig_accounts_collection, [Query.equal("user_id", user_id)])
+        names = []
+        for acc in accounts:
+            username = str(_obj_get(acc, "username") or "").strip()
+            name = str(_obj_get(acc, "name") or "").strip()
+            if username:
+                names.append(f"@{username}")
+            elif name:
+                names.append(name)
+        if names:
+            return ", ".join(names)
+    except Exception:
+        pass
+    return "No connected IG account"
+
+
+def _build_email_content(stage, plan_name, expiry, frontend_origin="", linked_ig_names="No connected IG account"):
+    pricing_url = f"{frontend_origin}/pricing" if frontend_origin else ""
+    dashboard_url = f"{frontend_origin}/dashboard" if frontend_origin else ""
+    frontend_base = frontend_origin or ""
     if stage == "3d":
-        subject = "Your DM Panda plan expires in 3 days"
-        title = "Your paid plan is close to expiry"
-        intro = f"Your {plan_name} plan is scheduled to expire on {expiry}."
+        subject = f"[{linked_ig_names}] Your DM Panda plan expires in 3 days"
+        title = "Your plan expires in 3 days"
+        intro = f"Your {plan_name} plan for {linked_ig_names} is scheduled to expire on {expiry}."
         callouts = [{
             "tone": "warning",
             "title": "Action recommended",
@@ -556,9 +576,9 @@ def _build_email_content(stage: str, plan_name: str, expiry: str, frontend_origi
             ],
         }]
     elif stage == "day0":
-        subject = "Your DM Panda plan expires today"
+        subject = f"[{linked_ig_names}] Your DM Panda plan expires today"
         title = "Your paid access ends today"
-        intro = f"Your {plan_name} plan reaches its expiry date today: {expiry}."
+        intro = f"Your {plan_name} plan for {linked_ig_names} reaches its expiry date today: {expiry}."
         callouts = [{
             "tone": "warning",
             "title": "Renew today to avoid disruption",
@@ -567,9 +587,9 @@ def _build_email_content(stage: str, plan_name: str, expiry: str, frontend_origi
             ],
         }]
     elif stage == "day1":
-        subject = "Your DM Panda plan has expired"
+        subject = f"[{linked_ig_names}] Your DM Panda plan has expired"
         title = "Your paid access has expired"
-        intro = f"Your {plan_name} plan expired on {expiry}."
+        intro = f"Your {plan_name} plan for {linked_ig_names} expired on {expiry}."
         callouts = [{
             "tone": "critical",
             "title": "Current impact",
@@ -579,9 +599,9 @@ def _build_email_content(stage: str, plan_name: str, expiry: str, frontend_origi
             ],
         }]
     else:
-        subject = "Renew your DM Panda plan to restore full access"
+        subject = f"[{linked_ig_names}] Renew your DM Panda plan to restore full access"
         title = "Renew to restore your paid automation access"
-        intro = f"Your previous {plan_name} plan expired on {expiry}."
+        intro = f"Your previous {plan_name} plan for {linked_ig_names} expired on {expiry}."
         callouts = [{
             "tone": "info",
             "title": "When you renew",
@@ -597,11 +617,12 @@ def _build_email_content(stage: str, plan_name: str, expiry: str, frontend_origi
         callouts=callouts,
         summary_rows=[
             ("Plan", plan_name),
+            ("Linked IG Account(s)", linked_ig_names),
             ("Status", "Expires soon" if stage in {"3d", "day0"} else "Expired"),
             ("Effective date", expiry),
         ],
         paragraphs=[
-            "You are receiving this email because your DM Panda account currently has or recently had an active paid subscription.",
+            f"You are receiving this email regarding your subscription for linked Instagram account(s): {linked_ig_names}.",
             "Renewing keeps your billed Instagram account slots available and prevents avoidable interruptions to account access."
             if stage in {"3d", "day0"}
             else "Renewing restores paid per-account limits so you can continue using your premium automation setup."
@@ -655,7 +676,7 @@ def _acquire_run_lock(client: Client, db_id: str, job_locks_collection: str, job
         return False
 
 
-def _maybe_send_reminder(client, db_id, profiles_collection, profile, stage, anchor_expiry, summary):
+def _maybe_send_reminder(client, db_id, profiles_collection, profile, stage, anchor_expiry, summary, ig_accounts_collection="ig_accounts"):
     profile_id = str(_obj_get(profile, "$id", "") or "").strip()
     user_id = str(_obj_get(profile, "user_id", "") or "").strip()
     if not profile_id or not user_id or not anchor_expiry:
@@ -679,7 +700,8 @@ def _maybe_send_reminder(client, db_id, profiles_collection, profile, stage, anc
 
     expiry_text = anchor_expiry.date().isoformat()
     plan_name = str(_obj_get(profile, "plan_name") or "DM Panda Plan").strip()
-    subject, html = _build_email_content(stage, plan_name, expiry_text, _resolve_frontend_origin(client, db_id))
+    linked_ig_names = _get_linked_ig_names(client, db_id, user_id, ig_accounts_collection)
+    subject, html = _build_email_content(stage, plan_name, expiry_text, _resolve_frontend_origin(client, db_id), linked_ig_names)
     _send_email(client, user_id, subject, html)
     _update_document(client, db_id, profiles_collection, profile_id, {
         reminder_field: _to_iso(datetime.now(timezone.utc))
@@ -752,17 +774,17 @@ def main(context):
                 if expiry_date:
                     days_until_expiry = (expiry_date.date() - today).days
                     if days_until_expiry == 3:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "3d", expiry_date, summary)
+                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "3d", expiry_date, summary, ig_accounts_collection)
                     elif days_until_expiry == 0:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day0", expiry_date, summary)
+                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day0", expiry_date, summary, ig_accounts_collection)
                     elif days_until_expiry == -1:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day1", expiry_date, summary)
+                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day1", expiry_date, summary, ig_accounts_collection)
                     elif days_until_expiry <= -7 and abs(days_until_expiry) % 7 == 0:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "repeat", expiry_date, summary)
+                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "repeat", expiry_date, summary, ig_accounts_collection)
 
                 if expiry_date and expiry_date < now:
                     if not _obj_get(profile, "expiry_reminder_day1_sent_at"):
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day1", expiry_date, summary)
+                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day1", expiry_date, summary, ig_accounts_collection)
                     downgraded = _downgrade_profile_to_free(client, db_id, profiles_collection, pricing_map, profile, preserve_expired_snapshot=True)
                     if downgraded:
                         summary["downgraded"] += 1

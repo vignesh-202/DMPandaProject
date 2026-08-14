@@ -5320,31 +5320,6 @@
         "$createdAt": "2026-04-20T08:17:26.994+00:00",
         "$updatedAt": "2026-04-20T08:17:27.196+00:00",
         "default": true
-      },
-      {
-        "key": "plan_id",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-22T08:32:58.554+00:00",
-        "$updatedAt": "2026-04-22T08:32:58.827+00:00",
-        "size": 32,
-        "default": "free",
-        "encrypt": false
-      },
-      {
-        "key": "plan_expires_at",
-        "type": "datetime",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-22T08:32:59.906+00:00",
-        "$updatedAt": "2026-04-22T08:32:59.992+00:00",
-        "format": "",
-        "default": null
       }
     ],
     "indexes": [
@@ -5374,22 +5349,6 @@
         "error": "",
         "attributes": [
           "name"
-        ],
-        "lengths": [
-          0
-        ],
-        "orders": []
-      },
-      {
-        "$id": "1_3_idx_users_plan_id",
-        "$createdAt": "2026-04-22T08:33:03.357+00:00",
-        "$updatedAt": "2026-04-22T08:33:03.392+00:00",
-        "key": "idx_users_plan_id",
-        "type": "key",
-        "status": "available",
-        "error": "",
-        "attributes": [
-          "plan_id"
         ],
         "lengths": [
           0

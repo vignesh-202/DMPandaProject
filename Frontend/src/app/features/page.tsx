@@ -128,18 +128,6 @@ const features = [
     useCase: 'Benefit: Increase average order value and user satisfaction by proactively offering relevant alternatives or complementary products.',
     image: '/images/suggest_more.png',
   },
-  {
-    name: 'n8n Community Nodes & Visual Flows',
-    description: 'Connect DM Panda with n8n to build multi-step visual automation workflows on your own n8n account. Trigger Instagram DMs, route lead payloads, and connect 400+ external apps like HubSpot, Google Sheets, Slack, and OpenAI seamlessly.',
-    useCase: 'Benefit: Build infinite custom automation logic on a drag-and-drop canvas without writing code, syncing Instagram leads instantly to your marketing stack.',
-    image: '/images/n8n_integration.png',
-  },
-  {
-    name: 'Developer REST API & Real-Time Webhooks',
-    description: 'Programmatically manage Instagram accounts, create automations, trigger custom DM payloads, query analytics, and inspect execution logs via secure API keys and real-time HTTP webhooks.',
-    useCase: 'Benefit: Full developer freedom to integrate DM Panda into custom web applications, SaaS platforms, or proprietary internal tools.',
-    image: '/images/api_developer_gateway.png',
-  },
 ];
 
 /* Scroll reveal hook — optimised */
@@ -210,8 +198,8 @@ import { useSEO } from '../../hooks/useSEO';
 const FeaturesPage: React.FC = () => {
   useSEO({
     title: 'Features | DM Panda - Smart Instagram Automation Suite',
-    description: 'Explore DM Panda\'s powerful features: n8n visual flow integration, developer REST API & webhooks, inbox menus, link-in-bio super profiles, automated DM replies, follow-gates, email capture, and comment auto-replies.',
-    keywords: 'instagram automation features, n8n instagram nodes, instagram developer api, comment reply bot, story mention auto reply, follow gate instagram dms, link in bio creator',
+    description: 'Explore DM Panda\'s powerful features: inbox menus, link-in-bio super profiles, automated DM replies, follow-gates, email capture, and comment auto-replies.',
+    keywords: 'instagram automation features, comment reply bot, story mention auto reply, follow gate instagram dms, link in bio creator',
     schema: {
       '@context': 'https://schema.org',
       '@type': 'WebPage',

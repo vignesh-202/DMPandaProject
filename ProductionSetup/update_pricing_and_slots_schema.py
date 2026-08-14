@@ -49,8 +49,6 @@ PRICING_UPDATES = {
         "price_monthly_inr": 0,
         "price_yearly_inr": 0,
         "price_yearly_monthly_inr": 0,
-        "benefit_api_access": False,
-        "benefit_n8n_flow": False,
         "features": json.dumps([
             "Unlimited Contacts",
             "Post Comment DM Reply",
@@ -65,8 +63,6 @@ PRICING_UPDATES = {
         "price_monthly_inr": 150,
         "price_yearly_inr": 1188,
         "price_yearly_monthly_inr": 99,
-        "benefit_api_access": False,
-        "benefit_n8n_flow": False,
         "features": json.dumps([
             "Unlimited Contacts",
             "Post Comment DM Reply",
@@ -90,8 +86,6 @@ PRICING_UPDATES = {
         "price_monthly_inr": 250,
         "price_yearly_inr": 2388,
         "price_yearly_monthly_inr": 199,
-        "benefit_api_access": False,
-        "benefit_n8n_flow": False,
         "features": json.dumps([
             "Unlimited Contacts",
             "Post Comment DM Reply",
@@ -117,8 +111,6 @@ PRICING_UPDATES = {
         "price_monthly_inr": 350,
         "price_yearly_inr": 3588,
         "price_yearly_monthly_inr": 299,
-        "benefit_api_access": True,
-        "benefit_n8n_flow": True,
         "features": json.dumps([
             "Unlimited Contacts",
             "Post Comment DM Reply",
@@ -143,29 +135,13 @@ PRICING_UPDATES = {
             "Followers Only",
             "Seen + Typing",
             "No Watermark",
-            "Once Per User / 24h",
-            "n8n Flow / Integration",
-            "Developer API Access"
+            "Once Per User / 24h"
         ])
     }
 }
 
 def sync_pricing_documents():
     print("[*] Updating 'pricing' collection documents in Appwrite...")
-
-    # Ensure benefit_n8n_flow attribute exists on pricing and profiles collections
-    for collection in ["pricing", "profiles"]:
-        try:
-            databases.create_boolean_attribute(
-                DATABASE_ID, collection, "benefit_n8n_flow", False, None
-            )
-            print(f" [+] Created attribute '{collection}.benefit_n8n_flow'")
-            time.sleep(0.5)
-        except AppwriteException as err:
-            if "already exists" in str(err).lower():
-                print(f" [OK] Attribute '{collection}.benefit_n8n_flow' exists.")
-            else:
-                print(f" [!] Could not create '{collection}.benefit_n8n_flow': {err}")
 
     try:
         response = databases.list_documents(DATABASE_ID, "pricing", [Query.limit(100)])
@@ -180,7 +156,8 @@ def sync_pricing_documents():
         print(f" [!] Error updating pricing collection: {err}")
 
 def ensure_subscription_slots_collection():
-    print("[*] Ensuring 'subscription_slots' collection exists in Appwrite...")
+    print("[*] Ensuring 'subscription_slots' collection and indexes exist...")
+    assert DATABASE_ID is not None
     collection_id = "subscription_slots"
 
     try:
@@ -220,15 +197,18 @@ def ensure_subscription_slots_collection():
     ]
 
     for attr in attributes:
-        key = attr["key"]
+        key = str(attr["key"])
+        is_required = bool(attr["required"])
+        default_val = str(attr["default"]) if attr.get("default") is not None else None
         try:
             if attr["type"] == "string":
+                size = int(attr.get("size", 255))
                 databases.create_string_attribute(
-                    DATABASE_ID, collection_id, key, attr["size"], attr["required"], attr.get("default")
+                    DATABASE_ID, collection_id, key, size, is_required, default_val
                 )
             elif attr["type"] == "datetime":
                 databases.create_datetime_attribute(
-                    DATABASE_ID, collection_id, key, attr["required"], attr.get("default")
+                    DATABASE_ID, collection_id, key, is_required, default_val
                 )
             print(f" [+] Created attribute '{collection_id}.{key}'")
             time.sleep(0.2)
@@ -245,17 +225,20 @@ def ensure_subscription_slots_collection():
     ]
 
     for idx in indexes:
+        idx_key = str(idx["key"])
+        idx_type = str(idx["type"])
+        idx_attrs = list(idx["attributes"])
         try:
             databases.create_index(
-                DATABASE_ID, collection_id, idx["key"], idx["type"], idx["attributes"]
+                DATABASE_ID, collection_id, idx_key, idx_type, idx_attrs
             )
-            print(f" [+] Created index '{collection_id}.{idx['key']}'")
+            print(f" [+] Created index '{collection_id}.{idx_key}'")
             time.sleep(0.2)
         except AppwriteException as err:
             if "already exists" in str(err).lower():
-                print(f" [OK] Index '{collection_id}.{idx['key']}' exists.")
+                print(f" [OK] Index '{collection_id}.{idx_key}' exists.")
             else:
-                print(f" [!] Failed index '{collection_id}.{idx['key']}': {err}")
+                print(f" [!] Failed index '{collection_id}.{idx_key}': {err}")
 
 if __name__ == "__main__":
     sync_pricing_documents()

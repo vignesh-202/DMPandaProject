@@ -21,6 +21,7 @@ import { cn } from '../lib/utils';
 import AdminLoadingState from '../components/AdminLoadingState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { clearCachedResource, loadCachedResource } from '../lib/resourceCache';
+import { useAuth } from '../context/AuthContext';
 
 interface UserRow {
     $id: string;
@@ -236,6 +237,7 @@ export const UsersPage: React.FC = () => {
         has_next: false,
         has_previous: false
     });
+    const { user: currentAdminUser } = useAuth();
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailData, setDetailData] = useState<any>(null);
     const [profilePatch, setProfilePatch] = useState<any>({});
@@ -363,6 +365,18 @@ export const UsersPage: React.FC = () => {
         () => users.find((entry) => entry.$id === userId) || detailData?.user || null,
         [detailData?.user, userId, users]
     );
+
+    const isTargetSelfOrAdmin = useMemo(() => {
+        if (!selectedUser) return false;
+        const targetId = selectedUser.$id;
+        const currentId = currentAdminUser?.$id;
+        const isSelf = Boolean(currentId && targetId === currentId);
+        const isTargetAdmin = Boolean(
+            (selectedUser as any)?.labels?.includes('admin') ||
+            (detailData?.user as any)?.labels?.includes('admin')
+        );
+        return isSelf || isTargetAdmin;
+    }, [selectedUser, currentAdminUser, detailData]);
 
     const closeModal = () => navigate('/users');
     const togglePopupSection = (section: PopupSectionKey) => {
@@ -1454,18 +1468,24 @@ export const UsersPage: React.FC = () => {
                                         {popupSections.danger ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                                     </button>
                                     {popupSections.danger ? (
-                                        <div className="mt-4 border-t border-border/70 pt-4">
-                                            <button
-                                                onClick={() => {
-                                                    setDeleteConfirmText('');
-                                                    setShowDeleteUserDialog(true);
-                                                }}
-                                                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-[10px] font-black text-destructive disabled:opacity-60"
-                                                disabled={saving || isDeletingUser}
-                                            >
-                                                {isDeletingUser ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                                Delete User
-                                            </button>
+                                        <div className="mt-4 border-t border-border/70 pt-4 space-y-3">
+                                            {isTargetSelfOrAdmin ? (
+                                                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                                                    Administrative accounts cannot be deleted through the admin panel.
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => {
+                                                        setDeleteConfirmText('');
+                                                        setShowDeleteUserDialog(true);
+                                                    }}
+                                                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-[10px] font-black text-destructive disabled:opacity-60"
+                                                    disabled={saving || isDeletingUser || isTargetSelfOrAdmin}
+                                                >
+                                                    {isDeletingUser ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                                    Delete User
+                                                </button>
+                                            )}
                                         </div>
                                     ) : null}
                                 </div>

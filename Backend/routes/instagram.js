@@ -880,6 +880,8 @@ const serializeIgAccount = (account, profileLimits = {}) => {
         profile_picture_url: account.profile_picture_url,
         status: normalizedStatus,
         admin_status: normalizedAdminStatus,
+        api_enabled: Boolean(account.api_enabled),
+        webhook_url: account.webhook_url || '',
         linked_at: account.linked_at,
         token_expires_at: account.token_expires_at,
         disabled_by_admin: access.disabled_by_admin === true,
@@ -2360,7 +2362,25 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
 
     } catch (err) {
         console.error(`Instagram Auth Error: ${err.message}`, err.response?.data);
-        res.status(500).json({ error: 'Failed to process Instagram login.' });
+        const metaError = err.response?.data?.error;
+        const errorMessage = metaError?.message || err.message || '';
+        const isOffMeta = errorMessage.toLowerCase().includes('off meta technologies') ||
+                          errorMessage.toLowerCase().includes('future activity history') ||
+                          metaError?.code === 200 ||
+                          metaError?.type === 'OAuthException';
+
+        if (isOffMeta) {
+            return res.status(400).json({
+                error: "Your account's future activity history off Meta technologies is currently turned off. Please visit Meta Accounts Centre to change it.",
+                code: 'OFF_META_ACTIVITY_DISABLED',
+                help_url: 'https://accountscenter.facebook.com/'
+            });
+        }
+
+        res.status(500).json({
+            error: errorMessage || 'Failed to process Instagram login.',
+            details: metaError || null
+        });
     }
 });
 
@@ -2459,6 +2479,147 @@ const unlinkIgAccountHandler = async (req, res) => {
 };
 
 router.patch('/account/ig-accounts/:accountId/status', loginRequired, unlinkIgAccountHandler);
+
+// Verify Instagram Account Connection Health
+router.post('/account/ig-accounts/:accountId/verify-connection', loginRequired, async (req, res) => {
+    try {
+        const { accountId } = req.params;
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+
+        // Fetch account document
+        const account = await databases.getDocument(
+            process.env.APPWRITE_DATABASE_ID,
+            IG_ACCOUNTS_COLLECTION_ID,
+            accountId
+        );
+
+        if (!isOwnedIgAccount(account, req.user.$id)) {
+            return res.status(404).json({ error: 'Account not found.' });
+        }
+
+        const accessToken = account.access_token;
+        if (!accessToken) {
+            return res.json({
+                valid: false,
+                status: 'reconnect_required',
+                reason: 'No access token associated with this account.'
+            });
+        }
+
+        // Test access token against Meta Graph API
+        try {
+            const profileResponse = await axios.get('https://graph.instagram.com/me', {
+                params: {
+                    fields: 'id,username',
+                    access_token: accessToken
+                },
+                timeout: 10000
+            });
+
+            if (profileResponse.data && profileResponse.data.id) {
+                // Token is VALID! Restore account status to active & remove reconnect marker
+                const updatedPermissions = removeReconnectPermissionMarker(account.permissions);
+                await updateIgAccountDocument(databases, account.$id, {
+                    status: 'active',
+                    permissions: updatedPermissions
+                });
+
+                const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+                const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+                const recomputedAccounts = await recomputeAccountAccessForUser(
+                    databases,
+                    req.user.$id,
+                    profileContext.profile,
+                    accounts.documents || []
+                );
+
+                return res.json({
+                    valid: true,
+                    status: 'active',
+                    message: `Instagram connection for @${account.username || 'your account'} is healthy and active.`,
+                    ig_accounts: recomputedAccounts.map((acc) => serializeIgAccount(acc, profileContext.limits || {}))
+                });
+            }
+        } catch (apiErr) {
+            const errorData = apiErr.response?.data?.error || {};
+            const errorMessage = errorData.message || apiErr.message || '';
+            const isOffMeta = errorMessage.toLowerCase().includes('off meta technologies') ||
+                              errorMessage.toLowerCase().includes('future activity history');
+
+            // Token is INVALID or Off-Meta is disabled
+            const updatedPermissions = appendReconnectPermissionMarker(account.permissions);
+            await updateIgAccountDocument(databases, account.$id, {
+                permissions: updatedPermissions
+            });
+
+            return res.json({
+                valid: false,
+                status: 'reconnect_required',
+                code: isOffMeta ? 'OFF_META_ACTIVITY_DISABLED' : 'TOKEN_INVALID',
+                reason: isOffMeta
+                    ? "Your account's future activity history off Meta technologies is currently turned off. Please visit Meta Accounts Centre to turn it on."
+                    : (errorMessage || 'Meta access token is invalid or expired. Reconnection required.')
+            });
+        }
+    } catch (err) {
+        if (err.code === 404) return res.status(404).json({ error: 'Account not found.' });
+        console.error(`Verify IG Connection Error: ${err.message}`);
+        return res.status(500).json({ error: 'Failed to verify account connection status.' });
+    }
+});
+
+const apiToggleHandler = async (req, res) => {
+    try {
+        const { accountId } = req.params;
+        const serverClient = getAppwriteClient({ useApiKey: true });
+        const databases = new Databases(serverClient);
+
+        const account = await databases.getDocument(
+            process.env.APPWRITE_DATABASE_ID,
+            IG_ACCOUNTS_COLLECTION_ID,
+            accountId
+        );
+
+        if (!isOwnedIgAccount(account, req.user.$id)) {
+            return res.status(404).json({ error: 'Account not found.' });
+        }
+
+        const apiEnabled = Boolean(req.body?.api_enabled);
+
+        await databases.updateDocument(
+            process.env.APPWRITE_DATABASE_ID,
+            IG_ACCOUNTS_COLLECTION_ID,
+            accountId,
+            {
+                api_enabled: apiEnabled
+            }
+        );
+
+        const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        const accounts = await listOwnedIgAccounts(databases, req.user.$id);
+        const recomputedAccounts = await recomputeAccountAccessForUser(
+            databases,
+            req.user.$id,
+            profileContext.profile,
+            accounts.documents || []
+        );
+
+        return res.json({
+            message: apiEnabled
+                ? 'API integration enabled for this Instagram account. DM Panda native automations are now paused for this account.'
+                : 'API integration disabled. DM Panda native automations are now active.',
+            api_enabled: apiEnabled,
+            ig_accounts: recomputedAccounts.map((acct) => serializeIgAccount(acct, profileContext.limits || {}))
+        });
+    } catch (err) {
+        if (err.code === 404) return res.status(404).json({ error: 'Account not found.' });
+        console.error(`API Toggle IG Error: ${err.message}`);
+        return res.status(500).json({ error: 'Failed to update API toggle status.' });
+    }
+};
+
+router.patch('/account/ig-accounts/:accountId/api-toggle', loginRequired, apiToggleHandler);
 
 const isInvalidPasswordError = (error) => {
     const message = String(error?.message || '').toLowerCase();

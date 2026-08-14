@@ -34,9 +34,7 @@ export type ViewType =
     | 'Share Automation'
     | 'Mention Automation'
     | 'Comment Moderation'
-    | 'Automation Not working?'
-    | 'Flow'
-    | 'API';
+    | 'Automation Not working?';
 
 interface DashboardContextProps {
     currentView: ViewType;
@@ -171,12 +169,10 @@ const VIEW_PATHS: Record<ViewType, string> = {
     'Mention Automation': 'mention-automation',
     'Comment Moderation': 'comment-moderation',
     'Automation Not working?': 'automation-not-working',
-    'Flow': 'flow',
-    'API': 'api',
 };
 
 const PATH_ALIASES: Record<string, string> = {
-    'global-trigger': 'global-triggers'
+    'global-trigger': 'global-triggers',
 };
 
 const PATH_TO_VIEW = Object.entries(VIEW_PATHS).reduce<Record<string, ViewType>>((acc, [view, path]) => {
@@ -223,7 +219,27 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     const location = useLocation();
     const [currentViewState, setCurrentViewState] = useState<ViewType>(() => getViewFromPathname(location.pathname));
     const [mediaCache, setMediaCache] = useState<Record<string, any[]>>({});
-    const [igAccounts, setIgAccounts] = useState<any[]>([]);
+    const sortAccountsOldToNew = useCallback((accounts: any[]) => {
+        if (!Array.isArray(accounts)) return [];
+        return [...accounts].sort((a, b) => {
+            const getVal = (acc: any) => {
+                const raw = acc.$createdAt || acc.created_at || acc.createdAt || 0;
+                const parsed = new Date(raw).getTime();
+                return Number.isNaN(parsed) ? 0 : parsed;
+            };
+            const timeA = getVal(a);
+            const timeB = getVal(b);
+            if (timeA !== timeB) return timeA - timeB;
+            return String(a.username || '').localeCompare(String(b.username || ''));
+        });
+    }, []);
+    const [igAccounts, setIgAccountsState] = useState<any[]>([]);
+    const setIgAccounts = useCallback((value: React.SetStateAction<any[]>) => {
+        setIgAccountsState((prev) => {
+            const next = typeof value === 'function' ? value(prev) : value;
+            return sortAccountsOldToNew(next);
+        });
+    }, [sortAccountsOldToNew]);
     const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
     const [activeAccountID, setActiveAccountID] = useState<string | null>(null);
     const [activeAccountStats, setActiveAccountStats] = useState<any>(null);
@@ -321,11 +337,12 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     const hasPlanFeature = useCallback((featureKey: string) => {
         if (hasPlanEntitlement(planEntitlements, featureKey)) return true;
 
-        const normalizedFeatureLabel = normalizeFeatureKey(getFeatureLabel(featureKey)).replace(/_/g, ' ');
+        const normalizedTargetKey = normalizeFeatureKey(featureKey);
+        const normalizedTargetLabel = normalizeFeatureKey(getFeatureLabel(featureKey)).replace(/_/g, ' ');
         return planFeatures
             .map((feature) => normalizeFeatureKey(String(feature || '')).replace(/_/g, ' '))
             .filter(Boolean)
-            .some((feature) => feature === normalizedFeatureLabel || feature.includes(normalizedFeatureLabel));
+            .some((feature) => feature === normalizedTargetKey.replace(/_/g, ' ') || feature === normalizedTargetLabel);
     }, [planEntitlements, planFeatures]);
 
     const getPlanGate = useCallback((featureKey: string, note?: string) => {

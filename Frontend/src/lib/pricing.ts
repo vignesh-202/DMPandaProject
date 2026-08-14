@@ -223,7 +223,7 @@ const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
 }> = [
   {
     key: 'instagram_connections_limit',
-    label: 'Instagram account slots',
+    label: 'Instagram Connections',
     value: (plan) => formatPlanLimit(plan.instagram_connections_limit)
   },
   {
@@ -244,7 +244,7 @@ const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
 ];
 
 export const buildPlanLimitItems = (plan: PricingPlan): Array<{ label: string; value: string }> => ([
-  { label: 'Instagram account slots', value: formatPlanLimit(plan.instagram_connections_limit) },
+  { label: 'Instagram Connections', value: formatPlanLimit(plan.instagram_connections_limit) },
   { label: 'Actions / hour', value: formatPlanLimit(plan.actions_per_hour_limit) },
   { label: 'Actions / day', value: formatPlanLimit(plan.actions_per_day_limit) },
   { label: 'Actions / month', value: formatPlanLimit(plan.actions_per_month_limit) }

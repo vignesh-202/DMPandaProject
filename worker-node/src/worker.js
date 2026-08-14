@@ -2992,28 +2992,6 @@ class DMWorker {
                     throwOnError: options?.throwOnError !== false
                 });
 
-                // Dispatch event payload to user's configured webhook URL
-                try {
-                    const userId = result?.userId || meta?.userId || null;
-                    if (userId) {
-                        const userWebhookUrl = await this.appwrite.getUserWebhookUrl(userId);
-                        if (userWebhookUrl) {
-                            const { sendWebhookPayload } = require('./emailDestinations');
-                            void sendWebhookPayload(userWebhookUrl, {
-                                event: meta?.eventType || 'instagram_event',
-                                timestamp: new Date().toISOString(),
-                                account_id: meta?.accountId || null,
-                                sender_id: meta?.senderId || null,
-                                recipient_id: meta?.recipientId || null,
-                                result: result || {}
-                            }).catch((err) => {
-                                console.warn(`[User Webhook Delivery Warning] ${err.message}`);
-                            });
-                        }
-                    }
-                } catch (err) {
-                    console.warn(`[User Webhook Dispatch Error] ${err.message}`);
-                }
                 await this._flushMetaApiActionUsage(metaApiUsageTracker);
                 this._rememberProcessedEvent(meta, EVENT_DEDUPE_TTL_MS);
                 if (claim?.claimed) {

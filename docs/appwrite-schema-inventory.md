@@ -41,13 +41,17 @@ Generated from live Appwrite verification on `2026-04-22`.
 - Removed live user columns:
   - `referred_by`
   - `referral_code`
+  - `ig_accounts`: `account_id`, `admin_status`, `daily_actions_used`, `daily_window_started_at`, `hourly_actions_used`, `hourly_window_started_at`, `ig_scoped_id`, `monthly_actions_used`, `monthly_window_started_at`, `status`, `api_token`, `api_enabled`, `webhook_url`, `webhook_secret`, `api_created_at`, `api_last_used_at`
 
 ### `pricing`
 - Plan catalog only.
 - Key columns:
   - `plan_code`
   - `name`
-  - INR price fields only: `price_monthly_inr`, `price_yearly_inr`, `price_yearly_monthly_inr`
+  - `price_monthly_inr`
+  - `price_yearly_inr`
+  - `price_yearly_monthly_inr`
+  - `benefit_*`
   - `instagram_connections_limit`
   - `actions_per_hour_limit`
   - `actions_per_day_limit`

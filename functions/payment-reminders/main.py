@@ -353,7 +353,27 @@ def _delete_attempt_group(client, db_id, attempts_collection, attempts, summary,
     return deleted
 
 
-def _send_payment_reminder(client, attempt):
+def _get_linked_ig_names(client: Client, db_id: str, user_id: str, ig_accounts_collection: str = "ig_accounts") -> str:
+    if not user_id or not db_id:
+        return "No connected IG account"
+    try:
+        accounts = _list_all(client, db_id, ig_accounts_collection, [Query.equal("user_id", user_id)])
+        names = []
+        for acc in accounts:
+            username = str(_obj_get(acc, "username") or "").strip()
+            name = str(_obj_get(acc, "name") or "").strip()
+            if username:
+                names.append(f"@{username}")
+            elif name:
+                names.append(name)
+        if names:
+            return ", ".join(names)
+    except Exception:
+        pass
+    return "No connected IG account"
+
+
+def _send_payment_reminder(client: Client, db_id: str, attempt, ig_accounts_collection: str = "ig_accounts"):
     user_id = str(_obj_get(attempt, "user_id", "") or "").strip()
     attempt_id = str(_obj_get(attempt, "$id", "") or "").strip()
     plan_name = str(_obj_get(attempt, "plan_name") or "DM Panda Plan").strip()
@@ -365,12 +385,14 @@ def _send_payment_reminder(client, attempt):
     frontend_origin = _resolve_frontend_origin(client, db_id)
     pricing_url = f"{frontend_origin}/pricing" if frontend_origin else ""
     dashboard_url = f"{frontend_origin}/dashboard" if frontend_origin else ""
-    subject = "Complete your DM Panda subscription checkout"
+    
+    linked_ig_names = _get_linked_ig_names(client, db_id, user_id, ig_accounts_collection)
+    subject = f"[{linked_ig_names}] Complete your DM Panda subscription checkout"
     html = render_email_html(
         title="Your checkout was not completed",
-        preheader=subject,
+        preheader=f"Complete checkout for your DM Panda {plan_name} subscription ({linked_ig_names}).",
         greeting="Hello,",
-        intro=f"You started a {plan_name} ({billing_cycle}) checkout in DM Panda, but it was not completed within 24 hours.",
+        intro=f"You started a {plan_name} ({billing_cycle}) checkout in DM Panda for {linked_ig_names}, but it was not completed within 24 hours.",
         callouts=[{
             "tone": "info",
             "title": "No charge was made",
@@ -381,6 +403,7 @@ def _send_payment_reminder(client, attempt):
         }],
         summary_rows=[
             ("Plan", plan_name),
+            ("Linked IG Account(s)", linked_ig_names),
             ("Billing cycle", billing_cycle.title()),
             ("Instagram accounts", str(max(1, accounts_count))),
             ("Per-account rate", f"INR {unit_amount:,}" if unit_amount > 0 else "INR 0"),
@@ -388,7 +411,7 @@ def _send_payment_reminder(client, attempt):
             ("Checkout status", "Not completed"),
         ],
         paragraphs=[
-            "You are receiving this email because your account started a subscription purchase that did not finish.",
+            f"You are receiving this email because your account started a subscription purchase for {linked_ig_names} that did not finish.",
             "DM Panda pricing is calculated per linked Instagram account. To continue with paid access, start a fresh checkout from the pricing page or your dashboard."
         ],
         cta_label="Continue subscription checkout",
@@ -553,7 +576,7 @@ def main(context):
                     summary["cleaned_paid_plan"] += 1
                     continue
 
-                reminder_result = _send_payment_reminder(client, latest_attempt)
+                reminder_result = _send_payment_reminder(client, db_id, latest_attempt, _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts"))
                 _delete_attempt_group(
                     client,
                     db_id,

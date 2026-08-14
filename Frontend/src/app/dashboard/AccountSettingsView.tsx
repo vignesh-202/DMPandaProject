@@ -28,7 +28,7 @@ import { cn } from '../../lib/utils';
 import { Skeleton } from '../../components/ui/skeleton';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import { toBrowserPreviewUrl } from '../../lib/templatePreview';
-import SlotPairingManager from '../../components/dashboard/SlotPairingManager';
+import { OffMetaActivityModal } from '../../components/dashboard/OffMetaActivityModal';
 
 const calculateStrength = (pwd: string) => {
   let strength = 0;
@@ -156,9 +156,7 @@ const AccountSettingsView = () => {
   const instagramConnectionLimit = typeof planLimits?.instagram_connections_limit === 'number'
     ? Number(planLimits.instagram_connections_limit)
     : null;
-  const canAddAnotherInstagramAccount = instagramConnectionLimit == null
-    ? true
-    : igAccounts.length < instagramConnectionLimit;
+  const canAddAnotherInstagramAccount = true;
 
   // Section-specific messages
   const [sectionMessages, setSectionMessages] = useState<Record<string, { type: 'success' | 'error'; text: string } | null>>({
@@ -248,11 +246,60 @@ const AccountSettingsView = () => {
     }
   }, [activeAccount]);
 
+  const [showOffMetaModal, setShowOffMetaModal] = useState(false);
+  const [isVerifyingConnection, setIsVerifyingConnection] = useState<string | null>(null);
+
   useEffect(() => {
     if (window.location.hash === '#instagram-accounts-section') {
       setActiveTab('instagram');
     }
+
+    const search = new URLSearchParams(window.location.search);
+    const errorParam = search.get('error');
+    const infoParam = search.get('info');
+    const msgParam = search.get('msg');
+
+    if (infoParam === 'instagram_link_cancelled') {
+      setActiveTab('instagram');
+      setMsg('instagram', 'success', 'Instagram connection process was cancelled.');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (errorParam === 'off_meta_activity_disabled') {
+      setActiveTab('instagram');
+      setShowOffMetaModal(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (errorParam === 'instagram_auth_failed' || errorParam === 'instagram_link_failed') {
+      setActiveTab('instagram');
+      setMsg('instagram', 'error', msgParam ? decodeURIComponent(msgParam) : 'Failed to connect Instagram account.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, []);
+
+  const handleVerifyConnection = async (accountId: string) => {
+    setIsVerifyingConnection(accountId);
+    resetMessages();
+    try {
+      const response = await authenticatedFetch(
+        `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/ig-accounts/${accountId}/verify-connection`,
+        { method: 'POST' }
+      );
+      const data = await response.json();
+      if (data.valid) {
+        setMsg('instagram', 'success', data.message || 'Instagram connection is healthy and active!');
+        await fetchIgAccounts();
+      } else {
+        if (data.code === 'OFF_META_ACTIVITY_DISABLED') {
+          setShowOffMetaModal(true);
+        } else {
+          setMsg('instagram', 'error', data.reason || 'This account requires reconnection.');
+        }
+        await fetchIgAccounts();
+      }
+    } catch (err: any) {
+      setMsg('instagram', 'error', 'Failed to check connection status.');
+    } finally {
+      setIsVerifyingConnection(null);
+    }
+  };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
@@ -388,14 +435,6 @@ const AccountSettingsView = () => {
   };
 
   const handleInstagramLink = async (accountID: string = 'new') => {
-    if (accountID === 'new' && instagramConnectionLimit != null && !canAddAnotherInstagramAccount) {
-      setMsg(
-        'instagram',
-        'error',
-        `Your current plan allows ${instagramConnectionLimit} Instagram connection${instagramConnectionLimit === 1 ? '' : 's'} only. Upgrade your plan or unlink an account first.`
-      );
-      return;
-    }
 
     setLinkingAccountID(accountID);
     resetMessages();
@@ -936,20 +975,37 @@ const AccountSettingsView = () => {
                               </div>                              {/* Right Side: Active Status Toggle + Actions */}
                               <div className="flex items-center justify-between gap-3 w-full md:w-auto md:justify-end shrink-0">
                                 {isReconnectRequired ? (
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    onClick={() => handleInstagramLink(account.id)}
-                                    disabled={linkingAccountID === account.id}
-                                    className="h-8 px-3.5 transition-all duration-200 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg flex items-center justify-center text-xs font-bold flex-1 md:flex-initial"
-                                  >
-                                    {linkingAccountID === account.id ? (
-                                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin shrink-0" />
-                                    ) : (
-                                      <RefreshCw className="mr-1.5 h-3 w-3 shrink-0" />
-                                    )}
-                                    <span>Reconnect</span>
-                                  </Button>
+                                  <div className="flex items-center gap-2 flex-1 md:flex-initial">
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => handleInstagramLink(account.id)}
+                                      disabled={linkingAccountID === account.id}
+                                      className="h-8 px-3.5 transition-all duration-200 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg flex items-center justify-center text-xs font-bold flex-1 md:flex-initial"
+                                    >
+                                      {linkingAccountID === account.id ? (
+                                        <Loader2 className="mr-1.5 h-3 w-3 animate-spin shrink-0" />
+                                      ) : (
+                                        <RefreshCw className="mr-1.5 h-3 w-3 shrink-0" />
+                                      )}
+                                      <span>Reconnect</span>
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleVerifyConnection(account.id)}
+                                      disabled={isVerifyingConnection === account.id}
+                                      className="h-8 px-2.5 transition-all duration-200 rounded-lg flex items-center justify-center text-xs font-medium text-muted-foreground hover:text-foreground border-border"
+                                      title="Check if this account's connection is actually working before reconnecting"
+                                    >
+                                      {isVerifyingConnection === account.id ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <Shield className="h-3.5 w-3.5" />
+                                      )}
+                                      <span className="ml-1 hidden sm:inline">Check Connection</span>
+                                    </Button>
+                                  </div>
                                 ) : (
                                   /* Active status mini switch */
                                   <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-muted/40 border border-border/50 shrink-0">
@@ -1026,7 +1082,7 @@ const AccountSettingsView = () => {
                   <div className="pt-6 border-t border-border">
                     <InlineMessage section="instagram" />
                     <p className="mt-4 text-xs font-semibold text-muted-foreground">
-                      {igAccounts.length} Instagram account{igAccounts.length === 1 ? '' : 's'} linked. Free plan allows unlimited account links.
+                      {igAccounts.length} Instagram account{igAccounts.length === 1 ? '' : 's'} linked. Unlimited account links allowed.
                     </p>
                     <Button
                       onClick={() => handleInstagramLink('new')}
@@ -1056,11 +1112,6 @@ const AccountSettingsView = () => {
                     </Button>
                   </div>
                 </div>
-              </Card>
-
-              {/* Slot Pairing Drag & Drop Section */}
-              <Card className="rounded-[32px] border border-border/70 bg-card p-6 shadow-sm">
-                <SlotPairingManager igAccounts={igAccounts} />
               </Card>
             </div>
           )}
@@ -1424,6 +1475,12 @@ const AccountSettingsView = () => {
         </div>,
         sectionOverlayRoot || document.body
       )}
+
+      <OffMetaActivityModal
+        isOpen={showOffMetaModal}
+        onClose={() => setShowOffMetaModal(false)}
+        onRetry={() => handleInstagramLink(activeAccountID || 'new')}
+      />
     </div>
   );
 };

@@ -64,7 +64,6 @@ BENEFIT_KEYS = [
     "mentions",
     "instagram_live_automation",
     "priority_support",
-    "api_access",
 ]
 
 BENEFIT_STORAGE_KEYS = {
@@ -348,6 +347,12 @@ ADDITIONAL_ATTRIBUTES = {
         {"key": "hourly_window_started_at", "type": "datetime", "required": False, "array": False, "default": None},
         {"key": "daily_window_started_at", "type": "datetime", "required": False, "array": False, "default": None},
         {"key": "monthly_window_started_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "api_token", "type": "string", "required": False, "array": False, "default": None, "size": 128},
+        {"key": "api_enabled", "type": "boolean", "required": False, "array": False, "default": False},
+        {"key": "webhook_url", "type": "string", "required": False, "array": False, "default": None, "size": 1000},
+        {"key": "webhook_secret", "type": "string", "required": False, "array": False, "default": None, "size": 128},
+        {"key": "api_created_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "api_last_used_at", "type": "datetime", "required": False, "array": False, "default": None},
     ],
     "coupons": [
         {
@@ -390,6 +395,7 @@ ADDITIONAL_INDEXES = {
     ],
     "ig_accounts": [
         {"key": "idx_ig_user_linked_at", "type": "key", "attributes": ["user_id", "linked_at"], "orders": []},
+        {"key": "idx_ig_api_token", "type": "key", "attributes": ["api_token"], "orders": []},
     ],
     "payment_attempts": [
         {"key": "idx_payment_attempt_status_created", "type": "key", "attributes": ["status", "created_at"], "orders": []},
@@ -458,6 +464,8 @@ DEPRECATED_ATTRIBUTES = {
         "subscription_plan_id",
         "subscription_expires",
         "subscription_status",
+        "plan_id",
+        "plan_expires_at",
     },
     "profiles": {
         "no_watermark_enabled",
@@ -479,18 +487,33 @@ DEPRECATED_ATTRIBUTES = {
         "hourly_action_limit",
         "daily_action_limit",
         "monthly_action_limit",
+        "api_enabled",
+        "webhook_url",
+        "api_token",
+        "webhook_secret",
+        "api_created_at",
+        "api_last_used_at",
     },
     "pricing": {
         "price_monthly_usd",
         "price_yearly_usd",
         "price_yearly_monthly_usd",
+        "benefit_api_access",
+    },
+    "account_features": {
+        "benefit_api_access",
     },
 }
 
 DEPRECATED_INDEXES = {
+    "users": {
+        "idx_users_plan_id",
+    },
     "ig_accounts": {
         "idx_ig_user_effective_access",
         "idx_ig_user_admin_plan_lock",
+        "idx_account_api_enabled",
+        "idx_ig_api_token",
     }
 }
 

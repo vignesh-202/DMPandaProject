@@ -12,6 +12,8 @@ const InstagramCallback: React.FC = () => {
     useEffect(() => {
         const code = searchParams.get('code');
         const error = searchParams.get('error');
+        const errorReason = searchParams.get('error_reason');
+        const errorDescription = searchParams.get('error_description');
         const state = searchParams.get('state');
 
         if (processedRef.current || isAuthenticated === false) {
@@ -27,9 +29,23 @@ const InstagramCallback: React.FC = () => {
 
         processedRef.current = true;
 
+        // User cancelled OAuth flow (e.g. error=access_denied, error_reason=user_denied)
+        if (error === 'access_denied' || errorReason === 'user_denied') {
+            console.log('Instagram connection process was cancelled by user');
+            navigate('/dashboard?info=instagram_link_cancelled');
+            return;
+        }
+
         if (error) {
-            console.error('Instagram Auth Error:', error);
-            navigate('/dashboard?error=instagram_auth_failed');
+            console.error('Instagram Auth Error:', error, errorReason, errorDescription);
+            const isOffMeta = (errorDescription || '').toLowerCase().includes('off meta') ||
+                              (errorDescription || '').toLowerCase().includes('future activity') ||
+                              (error || '').toLowerCase().includes('off_meta');
+            if (isOffMeta) {
+                navigate('/dashboard?error=off_meta_activity_disabled');
+            } else {
+                navigate(`/dashboard?error=instagram_auth_failed&msg=${encodeURIComponent(errorDescription || error)}`);
+            }
             return;
         }
 
@@ -50,7 +66,11 @@ const InstagramCallback: React.FC = () => {
                     } else {
                         const data = await response.json();
                         console.error('Failed to link Instagram:', data.error);
-                        navigate('/dashboard?error=instagram_link_failed');
+                        if (data.code === 'OFF_META_ACTIVITY_DISABLED' || (data.error || '').toLowerCase().includes('off meta')) {
+                            navigate('/dashboard?error=off_meta_activity_disabled');
+                        } else {
+                            navigate(`/dashboard?error=instagram_link_failed&msg=${encodeURIComponent(data.error || 'Failed to link Instagram')}`);
+                        }
                     }
                 } catch (err) {
                     console.error('Network error during IG linking:', err);

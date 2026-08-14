@@ -43,7 +43,6 @@ const EmailCollectorView = lazy(() => import('./EmailCollectorView'));
 const SuggestMoreView = lazy(() => import('./SuggestMoreView'));
 const CommentModerationView = lazy(() => import('./CommentModerationView'));
 const AccountSettingsView = lazy(() => import('./AccountSettingsView'));
-const PricingView = lazy(() => import('./PricingView'));
 const MyPlanView = lazy(() => import('./MyPlanView'));
 const TransactionsView = lazy(() => import('./TransactionsView'));
 const ConvoStarterView = lazy(() => import('./ConvoStarterView'));
@@ -56,8 +55,6 @@ const SupportView = lazy(() => import('./SupportView'));
 const GlobalTriggersView = lazy(() => import('./GlobalTriggersView'));
 const SuperProfileView = lazyWithRetry(() => import('./SuperProfileView'), { retries: 2, retryDelayMs: 500 });
 const DashboardOverviewView = lazy(() => import('./DashboardOverviewView'));
-const FlowView = lazy(() => import('./FlowView'));
-const ApiView = lazy(() => import('./ApiView'));
 
 import AccountBarrier from '../../components/dashboard/AccountBarrier';
 import LockedFeatureModal from '../../components/ui/LockedFeatureModal';
@@ -167,6 +164,12 @@ const DashboardContent: React.FC = () => {
     );
   }
 
+  const isAutomationView = [
+    'DM Automation', 'Story Automation', 'Post Automation', 'Reel Automation',
+    'Live Automation', 'Mentions', 'Welcome Message', 'Convo Starter',
+    'Global Trigger', 'Comment Moderation'
+  ].includes(currentView);
+
   // Dashboard View
   if (currentView === 'Overview') {
     return (
@@ -201,8 +204,6 @@ const DashboardContent: React.FC = () => {
       {currentView === 'Account Settings' && <AccountSettingsView />}
       {currentView === 'Support' && <SupportView />}
       {currentView === 'Contact' && <SupportView mode="contact" />}
-      {currentView === 'Flow' && <FlowView />}
-      {currentView === 'API' && <ApiView />}
     </Suspense>
   );
 };

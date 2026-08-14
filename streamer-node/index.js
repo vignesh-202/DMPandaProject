@@ -129,15 +129,19 @@ registerWebhookRoutes(app, {
     verifyToken: process.env.META_VERIFY_TOKEN || '',
     onWebhook: async (payload) => {
         pruneRecentWelcomeReplies();
-        const jobs = splitWebhookPayload(payload).map((job) => ({
+        const allJobs = splitWebhookPayload(payload);
+        const internalJobs = allJobs.map((job) => ({
             ...job,
             meta: {
                 welcomeSentRecently: hasRecentWelcomeReply(job.conversationKey)
             }
         }));
-        const accepted = store.enqueueMany(jobs);
-        dispatcher.trigger();
-        return { accepted: accepted.length };
+
+        const accepted = store.enqueueMany(internalJobs);
+        if (accepted.length > 0) {
+            dispatcher.trigger();
+        }
+        return { accepted: accepted.length, forwarded: 0 };
     },
     getStats: () => ({
         role: 'master',

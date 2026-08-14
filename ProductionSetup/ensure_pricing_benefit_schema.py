@@ -57,7 +57,6 @@ BENEFIT_KEYS = [
     "seen_typing",
     "no_watermark",
     "once_per_user_24h",
-    "api_access",
 ]
 
 BENEFIT_STORAGE_KEYS = {
@@ -116,7 +115,8 @@ def main():
     should_apply = bool(args.apply) and not bool(args.dry_run)
     require_env()
     databases = build_databases()
-    summary = {"apply": bool(should_apply), "dry_run": not should_apply, "created": [], "existing": [], "failed": []}
+    assert DATABASE_ID is not None
+    summary = {"apply": should_apply, "dry_run": not should_apply, "created": [], "existing": [], "failed": []}
 
     for collection_id in COLLECTION_IDS:
         existing = list_attribute_keys(databases, collection_id)

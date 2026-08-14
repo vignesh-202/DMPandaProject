@@ -83,15 +83,15 @@ const isLinkedAccountActive = (account = null) => {
 };
 
 const getAccountOrderValue = (account = null) => {
-    const raw = account?.linked_at || '';
+    const raw = account?.$createdAt || account?.created_at || account?.createdAt || '';
     const parsed = new Date(raw).getTime();
-    return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
+    return Number.isNaN(parsed) ? 0 : parsed;
 };
 
 const compareAccountsByLinkedOrder = (left, right) => {
     const delta = getAccountOrderValue(left) - getAccountOrderValue(right);
     if (delta !== 0) return delta;
-    return String(left?.$id || '').localeCompare(String(right?.$id || ''));
+    return String(left?.username || left?.$id || '').localeCompare(String(right?.username || right?.$id || ''));
 };
 
 const normalizeAccountAccess = (account = null) => {
@@ -179,7 +179,7 @@ const buildAccountAccessCacheSignature = (profile = null, accounts = []) => JSON
     accounts: (Array.isArray(accounts) ? accounts : [])
         .map((account) => ({
             id: String(account?.$id || '').trim(),
-            linked_at: String(account?.linked_at || '').trim(),
+            created_at: String(account?.$createdAt || account?.created_at || '').trim(),
             status: normalizeLinkedAccountStatus(account?.status, 'active'),
             admin_status: normalizeLinkedAccountStatus(account?.admin_status, 'active')
         }))
