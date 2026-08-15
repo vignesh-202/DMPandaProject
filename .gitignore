@@ -1,43 +1,62 @@
 # Python
 __pycache__/
+*.py[cod]
+*$py.class
 *.pyc
 .venv/
+venv/
+env/
+
+# Environment Variables
 .env
 .env.*
+.env.local
+.env.*.local
 !.env.example
 !.env.*.example
+
+# Logs & Temporary Files
 *.log
 *.tmp
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# IDEs
+# IDEs & Editors
 .idea/
 .vscode/
+.cursor/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
-# Local artifacts
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Local artifacts & Reports
 .qa-logs/
 .codex_recovery/
 docs/codex-recovery/
 docs/subscription-migration-report.json
-**/.git/
 
-# Node / web build artifacts
+# Node / Web build artifacts
 node_modules/
 dist/
+dist-ssr/
 build/
 **/node_modules/
 **/dist/
 **/build/
 **/.cache/
 **/__pycache__/
-
-# MobileApp build artifacts
-MobileApp/node_modules/
-MobileApp/android/
-MobileApp/ios/
-MobileApp/.expo/
-MobileApp/.gradle/
-MobileApp/eas.json
-
-# Webapp build artifacts
-new-dashboard/node_modules/
-new-dashboard/dist/
