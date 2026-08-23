@@ -1110,10 +1110,8 @@ class DMWorker {
             return normalized;
         }
 
-        const localState = this.localConversationStates.get(conversationKey);
-        const normalized = this._normalizeConversationState(localState);
-        this.localConversationStates.set(conversationKey, normalized);
-        return normalized;
+        this.localConversationStates.delete(conversationKey);
+        return this._normalizeConversationState(null);
     }
 
     async _saveConversationState(meta, state) {
