@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AuthRedirectButton from '../../components/ui/AuthRedirectButton';
-import { ChevronDown, ChevronUp, Check, X, Sparkles, Zap } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check, X, Sparkles, Zap, Gift } from 'lucide-react';
 import InfoPopover from '../../components/ui/InfoPopover';
+import VVDealsTopTeaser from '../../components/ui/VVDealsTopTeaser';
+import VVDealsOfferSection from '../../components/ui/VVDealsOfferSection';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
 import {
   PricingPlan,
@@ -144,6 +146,9 @@ const PricingPage: React.FC = () => {
           </div>
         </div>
 
+        {/* VVDeals Partner Offer Teaser Label */}
+        <VVDealsTopTeaser className="mb-10 sm:mb-14" />
+
         {/* Pricing Cards Grid */}
         {loading ? (
           <div className="py-16 text-center text-gray-500 dark:text-gray-400 font-medium">
@@ -159,6 +164,7 @@ const PricingPage: React.FC = () => {
               const visibleFeatures = allExpanded ? allFeatures : allFeatures.slice(0, 7);
               const hasMoreFeatures = allFeatures.length > 7;
               const isPopular = plan.is_popular;
+              const isUltra = plan.plan_code === 'ultra' || plan.name.toLowerCase().includes('ultra');
               const unitMonthly = plan.price_monthly_inr;
               const unitYearly = plan.price_yearly_inr;
               const unitYearlyMonthly = plan.price_yearly_monthly_inr;
@@ -171,12 +177,19 @@ const PricingPage: React.FC = () => {
                   className={`relative flex flex-col justify-between rounded-3xl p-6 sm:p-7 transition-all duration-300 hover:translate-y-[-2px] ${
                     isPopular
                       ? 'z-10 bg-gray-900 text-white shadow-2xl ring-2 ring-purple-500/50 dark:bg-gradient-to-b dark:from-purple-950/40 dark:via-neutral-900 dark:to-neutral-950'
+                      : isUltra
+                      ? 'border-2 border-purple-500/40 bg-gradient-to-b from-purple-50/50 via-white to-white text-gray-900 shadow-xl hover:border-purple-500/60 dark:border-purple-500/40 dark:from-purple-950/25 dark:via-neutral-900/60 dark:to-neutral-950 dark:text-gray-100'
                       : 'border border-gray-200 bg-white text-gray-900 hover:border-gray-300 hover:shadow-xl dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100 dark:hover:border-white/[0.14]'
                   }`}
                 >
                   {isPopular && (
                     <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 px-4 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-lg shadow-purple-500/25">
                       Most Popular
+                    </div>
+                  )}
+                  {isUltra && !isPopular && (
+                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-md shadow-purple-500/20">
+                      🎁 Get Bonus
                     </div>
                   )}
 
@@ -195,13 +208,13 @@ const PricingPage: React.FC = () => {
 
                       {plan.plan_code !== 'free' ? (
                         <p className={`mt-2 text-xs font-medium ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                          {isYearly
-                            ? `Billed annually • ${formatMoney(unitYearly, currency)} / yr per account`
-                            : 'Billed monthly • Cancel anytime'}
+                          {isYearly && plan.price_yearly_inr > 0
+                            ? `Billed annually at ${formatMoney(unitYearly, currency)}/year`
+                            : 'Billed monthly, cancel anytime'}
                         </p>
                       ) : (
                         <p className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                          Forever free for personal use
+                          Free forever for testing and basic automations
                         </p>
                       )}
 
@@ -209,6 +222,21 @@ const PricingPage: React.FC = () => {
                         <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                           <Zap size={13} className="fill-current" />
                           <span>Save with yearly billing</span>
+                        </div>
+                      )}
+
+                      {/* Ultra Plan VVDeals Bonus Highlight Box */}
+                      {isUltra && (
+                        <div className="mt-3.5 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-3 text-xs dark:bg-purple-950/40">
+                          <div className="flex items-center gap-1.5 font-black text-purple-700 dark:text-purple-300">
+                            <Gift size={14} className="text-pink-500" />
+                            <span>VV Deals Creators Bundle:</span>
+                          </div>
+                          <p className="mt-1 text-[11px] font-semibold text-gray-700 dark:text-gray-300 leading-snug">
+                            {isYearly
+                              ? '✨ 18m Google AI Pro, 6m Prime, 3m Spotify, 1m CapCut Pro, 1m Netflix'
+                              : '✨ 1m Amazon Prime, 7 days CapCut Pro, 5 days Netflix'}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -297,6 +325,9 @@ const PricingPage: React.FC = () => {
             })}
           </div>
         )}
+
+        {/* VVDeals Comprehensive Offer Details, FAQs & Terms Section */}
+        <VVDealsOfferSection className="mb-16 sm:mb-24" />
 
         {/* Comparison Table Section */}
         {comparisonRows.length > 0 && (

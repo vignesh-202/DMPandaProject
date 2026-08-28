@@ -703,47 +703,13 @@ class AppwriteClient {
         const adminActive = normalizedAdminStatus === 'active';
         const userActive = normalizedStatus === 'active';
         const linkedActive = adminActive && userActive;
-        if (!safeAccountId) {
-            return {
-                admin_active: adminActive,
-                user_active: userActive,
-                linked_active: linkedActive,
-                plan_locked: false,
-                effective_access: linkedActive,
-                access_reason: !adminActive ? 'admin_inactive' : (linkedActive ? null : (normalizedStatus || 'inactive'))
-            };
-        }
-
-        const activeLimit = Math.max(0, Number(profile?.instagram_connections_limit || 0) || 0);
-        const accounts = await this.getIGAccountsForUser(userId);
-        const activeAccounts = accounts
-            .filter((item) => {
-                const itemStatus = String(item?.status || 'active').trim().toLowerCase() || 'active';
-                const itemAdminStatus = String(item?.admin_status || 'active').trim().toLowerCase() || 'active';
-                return itemStatus === 'active' && itemAdminStatus === 'active';
-            })
-            .sort((left, right) => {
-                const [leftLinkedAt, leftId] = this._getAccountSortKey(left);
-                const [rightLinkedAt, rightId] = this._getAccountSortKey(right);
-                if (leftLinkedAt !== rightLinkedAt) return leftLinkedAt.localeCompare(rightLinkedAt);
-                return leftId.localeCompare(rightId);
-            });
-
-        const allowedIds = new Set(
-            activeAccounts
-                .slice(0, activeLimit)
-                .map((item) => String(item?.$id || '').trim())
-                .filter(Boolean)
-        );
-        const planLocked = linkedActive && !allowedIds.has(safeAccountId);
-
         return {
             admin_active: adminActive,
             user_active: userActive,
             linked_active: linkedActive,
-            plan_locked: planLocked,
-            effective_access: linkedActive && !planLocked,
-            access_reason: !adminActive ? 'admin_inactive' : (!userActive ? (normalizedStatus || 'inactive') : (planLocked ? 'plan_locked' : null))
+            plan_locked: false,
+            effective_access: linkedActive,
+            access_reason: !adminActive ? 'admin_inactive' : (linkedActive ? null : (normalizedStatus || 'inactive'))
         };
     }
 
@@ -942,17 +908,6 @@ class AppwriteClient {
             hydrated.__plan_features[key] = enabled;
         });
         const hasOwnMonthlyLimit = Object.prototype.hasOwnProperty.call(hydrated, 'monthly_action_limit');
-        hydrated.instagram_link_limit = Number(
-            hydrated.instagram_link_limit
-            ?? plan.instagram_link_limit
-            ?? plan.instagram_connections_limit
-            ?? 0
-        );
-        hydrated.instagram_connections_limit = Number(
-            hydrated.instagram_connections_limit
-            ?? plan.instagram_connections_limit
-            ?? 0
-        );
         hydrated.hourly_action_limit = Number(
             hydrated.hourly_action_limit
             ?? plan.actions_per_hour_limit
@@ -971,21 +926,35 @@ class AppwriteClient {
 
     async getProfile(userId, accountId = null) {
         try {
-            const collectionId = process.env.ACCOUNT_FEATURES_COLLECTION_ID || process.env.PROFILES_COLLECTION_ID || 'account_features';
+            const igAccountsCollection = process.env.IG_ACCOUNTS_COLLECTION_ID || 'ig_accounts';
             const queries = accountId
-                ? [Query.equal('account_id', String(accountId)), Query.limit(1)]
+                ? [Query.equal('ig_user_id', String(accountId)), Query.limit(1)]
                 : [Query.equal('user_id', String(userId)), Query.limit(1)];
-            const response = await withAppwriteRetry(() => this.databases.listDocuments(
+            let response = await withAppwriteRetry(() => this.databases.listDocuments(
                 this.databaseId,
-                collectionId,
+                igAccountsCollection,
                 queries
             ), {
-                operationName: 'get_profile',
+                operationName: 'get_ig_account_profile',
                 context: { user_id: userId, account_id: accountId }
             });
-            return this._hydrateProfilePlan(response.documents[0] || null);
+
+            let doc = response.documents[0] || null;
+            if (!doc && accountId) {
+                const fallbackRes = await withAppwriteRetry(() => this.databases.listDocuments(
+                    this.databaseId,
+                    igAccountsCollection,
+                    [Query.equal('account_id', String(accountId)), Query.limit(1)]
+                ), {
+                    operationName: 'get_ig_account_profile_fallback',
+                    context: { user_id: userId, account_id: accountId }
+                }).catch(() => ({ documents: [] }));
+                doc = fallbackRes.documents[0] || null;
+            }
+
+            return this._hydrateProfilePlan(doc);
         } catch (error) {
-            console.error(`Error fetching profile ${userId}:`, error);
+            console.error(`Error fetching account profile ${userId}:`, error);
             return null;
         }
     }

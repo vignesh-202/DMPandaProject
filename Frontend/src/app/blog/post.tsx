@@ -34,7 +34,7 @@ const BlogPostPage: React.FC = () => {
     canonical: post.canonical,
     ogTitle: post.title,
     ogDescription: post.excerpt,
-    ogImage: post.image,
+    ogImage: post.image.startsWith('http') ? post.image : `${SITE_ORIGIN}${post.image}`,
     ogType: 'article',
     schema: [
       {
@@ -42,7 +42,7 @@ const BlogPostPage: React.FC = () => {
         '@type': 'BlogPosting',
         'headline': post.title,
         'description': post.metaDescription,
-        'image': post.image,
+        'image': post.image.startsWith('http') ? post.image : `${SITE_ORIGIN}${post.image}`,
         'author': {
           '@type': 'Organization',
           'name': post.author,

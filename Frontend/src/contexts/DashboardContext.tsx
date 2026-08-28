@@ -301,25 +301,10 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         return Math.max(0, value);
     }, []);
 
-    const applyPlanPureLimits = useCallback((plans: PricingPlan[], planIdentifier: string) => {
-        const normalizedPlans = Array.isArray(plans) ? plans : [];
-        const explicitLinkLimits = normalizedPlans
-            .map((plan) => Number(plan.instagram_link_limit))
-            .filter((value) => Number.isFinite(value) && value >= 0);
-        const fallbackConnectionLimits = normalizedPlans
-            .map((plan) => Number(plan.instagram_connections_limit))
-            .filter((value) => Number.isFinite(value) && value >= 0);
-        const maxLinkLimit = explicitLinkLimits.length > 0
-            ? Math.max(...explicitLinkLimits)
-            : (fallbackConnectionLimits.length > 0 ? Math.max(...fallbackConnectionLimits) : null);
-        const activePlan = findPricingPlan(normalizedPlans, planIdentifier);
-        if (!activePlan) {
-            // Keep identifier resolution as a no-op dependency until pricing/plan fetches settle.
-        }
-
+    const applyPlanPureLimits = useCallback((_plans: PricingPlan[], _planIdentifier: string) => {
         setPlanPureLimits((previous) => ({
             ...previous,
-            max_link_limit: maxLinkLimit == null ? null : Math.max(0, maxLinkLimit)
+            max_link_limit: null
         }));
     }, []);
 

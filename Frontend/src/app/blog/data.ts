@@ -61,7 +61,7 @@ const posts: BlogPost[] = [
     readTime: '9 min read',
     category: 'Comment Automation',
     tags: ['comment automation', 'auto reply', 'lead generation', 'dm automation', 'instagram marketing'],
-    image: `${SITE_ORIGIN}/images/blog_auto_reply_comments.png`,
+    image: '/images/blog_auto_reply_comments.png',
     canonical: `${SITE_ORIGIN}/blog/how-to-auto-reply-to-instagram-comments`,
     cta: {
       title: 'Start Auto-Replying to Instagram Comments',
@@ -228,7 +228,7 @@ const posts: BlogPost[] = [
     readTime: '10 min read',
     category: 'DM Automation',
     tags: ['dm automation', 'auto dm', 'keyword triggers', 'story replies', 'instagram marketing'],
-    image: `${SITE_ORIGIN}/images/blog_dm_automation_guide.png`,
+    image: '/images/blog_dm_automation_guide.png',
     canonical: `${SITE_ORIGIN}/blog/instagram-dm-automation-guide`,
     cta: {
       title: 'Automate Your Instagram DMs Today',
@@ -382,7 +382,7 @@ const posts: BlogPost[] = [
     readTime: '8 min read',
     category: 'Story Automation',
     tags: ['story mention', 'auto reply', 'user generated content', 'brand advocacy', 'instagram automation'],
-    image: `${SITE_ORIGIN}/images/blog_story_mention_auto_reply.png`,
+    image: '/images/blog_story_mention_auto_reply.png',
     canonical: `${SITE_ORIGIN}/blog/instagram-story-mention-auto-reply`,
     cta: {
       title: 'Auto-Reply to Story Mentions Today',
@@ -508,7 +508,7 @@ const posts: BlogPost[] = [
     readTime: '11 min read',
     category: 'Templates',
     tags: ['templates', 'auto reply', 'dm copy', 'comment replies', 'conversion'],
-    image: `${SITE_ORIGIN}/images/blog_auto_reply_templates.png`,
+    image: '/images/blog_auto_reply_templates.png',
     canonical: `${SITE_ORIGIN}/blog/instagram-auto-reply-message-templates`,
     cta: {
       title: 'Save These Templates in DM Panda',
@@ -749,7 +749,7 @@ const posts: BlogPost[] = [
     readTime: '9 min read',
     category: 'Lead Generation',
     tags: ['lead generation', 'email capture', 'comments', 'webhooks', 'crm'],
-    image: `${SITE_ORIGIN}/images/blog_comment_lead_generation.png`,
+    image: '/images/blog_comment_lead_generation.png',
     canonical: `${SITE_ORIGIN}/blog/instagram-comment-lead-generation`,
     cta: {
       title: 'Turn Comments Into Leads With DM Panda',
@@ -907,7 +907,7 @@ const posts: BlogPost[] = [
     readTime: '8 min read',
     category: 'Comment Moderation',
     tags: ['comment moderation', 'brand safety', 'spam', 'community management', 'instagram automation'],
-    image: `${SITE_ORIGIN}/images/blog_comment_moderation.png`,
+    image: '/images/blog_comment_moderation.png',
     canonical: `${SITE_ORIGIN}/blog/instagram-comment-moderation-guide`,
     cta: {
       title: 'Protect Your Comments With DM Panda',
@@ -1044,7 +1044,7 @@ const posts: BlogPost[] = [
     readTime: '9 min read',
     category: 'Reel Automation',
     tags: ['reels', 'comment automation', 'viral content', 'lead generation', 'dm automation'],
-    image: `${SITE_ORIGIN}/images/blog_reel_comment_automation.png`,
+    image: '/images/blog_reel_comment_automation.png',
     canonical: `${SITE_ORIGIN}/blog/reel-comment-automation`,
     cta: {
       title: 'Automate Reel Comment Replies With DM Panda',
@@ -1198,7 +1198,7 @@ const posts: BlogPost[] = [
     readTime: '8 min read',
     category: 'Live Automation',
     tags: ['instagram live', 'live automation', 'live comments', 'viewer engagement', 'dm automation'],
-    image: `${SITE_ORIGIN}/images/blog_live_automation.png`,
+    image: '/images/blog_live_automation.png',
     canonical: `${SITE_ORIGIN}/blog/instagram-live-automation`,
     cta: {
       title: 'Automate Your Instagram Live Engagement',
@@ -1335,7 +1335,7 @@ const posts: BlogPost[] = [
     readTime: '7 min read',
     category: 'Super Profile',
     tags: ['link in bio', 'super profile', 'landing page', 'instagram bio', 'conversion'],
-    image: `${SITE_ORIGIN}/images/blog_super_profile.png`,
+    image: '/images/blog_super_profile.png',
     canonical: `${SITE_ORIGIN}/blog/super-profile-link-in-bio`,
     cta: {
       title: 'Create Your Super Profile Today',
@@ -1476,7 +1476,7 @@ const posts: BlogPost[] = [
     readTime: '10 min read',
     category: 'Giveaways',
     tags: ['giveaways', 'contests', 'auto dm', 'comment automation', 'follower growth'],
-    image: `${SITE_ORIGIN}/images/blog_giveaway_auto_dm.png`,
+    image: '/images/blog_giveaway_auto_dm.png',
     canonical: `${SITE_ORIGIN}/blog/instagram-giveaway-auto-dm`,
     cta: {
       title: 'Run Your Next Giveaway With DM Panda',

@@ -26,11 +26,9 @@ type PricingPlan = {
   is_popular: boolean;
   is_custom?: boolean;
   display_order?: number;
-  instagram_connections_limit?: number;
   actions_per_hour_limit?: number;
   actions_per_day_limit?: number;
   actions_per_month_limit?: number;
-  instagram_link_limit?: number;
   features: string[];
   comparison?: Array<{ key?: string; label?: string; value?: boolean | string | number }>;
   entitlements?: Record<string, boolean>;
@@ -49,8 +47,6 @@ const numericFields: Array<{ key: keyof PricingPlan; label: string }> = [
   { key: 'price_monthly_inr', label: 'Monthly INR / account' },
   { key: 'price_yearly_inr', label: 'Yearly INR / account' },
   { key: 'price_yearly_monthly_inr', label: 'Yearly monthly INR / account' },
-  { key: 'instagram_connections_limit', label: 'Default account slots' },
-  { key: 'instagram_link_limit', label: 'Default linked slots' },
   { key: 'actions_per_hour_limit', label: 'Actions per hour' },
   { key: 'actions_per_day_limit', label: 'Actions per day' },
   { key: 'actions_per_month_limit', label: 'Actions per month' },

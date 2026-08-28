@@ -455,6 +455,7 @@ DEPRECATED_COLLECTIONS = {
     "notification_throttles",
     "worker_locks",
     "automation_collect_destinations",
+    "account_features",
 }
 
 DEPRECATED_ATTRIBUTES = {
@@ -498,9 +499,6 @@ DEPRECATED_ATTRIBUTES = {
         "price_monthly_usd",
         "price_yearly_usd",
         "price_yearly_monthly_usd",
-        "benefit_api_access",
-    },
-    "account_features": {
         "benefit_api_access",
     },
 }
@@ -1126,8 +1124,6 @@ def build_pricing_seed_documents():
             "comparison_json": json.dumps(feature_items),
             "monthly_duration_days": 30,
             "yearly_duration_days": 364,
-            "instagram_connections_limit": int(limits.get("instagram_connections_limit") or 0),
-            "instagram_link_limit": int(limits.get("instagram_link_limit") or limits.get("instagram_connections_limit") or 0),
             "actions_per_hour_limit": int(limits.get("actions_per_hour_limit") or 0),
             "actions_per_day_limit": int(limits.get("actions_per_day_limit") or 0),
             "actions_per_month_limit": int(limits.get("actions_per_month_limit") or 0),

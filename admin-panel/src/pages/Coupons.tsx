@@ -569,13 +569,13 @@ export const CouponsPage: React.FC = () => {
                 )}
             </div>
 
-            <div className="mt-5 rounded-[28px] border border-border/80 bg-background/40 p-5">
-                <div className="flex items-center justify-between gap-4">
+            <div className="mt-5 rounded-[28px] border border-border/80 bg-background/40 p-4 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <p className="text-sm font-bold text-foreground">Coupon status</p>
                         <p className="mt-1 text-xs text-muted-foreground">Inactive coupons stay saved but cannot be redeemed.</p>
                     </div>
-                    <div className="segmented-control">
+                    <div className="segmented-control shrink-0">
                         {[
                             { value: true, label: 'Active' },
                             { value: false, label: 'Inactive' }
@@ -597,13 +597,13 @@ export const CouponsPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="mt-5 rounded-[28px] border border-border/80 bg-background/40 p-5">
-                <div className="flex items-center justify-between gap-4">
+            <div className="mt-5 rounded-[28px] border border-border/80 bg-background/40 p-4 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <p className="text-sm font-bold text-foreground">One-time per user</p>
                         <p className="mt-1 text-xs text-muted-foreground">When enabled, the same user can redeem this coupon only once before it expires.</p>
                     </div>
-                    <div className="segmented-control">
+                    <div className="segmented-control shrink-0">
                         {[
                             { value: true, label: 'Single Use' },
                             { value: false, label: 'Reusable' }

@@ -114,11 +114,9 @@ const DEFAULT_PLAN_FEATURES = Object.freeze({
         email_collector: 'collect_email',
         webhook_integrations: 'collect_email',
         seen_typing_indicator: 'seen_typing',
-        once_per_user: 'once_per_user_24h',
-        instagram_connections: 'instagram_connections_limit'
+        once_per_user: 'once_per_user_24h'
     },
     limitKeys: [
-        'instagram_connections_limit',
         'actions_per_hour_limit',
         'actions_per_day_limit',
         'actions_per_month_limit',
@@ -455,9 +453,6 @@ const buildPlanApiPayload = (plan, profile = null) => {
         price_monthly_inr: normalized.price_monthly_inr,
         price_yearly_inr: normalized.price_yearly_inr,
         price_yearly_monthly_inr: normalized.price_yearly_monthly_inr,
-        instagram_connections_limit: limits.instagram_connections_limit,
-        instagram_link_limit: limits.instagram_link_limit,
-        active_account_limit: limits.active_account_limit,
         actions_per_hour_limit: limits.actions_per_hour_limit,
         actions_per_day_limit: limits.actions_per_day_limit,
         actions_per_month_limit: limits.actions_per_month_limit
@@ -519,11 +514,15 @@ const getPlanByIdentifier = async (databases, identifier) => {
 };
 
 const getUserProfile = async (databases, userId) => {
-    const result = await databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
-        Query.equal('user_id', String(userId || '').trim()),
-        Query.limit(1)
-    ]);
-    return result.documents?.[0] || null;
+    try {
+        const result = await databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
+            Query.equal('user_id', String(userId || '').trim()),
+            Query.limit(1)
+        ]);
+        return result.documents?.[0] || null;
+    } catch (_) {
+        return null;
+    }
 };
 
 const pickTransactionValue = (transaction, ...keys) => {
@@ -1456,9 +1455,9 @@ const hasUltraPlanAccess = async (databases, userId) => {
             }
         }
 
-        const featResponse = await databases.listDocuments(
+        const igResponse = await databases.listDocuments(
             APPWRITE_DATABASE_ID,
-            'account_features',
+            IG_ACCOUNTS_COLLECTION_ID,
             [
                 Query.equal('user_id', safeUserId),
                 Query.equal('plan_code', 'ultra'),
@@ -1466,7 +1465,7 @@ const hasUltraPlanAccess = async (databases, userId) => {
             ]
         ).catch(() => ({ documents: [] }));
 
-        return (featResponse.documents || []).length > 0;
+        return (igResponse.documents || []).length > 0;
     } catch (_) {
         return false;
     }

@@ -10,7 +10,6 @@ const {
     COUPONS_COLLECTION_ID,
     COUPON_REDEMPTIONS_COLLECTION_ID,
     TRANSACTIONS_COLLECTION_ID,
-    ACCOUNT_FEATURES_COLLECTION_ID,
     PROFILES_COLLECTION_ID,
     IG_ACCOUNTS_COLLECTION_ID,
     PAYMENT_ATTEMPTS_COLLECTION_ID
@@ -284,8 +283,7 @@ const getLinkedInstagramAccountCount = async (databases, userId) => {
 };
 
 const resolveBillableAccountsCount = async (databases, userId, requestedCount = 1) => {
-    const linkedCount = await getLinkedInstagramAccountCount(databases, userId).catch(() => 0);
-    return Math.max(normalizeAccountsCount(requestedCount), linkedCount, 1);
+    return Math.max(normalizeAccountsCount(requestedCount), 1);
 };
 
 const getLivePricingPayload = async (currencyPolicy) => {
@@ -713,68 +711,76 @@ const ensureUserProfileDocument = async (
     subscriptionExpires,
     options = {}
 ) => {
-    let profileId = String(userId || '').trim();
-    let existingProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, profileId);
+    try {
+        let profileId = String(userId || '').trim();
+        let existingProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, profileId);
 
-    if (!existingProfile) {
-        const profileList = await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
-            Query.equal('user_id', String(userId || '').trim()),
-            Query.limit(1)
-        ]));
-        existingProfile = profileList.documents[0] || null;
-        profileId = existingProfile?.$id || profileId;
-    }
-
-    const payload = buildPlanProfilePayload({
-        currentProfile: existingProfile,
-        plan,
-        planId: plan?.plan_code || plan?.id || 'free',
-        planSource: 'payment',
-        billingCycle: options.billingCycle || 'monthly',
-        subscriptionStatus: 'active',
-        subscriptionExpires,
-        limitOverrides: options.limitOverrides,
-        paidPlanSnapshot: options.paidPlanSnapshot || null,
-        resetReminderState: true,
-        credits: existingProfile ? undefined : 0
-    });
-
-    if (!existingProfile) {
-        try {
-            return await retryAppwriteOperation(() => databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, {
-                user_id: String(userId || '').trim(),
-                ...payload
-            }));
-        } catch (error) {
-            const errorCode = Number(error?.code || error?.response?.code || 0);
-            if (errorCode === 409) {
-                const conflictedProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, profileId)
-                    || (await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
-                        Query.equal('user_id', String(userId || '').trim()),
-                        Query.limit(1)
-                    ])).then((response) => response.documents?.[0] || null).catch(() => null));
-                if (conflictedProfile?.$id) {
-                    return retryAppwriteOperation(() => databases.updateDocument(
-                        APPWRITE_DATABASE_ID,
-                        PROFILES_COLLECTION_ID,
-                        conflictedProfile.$id,
-                        payload
-                    ));
-                }
-            }
-            throw error;
+        if (!existingProfile) {
+            const profileList = await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
+                Query.equal('user_id', String(userId || '').trim()),
+                Query.limit(1)
+            ])).catch(() => ({ documents: [] }));
+            existingProfile = profileList.documents[0] || null;
+            profileId = existingProfile?.$id || profileId;
         }
-    }
 
-    return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, payload));
+        const payload = buildPlanProfilePayload({
+            currentProfile: existingProfile,
+            plan,
+            planId: plan?.plan_code || plan?.id || 'free',
+            planSource: 'payment',
+            billingCycle: options.billingCycle || 'monthly',
+            subscriptionStatus: 'active',
+            subscriptionExpires,
+            limitOverrides: options.limitOverrides,
+            paidPlanSnapshot: options.paidPlanSnapshot || null,
+            resetReminderState: true,
+            credits: existingProfile ? undefined : 0
+        });
+
+        if (!existingProfile) {
+            try {
+                return await retryAppwriteOperation(() => databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, {
+                    user_id: String(userId || '').trim(),
+                    ...payload
+                }));
+            } catch (error) {
+                const errorCode = Number(error?.code || error?.response?.code || 0);
+                if (errorCode === 409) {
+                    const conflictedProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, profileId)
+                        || (await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
+                            Query.equal('user_id', String(userId || '').trim()),
+                            Query.limit(1)
+                        ])).then((response) => response.documents?.[0] || null).catch(() => null));
+                    if (conflictedProfile?.$id) {
+                        return retryAppwriteOperation(() => databases.updateDocument(
+                            APPWRITE_DATABASE_ID,
+                            PROFILES_COLLECTION_ID,
+                            conflictedProfile.$id,
+                            payload
+                        )).catch(() => null);
+                    }
+                }
+                return null;
+            }
+        }
+
+        return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, payload)).catch(() => null);
+    } catch (_) {
+        return null;
+    }
 };
 
 const clearAdminOverrideForUserProfile = async (databases, userId) => {
-    const existingProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, String(userId || '').trim());
-    if (!existingProfile?.$id) return null;
-    return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, existingProfile.$id, {
-        admin_override_json: clearAdminOverridePayload()
-    }));
+    try {
+        const existingProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, String(userId || '').trim());
+        if (!existingProfile?.$id) return null;
+        return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, existingProfile.$id, {
+            admin_override_json: clearAdminOverridePayload()
+        })).catch(() => null);
+    } catch (_) {
+        return null;
+    }
 };
 
 const sendSubscriptionSuccessEmail = async (userId, plan, pricing, appliedCoupon, subscriptionExpires) => {
@@ -841,11 +847,11 @@ const sendSubscriptionSuccessEmail = async (userId, plan, pricing, appliedCoupon
     }
 };
 
-const syncUserPerAccountPlans = async (databases, userId, plan, pricing, subscriptionExpires) => {
+const syncUserPerAccountPlans = async (databases, userId, plan, pricing, subscriptionExpires, selectedAccountIds = []) => {
     try {
         const planCode = plan.plan_code || plan.id || 'free';
         const planName = plan.name || plan.plan_name || 'Plan';
-        const planPrice = Number(pricing?.final_amount || pricing?.base_amount || plan.price_monthly_inr || 0);
+        const unitPrice = Number(pricing?.unit_base_amount || plan.price_monthly_inr || 0);
         const billingCycle = pricing?.billing_cycle || 'monthly';
         const nowIso = new Date().toISOString();
 
@@ -854,64 +860,25 @@ const syncUserPerAccountPlans = async (databases, userId, plan, pricing, subscri
             Query.limit(100)
         ]).catch(() => ({ documents: [] }));
 
-        for (const acc of igAccountsRes.documents || []) {
+        const allDocs = igAccountsRes.documents || [];
+        const hasSpecificSelection = Array.isArray(selectedAccountIds) && selectedAccountIds.length > 0;
+        const selectedSet = new Set((selectedAccountIds || []).map((id) => String(id).trim()));
+
+        const targetAccounts = hasSpecificSelection
+            ? allDocs.filter((acc) => selectedSet.has(String(acc.$id)) || selectedSet.has(String(acc.account_id)) || selectedSet.has(String(acc.ig_user_id)))
+            : allDocs.slice(0, normalizeAccountsCount(pricing?.accounts_count || 1));
+
+        for (const acc of targetAccounts) {
             await databases.updateDocument(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, acc.$id, {
                 plan_code: planCode,
                 plan_name: planName,
                 billing_cycle: billingCycle,
                 subscription_status: 'active',
                 expires_at: subscriptionExpires,
-                plan_price: planPrice,
+                plan_price: unitPrice,
                 paid_at: nowIso,
                 plan_source: 'payment'
             }).catch(e => console.warn(`Failed to update IG account ${acc.$id} plan:`, e.message));
-
-            const featPayload = {
-                account_id: acc.account_id || acc.$id,
-                user_id: String(userId),
-                plan_code: planCode,
-                plan_name: planName,
-                hourly_action_limit: Number(plan.actions_per_hour_limit || 100),
-                daily_action_limit: Number(plan.actions_per_day_limit || 500),
-                monthly_action_limit: Number(plan.actions_per_month_limit || 10000),
-                benefit_super_profile: Boolean(plan.benefit_super_profile ?? true),
-                benefit_welcome_message: Boolean(plan.benefit_welcome_message ?? true),
-                benefit_convo_starters: Boolean(plan.benefit_convo_starters ?? true),
-                benefit_inbox_menu: Boolean(plan.benefit_inbox_menu ?? true),
-                benefit_dm_automation: Boolean(plan.benefit_dm_automation ?? true),
-                benefit_story_automation: Boolean(plan.benefit_story_automation ?? true),
-                benefit_suggest_more: Boolean(plan.benefit_suggest_more ?? true),
-                benefit_comment_moderation: Boolean(plan.benefit_comment_moderation ?? true),
-                benefit_global_trigger: Boolean(plan.benefit_global_trigger ?? true),
-                benefit_mentions: Boolean(plan.benefit_mentions ?? true),
-                benefit_collect_email: Boolean(plan.benefit_collect_email ?? true),
-                benefit_live_automation: Boolean(plan.benefit_live_automation ?? true),
-                benefit_priority_support: Boolean(plan.benefit_priority_support ?? true),
-                benefit_followers_only: Boolean(plan.benefit_followers_only ?? true),
-                benefit_seen_typing: Boolean(plan.benefit_seen_typing ?? true),
-                benefit_no_watermark: Boolean(plan.benefit_no_watermark ?? true),
-                benefit_post_comment_reply: Boolean(plan.benefit_post_comment_reply ?? true),
-                benefit_reel_comment_reply: Boolean(plan.benefit_reel_comment_reply ?? true),
-                benefit_once_per_user_24h: Boolean(plan.benefit_once_per_user_24h ?? true),
-                benefit_post_comment_dm_reply: Boolean(plan.benefit_post_comment_dm_reply ?? true),
-                benefit_reel_comment_dm_reply: Boolean(plan.benefit_reel_comment_dm_reply ?? true),
-                benefit_share_reel_to_admin: Boolean(plan.benefit_share_reel_to_admin ?? true),
-                benefit_share_post_to_admin: Boolean(plan.benefit_share_post_to_admin ?? true),
-                benefit_n8n_flow: Boolean(plan.benefit_n8n_flow ?? true),
-                kill_switch_enabled: true,
-                updated_at: nowIso
-            };
-
-            const existingFeat = await databases.listDocuments(APPWRITE_DATABASE_ID, ACCOUNT_FEATURES_COLLECTION_ID, [
-                Query.equal('account_id', acc.account_id || acc.$id),
-                Query.limit(1)
-            ]).catch(() => ({ documents: [] }));
-
-            if (existingFeat.documents && existingFeat.documents.length > 0) {
-                await databases.updateDocument(APPWRITE_DATABASE_ID, ACCOUNT_FEATURES_COLLECTION_ID, existingFeat.documents[0].$id, featPayload).catch(() => null);
-            } else {
-                await databases.createDocument(APPWRITE_DATABASE_ID, ACCOUNT_FEATURES_COLLECTION_ID, acc.account_id || acc.$id, featPayload).catch(() => null);
-            }
         }
     } catch (err) {
         console.warn('syncUserPerAccountPlans error:', err.message);
@@ -927,7 +894,8 @@ const finalizePlanPurchase = async ({
     razorpay_order_id = null,
     razorpay_payment_id = null,
     notes = '',
-    paymentAttemptId = null
+    paymentAttemptId = null,
+    selectedAccountIds = []
 }) => {
     const subscriptionPlanId = plan.plan_code || plan.id;
     const subscriptionExpires = calculateSubscriptionExpiry({
@@ -984,7 +952,7 @@ const finalizePlanPurchase = async ({
             paidPlanSnapshot
         }
     );
-    await syncUserPerAccountPlans(databases, userId, plan, pricing, subscriptionExpires);
+    await syncUserPerAccountPlans(databases, userId, plan, pricing, subscriptionExpires, selectedAccountIds);
     const runtimeContext = await resolveUserPlanContext(databases, userId);
     await syncUserIgAccountLimitSnapshots(databases, userId, runtimeContext.limits || {}).catch(() => []);
     await recomputeAccountAccessForUser(databases, userId, runtimeContext.profile);
@@ -1362,7 +1330,7 @@ router.post('/coupons/validate', loginRequired, async (req, res) => {
 
 router.post('/create-order', loginRequired, async (req, res) => {
     try {
-        const { plan_id, coupon_code, accounts_count = 1 } = req.body || {};
+        const { plan_id, coupon_code, accounts_count = 1, selected_account_ids = [] } = req.body || {};
         const billingCycle = normalizeBillingCycle(req.body?.billing_cycle);
         const currencyPolicy = resolveRequestCurrency(req, req.body?.currency);
         if (!plan_id) return res.status(400).json({ error: 'plan_id is required' });
@@ -1426,6 +1394,7 @@ router.post('/create-order', loginRequired, async (req, res) => {
                 requested_billing_cycle: billingCycle,
                 requested_accounts_count: billableAccountsCount,
                 accounts_count: billableAccountsCount,
+                selected_account_ids: Array.isArray(selected_account_ids) ? selected_account_ids : [],
                 unit_base_amount: pricing.unit_base_amount,
                 yearly_monthly_display_price: pricing.yearly_monthly_display_price
             }
@@ -1466,6 +1435,7 @@ router.post('/create-order', loginRequired, async (req, res) => {
                 requested_billing_cycle: billingCycle,
                 requested_accounts_count: billableAccountsCount,
                 accounts_count: billableAccountsCount,
+                selected_account_ids: Array.isArray(selected_account_ids) ? selected_account_ids : [],
                 unit_base_amount: pricing.unit_base_amount,
                 yearly_monthly_display_price: pricing.yearly_monthly_display_price,
                 razorpay_order_status: order.status || null
@@ -1500,7 +1470,8 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
             plan_id,
             coupon_code,
             payment_attempt_id,
-            accounts_count = 1
+            accounts_count = 1,
+            selected_account_ids = []
         } = req.body || {};
         const billingCycle = normalizeBillingCycle(req.body?.billing_cycle);
         const currencyPolicy = resolveRequestCurrency(req, req.body?.currency);
@@ -1514,6 +1485,11 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
         if (paymentAttempt && String(paymentAttempt.user_id || '').trim() !== String(req.user.$id || '').trim()) {
             return res.status(403).json({ error: 'Payment attempt does not belong to this user.' });
         }
+
+        const attemptMeta = parseJsonObject(paymentAttempt?.meta_json || {});
+        const effectiveSelectedAccountIds = (Array.isArray(selected_account_ids) && selected_account_ids.length > 0)
+            ? selected_account_ids
+            : (Array.isArray(attemptMeta.selected_account_ids) ? attemptMeta.selected_account_ids : []);
 
         let plan;
         let pricing;
@@ -1563,6 +1539,7 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
                 pricing,
                 appliedCoupon,
                 paymentAttemptId: payment_attempt_id || null,
+                selectedAccountIds: effectiveSelectedAccountIds,
                 notes: appliedCoupon?.code
                     ? `Coupon redemption completed without gateway charge (${appliedCoupon.code}).`
                     : 'Coupon redemption completed without gateway charge.'
@@ -1593,7 +1570,8 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
             appliedCoupon,
             razorpay_order_id,
             razorpay_payment_id,
-            paymentAttemptId: paymentAttempt?.$id || payment_attempt_id || null
+            paymentAttemptId: paymentAttempt?.$id || payment_attempt_id || null,
+            selectedAccountIds: effectiveSelectedAccountIds
         }));
     } catch (error) {
         console.error('Razorpay verify error:', describeError(error));
@@ -1697,21 +1675,14 @@ router.get('/my-plan', loginRequired, async (req, res) => {
         ]).catch(() => ({ documents: [] }));
         const userIgAccounts = igAccountsRes.documents || [];
 
-        const featuresRes = await databases.listDocuments(APPWRITE_DATABASE_ID, ACCOUNT_FEATURES_COLLECTION_ID, [
-            Query.equal('user_id', req.user.$id),
-            Query.limit(100)
-        ]).catch(() => ({ documents: [] }));
-        const featuresMap = new Map((featuresRes.documents || []).map(f => [f.account_id, f]));
-
         const pricingPlans = await listPricingPlans(databases);
 
         const formatAccountPlan = (acc) => {
-            const accId = acc.account_id || acc.$id;
-            const feat = featuresMap.get(accId) || {};
-            const planCode = acc.plan_code || feat.plan_code || 'free';
+            const accId = acc.account_id || acc.ig_user_id || acc.$id;
+            const planCode = String(acc.plan_code || 'free').trim().toLowerCase();
             const pricingPlan = pricingPlans.find(p => p.plan_code === planCode || p.id === planCode) || pricingPlans.find(p => p.plan_code === 'free');
-            const planName = acc.plan_name || feat.plan_name || pricingPlan?.name || 'Free Plan';
-            const expiresAt = acc.expires_at || feat.expires_at || null;
+            const planName = acc.plan_name || pricingPlan?.name || 'Free Plan';
+            const expiresAt = acc.expires_at || null;
             const isFree = planCode === 'free';
             const parsedExpiry = expiresAt ? new Date(expiresAt) : null;
             const hasExpiry = parsedExpiry && !Number.isNaN(parsedExpiry.getTime());
@@ -1741,9 +1712,9 @@ router.get('/my-plan', loginRequired, async (req, res) => {
                 is_active: isActive,
                 is_expired: isExpired,
                 limits: {
-                    hourly_action_limit: feat.hourly_action_limit ?? pricingPlan?.actions_per_hour_limit ?? 100,
-                    daily_action_limit: feat.daily_action_limit ?? pricingPlan?.actions_per_day_limit ?? 500,
-                    monthly_action_limit: feat.monthly_action_limit ?? pricingPlan?.actions_per_month_limit ?? 10000
+                    hourly_action_limit: pricingPlan?.actions_per_hour_limit ?? 100,
+                    daily_action_limit: pricingPlan?.actions_per_day_limit ?? 500,
+                    monthly_action_limit: pricingPlan?.actions_per_month_limit ?? 10000
                 },
                 details: {
                     name: planName,
@@ -1758,16 +1729,33 @@ router.get('/my-plan', loginRequired, async (req, res) => {
         const activeAccountPlan = activeAccount ? formatAccountPlan(activeAccount) : (allAccountPlans[0] || null);
         const otherAccountsPlans = allAccountPlans.filter(a => activeAccountPlan ? a.account_id !== activeAccountPlan.account_id : true);
 
+        let fallbackPlan = null;
+        if (!activeAccountPlan) {
+            try {
+                const runtimeContext = await resolveUserPlanContext(databases, req.user.$id);
+                if (runtimeContext) {
+                    fallbackPlan = buildUserPlanPayload(
+                        runtimeContext.plan,
+                        runtimeContext.profile,
+                        null,
+                        runtimeContext.subscriptionPlanId,
+                        null,
+                        runtimeContext.planSource
+                    );
+                }
+            } catch (_) {}
+        }
+
         return res.json({
-            plan_id: activeAccountPlan?.plan_code || 'free',
-            plan_code: activeAccountPlan?.plan_code || 'free',
-            plan_source: 'system',
-            expiry_date: activeAccountPlan?.expires_at || null,
-            is_active: activeAccountPlan?.is_active ?? false,
-            is_expired: activeAccountPlan?.is_expired ?? false,
-            billing_cycle: activeAccountPlan?.billing_cycle || 'monthly',
-            details: activeAccountPlan?.details || { name: 'Free Plan', features: [], price_monthly_inr: 0 },
-            limits: activeAccountPlan?.limits || { hourly_action_limit: 100, daily_action_limit: 500, monthly_action_limit: 10000 },
+            plan_id: activeAccountPlan?.plan_code || fallbackPlan?.plan_id || 'free',
+            plan_code: activeAccountPlan?.plan_code || fallbackPlan?.plan_code || 'free',
+            plan_source: fallbackPlan?.plan_source || 'system',
+            expiry_date: activeAccountPlan?.expires_at || fallbackPlan?.expiry_date || null,
+            is_active: activeAccountPlan ? activeAccountPlan.is_active : (fallbackPlan?.is_active ?? false),
+            is_expired: activeAccountPlan ? activeAccountPlan.is_expired : (fallbackPlan?.is_expired ?? false),
+            billing_cycle: activeAccountPlan?.billing_cycle || fallbackPlan?.billing_cycle || 'monthly',
+            details: activeAccountPlan?.details || fallbackPlan?.details || { name: 'Free Plan', features: [], price_monthly_inr: 0 },
+            limits: activeAccountPlan?.limits || fallbackPlan?.limits || { hourly_action_limit: 100, daily_action_limit: 500, monthly_action_limit: 10000 },
             active_account_plan: activeAccountPlan,
             other_accounts_plans: otherAccountsPlans,
             all_accounts_plans: allAccountPlans

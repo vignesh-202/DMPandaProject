@@ -27,8 +27,7 @@ export type PricingPlan = {
   feature_flags?: Record<string, boolean>;
   comparison: PricingComparisonItem[];
   limits?: Record<string, number | null>;
-  instagram_connections_limit: number | null;
-  instagram_link_limit?: number | null;
+  instagram_connections_limit?: number | null;
   actions_per_hour_limit: number | null;
   actions_per_day_limit: number | null;
   actions_per_month_limit: number | null;
@@ -96,8 +95,6 @@ export const normalizePlan = (raw: any): PricingPlan => ({
   feature_flags: raw?.features && typeof raw.features === 'object' && !Array.isArray(raw.features) ? raw.features : undefined,
   comparison: parseObjectArray(raw?.comparison ?? raw?.comparison_json),
   limits: raw?.limits,
-  instagram_connections_limit: toNullableNumber(raw?.limits?.instagram_connections_limit, raw?.limits?.connections, raw?.instagram_connections_limit),
-  instagram_link_limit: toNullableNumber(raw?.limits?.instagram_link_limit, raw?.instagram_link_limit),
   actions_per_hour_limit: toNullableNumber(raw?.limits?.actions_per_hour_limit, raw?.limits?.per_hour, raw?.actions_per_hour_limit),
   actions_per_day_limit: toNullableNumber(raw?.limits?.actions_per_day_limit, raw?.limits?.per_day, raw?.actions_per_day_limit),
   actions_per_month_limit: toNullableNumber(raw?.limits?.actions_per_month_limit, raw?.limits?.per_month, raw?.actions_per_month_limit)
@@ -222,11 +219,6 @@ const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
   value: (plan: PricingPlan) => unknown;
 }> = [
   {
-    key: 'instagram_connections_limit',
-    label: 'Instagram Connections',
-    value: (plan) => formatPlanLimit(plan.instagram_connections_limit)
-  },
-  {
     key: 'actions_per_hour_limit',
     label: 'Actions per hour',
     value: (plan) => formatPlanLimit(plan.actions_per_hour_limit)
@@ -244,7 +236,6 @@ const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
 ];
 
 export const buildPlanLimitItems = (plan: PricingPlan): Array<{ label: string; value: string }> => ([
-  { label: 'Instagram Connections', value: formatPlanLimit(plan.instagram_connections_limit) },
   { label: 'Actions / hour', value: formatPlanLimit(plan.actions_per_hour_limit) },
   { label: 'Actions / day', value: formatPlanLimit(plan.actions_per_day_limit) },
   { label: 'Actions / month', value: formatPlanLimit(plan.actions_per_month_limit) }

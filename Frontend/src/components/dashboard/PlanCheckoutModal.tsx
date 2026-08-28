@@ -58,6 +58,7 @@ interface PlanCheckoutModalProps {
   loadingPlanId?: string | null;
   syncingPlan?: boolean;
   igAccounts?: IgAccountItem[];
+  targetAccountId?: string | null;
   onClose: () => void;
   onPaymentSuccess?: (planName: string) => void;
   onSyncComplete?: () => Promise<void>;
@@ -139,6 +140,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
   loadingPlanId,
   syncingPlan = false,
   igAccounts,
+  targetAccountId = null,
   onClose,
   onPaymentSuccess,
   onSyncComplete
@@ -180,8 +182,12 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
 
     if (Array.isArray(igAccounts) && igAccounts.length > 0) {
       setLocalAccounts(igAccounts);
-      const allIds = new Set<string>(igAccounts.map((acc) => String(acc.id || acc.ig_user_id)));
-      setSelectedAccountIds(allIds);
+      if (targetAccountId) {
+        setSelectedAccountIds(new Set([String(targetAccountId)]));
+      } else {
+        const allIds = new Set<string>(igAccounts.map((acc) => String(acc.id || acc.ig_user_id)));
+        setSelectedAccountIds(allIds);
+      }
       setExtraSlots(0);
     } else {
       let cancelled = false;
@@ -196,8 +202,12 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
             const fetched = Array.isArray(data?.ig_accounts) ? data.ig_accounts : [];
             if (!cancelled) {
               setLocalAccounts(fetched);
-              const allIds = new Set<string>(fetched.map((acc: IgAccountItem) => String(acc.id || acc.ig_user_id)));
-              setSelectedAccountIds(allIds);
+              if (targetAccountId) {
+                setSelectedAccountIds(new Set([String(targetAccountId)]));
+              } else {
+                const allIds = new Set<string>(fetched.map((acc: IgAccountItem) => String(acc.id || acc.ig_user_id)));
+                setSelectedAccountIds(allIds);
+              }
               setExtraSlots(0);
             }
           }
@@ -212,7 +222,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
         cancelled = true;
       };
     }
-  }, [isOpen, igAccounts, authenticatedFetch]);
+  }, [isOpen, igAccounts, targetAccountId, authenticatedFetch]);
 
   // Derived billable accounts count
   const accountsCount = useMemo(() => {
@@ -252,7 +262,8 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
               plan_id: selectedPlan.id,
               billing_cycle: billingCycle,
               currency,
-              accounts_count: accountsCount
+              accounts_count: accountsCount,
+              selected_account_ids: Array.from(selectedAccountIds)
             })
           }
         );
@@ -323,7 +334,8 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
             billing_cycle: billingCycle,
             currency,
             coupon_code: couponCode.trim() || undefined,
-            accounts_count: accountsCount
+            accounts_count: accountsCount,
+            selected_account_ids: Array.from(selectedAccountIds)
           })
         }
       );
@@ -371,7 +383,8 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
             billing_cycle: billingCycle,
             currency,
             coupon_code: couponCode.trim() || undefined,
-            accounts_count: accountsCount
+            accounts_count: accountsCount,
+            selected_account_ids: Array.from(selectedAccountIds)
           })
         }
       );
@@ -410,7 +423,8 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
               currency,
               coupon_code: couponCode.trim() || undefined,
               payment_attempt_id: orderPayload?.payment_attempt_id || undefined,
-              accounts_count: accountsCount
+              accounts_count: accountsCount,
+              selected_account_ids: Array.from(selectedAccountIds)
             })
           }
         );
@@ -461,7 +475,8 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                   currency,
                   coupon_code: couponCode.trim() || undefined,
                   payment_attempt_id: orderPayload?.payment_attempt_id || undefined,
-                  accounts_count: accountsCount
+                  accounts_count: accountsCount,
+                  selected_account_ids: Array.from(selectedAccountIds)
                 })
               }
             );
@@ -501,9 +516,15 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
   };
 
   const unitBasePrice = quote?.unit_base_amount ?? (selectedPlan ? getPlanBilledTotal(selectedPlan, currency, billingCycle === 'yearly') : 0);
-  const billedTotal = quote?.base_amount ?? (unitBasePrice * accountsCount);
-  const discountAmount = quote?.discount ?? 0;
-  const finalAmount = quote?.final_amount ?? billedTotal;
+  const billedTotal = quote && quote.accounts_count === accountsCount
+    ? quote.base_amount
+    : (unitBasePrice * accountsCount);
+  const discountAmount = quote && quote.accounts_count === accountsCount
+    ? quote.discount
+    : 0;
+  const finalAmount = quote && quote.accounts_count === accountsCount
+    ? quote.final_amount
+    : Math.max(0, billedTotal - discountAmount);
 
   const selectedConnectedAccounts = localAccounts.filter((acc) =>
     selectedAccountIds.has(String(acc.id || acc.ig_user_id))

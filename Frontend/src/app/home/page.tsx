@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import FlippingText from '../../components/ui/FlippingText';
 import AuthRedirectButton from '../../components/ui/AuthRedirectButton';
+import VVDealsHomeLabel from '../../components/ui/VVDealsHomeLabel';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -442,6 +443,15 @@ const HomePage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </RevealSection>
+        </div>
+      </section>
+
+      {/* ===== VVDEALS PARTNER BONUS LABEL ===== */}
+      <section className="py-6 sm:py-8 bg-white dark:bg-neutral-950">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+          <RevealSection>
+            <VVDealsHomeLabel />
           </RevealSection>
         </div>
       </section>

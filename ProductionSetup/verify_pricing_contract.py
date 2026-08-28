@@ -65,32 +65,17 @@ def main():
     if not free_plan:
         raise SystemExit("Pricing collection is missing the free plan row.")
 
-    if "instagram_connections_limit" not in free_plan or "instagram_link_limit" not in free_plan:
-        raise SystemExit("Free plan row is missing instagram_connections_limit or instagram_link_limit.")
-
-    active_limit = int(free_plan.get("instagram_connections_limit") or 0)
-    linked_limit = int(free_plan.get("instagram_link_limit") or 0)
-
-    if args.apply and linked_limit != EXPECTED_FREE_LINK_LIMIT:
-        free_plan = databases.update_document(
-            DATABASE_ID,
-            PRICING_COLLECTION_ID,
-            free_plan["$id"],
-            {"instagram_link_limit": EXPECTED_FREE_LINK_LIMIT},
-        )
-        linked_limit = int(free_plan.get("instagram_link_limit") or 0)
-
-    if linked_limit != EXPECTED_FREE_LINK_LIMIT:
-        raise SystemExit(
-            f"Free plan instagram_link_limit is {linked_limit}, expected {EXPECTED_FREE_LINK_LIMIT}."
-        )
+    hourly_limit = int(free_plan.get("actions_per_hour_limit") or 0)
+    daily_limit = int(free_plan.get("actions_per_day_limit") or 0)
+    monthly_limit = int(free_plan.get("actions_per_month_limit") or 0)
 
     print("Pricing contract verified.")
     print(f"free_plan_id={free_plan['$id']}")
     print(f"free_plan_code={free_plan.get('plan_code')}")
-    print(f"instagram_connections_limit={active_limit}")
-    print(f"instagram_link_limit={linked_limit}")
-    print("instagram_link_limit and instagram_connections_limit remain separate stored fields.")
+    print(f"actions_per_hour_limit={hourly_limit}")
+    print(f"actions_per_day_limit={daily_limit}")
+    print(f"actions_per_month_limit={monthly_limit}")
+    print("Instagram connection limit removed. Plans apply independently per Instagram account.")
 
 
 if __name__ == "__main__":

@@ -676,11 +676,15 @@ const listPagedDocuments = async (databases, collectionId, queries = [], {
 };
 
 const getProfileForUser = async (databases, userId) => {
-    const docs = await databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
-        Query.equal('user_id', String(userId)),
-        Query.limit(1)
-    ]);
-    return docs.documents[0] || null;
+    try {
+        const docs = await databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
+            Query.equal('user_id', String(userId)),
+            Query.limit(1)
+        ]);
+        return docs.documents[0] || null;
+    } catch (_) {
+        return null;
+    }
 };
 
 const buildProfileRollbackPayload = (profile = null) => {
@@ -1321,9 +1325,9 @@ const META_PLATFORM_HOURLY_LIMIT_PER_LINKED_ACCOUNT = 200;
 
 const buildDashboardMetrics = async (databases) => {
     const [users, profiles, accounts, transactions, automations, logs, coupons, couponRedemptions] = await Promise.all([
-        listAllDocuments(databases, USERS_COLLECTION_ID),
-        listAllDocuments(databases, PROFILES_COLLECTION_ID),
-        listAllDocuments(databases, IG_ACCOUNTS_COLLECTION_ID),
+        listAllDocuments(databases, USERS_COLLECTION_ID).catch(() => []),
+        listAllDocuments(databases, PROFILES_COLLECTION_ID).catch(() => []),
+        listAllDocuments(databases, IG_ACCOUNTS_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, TRANSACTIONS_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, AUTOMATIONS_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, LOGS_COLLECTION_ID, [
@@ -2831,8 +2835,6 @@ router.patch('/pricing/:planId', loginRequired, adminRequired, async (req, res) 
             is_custom: Boolean(req.body?.is_custom),
             display_order: Number(req.body?.display_order || 0),
             button_text: String(req.body?.button_text || 'Choose Plan'),
-            instagram_connections_limit: Number(req.body?.instagram_connections_limit || 0),
-            instagram_link_limit: Number(req.body?.instagram_link_limit || req.body?.instagram_connections_limit || 0),
             actions_per_hour_limit: Number(req.body?.actions_per_hour_limit || 0),
             actions_per_day_limit: Number(req.body?.actions_per_day_limit || 0),
             actions_per_month_limit: Number(req.body?.actions_per_month_limit || 0),

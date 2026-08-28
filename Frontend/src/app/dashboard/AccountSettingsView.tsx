@@ -153,9 +153,6 @@ const AccountSettingsView = () => {
   const [isSubmittingInfo, setIsSubmittingInfo] = useState(false);
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
   const [isSubmittingSetPassword, setIsSubmittingSetPassword] = useState(false);
-  const instagramConnectionLimit = typeof planLimits?.instagram_connections_limit === 'number'
-    ? Number(planLimits.instagram_connections_limit)
-    : null;
   const canAddAnotherInstagramAccount = true;
 
   // Section-specific messages

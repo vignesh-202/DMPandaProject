@@ -187,7 +187,6 @@ const resolveProfileNoWatermark = (profile: any): boolean | undefined => {
 };
 
 const LIMIT_FIELDS = [
-    'instagram_connections_limit',
     'hourly_action_limit',
     'daily_action_limit',
     'monthly_action_limit'
@@ -1223,9 +1222,8 @@ export const UsersPage: React.FC = () => {
                                                     ) : null}
                                                 </div>
 
-                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                                     {[
-                                                        ['instagram_connections_limit', 'Plan active limit'],
                                                         ['hourly_action_limit', 'Hourly actions'],
                                                         ['daily_action_limit', 'Daily actions'],
                                                         ['monthly_action_limit', 'Monthly actions']
