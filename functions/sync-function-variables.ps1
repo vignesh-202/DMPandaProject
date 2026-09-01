@@ -60,6 +60,7 @@ function Import-DotEnvFile {
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
 Import-DotEnvFile -Path (Join-Path $repoRoot ".env")
+Import-DotEnvFile -Path (Join-Path $repoRoot "Backend\.env")
 Import-DotEnvFile -Path (Join-Path $repoRoot "ProductionSetup\.env")
 
 $databaseId = Get-EnvValue -Key "APPWRITE_DATABASE_ID"
@@ -74,30 +75,44 @@ $appwriteEndpoint = Get-EnvValue -Key "APPWRITE_ENDPOINT"
 $appwriteProjectId = Get-EnvValue -Key "APPWRITE_PROJECT_ID"
 $appwriteApiKey = Get-EnvValue -Key "APPWRITE_API_KEY"
 
+& $AppwriteCli client --endpoint $appwriteEndpoint --project-id $appwriteProjectId --key $appwriteApiKey | Out-Null
+
+$commonBase = @(
+    @{ key = "APPWRITE_ENDPOINT"; value = $appwriteEndpoint; secret = $false }
+    @{ key = "APPWRITE_PROJECT_ID"; value = $appwriteProjectId; secret = $false }
+    @{ key = "APPWRITE_API_KEY"; value = $appwriteApiKey; secret = $false }
+    @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+)
+
 $functionVariables = @{
     "on-user-create" = @(
-        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        $commonBase
         @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
         @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
         @{ key = "PRICING_COLLECTION_ID"; value = (Get-EnvValue -Key "PRICING_COLLECTION_ID" -Default "pricing"); secret = $false }
-    )
+        @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
+    ) | ForEach-Object { $_ }
     "subscription-manager" = @(
-        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        $commonBase
         @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
         @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
         @{ key = "PRICING_COLLECTION_ID"; value = (Get-EnvValue -Key "PRICING_COLLECTION_ID" -Default "pricing"); secret = $false }
         @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
+        @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
+        @{ key = "TRANSACTIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "TRANSACTIONS_COLLECTION_ID" -Default "transactions"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
-    )
+    ) | ForEach-Object { $_ }
     "payment-reminders" = @(
-        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        $commonBase
         @{ key = "PAYMENT_ATTEMPTS_COLLECTION_ID"; value = (Get-EnvValue -Key "PAYMENT_ATTEMPTS_COLLECTION_ID" -Default "payment_attempts"); secret = $false }
         @{ key = "TRANSACTIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "TRANSACTIONS_COLLECTION_ID" -Default "transactions"); secret = $false }
         @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
+        @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
+        @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
-    )
+    ) | ForEach-Object { $_ }
     "inactive-user-cleanup" = @(
-        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        $commonBase
         @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
         @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
         @{ key = "TRANSACTIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "TRANSACTIONS_COLLECTION_ID" -Default "transactions"); secret = $false }
@@ -109,50 +124,76 @@ $functionVariables = @{
         @{ key = "INACTIVE_CLEANUP_PROTECTED_EMAILS"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_PROTECTED_EMAILS"); secret = $false; optional = $true }
         @{ key = "INACTIVE_CLEANUP_PROTECTED_EMAIL_DOMAINS"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_PROTECTED_EMAIL_DOMAINS"); secret = $false; optional = $true }
         @{ key = "INACTIVE_CLEANUP_BATCH_SIZE"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_BATCH_SIZE" -Default "50"); secret = $false }
-    )
+    ) | ForEach-Object { $_ }
     "remind-link-instagram" = @(
-        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        $commonBase
         @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
         @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
         @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
         @{ key = "REMINDER_DELAY_HOURS"; value = (Get-EnvValue -Key "REMINDER_DELAY_HOURS" -Default "24"); secret = $false }
         @{ key = "EXPIRY_REMINDER_LEAD_DAYS"; value = (Get-EnvValue -Key "EXPIRY_REMINDER_LEAD_DAYS" -Default "3"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
-    )
+    ) | ForEach-Object { $_ }
     "refresh-instagram-tokens" = @(
-        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        $commonBase
         @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false; optional = $true }
-    )
+    ) | ForEach-Object { $_ }
     "sync-instagram-account-profiles" = @(
+        $commonBase
         @{ key = "FUNCTION_APPWRITE_ENDPOINT"; value = $appwriteEndpoint; secret = $false }
         @{ key = "FUNCTION_APPWRITE_PROJECT_ID"; value = $appwriteProjectId; secret = $false }
         @{ key = "FUNCTION_APPWRITE_API_KEY"; value = $appwriteApiKey; secret = $false }
-        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
         @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
-    )
+    ) | ForEach-Object { $_ }
     "audit-media-automations" = @(
-        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        $commonBase
         @{ key = "AUTOMATIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "AUTOMATIONS_COLLECTION_ID" -Default "automations"); secret = $false }
         @{ key = "KEYWORDS_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORDS_COLLECTION_ID" -Default "keywords"); secret = $false }
         @{ key = "KEYWORD_INDEX_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORD_INDEX_COLLECTION_ID" -Default "keyword_index"); secret = $false }
         @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
-    )
+    ) | ForEach-Object { $_ }
     "cleanup-audit-job-locks" = @(
+        $commonBase
         @{ key = "FUNCTION_APPWRITE_ENDPOINT"; value = $appwriteEndpoint; secret = $false }
         @{ key = "FUNCTION_APPWRITE_PROJECT_ID"; value = $appwriteProjectId; secret = $false }
         @{ key = "FUNCTION_APPWRITE_API_KEY"; value = $appwriteApiKey; secret = $false }
-        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
         @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
         @{ key = "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_AUDIT_COLLECTION_ID" -Default (Get-EnvValue -Key "INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID" -Default "inactive_user_cleanup_audit")); secret = $false }
         @{ key = "INACTIVE_CLEANUP_AUDIT_RETENTION_DAYS"; value = (Get-EnvValue -Key "INACTIVE_CLEANUP_AUDIT_RETENTION_DAYS" -Default "90"); secret = $false }
         @{ key = "JOB_LOCKS_RETENTION_HOURS"; value = (Get-EnvValue -Key "JOB_LOCKS_RETENTION_HOURS" -Default "24"); secret = $false }
-    )
+    ) | ForEach-Object { $_ }
     "cleanup-email-tokens" = @(
-        @{ key = "APPWRITE_DATABASE_ID"; value = $databaseId; secret = $false }
+        $commonBase
         @{ key = "EMAIL_CHANGE_TOKENS_COLLECTION_ID"; value = (Get-EnvValue -Key "EMAIL_CHANGE_TOKENS_COLLECTION_ID" -Default "email_change_tokens"); secret = $false }
-    )
+    ) | ForEach-Object { $_ }
+    "cleanup-logs-chat-state" = @(
+        $commonBase
+        @{ key = "LOGS_COLLECTION_ID"; value = (Get-EnvValue -Key "LOGS_COLLECTION_ID" -Default "logs"); secret = $false }
+        @{ key = "CHAT_STATES_COLLECTION_ID"; value = (Get-EnvValue -Key "CHAT_STATES_COLLECTION_ID" -Default "chat_states"); secret = $false }
+        @{ key = "AUTOMATIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "AUTOMATIONS_COLLECTION_ID" -Default "automations"); secret = $false }
+    ) | ForEach-Object { $_ }
+    "remove-instagram" = @(
+        $commonBase
+        @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
+        @{ key = "AUTOMATIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "AUTOMATIONS_COLLECTION_ID" -Default "automations"); secret = $false }
+        @{ key = "KEYWORDS_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORDS_COLLECTION_ID" -Default "keywords"); secret = $false }
+        @{ key = "KEYWORD_INDEX_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORD_INDEX_COLLECTION_ID" -Default "keyword_index"); secret = $false }
+        @{ key = "LOGS_COLLECTION_ID"; value = (Get-EnvValue -Key "LOGS_COLLECTION_ID" -Default "logs"); secret = $false }
+        @{ key = "CHAT_STATES_COLLECTION_ID"; value = (Get-EnvValue -Key "CHAT_STATES_COLLECTION_ID" -Default "chat_states"); secret = $false }
+        @{ key = "SUPER_PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "SUPER_PROFILES_COLLECTION_ID" -Default "super_profiles"); secret = $false }
+        @{ key = "REPLY_TEMPLATES_COLLECTION_ID"; value = (Get-EnvValue -Key "REPLY_TEMPLATES_COLLECTION_ID" -Default "reply_templates"); secret = $false }
+        @{ key = "INBOX_MENUS_COLLECTION_ID"; value = (Get-EnvValue -Key "INBOX_MENUS_COLLECTION_ID" -Default "inbox_menus"); secret = $false }
+        @{ key = "CONVO_STARTERS_COLLECTION_ID"; value = (Get-EnvValue -Key "CONVO_STARTERS_COLLECTION_ID" -Default "convo_starters"); secret = $false }
+        @{ key = "COMMENT_MODERATION_COLLECTION_ID"; value = (Get-EnvValue -Key "COMMENT_MODERATION_COLLECTION_ID" -Default "comment_moderation"); secret = $false }
+        @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
+    ) | ForEach-Object { $_ }
+    "reset-user-action-budgets" = @(
+        $commonBase
+        @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
+        @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
+    ) | ForEach-Object { $_ }
 }
 
 $selectedFunctionIds = if ([string]::IsNullOrWhiteSpace($FunctionId)) {
@@ -174,7 +215,13 @@ foreach ($targetFunctionId in $selectedFunctionIds) {
         throw "Failed to list variables for function '$targetFunctionId'. Ensure the function exists before syncing variables."
     }
 
-    foreach ($definition in $definitions) {
+    # Deduplicate definitions by key (last one wins)
+    $dedupedDefinitions = @{}
+    foreach ($def in $definitions) {
+        $dedupedDefinitions[$def.key] = $def
+    }
+
+    foreach ($definition in $dedupedDefinitions.Values) {
         $existing = $existingVariables | Where-Object { $_.key -eq $definition.key } | Select-Object -First 1
         $skipOptional = (($definition.ContainsKey("optional")) -and $definition.optional -and [string]::IsNullOrWhiteSpace([string]$definition.value))
 
@@ -198,56 +245,60 @@ foreach ($targetFunctionId in $selectedFunctionIds) {
                 if ($LASTEXITCODE -ne 0) {
                     throw "Failed to delete variable '$($definition.key)' for function '$targetFunctionId' before recreating it as non-secret."
                 }
-
-                & $AppwriteCli functions create-variable `
+                $existing = $null
+            } elseif (($existing.secret -ne $true) -and ($definition.secret -eq $true)) {
+                & $AppwriteCli functions delete-variable `
                     --function-id $targetFunctionId `
-                    --key $definition.key `
-                    --value ([string]$definition.value) `
-                    --secret ($definition.secret.ToString().ToLower()) | Out-Null
+                    --variable-id $existing.'$id' | Out-Null
                 if ($LASTEXITCODE -ne 0) {
-                    throw "Failed to recreate variable '$($definition.key)' for function '$targetFunctionId' as non-secret."
+                    throw "Failed to delete variable '$($definition.key)' for function '$targetFunctionId' before recreating it as secret."
                 }
-                continue
+                $existing = $null
+            }
+        }
+
+        if (-not $existing) {
+            Write-Host "Creating variable $($definition.key) on function $targetFunctionId"
+            $createArgs = @(
+                "functions", "create-variable",
+                "--function-id", $targetFunctionId,
+                "--key", $definition.key,
+                "--value", ([string]$definition.value)
+            )
+            if ($definition.secret -eq $true) {
+                $createArgs += @("--secret", "true")
+            } else {
+                $createArgs += @("--secret", "false")
             }
 
-            & $AppwriteCli functions update-variable `
-                --function-id $targetFunctionId `
-                --variable-id $existing.'$id' `
-                --key $definition.key `
-                --value ([string]$definition.value) `
-                --secret ($definition.secret.ToString().ToLower()) | Out-Null
+            & $AppwriteCli @createArgs | Out-Null
             if ($LASTEXITCODE -ne 0) {
-                if (-not $definition.secret) {
-                    & $AppwriteCli functions delete-variable `
-                        --function-id $targetFunctionId `
-                        --variable-id $existing.'$id' | Out-Null
-                    if ($LASTEXITCODE -ne 0) {
-                        throw "Failed to delete variable '$($definition.key)' for function '$targetFunctionId' before recreating it as non-secret."
-                    }
-
-                    & $AppwriteCli functions create-variable `
-                        --function-id $targetFunctionId `
-                        --key $definition.key `
-                        --value ([string]$definition.value) `
-                        --secret ($definition.secret.ToString().ToLower()) | Out-Null
-                    if ($LASTEXITCODE -ne 0) {
-                        throw "Failed to recreate variable '$($definition.key)' for function '$targetFunctionId' as non-secret."
-                    }
-                    continue
-                }
-
-                throw "Failed to update variable '$($definition.key)' for function '$targetFunctionId'"
+                throw "Failed to create variable '$($definition.key)' on function '$targetFunctionId'."
             }
             continue
         }
 
-        & $AppwriteCli functions create-variable `
-            --function-id $targetFunctionId `
-            --key $definition.key `
-            --value ([string]$definition.value) `
-            --secret ($definition.secret.ToString().ToLower()) | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to create variable '$($definition.key)' for function '$targetFunctionId'"
+        if ([string]$existing.value -ne [string]$definition.value) {
+            Write-Host "Updating variable $($definition.key) on function $targetFunctionId"
+            $updateArgs = @(
+                "functions", "update-variable",
+                "--function-id", $targetFunctionId,
+                "--variable-id", $existing.'$id',
+                "--key", $definition.key,
+                "--value", ([string]$definition.value)
+            )
+            if ($definition.secret -eq $true) {
+                $updateArgs += @("--secret", "true")
+            } else {
+                $updateArgs += @("--secret", "false")
+            }
+
+            & $AppwriteCli @updateArgs | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to update variable '$($definition.key)' on function '$targetFunctionId'."
+            }
         }
     }
 }
+
+Write-Host "[OK] Function variable synchronization completed."

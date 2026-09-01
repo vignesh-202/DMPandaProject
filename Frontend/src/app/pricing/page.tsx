@@ -230,12 +230,12 @@ const PricingPage: React.FC = () => {
                         <div className="mt-3.5 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-3 text-xs dark:bg-purple-950/40">
                           <div className="flex items-center gap-1.5 font-black text-purple-700 dark:text-purple-300">
                             <Gift size={14} className="text-pink-500" />
-                            <span>VV Deals Creators Bundle:</span>
+                            <span>Included Partner Perks (VV Deals):</span>
                           </div>
                           <p className="mt-1 text-[11px] font-semibold text-gray-700 dark:text-gray-300 leading-snug">
                             {isYearly
-                              ? '✨ 18m Google AI Pro, 6m Prime, 3m Spotify, 1m CapCut Pro, 1m Netflix'
-                              : '✨ 1m Amazon Prime, 7 days CapCut Pro, 5 days Netflix'}
+                              ? 'Google AI Pro (18M), Amazon Prime (6M), Spotify (3M), CapCut Pro (1M) & Netflix (1M)'
+                              : 'Amazon Prime (1M), CapCut Pro (7 Days) & Netflix (5 Days)'}
                           </p>
                         </div>
                       )}

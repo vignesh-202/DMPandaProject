@@ -40,13 +40,14 @@ export const VVDealsTopTeaser: React.FC<VVDealsTopTeaserProps> = ({
           handleAction();
         }
       }}
-      className={`group relative cursor-pointer overflow-hidden rounded-2xl border border-border/80 bg-card/95 p-3 sm:p-3.5 shadow-sm transition-all duration-300 hover:border-purple-500/50 hover:shadow-md dark:border-white/[0.08] dark:bg-neutral-900/90 dark:hover:border-purple-500/50 ${className}`}
+      className={`group relative cursor-pointer overflow-hidden rounded-2xl sm:rounded-3xl border border-purple-500/30 bg-gradient-to-r from-purple-500/[0.06] via-card to-card p-4 sm:p-6 shadow-sm transition-all duration-300 hover:border-purple-500/60 hover:shadow-md dark:border-purple-500/25 dark:from-purple-950/20 dark:via-neutral-900/90 dark:to-neutral-950 ${className}`}
     >
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-        {/* Left: Clean Brand Avatar Stack + VV Deals Creators Bundle Label */}
-        <div className="flex items-center gap-3 w-full sm:w-auto min-w-0">
-          <div className="flex -space-x-1.5 shrink-0 items-center">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-background p-1 shadow-xs dark:border-neutral-700">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6">
+        {/* Left Side: Brand Stack + Clear Description */}
+        <div className="flex flex-col sm:flex-row items-center sm:items-center gap-3.5 sm:gap-5 w-full md:w-auto min-w-0 text-center sm:text-left">
+          {/* Logo Stack */}
+          <div className="flex -space-x-2 shrink-0 items-center">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-purple-500/30 bg-background p-1.5 shadow-2xs dark:border-neutral-700">
               <img
                 src="/images/vvdeals-logo.png"
                 alt="VV Deals"
@@ -57,13 +58,13 @@ export const VVDealsTopTeaser: React.FC<VVDealsTopTeaserProps> = ({
                 }}
               />
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-background p-1 shadow-xs dark:border-neutral-700">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-border bg-background p-1.5 shadow-2xs dark:border-neutral-700">
               <img src="/images/offers/google.png" alt="Google AI" className="h-full w-full object-contain" loading="lazy" />
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-background p-1 shadow-xs dark:border-neutral-700">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-border bg-background p-1.5 shadow-2xs dark:border-neutral-700">
               <img src="/images/offers/amazon-prime.svg" alt="Amazon Prime" className="h-full w-full object-contain" loading="lazy" />
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-background p-1 shadow-xs dark:border-neutral-700">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-border bg-background p-1.5 shadow-2xs dark:border-neutral-700">
               <img
                 src="/images/offers/spotify.png"
                 alt="Spotify"
@@ -75,11 +76,11 @@ export const VVDealsTopTeaser: React.FC<VVDealsTopTeaserProps> = ({
                 }}
               />
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-background p-0.5 shadow-xs dark:border-neutral-700 overflow-hidden">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-border bg-background p-1 shadow-2xs dark:border-neutral-700 overflow-hidden">
               <img
                 src="/images/offers/capcut.png"
                 alt="CapCut"
-                className="h-full w-full object-cover rounded-lg"
+                className="h-full w-full object-cover rounded-md"
                 loading="lazy"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src =
@@ -87,31 +88,32 @@ export const VVDealsTopTeaser: React.FC<VVDealsTopTeaserProps> = ({
                 }}
               />
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-background p-1 shadow-xs dark:border-neutral-700">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-border bg-background p-1.5 shadow-2xs dark:border-neutral-700">
               <img src="/images/offers/netflix.png" alt="Netflix" className="h-full w-full object-contain" loading="lazy" />
             </div>
           </div>
 
-          <div className="min-w-0 text-left">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 border border-purple-500/20">
+          {/* Text Information */}
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/15 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-300 border border-purple-500/30">
                 <Gift className="h-3 w-3 text-pink-500" />
-                VV Deals Creators Bundle
+                Ultra Plan Bonus Perks
               </span>
-              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                ₹15,000+ Value Included
+              <span className="text-xs font-bold text-muted-foreground">
+                Provided by <strong className="text-foreground">VVDeals.cloud</strong>
               </span>
             </div>
-            <p className="text-xs sm:text-sm font-bold text-foreground truncate mt-0.5">
-              Google AI Pro, Amazon Prime, Spotify, CapCut & Netflix included with Ultra Plan
+            <p className="text-xs sm:text-sm font-bold text-foreground mt-1">
+              Google AI Pro, Amazon Prime, Spotify, CapCut & Netflix included with Ultra subscription
             </p>
           </div>
         </div>
 
-        {/* Right: Modern Redirect to Pricing */}
-        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto text-xs font-bold text-purple-600 dark:text-purple-400 group-hover:text-purple-500 transition-colors">
-          <span>Explore Bundle</span>
-          <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+        {/* Right Side: Simple Clean Action */}
+        <div className="flex items-center gap-2 shrink-0 text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors">
+          <span>View Included Perks</span>
+          <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
         </div>
       </div>
     </div>

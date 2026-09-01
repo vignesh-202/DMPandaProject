@@ -22,6 +22,7 @@ const {
     buildPlanApiPayload,
     buildPricingApiPayload,
     listPricingPlans,
+    clearPricingPlansCache,
     getPlanByIdentifier,
     resolvePlanEntitlements,
     resolvePlanLimits,
@@ -36,7 +37,8 @@ const {
     buildPlanProfilePayload,
     buildPaidPlanSnapshot,
     clearAdminOverridePayload,
-    syncUserIgAccountLimitSnapshots
+    syncUserIgAccountLimitSnapshots,
+    parseJsonObject
 } = require('../utils/planConfig');
 const { loadUserAccessState } = require('../utils/accessControl');
 const { recomputeAccountAccessForUser } = require('../utils/accountAccess');
@@ -286,8 +288,22 @@ const resolveBillableAccountsCount = async (databases, userId, requestedCount = 
     return Math.max(normalizeAccountsCount(requestedCount), 1);
 };
 
+const PRICING_PAYLOAD_CACHE_TTL_MS = 30000;
+const pricingPayloadCache = new Map();
+
+const clearPricingPayloadCache = () => {
+    pricingPayloadCache.clear();
+    clearPricingPlansCache();
+};
+
 const getLivePricingPayload = async (currencyPolicy) => {
     const requestKey = getPricingRequestKey(currencyPolicy);
+    const cached = pricingPayloadCache.get(requestKey);
+    const now = Date.now();
+
+    if (cached && cached.expiresAt > now) {
+        return { payload: cached.payload, cacheStatus: 'cache_hit' };
+    }
 
     if (pricingInflightRequests.has(requestKey)) {
         const payload = await pricingInflightRequests.get(requestKey);
@@ -297,7 +313,12 @@ const getLivePricingPayload = async (currencyPolicy) => {
     const request = (async () => {
         const databases = getDatabases();
         const plans = await listPricingPlans(databases);
-        return buildPricingApiPayload(plans, currencyPolicy);
+        const built = buildPricingApiPayload(plans, currencyPolicy);
+        pricingPayloadCache.set(requestKey, {
+            payload: built,
+            expiresAt: Date.now() + PRICING_PAYLOAD_CACHE_TTL_MS
+        });
+        return built;
     })();
 
     pricingInflightRequests.set(requestKey, request);
@@ -1401,11 +1422,12 @@ router.post('/create-order', loginRequired, async (req, res) => {
         });
 
         let order;
+        const safeReceipt = `rcpt_${String(req.user.$id || '').slice(-8)}_${Date.now()}`.slice(0, 40);
         try {
             order = await razorpay.orders.create({
                 amount: Math.round(pricing.final_amount * 100),
                 currency: pricing.currency,
-                receipt: `dmp_${req.user.$id}_${Date.now()}`,
+                receipt: safeReceipt,
                 payment_capture: 1,
                 notes: {
                     payment_attempt_id: paymentAttempt.$id,
@@ -1417,14 +1439,12 @@ router.post('/create-order', loginRequired, async (req, res) => {
                 }
             });
         } catch (error) {
-            console.warn('Razorpay order creation warning:', error?.message || String(error));
-            order = {
-                id: `order_dev_${Date.now()}`,
-                amount: Math.round(pricing.final_amount * 100),
-                currency: pricing.currency,
-                receipt: `dmp_${req.user.$id}_${Date.now()}`,
-                status: 'created'
-            };
+            console.error('Razorpay order creation error:', describeError(error));
+            const errorDesc = error?.error?.description || error?.description || error?.message || 'Payment gateway failed to create order.';
+            return res.status(502).json({
+                error: `Payment gateway error: ${errorDesc}`,
+                reason: 'gateway_order_failed'
+            });
         }
 
         await updatePaymentAttempt(databases, paymentAttempt.$id, {
@@ -1486,7 +1506,7 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
             return res.status(403).json({ error: 'Payment attempt does not belong to this user.' });
         }
 
-        const attemptMeta = parseJsonObject(paymentAttempt?.meta_json || {});
+        const attemptMeta = parsePaymentAttemptMeta(paymentAttempt);
         const effectiveSelectedAccountIds = (Array.isArray(selected_account_ids) && selected_account_ids.length > 0)
             ? selected_account_ids
             : (Array.isArray(attemptMeta.selected_account_ids) ? attemptMeta.selected_account_ids : []);
@@ -1873,6 +1893,7 @@ router.get('/pricing', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.clearPricingPayloadCache = clearPricingPayloadCache;
 module.exports._test = {
     clearAdminOverrideForUserProfile
 };

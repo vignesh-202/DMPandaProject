@@ -26,6 +26,37 @@ if (-not $selected.Count) {
 Push-Location $PSScriptRoot
 try {
 
+function Import-DotEnvFile {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if (-not (Test-Path $Path)) { return }
+    foreach ($line in Get-Content -Path $Path) {
+        $trimmed = [string]$line
+        if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.Trim().StartsWith("#")) { continue }
+        $parts = $trimmed -split "=", 2
+        if ($parts.Count -ne 2) { continue }
+        $name = [string]$parts[0].Trim()
+        $value = [string]$parts[1].Trim()
+        if ($value.StartsWith('"') -and $value.EndsWith('"')) { $value = $value.Substring(1, $value.Length - 2) }
+        if ($value.StartsWith("'") -and $value.EndsWith("'")) { $value = $value.Substring(1, $value.Length - 2) }
+        if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name, "Process"))) {
+            [Environment]::SetEnvironmentVariable($name, $value, "Process")
+        }
+    }
+}
+
+$repoRoot = Split-Path $PSScriptRoot -Parent
+Import-DotEnvFile -Path (Join-Path $repoRoot ".env")
+Import-DotEnvFile -Path (Join-Path $repoRoot "Backend\.env")
+Import-DotEnvFile -Path (Join-Path $repoRoot "ProductionSetup\.env")
+
+$appwriteEndpoint = [Environment]::GetEnvironmentVariable("APPWRITE_ENDPOINT", "Process")
+$appwriteProjectId = [Environment]::GetEnvironmentVariable("APPWRITE_PROJECT_ID", "Process")
+$appwriteApiKey = [Environment]::GetEnvironmentVariable("APPWRITE_API_KEY", "Process")
+
+if (-not [string]::IsNullOrWhiteSpace($appwriteEndpoint) -and -not [string]::IsNullOrWhiteSpace($appwriteProjectId) -and -not [string]::IsNullOrWhiteSpace($appwriteApiKey)) {
+    & $AppwriteCli client --endpoint $appwriteEndpoint --project-id $appwriteProjectId --key $appwriteApiKey | Out-Null
+}
+
 $ObsoleteFunctionIds = @()
 
 function Format-CmdArgument {

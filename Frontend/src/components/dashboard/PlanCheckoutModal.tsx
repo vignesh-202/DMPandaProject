@@ -1,6 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, CheckSquare, Instagram, Loader2, Minus, Percent, Plus, ShieldCheck, Square, Users, X } from 'lucide-react';
+import {
+  Check,
+  CheckSquare,
+  Instagram,
+  Loader2,
+  Minus,
+  Percent,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  Square,
+  Tag,
+  Trash2,
+  Users,
+  X
+} from 'lucide-react';
 import { buildCountryHeaders } from '../../lib/geoCurrency';
 import {
   PricingPlan,
@@ -22,16 +37,10 @@ export type IgAccountItem = {
   is_active?: boolean;
 };
 
-type CheckoutQuote = {
-  billing_cycle: 'monthly' | 'yearly';
-  currency: 'INR';
-  accounts_count: number;
-  unit_base_amount: number;
-  base_amount: number;
-  discount: number;
-  final_amount: number;
-  yearly_monthly_display_price: number;
-  validity_days: number;
+type AppliedCoupon = {
+  code: string;
+  type: 'percent' | 'fixed';
+  value: number;
 };
 
 type CouponState = {
@@ -65,8 +74,15 @@ interface PlanCheckoutModalProps {
 }
 
 const loadRazorpay = async () => {
+  if (typeof window === 'undefined') return;
   if ((window as any).Razorpay) return;
   await new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error('Failed to load Razorpay.')));
+      return;
+    }
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
@@ -116,13 +132,14 @@ const AccountAvatar: React.FC<{ url?: string; username?: string; name?: string }
         src={url}
         alt={username || 'Instagram Account'}
         onError={() => setHasError(true)}
-        className="h-10 w-10 rounded-full object-cover border border-border/80 shadow-sm"
+        className="h-9 w-9 flex-shrink-0 rounded-full object-cover border border-border/80 shadow-sm"
+        loading="lazy"
       />
     );
   }
 
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 via-purple-600 to-indigo-600 text-white font-bold text-sm shadow-sm">
+    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 via-purple-600 to-indigo-600 text-white font-black text-xs shadow-sm">
       {initial}
     </div>
   );
@@ -164,8 +181,8 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
   const [extraSlots, setExtraSlots] = useState<number>(0);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [couponState, setCouponState] = useState<CouponState | null>(null);
-  const [quote, setQuote] = useState<CheckoutQuote | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
@@ -175,6 +192,25 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
     () => findPricingPlan(eligiblePlans, selectedPlanId),
     [eligiblePlans, selectedPlanId]
   );
+
+  // Preload Razorpay SDK when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadRazorpay().catch(() => {});
+    }
+  }, [isOpen]);
+
+  // Keyboard accessibility (ESC to close)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isStartingCheckout && !isVerifyingPayment) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isStartingCheckout, isVerifyingPayment, onClose]);
 
   // Sync prop accounts or fetch linked accounts if missing
   useEffect(() => {
@@ -224,7 +260,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
     }
   }, [isOpen, igAccounts, targetAccountId, authenticatedFetch]);
 
-  // Derived billable accounts count
+  // Derived billable accounts count - instant calculation
   const accountsCount = useMemo(() => {
     const selectedCount = selectedAccountIds.size;
     const total = selectedCount + extraSlots;
@@ -234,65 +270,45 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
     return Math.max(1, total);
   }, [selectedAccountIds.size, extraSlots, localAccounts.length]);
 
+  // Reset modal state on open/reset
   useEffect(() => {
     if (!isOpen) return;
     setSelectedPlanId(resolvedInitialPlanId);
     setBillingCycle(defaultBillingCycle);
     setCouponCode('');
+    setAppliedCoupon(null);
     setCouponState(null);
-    setQuote(null);
   }, [defaultBillingCycle, isOpen, resolvedInitialPlanId]);
 
-  useEffect(() => {
-    if (!isOpen || !selectedPlan) return;
+  // 100% Instant, Zero-Latency Real-Time Price Calculations
+  const unitBasePrice = useMemo(() => {
+    if (!selectedPlan) return 0;
+    return getPlanBilledTotal(selectedPlan, currency, billingCycle === 'yearly');
+  }, [selectedPlan, currency, billingCycle]);
 
-    let cancelled = false;
+  const billedTotal = useMemo(() => {
+    return unitBasePrice * accountsCount;
+  }, [unitBasePrice, accountsCount]);
 
-    const fetchBaseQuote = async () => {
-      try {
-        const response = await authenticatedFetch(
-          `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/coupons/validate`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...pricingHeaders
-            },
-            body: JSON.stringify({
-              plan_id: selectedPlan.id,
-              billing_cycle: billingCycle,
-              currency,
-              accounts_count: accountsCount,
-              selected_account_ids: Array.from(selectedAccountIds)
-            })
-          }
-        );
-        const payload = await response.json().catch(() => null);
-        if (!cancelled) {
-          setQuote(payload?.pricing || null);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setQuote(null);
-        }
-        console.error('Failed to load checkout quote:', error);
-      }
-    };
+  const discountAmount = useMemo(() => {
+    if (!appliedCoupon || billedTotal <= 0) return 0;
+    if (appliedCoupon.type === 'percent') {
+      return Math.round((billedTotal * Number(appliedCoupon.value || 0)) / 100);
+    }
+    return Math.min(billedTotal, Number(appliedCoupon.value || 0));
+  }, [appliedCoupon, billedTotal]);
 
-    void fetchBaseQuote();
+  const finalAmount = useMemo(() => {
+    return Math.max(0, billedTotal - discountAmount);
+  }, [billedTotal, discountAmount]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [authenticatedFetch, billingCycle, currency, isOpen, pricingHeaders, selectedPlan, accountsCount]);
+  const selectedConnectedAccounts = useMemo(() => {
+    return localAccounts.filter((acc) =>
+      selectedAccountIds.has(String(acc.id || acc.ig_user_id))
+    );
+  }, [localAccounts, selectedAccountIds]);
 
-  useEffect(() => {
-    setCouponState(null);
-  }, [selectedPlanId, billingCycle, currency, accountsCount]);
-
-  if (!isOpen) return null;
-
-  const toggleAccountSelection = (accountId: string) => {
+  const toggleAccountSelection = useCallback((accountId: string) => {
     setSelectedAccountIds((prev) => {
       const next = new Set<string>(prev);
       if (next.has(accountId)) {
@@ -302,21 +318,29 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
       }
       return next;
     });
-  };
+  }, []);
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     const allIds = new Set<string>(localAccounts.map((acc) => String(acc.id || acc.ig_user_id)));
     setSelectedAccountIds(allIds);
-  };
+  }, [localAccounts]);
 
-  const handleDeselectAll = () => {
+  const handleDeselectAll = useCallback(() => {
     setSelectedAccountIds(new Set<string>());
     if (extraSlots === 0) {
       setExtraSlots(1);
     }
-  };
+  }, [extraSlots]);
 
   const handleApplyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) {
+      setCouponState({
+        valid: false,
+        message: 'Please enter a coupon code.'
+      });
+      return;
+    }
     if (!selectedPlan) return;
 
     setIsApplyingCoupon(true);
@@ -333,36 +357,49 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
             plan_id: selectedPlan.id,
             billing_cycle: billingCycle,
             currency,
-            coupon_code: couponCode.trim() || undefined,
+            coupon_code: code,
             accounts_count: accountsCount,
             selected_account_ids: Array.from(selectedAccountIds)
           })
         }
       );
       const payload = await response.json().catch(() => null);
-      setQuote(payload?.pricing || null);
 
       if (payload?.valid) {
+        const couponData = payload?.coupon;
+        setAppliedCoupon({
+          code: couponData?.code || code,
+          type: String(couponData?.type || '').toLowerCase() === 'percent' ? 'percent' : 'fixed',
+          value: Number(couponData?.value || 0)
+        });
         setCouponState({
           valid: true,
-          message: payload?.coupon?.code ? `Coupon applied: ${payload.coupon.code}` : 'Coupon applied.'
+          message: couponData?.code ? `Coupon "${couponData.code}" applied!` : 'Coupon applied successfully!'
         });
         return;
       }
 
+      setAppliedCoupon(null);
       setCouponState({
         valid: false,
         message: getCouponMessage(String(payload?.reason || 'invalid'))
       });
     } catch (error) {
       console.error('Coupon validation failed:', error);
+      setAppliedCoupon(null);
       setCouponState({
         valid: false,
-        message: 'Coupon could not be applied right now.'
+        message: 'Could not apply coupon right now.'
       });
     } finally {
       setIsApplyingCoupon(false);
     }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponState(null);
   };
 
   const handleStartCheckout = async () => {
@@ -382,7 +419,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
             plan_id: selectedPlan.id,
             billing_cycle: billingCycle,
             currency,
-            coupon_code: couponCode.trim() || undefined,
+            coupon_code: appliedCoupon ? appliedCoupon.code : (couponCode.trim() || undefined),
             accounts_count: accountsCount,
             selected_account_ids: Array.from(selectedAccountIds)
           })
@@ -400,11 +437,12 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
         return;
       }
 
-      setQuote(orderPayload?.pricing || null);
       if (orderPayload?.pricing?.coupon?.code) {
-        setCouponState({
-          valid: true,
-          message: `Coupon applied: ${orderPayload.pricing.coupon.code}`
+        const couponData = orderPayload.pricing.coupon;
+        setAppliedCoupon({
+          code: couponData.code,
+          type: String(couponData.type || '').toLowerCase() === 'percent' ? 'percent' : 'fixed',
+          value: Number(couponData.value || 0)
         });
       }
 
@@ -421,7 +459,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
               plan_id: selectedPlan.id,
               billing_cycle: billingCycle,
               currency,
-              coupon_code: couponCode.trim() || undefined,
+              coupon_code: appliedCoupon ? appliedCoupon.code : (couponCode.trim() || undefined),
               payment_attempt_id: orderPayload?.payment_attempt_id || undefined,
               accounts_count: accountsCount,
               selected_account_ids: Array.from(selectedAccountIds)
@@ -473,7 +511,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                   plan_id: selectedPlan.id,
                   billing_cycle: billingCycle,
                   currency,
-                  coupon_code: couponCode.trim() || undefined,
+                  coupon_code: appliedCoupon ? appliedCoupon.code : (couponCode.trim() || undefined),
                   payment_attempt_id: orderPayload?.payment_attempt_id || undefined,
                   accounts_count: accountsCount,
                   selected_account_ids: Array.from(selectedAccountIds)
@@ -515,20 +553,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
     }
   };
 
-  const unitBasePrice = quote?.unit_base_amount ?? (selectedPlan ? getPlanBilledTotal(selectedPlan, currency, billingCycle === 'yearly') : 0);
-  const billedTotal = quote && quote.accounts_count === accountsCount
-    ? quote.base_amount
-    : (unitBasePrice * accountsCount);
-  const discountAmount = quote && quote.accounts_count === accountsCount
-    ? quote.discount
-    : 0;
-  const finalAmount = quote && quote.accounts_count === accountsCount
-    ? quote.final_amount
-    : Math.max(0, billedTotal - discountAmount);
-
-  const selectedConnectedAccounts = localAccounts.filter((acc) =>
-    selectedAccountIds.has(String(acc.id || acc.ig_user_id))
-  );
+  if (!isOpen) return null;
 
   const overlayRoot = typeof document !== 'undefined'
     ? (document.querySelector('[data-dashboard-section-overlay-root]') as HTMLElement | null)
@@ -538,52 +563,62 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
   const modalContent = (
     <div
       className={cn(
+        'animate-in fade-in duration-200',
         isSectionViewportOverlay
-          ? 'pointer-events-auto absolute inset-0 z-[220] flex items-center justify-center bg-black/45 px-3 py-4 backdrop-blur-sm sm:px-6'
-          : 'fixed inset-0 z-[220] flex items-center justify-center bg-black/45 px-3 py-4 backdrop-blur-sm sm:px-6'
+          ? 'pointer-events-auto absolute inset-0 z-[220] flex items-center justify-center bg-black/60 px-3 py-4 backdrop-blur-md sm:px-6'
+          : 'fixed inset-0 z-[220] flex items-center justify-center bg-black/60 px-3 py-4 backdrop-blur-md sm:px-6'
       )}
     >
       <div
         className={cn(
-          'relative flex w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-border bg-card shadow-[0_36px_120px_rgba(15,23,42,0.22)]',
+          'relative flex w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-border/80 bg-card shadow-[0_32px_100px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-200',
           isSectionViewportOverlay ? 'max-h-[calc(100%-2rem)]' : 'max-h-[92vh]'
         )}
       >
         {isVerifyingPayment && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-card/80 backdrop-blur-sm">
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-card/90 backdrop-blur-md">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="mt-4 text-sm font-bold text-foreground">Verifying your payment...</p>
-            <p className="mt-1 text-xs text-muted-foreground">Please do not close this window.</p>
+            <p className="mt-4 text-base font-black text-foreground">Verifying your payment...</p>
+            <p className="mt-1 text-xs text-muted-foreground">Please do not close or refresh this window.</p>
           </div>
         )}
 
+        {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-card/90 text-muted-foreground transition hover:text-foreground"
+          disabled={isStartingCheckout || isVerifyingPayment}
+          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-xl border border-border/80 bg-card/90 text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-95 disabled:opacity-50"
           aria-label="Close checkout"
         >
-          <X className="h-4.5 w-4.5" />
+          <X className="h-4 w-4" />
         </button>
 
         <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="min-h-0 overflow-y-auto border-b border-border p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-8">
-            <div className="max-w-2xl">
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-primary/75">Checkout</p>
-              <h2 className="mt-3 text-2xl font-black tracking-tight text-foreground sm:text-3xl">Select Accounts & Plan</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Choose which Instagram accounts to include in your subscription plan, or reserve extra account slots.
-              </p>
+          {/* Left Column: Accounts & Plan Selector */}
+          <div className="min-h-0 overflow-y-auto border-b border-border/80 p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-7">
+            <div className="max-w-2xl space-y-6">
+              <div>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
+                  <Sparkles className="h-3 w-3" /> Quick Billing
+                </div>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl">Select Accounts & Plan</h2>
+                <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
+                  Pick the Instagram accounts to include in your subscription, or add extra unlinked slots.
+                </p>
+              </div>
 
               {/* Billing Cycle Switch */}
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-                <div className="inline-flex rounded-2xl border border-border bg-muted/50 p-1">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/30 p-2 sm:p-2.5">
+                <div className="inline-flex rounded-xl border border-border bg-card p-1 shadow-xs">
                   <button
                     type="button"
                     onClick={() => setBillingCycle('monthly')}
                     className={cn(
-                      'rounded-xl px-4 py-2 text-sm font-bold transition',
-                      billingCycle === 'monthly' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+                      'rounded-lg px-3.5 py-1.5 text-xs sm:text-sm font-bold transition-all',
+                      billingCycle === 'monthly'
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
                     Monthly
@@ -592,29 +627,37 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                     type="button"
                     onClick={() => setBillingCycle('yearly')}
                     className={cn(
-                      'rounded-xl px-4 py-2 text-sm font-bold transition',
-                      billingCycle === 'yearly' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+                      'rounded-lg px-3.5 py-1.5 text-xs sm:text-sm font-bold transition-all',
+                      billingCycle === 'yearly'
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
                     Yearly
                   </button>
                 </div>
-                <span className="text-xs font-semibold text-muted-foreground">
-                  {billingCycle === 'yearly' ? 'Save up to 20% on yearly plans' : 'Cancel or upgrade anytime'}
-                </span>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground pr-1">
+                  {billingCycle === 'yearly' ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                      <Tag className="h-3.5 w-3.5" /> Save up to 20% on yearly plans
+                    </span>
+                  ) : (
+                    <span>Flexible monthly &bull; cancel anytime</span>
+                  )}
+                </div>
               </div>
 
               {/* Instagram Account Selector Section */}
-              <div className="mt-6 rounded-2xl border border-border bg-card/70 p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-2 pb-3 border-b border-border">
-                  <div className="flex items-center gap-2">
+              <div className="rounded-2xl border border-border/80 bg-card/60 p-4 sm:p-5 shadow-xs">
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/70">
+                  <div className="flex items-center gap-2.5">
                     <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-pink-500/10 text-pink-500">
                       <Instagram className="h-4 w-4" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-foreground">Select Instagram Accounts</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {selectedAccountIds.size} of {localAccounts.length} connected accounts selected
+                      <h3 className="text-xs sm:text-sm font-bold text-foreground">Instagram Accounts</h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        {selectedAccountIds.size} of {localAccounts.length} accounts selected
                       </p>
                     </div>
                   </div>
@@ -625,7 +668,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                         <button
                           type="button"
                           onClick={handleSelectAll}
-                          className="text-xs font-bold text-primary hover:underline"
+                          className="text-xs font-bold text-primary hover:underline transition"
                         >
                           Select All
                         </button>
@@ -633,7 +676,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                         <button
                           type="button"
                           onClick={handleDeselectAll}
-                          className="text-xs font-bold text-muted-foreground hover:underline"
+                          className="text-xs font-bold text-muted-foreground hover:text-foreground hover:underline transition"
                         >
                           Clear
                         </button>
@@ -643,10 +686,10 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                 </div>
 
                 {/* Account Cards List */}
-                <div className="mt-3 space-y-2 max-h-56 overflow-y-auto pr-1">
+                <div className="mt-3 space-y-2 max-h-52 overflow-y-auto pr-1">
                   {isLoadingAccounts ? (
-                    <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading your Instagram accounts...
+                    <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" /> Loading Instagram accounts...
                     </div>
                   ) : localAccounts.length > 0 ? (
                     localAccounts.map((account) => {
@@ -658,43 +701,47 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                           type="button"
                           onClick={() => toggleAccountSelection(id)}
                           className={cn(
-                            'flex w-full items-center justify-between rounded-xl border p-3 text-left transition',
+                            'group flex w-full items-center justify-between rounded-xl border p-2.5 sm:p-3 text-left transition-all active:scale-[0.99]',
                             isSelected
-                              ? 'border-primary/50 bg-primary/5 shadow-sm'
-                              : 'border-border bg-background/50 hover:border-border/80'
+                              ? 'border-primary bg-primary/8 shadow-xs'
+                              : 'border-border/70 bg-background/50 hover:border-border hover:bg-background/80'
                           )}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <AccountAvatar
                               url={account.profile_picture_url}
                               username={account.username}
                               name={account.name}
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-bold text-foreground">
+                              <p className="truncate text-xs sm:text-sm font-bold text-foreground">
                                 {account.username ? `@${account.username}` : account.name || 'Instagram Account'}
                               </p>
                               {account.name && account.username && (
-                                <p className="truncate text-xs text-muted-foreground">{account.name}</p>
+                                <p className="truncate text-[10px] sm:text-xs text-muted-foreground">{account.name}</p>
                               )}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3">
-                            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <div className="flex items-center gap-2.5">
+                            <span className="hidden sm:inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                               Connected
                             </span>
-                            <div className={cn('text-primary transition', isSelected ? 'opacity-100' : 'opacity-40')}>
-                              {isSelected ? <CheckSquare className="h-5 w-5 fill-primary text-primary-foreground" /> : <Square className="h-5 w-5 text-muted-foreground" />}
+                            <div className={cn('transition-transform duration-150', isSelected ? 'scale-105 text-primary' : 'text-muted-foreground/40 group-hover:text-muted-foreground/80')}>
+                              {isSelected ? (
+                                <CheckSquare className="h-5 w-5 fill-primary text-primary-foreground" />
+                              ) : (
+                                <Square className="h-5 w-5" />
+                              )}
                             </div>
                           </div>
                         </button>
                       );
                     })
                   ) : (
-                    <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4 text-center">
-                      <p className="text-sm font-medium text-foreground">No Instagram accounts connected yet</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                    <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-4 text-center">
+                      <p className="text-xs sm:text-sm font-medium text-foreground">No Instagram accounts connected yet</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
                         You can purchase plan slots now and link your Instagram accounts anytime in Account Settings.
                       </p>
                     </div>
@@ -702,211 +749,266 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                 </div>
 
                 {/* Extra Account Slots Stepper */}
-                <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-muted/30 p-3">
+                <div className="mt-3 flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 p-3">
                   <div>
                     <p className="text-xs font-bold text-foreground">Reserve Extra Account Slots</p>
-                    <p className="text-[11px] text-muted-foreground">Add slots for accounts you plan to link later.</p>
+                    <p className="text-[10px] text-muted-foreground">Add slots for accounts you plan to link later.</p>
                   </div>
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-1">
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-1 shadow-2xs">
                     <button
                       type="button"
                       onClick={() => setExtraSlots((prev) => Math.max(0, prev - 1))}
                       disabled={extraSlots <= 0}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground font-bold transition hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border/70 bg-background text-foreground font-bold transition hover:bg-muted active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Decrease slots"
                     >
                       <Minus className="h-3.5 w-3.5" />
                     </button>
-                    <span className="min-w-[1.5rem] text-center text-sm font-black text-foreground">{extraSlots}</span>
+                    <span className="min-w-[1.75rem] text-center text-xs sm:text-sm font-black text-foreground">{extraSlots}</span>
                     <button
                       type="button"
                       onClick={() => setExtraSlots((prev) => Math.min(50, prev + 1))}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground font-bold transition hover:bg-muted"
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border/70 bg-background text-foreground font-bold transition hover:bg-muted active:scale-95"
+                      aria-label="Increase slots"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground px-1">
+                <div className="mt-2.5 flex items-center justify-between text-xs text-muted-foreground px-1">
                   <span>Total Billable Accounts:</span>
                   <span className="font-bold text-foreground">{accountsCount} {accountsCount === 1 ? 'Account' : 'Accounts'}</span>
                 </div>
               </div>
 
               {/* Plan Cards List */}
-              <div className="mt-6 grid gap-4">
-                {eligiblePlans.map((entry) => {
-                  const isSelected = entry.id === selectedPlanId;
-                  const unitPrice = getPlanBilledTotal(entry, currency, billingCycle === 'yearly');
-                  const totalPlanPrice = unitPrice * accountsCount;
-                  return (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      onClick={() => setSelectedPlanId(entry.id)}
-                      className={cn(
-                        `rounded-[1.6rem] border p-4 text-left ${FAST_TRANSITION} sm:p-5`,
-                        isSelected
-                          ? 'border-primary/40 bg-primary/5 shadow-[0_16px_40px_rgba(17,17,17,0.08)]'
-                          : 'border-border bg-background/60 hover:border-border/80'
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-lg font-bold text-foreground">{entry.name}</h3>
-                            {entry.is_popular && (
-                              <span className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary-foreground">
-                                Popular
+              <div className="space-y-3">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">Available Plans</p>
+                <div className="grid gap-3">
+                  {eligiblePlans.map((entry) => {
+                    const isSelected = entry.id === selectedPlanId;
+                    const unitPrice = getPlanBilledTotal(entry, currency, billingCycle === 'yearly');
+                    const totalPlanPrice = unitPrice * accountsCount;
+                    return (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        onClick={() => setSelectedPlanId(entry.id)}
+                        className={cn(
+                          `rounded-2xl border p-4 text-left ${FAST_TRANSITION} transition-all active:scale-[0.99]`,
+                          isSelected
+                            ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
+                            : 'border-border/80 bg-background/50 hover:border-border hover:bg-background/80'
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-base font-bold text-foreground">{entry.name}</h3>
+                              {entry.is_popular && (
+                                <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-primary-foreground">
+                                  Popular
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {formatMoney(unitPrice, currency)} / account / {billingCycle === 'yearly' ? 'yr' : 'mo'}
+                              <span className="ml-2 font-bold text-foreground">
+                                (Total: {formatMoney(totalPlanPrice, currency)} for {accountsCount} {accountsCount === 1 ? 'account' : 'accounts'})
                               </span>
+                            </p>
+                          </div>
+                          <div
+                            className={cn(
+                              'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border transition',
+                              isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-transparent'
                             )}
+                          >
+                            <Check className="h-3 w-3" />
                           </div>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {billingCycle === 'yearly'
-                              ? `${formatMoney(unitPrice, currency)} / account / yr (Total: ${formatMoney(totalPlanPrice, currency)} for ${accountsCount} ${accountsCount === 1 ? 'account' : 'accounts'})`
-                              : `${formatMoney(unitPrice, currency)} / account / mo (Total: ${formatMoney(totalPlanPrice, currency)} for ${accountsCount} ${accountsCount === 1 ? 'account' : 'accounts'})`}
-                          </p>
                         </div>
-                        <div
-                          className={cn(
-                            'flex h-6 w-6 items-center justify-center rounded-full border',
-                            isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-transparent'
-                          )}
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </div>
-                      </div>
 
-                      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                        {entry.features.slice(0, 4).map((feature, index) => (
-                          <div key={`${entry.id}-${index}`} className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Check className="h-4 w-4 text-emerald-500" />
-                            <span className="min-w-0 break-words">{feature}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </button>
-                  );
-                })}
+                        <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                          {entry.features.slice(0, 4).map((feature, index) => (
+                            <div key={`${entry.id}-${index}`} className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Check className="h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
+                              <span className="truncate">{feature}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Right Column: Order Summary */}
-          <div className="min-h-0 overflow-y-auto bg-muted/30 p-4 sm:p-6 lg:p-8">
-            <div className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">Order Summary</p>
-              <h3 className="mt-3 text-xl font-black text-foreground">{selectedPlan?.name || 'Select a plan'}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {billingCycle === 'yearly' ? 'Yearly billing' : 'Monthly billing'} &bull; {accountsCount} {accountsCount === 1 ? 'Account' : 'Accounts'}
-              </p>
-
-              {/* Covered Accounts Summary Pill */}
-              <div className="mt-4 rounded-xl border border-border bg-muted/40 p-3">
-                <p className="text-xs font-bold text-foreground mb-2 flex items-center justify-between">
-                  <span>Covered Accounts</span>
-                  <span className="text-[11px] font-semibold text-muted-foreground">{accountsCount} Total</span>
-                </p>
-
-                {selectedConnectedAccounts.length > 0 ? (
-                  <div className="space-y-1.5">
-                    {selectedConnectedAccounts.map((acc) => (
-                      <div key={acc.id} className="flex items-center gap-2 text-xs text-foreground font-medium">
-                        <AccountAvatar url={acc.profile_picture_url} username={acc.username} name={acc.name} />
-                        <span className="truncate">@{acc.username || acc.name || 'Instagram Account'}</span>
-                      </div>
-                    ))}
-                    {extraSlots > 0 && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted border border-border text-[10px] font-bold">
-                          +{extraSlots}
-                        </div>
-                        <span>{extraSlots} extra account {extraSlots === 1 ? 'slot' : 'slots'}</span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground">
-                    {extraSlots > 0
-                      ? `${extraSlots} unlinked account ${extraSlots === 1 ? 'slot' : 'slots'}`
-                      : '1 account slot included'}
-                  </div>
-                )}
-              </div>
-
-              {/* Price Calculation Breakdown */}
-              <div className="mt-5 space-y-3 rounded-[1.4rem] border border-border bg-background/70 p-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Total Accounts</span>
-                  <span className="font-semibold text-foreground">{accountsCount}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Rate / account</span>
-                  <span className="font-semibold text-foreground">{formatMoney(unitBasePrice, currency)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-semibold text-foreground">{formatMoney(billedTotal, currency)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Discount</span>
-                  <span className={cn('font-semibold', discountAmount > 0 ? 'text-emerald-500' : 'text-muted-foreground')}>
-                    {discountAmount > 0 ? `- ${formatMoney(discountAmount, currency)}` : formatMoney(0, currency)}
+          <div className="min-h-0 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-7 flex flex-col justify-between">
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Order Summary</p>
+                <div className="mt-2 flex items-baseline justify-between">
+                  <h3 className="text-xl font-black text-foreground">{selectedPlan?.name || 'Select a plan'}</h3>
+                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-bold text-foreground">
+                    {billingCycle === 'yearly' ? 'Yearly' : 'Monthly'}
                   </span>
                 </div>
-                <div className="h-px bg-border" />
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-foreground">Total</span>
-                  <span className="text-2xl font-black text-foreground">{formatMoney(finalAmount, currency)}</span>
-                </div>
-              </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Billed for {accountsCount} {accountsCount === 1 ? 'Instagram Account' : 'Instagram Accounts'}
+                </p>
 
-              {/* Coupon Form */}
-              <div className="mt-5">
-                <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                  Coupon Code
-                </label>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <div className="relative flex-1">
-                    <Percent className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      value={couponCode}
-                      onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
-                      placeholder="Enter coupon"
-                      className="h-12 w-full rounded-2xl border border-border bg-background pl-10 pr-4 text-sm text-foreground outline-none transition focus:border-primary/40"
-                    />
+                {/* Covered Accounts Summary Pill */}
+                <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-3">
+                  <div className="text-[11px] font-bold text-foreground mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5 text-muted-foreground" /> Covered Accounts
+                    </span>
+                    <span className="text-[10px] font-bold text-muted-foreground">{accountsCount} Total</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleApplyCoupon}
-                    disabled={isApplyingCoupon || !selectedPlan}
-                    className="inline-flex h-12 items-center justify-center rounded-2xl border border-border px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-[7rem]"
-                  >
-                    {isApplyingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
-                  </button>
-                </div>
-                {couponState && (
-                  <p className={cn('mt-2 text-sm font-medium', couponState.valid ? 'text-emerald-500' : 'text-destructive')}>
-                    {couponState.message}
-                  </p>
-                )}
-              </div>
 
-              {/* Action Button */}
-              <button
-                type="button"
-                onClick={handleStartCheckout}
-                disabled={!selectedPlan || isStartingCheckout || syncingPlan || loadingPlanId === selectedPlan?.id}
-                className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-foreground px-5 text-sm font-black text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isStartingCheckout || syncingPlan || loadingPlanId === selectedPlan?.id ? (
-                  <Loader2 className="h-4.5 w-4.5 animate-spin" />
-                ) : finalAmount <= 0 ? (
-                  'Activate Plan'
-                ) : (
-                  `Pay ${formatMoney(finalAmount, currency)}`
-                )}
-              </button>
+                  {selectedConnectedAccounts.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {selectedConnectedAccounts.map((acc) => (
+                        <div key={acc.id} className="flex items-center gap-2 text-xs text-foreground font-medium">
+                          <AccountAvatar url={acc.profile_picture_url} username={acc.username} name={acc.name} />
+                          <span className="truncate">@{acc.username || acc.name || 'Instagram Account'}</span>
+                        </div>
+                      ))}
+                      {extraSlots > 0 && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted border border-border text-[9px] font-bold">
+                            +{extraSlots}
+                          </div>
+                          <span>{extraSlots} extra account {extraSlots === 1 ? 'slot' : 'slots'}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">
+                      {extraSlots > 0
+                        ? `${extraSlots} unlinked account ${extraSlots === 1 ? 'slot' : 'slots'}`
+                        : '1 account slot included'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Real-time Zero-Latency Price Breakdown */}
+                <div className="mt-4 space-y-2.5 rounded-xl border border-border/70 bg-background/60 p-3.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Accounts Count</span>
+                    <span className="font-bold text-foreground">{accountsCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Rate / account</span>
+                    <span className="font-bold text-foreground">{formatMoney(unitBasePrice, currency)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-bold text-foreground">{formatMoney(billedTotal, currency)}</span>
+                  </div>
+                  {appliedCoupon && discountAmount > 0 && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                        <Tag className="h-3 w-3" /> Coupon Discount ({appliedCoupon.code})
+                      </span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                        - {formatMoney(discountAmount, currency)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="h-px bg-border/80" />
+                  <div className="flex items-center justify-between pt-0.5">
+                    <span className="text-xs font-bold text-foreground">Total Payable</span>
+                    <span className="text-2xl font-black text-foreground tracking-tight">{formatMoney(finalAmount, currency)}</span>
+                  </div>
+                </div>
+
+                {/* Coupon Code Section */}
+                <div className="mt-4">
+                  <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                    Have a promo coupon?
+                  </label>
+
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Tag className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <div>
+                          <span className="font-bold text-emerald-700 dark:text-emerald-300">{appliedCoupon.code}</span>
+                          <span className="ml-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                            ({appliedCoupon.type === 'percent' ? `${appliedCoupon.value}% OFF` : `-${formatMoney(appliedCoupon.value, currency)}`})
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300 transition"
+                        title="Remove coupon"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Percent className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          value={couponCode}
+                          onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void handleApplyCoupon();
+                            }
+                          }}
+                          placeholder="Coupon code"
+                          className="h-10 w-full rounded-xl border border-border/80 bg-background pl-9 pr-3 text-xs text-foreground outline-none transition focus:border-primary"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        disabled={isApplyingCoupon || !selectedPlan || !couponCode.trim()}
+                        className="inline-flex h-10 items-center justify-center rounded-xl border border-border px-3.5 text-xs font-bold text-foreground transition hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isApplyingCoupon ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Apply'}
+                      </button>
+                    </div>
+                  )}
+
+                  {couponState && !appliedCoupon && (
+                    <p className={cn('mt-1.5 text-xs font-medium', couponState.valid ? 'text-emerald-500' : 'text-destructive')}>
+                      {couponState.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Primary Action Button */}
+                <button
+                  type="button"
+                  onClick={handleStartCheckout}
+                  disabled={!selectedPlan || isStartingCheckout || syncingPlan || loadingPlanId === selectedPlan?.id}
+                  className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-xl bg-foreground px-5 text-sm font-black text-background transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
+                >
+                  {isStartingCheckout || syncingPlan || loadingPlanId === selectedPlan?.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : finalAmount <= 0 ? (
+                    'Activate Plan'
+                  ) : (
+                    `Pay ${formatMoney(finalAmount, currency)}`
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Trust & Security Badges */}
+            <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-medium text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+              <span>256-Bit SSL Encrypted &bull; Razorpay Certified &bull; Instant Activation</span>
             </div>
           </div>
         </div>
@@ -926,5 +1028,3 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
 };
 
 export default PlanCheckoutModal;
-
-

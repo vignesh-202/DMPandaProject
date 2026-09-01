@@ -100,7 +100,7 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
               </span>
             </div>
             <h3 className="mt-1 text-lg font-black tracking-tight text-foreground sm:text-xl">
-              Complimentary Entertainment, Music & Cloud Tools on Ultra Plans
+              Google AI Pro, Amazon Prime, Spotify, CapCut & Netflix on Ultra Plans
             </h3>
           </div>
         </div>

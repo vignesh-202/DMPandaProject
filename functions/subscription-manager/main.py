@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -224,8 +226,8 @@ def _parse_json_object(value, fallback=None):
     return {} if fallback is None else fallback
 
 
-def _call_appwrite(client: Client, method: str, path: str, headers=None, params=None):
-    last_error: Exception | None = None
+def _call_appwrite(client: Client, method: str, path: str, params=None, headers=None):
+    last_error = None
     for attempt in range(MAX_RETRIES):
         try:
             return client.call(method, path=path, headers=headers or {"content-type": "application/json"}, params=params or {}, response_type="json")
@@ -239,7 +241,7 @@ def _call_appwrite(client: Client, method: str, path: str, headers=None, params=
     raise RuntimeError("Failed to call Appwrite endpoint")
 
 
-def _resolve_frontend_origin(client: Client | None = None, db_id: str = "") -> str:
+def _resolve_frontend_origin(client=None, db_id: str = "") -> str:
     if client and db_id:
         try:
             document = _call_appwrite(

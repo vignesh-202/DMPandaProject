@@ -490,11 +490,27 @@ const sortPlans = (plans) => plans.sort((a, b) => {
     return a.name.localeCompare(b.name);
 });
 
-const listPricingPlans = async (databases) => {
+const PRICING_PLANS_CACHE_TTL_MS = 30000;
+let cachedPricingPlans = null;
+let cachedPricingPlansExpiresAt = 0;
+
+const clearPricingPlansCache = () => {
+    cachedPricingPlans = null;
+    cachedPricingPlansExpiresAt = 0;
+};
+
+const listPricingPlans = async (databases, forceRefresh = false) => {
+    const now = Date.now();
+    if (!forceRefresh && cachedPricingPlans && cachedPricingPlansExpiresAt > now) {
+        return cachedPricingPlans;
+    }
     const response = await databases.listDocuments(APPWRITE_DATABASE_ID, PRICING_COLLECTION_ID, [
         Query.limit(100)
     ]);
-    return sortPlans((response.documents || []).map(normalizePlanDocument));
+    const plans = sortPlans((response.documents || []).map(normalizePlanDocument));
+    cachedPricingPlans = plans;
+    cachedPricingPlansExpiresAt = now + PRICING_PLANS_CACHE_TTL_MS;
+    return plans;
 };
 
 const findPlanByIdentifier = (plans, identifier) => {
@@ -1523,6 +1539,7 @@ module.exports = {
     buildPricingComparison,
     buildPricingApiPayload,
     listPricingPlans,
+    clearPricingPlansCache,
     findPlanByIdentifier,
     getPlanByIdentifier,
     getUserProfile,

@@ -168,7 +168,7 @@
       "is_popular": false,
       "is_custom": false,
       "prices": {
-        "monthly_inr": 150,
+        "monthly_inr": 149,
         "yearly_inr": 1188,
         "yearly_monthly_inr": 99
       },
@@ -206,7 +206,7 @@
       "is_popular": true,
       "is_custom": false,
       "prices": {
-        "monthly_inr": 250,
+        "monthly_inr": 249,
         "yearly_inr": 2388,
         "yearly_monthly_inr": 199
       },

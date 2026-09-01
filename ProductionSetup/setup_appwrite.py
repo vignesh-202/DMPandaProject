@@ -214,6 +214,7 @@ SYSTEM_CONFIG_COLLECTION = {
         {"key": "type", "type": "string", "size": 32, "required": False, "array": False, "default": "text"},
         {"key": "position", "type": "string", "size": 64, "required": False, "array": False, "default": "secondary_message"},
         {"key": "opacity", "type": "double", "required": False, "array": False, "default": 1.0, "min": 0.0, "max": 1.0},
+        {"key": "payload_json", "type": "string", "size": 65535, "required": False, "array": False, "default": None},
         {"key": "updated_by", "type": "string", "size": 255, "required": False, "array": False, "default": None},
         {"key": "updated_at", "type": "datetime", "required": False, "array": False, "default": None},
     ],

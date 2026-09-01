@@ -22,6 +22,7 @@ const {
 const { cleanupUserOwnedData } = require('../utils/userCleanup');
 const {
     listPricingPlans,
+    clearPricingPlansCache,
     getPlanByIdentifier,
     normalizePlanDocument,
     resolvePlanEntitlements,
@@ -2830,7 +2831,7 @@ router.patch('/pricing/:planId', loginRequired, adminRequired, async (req, res) 
             price_monthly_inr: Number(req.body?.price_monthly_inr || 0),
             price_yearly_inr: Number(req.body?.price_yearly_inr || 0),
             price_yearly_monthly_inr: Number(req.body?.price_yearly_monthly_inr || 0),
-            yearly_bonus: '',
+            yearly_bonus: String(req.body?.yearly_bonus || '').trim(),
             is_popular: Boolean(req.body?.is_popular),
             is_custom: Boolean(req.body?.is_custom),
             display_order: Number(req.body?.display_order || 0),
@@ -2849,6 +2850,7 @@ router.patch('/pricing/:planId', loginRequired, adminRequired, async (req, res) 
             }
         });
         const updated = await databases.updateDocument(APPWRITE_DATABASE_ID, PRICING_COLLECTION_ID, planId, payload);
+        clearPricingPlansCache();
         const affectedProfiles = await databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
             Query.equal('plan_code', payload.plan_code),
             Query.limit(500)

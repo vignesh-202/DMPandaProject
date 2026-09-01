@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Script to update Appwrite database pricing collection documents with new prices:
-- Basic: 150 monthly / 99 yearly per month (1188 yr)
-- Pro: 250 monthly / 199 yearly per month (2388 yr)
+- Basic: 149 monthly / 99 yearly per month (1188 yr)
+- Pro: 249 monthly / 199 yearly per month (2388 yr)
 - Ultra: 350 monthly / 299 yearly per month (3588 yr)
 - Free: 0 monthly / 0 yearly
 
@@ -60,7 +60,7 @@ PRICING_UPDATES = {
         ])
     },
     "basic": {
-        "price_monthly_inr": 150,
+        "price_monthly_inr": 149,
         "price_yearly_inr": 1188,
         "price_yearly_monthly_inr": 99,
         "features": json.dumps([
@@ -83,7 +83,7 @@ PRICING_UPDATES = {
         ])
     },
     "pro": {
-        "price_monthly_inr": 250,
+        "price_monthly_inr": 249,
         "price_yearly_inr": 2388,
         "price_yearly_monthly_inr": 199,
         "features": json.dumps([
