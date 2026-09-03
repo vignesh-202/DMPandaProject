@@ -5,8 +5,11 @@ import {
   ArrowUpRight,
   HelpCircle,
   ShieldAlert,
-  MessageCircle,
-  ExternalLink
+  ShieldCheck,
+  Gift,
+  Zap,
+  Sparkles,
+  CheckCircle2
 } from 'lucide-react';
 
 /* =========================================================
@@ -39,11 +42,7 @@ const SpotifyLogo = ({ className = 'h-7 w-7' }: { className?: string }) => (
     src="/images/offers/spotify.png"
     alt="Spotify Logo"
     loading="lazy"
-    className={`${className} object-contain shrink-0`}
-    onError={(e) => {
-      (e.target as HTMLImageElement).src =
-        'https://appwrite.vvdeals.cloud/v1/storage/buckets/product-images/files/6a46987b0036306fc8f7/view?project=6a081ab3002501e13f50';
-    }}
+    className={`${className} object-cover rounded-lg shrink-0`}
   />
 );
 
@@ -83,21 +82,21 @@ const OFFER_FAQS: OfferFAQ[] = [
     answer: (
       <div className="space-y-2">
         <p>
-          Once you subscribe to an eligible DM Panda Ultra plan (Monthly or Yearly), you can activate your bonus subscriptions directly with VV Deals:
+          Once you subscribe to an eligible full-price DM Panda Ultra plan (Monthly or Yearly), you can activate your bonus subscriptions directly with VV Deals:
         </p>
         <ul className="list-disc pl-5 space-y-1">
           <li>
             <strong>WhatsApp Support:</strong> Message VV Deals support directly on WhatsApp with your DM Panda payment reference ID to receive activation details.
           </li>
           <li>
-            <strong>Contact Page:</strong> You can also submit your details directly via the{' '}
+            <strong>Support Page:</strong> You can also submit your details directly via the{' '}
             <a
-              href="https://vvdeals.cloud/contact"
+              href="https://vvdeals.cloud/support"
               target="_blank"
               rel="noopener noreferrer"
               className="font-bold underline text-purple-600 dark:text-purple-400 hover:opacity-80"
             >
-              VV Deals Contact Page
+              VV Deals Support Page
             </a>{' '}
             or email{' '}
             <a
@@ -113,18 +112,23 @@ const OFFER_FAQS: OfferFAQ[] = [
     )
   },
   {
-    question: 'What exact products are bundled with Ultra plans?',
+    question: 'What exact products and values are bundled with Ultra plans?',
     answer: (
       <div className="space-y-4">
         <div>
-          <p className="font-extrabold text-foreground mb-1.5 text-xs sm:text-sm uppercase tracking-wide text-purple-600 dark:text-purple-400">
-            ★ Ultra Yearly Plan (5 Included Subscriptions):
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+            <p className="font-extrabold text-foreground text-xs sm:text-sm uppercase tracking-wide text-purple-600 dark:text-purple-400">
+              ★ Ultra Yearly Plan (5 Subscriptions — Total Value: ₹39,660):
+            </p>
+            <span className="rounded-md bg-purple-500/15 px-2 py-0.5 text-[11px] font-black text-purple-700 dark:text-purple-300 border border-purple-500/25">
+              ₹39,660 Total Value
+            </span>
+          </div>
           <ul className="space-y-1.5 pl-2 text-xs sm:text-sm">
             <li className="flex items-start gap-2">
               <span className="text-purple-500 font-bold">•</span>
               <div>
-                <strong>Google AI Pro (18 Months):</strong> Gemini Pro AI & 2TB cloud storage —{' '}
+                <strong>Google AI Pro (18 Months) — ₹35,100:</strong> Gemini Pro AI & 2TB cloud storage —{' '}
                 <a
                   href="https://vvdeals.cloud/product/google-ai-pro-18-months"
                   target="_blank"
@@ -138,7 +142,7 @@ const OFFER_FAQS: OfferFAQ[] = [
             <li className="flex items-start gap-2">
               <span className="text-purple-500 font-bold">•</span>
               <div>
-                <strong>Amazon Prime (6 Months):</strong> Prime Video & benefits on your email —{' '}
+                <strong>Amazon Prime (6 Months) — ₹1,794:</strong> Prime Video & benefits on your email —{' '}
                 <a
                   href="https://vvdeals.cloud/product/amazon-prime-subscription-6-months-on-your-email"
                   target="_blank"
@@ -152,7 +156,7 @@ const OFFER_FAQS: OfferFAQ[] = [
             <li className="flex items-start gap-2">
               <span className="text-purple-500 font-bold">•</span>
               <div>
-                <strong>Spotify Premium (3 Months):</strong> Ad-free music & offline listening —{' '}
+                <strong>Spotify Premium (3 Months) — ₹597:</strong> Ad-free music & offline listening —{' '}
                 <a
                   href="https://vvdeals.cloud/product/spotify-premium-individual-3-months"
                   target="_blank"
@@ -166,7 +170,7 @@ const OFFER_FAQS: OfferFAQ[] = [
             <li className="flex items-start gap-2">
               <span className="text-purple-500 font-bold">•</span>
               <div>
-                <strong>CapCut Pro (1 Month):</strong> Pro transitions, AI effects & 4K exports —{' '}
+                <strong>CapCut Pro (1 Month) — ₹2,000:</strong> Pro transitions, AI effects & 4K exports —{' '}
                 <a
                   href="https://vvdeals.cloud/product/capcut-pro-1-month"
                   target="_blank"
@@ -180,7 +184,7 @@ const OFFER_FAQS: OfferFAQ[] = [
             <li className="flex items-start gap-2">
               <span className="text-purple-500 font-bold">•</span>
               <div>
-                <strong>Netflix Premium (1 Month):</strong> 1-device Ultra HD 4K streaming —{' '}
+                <strong>Netflix Premium (1 Month, 1 Device) — ₹169:</strong> 1-device Ultra HD 4K streaming —{' '}
                 <a
                   href="https://vvdeals.cloud/product/netflix-premium-1-month-1-device-access"
                   target="_blank"
@@ -195,14 +199,19 @@ const OFFER_FAQS: OfferFAQ[] = [
         </div>
 
         <div>
-          <p className="font-extrabold text-foreground mb-1.5 text-xs sm:text-sm uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
-            ★ Ultra Monthly Plan (3 Included Subscriptions):
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+            <p className="font-extrabold text-foreground text-xs sm:text-sm uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+              ★ Ultra Monthly Plan (3 Subscriptions — Total Value: ₹898):
+            </p>
+            <span className="rounded-md bg-indigo-500/15 px-2 py-0.5 text-[11px] font-black text-indigo-700 dark:text-indigo-300 border border-indigo-500/25">
+              ₹898 Total Value
+            </span>
+          </div>
           <ul className="space-y-1.5 pl-2 text-xs sm:text-sm">
             <li className="flex items-start gap-2">
               <span className="text-indigo-500 font-bold">•</span>
               <div>
-                <strong>Amazon Prime (1 Month):</strong> Prime Video streaming on your email —{' '}
+                <strong>Amazon Prime (1 Month) — ₹299:</strong> Prime Video streaming on your email —{' '}
                 <a
                   href="https://vvdeals.cloud/product/amazon-prime-subscription-1-month-on-your-mail"
                   target="_blank"
@@ -216,7 +225,7 @@ const OFFER_FAQS: OfferFAQ[] = [
             <li className="flex items-start gap-2">
               <span className="text-indigo-500 font-bold">•</span>
               <div>
-                <strong>CapCut Pro (7 Days):</strong> Pro editing features & effects —{' '}
+                <strong>CapCut Pro (7 Days) — ₹500:</strong> Pro editing features & effects —{' '}
                 <a
                   href="https://vvdeals.cloud/product/capcut-pro-7-days"
                   target="_blank"
@@ -230,7 +239,7 @@ const OFFER_FAQS: OfferFAQ[] = [
             <li className="flex items-start gap-2">
               <span className="text-indigo-500 font-bold">•</span>
               <div>
-                <strong>Netflix Premium (5 Days Access):</strong> Ultra HD 4K streaming access —{' '}
+                <strong>Netflix Premium (5 Days Access on Mobile/TV, 1 Device) — ₹99:</strong> Ultra HD 4K streaming access on Mobile / TV —{' '}
                 <a
                   href="https://vvdeals.cloud/product/netflix-premium-5-days-access"
                   target="_blank"
@@ -247,6 +256,14 @@ const OFFER_FAQS: OfferFAQ[] = [
     )
   },
   {
+    question: 'Is the offer valid if I use a discount coupon during checkout?',
+    answer: (
+      <p>
+        <strong>No.</strong> The VV Deals promotional bonus subscriptions offer is <strong>strictly not valid if any discount coupon or promo code is applied</strong> during billing. Only full-price Ultra plan subscriptions (without coupon deductions) qualify for the free bonus subscriptions.
+      </p>
+    )
+  },
+  {
     question: 'How are the credentials or vouchers delivered?',
     answer: (
       <p>
@@ -258,7 +275,7 @@ const OFFER_FAQS: OfferFAQ[] = [
     question: 'Can I claim the offer multiple times if I upgrade multiple Instagram accounts?',
     answer: (
       <p>
-        Yes, each individual Ultra plan subscription activated on a linked Instagram account qualifies for its respective VV Deals bonus perks.
+        Yes, each individual full-price Ultra plan subscription activated on a linked Instagram account qualifies for its respective VV Deals bonus perks.
       </p>
     )
   },
@@ -282,151 +299,124 @@ export const VVDealsOfferSection: React.FC<{ className?: string }> = ({ classNam
   return (
     <section
       id="vvdeals-offer-details"
-      className={`relative scroll-mt-24 overflow-hidden rounded-[2.5rem] border border-purple-500/30 bg-gradient-to-b from-purple-950/20 via-card to-card p-6 sm:p-10 lg:p-12 shadow-2xl backdrop-blur-xl ${className}`}
+      className={`relative scroll-mt-24 overflow-hidden rounded-3xl border border-purple-500/30 bg-gradient-to-b from-purple-950/15 via-card to-card p-6 sm:p-10 lg:p-12 shadow-xl backdrop-blur-xl ${className}`}
     >
       {/* Decorative ambient glows */}
-      <div className="pointer-events-none absolute -left-20 top-1/4 h-72 w-72 rounded-full bg-purple-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute -right-20 bottom-1/4 h-72 w-72 rounded-full bg-pink-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute -left-24 top-1/4 h-80 w-80 rounded-full bg-purple-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 bottom-1/4 h-80 w-80 rounded-full bg-indigo-500/10 blur-3xl" />
 
-      {/* Header & Title (without creators bundle tag) */}
-      <div className="relative z-10 mx-auto max-w-4xl text-center">
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-foreground">
-          Special Subscriptions Included with Ultra Plan, Powered by{' '}
+      {/* Header & Title */}
+      <div className="relative z-10 mx-auto max-w-3xl text-center">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 text-xs font-bold uppercase tracking-wider mb-4 border border-purple-500/20 shadow-xs">
+          <Gift size={13} className="text-purple-600 dark:text-purple-400" />
+          <span>Exclusive Partner Benefit</span>
+          <span className="text-muted-foreground">•</span>
           <a
             href="https://vvdeals.cloud/"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent underline decoration-purple-500/40 hover:opacity-90"
+            className="underline hover:opacity-80"
           >
-            VVDeals
+            Powered by VV Deals
           </a>
+        </div>
+
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-foreground">
+          ₹39,660 in Premium Subscriptions. Included Free with Ultra.
         </h2>
 
-        <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-          Upgrade your Instagram automation to the <strong className="text-foreground">Ultra Plan</strong> and receive bonus subscriptions to top tools for AI, streaming, video editing, and music.
+        <p className="mt-4 text-base text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+          Upgrade to DM Panda Ultra and receive complimentary bonus subscriptions to industry-leading AI, video editing, 4K streaming, and music tools.
         </p>
 
-        {/* Real Brand Logos Showcase Bar */}
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5">
-          <a
-            href="https://vvdeals.cloud/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-2xl border border-purple-500/30 bg-card/90 px-3.5 py-2 shadow-xs transition-all hover:scale-105 hover:border-purple-500"
-            title="Visit VVDeals Cloud"
-          >
-            <img
-              src="/images/vvdeals-logo.png"
-              alt="VVDeals"
-              className="h-5 w-5 object-contain"
-              loading="lazy"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'https://vvdeals.cloud/vv-deals-site-icon.png';
-              }}
-            />
-            <span className="text-xs font-black text-foreground">VVDeals.cloud</span>
-          </a>
+        {/* 3 Structured Benefit Highlights Bar */}
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+          <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-background/60 p-3.5 shadow-2xs">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              <Gift size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-foreground">100% Free Partner Perks</p>
+              <p className="text-[11px] text-muted-foreground truncate">Bundled with Ultra plans</p>
+            </div>
+          </div>
 
-          <a
-            href="https://vvdeals.cloud/product/google-ai-pro-18-months"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-2xl border border-border bg-card/80 px-3.5 py-2 shadow-xs transition-all hover:scale-105 hover:border-blue-400"
-            title="View Google AI Pro 18 Months on VVDeals"
-          >
-            <GoogleLogo className="h-5 w-5" />
-            <span className="text-xs font-bold text-foreground">Google AI Pro</span>
-          </a>
+          <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-background/60 p-3.5 shadow-2xs">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <ShieldCheck size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-foreground">Genuine Subscriptions</p>
+              <p className="text-[11px] text-muted-foreground truncate">Official accounts & access</p>
+            </div>
+          </div>
 
-          <a
-            href="https://vvdeals.cloud/product/amazon-prime-subscription-6-months-on-your-email"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-2xl border border-border bg-card/80 px-3.5 py-2 shadow-xs transition-all hover:scale-105 hover:border-cyan-400"
-            title="View Amazon Prime on VVDeals"
-          >
-            <AmazonPrimeLogo className="h-5 w-5" />
-            <span className="text-xs font-bold text-foreground">Amazon Prime</span>
-          </a>
-
-          <a
-            href="https://vvdeals.cloud/product/spotify-premium-individual-3-months"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-2xl border border-border bg-card/80 px-3.5 py-2 shadow-xs transition-all hover:scale-105 hover:border-emerald-400"
-            title="View Spotify Premium on VVDeals"
-          >
-            <SpotifyLogo className="h-5 w-5" />
-            <span className="text-xs font-bold text-foreground">Spotify Premium</span>
-          </a>
-
-          <a
-            href="https://vvdeals.cloud/product/capcut-pro-1-month"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-2xl border border-border bg-card/80 px-3.5 py-2 shadow-xs transition-all hover:scale-105 hover:border-pink-400"
-            title="View CapCut Pro on VVDeals"
-          >
-            <CapCutLogo className="h-5 w-5" />
-            <span className="text-xs font-bold text-foreground">CapCut Pro</span>
-          </a>
-
-          <a
-            href="https://vvdeals.cloud/product/netflix-premium-1-month-1-device-access"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-2xl border border-border bg-card/80 px-3.5 py-2 shadow-xs transition-all hover:scale-105 hover:border-red-500"
-            title="View Netflix Premium on VVDeals"
-          >
-            <NetflixLogo className="h-5 w-5" />
-            <span className="text-xs font-bold text-foreground">Netflix Premium</span>
-          </a>
+          <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-background/60 p-3.5 shadow-2xs">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+              <Zap size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-foreground">Fast 24–48h Delivery</p>
+              <p className="text-[11px] text-muted-foreground truncate">WhatsApp & Email dispatch</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Side-by-Side Detailed Breakdown Cards with Modern Arrow Product Actions */}
-      <div className="relative z-10 mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Tier 1: Ultra Yearly Plan (5 Perks) */}
-        <div className="relative flex flex-col justify-between rounded-3xl border-2 border-purple-500/40 bg-gradient-to-b from-purple-950/20 via-card to-card p-6 sm:p-8 shadow-xl">
-          <div className="absolute -top-3.5 left-6 rounded-full bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 px-4 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-md">
-            ★ Included with Yearly Plan
-          </div>
-
+      {/* Side-by-Side Detailed Breakdown Cards */}
+      <div className="relative z-10 mt-12 grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {/* Tier 1: Ultra Yearly Plan */}
+        <div className="relative flex flex-col justify-between rounded-3xl border-2 border-purple-500/40 bg-gradient-to-b from-purple-500/[0.04] via-card to-card p-6 sm:p-8 shadow-xl dark:border-purple-500/40">
           <div>
-            <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3 border-b border-border/80 pb-6">
               <div>
-                <h3 className="text-xl sm:text-2xl font-black text-foreground">Ultra Yearly Plan</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Annual Instagram Automation Subscription</p>
+                <div className="inline-flex items-center gap-1.5 rounded-md bg-purple-500/15 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-300 border border-purple-500/30 mb-2">
+                  <Gift size={12} className="text-purple-600 dark:text-purple-400" />
+                  <span>Yearly Ultra Bundle</span>
+                </div>
+                <h3 className="text-2xl font-black text-foreground">Ultra Yearly Plan</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">5 Subscriptions Included Free</p>
               </div>
-              <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                5 Tools Included
-              </span>
+
+              {/* Big Text Total Worth */}
+              <div className="sm:text-right">
+                <div className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-foreground">
+                  ₹39,660
+                </div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 mt-0.5">
+                  Total Market Worth
+                </p>
+              </div>
             </div>
 
-            <div className="mt-6 space-y-3.5">
+            {/* Product List */}
+            <div className="mt-6 space-y-3">
               {/* Google AI Pro 18 Months */}
               <a
                 href="https://vvdeals.cloud/product/google-ai-pro-18-months"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center justify-between gap-3.5 rounded-2xl border border-border/80 bg-background/60 p-3.5 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
+                className="group flex items-center justify-between gap-4 rounded-2xl border border-border/80 bg-background/50 p-4 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-card border border-border p-2 group-hover:scale-105 transition-transform">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-card border border-border/80 p-2.5 group-hover:scale-105 transition-transform">
                     <GoogleLogo className="h-6 w-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
-                      Google AI Pro (18 Months)
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      18 Months Gemini Pro AI and 2TB cloud storage.
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                        Google AI Pro (18 Months)
+                      </p>
+                      <span className="rounded-md bg-purple-500/15 px-2 py-0.5 text-xs font-black text-purple-700 dark:text-purple-300 border border-purple-500/25">
+                        ₹35,100 Value
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Gemini Pro AI capabilities and 2TB high-speed cloud storage.
                     </p>
                   </div>
                 </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 transition-all duration-200 group-hover:bg-purple-600 group-hover:text-white dark:bg-purple-500/20 dark:text-purple-400 dark:group-hover:bg-purple-500 dark:group-hover:text-white">
-                  <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </div>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
 
               {/* Amazon Prime 6 Months */}
@@ -434,49 +424,27 @@ export const VVDealsOfferSection: React.FC<{ className?: string }> = ({ classNam
                 href="https://vvdeals.cloud/product/amazon-prime-subscription-6-months-on-your-email"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center justify-between gap-3.5 rounded-2xl border border-border/80 bg-background/60 p-3.5 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
+                className="group flex items-center justify-between gap-4 rounded-2xl border border-border/80 bg-background/50 p-4 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-card border border-border p-2 group-hover:scale-105 transition-transform">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-card border border-border/80 p-2.5 group-hover:scale-105 transition-transform">
                     <AmazonPrimeLogo className="h-6 w-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
-                      Amazon Prime (6 Months)
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      6 Months Prime Video and fast delivery on your email.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 transition-all duration-200 group-hover:bg-purple-600 group-hover:text-white dark:bg-purple-500/20 dark:text-purple-400 dark:group-hover:bg-purple-500 dark:group-hover:text-white">
-                  <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </div>
-              </a>
-
-              {/* Spotify Premium 3 Months */}
-              <a
-                href="https://vvdeals.cloud/product/spotify-premium-individual-3-months"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center justify-between gap-3.5 rounded-2xl border border-border/80 bg-background/60 p-3.5 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-card border border-border p-2 group-hover:scale-105 transition-transform">
-                    <SpotifyLogo className="h-6 w-6" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
-                      Spotify Premium (3 Months)
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      3 Months ad-free music with offline listening.
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                        Amazon Prime (6 Months)
+                      </p>
+                      <span className="rounded-md bg-cyan-500/15 px-2 py-0.5 text-xs font-black text-cyan-700 dark:text-cyan-300 border border-cyan-500/25">
+                        ₹1,794 Value
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      6 Months Prime Video streaming and shopping benefits on your email.
                     </p>
                   </div>
                 </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 transition-all duration-200 group-hover:bg-purple-600 group-hover:text-white dark:bg-purple-500/20 dark:text-purple-400 dark:group-hover:bg-purple-500 dark:group-hover:text-white">
-                  <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </div>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
 
               {/* CapCut Pro 1 Month */}
@@ -484,24 +452,55 @@ export const VVDealsOfferSection: React.FC<{ className?: string }> = ({ classNam
                 href="https://vvdeals.cloud/product/capcut-pro-1-month"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center justify-between gap-3.5 rounded-2xl border border-border/80 bg-background/60 p-3.5 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
+                className="group flex items-center justify-between gap-4 rounded-2xl border border-border/80 bg-background/50 p-4 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-card border border-border p-1.5 group-hover:scale-105 transition-transform overflow-hidden">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-card border border-border/80 p-2 group-hover:scale-105 transition-transform overflow-hidden">
                     <CapCutLogo className="h-7 w-7" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
-                      CapCut Pro (1 Month)
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      1 Month creator transitions, AI effects, and 4K export.
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                        CapCut Pro (1 Month)
+                      </p>
+                      <span className="rounded-md bg-pink-500/15 px-2 py-0.5 text-xs font-black text-pink-700 dark:text-pink-300 border border-pink-500/25">
+                        ₹2,000 Value
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Pro transitions, AI video effects, auto-captions, and 4K exports.
                     </p>
                   </div>
                 </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 transition-all duration-200 group-hover:bg-purple-600 group-hover:text-white dark:bg-purple-500/20 dark:text-purple-400 dark:group-hover:bg-purple-500 dark:group-hover:text-white">
-                  <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </a>
+
+              {/* Spotify Premium 3 Months */}
+              <a
+                href="https://vvdeals.cloud/product/spotify-premium-individual-3-months"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center justify-between gap-4 rounded-2xl border border-border/80 bg-background/50 p-4 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-card border border-border/80 p-2.5 group-hover:scale-105 transition-transform">
+                    <SpotifyLogo className="h-6 w-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                        Spotify Premium (3 Months)
+                      </p>
+                      <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-black text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+                        ₹597 Value
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      3 Months ad-free music streaming with high-quality offline listening.
+                    </p>
+                  </div>
                 </div>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
 
               {/* Netflix Premium 1 Month */}
@@ -509,74 +508,89 @@ export const VVDealsOfferSection: React.FC<{ className?: string }> = ({ classNam
                 href="https://vvdeals.cloud/product/netflix-premium-1-month-1-device-access"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center justify-between gap-3.5 rounded-2xl border border-border/80 bg-background/60 p-3.5 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
+                className="group flex items-center justify-between gap-4 rounded-2xl border border-border/80 bg-background/50 p-4 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-card border border-border p-2 group-hover:scale-105 transition-transform">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-card border border-border/80 p-2.5 group-hover:scale-105 transition-transform">
                     <NetflixLogo className="h-6 w-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
-                      Netflix Premium (1 Month)
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      1 Month 1-device Ultra HD 4K streaming access.
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                        Netflix Premium (1 Month, 1 Device)
+                      </p>
+                      <span className="rounded-md bg-red-500/15 px-2 py-0.5 text-xs font-black text-red-700 dark:text-red-300 border border-red-500/25">
+                        ₹169 Value
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      1 Month Ultra HD 4K streaming access on 1 device.
                     </p>
                   </div>
                 </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 transition-all duration-200 group-hover:bg-purple-600 group-hover:text-white dark:bg-purple-500/20 dark:text-purple-400 dark:group-hover:bg-purple-500 dark:group-hover:text-white">
-                  <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </div>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
             </div>
           </div>
 
-          <div className="mt-6 border-t border-border pt-4 text-xs font-semibold text-muted-foreground">
-            ⚡ Automatically eligible upon activating the Ultra Plan (Yearly billing).
+          <div className="mt-6 flex items-center justify-between border-t border-border/80 pt-4 text-xs text-muted-foreground font-semibold">
+            <span>Eligible upon full-price yearly billing</span>
+            <span className="font-bold text-foreground">₹39,660 Total Value</span>
           </div>
         </div>
 
-        {/* Tier 2: Ultra 1-Month Plan (3 Perks) */}
-        <div className="relative flex flex-col justify-between rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-lg">
-          <div className="absolute -top-3.5 left-6 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-sm">
-            Included with Monthly Plan
-          </div>
-
+        {/* Tier 2: Ultra 1-Month Plan */}
+        <div className="relative flex flex-col justify-between rounded-3xl border border-border/90 bg-card p-6 sm:p-8 shadow-lg">
           <div>
-            <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3 border-b border-border/80 pb-6">
               <div>
-                <h3 className="text-xl sm:text-2xl font-black text-foreground">Ultra 1-Month Plan</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Monthly Instagram Automation Subscription</p>
+                <div className="inline-flex items-center gap-1.5 rounded-md bg-indigo-500/15 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 mb-2">
+                  <Gift size={12} className="text-indigo-600 dark:text-indigo-400" />
+                  <span>Monthly Ultra Bundle</span>
+                </div>
+                <h3 className="text-2xl font-black text-foreground">Ultra 1-Month Plan</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">3 Subscriptions Included Free</p>
               </div>
-              <span className="rounded-full bg-purple-500/15 px-3 py-1 text-xs font-black text-purple-600 dark:text-purple-300 border border-purple-500/30">
-                3 Tools Included
-              </span>
+
+              {/* Big Text Total Worth */}
+              <div className="sm:text-right">
+                <div className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-foreground">
+                  ₹898
+                </div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mt-0.5">
+                  Total Market Worth
+                </p>
+              </div>
             </div>
 
-            <div className="mt-6 space-y-3.5">
+            {/* Product List */}
+            <div className="mt-6 space-y-3">
               {/* Amazon Prime 1 Month */}
               <a
                 href="https://vvdeals.cloud/product/amazon-prime-subscription-1-month-on-your-mail"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center justify-between gap-3.5 rounded-2xl border border-border/80 bg-background/60 p-3.5 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
+                className="group flex items-center justify-between gap-4 rounded-2xl border border-border/80 bg-background/50 p-4 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-card border border-border p-2 group-hover:scale-105 transition-transform">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-card border border-border/80 p-2.5 group-hover:scale-105 transition-transform">
                     <AmazonPrimeLogo className="h-6 w-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
-                      Amazon Prime (1 Month)
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      1 Month Prime Video entertainment on your email.
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                        Amazon Prime (1 Month)
+                      </p>
+                      <span className="rounded-md bg-cyan-500/15 px-2 py-0.5 text-xs font-black text-cyan-700 dark:text-cyan-300 border border-cyan-500/25">
+                        ₹299 Value
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      1 Month Prime Video entertainment on your personal email.
                     </p>
                   </div>
                 </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 transition-all duration-200 group-hover:bg-purple-600 group-hover:text-white dark:bg-purple-500/20 dark:text-purple-400 dark:group-hover:bg-purple-500 dark:group-hover:text-white">
-                  <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </div>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
 
               {/* CapCut Pro 7 Days */}
@@ -584,61 +598,68 @@ export const VVDealsOfferSection: React.FC<{ className?: string }> = ({ classNam
                 href="https://vvdeals.cloud/product/capcut-pro-7-days"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center justify-between gap-3.5 rounded-2xl border border-border/80 bg-background/60 p-3.5 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
+                className="group flex items-center justify-between gap-4 rounded-2xl border border-border/80 bg-background/50 p-4 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-card border border-border p-1.5 group-hover:scale-105 transition-transform overflow-hidden">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-card border border-border/80 p-2 group-hover:scale-105 transition-transform overflow-hidden">
                     <CapCutLogo className="h-7 w-7" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
-                      CapCut Pro (7 Days)
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      7 Days full pro editing features and transitions.
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                        CapCut Pro (7 Days)
+                      </p>
+                      <span className="rounded-md bg-pink-500/15 px-2 py-0.5 text-xs font-black text-pink-700 dark:text-pink-300 border border-pink-500/25">
+                        ₹500 Value
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      7 Days full access to pro effects, transitions, and creator tools.
                     </p>
                   </div>
                 </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 transition-all duration-200 group-hover:bg-purple-600 group-hover:text-white dark:bg-purple-500/20 dark:text-purple-400 dark:group-hover:bg-purple-500 dark:group-hover:text-white">
-                  <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </div>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
 
-              {/* Netflix Premium 5 Days */}
+              {/* Netflix Premium 5 Days on Mobile/TV */}
               <a
                 href="https://vvdeals.cloud/product/netflix-premium-5-days-access"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center justify-between gap-3.5 rounded-2xl border border-border/80 bg-background/60 p-3.5 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
+                className="group flex items-center justify-between gap-4 rounded-2xl border border-border/80 bg-background/50 p-4 transition-all duration-200 hover:border-purple-500/50 hover:bg-background/90"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-card border border-border p-2 group-hover:scale-105 transition-transform">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-card border border-border/80 p-2.5 group-hover:scale-105 transition-transform">
                     <NetflixLogo className="h-6 w-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
-                      Netflix Premium (5 Days Access)
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      5 Days Ultra HD content streaming access.
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-extrabold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                        Netflix Premium (5 Days — Mobile / TV)
+                      </p>
+                      <span className="rounded-md bg-red-500/15 px-2 py-0.5 text-xs font-black text-red-700 dark:text-red-300 border border-red-500/25">
+                        ₹99 Value
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      5 Days Ultra HD content streaming access on Mobile / TV (1 device).
                     </p>
                   </div>
                 </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500/10 text-purple-600 transition-all duration-200 group-hover:bg-purple-600 group-hover:text-white dark:bg-purple-500/20 dark:text-purple-400 dark:group-hover:bg-purple-500 dark:group-hover:text-white">
-                  <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </div>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
             </div>
           </div>
 
-          <div className="mt-6 border-t border-border pt-4 text-xs font-semibold text-muted-foreground">
-            ⚡ Automatically eligible upon activating the Ultra Plan (Monthly billing).
+          <div className="mt-6 flex items-center justify-between border-t border-border/80 pt-4 text-xs text-muted-foreground font-semibold">
+            <span>Eligible upon full-price monthly billing</span>
+            <span className="font-bold text-foreground">₹898 Total Value</span>
           </div>
         </div>
       </div>
 
       {/* Offer FAQs Section */}
-      <div className="relative z-10 mt-12 rounded-3xl border border-border bg-card/60 p-6 sm:p-8">
+      <div className="relative z-10 mt-14 rounded-3xl border border-border bg-card/70 p-6 sm:p-8">
         <div className="flex items-center gap-2 mb-6">
           <HelpCircle className="h-5 w-5 text-primary" />
           <h3 className="text-xl font-extrabold text-foreground">Frequently Asked Questions</h3>
@@ -672,33 +693,30 @@ export const VVDealsOfferSection: React.FC<{ className?: string }> = ({ classNam
         </div>
       </div>
 
-      {/* Terms & Conditions / Non-Liability & Warranty Disclaimer Box */}
-      <div className="relative z-10 mt-8 rounded-3xl border border-amber-500/30 bg-amber-500/10 p-5 sm:p-7 dark:bg-amber-950/20">
+      {/* Terms & Conditions / Non-Liability Disclaimer Box */}
+      <div className="relative z-10 mt-8 rounded-3xl border border-border/80 bg-background/50 p-6 sm:p-7">
         <div className="flex items-start gap-3.5">
-          <ShieldAlert className="h-6 w-6 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <ShieldAlert className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
           <div className="space-y-2 text-xs sm:text-sm text-foreground/90">
-            <h4 className="font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300 text-xs">
-              Offer Terms, Availability & Non-Liability Notice
+            <h4 className="font-bold uppercase tracking-wider text-muted-foreground text-xs">
+              Offer Terms, Availability & Partner Fulfillment Notice
             </h4>
-            <ul className="list-disc pl-4 space-y-2 text-xs text-muted-foreground">
+            <ul className="list-disc pl-4 space-y-1.5 text-xs text-muted-foreground leading-relaxed">
               <li>
-                <strong className="text-foreground">Warranty & Replacement Disclaimer:</strong> Please note that <span className="underline font-bold text-foreground">warranty may not be provided</span> on bundled third-party subscriptions. Any warranty coverage, validity duration, replacement eligibility, or activation support depends completely on VV Deals and their third-party providers. DM Panda does not offer or guarantee any warranty for external services.
+                <strong className="text-foreground">Coupon Ineligibility:</strong> This promotional offer is strictly valid on full-price Ultra plan subscriptions. If any coupon or promotional discount code is applied during checkout, the account is not eligible for free partner perks.
               </li>
               <li>
-                <strong className="text-foreground">DM Panda Non-Liability:</strong> DM Panda is solely an Instagram automation software platform and acts only as a promotional partner for this offer. <span className="underline font-bold text-foreground">DM Panda is NOT responsible or liable</span> for third-party subscription activation, credentials validity, warranty claims, service downtime, regional geo-restrictions, or policy changes implemented by Google, Amazon, Spotify, CapCut, or Netflix.
+                <strong className="text-foreground">Third-Party Warranty & Fulfillment:</strong> All subscriptions and credentials are provided directly by VV Deals. DM Panda does not warrant or guarantee third-party platform uptime or policies.
               </li>
               <li>
-                <strong className="text-foreground">Promotional Availability:</strong> The availability of bonus credentials is subject to partner stock. This promotional offer is subject to change or withdrawal by VV Deals at any time without prior notice.
-              </li>
-              <li>
-                <strong className="text-foreground">Support & Inquiries:</strong> All fulfillment questions, credentials delivery, and inquiries must be submitted directly to VV Deals via their WhatsApp support or through the{' '}
+                <strong className="text-foreground">Support:</strong> For voucher dispatch, account activation, or questions, reach out to VV Deals via WhatsApp or the{' '}
                 <a
-                  href="https://vvdeals.cloud/contact"
+                  href="https://vvdeals.cloud/support"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-bold underline text-purple-600 dark:text-purple-400 hover:opacity-80"
                 >
-                  VV Deals Contact Page
+                  VV Deals Support Page
                 </a>
                 .
               </li>

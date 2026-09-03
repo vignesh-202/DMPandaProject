@@ -971,6 +971,47 @@ const parseRuntimeFeatures = (profile = null) => {
     return parseProfileConfig(profile).feature_overrides;
 };
 
+const resolveIgAccountActionLimits = (account = {}, pricingPlans = []) => {
+    const rawPlanCode = String(account?.plan_code || 'free').trim().toLowerCase();
+    const isFree = !rawPlanCode || rawPlanCode === 'free';
+    const expiresAt = account?.expires_at ? new Date(account.expires_at) : null;
+    const hasExpiry = expiresAt && !Number.isNaN(expiresAt.getTime());
+    const isExpired = !isFree && Boolean(hasExpiry && expiresAt.getTime() <= Date.now());
+    const isSubscriptionActive = String(account?.subscription_status || 'active').trim().toLowerCase() === 'active';
+    const isActive = !isFree && !isExpired && isSubscriptionActive;
+    const effectivePlanCode = isActive ? rawPlanCode : 'free';
+
+    const plans = (Array.isArray(pricingPlans) && pricingPlans.length > 0)
+        ? pricingPlans
+        : (cachedPricingPlans || []);
+
+    const freePlan = findPlanByIdentifier(plans, 'free') || normalizePlanDocument({
+        plan_code: 'free',
+        name: 'Free Plan',
+        actions_per_hour_limit: 100,
+        actions_per_day_limit: 100,
+        actions_per_month_limit: 1000
+    });
+    const targetPlan = findPlanByIdentifier(plans, effectivePlanCode) || (
+        effectivePlanCode === 'basic'
+            ? { actions_per_hour_limit: 100, actions_per_day_limit: 1000, actions_per_month_limit: 25000 }
+            : (effectivePlanCode === 'pro'
+                ? { actions_per_hour_limit: 200, actions_per_day_limit: 2500, actions_per_month_limit: 70000 }
+                : (effectivePlanCode === 'ultra'
+                    ? { actions_per_hour_limit: 400, actions_per_day_limit: 5000, actions_per_month_limit: 100000 }
+                    : freePlan))
+    );
+
+    return {
+        plan_code: effectivePlanCode,
+        is_active: isActive,
+        is_expired: isExpired,
+        hourly_action_limit: toFiniteNumber(targetPlan?.actions_per_hour_limit) ?? 100,
+        daily_action_limit: toFiniteNumber(targetPlan?.actions_per_day_limit) ?? 100,
+        monthly_action_limit: toFiniteNumber(targetPlan?.actions_per_month_limit) ?? 1000
+    };
+};
+
 const buildAccountActionLimitSnapshot = (limits = {}) => ({
     hourly_action_limit: Number(limits?.hourly_action_limit || 0),
     daily_action_limit: Number(limits?.daily_action_limit || 0),
@@ -985,14 +1026,20 @@ const buildAccountActionUsageSnapshot = (account = {}) => ({
     monthly_actions_used: Number(account?.monthly_actions_used || 0)
 });
 
-const buildAccountActionState = (account = {}, fallbackLimits = {}) => {
-    const limits = buildAccountActionLimitSnapshot(fallbackLimits);
+const buildAccountActionState = (account = {}, fallbackLimits = {}, pricingPlans = null) => {
+    let limits;
+    if (account?.plan_code && Array.isArray(pricingPlans) && pricingPlans.length > 0) {
+        const accountLimits = resolveIgAccountActionLimits(account, pricingPlans);
+        limits = buildAccountActionLimitSnapshot(accountLimits);
+    } else {
+        limits = buildAccountActionLimitSnapshot(fallbackLimits);
+    }
     return {
         ...limits,
         ...buildAccountActionUsageSnapshot({
-            hourly_actions_used: account?.hourly_actions_used ?? fallbackLimits?.hourly_actions_used,
-            daily_actions_used: account?.daily_actions_used ?? fallbackLimits?.daily_actions_used,
-            monthly_actions_used: account?.monthly_actions_used ?? fallbackLimits?.monthly_actions_used
+            hourly_actions_used: account?.hourly_actions_used ?? fallbackLimits?.hourly_actions_used ?? 0,
+            daily_actions_used: account?.daily_actions_used ?? fallbackLimits?.daily_actions_used ?? 0,
+            monthly_actions_used: account?.monthly_actions_used ?? fallbackLimits?.monthly_actions_used ?? 0
         })
     };
 };
@@ -1558,6 +1605,7 @@ module.exports = {
     calculateTransactionExpiry,
     resolvePlanEntitlements,
     resolvePlanLimits,
+    resolveIgAccountActionLimits,
     updateUserSelfPlanMemory,
     upsertEffectiveProfile,
     resolveUserPlanContext,

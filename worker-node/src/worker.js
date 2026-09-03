@@ -441,13 +441,37 @@ class DMWorker {
     }
 
     _buildAccountExecutionProfile(profile = {}, igAccount = {}) {
+        const rawAccountPlan = String(igAccount?.plan_code || 'free').trim().toLowerCase();
+        const isFree = !rawAccountPlan || rawAccountPlan === 'free';
+        const expiresAt = (igAccount?.expires_at || profile?.expires_at || profile?.expiry_date) 
+            ? new Date(igAccount?.expires_at || profile?.expires_at || profile?.expiry_date) 
+            : null;
+        const hasExpiry = expiresAt && !Number.isNaN(expiresAt.getTime());
+        const isExpired = !isFree && Boolean(hasExpiry && expiresAt.getTime() <= Date.now());
+        const isAccountActive = !isFree && !isExpired && String(igAccount?.subscription_status || 'active').toLowerCase() === 'active';
+        const effectivePlanCode = isAccountActive ? rawAccountPlan : 'free';
+
+        const isFreePlan = effectivePlanCode === 'free';
+        const hourlyLimit = isFreePlan
+            ? 100
+            : Number(igAccount?.hourly_action_limit ?? profile?.hourly_action_limit ?? 100);
+        const dailyLimit = isFreePlan
+            ? 100
+            : Number(igAccount?.daily_action_limit ?? profile?.daily_action_limit ?? 1000);
+        const monthlyLimit = isFreePlan
+            ? 1000
+            : (igAccount?.monthly_action_limit != null
+                ? Number(igAccount.monthly_action_limit)
+                : (profile?.monthly_action_limit == null ? null : Number(profile.monthly_action_limit)));
+
         return {
             ...profile,
-            hourly_action_limit: Number(profile?.hourly_action_limit ?? 0),
-            daily_action_limit: Number(profile?.daily_action_limit ?? 0),
-            monthly_action_limit: profile?.monthly_action_limit == null
-                ? null
-                : Number(profile?.monthly_action_limit || 0),
+            is_active: isAccountActive,
+            is_expired: isExpired,
+            plan_code: effectivePlanCode,
+            hourly_action_limit: hourlyLimit,
+            daily_action_limit: dailyLimit,
+            monthly_action_limit: monthlyLimit,
             hourly_actions_used: Number(igAccount?.hourly_actions_used ?? 0),
             daily_actions_used: Number(igAccount?.daily_actions_used ?? 0),
             monthly_actions_used: Number(igAccount?.monthly_actions_used ?? 0)
@@ -553,7 +577,8 @@ class DMWorker {
     }
 
     async _getFreshExecutionGateState(userId, igAccount = null) {
-        const { accessState, profile } = await this.appwrite.getExecutionState(userId);
+        const accountIdentifier = igAccount?.ig_user_id || igAccount?.account_id || igAccount?.$id || null;
+        const { accessState, profile } = await this.appwrite.getExecutionState(userId, accountIdentifier);
         if (!profile) {
             return {
                 accessState: {

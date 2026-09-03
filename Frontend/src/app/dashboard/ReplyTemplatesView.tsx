@@ -146,10 +146,11 @@ const suggestUniqueName = (base: string, existing: string[]) => {
   return `${trimmed} (${Date.now()})`;
 };
 
-// Shared promise to coalesce duplicate list requests (e.g. React Strict Mode double-mount)
-let replyTemplatesListPromise: Promise<{ templates: unknown[]; error: string | null }> | null = null;
+// Shared promise map to coalesce duplicate list requests per account
+const replyTemplatesListPromiseByAccount = new Map<string, Promise<{ templates: unknown[]; error: string | null }>>();
 
-let replyTemplatesListCache: { templates: unknown[]; timestamp: number } | null = null;
+// Cache map indexed by activeAccountID so accounts never share cached template data
+const replyTemplatesListCacheByAccount = new Map<string, { templates: unknown[]; timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 function templateToPreviewAutomation(type: TemplateType, d: TemplateData): Record<string, unknown> {
@@ -204,11 +205,19 @@ export default function ReplyTemplatesView() {
   useDashboardMainScrollLock(editorMode !== null);
 
   const fetchList = useCallback(async (force = false) => {
+    if (!activeAccountID) {
+      setTemplates([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     // Check cache first (unless forcing refresh)
     if (!force) {
-      const age = replyTemplatesListCache ? Date.now() - replyTemplatesListCache.timestamp : Number.POSITIVE_INFINITY;
-      if (replyTemplatesListCache && age < CACHE_DURATION) {
-        setTemplates((replyTemplatesListCache.templates || []) as typeof templates);
+      const cached = replyTemplatesListCacheByAccount.get(activeAccountID);
+      const age = cached ? Date.now() - cached.timestamp : Number.POSITIVE_INFINITY;
+      if (cached && age < CACHE_DURATION) {
+        setTemplates((cached.templates || []) as typeof templates);
         setError(null);
         setLoading(false);
         return;
@@ -216,12 +225,13 @@ export default function ReplyTemplatesView() {
     }
 
     // Reuse in-flight request to avoid duplicate calls (e.g. Strict Mode or deps re-run)
-    if (!force && replyTemplatesListPromise) {
+    const inFlight = replyTemplatesListPromiseByAccount.get(activeAccountID);
+    if (!force && inFlight) {
       try {
-        const d = await replyTemplatesListPromise;
+        const d = await inFlight;
         setTemplates((d.templates || []) as typeof templates);
         setError(d.error);
-        replyTemplatesListCache = { templates: d.templates, timestamp: Date.now() };
+        replyTemplatesListCacheByAccount.set(activeAccountID, { templates: d.templates, timestamp: Date.now() });
       } catch {
         showError('Network error');
         setError('Network error');
@@ -229,6 +239,7 @@ export default function ReplyTemplatesView() {
       setLoading(false);
       return;
     }
+
     setLoading(true);
     setError(null);
     const doFetch = async (): Promise<{ templates: unknown[]; error: string | null }> => {
@@ -242,7 +253,10 @@ export default function ReplyTemplatesView() {
         return { templates: [], error: 'Network error' };
       }
     };
-    const p = force ? doFetch() : (replyTemplatesListPromise = doFetch());
+    const p = doFetch();
+    if (!force) {
+      replyTemplatesListPromiseByAccount.set(activeAccountID, p);
+    }
     try {
       const d = await p;
       const sortedTemplates = (d.templates || []).sort((a: any, b: any) => {
@@ -253,17 +267,19 @@ export default function ReplyTemplatesView() {
       });
       setTemplates(sortedTemplates as typeof templates);
       setError(d.error);
-      replyTemplatesListCache = { templates: d.templates, timestamp: Date.now() };
+      replyTemplatesListCacheByAccount.set(activeAccountID, { templates: d.templates, timestamp: Date.now() });
     } catch {
       showError('Network error');
       setError('Network error');
     } finally {
-      if (!force) replyTemplatesListPromise = null;
+      if (!force) replyTemplatesListPromiseByAccount.delete(activeAccountID);
       setLoading(false);
     }
-  }, [activeAccountID, authenticatedFetch]);
+  }, [activeAccountID, authenticatedFetch, showError]);
 
   useEffect(() => {
+    // Reset templates on account switch to immediately clear previous account's data
+    setTemplates([]);
     fetchList();
   }, [fetchList]);
 
@@ -767,6 +783,7 @@ export default function ReplyTemplatesView() {
       });
       const data = await res.json();
       if (res.ok) {
+        if (activeAccountID) replyTemplatesListCacheByAccount.delete(activeAccountID);
         const rec = { id: data.id, name: data.name, type: data.type, template_type: data.template_type, template_data: data.template_data, linked_automations: data.linked_automations || [], automation_count: data.automation_count || 0 };
         if (!isEdit) setTemplates(prev => [...prev, rec]);
         else setTemplates(prev => prev.map(t => t.id === data.id ? { ...t, ...rec } : t));
@@ -878,6 +895,7 @@ export default function ReplyTemplatesView() {
       );
       const data = await res.json();
       if (res.ok) {
+        if (activeAccountID) replyTemplatesListCacheByAccount.delete(activeAccountID);
         const deletedTemplateId = deleteModal.id;
         setDeleteModal({ open: false, id: '', name: '' });
         setDeleteLinked([]);

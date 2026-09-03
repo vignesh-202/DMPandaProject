@@ -804,21 +804,32 @@ const clearAdminOverrideForUserProfile = async (databases, userId) => {
     }
 };
 
-const sendSubscriptionSuccessEmail = async (userId, plan, pricing, appliedCoupon, subscriptionExpires) => {
+const sendSubscriptionSuccessEmail = async (userId, plan, pricing, appliedCoupon, subscriptionExpires, selectedAccountIds = []) => {
     try {
         const client = getAppwriteClient({ useApiKey: true });
         const messaging = new Messaging(client);
         const databases = new Databases(client);
 
-        let linkedAccountNames = 'No connected IG account linked yet';
+        let linkedAccountNames = 'Linked Instagram Account';
+
         try {
             const accountsRes = await databases.listDocuments(
                 APPWRITE_DATABASE_ID,
                 IG_ACCOUNTS_COLLECTION_ID,
-                [Query.equal('user_id', String(userId).trim())]
+                [Query.equal('user_id', String(userId).trim()), Query.limit(100)]
             );
-            if (accountsRes.documents && accountsRes.documents.length > 0) {
-                const names = accountsRes.documents
+            const allUserAccounts = accountsRes.documents || [];
+            const selectedSet = new Set((selectedAccountIds || []).map((id) => String(id).trim()));
+
+            const targetAccounts = allUserAccounts.filter((acc) =>
+                selectedSet.has(String(acc.$id)) ||
+                selectedSet.has(String(acc.account_id)) ||
+                selectedSet.has(String(acc.ig_user_id))
+            );
+
+            const accountsToName = targetAccounts.length > 0 ? targetAccounts : allUserAccounts.slice(0, 1);
+            if (accountsToName.length > 0) {
+                const names = accountsToName
                     .map((acc) => (acc.username ? `@${acc.username}` : (acc.name || 'Instagram Account')))
                     .filter(Boolean);
                 if (names.length > 0) {
@@ -836,10 +847,10 @@ const sendSubscriptionSuccessEmail = async (userId, plan, pricing, appliedCoupon
             title: 'Your Subscription is Active!',
             preheader: `You have successfully subscribed to the ${planName} plan for ${linkedAccountNames}.`,
             greeting: 'Hello,',
-            intro: `Great news! Your subscription to the ${planName} plan has been successfully activated.`,
+            intro: `Great news! Your subscription to the ${planName} plan has been successfully activated for ${linkedAccountNames}.`,
             summaryRows: [
                 ['Plan', planName],
-                ['Linked IG Account(s)', linkedAccountNames],
+                ['Linked Instagram Account(s)', linkedAccountNames],
                 ['Instagram accounts billed', String(pricing?.accounts_count || 1)],
                 ['Per-account rate', `${pricing.currency} ${Number(pricing?.unit_base_amount || 0).toLocaleString('en-IN')}`],
                 ['Billing Cycle', String(pricing.billing_cycle).toUpperCase()],
@@ -847,8 +858,8 @@ const sendSubscriptionSuccessEmail = async (userId, plan, pricing, appliedCoupon
                 ...(appliedCoupon ? [['Coupon applied', appliedCoupon.code]] : [])
             ],
             paragraphs: [
-                `Your subscription is priced per linked Instagram account. Linked account(s) under this subscription: ${linkedAccountNames}.`,
-                `This purchase covers ${pricing?.accounts_count || 1} connected Instagram account slot(s), with plan action limits applied separately to each account.`,
+                `Your subscription is active for linked Instagram account(s): ${linkedAccountNames}.`,
+                `This purchase covers ${pricing?.accounts_count || 1} connected Instagram account(s), with plan action limits applied separately to each account.`,
                 'If you have any questions or need help setting up your automations, feel free to reach out to our support team.'
             ],
             ctaLabel: 'Go to Dashboard',
@@ -877,12 +888,12 @@ const syncUserPerAccountPlans = async (databases, userId, plan, pricing, subscri
         const nowIso = new Date().toISOString();
 
         const igAccountsRes = await databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
-            Query.equal('user_id', String(userId)),
+            Query.equal('user_id', String(userId).trim()),
             Query.limit(100)
         ]).catch(() => ({ documents: [] }));
 
         const allDocs = igAccountsRes.documents || [];
-        const hasSpecificSelection = Array.isArray(selectedAccountIds) && selectedAccountIds.length > 0;
+        const hasSpecificSelection = Array.isArray(selectedAccountIds);
         const selectedSet = new Set((selectedAccountIds || []).map((id) => String(id).trim()));
 
         const targetAccounts = hasSpecificSelection
@@ -924,16 +935,25 @@ const finalizePlanPurchase = async ({
         durationDays: pricing.validity_days
     });
     const planLimits = getPlanLimitSnapshot(plan);
-    const purchasedAccountsCount = normalizeAccountsCount(pricing.accounts_count || 1);
+    const purchasedAccountsCount = normalizeAccountsCount(pricing.accounts_count || (Array.isArray(selectedAccountIds) ? selectedAccountIds.length : 1));
     const planActionLimits = resolvePlanLimits(plan);
+
+    const existingAccountsRes = await databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
+        Query.equal('user_id', String(userId).trim()),
+        Query.limit(100)
+    ]).catch(() => ({ documents: [] }));
+    const existingDocs = existingAccountsRes.documents || [];
+    const existingAccountsCount = existingDocs.length;
+    const totalAllowedConnections = Math.max(existingAccountsCount, purchasedAccountsCount);
+
     const paidPlanSnapshot = buildPaidPlanSnapshot({
         plan,
         billingCycle: pricing.billing_cycle,
         expires: subscriptionExpires,
         status: 'active',
         limits: {
-            instagram_connections_limit: purchasedAccountsCount,
-            instagram_link_limit: purchasedAccountsCount,
+            instagram_connections_limit: totalAllowedConnections,
+            instagram_link_limit: totalAllowedConnections,
             hourly_action_limit: Number(planLimits.hourly_action_limit || 0),
             daily_action_limit: Number(planLimits.daily_action_limit || 0),
             monthly_action_limit: planLimits.monthly_action_limit == null
@@ -954,8 +974,6 @@ const finalizePlanPurchase = async ({
         paymentAttemptId
     });
 
-    // subscription_slots collection was removed — slot creation is now handled by syncUserPerAccountPlans
-
     await ensureUserProfileDocument(
         databases,
         userId,
@@ -964,8 +982,8 @@ const finalizePlanPurchase = async ({
         {
             billingCycle: pricing.billing_cycle,
             limitOverrides: {
-                instagram_connections_limit: purchasedAccountsCount,
-                instagram_link_limit: purchasedAccountsCount,
+                instagram_connections_limit: totalAllowedConnections,
+                instagram_link_limit: totalAllowedConnections,
                 hourly_action_limit: Number(planActionLimits.hourly_action_limit || 0),
                 daily_action_limit: Number(planActionLimits.daily_action_limit || 0),
                 monthly_action_limit: planActionLimits.monthly_action_limit == null ? null : Number(planActionLimits.monthly_action_limit || 0)
@@ -1013,7 +1031,7 @@ const finalizePlanPurchase = async ({
         paymentAttemptId
     });
 
-    await sendSubscriptionSuccessEmail(userId, plan, pricing, appliedCoupon, subscriptionExpires);
+    await sendSubscriptionSuccessEmail(userId, plan, pricing, appliedCoupon, subscriptionExpires, selectedAccountIds);
 
     return {
         message: pricing.final_amount > 0
@@ -1709,10 +1727,14 @@ router.get('/my-plan', loginRequired, async (req, res) => {
             const isActive = !isFree && Boolean(hasExpiry && parsedExpiry.getTime() > Date.now());
             const isExpired = !isFree && Boolean(hasExpiry && parsedExpiry.getTime() <= Date.now());
 
+            const effectivePricingPlan = isActive ? (pricingPlan || pricingPlans.find(p => p.plan_code === 'free')) : pricingPlans.find(p => p.plan_code === 'free');
+            const normalizedPlan = normalizePlanDocument(effectivePricingPlan || pricingPlan || {});
+            const entitlements = normalizedPlan?.entitlements || {};
+
             let parsedFeatures = [];
-            if (pricingPlan?.features) {
+            if (effectivePricingPlan?.features) {
                 try {
-                    parsedFeatures = typeof pricingPlan.features === 'string' ? JSON.parse(pricingPlan.features) : pricingPlan.features;
+                    parsedFeatures = typeof effectivePricingPlan.features === 'string' ? JSON.parse(effectivePricingPlan.features) : effectivePricingPlan.features;
                 } catch (_) {
                     parsedFeatures = [];
                 }
@@ -1731,10 +1753,11 @@ router.get('/my-plan', loginRequired, async (req, res) => {
                 paid_at: acc.paid_at || null,
                 is_active: isActive,
                 is_expired: isExpired,
+                entitlements,
                 limits: {
-                    hourly_action_limit: pricingPlan?.actions_per_hour_limit ?? 100,
-                    daily_action_limit: pricingPlan?.actions_per_day_limit ?? 500,
-                    monthly_action_limit: pricingPlan?.actions_per_month_limit ?? 10000
+                    hourly_action_limit: effectivePricingPlan?.actions_per_hour_limit ?? 100,
+                    daily_action_limit: effectivePricingPlan?.actions_per_day_limit ?? 500,
+                    monthly_action_limit: effectivePricingPlan?.actions_per_month_limit ?? 10000
                 },
                 details: {
                     name: planName,
@@ -1774,6 +1797,7 @@ router.get('/my-plan', loginRequired, async (req, res) => {
             is_active: activeAccountPlan ? activeAccountPlan.is_active : (fallbackPlan?.is_active ?? false),
             is_expired: activeAccountPlan ? activeAccountPlan.is_expired : (fallbackPlan?.is_expired ?? false),
             billing_cycle: activeAccountPlan?.billing_cycle || fallbackPlan?.billing_cycle || 'monthly',
+            entitlements: activeAccountPlan?.entitlements || fallbackPlan?.entitlements || {},
             details: activeAccountPlan?.details || fallbackPlan?.details || { name: 'Free Plan', features: [], price_monthly_inr: 0 },
             limits: activeAccountPlan?.limits || fallbackPlan?.limits || { hourly_action_limit: 100, daily_action_limit: 500, monthly_action_limit: 10000 },
             active_account_plan: activeAccountPlan,

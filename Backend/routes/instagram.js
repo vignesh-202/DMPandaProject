@@ -27,7 +27,9 @@ const {
     resolveUserPlanContext,
     normalizeFeatureKey,
     buildAccountActionState,
-    syncUserIgAccountLimitSnapshots
+    syncUserIgAccountLimitSnapshots,
+    resolveIgAccountActionLimits,
+    listPricingPlans
 } = require('../utils/planConfig');
 const sharedPlanFeatures = require('../../shared/planFeatures.json');
 const { evaluateActionRateLimit } = require('../../shared/actionRateLimiter');
@@ -867,17 +869,25 @@ const createIgAccountDocument = async (databases, documentId, payload, permissio
     }
 };
 
-const serializeIgAccount = (account, profileLimits = {}) => {
+const serializeIgAccount = (account, profileLimits = {}, pricingPlans = null) => {
     const access = normalizeAccountAccess(account);
-    const actionState = buildAccountActionState(account, profileLimits);
+    const accountLimits = (Array.isArray(pricingPlans) && pricingPlans.length > 0 && account?.plan_code)
+        ? resolveIgAccountActionLimits(account, pricingPlans)
+        : (account?.plan_code ? resolveIgAccountActionLimits(account) : profileLimits);
+    const actionState = buildAccountActionState(account, accountLimits, pricingPlans);
     const normalizedStatus = String(account?.status || 'active').trim().toLowerCase() || 'active';
     const normalizedAdminStatus = String(account?.admin_status || 'active').trim().toLowerCase() || 'active';
+    const planCode = String(account?.plan_code || 'free').trim().toLowerCase();
+    const planName = account?.plan_name || (planCode === 'basic' ? 'Basic Plan' : (planCode === 'pro' ? 'Pro Plan' : (planCode === 'ultra' ? 'Ultra Plan' : 'Free Plan')));
     return {
         id: account.$id,
         ig_user_id: getIgProfessionalAccountId(account),
         username: account.username,
         name: account.name || '',
         profile_picture_url: account.profile_picture_url,
+        plan_code: planCode,
+        plan_name: planName,
+        expires_at: account?.expires_at || null,
         status: normalizedStatus,
         admin_status: normalizedAdminStatus,
         api_enabled: Boolean(account.api_enabled),
@@ -2390,7 +2400,10 @@ router.get('/account/ig-accounts', loginRequired, async (req, res) => {
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
 
-        const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        const [profileContext, pricingPlans] = await Promise.all([
+            resolveUserPlanContext(databases, req.user.$id),
+            listPricingPlans(databases)
+        ]);
         await syncUserIgAccountLimitSnapshots(databases, req.user.$id, profileContext.limits || {}).catch(() => []);
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const accountAccessState = await recomputeAccountAccessStateForUser(
@@ -2401,7 +2414,7 @@ router.get('/account/ig-accounts', loginRequired, async (req, res) => {
         );
         const recomputedAccounts = accountAccessState.accounts || [];
 
-        const safeAccounts = recomputedAccounts.map((account) => serializeIgAccount(account, profileContext.limits || {}));
+        const safeAccounts = recomputedAccounts.map((account) => serializeIgAccount(account, profileContext.limits || {}, pricingPlans));
         const planPayload = buildPlanApiPayload(profileContext.plan, profileContext.profile);
 
         res.json({
@@ -3168,7 +3181,10 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
         const { account_id } = req.query;
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const profileContext = await resolveUserPlanContext(databases, req.user.$id);
+        const [profileContext, pricingPlans] = await Promise.all([
+            resolveUserPlanContext(databases, req.user.$id),
+            listPricingPlans(databases)
+        ]);
         await syncUserIgAccountLimitSnapshots(databases, req.user.$id, profileContext.limits || {}).catch(() => []);
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
         const accountAccessState = await recomputeAccountAccessStateForUser(
@@ -3213,8 +3229,8 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
             ]))
         ]);
 
-        const effectiveLimits = profileContext.limits || {};
-        const activeAccountActionState = buildAccountActionState(igAccount, effectiveLimits);
+        const effectiveLimits = resolveIgAccountActionLimits(igAccount, pricingPlans);
+        const activeAccountActionState = buildAccountActionState(igAccount, effectiveLimits, pricingPlans);
         const logs = logsResult.status === 'fulfilled' ? logsResult.value.documents || [] : [];
         const successfulLogs = logs.filter((entry) => String(entry.status || '').toLowerCase() === 'success').length;
         const replyRate = logs.length > 0 ? Math.round((successfulLogs / logs.length) * 100) : 0;

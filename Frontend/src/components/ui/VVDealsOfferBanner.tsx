@@ -32,11 +32,7 @@ const SpotifyLogo = ({ className = 'h-5 w-5' }: { className?: string }) => (
     src="/images/offers/spotify.png"
     alt="Spotify Logo"
     loading="lazy"
-    className={`${className} object-contain shrink-0`}
-    onError={(e) => {
-      (e.target as HTMLImageElement).src =
-        'https://appwrite.vvdeals.cloud/v1/storage/buckets/product-images/files/6a46987b0036306fc8f7/view?project=6a081ab3002501e13f50';
-    }}
+    className={`${className} object-cover rounded-md shrink-0`}
   />
 );
 
@@ -131,7 +127,7 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
               </span>
             </div>
             <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-              18M + 6M + 3M + 1M + 1M
+              ₹39,660 Total Value
             </span>
           </div>
 
@@ -139,7 +135,7 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
             <div className="flex items-center gap-2 rounded-xl bg-card p-2 border border-border/70">
               <GoogleLogo className="h-4 w-4" />
               <div className="min-w-0">
-                <p className="font-extrabold text-foreground truncate">18M Google</p>
+                <p className="font-extrabold text-foreground truncate">18M Google (₹35,100)</p>
                 <p className="text-[10px] text-muted-foreground truncate">AI Pro & Cloud</p>
               </div>
             </div>
@@ -147,7 +143,7 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
             <div className="flex items-center gap-2 rounded-xl bg-card p-2 border border-border/70">
               <AmazonPrimeLogo className="h-4 w-4" />
               <div className="min-w-0">
-                <p className="font-extrabold text-foreground truncate">6M Prime</p>
+                <p className="font-extrabold text-foreground truncate">6M Prime (₹1,794)</p>
                 <p className="text-[10px] text-muted-foreground truncate">Video & Delivery</p>
               </div>
             </div>
@@ -155,7 +151,7 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
             <div className="flex items-center gap-2 rounded-xl bg-card p-2 border border-border/70">
               <SpotifyLogo className="h-4 w-4" />
               <div className="min-w-0">
-                <p className="font-extrabold text-foreground truncate">3M Spotify</p>
+                <p className="font-extrabold text-foreground truncate">3M Spotify (₹597)</p>
                 <p className="text-[10px] text-muted-foreground truncate">Premium Music</p>
               </div>
             </div>
@@ -163,7 +159,7 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
             <div className="flex items-center gap-2 rounded-xl bg-card p-2 border border-border/70">
               <CapCutLogo className="h-4 w-4" />
               <div className="min-w-0">
-                <p className="font-extrabold text-foreground truncate">1M CapCut</p>
+                <p className="font-extrabold text-foreground truncate">1M CapCut (₹2,000)</p>
                 <p className="text-[10px] text-muted-foreground truncate">Pro Creator</p>
               </div>
             </div>
@@ -171,8 +167,8 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
             <div className="flex items-center gap-2 rounded-xl bg-card p-2 border border-border/70 sm:col-span-2 md:col-span-1">
               <NetflixLogo className="h-4 w-4" />
               <div className="min-w-0">
-                <p className="font-extrabold text-foreground truncate">1M Netflix</p>
-                <p className="text-[10px] text-muted-foreground truncate">Premium 4K</p>
+                <p className="font-extrabold text-foreground truncate">1M Netflix (₹169)</p>
+                <p className="text-[10px] text-muted-foreground truncate">Premium 4K (1 Dev)</p>
               </div>
             </div>
           </div>
@@ -193,27 +189,27 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
               </span>
             </div>
             <span className="rounded-full bg-purple-500/15 px-2.5 py-0.5 text-[10px] font-black uppercase text-purple-600 dark:text-purple-300 border border-purple-500/30">
-              Monthly Bonus
+              ₹898 Total Value
             </span>
           </div>
 
           <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
             <div className="flex flex-col items-center justify-center text-center rounded-xl bg-card p-2 border border-border/70">
               <AmazonPrimeLogo className="h-5 w-5 mb-1" />
-              <p className="font-extrabold text-foreground leading-tight">1 Month</p>
+              <p className="font-extrabold text-foreground leading-tight">1 Month (₹299)</p>
               <p className="text-[10px] text-muted-foreground truncate">Amazon Prime</p>
             </div>
 
             <div className="flex flex-col items-center justify-center text-center rounded-xl bg-card p-2 border border-border/70">
               <CapCutLogo className="h-5 w-5 mb-1" />
-              <p className="font-extrabold text-foreground leading-tight">7 Days</p>
+              <p className="font-extrabold text-foreground leading-tight">7 Days (₹500)</p>
               <p className="text-[10px] text-muted-foreground truncate">CapCut Pro</p>
             </div>
 
             <div className="flex flex-col items-center justify-center text-center rounded-xl bg-card p-2 border border-border/70">
               <NetflixLogo className="h-5 w-5 mb-1" />
-              <p className="font-extrabold text-foreground leading-tight">5 Days</p>
-              <p className="text-[10px] text-muted-foreground truncate">Netflix</p>
+              <p className="font-extrabold text-foreground leading-tight">5 Days (₹99)</p>
+              <p className="text-[10px] text-muted-foreground truncate">Netflix (Mobile/TV)</p>
             </div>
           </div>
         </Link>
@@ -222,7 +218,7 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
       {/* Footer link to pricing */}
       <div className="relative z-10 mt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-muted-foreground">
         <p>
-          * Bonus vouchers and credentials provided via VVDeals upon activation of any eligible Ultra plan subscription.
+          * Bonus vouchers and credentials provided via VVDeals upon activation of any eligible full-price Ultra plan (coupons not applicable).
         </p>
         <Link
           to="/pricing"

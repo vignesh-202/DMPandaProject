@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Check,
@@ -35,6 +35,47 @@ export type IgAccountItem = {
   profile_picture_url?: string;
   status?: string;
   is_active?: boolean;
+  plan_code?: string;
+  plan_name?: string;
+  expires_at?: string | null;
+  subscription_status?: string;
+};
+
+const PLAN_TIER_RANKS: Record<string, number> = {
+  free: 0,
+  basic: 1,
+  pro: 2,
+  ultra: 3
+};
+
+export const getPlanRank = (planIdentifier?: string | null): number => {
+  const code = String(planIdentifier || '').trim().toLowerCase();
+  if (code.includes('ultra')) return 3;
+  if (code.includes('pro')) return 2;
+  if (code.includes('basic')) return 1;
+  return PLAN_TIER_RANKS[code] ?? 0;
+};
+
+export const getAccountEffectivePlanRank = (account: IgAccountItem): number => {
+  const rawCode = String(account.plan_code || 'free').trim().toLowerCase();
+  if (!rawCode || rawCode === 'free') return 0;
+
+  if (account.expires_at) {
+    const exp = new Date(account.expires_at);
+    if (!Number.isNaN(exp.getTime()) && exp.getTime() <= Date.now()) {
+      return 0;
+    }
+  }
+
+  if (account.subscription_status && String(account.subscription_status).trim().toLowerCase() !== 'active') {
+    return 0;
+  }
+
+  if (account.is_active === false && !account.expires_at) {
+    return 0;
+  }
+
+  return getPlanRank(rawCode);
 };
 
 type AppliedCoupon = {
@@ -145,19 +186,33 @@ const AccountAvatar: React.FC<{ url?: string; username?: string; name?: string }
   );
 };
 
-const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
+const getAccountId = (acc: any): string => {
+  return String(acc?.id || acc?.ig_user_id || acc?.$id || '');
+};
+
+const isAccountSelected = (account: IgAccountItem, selectedIds: Set<string>): boolean => {
+  if (!account || !selectedIds || selectedIds.size === 0) return false;
+  const primaryId = getAccountId(account);
+  if (primaryId && selectedIds.has(primaryId)) return true;
+  if (account.id && selectedIds.has(String(account.id))) return true;
+  if (account.ig_user_id && selectedIds.has(String(account.ig_user_id))) return true;
+  if ((account as any).$id && selectedIds.has(String((account as any).$id))) return true;
+  return false;
+};
+
+export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
   isOpen,
   plans,
   currentPlan,
   initialPlanId,
+  targetAccountId = null,
   defaultBillingCycle = 'monthly',
   currency = 'INR',
-  countryCode,
+  countryCode = 'IN',
   authenticatedFetch,
-  loadingPlanId,
+  loadingPlanId = null,
   syncingPlan = false,
-  igAccounts,
-  targetAccountId = null,
+  igAccounts = [],
   onClose,
   onPaymentSuccess,
   onSyncComplete
@@ -178,7 +233,6 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>(defaultBillingCycle);
   const [localAccounts, setLocalAccounts] = useState<IgAccountItem[]>(igAccounts || []);
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
-  const [extraSlots, setExtraSlots] = useState<number>(0);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
@@ -192,6 +246,8 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
     () => findPricingPlan(eligiblePlans, selectedPlanId),
     [eligiblePlans, selectedPlanId]
   );
+
+  const wasOpenRef = useRef(false);
 
   // Preload Razorpay SDK when modal opens
   useEffect(() => {
@@ -212,73 +268,124 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isStartingCheckout, isVerifyingPayment, onClose]);
 
-  // Sync prop accounts or fetch linked accounts if missing
+  // Sync prop accounts whenever they update
   useEffect(() => {
-    if (!isOpen) return;
-
     if (Array.isArray(igAccounts) && igAccounts.length > 0) {
       setLocalAccounts(igAccounts);
-      if (targetAccountId) {
-        setSelectedAccountIds(new Set([String(targetAccountId)]));
-      } else {
-        const allIds = new Set<string>(igAccounts.map((acc) => String(acc.id || acc.ig_user_id)));
-        setSelectedAccountIds(allIds);
-      }
-      setExtraSlots(0);
-    } else {
-      let cancelled = false;
-      setIsLoadingAccounts(true);
-      const fetchAccounts = async () => {
-        try {
-          const res = await authenticatedFetch(
-            `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/ig-accounts`
-          );
-          if (res.ok) {
-            const data = await res.json().catch(() => null);
-            const fetched = Array.isArray(data?.ig_accounts) ? data.ig_accounts : [];
-            if (!cancelled) {
-              setLocalAccounts(fetched);
-              if (targetAccountId) {
-                setSelectedAccountIds(new Set([String(targetAccountId)]));
-              } else {
-                const allIds = new Set<string>(fetched.map((acc: IgAccountItem) => String(acc.id || acc.ig_user_id)));
-                setSelectedAccountIds(allIds);
+    }
+  }, [igAccounts]);
+
+  // Fetch accounts on modal open if none provided
+  useEffect(() => {
+    if (!isOpen) {
+      wasOpenRef.current = false;
+      return;
+    }
+
+    if (!wasOpenRef.current) {
+      wasOpenRef.current = true;
+      setSelectedPlanId(resolvedInitialPlanId);
+      setBillingCycle(defaultBillingCycle);
+      setCouponCode('');
+      setAppliedCoupon(null);
+      setCouponState(null);
+
+      if (!igAccounts || igAccounts.length === 0) {
+        let cancelled = false;
+        setIsLoadingAccounts(true);
+        const fetchAccounts = async () => {
+          try {
+            const res = await authenticatedFetch(
+              `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/account/ig-accounts`
+            );
+            if (res.ok) {
+              const data = await res.json().catch(() => null);
+              const fetched = Array.isArray(data?.ig_accounts) ? data.ig_accounts : [];
+              if (!cancelled && fetched.length > 0) {
+                setLocalAccounts(fetched);
               }
-              setExtraSlots(0);
             }
+          } catch (err) {
+            console.error('Failed to load IG accounts for checkout:', err);
+          } finally {
+            if (!cancelled) setIsLoadingAccounts(false);
           }
-        } catch (err) {
-          console.error('Failed to load IG accounts for checkout:', err);
-        } finally {
-          if (!cancelled) setIsLoadingAccounts(false);
-        }
-      };
-      void fetchAccounts();
-      return () => {
-        cancelled = true;
-      };
+        };
+        void fetchAccounts();
+        return () => {
+          cancelled = true;
+        };
+      }
     }
-  }, [isOpen, igAccounts, targetAccountId, authenticatedFetch]);
+  }, [isOpen, igAccounts, defaultBillingCycle, resolvedInitialPlanId, authenticatedFetch]);
 
-  // Derived billable accounts count - instant calculation
-  const accountsCount = useMemo(() => {
-    const selectedCount = selectedAccountIds.size;
-    const total = selectedCount + extraSlots;
-    if (localAccounts.length === 0) {
-      return Math.max(1, extraSlots > 0 ? extraSlots : 1);
-    }
-    return Math.max(1, total);
-  }, [selectedAccountIds.size, extraSlots, localAccounts.length]);
+  const targetPlanRank = useMemo(() => {
+    return getPlanRank(selectedPlan?.plan_code || selectedPlan?.id || selectedPlanId);
+  }, [selectedPlan, selectedPlanId]);
 
-  // Reset modal state on open/reset
+  // Only show accounts that have a lower subscription tier than the selected plan
+  const eligibleAccounts = useMemo(() => {
+    if (targetPlanRank === 0) return localAccounts;
+    return localAccounts.filter((acc) => {
+      const accRank = getAccountEffectivePlanRank(acc);
+      return accRank < targetPlanRank;
+    });
+  }, [localAccounts, targetPlanRank]);
+
+  // Auto-initialize & maintain selection: ensure at least 1 linked eligible account is selected
   useEffect(() => {
     if (!isOpen) return;
-    setSelectedPlanId(resolvedInitialPlanId);
-    setBillingCycle(defaultBillingCycle);
-    setCouponCode('');
-    setAppliedCoupon(null);
-    setCouponState(null);
-  }, [defaultBillingCycle, isOpen, resolvedInitialPlanId]);
+
+    setSelectedAccountIds((prev) => {
+      const eligibleIds = new Set(
+        eligibleAccounts.flatMap((acc) => [
+          getAccountId(acc),
+          String(acc.id || ''),
+          String(acc.ig_user_id || ''),
+          String((acc as any).$id || '')
+        ]).filter(Boolean)
+      );
+
+      const cleaned = new Set<string>();
+      for (const id of prev) {
+        if (eligibleIds.has(id)) {
+          cleaned.add(id);
+        }
+      }
+
+      if (cleaned.size === 0 && eligibleAccounts.length > 0) {
+        let matchedId = '';
+        if (targetAccountId) {
+          const found = eligibleAccounts.find((acc) => {
+            const id = getAccountId(acc);
+            return id === String(targetAccountId) || acc.id === targetAccountId || acc.ig_user_id === targetAccountId || (acc as any).$id === targetAccountId;
+          });
+          if (found) {
+            matchedId = getAccountId(found);
+          }
+        }
+        if (!matchedId) {
+          matchedId = getAccountId(eligibleAccounts[0]);
+        }
+        if (matchedId) {
+          cleaned.add(matchedId);
+        }
+      }
+
+      return cleaned;
+    });
+  }, [isOpen, eligibleAccounts, targetAccountId]);
+
+  const selectedConnectedAccounts = useMemo(() => {
+    return eligibleAccounts.filter((acc) => isAccountSelected(acc, selectedAccountIds));
+  }, [eligibleAccounts, selectedAccountIds]);
+
+  const selectedConnectedCount = selectedConnectedAccounts.length;
+
+  // Derived billable accounts count - only linked eligible accounts
+  const accountsCount = useMemo(() => {
+    return eligibleAccounts.length === 0 ? 0 : selectedConnectedCount;
+  }, [eligibleAccounts.length, selectedConnectedCount]);
 
   // 100% Instant, Zero-Latency Real-Time Price Calculations
   const unitBasePrice = useMemo(() => {
@@ -302,35 +409,40 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
     return Math.max(0, billedTotal - discountAmount);
   }, [billedTotal, discountAmount]);
 
-  const selectedConnectedAccounts = useMemo(() => {
-    return localAccounts.filter((acc) =>
-      selectedAccountIds.has(String(acc.id || acc.ig_user_id))
-    );
-  }, [localAccounts, selectedAccountIds]);
+  const toggleAccountSelection = useCallback((account: IgAccountItem) => {
+    const accId = getAccountId(account);
+    const altIds = [String(account.id || ''), String(account.ig_user_id || ''), String((account as any).$id || '')].filter(Boolean);
 
-  const toggleAccountSelection = useCallback((accountId: string) => {
     setSelectedAccountIds((prev) => {
       const next = new Set<string>(prev);
-      if (next.has(accountId)) {
-        next.delete(accountId);
+      const isCurrentlySelected = Array.from(next).some((id) => id === accId || altIds.includes(id));
+
+      if (isCurrentlySelected) {
+        // If this is the only selected account, do not deselect it (must keep at least 1 selected)
+        if (next.size <= 1) {
+          return prev;
+        }
+        next.delete(accId);
+        altIds.forEach((id) => next.delete(id));
       } else {
-        next.add(accountId);
+        next.add(accId);
       }
       return next;
     });
   }, []);
 
   const handleSelectAll = useCallback(() => {
-    const allIds = new Set<string>(localAccounts.map((acc) => String(acc.id || acc.ig_user_id)));
+    const allIds = new Set<string>(eligibleAccounts.map((acc) => getAccountId(acc)).filter(Boolean));
     setSelectedAccountIds(allIds);
-  }, [localAccounts]);
+  }, [eligibleAccounts]);
 
   const handleDeselectAll = useCallback(() => {
-    setSelectedAccountIds(new Set<string>());
-    if (extraSlots === 0) {
-      setExtraSlots(1);
+    if (eligibleAccounts.length > 0) {
+      setSelectedAccountIds(new Set<string>([getAccountId(eligibleAccounts[0])]));
+    } else {
+      setSelectedAccountIds(new Set<string>());
     }
-  }, [extraSlots]);
+  }, [eligibleAccounts]);
 
   const handleApplyCoupon = async () => {
     const code = couponCode.trim().toUpperCase();
@@ -403,7 +515,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
   };
 
   const handleStartCheckout = async () => {
-    if (!selectedPlan) return;
+    if (!selectedPlan || accountsCount <= 0) return;
 
     setIsStartingCheckout(true);
     try {
@@ -608,7 +720,134 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                 </p>
               </div>
 
-              {/* Billing Cycle Switch */}
+              {/* Instagram Account Selector Section */}
+              <div className="rounded-2xl border border-border/80 bg-card/60 p-4 sm:p-5 shadow-xs">
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/70">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-pink-500/10 text-pink-500">
+                      <Instagram className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-bold text-foreground">Instagram Accounts</h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        {selectedConnectedCount} of {eligibleAccounts.length} eligible {eligibleAccounts.length === 1 ? 'account' : 'accounts'} selected
+                      </p>
+                    </div>
+                  </div>
+
+                  {eligibleAccounts.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      {selectedConnectedCount < eligibleAccounts.length ? (
+                        <button
+                          type="button"
+                          onClick={handleSelectAll}
+                          className="text-xs font-bold text-primary hover:underline transition px-1"
+                        >
+                          Select All
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleDeselectAll}
+                          className="text-xs font-bold text-muted-foreground hover:text-foreground hover:underline transition px-1"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Account Cards List */}
+                <div className="mt-3 space-y-2 max-h-52 overflow-y-auto pr-1">
+                  {isLoadingAccounts ? (
+                    <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" /> Loading Instagram accounts...
+                    </div>
+                  ) : eligibleAccounts.length > 0 ? (
+                    eligibleAccounts.map((account) => {
+                      const id = getAccountId(account) || String(account.username || Math.random());
+                      const isSelected = isAccountSelected(account, selectedAccountIds);
+                      const currentPlanLabel = account.plan_name || (account.plan_code === 'basic' ? 'Basic Plan' : (account.plan_code === 'pro' ? 'Pro Plan' : (account.plan_code === 'ultra' ? 'Ultra Plan' : 'Free Plan')));
+                      const isFree = !account.plan_code || account.plan_code === 'free';
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => toggleAccountSelection(account)}
+                          className={cn(
+                            'group flex w-full items-center justify-between rounded-xl border p-2.5 sm:p-3 text-left transition-all active:scale-[0.99]',
+                            isSelected
+                              ? 'border-primary bg-primary/8 shadow-xs'
+                              : 'border-border/70 bg-background/50 hover:border-border hover:bg-background/80'
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <AccountAvatar
+                              url={account.profile_picture_url}
+                              username={account.username}
+                              name={account.name}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="truncate text-xs sm:text-sm font-bold text-foreground">
+                                  {account.username ? `@${account.username}` : account.name || 'Instagram Account'}
+                                </p>
+                                {account.plan_code && account.plan_code !== 'free' && (
+                                  <span className="rounded-md bg-purple-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                    {account.plan_name || account.plan_code}
+                                  </span>
+                                )}
+                              </div>
+                              {account.name && account.username && (
+                                <p className="truncate text-[10px] sm:text-xs text-muted-foreground">{account.name}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2.5">
+                            <span className="hidden sm:inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                              Connected
+                            </span>
+                            <div className={cn('transition-transform duration-150', isSelected ? 'scale-105 text-primary' : 'text-muted-foreground/40 group-hover:text-muted-foreground/80')}>
+                              {isSelected ? (
+                                <CheckSquare className="h-5 w-5 fill-primary text-primary-foreground" />
+                              ) : (
+                                <Square className="h-5 w-5" />
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })
+                  ) : localAccounts.length > 0 ? (
+                    <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-5 text-center">
+                      <Instagram className="mx-auto h-8 w-8 text-muted-foreground mb-2 opacity-50" />
+                      <p className="text-xs sm:text-sm font-bold text-foreground">No accounts eligible for this plan</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        All your connected accounts already have an equal or higher active plan than {selectedPlan?.name || 'this plan'}.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-5 text-center">
+                      <Instagram className="mx-auto h-8 w-8 text-pink-500 mb-2" />
+                      <p className="text-xs sm:text-sm font-bold text-foreground">No Instagram Accounts Connected</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Please connect your Instagram account first in Account Settings to purchase a subscription.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {eligibleAccounts.length > 0 && (
+                  <div className="mt-2.5 flex items-center justify-between text-xs text-muted-foreground px-1">
+                    <span>Selected Accounts:</span>
+                    <span className="font-bold text-foreground">{accountsCount} {accountsCount === 1 ? 'Account' : 'Accounts'}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Billing Cycle Switch (Monthly / Yearly) */}
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/30 p-2 sm:p-2.5">
                 <div className="inline-flex rounded-xl border border-border bg-card p-1 shadow-xs">
                   <button
@@ -647,141 +886,6 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                 </div>
               </div>
 
-              {/* Instagram Account Selector Section */}
-              <div className="rounded-2xl border border-border/80 bg-card/60 p-4 sm:p-5 shadow-xs">
-                <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/70">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-pink-500/10 text-pink-500">
-                      <Instagram className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-xs sm:text-sm font-bold text-foreground">Instagram Accounts</h3>
-                      <p className="text-[11px] text-muted-foreground">
-                        {selectedAccountIds.size} of {localAccounts.length} accounts selected
-                      </p>
-                    </div>
-                  </div>
-
-                  {localAccounts.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      {selectedAccountIds.size < localAccounts.length ? (
-                        <button
-                          type="button"
-                          onClick={handleSelectAll}
-                          className="text-xs font-bold text-primary hover:underline transition"
-                        >
-                          Select All
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleDeselectAll}
-                          className="text-xs font-bold text-muted-foreground hover:text-foreground hover:underline transition"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Account Cards List */}
-                <div className="mt-3 space-y-2 max-h-52 overflow-y-auto pr-1">
-                  {isLoadingAccounts ? (
-                    <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" /> Loading Instagram accounts...
-                    </div>
-                  ) : localAccounts.length > 0 ? (
-                    localAccounts.map((account) => {
-                      const id = String(account.id || account.ig_user_id);
-                      const isSelected = selectedAccountIds.has(id);
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => toggleAccountSelection(id)}
-                          className={cn(
-                            'group flex w-full items-center justify-between rounded-xl border p-2.5 sm:p-3 text-left transition-all active:scale-[0.99]',
-                            isSelected
-                              ? 'border-primary bg-primary/8 shadow-xs'
-                              : 'border-border/70 bg-background/50 hover:border-border hover:bg-background/80'
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <AccountAvatar
-                              url={account.profile_picture_url}
-                              username={account.username}
-                              name={account.name}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs sm:text-sm font-bold text-foreground">
-                                {account.username ? `@${account.username}` : account.name || 'Instagram Account'}
-                              </p>
-                              {account.name && account.username && (
-                                <p className="truncate text-[10px] sm:text-xs text-muted-foreground">{account.name}</p>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2.5">
-                            <span className="hidden sm:inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                              Connected
-                            </span>
-                            <div className={cn('transition-transform duration-150', isSelected ? 'scale-105 text-primary' : 'text-muted-foreground/40 group-hover:text-muted-foreground/80')}>
-                              {isSelected ? (
-                                <CheckSquare className="h-5 w-5 fill-primary text-primary-foreground" />
-                              ) : (
-                                <Square className="h-5 w-5" />
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-4 text-center">
-                      <p className="text-xs sm:text-sm font-medium text-foreground">No Instagram accounts connected yet</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        You can purchase plan slots now and link your Instagram accounts anytime in Account Settings.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Extra Account Slots Stepper */}
-                <div className="mt-3 flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 p-3">
-                  <div>
-                    <p className="text-xs font-bold text-foreground">Reserve Extra Account Slots</p>
-                    <p className="text-[10px] text-muted-foreground">Add slots for accounts you plan to link later.</p>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-1 shadow-2xs">
-                    <button
-                      type="button"
-                      onClick={() => setExtraSlots((prev) => Math.max(0, prev - 1))}
-                      disabled={extraSlots <= 0}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border/70 bg-background text-foreground font-bold transition hover:bg-muted active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                      aria-label="Decrease slots"
-                    >
-                      <Minus className="h-3.5 w-3.5" />
-                    </button>
-                    <span className="min-w-[1.75rem] text-center text-xs sm:text-sm font-black text-foreground">{extraSlots}</span>
-                    <button
-                      type="button"
-                      onClick={() => setExtraSlots((prev) => Math.min(50, prev + 1))}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border/70 bg-background text-foreground font-bold transition hover:bg-muted active:scale-95"
-                      aria-label="Increase slots"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-2.5 flex items-center justify-between text-xs text-muted-foreground px-1">
-                  <span>Total Billable Accounts:</span>
-                  <span className="font-bold text-foreground">{accountsCount} {accountsCount === 1 ? 'Account' : 'Accounts'}</span>
-                </div>
-              </div>
-
               {/* Plan Cards List */}
               <div className="space-y-3">
                 <p className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">Available Plans</p>
@@ -789,7 +893,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                   {eligiblePlans.map((entry) => {
                     const isSelected = entry.id === selectedPlanId;
                     const unitPrice = getPlanBilledTotal(entry, currency, billingCycle === 'yearly');
-                    const totalPlanPrice = unitPrice * accountsCount;
+                    const totalPlanPrice = unitPrice * Math.max(1, accountsCount);
                     return (
                       <button
                         key={entry.id}
@@ -815,7 +919,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                             <p className="mt-1 text-xs text-muted-foreground">
                               {formatMoney(unitPrice, currency)} / account / {billingCycle === 'yearly' ? 'yr' : 'mo'}
                               <span className="ml-2 font-bold text-foreground">
-                                (Total: {formatMoney(totalPlanPrice, currency)} for {accountsCount} {accountsCount === 1 ? 'account' : 'accounts'})
+                                (Total: {formatMoney(totalPlanPrice, currency)} for {Math.max(1, accountsCount)} {accountsCount === 1 ? 'account' : 'accounts'})
                               </span>
                             </p>
                           </div>
@@ -857,7 +961,7 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                   </span>
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Billed for {accountsCount} {accountsCount === 1 ? 'Instagram Account' : 'Instagram Accounts'}
+                  {accountsCount > 0 ? `Billed for ${accountsCount} ${accountsCount === 1 ? 'Instagram Account' : 'Instagram Accounts'}` : 'No accounts connected'}
                 </p>
 
                 {/* Covered Accounts Summary Pill */}
@@ -877,20 +981,10 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                           <span className="truncate">@{acc.username || acc.name || 'Instagram Account'}</span>
                         </div>
                       ))}
-                      {extraSlots > 0 && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted border border-border text-[9px] font-bold">
-                            +{extraSlots}
-                          </div>
-                          <span>{extraSlots} extra account {extraSlots === 1 ? 'slot' : 'slots'}</span>
-                        </div>
-                      )}
                     </div>
                   ) : (
-                    <div className="text-xs text-muted-foreground">
-                      {extraSlots > 0
-                        ? `${extraSlots} unlinked account ${extraSlots === 1 ? 'slot' : 'slots'}`
-                        : '1 account slot included'}
+                    <div className="text-xs text-muted-foreground italic py-0.5">
+                      No Instagram accounts selected
                     </div>
                   )}
                 </div>
@@ -931,22 +1025,21 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                   <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
                     Have a promo coupon?
                   </label>
-
                   {appliedCoupon ? (
-                    <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs text-emerald-700 dark:text-emerald-300">
                       <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <Tag className="h-4 w-4 text-emerald-500" />
                         <div>
-                          <span className="font-bold text-emerald-700 dark:text-emerald-300">{appliedCoupon.code}</span>
-                          <span className="ml-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-                            ({appliedCoupon.type === 'percent' ? `${appliedCoupon.value}% OFF` : `-${formatMoney(appliedCoupon.value, currency)}`})
+                          <span className="font-black tracking-wider uppercase">{appliedCoupon.code}</span>
+                          <span className="ml-2 font-medium opacity-90">
+                            ({appliedCoupon.type === 'percent' ? `${appliedCoupon.value}% off` : `${formatMoney(appliedCoupon.value, currency)} off`})
                           </span>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={handleRemoveCoupon}
-                        className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300 transition"
+                        className="rounded-lg p-1 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition"
                         title="Remove coupon"
                       >
                         <X className="h-3.5 w-3.5" />
@@ -954,26 +1047,21 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                     </div>
                   ) : (
                     <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Percent className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                          value={couponCode}
-                          onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              void handleApplyCoupon();
-                            }
-                          }}
-                          placeholder="Coupon code"
-                          className="h-10 w-full rounded-xl border border-border/80 bg-background pl-9 pr-3 text-xs text-foreground outline-none transition focus:border-primary"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) => {
+                          setCouponCode(e.target.value.toUpperCase());
+                          setCouponState(null);
+                        }}
+                        placeholder="ENTER CODE"
+                        className="h-10 flex-1 rounded-xl border border-border bg-background px-3 text-xs font-bold uppercase tracking-wider text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
                       <button
                         type="button"
                         onClick={handleApplyCoupon}
-                        disabled={isApplyingCoupon || !selectedPlan || !couponCode.trim()}
-                        className="inline-flex h-10 items-center justify-center rounded-xl border border-border px-3.5 text-xs font-bold text-foreground transition hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={isApplyingCoupon || !couponCode.trim()}
+                        className="inline-flex h-10 items-center justify-center rounded-xl bg-muted px-4 text-xs font-bold text-foreground transition hover:bg-muted/80 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {isApplyingCoupon ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Apply'}
                       </button>
@@ -991,11 +1079,17 @@ const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                 <button
                   type="button"
                   onClick={handleStartCheckout}
-                  disabled={!selectedPlan || isStartingCheckout || syncingPlan || loadingPlanId === selectedPlan?.id}
+                  disabled={!selectedPlan || accountsCount <= 0 || eligibleAccounts.length === 0 || isStartingCheckout || syncingPlan || loadingPlanId === selectedPlan?.id}
                   className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-xl bg-foreground px-5 text-sm font-black text-background transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
                 >
                   {isStartingCheckout || syncingPlan || loadingPlanId === selectedPlan?.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : localAccounts.length === 0 ? (
+                    'Connect an Instagram Account First'
+                  ) : eligibleAccounts.length === 0 ? (
+                    'No Accounts Eligible For This Plan'
+                  ) : accountsCount <= 0 ? (
+                    'Select an Instagram Account'
                   ) : finalAmount <= 0 ? (
                     'Activate Plan'
                   ) : (

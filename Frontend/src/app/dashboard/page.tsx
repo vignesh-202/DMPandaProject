@@ -174,7 +174,7 @@ const DashboardContent: React.FC = () => {
   if (currentView === 'Overview') {
     return (
       <Suspense fallback={<PageLoader title="Loading Dashboard" description="Preparing your metrics..." />}>
-        <DashboardOverviewView />
+        <DashboardOverviewView key={`overview-${activeAccountID || 'no-account'}`} />
       </Suspense>
     );
   }
@@ -182,28 +182,28 @@ const DashboardContent: React.FC = () => {
   // Other Views
   return (
     <Suspense fallback={<PageLoader />}>
-      {currentView === 'Analytics' && <AnalyticsView />}
-      {currentView === 'Insights' && <InsightsView />}
-      {currentView === 'Reply Templates' && <ReplyTemplatesView />}
-      {currentView === 'Inbox Menu' && <InboxMenu />}
-      {currentView === 'Welcome Message' && <WelcomeMessageView />}
-      {currentView === 'Super Profile' && <SuperProfileView />}
-      {currentView === 'Convo Starter' && <ConvoStarterView />}
-      {currentView === 'Global Trigger' && <GlobalTriggersView />}
-      {currentView === 'DM Automation' && <DMAutomationView />}
-      {currentView === 'Post Automation' && <PostAutomationView />}
-      {currentView === 'Reel Automation' && <ReelAutomationView />}
-      {currentView === 'Story Automation' && <StoryAutomationView />}
-      {currentView === 'Live Automation' && <LiveAutomationView />}
-      {currentView === 'Mentions' && <MentionsView />}
-      {currentView === 'Email Collector' && <EmailCollectorView />}
-      {currentView === 'Suggest More' && <SuggestMoreView />}
-      {currentView === 'Comment Moderation' && <CommentModerationView />}
-      {currentView === 'My Plan' && <MyPlanView />}
-      {currentView === 'Transactions' && <TransactionsView />}
-      {currentView === 'Account Settings' && <AccountSettingsView />}
-      {currentView === 'Support' && <SupportView />}
-      {currentView === 'Contact' && <SupportView mode="contact" />}
+      {currentView === 'Analytics' && <AnalyticsView key={`analytics-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Insights' && <InsightsView key={`insights-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Reply Templates' && <ReplyTemplatesView key={`reply-templates-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Inbox Menu' && <InboxMenu key={`inbox-menu-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Welcome Message' && <WelcomeMessageView key={`welcome-msg-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Super Profile' && <SuperProfileView key={`super-profile-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Convo Starter' && <ConvoStarterView key={`convo-starter-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Global Trigger' && <GlobalTriggersView key={`global-trigger-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'DM Automation' && <DMAutomationView key={`dm-auto-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Post Automation' && <PostAutomationView key={`post-auto-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Reel Automation' && <ReelAutomationView key={`reel-auto-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Story Automation' && <StoryAutomationView key={`story-auto-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Live Automation' && <LiveAutomationView key={`live-auto-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Mentions' && <MentionsView key={`mentions-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Email Collector' && <EmailCollectorView key={`email-col-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Suggest More' && <SuggestMoreView key={`suggest-more-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Comment Moderation' && <CommentModerationView key={`comment-mod-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'My Plan' && <MyPlanView key={`my-plan-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Transactions' && <TransactionsView key={`transactions-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Account Settings' && <AccountSettingsView key={`settings-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Support' && <SupportView key={`support-${activeAccountID || 'no-acc'}`} />}
+      {currentView === 'Contact' && <SupportView key={`contact-${activeAccountID || 'no-acc'}`} mode="contact" />}
     </Suspense>
   );
 };

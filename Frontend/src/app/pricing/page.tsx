@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AuthRedirectButton from '../../components/ui/AuthRedirectButton';
-import { ChevronDown, ChevronUp, Check, X, Sparkles, Zap, Gift } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check, X, Sparkles, Zap, Gift, ArrowRight } from 'lucide-react';
 import InfoPopover from '../../components/ui/InfoPopover';
 import VVDealsTopTeaser from '../../components/ui/VVDealsTopTeaser';
 import VVDealsOfferSection from '../../components/ui/VVDealsOfferSection';
@@ -188,8 +188,8 @@ const PricingPage: React.FC = () => {
                     </div>
                   )}
                   {isUltra && !isPopular && (
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-md shadow-purple-500/20">
-                      🎁 Get Bonus
+                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-md shadow-purple-500/25 whitespace-nowrap">
+                      Includes {isYearly ? '₹39,660' : '₹898'} Free Tools
                     </div>
                   )}
 
@@ -225,18 +225,45 @@ const PricingPage: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Ultra Plan VVDeals Bonus Highlight Box */}
+                      {/* Ultra Plan VVDeals Bonus Highlight Box - Clickable & Compact */}
                       {isUltra && (
-                        <div className="mt-3.5 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-3 text-xs dark:bg-purple-950/40">
-                          <div className="flex items-center gap-1.5 font-black text-purple-700 dark:text-purple-300">
-                            <Gift size={14} className="text-pink-500" />
-                            <span>Included Partner Perks (VV Deals):</span>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            document.getElementById('vvdeals-offer-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              document.getElementById('vvdeals-offer-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                          }}
+                          className="group/perks mt-3.5 flex items-center justify-between gap-3 rounded-2xl border border-purple-500/30 bg-purple-500/[0.08] p-3 text-left transition-all duration-200 hover:border-purple-500/60 hover:bg-purple-500/[0.13] active:scale-[0.98] cursor-pointer dark:bg-purple-950/30 dark:hover:bg-purple-950/50"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-600 text-white shadow-xs group-hover/perks:scale-105 transition-transform">
+                              <Gift size={16} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-baseline gap-1.5 flex-wrap">
+                                <span className="text-base font-black tracking-tight text-gray-950 dark:text-white">
+                                  {isYearly ? '₹39,660' : '₹898'}
+                                </span>
+                                <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300">
+                                  Free Perks
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                {isYearly
+                                  ? 'Google AI, Prime, Spotify, CapCut & Netflix'
+                                  : 'Prime, CapCut & Netflix (Mobile/TV)'}
+                              </p>
+                            </div>
                           </div>
-                          <p className="mt-1 text-[11px] font-semibold text-gray-700 dark:text-gray-300 leading-snug">
-                            {isYearly
-                              ? 'Google AI Pro (18M), Amazon Prime (6M), Spotify (3M), CapCut Pro (1M) & Netflix (1M)'
-                              : 'Amazon Prime (1M), CapCut Pro (7 Days) & Netflix (5 Days)'}
-                          </p>
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-500/15 text-purple-600 group-hover/perks:bg-purple-600 group-hover/perks:text-white transition-colors dark:text-purple-400">
+                            <ArrowRight size={13} className="transition-transform group-hover/perks:translate-x-0.5" />
+                          </div>
                         </div>
                       )}
                     </div>

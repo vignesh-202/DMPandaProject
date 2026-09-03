@@ -261,18 +261,22 @@ const recomputeAccountAccessStateForUser = async (databases, userId, profile = n
             ...account,
             ...normalizeAccountAccess(account)
         }));
+    const maxAllowed = Math.max(
+        docs.length,
+        Number(limitState.max_allowed_accounts || limitState.instagram_connections_limit || 0)
+    );
     const state = {
         accounts: normalizedAccounts,
         summary: {
             total_linked_accounts: docs.length,
-            max_allowed_accounts: docs.length,
-            active_account_limit: docs.length
+            max_allowed_accounts: maxAllowed,
+            active_account_limit: maxAllowed
         },
         limits: {
             ...limitState,
-            instagram_connections_limit: docs.length,
-            active_account_limit: docs.length,
-            max_allowed_accounts: docs.length
+            instagram_connections_limit: maxAllowed,
+            active_account_limit: maxAllowed,
+            max_allowed_accounts: maxAllowed
         },
         default_window_ids: docs.map((account) => String(account.$id || '').trim()).filter(Boolean)
     };

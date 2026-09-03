@@ -2,11 +2,14 @@ const { Query } = require('node-appwrite');
 const sharedPlanFeatures = require('../../shared/planFeatures.json');
 const {
     APPWRITE_DATABASE_ID,
-    AUTOMATIONS_COLLECTION_ID
+    AUTOMATIONS_COLLECTION_ID,
+    IG_ACCOUNTS_COLLECTION_ID
 } = require('./appwrite');
 const {
     normalizeFeatureKey,
-    resolveUserPlanContext
+    resolveUserPlanContext,
+    listPricingPlans,
+    normalizePlanDocument
 } = require('./planConfig');
 
 const TOGGLE_FEATURE_MAP = Object.freeze(sharedPlanFeatures.toggleFeatureMap || {});
@@ -37,8 +40,36 @@ const requiredFeaturesForAutomation = (automation = {}) => {
 const updateAutomationPlanValidationForUser = async (databases, userId, planContext = null) => {
     const safeUserId = String(userId || '').trim();
     if (!safeUserId) return { checked: 0, updated: 0 };
-    const context = planContext || await resolveUserPlanContext(databases, safeUserId);
-    const entitlements = context.entitlements || {};
+
+    let accountEntitlementsMap = new Map();
+    try {
+        const pricingPlans = await listPricingPlans(databases);
+        const igAccountsRes = await databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
+            Query.equal('user_id', safeUserId),
+            Query.limit(100)
+        ]).catch(() => ({ documents: [] }));
+        const igAccounts = igAccountsRes.documents || [];
+
+        for (const acc of igAccounts) {
+            const planCode = String(acc.plan_code || 'free').trim().toLowerCase();
+            const isFree = planCode === 'free';
+            const expiresAt = acc.expires_at ? new Date(acc.expires_at) : null;
+            const isActive = !isFree && Boolean(expiresAt && expiresAt.getTime() > Date.now());
+            const effectivePricingPlan = isActive 
+                ? (pricingPlans.find(p => p.plan_code === planCode || p.id === planCode) || pricingPlans.find(p => p.plan_code === 'free'))
+                : pricingPlans.find(p => p.plan_code === 'free');
+            const normalized = normalizePlanDocument(effectivePricingPlan || {});
+            const entitlements = normalized?.entitlements || {};
+            
+            if (acc.$id) accountEntitlementsMap.set(String(acc.$id), entitlements);
+            if (acc.account_id) accountEntitlementsMap.set(String(acc.account_id), entitlements);
+            if (acc.ig_user_id) accountEntitlementsMap.set(String(acc.ig_user_id), entitlements);
+        }
+    } catch (_) {}
+
+    const defaultContext = planContext || await resolveUserPlanContext(databases, safeUserId);
+    const defaultEntitlements = defaultContext.entitlements || {};
+
     const response = await databases.listDocuments(APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, [
         Query.equal('user_id', safeUserId),
         Query.limit(500)
@@ -46,6 +77,9 @@ const updateAutomationPlanValidationForUser = async (databases, userId, planCont
     let updated = 0;
     let persistenceUnsupported = false;
     for (const automation of response.documents || []) {
+        const accKey = String(automation.account_id || automation.ig_user_id || automation.ig_account_id || '').trim();
+        const entitlements = (accKey && accountEntitlementsMap.get(accKey)) || defaultEntitlements;
+
         const missing = requiredFeaturesForAutomation(automation)
             .filter((feature) => entitlements[feature] !== true);
         const nextState = missing.length > 0 ? 'invalid_due_to_plan' : 'valid';

@@ -1015,9 +1015,9 @@ class AppwriteClient {
         };
     }
 
-    async getExecutionState(userId) {
+    async getExecutionState(userId, accountId = null) {
         const [profile, user] = await Promise.all([
-            this.getProfile(userId),
+            this.getProfile(userId, accountId),
             this.getUser(userId)
         ]);
         const killSwitchEnabled = this._toBoolean(

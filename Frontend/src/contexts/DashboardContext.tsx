@@ -361,8 +361,15 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [location.pathname, navigate]);
 
-    const refreshPlanAccess = useCallback(async () => {
-        const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/my-plan`);
+    const refreshPlanAccess = useCallback(async (targetAccountId?: string | null) => {
+        const accId = targetAccountId !== undefined ? targetAccountId : activeAccountID;
+        const queryParam = accId ? `?account_id=${encodeURIComponent(accId)}` : '';
+        const response = await authenticatedFetch(
+            `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/my-plan${queryParam}`,
+            {
+                headers: accId ? { 'x-account-id': accId } : {}
+            }
+        );
         if (!response.ok) {
             throw new Error('Failed to load plan access');
         }
@@ -372,11 +379,16 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
             await refreshPricingPlanCatalog().catch(() => null);
         }
         const limitsPayload = payload?.limits && typeof payload.limits === 'object' ? payload.limits : {};
+        const resolvedLinkLimit = typeof limitsPayload?.instagram_link_limit === 'number'
+            ? limitsPayload.instagram_link_limit
+            : (typeof limitsPayload?.instagram_connections_limit === 'number' ? limitsPayload.instagram_connections_limit : null);
+
         setPlanFeatures(Array.isArray(payload?.details?.features) ? payload.details.features : []);
         setPlanEntitlements(payload?.entitlements && typeof payload.entitlements === 'object' ? payload.entitlements : {});
         setPlanLimits(limitsPayload);
         setPlanPureLimits((previous) => ({
             ...previous,
+            max_link_limit: resolvedLinkLimit != null ? resolvedLinkLimit : previous.max_link_limit,
             active_account_limit: resolveActiveAccountLimit(limitsPayload)
         }));
         setPlanStatus({
@@ -386,14 +398,20 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         setCurrentPlanIdentifier(planIdentifier);
         applyPlanPureLimits(pricingPlansRef.current, planIdentifier);
         setAccessState(payload?.access_state || authAccessState || null);
-    }, [applyPlanPureLimits, authAccessState, authenticatedFetch, refreshPricingPlanCatalog, resolveActiveAccountLimit]);
+    }, [activeAccountID, applyPlanPureLimits, authAccessState, authenticatedFetch, refreshPricingPlanCatalog, resolveActiveAccountLimit]);
 
     useEffect(() => {
         let cancelled = false;
         const loadPlanFeatures = async () => {
             try {
+                const queryParam = activeAccountID ? `?account_id=${encodeURIComponent(activeAccountID)}` : '';
                 const [planResponse] = await Promise.all([
-                    authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/my-plan`),
+                    authenticatedFetch(
+                        `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/my-plan${queryParam}`,
+                        {
+                            headers: activeAccountID ? { 'x-account-id': activeAccountID } : {}
+                        }
+                    ),
                     pricingPlansRef.current.length === 0 ? refreshPricingPlanCatalog().catch(() => null) : Promise.resolve()
                 ]);
                 if (!planResponse.ok) {
@@ -403,11 +421,16 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                 const planIdentifier = String(payload?.plan_code || payload?.plan_id || payload?.assigned_plan_id || 'free').trim().toLowerCase() || 'free';
                 if (!cancelled) {
                     const limitsPayload = payload?.limits && typeof payload.limits === 'object' ? payload.limits : {};
+                    const resolvedLinkLimit = typeof limitsPayload?.instagram_link_limit === 'number'
+                        ? limitsPayload.instagram_link_limit
+                        : (typeof limitsPayload?.instagram_connections_limit === 'number' ? limitsPayload.instagram_connections_limit : null);
+
                     setPlanFeatures(Array.isArray(payload?.details?.features) ? payload.details.features : []);
                     setPlanEntitlements(payload?.entitlements && typeof payload.entitlements === 'object' ? payload.entitlements : {});
                     setPlanLimits(limitsPayload);
                     setPlanPureLimits((previous) => ({
                         ...previous,
+                        max_link_limit: resolvedLinkLimit != null ? resolvedLinkLimit : previous.max_link_limit,
                         active_account_limit: resolveActiveAccountLimit(limitsPayload)
                     }));
                     setPlanStatus({
@@ -425,6 +448,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                     setPlanLimits({});
                     setPlanPureLimits((previous) => ({
                         ...previous,
+                        max_link_limit: null,
                         active_account_limit: 0
                     }));
                     setPlanStatus({
@@ -441,7 +465,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             cancelled = true;
         };
-    }, [applyPlanPureLimits, authAccessState, authenticatedFetch, refreshPricingPlanCatalog, resolveActiveAccountLimit, user?.$id]);
+    }, [activeAccountID, applyPlanPureLimits, authAccessState, authenticatedFetch, refreshPricingPlanCatalog, resolveActiveAccountLimit, user?.$id]);
 
     useEffect(() => {
         setAccessState((prev) => authAccessState || prev || null);

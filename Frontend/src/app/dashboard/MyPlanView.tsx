@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import InfoPopover from '../../components/ui/InfoPopover';
 import VVDealsOfferBanner from '../../components/ui/VVDealsOfferBanner';
@@ -113,7 +114,8 @@ const MyPlanView: React.FC = () => {
     setActiveAccountID,
     setCurrentView,
     isInitialLoadComplete,
-    fetchIgAccounts
+    fetchIgAccounts,
+    planPureLimits
   } = useDashboard();
 
   const [plan, setPlan] = useState<UserPlan | null>(null);
@@ -135,6 +137,7 @@ const MyPlanView: React.FC = () => {
 
   // Success banner
   const [upgradeSuccessMessage, setUpgradeSuccessMessage] = useState<string | null>(null);
+  const { showSuccess } = useNotification();
 
   const pricingHeaders = useMemo(() => buildCountryHeaders(countryCode), [countryCode]);
 
@@ -330,7 +333,32 @@ const MyPlanView: React.FC = () => {
   // Open checkout targeting a specific IG account
   const openAccountUpgrade = (accountId: string, preselectedPlanId?: string) => {
     setTargetCheckoutAccountId(accountId);
-    setSelectedCheckoutPlanId(preselectedPlanId || checkoutPlans[0]?.id || null);
+    if (preselectedPlanId) {
+      setSelectedCheckoutPlanId(preselectedPlanId);
+    } else {
+      // Find the account's current plan rank
+      const targetAccount = allAccounts.find((a: any) => a.account_id === accountId);
+      const rawCode = String(targetAccount?.plan_code || 'free').toLowerCase();
+      let currentRank = 0;
+      if (rawCode === 'basic') currentRank = 1;
+      else if (rawCode === 'pro') currentRank = 2;
+      else if (rawCode === 'ultra') currentRank = 3;
+
+      if (targetAccount?.expires_at && new Date(targetAccount.expires_at).getTime() <= Date.now()) {
+        currentRank = 0;
+      }
+
+      const nextHigherPlan = checkoutPlans.find((p) => {
+        const pCode = String(p.plan_code || p.id).toLowerCase();
+        let pRank = 0;
+        if (pCode.includes('basic')) pRank = 1;
+        else if (pCode.includes('pro')) pRank = 2;
+        else if (pCode.includes('ultra')) pRank = 3;
+        return pRank > currentRank;
+      });
+
+      setSelectedCheckoutPlanId(nextHigherPlan?.id || checkoutPlans[0]?.id || null);
+    }
     setCheckoutOpen(true);
   };
 
@@ -357,6 +385,41 @@ const MyPlanView: React.FC = () => {
   const allAccounts = useMemo(() => {
     return plan?.all_accounts_plans || [];
   }, [plan?.all_accounts_plans]);
+
+  const checkoutIgAccounts = useMemo(() => {
+    const accountPlanMap = new Map<string, any>();
+    (plan?.all_accounts_plans || []).forEach((acc: any) => {
+      if (acc.account_id) accountPlanMap.set(String(acc.account_id), acc);
+      if (acc.id) accountPlanMap.set(String(acc.id), acc);
+    });
+
+    if (Array.isArray(igAccounts) && igAccounts.length > 0) {
+      return igAccounts.map((account) => {
+        const planInfo = accountPlanMap.get(String(account.id)) || accountPlanMap.get(String(account.ig_user_id)) || null;
+        return {
+          ...account,
+          plan_code: planInfo?.plan_code || account.plan_code || 'free',
+          plan_name: planInfo?.plan_name || account.plan_name || 'Free Plan',
+          expires_at: planInfo?.expires_at || account.expires_at || null,
+          subscription_status: planInfo?.subscription_status || account.subscription_status || 'active',
+          is_active: planInfo?.is_active ?? account.is_active ?? true
+        };
+      });
+    }
+
+    return (plan?.all_accounts_plans || []).map((acc: any) => ({
+      id: acc.account_id,
+      ig_user_id: acc.account_id,
+      username: acc.username,
+      name: acc.username,
+      profile_picture_url: acc.profile_picture_url,
+      plan_code: acc.plan_code,
+      plan_name: acc.plan_name,
+      expires_at: acc.expires_at,
+      subscription_status: acc.subscription_status,
+      is_active: acc.is_active
+    }));
+  }, [igAccounts, plan?.all_accounts_plans]);
 
   const paidAccountsCount = useMemo(() => {
     return allAccounts.filter((a) => a.is_active && a.plan_code !== 'free').length;
@@ -389,22 +452,26 @@ const MyPlanView: React.FC = () => {
       <div className="mx-auto max-w-7xl space-y-8 p-3 sm:p-5 md:p-8">
         {/* Top Notification Banner for Payment Success */}
         {upgradeSuccessMessage && (
-          <div className="relative flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-700 dark:text-emerald-300 shadow-sm animate-in fade-in slide-in-from-top-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white font-bold">
-                <CheckCircle2 size={20} />
+          <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-primary/10 p-5 text-foreground shadow-md animate-in fade-in slide-in-from-top-3">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white font-bold shadow-sm">
+                <CheckCircle2 size={24} />
               </div>
               <div>
-                <p className="font-bold text-sm">Subscription Upgraded Successfully!</p>
-                <p className="text-xs opacity-90">{upgradeSuccessMessage}</p>
+                <p className="font-black text-base text-foreground flex items-center gap-2">
+                  Subscription Activated Successfully! <Sparkles size={16} className="text-amber-500" />
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">{upgradeSuccessMessage}</p>
               </div>
             </div>
-            <button
-              onClick={() => setUpgradeSuccessMessage(null)}
-              className="rounded-lg p-1.5 hover:bg-emerald-500/20 text-xs font-semibold"
-            >
-              Dismiss
-            </button>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                onClick={() => setUpgradeSuccessMessage(null)}
+                className="rounded-xl border border-border/70 bg-card px-3.5 py-2 text-xs font-bold hover:bg-muted transition"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 
@@ -1100,12 +1167,12 @@ const MyPlanView: React.FC = () => {
                           <div className="mt-3.5 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-3 text-xs dark:bg-purple-950/40">
                             <div className="flex items-center gap-1.5 font-black text-purple-700 dark:text-purple-300">
                               <Gift size={14} className="text-pink-500" />
-                              <span>VV Deals Creators Bundle:</span>
+                              <span>VV Deals Included Bonus:</span>
                             </div>
                             <p className="mt-1 text-[11px] font-semibold text-foreground/80 leading-snug">
                               {isYearly
-                                ? '✨ 18m Google AI Pro, 6m Prime, 3m Spotify, 1m CapCut Pro, 1m Netflix'
-                                : '✨ 1m Amazon Prime, 7 days CapCut Pro, 5 days Netflix'}
+                                ? '✨ 18m Google AI Pro, 6m Prime, 3m Spotify, 1m CapCut Pro, 1m Netflix (₹39,660 Value)'
+                                : '✨ 1m Amazon Prime, 7 days CapCut Pro, 5 days Netflix on Mobile/TV (₹898 Value)'}
                             </p>
                           </div>
                         )}
@@ -1241,7 +1308,7 @@ const MyPlanView: React.FC = () => {
         authenticatedFetch={authenticatedFetch}
         loadingPlanId={paymentLoading}
         syncingPlan={syncingPlan}
-        igAccounts={igAccounts}
+        igAccounts={checkoutIgAccounts}
         onClose={() => {
           setCheckoutOpen(false);
           setTargetCheckoutAccountId(null);
@@ -1250,7 +1317,9 @@ const MyPlanView: React.FC = () => {
           setPaymentLoading(null);
           setSelectedCheckoutPlanId(null);
           setTargetCheckoutAccountId(null);
-          setUpgradeSuccessMessage(`You have successfully activated the ${planName}!`);
+          const msg = `You have successfully activated the ${planName}! All features and slots are ready.`;
+          setUpgradeSuccessMessage(msg);
+          showSuccess(`🎉 ${msg}`);
         }}
         onSyncComplete={refreshAfterPayment}
       />
