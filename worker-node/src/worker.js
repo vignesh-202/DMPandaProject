@@ -444,11 +444,19 @@ class DMWorker {
         console.log(line);
     }
 
-    _trackMetaApiAction(tracker, budgetKey) {
+    _isBillableMetaApiAction(details = {}) {
+        if (details?.billable === false) return false;
+        const requestType = String(details?.requestType || '').trim().toLowerCase();
+        return ['send_message', 'reply_to_comment', 'hide_comment', 'delete_comment'].includes(requestType);
+    }
+
+    _trackMetaApiAction(tracker, budgetKey, details = {}) {
         if (!tracker || !(tracker.counts instanceof Map)) return;
         const safeBudgetKey = String(budgetKey || '').trim();
         if (!safeBudgetKey) return;
-        tracker.counts.set(safeBudgetKey, Number(tracker.counts.get(safeBudgetKey) || 0) + 1);
+        const nextCount = Number(tracker.counts.get(safeBudgetKey) || 0) + 1;
+        tracker.counts.set(safeBudgetKey, nextCount);
+        console.log(`[ACTION TRACKED] +1 action counted for account ${safeBudgetKey} (${details?.requestType || 'action'}). Total pending: ${nextCount}`);
     }
 
     _buildAccountExecutionProfile(profile = {}, igAccount = {}) {
@@ -580,9 +588,23 @@ class DMWorker {
         const safeTracker = this._ensureMetaApiUsageTracker(tracker);
         this._initializeMetaApiBudget(safeTracker, safeBudgetKey, executionProfile);
         return new InstagramAPI(accessToken, {
-            onBeforeRequest: async () => this._canConsumeMetaApiAction(safeTracker, safeBudgetKey, 1),
-            onRequestComplete: async () => {
-                this._trackMetaApiAction(safeTracker, safeBudgetKey);
+            onBeforeRequest: async (details = {}) => {
+                if (!this._isBillableMetaApiAction(details)) {
+                    return { allowed: true };
+                }
+                return this._canConsumeMetaApiAction(safeTracker, safeBudgetKey, 1);
+            },
+            onRequestComplete: async (details = {}) => {
+                // NEVER bill non-billable helper requests (mark_seen, typing_on, get_user_profile, get_comment, etc.)
+                if (!this._isBillableMetaApiAction(details)) {
+                    return;
+                }
+                // NEVER bill failed requests (4xx, 5xx, Meta API window errors, network errors, etc.)
+                if (details?.success !== true) {
+                    console.log(`[ACTION SKIPPED] Meta API request (${details?.requestType || 'action'}) failed or was rejected. No credits will be charged.`);
+                    return;
+                }
+                this._trackMetaApiAction(safeTracker, safeBudgetKey, details);
             }
         });
     }
@@ -811,7 +833,8 @@ class DMWorker {
             const secondarySent = await instagram.sendMessage(
                 senderId,
                 'template_text',
-                watermarkPlan.secondaryPayload
+                watermarkPlan.secondaryPayload,
+                { billable: false }
             );
             if (logContext?.accountId) {
                 await this._recordAutomationLog({
@@ -2168,7 +2191,7 @@ class DMWorker {
                 commentReplySent: true
             });
 
-            handled = handled || success === true;
+            handled = handled || success === true || commentReplySent === true;
             if (success) {
                 if (this._isShareToAdminAutomation(matchedAutomation)) {
                     nextConversationState.mediaShareSent = true;
@@ -3041,7 +3064,16 @@ class DMWorker {
                     throwOnError: options?.throwOnError !== false
                 });
 
-                await this._flushMetaApiActionUsage(metaApiUsageTracker);
+                const isHandled = result === true || (result && typeof result === 'object' && result.handled === true);
+                if (isHandled) {
+                    await this._flushMetaApiActionUsage(metaApiUsageTracker);
+                } else {
+                    // Invalid keyword, unhandled automation, or blocked - do NOT consume any credits!
+                    if (metaApiUsageTracker?.counts instanceof Map) {
+                        metaApiUsageTracker.counts.clear();
+                    }
+                }
+
                 this._rememberProcessedEvent(meta, EVENT_DEDUPE_TTL_MS);
                 if (claim?.claimed) {
                     await this.appwrite.finalizeProcessingEvent(claim, {
@@ -3056,7 +3088,7 @@ class DMWorker {
                     recipient_id: String(meta?.recipientId || '').trim() || null,
                     sender_id: String(meta?.senderId || '').trim() || null,
                     conversation_key: String(meta?.conversationKey || '').trim() || null,
-                    handled: result?.handled === true,
+                    handled: isHandled,
                     duplicate: result?.duplicate === true,
                     automation_type: String(result?.automationType || '').trim() || null,
                     claim_status: claim?.claimed ? 'claimed' : 'not_claimed'
@@ -3072,7 +3104,11 @@ class DMWorker {
                     this.localProcessedEvents.delete(compositeKey);
                 }
 
-                await this._flushMetaApiActionUsage(metaApiUsageTracker);
+                // Failed automation: NEVER charge credits for crashed or failed executions!
+                if (metaApiUsageTracker?.counts instanceof Map) {
+                    metaApiUsageTracker.counts.clear();
+                }
+
                 if (claim?.claimed) {
                     await this.appwrite.finalizeProcessingEvent(claim, {
                         status: 'failed',

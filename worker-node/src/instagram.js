@@ -43,7 +43,7 @@ class InstagramAPI {
             });
             allowed = true;
             const response = await axios.post(`${this.baseUrl}${path}`, data, { params });
-            success = response.status >= 200 && response.status < 300;
+            success = response.status >= 200 && response.status < 300 && !response.data?.error;
             return response;
         } finally {
             if (allowed) {
@@ -68,7 +68,7 @@ class InstagramAPI {
             });
             allowed = true;
             const response = await axios.get(`${this.baseUrl}${path}`, { params });
-            success = response.status >= 200 && response.status < 300;
+            success = response.status >= 200 && response.status < 300 && !response.data?.error;
             return response;
         } finally {
             if (allowed) {
@@ -93,7 +93,7 @@ class InstagramAPI {
             });
             allowed = true;
             const response = await axios.delete(`${this.baseUrl}${path}`, { params });
-            success = response.status >= 200 && response.status < 300;
+            success = response.status >= 200 && response.status < 300 && !response.data?.error;
             return response;
         } finally {
             if (allowed) {
@@ -118,12 +118,13 @@ class InstagramAPI {
 
         try {
             const response = await this._post('/me/messages', messageData, params, {
-                requestType: 'send_message',
+                requestType: options?.billable === false ? 'unbilled_send_message' : 'send_message',
+                billable: options?.billable !== false,
                 recipientId: String(recipientId || '').trim(),
                 messageType: String(messageType || '').trim(),
                 commentId: options?.commentId || null
             });
-            if (response.status === 200) {
+            if (response.status === 200 && !response.data?.error) {
                 console.info(`Message sent successfully: ${response.data.message_id || response.data.id}`);
                 return true;
             }
@@ -282,9 +283,10 @@ class InstagramAPI {
         try {
             const response = await this._post(`/${safeCommentId}/replies`, { message: safeMessage }, params, {
                 requestType: 'reply_to_comment',
+                billable: true,
                 commentId: safeCommentId
             });
-            return response.status >= 200 && response.status < 300;
+            return response.status >= 200 && response.status < 300 && !response.data?.error;
         } catch (error) {
             console.error(
                 `Failed to reply to comment ${safeCommentId}:`,
@@ -306,9 +308,10 @@ class InstagramAPI {
         try {
             const response = await this._post(`/${safeCommentId}`, {}, params, {
                 requestType: 'hide_comment',
+                billable: true,
                 commentId: safeCommentId
             });
-            return response.status >= 200 && response.status < 300;
+            return response.status >= 200 && response.status < 300 && !response.data?.error;
         } catch (error) {
             console.error(
                 `Failed to ${shouldHide ? 'hide' : 'unhide'} comment ${safeCommentId}:`,
@@ -329,9 +332,10 @@ class InstagramAPI {
         try {
             const response = await this._delete(`/${safeCommentId}`, params, {
                 requestType: 'delete_comment',
+                billable: true,
                 commentId: safeCommentId
             });
-            return response.status >= 200 && response.status < 300;
+            return response.status >= 200 && response.status < 300 && !response.data?.error;
         } catch (error) {
             console.error(
                 `Failed to delete comment ${safeCommentId}:`,
