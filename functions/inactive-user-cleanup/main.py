@@ -805,7 +805,6 @@ def main(context):
         client.set_key(api_key)
 
         users_collection = _env("USERS_COLLECTION_ID", "users")
-        profiles_collection = _env("PROFILES_COLLECTION_ID", "profiles")
         transactions_collection = _env("TRANSACTIONS_COLLECTION_ID", "transactions")
         payment_attempts_collection = _env("PAYMENT_ATTEMPTS_COLLECTION_ID", "payment_attempts")
         coupon_redemptions_collection = _env("COUPON_REDEMPTIONS_COLLECTION_ID", "coupon_redemptions")
@@ -822,7 +821,6 @@ def main(context):
         collections = {
             "campaigns": _env("CAMPAIGNS_COLLECTION_ID", "campaigns"),
             "email_campaigns": _env("EMAIL_CAMPAIGNS_COLLECTION_ID", "email_campaigns"),
-            "profiles": profiles_collection,
             "automations": _env("AUTOMATIONS_COLLECTION_ID", "automations"),
             "reply_templates": _env("REPLY_TEMPLATES_COLLECTION_ID", "reply_templates"),
             "inbox_menus": _env("INBOX_MENUS_COLLECTION_ID", "inbox_menus"),
@@ -879,8 +877,6 @@ def main(context):
                         _write_audit_log(client, db_id, audit_collection, user_doc=user_doc, action="skip_protected", reason=protection_reason, dry_run=False)
                     continue
 
-                profile_doc = _get_profile_for_user(client, db_id, profiles_collection, user_id)
-
                 # Check if unverified, no IG accounts, and older than 24h
                 is_unverified = not bool(_obj_get(auth_user, "emailVerification", False))
                 user_created_at = _parse_datetime(_obj_get(user_doc, "$createdAt"))
@@ -920,8 +916,6 @@ def main(context):
                     )
                     delete_summary = _delete_user_data(client, db_id, collections, user_doc)
                     _delete_auth_user(client, user_id)
-                    if profile_doc and str(_obj_get(profile_doc, "$id") or "").strip():
-                        _delete_document(client, db_id, profiles_collection, str(_obj_get(profile_doc, "$id") or "").strip())
                     _delete_document(client, db_id, users_collection, user_id)
                     summary["deleted"] += 1
                     _write_audit_log(
@@ -1024,8 +1018,6 @@ def main(context):
                     )
                     delete_summary = _delete_user_data(client, db_id, collections, user_doc)
                     _delete_auth_user(client, user_id)
-                    if profile_doc and str(_obj_get(profile_doc, "$id") or "").strip():
-                        _delete_document(client, db_id, profiles_collection, str(_obj_get(profile_doc, "$id") or "").strip())
                     _delete_document(client, db_id, users_collection, user_id)
                     summary["deleted"] += 1
                     _write_audit_log(

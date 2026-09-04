@@ -282,16 +282,20 @@ def _find_success_transaction(transactions, attempt):
     return None, None
 
 
+def _is_user_currently_paid(user_accounts, now):
+    for account in (user_accounts or []):
+        plan_code = _normalize_plan_code(_obj_get(account, "plan_code"))
+        if plan_code and plan_code != "free":
+            status = str(_obj_get(account, "subscription_status", "active") or "active").strip().lower()
+            if status not in {"inactive", "expired"}:
+                expiry_date = _parse_datetime(_obj_get(account, "subscription_expires") or _obj_get(account, "expiry_date"))
+                if not expiry_date or expiry_date > now:
+                    return True
+    return False
+
+
 def _is_profile_currently_paid(profile, now):
-    if not profile:
-        return False
-    plan_code = _normalize_plan_code(_obj_get(profile, "plan_code"))
-    expiry_date = _parse_datetime(_obj_get(profile, "expiry_date"))
-    if plan_code == "free":
-        return False
-    if not expiry_date or expiry_date <= now:
-        return False
-    return True
+    return _is_user_currently_paid([profile] if profile else [], now)
 
 
 def _cleanup_attempt_document(client, db_id, attempts_collection, attempt, next_status=None, meta_updates=None):
@@ -446,7 +450,7 @@ def main(context):
 
         attempts_collection = _env("PAYMENT_ATTEMPTS_COLLECTION_ID", "payment_attempts")
         transactions_collection = _env("TRANSACTIONS_COLLECTION_ID", "transactions")
-        profiles_collection = _env("PROFILES_COLLECTION_ID", "profiles")
+        ig_accounts_collection = _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts")
         job_locks_collection = _env("JOB_LOCKS_COLLECTION_ID", "job_locks")
 
         run_window = datetime.now(timezone.utc).strftime("%Y%m%d%H")
@@ -455,12 +459,12 @@ def main(context):
 
         attempts = _list_all(client, db_id, attempts_collection)
         transactions = _list_all(client, db_id, transactions_collection)
-        profiles = _list_all(client, db_id, profiles_collection)
-        profiles_by_user_id = {
-            str(_obj_get(profile, "user_id", "") or "").strip(): profile
-            for profile in profiles
-            if str(_obj_get(profile, "user_id", "") or "").strip()
-        }
+        accounts = _list_all(client, db_id, ig_accounts_collection)
+        accounts_by_user_id = {}
+        for account in accounts:
+            uid = str(_obj_get(account, "user_id", "") or "").strip()
+            if uid:
+                accounts_by_user_id.setdefault(uid, []).append(account)
         now = datetime.now(timezone.utc)
         stale_before = now - timedelta(hours=STALE_AFTER_HOURS)
 
@@ -561,8 +565,8 @@ def main(context):
                     summary["cleaned_reconciled"] += 1
                     continue
 
-                profile = profiles_by_user_id.get(user_id)
-                if _is_profile_currently_paid(profile, now):
+                user_accounts = accounts_by_user_id.get(user_id, [])
+                if _is_user_currently_paid(user_accounts, now):
                     _delete_attempt_group(
                         client,
                         db_id,

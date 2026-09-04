@@ -10,9 +10,11 @@ import {
     ChevronUp,
     ExternalLink,
     Loader2,
+    RotateCcw,
     Search,
     Settings2,
     Shield,
+    Sliders,
     Trash2,
     X
 } from 'lucide-react';
@@ -256,6 +258,18 @@ export const UsersPage: React.FC = () => {
     const [showDeleteInstagramDialog, setShowDeleteInstagramDialog] = useState(false);
     const [deleteInstagramConfirmText, setDeleteInstagramConfirmText] = useState('');
     const [pendingDeleteInstagramAccount, setPendingDeleteInstagramAccount] = useState<any | null>(null);
+    const [editingCreditsAccount, setEditingCreditsAccount] = useState<any | null>(null);
+    const [editingCreditsForm, setEditingCreditsForm] = useState<{
+        allocated_hourly_credits: number;
+        allocated_daily_credits: number;
+        allocated_monthly_credits: number;
+    }>({
+        allocated_hourly_credits: 0,
+        allocated_daily_credits: 0,
+        allocated_monthly_credits: 0,
+    });
+    const [savingCredits, setSavingCredits] = useState(false);
+    const [resettingCreditsAccountId, setResettingCreditsAccountId] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [popupSections, setPopupSections] = useState<Record<PopupSectionKey, boolean>>(DEFAULT_POPUP_SECTION_STATE);
@@ -748,6 +762,72 @@ export const UsersPage: React.FC = () => {
             setErrorMessage(error?.response?.data?.error || 'Failed to delete Instagram account.');
         } finally {
             setAccountToggleLoadingId(null);
+        }
+    };
+
+    const openEditCreditsModal = (account: any) => {
+        setEditingCreditsAccount(account);
+        setEditingCreditsForm({
+            allocated_hourly_credits: Number(account.allocated_hourly_credits ?? account.hourly_action_limit ?? 100),
+            allocated_daily_credits: Number(account.allocated_daily_credits ?? account.daily_action_limit ?? 1000),
+            allocated_monthly_credits: Number(account.allocated_monthly_credits ?? account.monthly_action_limit ?? 25000),
+        });
+    };
+
+    const saveAccountCredits = async () => {
+        if (!selectedUser || !editingCreditsAccount?.$id) return;
+        setSavingCredits(true);
+        setErrorMessage(null);
+        try {
+            const response = await httpClient.patch(`/api/admin/users/${selectedUser.$id}/instagram-accounts/${editingCreditsAccount.$id}/credits`, {
+                allocated_hourly_credits: editingCreditsForm.allocated_hourly_credits,
+                allocated_daily_credits: editingCreditsForm.allocated_daily_credits,
+                allocated_monthly_credits: editingCreditsForm.allocated_monthly_credits
+            });
+            const updatedAccount = response.data?.account || response.data?.data;
+            if (updatedAccount) {
+                setDetailData((prev: any) => {
+                    if (!prev) return prev;
+                    const accounts = Array.isArray(prev.instagram_accounts) ? prev.instagram_accounts : [];
+                    return {
+                        ...prev,
+                        instagram_accounts: accounts.map((acc: any) => acc.$id === updatedAccount.$id ? { ...acc, ...updatedAccount } : acc)
+                    };
+                });
+            }
+            setNotice('Account credits updated successfully.');
+            setEditingCreditsAccount(null);
+        } catch (error: any) {
+            console.error('Failed to update credits:', error);
+            setErrorMessage(error?.response?.data?.error || 'Failed to update account credits.');
+        } finally {
+            setSavingCredits(false);
+        }
+    };
+
+    const resetAccountCredits = async (account: any) => {
+        if (!selectedUser || !account?.$id) return;
+        setResettingCreditsAccountId(account.$id);
+        setErrorMessage(null);
+        try {
+            const response = await httpClient.post(`/api/admin/users/${selectedUser.$id}/instagram-accounts/${account.$id}/reset-credits`);
+            const updatedAccount = response.data?.account || response.data?.data;
+            if (updatedAccount) {
+                setDetailData((prev: any) => {
+                    if (!prev) return prev;
+                    const accounts = Array.isArray(prev.instagram_accounts) ? prev.instagram_accounts : [];
+                    return {
+                        ...prev,
+                        instagram_accounts: accounts.map((acc: any) => acc.$id === updatedAccount.$id ? { ...acc, ...updatedAccount } : acc)
+                    };
+                });
+            }
+            setNotice(response.data?.message || 'Account credits reset to plan defaults.');
+        } catch (error: any) {
+            console.error('Failed to reset credits:', error);
+            setErrorMessage(error?.response?.data?.error || 'Failed to reset credits.');
+        } finally {
+            setResettingCreditsAccountId(null);
         }
     };
 
@@ -1340,8 +1420,59 @@ export const UsersPage: React.FC = () => {
                                                                 </div>
                                                             </div>
                                                         </div>
+                                                        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                                            <div className="rounded-[16px] border border-border/70 bg-card/70 px-3 py-2 text-xs">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Hourly Credits</span>
+                                                                <div className="mt-1 flex items-baseline justify-between gap-1">
+                                                                    <span className="font-semibold text-foreground">
+                                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, Number(acc.allocated_hourly_credits ?? acc.hourly_action_limit ?? 100) - Number(acc.hourly_actions_used ?? 0)).toLocaleString()}</span>
+                                                                        <span className="text-muted-foreground font-normal text-[11px]"> / {Number(acc.allocated_hourly_credits ?? acc.hourly_action_limit ?? 100).toLocaleString()}</span>
+                                                                    </span>
+                                                                    <span className="text-[10px] text-muted-foreground font-medium">Used: {Number(acc.hourly_actions_used ?? 0).toLocaleString()}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="rounded-[16px] border border-border/70 bg-card/70 px-3 py-2 text-xs">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Daily Credits</span>
+                                                                <div className="mt-1 flex items-baseline justify-between gap-1">
+                                                                    <span className="font-semibold text-foreground">
+                                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, Number(acc.allocated_daily_credits ?? acc.daily_action_limit ?? 1000) - Number(acc.daily_actions_used ?? 0)).toLocaleString()}</span>
+                                                                        <span className="text-muted-foreground font-normal text-[11px]"> / {Number(acc.allocated_daily_credits ?? acc.daily_action_limit ?? 1000).toLocaleString()}</span>
+                                                                    </span>
+                                                                    <span className="text-[10px] text-muted-foreground font-medium">Used: {Number(acc.daily_actions_used ?? 0).toLocaleString()}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="rounded-[16px] border border-border/70 bg-card/70 px-3 py-2 text-xs">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Monthly Credits</span>
+                                                                <div className="mt-1 flex items-baseline justify-between gap-1">
+                                                                    <span className="font-semibold text-foreground">
+                                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, Number(acc.allocated_monthly_credits ?? acc.monthly_action_limit ?? 25000) - Number(acc.monthly_actions_used ?? 0)).toLocaleString()}</span>
+                                                                        <span className="text-muted-foreground font-normal text-[11px]"> / {Number(acc.allocated_monthly_credits ?? acc.monthly_action_limit ?? 25000).toLocaleString()}</span>
+                                                                    </span>
+                                                                    <span className="text-[10px] text-muted-foreground font-medium">Used: {Number(acc.monthly_actions_used ?? 0).toLocaleString()}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center justify-end gap-3 sm:self-stretch">
+                                                    <div className="flex flex-wrap items-center justify-end gap-2.5 sm:self-stretch">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openEditCreditsModal(acc)}
+                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/20 transition"
+                                                            title="Edit Hourly, Daily & Monthly Allocated Credits"
+                                                        >
+                                                            <Sliders className="h-3.5 w-3.5" />
+                                                            <span>Edit Credits</span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={resettingCreditsAccountId === acc.$id}
+                                                            onClick={() => void resetAccountCredits(acc)}
+                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted transition disabled:opacity-50"
+                                                            title="Reset Allocated Credits to Pricing Plan Defaults"
+                                                        >
+                                                            {resettingCreditsAccountId === acc.$id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                                                            <span>Reset to Plan</span>
+                                                        </button>
                                                         <button
                                                             type="button"
                                                             role="switch"
@@ -1602,6 +1733,137 @@ export const UsersPage: React.FC = () => {
                     void deleteUser();
                 }}
             />
+
+            {editingCreditsAccount && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+                    <div className="w-full max-w-lg rounded-[28px] border border-border/80 bg-card p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-lg font-black text-foreground">
+                                    Edit Allocated Credits
+                                </h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    @{editingCreditsAccount.username || editingCreditsAccount.ig_user_id || editingCreditsAccount.account_id}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setEditingCreditsAccount(null)}
+                                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-800 dark:text-amber-200">
+                            <p className="font-semibold">Important Rule:</p>
+                            <p className="mt-0.5 opacity-90">
+                                You are modifying the <strong>Allocated Credits</strong>. Remaining credits are automatically computed by the system as <code>Allocated - Used</code> and cannot be manually modified.
+                            </p>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Hourly */}
+                            <div className="rounded-2xl border border-border/70 bg-background/60 p-3.5 space-y-2">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="font-bold text-foreground">Hourly Action Credits</span>
+                                    <span className="text-muted-foreground">Used: {Number(editingCreditsAccount.hourly_actions_used || 0).toLocaleString()}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 items-center">
+                                    <div>
+                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Allocated (Editable)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            className="input-base"
+                                            value={editingCreditsForm.allocated_hourly_credits}
+                                            onChange={(e) => setEditingCreditsForm(prev => ({ ...prev, allocated_hourly_credits: Math.max(0, parseInt(e.target.value) || 0) }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Remaining (Computed)</label>
+                                        <div className="input-base bg-muted/40 font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
+                                            {Math.max(0, editingCreditsForm.allocated_hourly_credits - Number(editingCreditsAccount.hourly_actions_used || 0)).toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Daily */}
+                            <div className="rounded-2xl border border-border/70 bg-background/60 p-3.5 space-y-2">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="font-bold text-foreground">Daily Action Credits</span>
+                                    <span className="text-muted-foreground">Used: {Number(editingCreditsAccount.daily_actions_used || 0).toLocaleString()}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 items-center">
+                                    <div>
+                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Allocated (Editable)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            className="input-base"
+                                            value={editingCreditsForm.allocated_daily_credits}
+                                            onChange={(e) => setEditingCreditsForm(prev => ({ ...prev, allocated_daily_credits: Math.max(0, parseInt(e.target.value) || 0) }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Remaining (Computed)</label>
+                                        <div className="input-base bg-muted/40 font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
+                                            {Math.max(0, editingCreditsForm.allocated_daily_credits - Number(editingCreditsAccount.daily_actions_used || 0)).toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Monthly */}
+                            <div className="rounded-2xl border border-border/70 bg-background/60 p-3.5 space-y-2">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="font-bold text-foreground">Monthly Action Credits</span>
+                                    <span className="text-muted-foreground">Used: {Number(editingCreditsAccount.monthly_actions_used || 0).toLocaleString()}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 items-center">
+                                    <div>
+                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Allocated (Editable)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            className="input-base"
+                                            value={editingCreditsForm.allocated_monthly_credits}
+                                            onChange={(e) => setEditingCreditsForm(prev => ({ ...prev, allocated_monthly_credits: Math.max(0, parseInt(e.target.value) || 0) }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Remaining (Computed)</label>
+                                        <div className="input-base bg-muted/40 font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
+                                            {Math.max(0, editingCreditsForm.allocated_monthly_credits - Number(editingCreditsAccount.monthly_actions_used || 0)).toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setEditingCreditsAccount(null)}
+                                className="button-secondary"
+                                disabled={savingCredits}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void saveAccountCredits()}
+                                disabled={savingCredits}
+                                className="button-primary"
+                            >
+                                {savingCredits ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                Save Credits
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

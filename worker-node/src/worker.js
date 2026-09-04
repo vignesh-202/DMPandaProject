@@ -294,6 +294,17 @@ class DMWorker {
     _getProfileFeatures(profile) {
         const features = { ...(profile?.__plan_features || {}) };
         let hasExplicitFeatures = Object.keys(features).length > 0;
+        if (profile?.features_json) {
+            try {
+                const parsed = typeof profile.features_json === 'string' ? JSON.parse(profile.features_json) : profile.features_json;
+                if (parsed && typeof parsed === 'object') {
+                    hasExplicitFeatures = true;
+                    Object.entries(parsed).forEach(([k, v]) => {
+                        features[resolveCanonicalFeatureKey(k)] = v === true;
+                    });
+                }
+            } catch (_) {}
+        }
         Object.keys(profile || {}).forEach((key) => {
             if (key.startsWith('benefit_')) {
                 hasExplicitFeatures = true;
@@ -452,29 +463,42 @@ class DMWorker {
         const effectivePlanCode = isAccountActive ? rawAccountPlan : 'free';
 
         const isFreePlan = effectivePlanCode === 'free';
-        const hourlyLimit = isFreePlan
-            ? 100
-            : Number(igAccount?.hourly_action_limit ?? profile?.hourly_action_limit ?? 100);
-        const dailyLimit = isFreePlan
-            ? 100
-            : Number(igAccount?.daily_action_limit ?? profile?.daily_action_limit ?? 1000);
-        const monthlyLimit = isFreePlan
-            ? 1000
-            : (igAccount?.monthly_action_limit != null
-                ? Number(igAccount.monthly_action_limit)
-                : (profile?.monthly_action_limit == null ? null : Number(profile.monthly_action_limit)));
+        const allocatedHourly = igAccount?.allocated_hourly_credits != null
+            ? Number(igAccount.allocated_hourly_credits)
+            : (isFreePlan ? 100 : Number(igAccount?.hourly_action_limit ?? profile?.hourly_action_limit ?? 100));
+        const allocatedDaily = igAccount?.allocated_daily_credits != null
+            ? Number(igAccount.allocated_daily_credits)
+            : (isFreePlan ? 100 : Number(igAccount?.daily_action_limit ?? profile?.daily_action_limit ?? 1000));
+        const allocatedMonthly = igAccount?.allocated_monthly_credits != null
+            ? Number(igAccount.allocated_monthly_credits)
+            : (isFreePlan ? 1000 : (igAccount?.monthly_action_limit != null ? Number(igAccount.monthly_action_limit) : (profile?.monthly_action_limit == null ? null : Number(profile.monthly_action_limit))));
+
+        const hourlyActionsUsed = Number(igAccount?.hourly_actions_used ?? 0);
+        const dailyActionsUsed = Number(igAccount?.daily_actions_used ?? 0);
+        const monthlyActionsUsed = Number(igAccount?.monthly_actions_used ?? 0);
+
+        const remainedHourly = Math.max(0, allocatedHourly - hourlyActionsUsed);
+        const remainedDaily = Math.max(0, allocatedDaily - dailyActionsUsed);
+        const remainedMonthly = Math.max(0, (allocatedMonthly ?? 0) - monthlyActionsUsed);
 
         return {
             ...profile,
             is_active: isAccountActive,
             is_expired: isExpired,
             plan_code: effectivePlanCode,
-            hourly_action_limit: hourlyLimit,
-            daily_action_limit: dailyLimit,
-            monthly_action_limit: monthlyLimit,
-            hourly_actions_used: Number(igAccount?.hourly_actions_used ?? 0),
-            daily_actions_used: Number(igAccount?.daily_actions_used ?? 0),
-            monthly_actions_used: Number(igAccount?.monthly_actions_used ?? 0)
+            hourly_action_limit: allocatedHourly,
+            daily_action_limit: allocatedDaily,
+            monthly_action_limit: allocatedMonthly,
+            allocated_hourly_credits: allocatedHourly,
+            allocated_daily_credits: allocatedDaily,
+            allocated_monthly_credits: allocatedMonthly,
+            remained_hourly_credits: remainedHourly,
+            remained_daily_credits: remainedDaily,
+            remained_monthly_credits: remainedMonthly,
+            hourly_actions_used: hourlyActionsUsed,
+            daily_actions_used: dailyActionsUsed,
+            monthly_actions_used: monthlyActionsUsed,
+            features_json: igAccount?.features_json || profile?.features_json || null
         };
     }
 
@@ -510,9 +534,11 @@ class DMWorker {
         if (Number(budget.limits.hourly_action_limit || 0) > 0 && nextHourly > Number(budget.limits.hourly_action_limit || 0)) {
             return { allowed: false, code: 'hourly_action_limit_reached', reason: 'meta_api_hourly_limit_reached' };
         }
+
         if (Number(budget.limits.daily_action_limit || 0) > 0 && nextDaily > Number(budget.limits.daily_action_limit || 0)) {
             return { allowed: false, code: 'daily_action_limit_reached', reason: 'meta_api_daily_limit_reached' };
         }
+
         if (budget.limits.monthly_action_limit != null && Number(budget.limits.monthly_action_limit || 0) > 0 && nextMonthly > Number(budget.limits.monthly_action_limit || 0)) {
             return { allowed: false, code: 'monthly_action_limit_reached', reason: 'meta_api_monthly_limit_reached' };
         }

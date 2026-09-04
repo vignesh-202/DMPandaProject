@@ -372,14 +372,12 @@ def main(context):
         users = Users(client)
 
         users_collection_id = _env("USERS_COLLECTION_ID", "users")
-        profiles_collection_id = _env("PROFILES_COLLECTION_ID", "profiles")
         ig_accounts_collection_id = _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts")
         signup_reminder_delay_hours = max(1, int(_env("REMINDER_DELAY_HOURS", str(SIGNUP_REMINDER_DELAY_HOURS))))
         expiry_reminder_lead_days = max(1, int(_env("EXPIRY_REMINDER_LEAD_DAYS", str(EXPIRY_REMINDER_LEAD_DAYS))))
         now = datetime.now(timezone.utc)
 
         user_docs = _list_all(client, db_id, users_collection_id)
-        profile_map = _get_profile_by_user_id(_list_all(client, db_id, profiles_collection_id))
         accounts_by_user = _get_accounts_by_user_id(_list_all(client, db_id, ig_accounts_collection_id))
 
         counts = {
@@ -397,8 +395,15 @@ def main(context):
 
             try:
                 prefs = _with_retry(lambda: users.get_prefs(user_id)) or {}
-                profile_doc = profile_map.get(user_id) or {}
                 user_accounts = accounts_by_user.get(user_id, [])
+                primary_account = next(
+                    (a for a in user_accounts if _obj_get(a, "plan_code") and _obj_get(a, "plan_code") != "free"),
+                    user_accounts[0] if user_accounts else None
+                )
+                profile_doc = {
+                    "plan_code": _obj_get(primary_account, "plan_code", "free") if primary_account else "free",
+                    "expiry_date": _obj_get(primary_account, "subscription_expires") or _obj_get(primary_account, "expiry_date") if primary_account else None
+                }
                 reminder_type = _resolve_reminder_type(
                     user_doc,
                     profile_doc,

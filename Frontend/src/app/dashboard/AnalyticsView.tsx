@@ -4,10 +4,11 @@ import React, { startTransition, useCallback, useDeferredValue, useEffect, useMe
 import { Download, Loader2, RefreshCw, Clock3, UserCircle2, ChevronDown } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import Card from '../../components/ui/card';
-import Gauge from '../../components/ui/gauge';
+import Gauge, { getGaugeLevelStyle } from '../../components/ui/gauge';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import { useDashboard } from '../../contexts/DashboardContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { cn } from '../../lib/utils';
 
 interface ActivityLogItem {
     id: string;
@@ -213,33 +214,66 @@ const ActionLimitGaugeCard = ({
     label,
     value,
     max,
+    allocated,
+    remained,
     updatedText
 }: {
     label: string;
     value: number;
     max: number;
+    allocated: number;
+    remained: number;
     updatedText: string;
-}) => (
-    <Card
-        variant="elevated"
-        className="relative flex flex-col aspect-[4/5] sm:aspect-square group ig-card"
-    >
-        <div className="absolute top-4 left-4 sm:top-5 sm:left-5 z-10">
-            <h3 className="text-2xs font-semibold uppercase tracking-widest text-muted-foreground">
-                {label}
-            </h3>
-        </div>
-        <div className="flex-1 flex items-center justify-center pt-4">
-            <Gauge
-                value={value}
-                max={max}
-                size="lg"
-                syncId="analytics-action-limits"
-                updatedText={updatedText}
-            />
-        </div>
-    </Card>
-);
+}) => {
+    const remainingStyle = getGaugeLevelStyle(value, max);
+
+    return (
+        <Card
+            variant="elevated"
+            className="relative flex flex-col justify-between p-4 group ig-card min-h-[220px] lg:min-h-[250px]"
+        >
+            <div className="flex items-start justify-between w-full">
+                <h3 className="text-2xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    {label}
+                </h3>
+            </div>
+            <div className="flex-1 flex items-center justify-center py-2">
+                <Gauge
+                    value={value}
+                    max={max}
+                    size="lg"
+                    syncId="analytics-action-limits"
+                    updatedText={updatedText}
+                />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/50 pt-2.5 text-center text-xs">
+                <div
+                    className={cn(
+                        "rounded-lg px-2 py-1.5 transition-all duration-300 border",
+                        remainingStyle.bgClass,
+                        remainingStyle.borderClass
+                    )}
+                    style={{
+                        backgroundColor: `${remainingStyle.color}1a`,
+                        borderColor: `${remainingStyle.color}40`,
+                    }}
+                >
+                    <p
+                        className={cn("text-[10px] font-bold uppercase tracking-wider transition-colors duration-300", remainingStyle.textClass)}
+                        style={{ color: remainingStyle.color }}
+                    >
+                        Remaining
+                    </p>
+                    <p className="text-sm font-black text-foreground">{remained.toLocaleString()}</p>
+                </div>
+                <div className="rounded-lg bg-primary/10 px-2 py-1.5 border border-primary/20">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Allocated</p>
+                    <p className="text-sm font-black text-foreground">{allocated.toLocaleString()}</p>
+                </div>
+            </div>
+        </Card>
+    );
+};
 
 interface DonutSegment {
     key: string;
@@ -502,6 +536,12 @@ const AnalyticsView: React.FC = () => {
         daily_action_limit: 0,
         monthly_actions_used: 0,
         monthly_action_limit: 0,
+        allocated_hourly_credits: 0,
+        remained_hourly_credits: 0,
+        allocated_daily_credits: 0,
+        remained_daily_credits: 0,
+        allocated_monthly_credits: 0,
+        remained_monthly_credits: 0,
     });
     const [loadingLogs, setLoadingLogs] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
@@ -626,6 +666,12 @@ const AnalyticsView: React.FC = () => {
                 daily_action_limit: 0,
                 monthly_actions_used: 0,
                 monthly_action_limit: 0,
+                allocated_hourly_credits: 0,
+                remained_hourly_credits: 0,
+                allocated_daily_credits: 0,
+                remained_daily_credits: 0,
+                allocated_monthly_credits: 0,
+                remained_monthly_credits: 0,
             });
             return;
         }
@@ -642,15 +688,28 @@ const AnalyticsView: React.FC = () => {
         }
         const data = await res.json();
         const nextMetrics = data?.action_window_metrics || data?.gauge_metrics || {};
+        const hourlyLimit = Number(nextMetrics.allocated_hourly_credits ?? nextMetrics.hourly_action_limit ?? 0);
+        const dailyLimit = Number(nextMetrics.allocated_daily_credits ?? nextMetrics.daily_action_limit ?? 0);
+        const monthlyLimit = Number(nextMetrics.allocated_monthly_credits ?? nextMetrics.monthly_action_limit ?? 0);
+        const hourlyUsed = Number(nextMetrics.hourly_actions_used || 0);
+        const dailyUsed = Number(nextMetrics.daily_actions_used || 0);
+        const monthlyUsed = Number(nextMetrics.monthly_actions_used || 0);
+
         if (latestActionMetricsRequestRef.current !== requestId) return;
         startTransition(() => {
             setActionUsageMetrics({
-                hourly_actions_used: Number(nextMetrics.hourly_actions_used || 0),
-                hourly_action_limit: Number(nextMetrics.hourly_action_limit || 0),
-                daily_actions_used: Number(nextMetrics.daily_actions_used || 0),
-                daily_action_limit: Number(nextMetrics.daily_action_limit || 0),
-                monthly_actions_used: Number(nextMetrics.monthly_actions_used || 0),
-                monthly_action_limit: Number(nextMetrics.monthly_action_limit || 0),
+                hourly_actions_used: hourlyUsed,
+                hourly_action_limit: hourlyLimit,
+                daily_actions_used: dailyUsed,
+                daily_action_limit: dailyLimit,
+                monthly_actions_used: monthlyUsed,
+                monthly_action_limit: monthlyLimit,
+                allocated_hourly_credits: hourlyLimit,
+                remained_hourly_credits: Math.max(0, hourlyLimit - hourlyUsed),
+                allocated_daily_credits: dailyLimit,
+                remained_daily_credits: Math.max(0, dailyLimit - dailyUsed),
+                allocated_monthly_credits: monthlyLimit,
+                remained_monthly_credits: Math.max(0, monthlyLimit - monthlyUsed),
             });
         });
     }, [activeAccountID, authenticatedFetch]);
@@ -857,23 +916,35 @@ const AnalyticsView: React.FC = () => {
     const actionLimitStats = useMemo(() => ({
         hour: {
             value: Number(actionUsageMetrics.hourly_actions_used || 0),
-            max: Math.max(Number(actionUsageMetrics.hourly_action_limit || planLimits.hourly_action_limit || 0), 1)
+            max: Math.max(Number(actionUsageMetrics.allocated_hourly_credits || actionUsageMetrics.hourly_action_limit || planLimits.hourly_action_limit || 0), 1),
+            allocated: Number(actionUsageMetrics.allocated_hourly_credits || actionUsageMetrics.hourly_action_limit || planLimits.hourly_action_limit || 0),
+            remained: Number(actionUsageMetrics.remained_hourly_credits || 0)
         },
         day: {
             value: Number(actionUsageMetrics.daily_actions_used || 0),
-            max: Math.max(Number(actionUsageMetrics.daily_action_limit || planLimits.daily_action_limit || 0), 1)
+            max: Math.max(Number(actionUsageMetrics.allocated_daily_credits || actionUsageMetrics.daily_action_limit || planLimits.daily_action_limit || 0), 1),
+            allocated: Number(actionUsageMetrics.allocated_daily_credits || actionUsageMetrics.daily_action_limit || planLimits.daily_action_limit || 0),
+            remained: Number(actionUsageMetrics.remained_daily_credits || 0)
         },
         month: {
             value: Number(actionUsageMetrics.monthly_actions_used || 0),
-            max: Math.max(Number(actionUsageMetrics.monthly_action_limit || planLimits.monthly_action_limit || 0), 1)
+            max: Math.max(Number(actionUsageMetrics.allocated_monthly_credits || actionUsageMetrics.monthly_action_limit || planLimits.monthly_action_limit || 0), 1),
+            allocated: Number(actionUsageMetrics.allocated_monthly_credits || actionUsageMetrics.monthly_action_limit || planLimits.monthly_action_limit || 0),
+            remained: Number(actionUsageMetrics.remained_monthly_credits || 0)
         }
     }), [
+        actionUsageMetrics.allocated_daily_credits,
+        actionUsageMetrics.allocated_hourly_credits,
+        actionUsageMetrics.allocated_monthly_credits,
         actionUsageMetrics.daily_action_limit,
         actionUsageMetrics.daily_actions_used,
         actionUsageMetrics.hourly_action_limit,
         actionUsageMetrics.hourly_actions_used,
         actionUsageMetrics.monthly_action_limit,
         actionUsageMetrics.monthly_actions_used,
+        actionUsageMetrics.remained_daily_credits,
+        actionUsageMetrics.remained_hourly_credits,
+        actionUsageMetrics.remained_monthly_credits,
         planLimits.daily_action_limit,
         planLimits.hourly_action_limit,
         planLimits.monthly_action_limit
@@ -1045,19 +1116,25 @@ const AnalyticsView: React.FC = () => {
                     label="Hourly Action Usage"
                     value={actionLimitStats.hour.value}
                     max={actionLimitStats.hour.max}
-                    updatedText={`${actionLimitStats.hour.value}/${actionLimitStats.hour.max} current hour window`}
+                    allocated={actionLimitStats.hour.allocated}
+                    remained={actionLimitStats.hour.remained}
+                    updatedText={`out of ${actionLimitStats.hour.allocated.toLocaleString()}`}
                 />
                 <ActionLimitGaugeCard
                     label="Daily Action Usage"
                     value={actionLimitStats.day.value}
                     max={actionLimitStats.day.max}
-                    updatedText={`${actionLimitStats.day.value}/${actionLimitStats.day.max} current day window`}
+                    allocated={actionLimitStats.day.allocated}
+                    remained={actionLimitStats.day.remained}
+                    updatedText={`out of ${actionLimitStats.day.allocated.toLocaleString()}`}
                 />
                 <ActionLimitGaugeCard
                     label="Monthly Action Usage"
                     value={actionLimitStats.month.value}
                     max={actionLimitStats.month.max}
-                    updatedText={`${actionLimitStats.month.value}/${actionLimitStats.month.max} current month window`}
+                    allocated={actionLimitStats.month.allocated}
+                    remained={actionLimitStats.month.remained}
+                    updatedText={`out of ${actionLimitStats.month.allocated.toLocaleString()}`}
                 />
             </div>
 

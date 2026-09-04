@@ -46,12 +46,11 @@ interface SidebarProps {
 const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
   const { hasLinkedInstagram } = useAuth();
   const { currentView, setCurrentView, igAccounts, setActiveAccountID, activeAccountID, activeAccount, hasUnsavedChanges, setHasUnsavedChanges, saveUnsavedChanges, discardUnsavedChanges, accessState, hasPlanFeature, planPureLimits } = useDashboard();
-  const hasAnyLinkedAccount = (igAccounts?.length || 0) > 0;
-  const accountLimit = typeof planPureLimits?.max_link_limit === 'number'
-    ? planPureLimits.max_link_limit
-    : null;
-  const activeLimit = Number(planPureLimits?.active_account_limit || 0);
   const linkedAccountCount = igAccounts?.length || 0;
+  const hasAnyLinkedAccount = linkedAccountCount > 0;
+  const activeAccountCount = (igAccounts || []).filter(
+    (account) => account?.status === 'active' && account?.effective_access !== false
+  ).length;
   const hasAutomationAccountAccess = !!hasLinkedInstagram || hasAnyLinkedAccount;
   const automationLockedByBan = accessState?.automation_locked === true;
   const automationLockedBySelectedAccount = Boolean(
@@ -479,10 +478,10 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                   <div className="mb-2 px-2">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground flex justify-between">
                       <span>Linked</span>
-                      <span>{linkedAccountCount} / {accountLimit == null ? '...' : accountLimit}</span>
+                      <span>{linkedAccountCount}</span>
                     </p>
                     <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground font-medium">
-                      Only {activeLimit} accounts are active
+                      {activeAccountCount} {activeAccountCount === 1 ? 'account is' : 'accounts are'} active
                     </p>
                   </div>
                 )}

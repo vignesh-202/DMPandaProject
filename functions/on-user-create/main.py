@@ -189,8 +189,7 @@ def _load_free_plan_snapshot(client, db_id, pricing_collection_id):
     }
 
 
-# This function is triggered by users.*.create event in Appwrite.
-# It creates a corresponding document in both 'users' and 'profiles' collections.
+# It creates a corresponding document in the 'users' collection.
 def main(context):
     try:
         # Appwrite sends the event payload as JSON in the request body.
@@ -226,8 +225,6 @@ def main(context):
         api_key = _request_header(context, "x-appwrite-key") or _env("APPWRITE_API_KEY")
         db_id = _env("APPWRITE_DATABASE_ID")
         users_collection_id = _env("USERS_COLLECTION_ID", "users")
-        profiles_collection_id = _env("PROFILES_COLLECTION_ID", "profiles")
-        pricing_collection_id = _env("PRICING_COLLECTION_ID", "pricing")
         if not endpoint or not project_id or not api_key or not db_id:
             raise ValueError("Missing required Appwrite runtime configuration.")
 
@@ -235,8 +232,6 @@ def main(context):
         client.set_endpoint(endpoint)
         client.set_project(project_id)
         client.set_key(api_key)
-
-        free_plan_profile = _load_free_plan_snapshot(client, db_id, pricing_collection_id)
 
         # 1. Create Users document (idempotent)
         try:
@@ -264,28 +259,7 @@ def main(context):
                 ],
             )
 
-        # 2. Create Profiles document (idempotent)
-        try:
-            _get_document(client, db_id, profiles_collection_id, user_id)
-            context.log(f"Profile document already exists for userId: {user_id}")
-        except Exception:
-            context.log(f"Creating profile document for userId: {user_id}")
-            _create_document(
-                client,
-                db_id,
-                profiles_collection_id,
-                user_id,
-                {
-                    "user_id": user_id,
-                    **free_plan_profile,
-                },
-                [
-                    Permission.read(Role.user(user_id)),
-                    Permission.update(Role.user(user_id)),
-                ],
-            )
-
-        context.log(f"Successfully processed user and profile creation for {user_id}")
+        context.log(f"Successfully processed user creation for {user_id}")
         return context.res.json({"status": "success", "user_id": user_id})
 
     except Exception as e:

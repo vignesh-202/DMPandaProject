@@ -10,7 +10,7 @@ const {
     COUPONS_COLLECTION_ID,
     COUPON_REDEMPTIONS_COLLECTION_ID,
     TRANSACTIONS_COLLECTION_ID,
-    PROFILES_COLLECTION_ID,
+    USERS_COLLECTION_ID,
     IG_ACCOUNTS_COLLECTION_ID,
     PAYMENT_ATTEMPTS_COLLECTION_ID
 } = require('../utils/appwrite');
@@ -36,6 +36,7 @@ const {
     calculateSubscriptionExpiry,
     buildPlanProfilePayload,
     buildPaidPlanSnapshot,
+    buildAccountPlanSnapshot,
     clearAdminOverridePayload,
     syncUserIgAccountLimitSnapshots,
     parseJsonObject
@@ -732,71 +733,16 @@ const ensureUserProfileDocument = async (
     subscriptionExpires,
     options = {}
 ) => {
-    try {
-        let profileId = String(userId || '').trim();
-        let existingProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, profileId);
-
-        if (!existingProfile) {
-            const profileList = await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
-                Query.equal('user_id', String(userId || '').trim()),
-                Query.limit(1)
-            ])).catch(() => ({ documents: [] }));
-            existingProfile = profileList.documents[0] || null;
-            profileId = existingProfile?.$id || profileId;
-        }
-
-        const payload = buildPlanProfilePayload({
-            currentProfile: existingProfile,
-            plan,
-            planId: plan?.plan_code || plan?.id || 'free',
-            planSource: 'payment',
-            billingCycle: options.billingCycle || 'monthly',
-            subscriptionStatus: 'active',
-            subscriptionExpires,
-            limitOverrides: options.limitOverrides,
-            paidPlanSnapshot: options.paidPlanSnapshot || null,
-            resetReminderState: true,
-            credits: existingProfile ? undefined : 0
-        });
-
-        if (!existingProfile) {
-            try {
-                return await retryAppwriteOperation(() => databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, {
-                    user_id: String(userId || '').trim(),
-                    ...payload
-                }));
-            } catch (error) {
-                const errorCode = Number(error?.code || error?.response?.code || 0);
-                if (errorCode === 409) {
-                    const conflictedProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, profileId)
-                        || (await retryAppwriteOperation(() => databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
-                            Query.equal('user_id', String(userId || '').trim()),
-                            Query.limit(1)
-                        ])).then((response) => response.documents?.[0] || null).catch(() => null));
-                    if (conflictedProfile?.$id) {
-                        return retryAppwriteOperation(() => databases.updateDocument(
-                            APPWRITE_DATABASE_ID,
-                            PROFILES_COLLECTION_ID,
-                            conflictedProfile.$id,
-                            payload
-                        )).catch(() => null);
-                    }
-                }
-                return null;
-            }
-        }
-
-        return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, payload)).catch(() => null);
-    } catch (_) {
-        return null;
-    }
+    // Profiles table has been migrated to users and ig_accounts.
+    // Subscriptions are tracked per-account in ig_accounts.
+    return null;
 };
 
 const clearAdminOverrideForUserProfile = async (databases, userId) => {
     try {
-        const existingProfile = await getDocumentIfExists(databases, PROFILES_COLLECTION_ID, String(userId || '').trim());
-        if (!existingProfile?.$id) return null;
-        return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, existingProfile.$id, {
+        const safeUserId = String(userId || '').trim();
+        if (!safeUserId) return null;
+        return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, safeUserId, {
             admin_override_json: clearAdminOverridePayload()
         })).catch(() => null);
     } catch (_) {
@@ -901,6 +847,7 @@ const syncUserPerAccountPlans = async (databases, userId, plan, pricing, subscri
             : allDocs.slice(0, normalizeAccountsCount(pricing?.accounts_count || 1));
 
         for (const acc of targetAccounts) {
+            const snapshot = buildAccountPlanSnapshot(plan, acc);
             await databases.updateDocument(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, acc.$id, {
                 plan_code: planCode,
                 plan_name: planName,
@@ -909,7 +856,11 @@ const syncUserPerAccountPlans = async (databases, userId, plan, pricing, subscri
                 expires_at: subscriptionExpires,
                 plan_price: unitPrice,
                 paid_at: nowIso,
-                plan_source: 'payment'
+                plan_source: 'payment',
+                allocated_hourly_credits: snapshot.allocated_hourly_credits,
+                allocated_daily_credits: snapshot.allocated_daily_credits,
+                allocated_monthly_credits: snapshot.allocated_monthly_credits,
+                features_json: snapshot.features_json
             }).catch(e => console.warn(`Failed to update IG account ${acc.$id} plan:`, e.message));
         }
     } catch (err) {

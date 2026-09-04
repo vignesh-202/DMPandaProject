@@ -45,7 +45,7 @@ const Gauge: React.FC<GaugeProps> = ({
   size = 'md',
   showNeedle = true,
   syncId,
-  updatedText = 'Updated 1 day ago',
+  updatedText,
   className
 }) => {
   const [animatedPercent, setAnimatedPercent] = useState(0);
@@ -430,7 +430,9 @@ const Gauge: React.FC<GaugeProps> = ({
             {((animatedPercent / 100) * max).toFixed(2)}
           </div>
           <div className="text-muted-foreground font-semibold text-2xs sm:text-xs mt-1.5 sm:mt-1 uppercase tracking-wide">
-            {updatedText}
+            {updatedText !== undefined
+              ? updatedText
+              : `${Math.round((animatedPercent / 100) * max).toLocaleString()} out of ${max.toLocaleString()}`}
           </div>
           {label && (
             <div className="absolute top-0 text-2xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">

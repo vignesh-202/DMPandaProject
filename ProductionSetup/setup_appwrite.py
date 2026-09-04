@@ -293,18 +293,7 @@ ADDITIONAL_ATTRIBUTES = {
         {"key": "last_active_at", "type": "datetime", "required": False, "array": False, "default": None},
         {"key": "cleanup_protected", "type": "boolean", "required": False, "array": False, "default": False},
         {"key": "cleanup_state_json", "type": "string", "required": False, "array": False, "default": None, "size": 4000},
-    ],
-    "profiles": [
-        {"key": "plan_code", "type": "string", "required": False, "array": False, "default": None, "size": 32},
-        {"key": "plan_source", "type": "string", "required": False, "array": False, "default": None, "size": 32},
-        {"key": "plan_name", "type": "string", "required": False, "array": False, "default": None, "size": 100},
-        {"key": "expiry_date", "type": "datetime", "required": False, "array": False, "default": None},
-        {"key": "features_json", "type": "string", "required": False, "array": False, "default": None, "size": 600},
-        {"key": "paid_plan_snapshot_json", "type": "string", "required": False, "array": False, "default": None, "size": 600},
         {"key": "admin_override_json", "type": "string", "required": False, "array": False, "default": None, "size": 2000},
-        {"key": "feature_overrides_json", "type": "string", "required": False, "array": False, "default": None, "size": 2000},
-        {"key": "kill_switch_enabled", "type": "boolean", "required": False, "array": False, "default": True},
-        *deepcopy(BENEFIT_ATTRIBUTES),
     ],
     "transactions": [
         {"key": "user_id", "type": "string", "required": False, "array": False, "default": None, "size": 255},
@@ -390,10 +379,6 @@ ADDITIONAL_INDEXES = {
         {"key": "idx_users_last_active", "type": "key", "attributes": ["last_active_at"], "orders": []},
         {"key": "idx_users_cleanup_candidate", "type": "key", "attributes": ["cleanup_protected", "last_active_at"], "orders": []},
     ],
-    "profiles": [
-        {"key": "idx_profiles_expiry_date", "type": "key", "attributes": ["expiry_date"], "orders": []},
-        {"key": "idx_profiles_plan_expiry", "type": "key", "attributes": ["plan_code", "expiry_date"], "orders": []},
-    ],
     "ig_accounts": [
         {"key": "idx_ig_user_linked_at", "type": "key", "attributes": ["user_id", "linked_at"], "orders": []},
         {"key": "idx_ig_api_token", "type": "key", "attributes": ["api_token"], "orders": []},
@@ -425,7 +410,6 @@ ACTIVE_COLLECTION_IDS = {
     "ig_accounts",
     "automations",
     "keyword_index",
-    "profiles",
     "keywords",
     "super_profiles",
     "reply_templates",
@@ -445,6 +429,7 @@ ACTIVE_COLLECTION_IDS = {
 }
 
 DEPRECATED_COLLECTIONS = {
+    "profiles",
     "admin_audit_logs",
     "admin_settings",
     "automation_collected_emails",
@@ -477,6 +462,48 @@ DEPRECATED_ATTRIBUTES = {
         "hourly_window_started_at",
         "daily_window_started_at",
         "monthly_window_started_at",
+        "subscription_plan_id",
+        "subscription_expires",
+        "subscription_billing_cycle",
+        "subscription_status",
+        "plan_status",
+        "paid_plan_snapshot_json",
+        "feature_overrides_json",
+        "hourly_action_limit",
+        "daily_action_limit",
+        "monthly_action_limit",
+        "plan_code",
+        "plan_name",
+        "plan_source",
+        "billing_cycle",
+        "expires_at",
+        "expiry_date",
+        "limits_json",
+        "features_json",
+        "benefit_unlimited_contacts",
+        "benefit_post_comment_dm_reply",
+        "benefit_post_comment_reply",
+        "benefit_reel_comment_dm_reply",
+        "benefit_reel_comment_reply",
+        "benefit_share_reel_to_admin",
+        "benefit_share_post_to_admin",
+        "benefit_super_profile",
+        "benefit_inbox_menu",
+        "benefit_collect_email",
+        "benefit_suggest_more",
+        "benefit_followers_only",
+        "benefit_once_per_user_24h",
+        "benefit_comment_moderation",
+        "benefit_seen_typing",
+        "benefit_welcome_message",
+        "benefit_convo_starters",
+        "benefit_dm_automation",
+        "benefit_story_automation",
+        "benefit_no_watermark",
+        "benefit_global_trigger",
+        "benefit_mentions",
+        "benefit_instagram_live_automation",
+        "benefit_priority_support",
     },
     "ig_accounts": {
         "admin_disabled",
@@ -507,6 +534,13 @@ DEPRECATED_ATTRIBUTES = {
 DEPRECATED_INDEXES = {
     "users": {
         "idx_users_plan_id",
+    },
+    "profiles": {
+        "idx_profiles_subscription_expires",
+        "idx_profiles_plan_cycle",
+        "idx_profiles_expiry_date",
+        "idx_profiles_plan_expiry",
+        "idx_profiles_expires_at",
     },
     "ig_accounts": {
         "idx_ig_user_effective_access",
@@ -1187,12 +1221,6 @@ def main():
 
     for definition in definitions:
         ensure_attributes(databases, definition)
-
-    verify_required_attributes(
-        databases,
-        "profiles",
-        REQUIRED_PROFILE_SUBSCRIPTION_ATTRIBUTES,
-    )
 
     for definition in definitions:
         ensure_indexes(databases, definition)

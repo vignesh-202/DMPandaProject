@@ -226,8 +226,8 @@ def main(context):
             profile_rows = _list_by_queries(
                 client,
                 db_id,
-                "profiles",
-                [Query.equal("user_id", str(user_id)), Query.limit(1)],
+                "users",
+                [Query.equal("$id", str(user_id)), Query.limit(1)],
             )
             profile = profile_rows[0] if profile_rows else {}
 

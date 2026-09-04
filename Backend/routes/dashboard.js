@@ -5,7 +5,6 @@ const {
     getAppwriteClient,
     USERS_COLLECTION_ID,
     CAMPAIGNS_COLLECTION_ID,
-    PROFILES_COLLECTION_ID,
     LOGS_COLLECTION_ID,
     IG_ACCOUNTS_COLLECTION_ID
 } = require('../utils/appwrite');
@@ -55,12 +54,12 @@ const calculateDashboardOverview = async (userId) => {
         return totals;
     }, { hourly: 0, daily: 0, monthly: 0 });
 
-    const [profiles, logs24h, logs30d] = await Promise.all([
-        databases.listDocuments(
+    const [userDoc, logs24h, logs30d] = await Promise.all([
+        databases.getDocument(
             process.env.APPWRITE_DATABASE_ID,
-            PROFILES_COLLECTION_ID,
-            [Query.equal('user_id', userId), Query.limit(1)]
-        ).catch(() => ({ documents: [] })),
+            USERS_COLLECTION_ID,
+            userId
+        ).catch(() => null),
         databases.listDocuments(
             process.env.APPWRITE_DATABASE_ID,
             LOGS_COLLECTION_ID,
@@ -73,8 +72,11 @@ const calculateDashboardOverview = async (userId) => {
         ).catch(() => ({ documents: [] }))
     ]);
 
-    const profile = profiles.documents[0] || {};
-    const runtimeLimits = parseRuntimeLimits(profile);
+    const runtimeLimits = parseRuntimeLimits(userDoc || {});
+    const totalAccountMonthlyLimit = (accounts.documents || []).reduce(
+        (sum, acc) => sum + Number(acc?.monthly_action_limit || 0),
+        0
+    );
     const logs24hDocs = Array.isArray(logs24h.documents) ? logs24h.documents : [];
     const logs30dDocs = Array.isArray(logs30d.documents) ? logs30d.documents : [];
     const successCount = logs30dDocs.filter((entry) => String(entry.status || '').toLowerCase() === 'success').length;
@@ -91,7 +93,7 @@ const calculateDashboardOverview = async (userId) => {
         gauge_metrics: {
             dm_rate: logs30dDocs.length > 0 ? Math.round((successCount / logs30dDocs.length) * 100) : 0,
             actions_month: accountUsage.monthly,
-            actions_month_limit: Number(runtimeLimits.monthly_action_limit || 0),
+            actions_month_limit: totalAccountMonthlyLimit || Number(runtimeLimits.monthly_action_limit || 0),
             reel_replies: reelReplies,
             post_replies: postReplies
         }

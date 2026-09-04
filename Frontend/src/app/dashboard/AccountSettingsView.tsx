@@ -651,7 +651,7 @@ const AccountSettingsView = () => {
   const tabs = [
     { id: 'profile', label: 'Profile Info', icon: User },
     { id: 'security', label: 'Security & Auth', icon: Shield },
-    { id: 'instagram', label: 'Channels', icon: Instagram },
+    { id: 'instagram', label: 'IG Accounts', icon: Instagram },
     { id: 'danger', label: 'Danger Zone', icon: Trash2 },
   ];
 
@@ -666,7 +666,7 @@ const AccountSettingsView = () => {
             </span>
             Account Settings
           </h2>
-          <p className="text-sm text-muted-foreground">Manage your settings, configure login credentials, and connect channels.</p>
+          <p className="text-sm text-muted-foreground">Manage your settings, configure login credentials, and connect IG accounts.</p>
         </div>
       </div>
 
@@ -814,7 +814,7 @@ const AccountSettingsView = () => {
             </div>
           )}
 
-          {/* INSTAGRAM CHANNELS TAB */}
+          {/* IG ACCOUNTS TAB */}
           {activeTab === 'instagram' && (
             <div className="space-y-4 animate-fadeIn" id="instagram-accounts-section">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
@@ -823,7 +823,7 @@ const AccountSettingsView = () => {
                     <Instagram className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-foreground">Instagram Channels</h3>
+                    <h3 className="text-lg font-bold text-foreground">IG Accounts</h3>
                     <p className="text-xs text-muted-foreground">Link and manage the Instagram accounts you wish to automate.</p>
                   </div>
                 </div>

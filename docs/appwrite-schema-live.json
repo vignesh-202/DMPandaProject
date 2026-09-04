@@ -1018,8 +1018,8 @@
         "array": false,
         "$createdAt": "2026-02-21T17:47:16.504+00:00",
         "$updatedAt": "2026-02-21T17:47:16.540+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": 0
       },
       {
@@ -1091,7 +1091,7 @@
         "$createdAt": "2026-02-28T08:39:12.728+00:00",
         "$updatedAt": "2026-02-28T08:39:12.760+00:00",
         "size": 40,
-        "default": "\ud83d\udc64 Follow Account",
+        "default": "👤 Follow Account",
         "encrypt": false
       },
       {
@@ -1104,7 +1104,7 @@
         "$createdAt": "2026-02-28T08:39:13.438+00:00",
         "$updatedAt": "2026-02-28T08:39:13.471+00:00",
         "size": 40,
-        "default": "\u2705 I've Followed",
+        "default": "✅ I've Followed",
         "encrypt": false
       },
       {
@@ -1117,7 +1117,7 @@
         "$createdAt": "2026-02-28T08:41:52.407+00:00",
         "$updatedAt": "2026-04-16T07:59:12.121+00:00",
         "size": 640,
-        "default": "\ud83d\udce7 Could you share your best email so we can send the details and updates \u2728",
+        "default": "📧 Could you share your best email so we can send the details and updates ✨",
         "encrypt": false
       },
       {
@@ -1130,7 +1130,7 @@
         "$createdAt": "2026-02-28T08:41:53.165+00:00",
         "$updatedAt": "2026-04-16T07:59:12.775+00:00",
         "size": 640,
-        "default": "\u26a0\ufe0f That email looks invalid. Please send a valid email like name@example.com.",
+        "default": "⚠️ That email looks invalid. Please send a valid email like name@example.com.",
         "encrypt": false
       },
       {
@@ -1143,7 +1143,7 @@
         "$createdAt": "2026-02-28T08:43:36.958+00:00",
         "$updatedAt": "2026-04-16T07:59:12.940+00:00",
         "size": 640,
-        "default": "Perfect, thank you! Your email has been saved \u2705",
+        "default": "Perfect, thank you! Your email has been saved ✅",
         "encrypt": false
       },
       {
@@ -1955,8 +1955,8 @@
         "array": false,
         "$createdAt": "2026-03-02T09:21:53.945+00:00",
         "$updatedAt": "2026-03-02T09:21:53.974+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": 0
       },
       {
@@ -1968,8 +1968,8 @@
         "array": false,
         "$createdAt": "2026-03-02T09:21:56.497+00:00",
         "$updatedAt": "2026-03-02T09:21:56.524+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": 1
       },
       {
@@ -2169,8 +2169,8 @@
         "array": false,
         "$createdAt": "2026-04-20T08:17:33.780+00:00",
         "$updatedAt": "2026-04-20T08:17:33.811+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": 0
       },
       {
@@ -2182,8 +2182,8 @@
         "array": false,
         "$createdAt": "2026-04-20T08:17:34.026+00:00",
         "$updatedAt": "2026-04-20T08:17:34.057+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": 0
       },
       {
@@ -2195,8 +2195,8 @@
         "array": false,
         "$createdAt": "2026-04-20T08:17:34.261+00:00",
         "$updatedAt": "2026-04-20T08:17:34.287+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": 0
       },
       {
@@ -2208,8 +2208,8 @@
         "array": false,
         "$createdAt": "2026-04-20T08:17:34.505+00:00",
         "$updatedAt": "2026-04-20T08:17:34.536+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": 0
       },
       {
@@ -2391,13 +2391,10 @@
     ]
   },
   {
-    "id": "ig_accounts",
     "name": "Instagram Accounts",
     "enabled": true,
     "documentSecurity": false,
-    "permissions": [
-      "read(\"users\")"
-    ],
+    "permissions": [],
     "attributes": [
       {
         "key": "user_id",
@@ -2528,17 +2525,6 @@
         "encrypt": false
       },
       {
-        "key": "is_active",
-        "type": "boolean",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-02-10T10:49:01.789+00:00",
-        "$updatedAt": "2026-02-10T10:49:01.822+00:00",
-        "default": true
-      },
-      {
         "key": "ig_scoped_id",
         "type": "string",
         "status": "available",
@@ -2559,90 +2545,256 @@
         "required": false,
         "array": false,
         "$createdAt": "2026-02-21T07:03:24.714+00:00",
-        "$updatedAt": "2026-02-21T07:03:24.756+00:00",
+        "$updatedAt": "2026-05-04T08:24:29.637+00:00",
         "elements": [
           "active",
-          "inactive",
-          "expired",
-          "revoked",
-          "disconnected"
+          "inactive"
         ],
         "format": "enum",
         "default": "active"
       },
       {
-        "key": "admin_disabled",
-        "type": "boolean",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T07:58:13.443+00:00",
-        "$updatedAt": "2026-04-21T07:58:13.665+00:00",
-        "default": false
-      },
-      {
-        "key": "plan_locked",
-        "type": "boolean",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T07:58:14.805+00:00",
-        "$updatedAt": "2026-04-21T07:58:14.842+00:00",
-        "default": false
-      },
-      {
-        "key": "access_override_enabled",
-        "type": "boolean",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T07:58:15.022+00:00",
-        "$updatedAt": "2026-04-21T07:58:15.052+00:00",
-        "default": false
-      },
-      {
-        "key": "effective_access",
-        "type": "boolean",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T07:58:15.249+00:00",
-        "$updatedAt": "2026-04-21T07:58:15.281+00:00",
-        "default": true
-      },
-      {
-        "key": "access_state",
+        "key": "admin_status",
         "type": "string",
         "status": "available",
         "error": "",
         "required": false,
         "array": false,
-        "$createdAt": "2026-04-21T07:58:15.464+00:00",
-        "$updatedAt": "2026-04-21T07:58:15.493+00:00",
+        "$createdAt": "2026-05-04T08:04:47.050+00:00",
+        "$updatedAt": "2026-05-04T08:04:47.255+00:00",
         "elements": [
           "active",
-          "inactive",
-          "admin_disabled",
-          "plan_locked",
-          "override_enabled"
+          "inactive"
         ],
         "format": "enum",
         "default": "active"
       },
       {
-        "key": "access_reason",
+        "key": "hourly_actions_used",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-05-09T08:05:30.994+00:00",
+        "$updatedAt": "2026-05-09T08:05:31.032+00:00",
+        "min": 0,
+        "max": 1000000,
+        "default": 0
+      },
+      {
+        "key": "daily_actions_used",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-05-09T08:05:31.242+00:00",
+        "$updatedAt": "2026-05-09T08:05:31.274+00:00",
+        "min": 0,
+        "max": 10000000,
+        "default": 0
+      },
+      {
+        "key": "monthly_actions_used",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-05-09T08:05:31.539+00:00",
+        "$updatedAt": "2026-05-09T08:05:31.575+00:00",
+        "min": 0,
+        "max": 100000000,
+        "default": 0
+      },
+      {
+        "key": "hourly_window_started_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-05-09T08:05:31.813+00:00",
+        "$updatedAt": "2026-05-09T08:05:31.857+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "daily_window_started_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-05-09T08:05:32.104+00:00",
+        "$updatedAt": "2026-05-09T08:05:32.150+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "monthly_window_started_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-05-09T08:05:32.333+00:00",
+        "$updatedAt": "2026-05-09T08:05:32.374+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "plan_code",
         "type": "string",
         "status": "available",
         "error": "",
         "required": false,
         "array": false,
-        "$createdAt": "2026-04-21T07:58:15.749+00:00",
-        "$updatedAt": "2026-04-21T07:58:15.777+00:00",
-        "size": 120,
+        "$createdAt": "2026-08-12T10:50:57.325+00:00",
+        "$updatedAt": "2026-08-12T10:50:57.401+00:00",
+        "size": 255,
+        "default": "free",
+        "encrypt": false
+      },
+      {
+        "key": "plan_name",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-08-12T10:50:58.462+00:00",
+        "$updatedAt": "2026-08-12T10:50:58.516+00:00",
+        "size": 255,
+        "default": "Free Plan",
+        "encrypt": false
+      },
+      {
+        "key": "billing_cycle",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-08-12T10:50:59.599+00:00",
+        "$updatedAt": "2026-08-12T10:50:59.649+00:00",
+        "size": 255,
+        "default": "monthly",
+        "encrypt": false
+      },
+      {
+        "key": "subscription_status",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-08-12T10:51:00.740+00:00",
+        "$updatedAt": "2026-08-12T10:51:00.816+00:00",
+        "size": 255,
+        "default": "active",
+        "encrypt": false
+      },
+      {
+        "key": "expires_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-08-12T10:51:01.944+00:00",
+        "$updatedAt": "2026-08-12T10:51:02.007+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "plan_price",
+        "type": "double",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-08-12T10:51:03.141+00:00",
+        "$updatedAt": "2026-08-12T10:51:03.194+00:00",
+        "min": -1.7976931348623157e+308,
+        "max": 1.7976931348623157e+308,
+        "default": 0
+      },
+      {
+        "key": "paid_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-08-12T10:51:04.295+00:00",
+        "$updatedAt": "2026-08-12T10:51:04.326+00:00",
+        "format": "",
+        "default": null
+      },
+      {
+        "key": "plan_source",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-08-12T10:51:05.440+00:00",
+        "$updatedAt": "2026-08-12T10:51:05.473+00:00",
+        "size": 255,
+        "default": "system",
+        "encrypt": false
+      },
+      {
+        "key": "allocated_hourly_credits",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-09-04T06:56:19.377+00:00",
+        "$updatedAt": "2026-09-04T06:56:19.653+00:00",
+        "min": 0,
+        "max": 100000000,
+        "default": 100
+      },
+      {
+        "key": "allocated_daily_credits",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-09-04T06:56:20.504+00:00",
+        "$updatedAt": "2026-09-04T06:56:20.551+00:00",
+        "min": 0,
+        "max": 100000000,
+        "default": 100
+      },
+      {
+        "key": "allocated_monthly_credits",
+        "type": "integer",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-09-04T06:56:21.635+00:00",
+        "$updatedAt": "2026-09-04T06:56:21.661+00:00",
+        "min": 0,
+        "max": 100000000,
+        "default": 1000
+      },
+      {
+        "key": "features_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-09-04T06:56:26.198+00:00",
+        "$updatedAt": "2026-09-04T06:56:26.230+00:00",
+        "size": 5000,
         "default": null,
         "encrypt": false
       }
@@ -2713,6 +2865,24 @@
         "attributes": [
           "user_id",
           "ig_user_id"
+        ],
+        "lengths": [
+          0,
+          0
+        ],
+        "orders": []
+      },
+      {
+        "$id": "1_8_idx_ig_user_linked_at",
+        "$createdAt": "2026-04-23T08:37:02.585+00:00",
+        "$updatedAt": "2026-04-23T08:37:02.635+00:00",
+        "key": "idx_ig_user_linked_at",
+        "type": "key",
+        "status": "available",
+        "error": "",
+        "attributes": [
+          "user_id",
+          "linked_at"
         ],
         "lengths": [
           0,
@@ -3700,8 +3870,8 @@
         "array": false,
         "$createdAt": "2026-02-10T10:48:32.519+00:00",
         "$updatedAt": "2026-02-10T10:48:32.539+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": null
       },
       {
@@ -3713,8 +3883,8 @@
         "array": false,
         "$createdAt": "2026-02-10T10:48:32.953+00:00",
         "$updatedAt": "2026-02-10T10:48:32.978+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": null
       },
       {
@@ -3761,8 +3931,8 @@
         "array": false,
         "$createdAt": "2026-02-10T10:48:35.568+00:00",
         "$updatedAt": "2026-02-10T10:48:35.591+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": null
       },
       {
@@ -3813,8 +3983,8 @@
         "array": false,
         "$createdAt": "2026-03-16T18:56:18.227+00:00",
         "$updatedAt": "2026-03-16T18:56:18.261+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": null
       },
       {
@@ -3826,8 +3996,8 @@
         "array": false,
         "$createdAt": "2026-03-16T18:56:19.038+00:00",
         "$updatedAt": "2026-03-16T18:56:19.065+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": null
       },
       {
@@ -3839,8 +4009,8 @@
         "array": false,
         "$createdAt": "2026-03-16T18:56:19.762+00:00",
         "$updatedAt": "2026-03-16T18:56:19.785+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": null
       },
       {
@@ -3852,8 +4022,8 @@
         "array": false,
         "$createdAt": "2026-03-16T18:56:20.465+00:00",
         "$updatedAt": "2026-03-16T18:56:20.498+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": null
       },
       {
@@ -3945,422 +4115,6 @@
     ]
   },
   {
-    "id": "profiles",
-    "name": "Profiles",
-    "enabled": true,
-    "documentSecurity": false,
-    "permissions": [
-      "read(\"users\")",
-      "update(\"users\")",
-      "create(\"users\")"
-    ],
-    "attributes": [
-      {
-        "key": "user_id",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": true,
-        "array": false,
-        "$createdAt": "2026-02-10T10:49:56.898+00:00",
-        "$updatedAt": "2026-02-10T10:49:56.921+00:00",
-        "size": 255,
-        "default": null,
-        "encrypt": false
-      },
-      {
-        "key": "subscription_plan_id",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-02-13T07:05:16.309+00:00",
-        "$updatedAt": "2026-02-13T07:05:16.405+00:00",
-        "size": 255,
-        "default": null,
-        "encrypt": false
-      },
-      {
-        "key": "subscription_expires",
-        "type": "datetime",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-02-13T07:05:18.844+00:00",
-        "$updatedAt": "2026-02-13T07:05:18.872+00:00",
-        "format": "",
-        "default": null
-      },
-      {
-        "key": "subscription_status",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-02-21T07:03:21.117+00:00",
-        "$updatedAt": "2026-02-21T07:03:21.150+00:00",
-        "elements": [
-          "trial",
-          "active",
-          "inactive",
-          "cancelled",
-          "expired",
-          "past_due"
-        ],
-        "format": "enum",
-        "default": "trial"
-      },
-      {
-        "key": "hourly_action_limit",
-        "type": "integer",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-03-02T09:18:16.850+00:00",
-        "$updatedAt": "2026-03-02T09:18:16.883+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
-        "default": 0
-      },
-      {
-        "key": "daily_action_limit",
-        "type": "integer",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-03-02T09:18:19.645+00:00",
-        "$updatedAt": "2026-03-02T09:18:19.675+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
-        "default": 0
-      },
-      {
-        "key": "monthly_action_limit",
-        "type": "integer",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-03-02T09:18:22.706+00:00",
-        "$updatedAt": "2026-03-02T09:18:22.741+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
-        "default": 0
-      },
-      {
-        "key": "hourly_actions_used",
-        "type": "integer",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-03-02T09:18:25.596+00:00",
-        "$updatedAt": "2026-03-02T09:18:25.628+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
-        "default": 0
-      },
-      {
-        "key": "daily_actions_used",
-        "type": "integer",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-03-02T09:18:28.140+00:00",
-        "$updatedAt": "2026-03-02T09:18:28.171+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
-        "default": 0
-      },
-      {
-        "key": "monthly_actions_used",
-        "type": "integer",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-03-02T09:18:30.654+00:00",
-        "$updatedAt": "2026-03-02T09:18:30.682+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
-        "default": 0
-      },
-      {
-        "key": "hourly_window_started_at",
-        "type": "datetime",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-03-02T09:18:33.837+00:00",
-        "$updatedAt": "2026-03-02T09:18:33.862+00:00",
-        "format": "",
-        "default": null
-      },
-      {
-        "key": "daily_window_started_at",
-        "type": "datetime",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-03-02T09:18:36.618+00:00",
-        "$updatedAt": "2026-03-02T09:18:36.645+00:00",
-        "format": "",
-        "default": null
-      },
-      {
-        "key": "monthly_window_started_at",
-        "type": "datetime",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-03-02T09:18:39.494+00:00",
-        "$updatedAt": "2026-03-02T09:18:39.529+00:00",
-        "format": "",
-        "default": null
-      },
-      {
-        "key": "feature_overrides_json",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-03-02T09:18:44.692+00:00",
-        "$updatedAt": "2026-03-02T09:18:44.720+00:00",
-        "size": 12000,
-        "default": null,
-        "encrypt": false
-      },
-      {
-        "key": "subscription_billing_cycle",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-20T08:17:30.615+00:00",
-        "$updatedAt": "2026-04-20T08:17:30.654+00:00",
-        "size": 32,
-        "default": null,
-        "encrypt": false
-      },
-      {
-        "key": "plan_code",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T07:58:16.302+00:00",
-        "$updatedAt": "2026-04-21T07:58:16.338+00:00",
-        "size": 32,
-        "default": null,
-        "encrypt": false
-      },
-      {
-        "key": "plan_name",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T07:58:16.554+00:00",
-        "$updatedAt": "2026-04-21T07:58:16.587+00:00",
-        "size": 100,
-        "default": null,
-        "encrypt": false
-      },
-      {
-        "key": "plan_status",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T07:58:16.791+00:00",
-        "$updatedAt": "2026-04-21T07:58:16.824+00:00",
-        "elements": [
-          "trial",
-          "active",
-          "inactive",
-          "cancelled",
-          "expired",
-          "past_due"
-        ],
-        "format": "enum",
-        "default": "inactive"
-      },
-      {
-        "key": "billing_cycle",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T07:58:17.032+00:00",
-        "$updatedAt": "2026-04-21T07:58:17.068+00:00",
-        "elements": [
-          "monthly",
-          "yearly"
-        ],
-        "format": "enum",
-        "default": null
-      },
-      {
-        "key": "expires_at",
-        "type": "datetime",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T07:58:17.286+00:00",
-        "$updatedAt": "2026-04-21T07:58:17.315+00:00",
-        "format": "",
-        "default": null
-      },
-      {
-        "key": "kill_switch_enabled",
-        "type": "boolean",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T07:58:18.025+00:00",
-        "$updatedAt": "2026-04-21T07:58:18.060+00:00",
-        "default": true
-      },
-      {
-        "key": "limits_json",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T08:06:14.980+00:00",
-        "$updatedAt": "2026-04-21T08:06:15.014+00:00",
-        "size": 1200,
-        "default": null,
-        "encrypt": false
-      },
-      {
-        "key": "features_json",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T08:08:23.172+00:00",
-        "$updatedAt": "2026-04-21T08:08:23.210+00:00",
-        "size": 600,
-        "default": null,
-        "encrypt": false
-      },
-      {
-        "key": "paid_plan_snapshot_json",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T08:08:23.419+00:00",
-        "$updatedAt": "2026-04-21T08:08:23.450+00:00",
-        "size": 600,
-        "default": null,
-        "encrypt": false
-      },
-      {
-        "key": "admin_override_json",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-04-21T08:14:47.306+00:00",
-        "$updatedAt": "2026-04-21T08:14:47.341+00:00",
-        "size": 140,
-        "default": null,
-        "encrypt": false
-      }
-    ],
-    "indexes": [
-      {
-        "$id": "1_14_idx_user_id",
-        "$createdAt": "2026-02-19T07:19:50.324+00:00",
-        "$updatedAt": "2026-02-19T07:19:50.355+00:00",
-        "key": "idx_user_id",
-        "type": "unique",
-        "status": "available",
-        "error": "",
-        "attributes": [
-          "user_id"
-        ],
-        "lengths": [
-          0
-        ],
-        "orders": []
-      },
-      {
-        "$id": "1_14_idx_profiles_subscription_expires",
-        "$createdAt": "2026-04-20T08:17:46.180+00:00",
-        "$updatedAt": "2026-04-20T08:17:46.208+00:00",
-        "key": "idx_profiles_subscription_expires",
-        "type": "key",
-        "status": "available",
-        "error": "",
-        "attributes": [
-          "subscription_expires"
-        ],
-        "lengths": [
-          0
-        ],
-        "orders": []
-      },
-      {
-        "$id": "1_14_idx_profiles_plan_cycle",
-        "$createdAt": "2026-04-20T08:17:46.315+00:00",
-        "$updatedAt": "2026-04-20T08:17:46.349+00:00",
-        "key": "idx_profiles_plan_cycle",
-        "type": "key",
-        "status": "available",
-        "error": "",
-        "attributes": [
-          "subscription_plan_id",
-          "subscription_billing_cycle"
-        ],
-        "lengths": [
-          0,
-          0
-        ],
-        "orders": []
-      },
-      {
-        "$id": "1_14_idx_profiles_expires_at",
-        "$createdAt": "2026-04-22T08:33:25.057+00:00",
-        "$updatedAt": "2026-04-22T08:33:25.089+00:00",
-        "key": "idx_profiles_expires_at",
-        "type": "key",
-        "status": "available",
-        "error": "",
-        "attributes": [
-          "expires_at"
-        ],
-        "lengths": [
-          0
-        ],
-        "orders": []
-      }
-    ]
-  },
-  {
     "id": "reply_templates",
     "name": "Reply Templates",
     "enabled": true,
@@ -4420,8 +4174,8 @@
         "array": false,
         "$createdAt": "2026-02-13T12:03:40.098+00:00",
         "$updatedAt": "2026-02-13T12:03:40.150+00:00",
-        "min": -9223372036854775808,
-        "max": 9223372036854775807,
+        "min": -9223372036854776000,
+        "max": 9223372036854776000,
         "default": 0
       },
       {
@@ -5320,6 +5074,19 @@
         "$createdAt": "2026-04-20T08:17:26.994+00:00",
         "$updatedAt": "2026-04-20T08:17:27.196+00:00",
         "default": true
+      },
+      {
+        "key": "admin_override_json",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "$createdAt": "2026-09-04T10:00:00.000+00:00",
+        "$updatedAt": "2026-09-04T10:00:00.000+00:00",
+        "size": 2000,
+        "default": null,
+        "encrypt": false
       }
     ],
     "indexes": [

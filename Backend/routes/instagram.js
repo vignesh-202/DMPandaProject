@@ -29,6 +29,7 @@ const {
     buildAccountActionState,
     syncUserIgAccountLimitSnapshots,
     resolveIgAccountActionLimits,
+    buildAccountPlanSnapshot,
     listPricingPlans
 } = require('../utils/planConfig');
 const sharedPlanFeatures = require('../../shared/planFeatures.json');
@@ -906,9 +907,16 @@ const serializeIgAccount = (account, profileLimits = {}, pricingPlans = null) =>
         hourly_action_limit: Number(actionState.hourly_action_limit || 0),
         daily_action_limit: Number(actionState.daily_action_limit || 0),
         monthly_action_limit: Number(actionState.monthly_action_limit || 0),
+        allocated_hourly_credits: Number(actionState.allocated_hourly_credits ?? actionState.hourly_action_limit ?? 0),
+        allocated_daily_credits: Number(actionState.allocated_daily_credits ?? actionState.daily_action_limit ?? 0),
+        allocated_monthly_credits: Number(actionState.allocated_monthly_credits ?? actionState.monthly_action_limit ?? 0),
+        remained_hourly_credits: Number(actionState.remained_hourly_credits ?? 0),
+        remained_daily_credits: Number(actionState.remained_daily_credits ?? 0),
+        remained_monthly_credits: Number(actionState.remained_monthly_credits ?? 0),
         hourly_actions_used: Number(actionState.hourly_actions_used || 0),
         daily_actions_used: Number(actionState.daily_actions_used || 0),
-        monthly_actions_used: Number(actionState.monthly_actions_used || 0)
+        monthly_actions_used: Number(actionState.monthly_actions_used || 0),
+        features_json: actionState.features_json || null
     };
 };
 
@@ -2331,6 +2339,12 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
             }
 
             // Create
+            const freePlan = (pricingPlans || []).find((p) => String(p?.plan_code || '').toLowerCase() === 'free') || {
+                actions_per_hour_limit: 100,
+                actions_per_day_limit: 100,
+                actions_per_month_limit: 1000
+            };
+            const freeSnapshot = buildAccountPlanSnapshot(freePlan);
             await createIgAccountDocument(databases, ID.unique(), {
                     // user_id = app user id (owner)
                     user_id: user.$id,
@@ -2347,12 +2361,22 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                     linked_at: new Date().toISOString(),
                     status: 'active',
                     admin_status: 'active',
+                    plan_code: 'free',
+                    plan_name: 'Free Plan',
+                    billing_cycle: 'monthly',
+                    subscription_status: 'active',
+                    plan_price: 0,
+                    plan_source: 'system',
                     hourly_actions_used: 0,
                     daily_actions_used: 0,
                     monthly_actions_used: 0,
                     hourly_window_started_at: windowStartedAt,
                     daily_window_started_at: windowStartedAt,
-                    monthly_window_started_at: windowStartedAt
+                    monthly_window_started_at: windowStartedAt,
+                    allocated_hourly_credits: freeSnapshot.allocated_hourly_credits,
+                    allocated_daily_credits: freeSnapshot.allocated_daily_credits,
+                    allocated_monthly_credits: freeSnapshot.allocated_monthly_credits,
+                    features_json: freeSnapshot.features_json
                 }, [
                     Permission.read(Role.user(user.$id))
                 ]);
@@ -3262,6 +3286,12 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 daily_action_limit: dailyLimit,
                 monthly_actions_used: monthlyUsage,
                 monthly_action_limit: monthlyLimit,
+                allocated_hourly_credits: Number(activeAccountActionState.allocated_hourly_credits || hourlyLimit),
+                allocated_daily_credits: Number(activeAccountActionState.allocated_daily_credits || dailyLimit),
+                allocated_monthly_credits: Number(activeAccountActionState.allocated_monthly_credits || monthlyLimit),
+                remained_hourly_credits: Number(activeAccountActionState.remained_hourly_credits ?? Math.max(0, hourlyLimit - hourlyUsage)),
+                remained_daily_credits: Number(activeAccountActionState.remained_daily_credits ?? Math.max(0, dailyLimit - dailyUsage)),
+                remained_monthly_credits: Number(activeAccountActionState.remained_monthly_credits ?? Math.max(0, monthlyLimit - monthlyUsage)),
                 usage_source: 'ig_account_counters'
             },
             action_window_metrics: {
@@ -3271,6 +3301,12 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 daily_action_limit: dailyLimit,
                 monthly_actions_used: monthlyUsage,
                 monthly_action_limit: monthlyLimit,
+                allocated_hourly_credits: Number(activeAccountActionState.allocated_hourly_credits || hourlyLimit),
+                allocated_daily_credits: Number(activeAccountActionState.allocated_daily_credits || dailyLimit),
+                allocated_monthly_credits: Number(activeAccountActionState.allocated_monthly_credits || monthlyLimit),
+                remained_hourly_credits: Number(activeAccountActionState.remained_hourly_credits ?? Math.max(0, hourlyLimit - hourlyUsage)),
+                remained_daily_credits: Number(activeAccountActionState.remained_daily_credits ?? Math.max(0, dailyLimit - dailyUsage)),
+                remained_monthly_credits: Number(activeAccountActionState.remained_monthly_credits ?? Math.max(0, monthlyLimit - monthlyUsage)),
                 usage_source: 'ig_account_counters'
             },
             account_link_metrics: {

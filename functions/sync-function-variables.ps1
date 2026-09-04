@@ -88,13 +88,11 @@ $functionVariables = @{
     "on-user-create" = @(
         $commonBase
         @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
-        @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
         @{ key = "PRICING_COLLECTION_ID"; value = (Get-EnvValue -Key "PRICING_COLLECTION_ID" -Default "pricing"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
     ) | ForEach-Object { $_ }
     "subscription-manager" = @(
         $commonBase
-        @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
         @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
         @{ key = "PRICING_COLLECTION_ID"; value = (Get-EnvValue -Key "PRICING_COLLECTION_ID" -Default "pricing"); secret = $false }
         @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
@@ -107,14 +105,12 @@ $functionVariables = @{
         @{ key = "PAYMENT_ATTEMPTS_COLLECTION_ID"; value = (Get-EnvValue -Key "PAYMENT_ATTEMPTS_COLLECTION_ID" -Default "payment_attempts"); secret = $false }
         @{ key = "TRANSACTIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "TRANSACTIONS_COLLECTION_ID" -Default "transactions"); secret = $false }
         @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
-        @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
         @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
     ) | ForEach-Object { $_ }
     "inactive-user-cleanup" = @(
         $commonBase
         @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
-        @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
         @{ key = "TRANSACTIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "TRANSACTIONS_COLLECTION_ID" -Default "transactions"); secret = $false }
         @{ key = "PAYMENT_ATTEMPTS_COLLECTION_ID"; value = (Get-EnvValue -Key "PAYMENT_ATTEMPTS_COLLECTION_ID" -Default "payment_attempts"); secret = $false }
         @{ key = "COUPON_REDEMPTIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "COUPON_REDEMPTIONS_COLLECTION_ID" -Default "coupon_redemptions"); secret = $false }
@@ -128,7 +124,6 @@ $functionVariables = @{
     "remind-link-instagram" = @(
         $commonBase
         @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
-        @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
         @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
         @{ key = "REMINDER_DELAY_HOURS"; value = (Get-EnvValue -Key "REMINDER_DELAY_HOURS" -Default "24"); secret = $false }
         @{ key = "EXPIRY_REMINDER_LEAD_DAYS"; value = (Get-EnvValue -Key "EXPIRY_REMINDER_LEAD_DAYS" -Default "3"); secret = $false }
@@ -191,7 +186,6 @@ $functionVariables = @{
     ) | ForEach-Object { $_ }
     "reset-user-action-budgets" = @(
         $commonBase
-        @{ key = "PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "PROFILES_COLLECTION_ID" -Default "profiles"); secret = $false }
         @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
     ) | ForEach-Object { $_ }
 }
@@ -297,6 +291,18 @@ foreach ($targetFunctionId in $selectedFunctionIds) {
             if ($LASTEXITCODE -ne 0) {
                 throw "Failed to update variable '$($definition.key)' on function '$targetFunctionId'."
             }
+        }
+    }
+
+    # Remove obsolete variables if present on function
+    $obsoleteKeys = @("PROFILES_COLLECTION_ID")
+    foreach ($obsKey in $obsoleteKeys) {
+        $obsVar = $existingVariables | Where-Object { $_.key -eq $obsKey } | Select-Object -First 1
+        if ($obsVar) {
+            Write-Host "Removing obsolete variable $obsKey on function $targetFunctionId"
+            & $AppwriteCli functions delete-variable `
+                --function-id $targetFunctionId `
+                --variable-id $obsVar.'$id' | Out-Null
         }
     }
 }

@@ -47,7 +47,7 @@ module.exports = {
     COUPON_REDEMPTIONS_COLLECTION_ID: 'coupon_redemptions',
     INACTIVE_USER_CLEANUP_AUDIT_COLLECTION_ID: 'inactive_user_cleanup_audit',
     SYSTEM_CONFIG_COLLECTION_ID: 'system_config',
-    PROFILES_COLLECTION_ID: 'profiles',
+    PROFILES_COLLECTION_ID: 'users', // Migrated into users collection
     AUTOMATIONS_COLLECTION_ID: 'automations',
     REPLY_TEMPLATES_COLLECTION_ID: 'reply_templates',
     INBOX_MENUS_COLLECTION_ID: 'inbox_menus',

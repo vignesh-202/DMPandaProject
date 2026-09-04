@@ -907,20 +907,33 @@ class AppwriteClient {
             hydrated[benefitFieldForKey(key)] = enabled;
             hydrated.__plan_features[key] = enabled;
         });
+        if (profile?.features_json) {
+            try {
+                const parsed = typeof profile.features_json === 'string' ? JSON.parse(profile.features_json) : profile.features_json;
+                if (parsed && typeof parsed === 'object') {
+                    Object.assign(hydrated.__plan_features, parsed);
+                }
+            } catch (_) {}
+        }
         const hasOwnMonthlyLimit = Object.prototype.hasOwnProperty.call(hydrated, 'monthly_action_limit');
         hydrated.hourly_action_limit = Number(
-            hydrated.hourly_action_limit
+            hydrated.allocated_hourly_credits
+            ?? hydrated.hourly_action_limit
             ?? plan.actions_per_hour_limit
             ?? 0
         );
         hydrated.daily_action_limit = Number(
-            hydrated.daily_action_limit
+            hydrated.allocated_daily_credits
+            ?? hydrated.daily_action_limit
             ?? plan.actions_per_day_limit
             ?? 0
         );
-        hydrated.monthly_action_limit = hasOwnMonthlyLimit
-            ? hydrated.monthly_action_limit
-            : Number(plan.actions_per_month_limit ?? 0);
+        hydrated.monthly_action_limit = Number(
+            hydrated.allocated_monthly_credits
+            ?? (hasOwnMonthlyLimit ? hydrated.monthly_action_limit : null)
+            ?? plan.actions_per_month_limit
+            ?? 0
+        );
         return hydrated;
     }
 

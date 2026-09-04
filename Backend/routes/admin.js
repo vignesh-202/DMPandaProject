@@ -8,7 +8,6 @@ const {
     Messaging,
     APPWRITE_DATABASE_ID,
     USERS_COLLECTION_ID,
-    PROFILES_COLLECTION_ID,
     IG_ACCOUNTS_COLLECTION_ID,
     PRICING_COLLECTION_ID,
     COUPONS_COLLECTION_ID,
@@ -23,6 +22,8 @@ const { cleanupUserOwnedData } = require('../utils/userCleanup');
 const {
     listPricingPlans,
     clearPricingPlansCache,
+    findPlanByIdentifier,
+    buildAccountPlanSnapshot,
     getPlanByIdentifier,
     normalizePlanDocument,
     resolvePlanEntitlements,
@@ -678,37 +679,31 @@ const listPagedDocuments = async (databases, collectionId, queries = [], {
 
 const getProfileForUser = async (databases, userId) => {
     try {
-        const docs = await databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
-            Query.equal('user_id', String(userId)),
-            Query.limit(1)
-        ]);
-        return docs.documents[0] || null;
+        const safeUserId = String(userId || '').trim();
+        if (!safeUserId) return null;
+        return await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, safeUserId).catch(async () => {
+            const docs = await databases.listDocuments(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, [
+                Query.equal('user_id', safeUserId),
+                Query.limit(1)
+            ]);
+            return docs.documents[0] || null;
+        });
     } catch (_) {
         return null;
     }
 };
 
-const buildProfileRollbackPayload = (profile = null) => {
-    if (!profile) return null;
+const buildProfileRollbackPayload = (user = null) => {
+    if (!user) return null;
     return {
-        user_id: String(profile.user_id || '').trim() || null,
-        plan_code: profile.plan_code || null,
-        plan_source: profile.plan_source || null,
-        plan_name: profile.plan_name || null,
-        expiry_date: profile.expiry_date || null,
-        kill_switch_enabled: profile.kill_switch_enabled !== false,
-        instagram_connections_limit: Number(profile.instagram_connections_limit || 0),
-        hourly_action_limit: Number(profile.hourly_action_limit || 0),
-        daily_action_limit: Number(profile.daily_action_limit || 0),
-        monthly_action_limit: Number(profile.monthly_action_limit || 0),
-        no_watermark: profile.no_watermark === true,
-        credits: Number(profile.credits || 0)
+        kill_switch_enabled: user.kill_switch_enabled !== false,
+        admin_override_json: user.admin_override_json || null
     };
 };
 
-const restoreProfileDocument = async (databases, profileId, rollbackPayload) => {
-    if (!profileId || !rollbackPayload) return null;
-    return databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profileId, rollbackPayload);
+const restoreProfileDocument = async (databases, userId, rollbackPayload) => {
+    if (!userId || !rollbackPayload) return null;
+    return databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, rollbackPayload);
 };
 
 const normalizePlanCode = (value) => String(value || '').trim().toLowerCase();
@@ -1097,9 +1092,8 @@ const readCampaignLedgerPage = async (databases, {
 
 const buildEmailCampaignAudience = async ({ databases, messaging }, rawFilters = {}, options = {}) => {
     const filters = normalizeEmailCampaignFilters(rawFilters);
-    const [users, profiles, pricingDocs, transactions, accounts, recentMessagesPayload] = await Promise.all([
+    const [users, pricingDocs, transactions, accounts, recentMessagesPayload] = await Promise.all([
         listAllDocuments(databases, USERS_COLLECTION_ID).catch(() => []),
-        listAllDocuments(databases, PROFILES_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, PRICING_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, TRANSACTIONS_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, IG_ACCOUNTS_COLLECTION_ID).catch(() => []),
@@ -1115,11 +1109,14 @@ const buildEmailCampaignAudience = async ({ databases, messaging }, rawFilters =
         }))
     ].filter((option, index, array) => array.findIndex((entry) => entry.value === option.value) === index);
 
-    const profileByUserId = new Map(
-        profiles
-            .filter((profile) => profile?.user_id)
-            .map((profile) => [String(profile.user_id), profile])
-    );
+    const accountsByUserId = new Map();
+    accounts.forEach((account) => {
+        const key = String(account.user_id || '').trim();
+        if (!key) return;
+        const list = accountsByUserId.get(key) || [];
+        list.push(account);
+        accountsByUserId.set(key, list);
+    });
 
     const linkedCounts = accounts.reduce((acc, account) => {
         const key = String(account.user_id || '');
@@ -1143,7 +1140,10 @@ const buildEmailCampaignAudience = async ({ databases, messaging }, rawFilters =
         .filter((user) => String(user.email || '').includes('@'))
         .map((user) => {
             const userId = String(user.$id || '');
-            const profile = profileByUserId.get(userId) || null;
+            const userAccounts = accountsByUserId.get(userId) || [];
+            const activePaidAccount = userAccounts.find(
+                (a) => a.plan_code && a.plan_code !== 'free' && String(a.subscription_status || '').toLowerCase() === 'active'
+            ) || userAccounts[0] || null;
             const userTransactions = (transactionsByUserId.get(userId) || [])
                 .map((transaction) => ({
                     ...transaction,
@@ -1161,7 +1161,10 @@ const buildEmailCampaignAudience = async ({ databases, messaging }, rawFilters =
                 })
                 .filter(Boolean);
 
-            const subscriptionState = deriveSubscriptionState(profile?.plan_code, profile?.expiry_date);
+            const subscriptionState = deriveSubscriptionState(
+                activePaidAccount?.plan_code,
+                activePaidAccount?.subscription_expires || activePaidAccount?.expiry_date
+            );
             const currentPlan = subscriptionState.plan_code;
             const currentStatus = subscriptionState.derived_status;
             const expiryDate = subscriptionState.expiry_date;
@@ -1325,9 +1328,8 @@ const getTransactionPlanId = (transaction) =>
 const META_PLATFORM_HOURLY_LIMIT_PER_LINKED_ACCOUNT = 200;
 
 const buildDashboardMetrics = async (databases) => {
-    const [users, profiles, accounts, transactions, automations, logs, coupons, couponRedemptions] = await Promise.all([
+    const [users, accounts, transactions, automations, logs, coupons, couponRedemptions] = await Promise.all([
         listAllDocuments(databases, USERS_COLLECTION_ID).catch(() => []),
-        listAllDocuments(databases, PROFILES_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, IG_ACCOUNTS_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, TRANSACTIONS_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, AUTOMATIONS_COLLECTION_ID).catch(() => []),
@@ -1344,18 +1346,20 @@ const buildDashboardMetrics = async (databases) => {
         return status === 'success' || status === 'skipped';
     });
 
-    const profileByUserId = profiles.reduce((acc, profile) => {
-        const key = String(profile.user_id || profile.$id || '').trim();
-        if (key) {
-            acc[key] = profile;
-        }
-        return acc;
-    }, {});
+    const paidUserIds = new Set(
+        accounts
+            .filter((account) => {
+                const plan = normalizePlanCode(account.plan_code);
+                return plan && plan !== 'free' && String(account.subscription_status || '').toLowerCase() === 'active';
+            })
+            .map((account) => String(account.user_id || '').trim())
+            .filter(Boolean)
+    );
 
     const totals = {
         total_users: users.length,
         linked_instagram_accounts: accounts.length,
-        paid_users: profiles.filter((profile) => deriveSubscriptionState(profile.plan_code, profile.expiry_date).is_active).length,
+        paid_users: paidUserIds.size,
         overall_success_rate: statusLogs.length > 0
             ? Math.round((successLogs.length / statusLogs.length) * 100)
             : 100,
@@ -1378,8 +1382,8 @@ const buildDashboardMetrics = async (databases) => {
         }
     });
 
-    const plans = profiles.reduce((acc, profile) => {
-        const key = String(profile.plan_code || 'free').trim() || 'free';
+    const plans = accounts.reduce((acc, account) => {
+        const key = String(account.plan_code || 'free').trim() || 'free';
         acc[key] = Number(acc[key] || 0) + 1;
         return acc;
     }, {});
@@ -1409,20 +1413,11 @@ const buildDashboardMetrics = async (databases) => {
         }
     });
 
-    const poolCapacity = accounts.reduce((sum, account) => {
-        const profile = profileByUserId[String(account.user_id || '').trim()];
-        return sum + Number(profile?.hourly_action_limit || 0);
-    }, 0);
+    const poolCapacity = accounts.reduce((sum, account) => sum + Number(account.hourly_action_limit || 0), 0);
     const poolUsage = accounts.reduce((sum, account) => sum + Number(account.hourly_actions_used || 0), 0);
-    const dailyPoolCapacity = accounts.reduce((sum, account) => {
-        const profile = profileByUserId[String(account.user_id || '').trim()];
-        return sum + Number(profile?.daily_action_limit || 0);
-    }, 0);
+    const dailyPoolCapacity = accounts.reduce((sum, account) => sum + Number(account.daily_action_limit || 0), 0);
     const dailyPoolUsage = accounts.reduce((sum, account) => sum + Number(account.daily_actions_used || 0), 0);
-    const monthlyPoolCapacity = accounts.reduce((sum, account) => {
-        const profile = profileByUserId[String(account.user_id || '').trim()];
-        return sum + Number(profile?.monthly_action_limit || 0);
-    }, 0);
+    const monthlyPoolCapacity = accounts.reduce((sum, account) => sum + Number(account.monthly_action_limit || 0), 0);
     const monthlyPoolUsage = accounts.reduce((sum, account) => sum + Number(account.monthly_actions_used || 0), 0);
     const metaPoolCapacity = Number(accounts.length || 0) * META_PLATFORM_HOURLY_LIMIT_PER_LINKED_ACCOUNT;
     const hourlyPoolBalanceMax = Math.max(metaPoolCapacity, 1);
@@ -2144,52 +2139,58 @@ router.get('/users', loginRequired, adminRequired, async (req, res) => {
             if (userBatch.length === 0) break;
 
             const userIds = userBatch.map((user) => String(user.$id || '').trim()).filter(Boolean);
-            const [profilesResponse, accountsResponse] = await Promise.all([
-                userIds.length > 0
-                    ? databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
-                        Query.equal('user_id', userIds),
-                        Query.limit(Math.max(userIds.length, 1))
-                    ]).catch(() => ({ documents: [] }))
-                    : { documents: [] },
-                userIds.length > 0
-                    ? databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
-                        Query.equal('user_id', userIds),
-                        Query.limit(Math.max(userIds.length * 5, 10))
-                    ]).catch(() => ({ documents: [] }))
-                    : { documents: [] }
-            ]);
+            const accountsResponse = userIds.length > 0
+                ? await databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
+                    Query.equal('user_id', userIds),
+                    Query.limit(Math.max(userIds.length * 5, 10))
+                ]).catch(() => ({ documents: [] }))
+                : { documents: [] };
 
-            const profileByUserId = new Map((profilesResponse.documents || []).map((profile) => [String(profile.user_id), profile]));
-            const linkedCounts = (accountsResponse.documents || []).reduce((acc, account) => {
+            const accountsByUserId = new Map();
+            (accountsResponse.documents || []).forEach((account) => {
                 const key = String(account.user_id || '').trim();
-                if (!key) return acc;
-                acc[key] = Number(acc[key] || 0) + 1;
-                return acc;
-            }, {});
+                if (!key) return;
+                const list = accountsByUserId.get(key) || [];
+                list.push(account);
+                accountsByUserId.set(key, list);
+            });
 
             const filteredBatch = userBatch
                 .map((user) => {
-                    const profile = profileByUserId.get(String(user.$id)) || null;
+                    const userId = String(user.$id || '');
+                    const userAccounts = accountsByUserId.get(userId) || [];
+                    const activePaidAccount = userAccounts.find(
+                        (a) => a.plan_code && a.plan_code !== 'free' && String(a.subscription_status || '').toLowerCase() === 'active'
+                    ) || userAccounts[0] || null;
+                    const subState = deriveSubscriptionState(
+                        activePaidAccount?.plan_code,
+                        activePaidAccount?.subscription_expires || activePaidAccount?.expiry_date
+                    );
+                    const synthesizedProfile = {
+                        $id: user.$id,
+                        user_id: user.$id,
+                        kill_switch_enabled: user.kill_switch_enabled !== false,
+                        admin_override_json: user.admin_override_json || null,
+                        plan_code: subState.plan_code,
+                        plan_name: activePaidAccount?.plan_name || subState.plan_code,
+                        expiry_date: subState.expiry_date,
+                        subscription_status: subState.derived_status
+                    };
                     return {
                         ...user,
-                        profile,
-                        linked_instagram_accounts: Number(linkedCounts[String(user.$id)] || 0)
+                        kill_switch_enabled: user.kill_switch_enabled !== false,
+                        admin_override_json: user.admin_override_json || null,
+                        profile: synthesizedProfile,
+                        linked_instagram_accounts: userAccounts.length
                     };
                 })
                 .filter((user) => {
                     if (filters.plan) {
-                        const effectivePlan = String(
-                            user.profile?.plan_code
-                            || user.profile?.plan_code
-                            || ''
-                        ).toLowerCase();
+                        const effectivePlan = String(user.profile?.plan_code || '').toLowerCase();
                         if (effectivePlan !== filters.plan) return false;
                     }
                     if (filters.subscription_status) {
-                        const effectiveStatus = deriveSubscriptionState(
-                            user.profile?.plan_code,
-                            user.profile?.expiry_date
-                        ).derived_status;
+                        const effectiveStatus = String(user.profile?.subscription_status || '').toLowerCase();
                         if (effectiveStatus !== filters.subscription_status) return false;
                     }
                     if (filters.ban_mode && String(user.ban_mode || 'none').toLowerCase() !== filters.ban_mode) {
@@ -2448,39 +2449,32 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
         if (req.body?.cleanup_protected !== undefined) {
             userUpdate.cleanup_protected = req.body.cleanup_protected === true;
         }
+        if (payload.admin_override_json !== undefined) {
+            userUpdate.admin_override_json = payload.admin_override_json;
+        }
 
         try {
-            if (existingProfile) {
-                profile = await databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, existingProfile.$id, payload);
-            } else {
-                profile = await databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, userId, {
-                    user_id: userId,
-                    credits: 0,
-                    ...payload
-                });
-            }
-
             user = Object.keys(userUpdate).length > 0
                 ? await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, userUpdate)
-                : await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
+                : (userDocument || await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId));
+            profile = { ...(user || {}), user_id: userId, ...payload };
             await syncUserIgAccountLimitSnapshots(databases, userId, resolvePlanLimits(nextPlan, profile)).catch(() => []);
             accountAccessState = await recomputeAccountAccessStateForUser(databases, userId, profile);
             instagram_accounts = accountAccessState.accounts;
             await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
         } catch (error) {
-            if (profile?.$id && existingProfile?.$id && previousProfileSnapshot) {
-                await restoreProfileDocument(databases, existingProfile.$id, previousProfileSnapshot).catch(() => null);
-            } else if (profile?.$id && !existingProfile?.$id) {
-                await databases.deleteDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profile.$id).catch(() => null);
-            }
             if (Object.prototype.hasOwnProperty.call(userUpdate, 'kill_switch_enabled')
-                || Object.prototype.hasOwnProperty.call(userUpdate, 'cleanup_protected')) {
+                || Object.prototype.hasOwnProperty.call(userUpdate, 'cleanup_protected')
+                || Object.prototype.hasOwnProperty.call(userUpdate, 'admin_override_json')) {
                 const rollbackPatch = {};
                 if (Object.prototype.hasOwnProperty.call(userUpdate, 'kill_switch_enabled')) {
                     rollbackPatch.kill_switch_enabled = previousUserKillSwitch !== false;
                 }
                 if (Object.prototype.hasOwnProperty.call(userUpdate, 'cleanup_protected')) {
                     rollbackPatch.cleanup_protected = previousCleanupProtected;
+                }
+                if (Object.prototype.hasOwnProperty.call(userUpdate, 'admin_override_json')) {
+                    rollbackPatch.admin_override_json = previousProfileSnapshot?.admin_override_json || null;
                 }
                 await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, rollbackPatch).catch(() => null);
             }
@@ -2539,12 +2533,6 @@ router.post('/users/:userId/ban', loginRequired, adminRequired, async (req, res)
                 : mode === 'none'
         };
         const user = await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, update);
-        const profile = await getProfileForUser(databases, userId);
-        if (profile?.$id) {
-            await databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profile.$id, {
-                kill_switch_enabled: update.kill_switch_enabled
-            }).catch(() => null);
-        }
         await writeAdminAuditLog(databases, {
             adminId: req.user.$id,
             action: 'user_ban_update',
@@ -2598,55 +2586,20 @@ router.post('/users/:userId/reset-plan', loginRequired, adminRequired, async (re
             nextPlanSource = restoredTransaction ? 'payment' : 'system';
         }
 
-        let finalProfile = profile;
-        if (profile) {
-            const previousProfileSnapshot = buildProfileRollbackPayload(profile);
-            try {
-                finalProfile = await databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, profile.$id, {
-                    ...buildPlanProfilePayload({
-                        currentProfile: profile,
-                        plan: nextPlan,
-                        planId: nextPlanId,
-                        planSource: nextPlanSource,
-                        subscriptionStatus: nextPlanId === 'free' ? 'inactive' : 'active',
-                        subscriptionExpires: nextExpiryDate,
-                        featureOverrides,
-                        limitOverrides,
-                        resetReminderState: true,
-                        adminOverrideJson: clearAdminOverridePayload()
-                    })
-                });
-                await syncUserIgAccountLimitSnapshots(databases, userId, resolvePlanLimits(nextPlan, finalProfile)).catch(() => []);
-                await recomputeAccountAccessForUser(databases, userId, finalProfile);
-                await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
-            } catch (error) {
-                if (previousProfileSnapshot) {
-                    await restoreProfileDocument(databases, profile.$id, previousProfileSnapshot).catch(() => null);
-                }
-                throw error;
-            }
-        } else if (action === 'reset_to_paid_snapshot_or_free') {
-            finalProfile = await databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, userId, {
-                user_id: userId,
-                credits: 0,
-                ...buildPlanProfilePayload({
-                    currentProfile: { user_id: userId, credits: 0 },
-                    plan: nextPlan,
-                    planId: nextPlanId,
-                    planSource: nextPlanSource,
-                    subscriptionStatus: nextPlanId === 'free' ? 'inactive' : 'active',
-                    subscriptionExpires: nextExpiryDate,
-                    featureOverrides,
-                    limitOverrides,
-                    resetReminderState: true,
-                    credits: 0,
-                    adminOverrideJson: clearAdminOverridePayload()
-                })
-            });
-            await syncUserIgAccountLimitSnapshots(databases, userId, resolvePlanLimits(nextPlan, finalProfile)).catch(() => []);
-            await recomputeAccountAccessForUser(databases, userId, finalProfile);
-            await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
+        let userDoc = await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId).catch(() => null);
+        if (userDoc) {
+            userDoc = await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, {
+                admin_override_json: clearAdminOverridePayload()
+            }).catch(() => userDoc);
         }
+        const finalProfile = {
+            ...(userDoc || {}),
+            user_id: userId,
+            admin_override_json: clearAdminOverridePayload()
+        };
+        await syncUserIgAccountLimitSnapshots(databases, userId, resolvePlanLimits(nextPlan, finalProfile)).catch(() => []);
+        await recomputeAccountAccessForUser(databases, userId, finalProfile);
+        await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
         await writeAdminAuditLog(databases, {
             adminId: req.user.$id,
             action: 'user_plan_reset',
@@ -2720,6 +2673,184 @@ router.patch('/users/:userId/instagram-accounts/:accountId', loginRequired, admi
     } catch (error) {
         console.error('Admin instagram access update error:', error?.message || String(error));
         return fail(res, 500, 'Failed to update Instagram account access.');
+    }
+});
+
+router.patch('/users/:userId/instagram-accounts/:accountId/credits', loginRequired, adminRequired, async (req, res) => {
+    try {
+        const { databases } = getServices();
+        const userId = String(req.params.userId || '').trim();
+        const accountId = String(req.params.accountId || '').trim();
+        const account = await databases.getDocument(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, accountId);
+
+        if (String(account?.user_id || '').trim() !== userId) {
+            return fail(res, 404, 'Instagram account not found.');
+        }
+
+        const hourlyUsed = Number(account.hourly_actions_used || 0);
+        const dailyUsed = Number(account.daily_actions_used || 0);
+        const monthlyUsed = Number(account.monthly_actions_used || 0);
+
+        const newAllocatedHourly = req.body.allocated_hourly_credits !== undefined
+            ? Math.max(0, Number(req.body.allocated_hourly_credits || 0))
+            : Number(account.allocated_hourly_credits ?? account.hourly_action_limit ?? 100);
+
+        const newAllocatedDaily = req.body.allocated_daily_credits !== undefined
+            ? Math.max(0, Number(req.body.allocated_daily_credits || 0))
+            : Number(account.allocated_daily_credits ?? account.daily_action_limit ?? 100);
+
+        const newAllocatedMonthly = req.body.allocated_monthly_credits !== undefined
+            ? Math.max(0, Number(req.body.allocated_monthly_credits || 0))
+            : Number(account.allocated_monthly_credits ?? account.monthly_action_limit ?? 1000);
+
+        const patch = {
+            allocated_hourly_credits: newAllocatedHourly,
+            allocated_daily_credits: newAllocatedDaily,
+            allocated_monthly_credits: newAllocatedMonthly,
+            hourly_action_limit: newAllocatedHourly,
+            daily_action_limit: newAllocatedDaily,
+            monthly_action_limit: newAllocatedMonthly
+        };
+
+        const updatedAccount = await databases.updateDocument(
+            APPWRITE_DATABASE_ID,
+            IG_ACCOUNTS_COLLECTION_ID,
+            accountId,
+            patch
+        );
+
+        await writeAdminAuditLog(databases, {
+            adminId: req.user.$id,
+            action: 'instagram_account_credits_update',
+            targetUserId: userId,
+            payload: {
+                account_id: accountId,
+                username: account.username,
+                allocated_hourly_credits: newAllocatedHourly,
+                allocated_daily_credits: newAllocatedDaily,
+                allocated_monthly_credits: newAllocatedMonthly
+            }
+        });
+
+        return ok(res, {
+            account: updatedAccount,
+            message: 'Account credits updated successfully.'
+        });
+    } catch (error) {
+        console.error('Admin update IG account credits error:', error?.message || String(error));
+        return fail(res, 500, 'Failed to update Instagram account credits.');
+    }
+});
+
+router.post('/users/:userId/instagram-accounts/:accountId/reset-credits', loginRequired, adminRequired, async (req, res) => {
+    try {
+        const { databases } = getServices();
+        const userId = String(req.params.userId || '').trim();
+        const accountId = String(req.params.accountId || '').trim();
+        const account = await databases.getDocument(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, accountId);
+
+        if (String(account?.user_id || '').trim() !== userId) {
+            return fail(res, 404, 'Instagram account not found.');
+        }
+
+        // 1. Fetch live pricing plan table data (force refresh from Appwrite PRICING collection)
+        const pricingPlans = await listPricingPlans(databases, true);
+
+        // 2. Determine effective plan based on the Instagram account's subscription & expiry status
+        const rawPlanCode = String(account.plan_code || 'free').trim().toLowerCase();
+        const isFree = !rawPlanCode || rawPlanCode === 'free';
+        const expiresAt = account.expires_at ? new Date(account.expires_at) : null;
+        const hasExpiry = expiresAt && !Number.isNaN(expiresAt.getTime());
+        const isExpired = !isFree && Boolean(hasExpiry && expiresAt.getTime() <= Date.now());
+        const isSubscriptionActive = String(account.subscription_status || 'active').trim().toLowerCase() === 'active';
+        const isActive = !isFree && !isExpired && isSubscriptionActive;
+        const effectivePlanCode = isActive ? rawPlanCode : 'free';
+
+        // 3. Find matching plan in pricing plan table data (fallback to 'free' plan if not found)
+        const targetPlan = findPlanByIdentifier(pricingPlans, effectivePlanCode)
+            || findPlanByIdentifier(pricingPlans, 'free')
+            || {
+                actions_per_hour_limit: 100,
+                actions_per_day_limit: 100,
+                actions_per_month_limit: 1000
+            };
+
+        const hourlyLimit = Number(targetPlan.actions_per_hour_limit || 100);
+        const dailyLimit = Number(targetPlan.actions_per_day_limit || 100);
+        const monthlyLimit = Number(targetPlan.actions_per_month_limit || 1000);
+        const planSnapshot = buildAccountPlanSnapshot(targetPlan, account);
+
+        // 4. "If it's already done then don't do it" check
+        const currentAllocatedHourly = account.allocated_hourly_credits != null ? Number(account.allocated_hourly_credits) : null;
+        const currentAllocatedDaily = account.allocated_daily_credits != null ? Number(account.allocated_daily_credits) : null;
+        const currentAllocatedMonthly = account.allocated_monthly_credits != null ? Number(account.allocated_monthly_credits) : null;
+        const currentHourlyLimit = account.hourly_action_limit != null ? Number(account.hourly_action_limit) : null;
+        const currentDailyLimit = account.daily_action_limit != null ? Number(account.daily_action_limit) : null;
+        const currentMonthlyLimit = account.monthly_action_limit != null ? Number(account.monthly_action_limit) : null;
+        const currentFeatures = String(account.features_json || '').trim();
+        const targetFeatures = String(planSnapshot.features_json || '').trim();
+
+        const isAlreadyInSync = (
+            currentAllocatedHourly === hourlyLimit &&
+            currentAllocatedDaily === dailyLimit &&
+            currentAllocatedMonthly === monthlyLimit &&
+            currentHourlyLimit === hourlyLimit &&
+            currentDailyLimit === dailyLimit &&
+            currentMonthlyLimit === monthlyLimit &&
+            (!targetFeatures || currentFeatures === targetFeatures)
+        );
+
+        if (isAlreadyInSync) {
+            return ok(res, {
+                account,
+                already_done: true,
+                message: `Account credits are already in sync with ${effectivePlanCode.toUpperCase()} plan defaults (${hourlyLimit.toLocaleString()} hourly / ${dailyLimit.toLocaleString()} daily / ${monthlyLimit.toLocaleString()} monthly).`
+            });
+        }
+
+        // 5. Update allocated credits, action limits and features from the pricing plan table
+        const patch = {
+            allocated_hourly_credits: hourlyLimit,
+            allocated_daily_credits: dailyLimit,
+            allocated_monthly_credits: monthlyLimit,
+            hourly_action_limit: hourlyLimit,
+            daily_action_limit: dailyLimit,
+            monthly_action_limit: monthlyLimit
+        };
+        if (planSnapshot.features_json) {
+            patch.features_json = planSnapshot.features_json;
+        }
+
+        const updatedAccount = await databases.updateDocument(
+            APPWRITE_DATABASE_ID,
+            IG_ACCOUNTS_COLLECTION_ID,
+            accountId,
+            patch
+        );
+
+        await writeAdminAuditLog(databases, {
+            adminId: req.user.$id,
+            action: 'instagram_account_credits_reset_to_plan',
+            targetUserId: userId,
+            payload: {
+                account_id: accountId,
+                username: account.username,
+                plan_code: effectivePlanCode,
+                plan_status: isActive ? 'active' : (isExpired ? 'expired' : 'inactive'),
+                allocated_hourly_credits: hourlyLimit,
+                allocated_daily_credits: dailyLimit,
+                allocated_monthly_credits: monthlyLimit
+            }
+        });
+
+        return ok(res, {
+            account: updatedAccount,
+            already_done: false,
+            message: `Account credits reset to ${effectivePlanCode.toUpperCase()} plan defaults (${hourlyLimit.toLocaleString()} hourly / ${dailyLimit.toLocaleString()} daily / ${monthlyLimit.toLocaleString()} monthly).`
+        });
+    } catch (error) {
+        console.error('Admin reset IG account credits error:', error?.message || String(error));
+        return fail(res, 500, 'Failed to reset Instagram account credits.');
     }
 });
 
@@ -2851,30 +2982,23 @@ router.patch('/pricing/:planId', loginRequired, adminRequired, async (req, res) 
         });
         const updated = await databases.updateDocument(APPWRITE_DATABASE_ID, PRICING_COLLECTION_ID, planId, payload);
         clearPricingPlansCache();
-        const affectedProfiles = await databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
+        const affectedAccounts = await databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
             Query.equal('plan_code', payload.plan_code),
             Query.limit(500)
         ]).catch(() => ({ documents: [] }));
-        for (const profile of affectedProfiles.documents || []) {
-            const refreshedProfile = await databases.updateDocument(
+        const planLimits = resolvePlanLimits(updated, null);
+        for (const account of affectedAccounts.documents || []) {
+            await databases.updateDocument(
                 APPWRITE_DATABASE_ID,
-                PROFILES_COLLECTION_ID,
-                profile.$id,
-                buildPlanProfilePayload({
-                    currentProfile: profile,
-                    plan: updated,
-                    planId: payload.plan_code,
-                    planSource: profile.plan_source || null,
-                    subscriptionStatus: normalizePlanCode(profile.plan_code || 'free') === 'free' ? 'inactive' : 'active',
-                    subscriptionExpires: profile.expiry_date,
-                    preserveUsage: true
-                })
+                IG_ACCOUNTS_COLLECTION_ID,
+                account.$id,
+                {
+                    plan_name: updated.name || account.plan_name,
+                    hourly_action_limit: Number(planLimits.hourly_action_limit || 0),
+                    daily_action_limit: Number(planLimits.daily_action_limit || 0),
+                    monthly_action_limit: planLimits.monthly_action_limit === null ? null : Number(planLimits.monthly_action_limit || 0)
+                }
             ).catch(() => null);
-            if (refreshedProfile?.user_id) {
-                await syncUserIgAccountLimitSnapshots(databases, refreshedProfile.user_id, resolvePlanLimits(updated, refreshedProfile)).catch(() => []);
-                await recomputeAccountAccessForUser(databases, refreshedProfile.user_id, refreshedProfile).catch(() => null);
-                await updateAutomationPlanValidationForUser(databases, refreshedProfile.user_id).catch(() => null);
-            }
         }
         return ok(res, { plan: normalizePlan(updated) });
     } catch (error) {

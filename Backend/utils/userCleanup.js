@@ -8,7 +8,6 @@ const {
     TRANSACTIONS_COLLECTION_ID,
     PAYMENT_ATTEMPTS_COLLECTION_ID,
     COUPON_REDEMPTIONS_COLLECTION_ID,
-    PROFILES_COLLECTION_ID,
     AUTOMATIONS_COLLECTION_ID,
     REPLY_TEMPLATES_COLLECTION_ID,
     INBOX_MENUS_COLLECTION_ID,
@@ -213,7 +212,6 @@ const cleanupUserOwnedData = async (databases, userId, options = {}) => {
 
     const userScopedCollections = [
         CAMPAIGNS_COLLECTION_ID,
-        PROFILES_COLLECTION_ID,
         AUTOMATIONS_COLLECTION_ID,
         REPLY_TEMPLATES_COLLECTION_ID,
         INBOX_MENUS_COLLECTION_ID,
@@ -248,11 +246,6 @@ const cleanupUserOwnedData = async (databases, userId, options = {}) => {
         )
         : await anonymizeTransactionsForUser(databases, safeUserId);
 
-    incrementCollectionStat(
-        deletedByCollection,
-        PROFILES_COLLECTION_ID,
-        await deleteByEquality(databases, PROFILES_COLLECTION_ID, '$id', safeUserId)
-    );
     incrementCollectionStat(
         deletedByCollection,
         USERS_COLLECTION_ID,

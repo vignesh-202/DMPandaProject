@@ -140,7 +140,6 @@ def main(context):
                 used_key = f"{prefix}_actions_used"
                 window_key = f"{prefix}_window_started_at"
 
-                used_val = max(0, _safe_int(_obj_get(account, used_key), 0))
                 started_raw = str(_obj_get(account, window_key) or "").strip()
                 try:
                     started_dt = datetime.fromisoformat(started_raw.replace("Z", "+00:00")) if started_raw else None
@@ -150,8 +149,6 @@ def main(context):
                 if not started_dt or (now - started_dt) >= duration:
                     patch[used_key] = 0
                     patch[window_key] = now_iso
-                else:
-                    patch[used_key] = used_val
 
             if patch and not dry_run:
                 _update_document(client, db_id, accounts_collection, account_id, patch)

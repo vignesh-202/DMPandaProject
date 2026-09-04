@@ -14,9 +14,9 @@ const numberOrZero = (value) => {
 
 const normalizeActionLimits = (profile = {}) => {
     const parsed = parseJsonObject(profile?.limits_json, {});
-    const hourly = numberOrZero(parsed.hourly_action_limit ?? parsed.per_hour ?? profile.hourly_action_limit);
-    const daily = numberOrZero(parsed.daily_action_limit ?? parsed.per_day ?? profile.daily_action_limit);
-    const monthlyRaw = parsed.monthly_action_limit ?? parsed.per_month ?? profile.monthly_action_limit;
+    const hourly = numberOrZero(profile?.allocated_hourly_credits ?? parsed.hourly_action_limit ?? parsed.per_hour ?? profile?.hourly_action_limit);
+    const daily = numberOrZero(profile?.allocated_daily_credits ?? parsed.daily_action_limit ?? parsed.per_day ?? profile?.daily_action_limit);
+    const monthlyRaw = profile?.allocated_monthly_credits ?? parsed.monthly_action_limit ?? parsed.per_month ?? profile?.monthly_action_limit;
     const monthly = monthlyRaw == null ? null : numberOrZero(monthlyRaw);
     return {
         hourly_action_limit: hourly,

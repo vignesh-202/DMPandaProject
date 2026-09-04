@@ -518,24 +518,25 @@ def _build_profile_patch_for_plan(profile, plan_defaults, *, plan_code, plan_nam
     return patch
 
 
-def _downgrade_profile_to_free(client, db_id, profiles_collection, pricing_map, profile, *, preserve_expired_snapshot=True):
-    profile_id = str(_obj_get(profile, "$id", "") or "").strip()
-    if not profile_id:
+def _downgrade_account_to_free(client, db_id, ig_accounts_collection, pricing_map, account):
+    account_id = str(_obj_get(account, "$id", "") or "").strip()
+    if not account_id:
         return None
-    free_defaults = pricing_map[DEFAULT_FREE_PLAN]
-    patch = _build_profile_patch_for_plan(
-        profile,
-        free_defaults,
-        plan_code=DEFAULT_FREE_PLAN,
-        plan_name=free_defaults["plan_name"],
-        plan_source="system",
-        billing_cycle=None,
-        expiry_date=None,
-        status="inactive",
-        preserve_expired_snapshot=preserve_expired_snapshot,
-    )
-    patch["admin_override_json"] = None
-    return _update_document(client, db_id, profiles_collection, profile_id, patch)
+    free_defaults = pricing_map.get(DEFAULT_FREE_PLAN, {})
+    patch = {
+        "plan_code": DEFAULT_FREE_PLAN,
+        "plan_name": free_defaults.get("plan_name", "Free Plan"),
+        "subscription_status": "inactive",
+        "subscription_expires": None,
+        "hourly_action_limit": free_defaults.get("hourly_action_limit", 30),
+        "daily_action_limit": free_defaults.get("daily_action_limit", 100),
+        "monthly_action_limit": free_defaults.get("monthly_action_limit", 1000),
+    }
+    return _update_document(client, db_id, ig_accounts_collection, account_id, patch)
+
+
+def _downgrade_profile_to_free(client, db_id, profiles_collection, pricing_map, profile, *, preserve_expired_snapshot=True):
+    return _downgrade_account_to_free(client, db_id, profiles_collection, pricing_map, profile)
 
 
 def _update_user_memory(client, db_id, users_collection, user_id, plan_id, expiry_date):
@@ -678,10 +679,10 @@ def _acquire_run_lock(client: Client, db_id: str, job_locks_collection: str, job
         return False
 
 
-def _maybe_send_reminder(client, db_id, profiles_collection, profile, stage, anchor_expiry, summary, ig_accounts_collection="ig_accounts"):
-    profile_id = str(_obj_get(profile, "$id", "") or "").strip()
-    user_id = str(_obj_get(profile, "user_id", "") or "").strip()
-    if not profile_id or not user_id or not anchor_expiry:
+def _maybe_send_reminder(client, db_id, ig_accounts_collection, account, stage, anchor_expiry, summary):
+    account_id = str(_obj_get(account, "$id", "") or "").strip()
+    user_id = str(_obj_get(account, "user_id", "") or "").strip()
+    if not account_id or not user_id or not anchor_expiry:
         return
     field_map = {
         "3d": "expiry_reminder_3d_sent_at",
@@ -690,7 +691,7 @@ def _maybe_send_reminder(client, db_id, profiles_collection, profile, stage, anc
         "repeat": "expiry_reminder_day1_sent_at",
     }
     reminder_field = field_map[stage]
-    last_sent_value = _obj_get(profile, reminder_field)
+    last_sent_value = _obj_get(account, reminder_field)
     if last_sent_value:
         if stage != "repeat":
             summary["skipped_duplicate_reminders"] += 1
@@ -701,11 +702,12 @@ def _maybe_send_reminder(client, db_id, profiles_collection, profile, stage, anc
             return
 
     expiry_text = anchor_expiry.date().isoformat()
-    plan_name = str(_obj_get(profile, "plan_name") or "DM Panda Plan").strip()
-    linked_ig_names = _get_linked_ig_names(client, db_id, user_id, ig_accounts_collection)
+    plan_name = str(_obj_get(account, "plan_name") or "DM Panda Plan").strip()
+    ig_username = str(_obj_get(account, "username") or _obj_get(account, "account_name") or "").strip()
+    linked_ig_names = f"@{ig_username}" if ig_username else _get_linked_ig_names(client, db_id, user_id, ig_accounts_collection)
     subject, html = _build_email_content(stage, plan_name, expiry_text, _resolve_frontend_origin(client, db_id), linked_ig_names)
     _send_email(client, user_id, subject, html)
-    _update_document(client, db_id, profiles_collection, profile_id, {
+    _update_document(client, db_id, ig_accounts_collection, account_id, {
         reminder_field: _to_iso(datetime.now(timezone.utc))
     })
     summary["emails_sent"] += 1
@@ -725,7 +727,6 @@ def main(context):
         client.set_project(project_id)
         client.set_key(api_key)
 
-        profiles_collection = _env("PROFILES_COLLECTION_ID", "profiles")
         ig_accounts_collection = _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts")
         transactions_collection = _env("TRANSACTIONS_COLLECTION_ID", "transactions")
         pricing_collection = _env("PRICING_COLLECTION_ID", "pricing")
@@ -736,7 +737,7 @@ def main(context):
         if not _acquire_run_lock(client, db_id, job_locks_collection, "subscription-manager", run_window):
             return context.res.json({"status": "ok", "skipped_due_lock": 1})
 
-        profiles = _list_all(client, db_id, profiles_collection)
+        accounts = _list_all(client, db_id, ig_accounts_collection)
         transactions = _list_all(client, db_id, transactions_collection)
         transactions_by_user = {}
         for transaction in transactions:
@@ -759,55 +760,41 @@ def main(context):
             "skipped_due_lock": 0,
         }
 
-        for profile in profiles:
+        for account in accounts:
             summary["scanned"] += 1
-            user_id = str(_obj_get(profile, "user_id", "") or "").strip()
+            user_id = str(_obj_get(account, "user_id", "") or "").strip()
             if not user_id:
                 continue
-            current_plan = _normalize_plan_code(_obj_get(profile, "plan_code"))
-            plan_source = _normalize_plan_source(_obj_get(profile, "plan_source"), "system" if current_plan == DEFAULT_FREE_PLAN else "payment")
-            if current_plan == DEFAULT_FREE_PLAN:
+            current_plan = _normalize_plan_code(_obj_get(account, "plan_code"))
+            if not current_plan or current_plan == DEFAULT_FREE_PLAN:
                 continue
-            self_memory = _self_subscription_from_transactions(transactions_by_user.get(user_id, []), pricing_map, now)
-            expiry_date = _parse_datetime(_obj_get(profile, "expiry_date"))
-            admin_override = _parse_admin_override(profile)
+            expiry_date = _parse_datetime(_obj_get(account, "subscription_expires") or _obj_get(account, "expiry_date"))
 
             try:
                 if expiry_date:
                     days_until_expiry = (expiry_date.date() - today).days
                     if days_until_expiry == 3:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "3d", expiry_date, summary, ig_accounts_collection)
+                        _maybe_send_reminder(client, db_id, ig_accounts_collection, account, "3d", expiry_date, summary)
                     elif days_until_expiry == 0:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day0", expiry_date, summary, ig_accounts_collection)
+                        _maybe_send_reminder(client, db_id, ig_accounts_collection, account, "day0", expiry_date, summary)
                     elif days_until_expiry == -1:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day1", expiry_date, summary, ig_accounts_collection)
+                        _maybe_send_reminder(client, db_id, ig_accounts_collection, account, "day1", expiry_date, summary)
                     elif days_until_expiry <= -7 and abs(days_until_expiry) % 7 == 0:
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "repeat", expiry_date, summary, ig_accounts_collection)
+                        _maybe_send_reminder(client, db_id, ig_accounts_collection, account, "repeat", expiry_date, summary)
 
                 if expiry_date and expiry_date < now:
-                    if not _obj_get(profile, "expiry_reminder_day1_sent_at"):
-                        _maybe_send_reminder(client, db_id, profiles_collection, profile, "day1", expiry_date, summary, ig_accounts_collection)
-                    downgraded = _downgrade_profile_to_free(client, db_id, profiles_collection, pricing_map, profile, preserve_expired_snapshot=True)
+                    if not _obj_get(account, "expiry_reminder_day1_sent_at"):
+                        _maybe_send_reminder(client, db_id, ig_accounts_collection, account, "day1", expiry_date, summary)
+                    downgraded = _downgrade_account_to_free(client, db_id, ig_accounts_collection, pricing_map, account)
                     if downgraded:
                         summary["downgraded"] += 1
-                        profile = downgraded
-                    if plan_source == "payment" and _normalize_plan_code(_obj_get(self_memory, "plan_id")) == DEFAULT_FREE_PLAN:
-                        summary["transaction_self_memory_expired"] += 1
-                    _recompute_account_access(client, db_id, downgraded or profile)
-                    continue
-                if plan_source == "admin" and admin_override and admin_override.get("expires_at") and admin_override["expires_at"] <= now:
-                    downgraded = _downgrade_profile_to_free(client, db_id, profiles_collection, pricing_map, profile, preserve_expired_snapshot=True)
-                    if downgraded:
-                        summary["downgraded"] += 1
-                        profile = downgraded
-                    _recompute_account_access(client, db_id, downgraded or profile)
                     continue
             except Exception as error:
                 summary["failed"] += 1
                 context.error(json.dumps({
                     "job": "subscription-manager",
                     "user_id": user_id,
-                    "profile_id": _obj_get(profile, "$id"),
+                    "account_id": _obj_get(account, "$id"),
                     "error": str(error),
                 }))
 

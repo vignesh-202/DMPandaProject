@@ -3,7 +3,7 @@ const rawSharedPlanFeatures = require('../../shared/planFeatures.json');
 const {
     APPWRITE_DATABASE_ID,
     PRICING_COLLECTION_ID,
-    PROFILES_COLLECTION_ID,
+    USERS_COLLECTION_ID,
     TRANSACTIONS_COLLECTION_ID,
     IG_ACCOUNTS_COLLECTION_ID
 } = require('./appwrite');
@@ -531,11 +531,15 @@ const getPlanByIdentifier = async (databases, identifier) => {
 
 const getUserProfile = async (databases, userId) => {
     try {
-        const result = await databases.listDocuments(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, [
-            Query.equal('user_id', String(userId || '').trim()),
-            Query.limit(1)
-        ]);
-        return result.documents?.[0] || null;
+        const safeUserId = String(userId || '').trim();
+        if (!safeUserId) return null;
+        return await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, safeUserId).catch(async () => {
+            const result = await databases.listDocuments(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, [
+                Query.equal('$id', safeUserId),
+                Query.limit(1)
+            ]);
+            return result.documents?.[0] || null;
+        });
     } catch (_) {
         return null;
     }
@@ -966,9 +970,27 @@ const parseRuntimeLimits = (profile = null) => {
         monthly_action_limit: monthlyValue
     };
 };
-
 const parseRuntimeFeatures = (profile = null) => {
     return parseProfileConfig(profile).feature_overrides;
+};
+
+const buildAccountPlanSnapshot = (plan, existingAccount = null) => {
+    const hourlyLimit = toFiniteNumber(plan?.actions_per_hour_limit) ?? 100;
+    const dailyLimit = toFiniteNumber(plan?.actions_per_day_limit) ?? 100;
+    const monthlyLimit = toFiniteNumber(plan?.actions_per_month_limit) ?? 1000;
+
+    const features = {};
+    BENEFIT_KEYS.forEach((key) => {
+        const field = benefitFieldForKey(key);
+        features[key] = Boolean(plan?.[field] === true || plan?.features?.[key] === true);
+    });
+
+    return {
+        allocated_hourly_credits: hourlyLimit,
+        allocated_daily_credits: dailyLimit,
+        allocated_monthly_credits: monthlyLimit,
+        features_json: JSON.stringify(features)
+    };
 };
 
 const resolveIgAccountActionLimits = (account = {}, pricingPlans = []) => {
@@ -994,21 +1016,50 @@ const resolveIgAccountActionLimits = (account = {}, pricingPlans = []) => {
     });
     const targetPlan = findPlanByIdentifier(plans, effectivePlanCode) || (
         effectivePlanCode === 'basic'
-            ? { actions_per_hour_limit: 100, actions_per_day_limit: 1000, actions_per_month_limit: 25000 }
+            ? { actions_per_hour_limit: 150, actions_per_day_limit: 1000, actions_per_month_limit: 25000 }
             : (effectivePlanCode === 'pro'
                 ? { actions_per_hour_limit: 200, actions_per_day_limit: 2500, actions_per_month_limit: 70000 }
                 : (effectivePlanCode === 'ultra'
-                    ? { actions_per_hour_limit: 400, actions_per_day_limit: 5000, actions_per_month_limit: 100000 }
+                    ? { actions_per_hour_limit: 250, actions_per_day_limit: 4000, actions_per_month_limit: 100000 }
                     : freePlan))
     );
+
+    const defaultHourly = toFiniteNumber(targetPlan?.actions_per_hour_limit) ?? 100;
+    const defaultDaily = toFiniteNumber(targetPlan?.actions_per_day_limit) ?? 100;
+    const defaultMonthly = toFiniteNumber(targetPlan?.actions_per_month_limit) ?? 1000;
+
+    const allocatedHourly = (account?.allocated_hourly_credits != null && isActive)
+        ? Number(account.allocated_hourly_credits)
+        : defaultHourly;
+    const allocatedDaily = (account?.allocated_daily_credits != null && isActive)
+        ? Number(account.allocated_daily_credits)
+        : defaultDaily;
+    const allocatedMonthly = (account?.allocated_monthly_credits != null && isActive)
+        ? Number(account.allocated_monthly_credits)
+        : defaultMonthly;
+
+    const hourlyUsed = Number(account?.hourly_actions_used || 0);
+    const dailyUsed = Number(account?.daily_actions_used || 0);
+    const monthlyUsed = Number(account?.monthly_actions_used || 0);
+
+    const remainedHourly = Math.max(0, allocatedHourly - hourlyUsed);
+    const remainedDaily = Math.max(0, allocatedDaily - dailyUsed);
+    const remainedMonthly = Math.max(0, allocatedMonthly - monthlyUsed);
 
     return {
         plan_code: effectivePlanCode,
         is_active: isActive,
         is_expired: isExpired,
-        hourly_action_limit: toFiniteNumber(targetPlan?.actions_per_hour_limit) ?? 100,
-        daily_action_limit: toFiniteNumber(targetPlan?.actions_per_day_limit) ?? 100,
-        monthly_action_limit: toFiniteNumber(targetPlan?.actions_per_month_limit) ?? 1000
+        hourly_action_limit: allocatedHourly,
+        daily_action_limit: allocatedDaily,
+        monthly_action_limit: allocatedMonthly,
+        allocated_hourly_credits: allocatedHourly,
+        allocated_daily_credits: allocatedDaily,
+        allocated_monthly_credits: allocatedMonthly,
+        remained_hourly_credits: remainedHourly,
+        remained_daily_credits: remainedDaily,
+        remained_monthly_credits: remainedMonthly,
+        features_json: account?.features_json || null
     };
 };
 
@@ -1017,7 +1068,13 @@ const buildAccountActionLimitSnapshot = (limits = {}) => ({
     daily_action_limit: Number(limits?.daily_action_limit || 0),
     monthly_action_limit: limits?.monthly_action_limit == null
         ? 0
-        : Number(limits?.monthly_action_limit || 0)
+        : Number(limits?.monthly_action_limit || 0),
+    allocated_hourly_credits: Number(limits?.allocated_hourly_credits ?? limits?.hourly_action_limit ?? 0),
+    allocated_daily_credits: Number(limits?.allocated_daily_credits ?? limits?.daily_action_limit ?? 0),
+    allocated_monthly_credits: Number(limits?.allocated_monthly_credits ?? limits?.monthly_action_limit ?? 0),
+    remained_hourly_credits: Number(limits?.remained_hourly_credits ?? 0),
+    remained_daily_credits: Number(limits?.remained_daily_credits ?? 0),
+    remained_monthly_credits: Number(limits?.remained_monthly_credits ?? 0)
 });
 
 const buildAccountActionUsageSnapshot = (account = {}) => ({
@@ -1027,20 +1084,20 @@ const buildAccountActionUsageSnapshot = (account = {}) => ({
 });
 
 const buildAccountActionState = (account = {}, fallbackLimits = {}, pricingPlans = null) => {
-    let limits;
-    if (account?.plan_code && Array.isArray(pricingPlans) && pricingPlans.length > 0) {
-        const accountLimits = resolveIgAccountActionLimits(account, pricingPlans);
-        limits = buildAccountActionLimitSnapshot(accountLimits);
-    } else {
-        limits = buildAccountActionLimitSnapshot(fallbackLimits);
-    }
+    const accountLimits = resolveIgAccountActionLimits(account, pricingPlans);
+    const usage = buildAccountActionUsageSnapshot(account);
     return {
-        ...limits,
-        ...buildAccountActionUsageSnapshot({
-            hourly_actions_used: account?.hourly_actions_used ?? fallbackLimits?.hourly_actions_used ?? 0,
-            daily_actions_used: account?.daily_actions_used ?? fallbackLimits?.daily_actions_used ?? 0,
-            monthly_actions_used: account?.monthly_actions_used ?? fallbackLimits?.monthly_actions_used ?? 0
-        })
+        hourly_action_limit: accountLimits.hourly_action_limit,
+        daily_action_limit: accountLimits.daily_action_limit,
+        monthly_action_limit: accountLimits.monthly_action_limit,
+        allocated_hourly_credits: accountLimits.allocated_hourly_credits,
+        allocated_daily_credits: accountLimits.allocated_daily_credits,
+        allocated_monthly_credits: accountLimits.allocated_monthly_credits,
+        remained_hourly_credits: accountLimits.remained_hourly_credits,
+        remained_daily_credits: accountLimits.remained_daily_credits,
+        remained_monthly_credits: accountLimits.remained_monthly_credits,
+        ...usage,
+        features_json: accountLimits.features_json
     };
 };
 
@@ -1356,28 +1413,9 @@ const buildPlanProfilePayload = ({
 
     const payload = {
         user_id: String(currentProfile?.user_id || '').trim() || undefined,
-        plan_code: normalizedPlanId,
-        plan_source: normalizedPlanSource,
-        plan_name: String(plan?.name || currentProfile?.plan_name || normalizedPlanId || 'Free Plan').trim() || 'Free Plan',
-        expiry_date: normalizedExpires,
-        billing_cycle: normalizedBillingCycle,
         kill_switch_enabled: currentProfile?.kill_switch_enabled !== false,
-        instagram_connections_limit: Number(effectiveLimits.instagram_connections_limit || 0),
-        hourly_action_limit: Number(effectiveLimits.hourly_action_limit || 0),
-        daily_action_limit: Number(effectiveLimits.daily_action_limit || 0),
-        monthly_action_limit: encodeProfileLimit(effectiveLimits.monthly_action_limit),
         admin_override_json: adminOverrideJson
     };
-
-    BENEFIT_KEYS.forEach((key) => {
-        payload[benefitFieldForKey(key)] = effectiveEntitlements[key] === true;
-    });
-
-    if (credits !== undefined) {
-        payload.credits = Number(credits || 0);
-    } else if (!currentProfile?.$id && currentProfile?.credits !== undefined) {
-        payload.credits = Number(currentProfile.credits || 0);
-    }
 
     void preserveUsage;
 
@@ -1427,13 +1465,8 @@ const upsertEffectiveProfile = async (databases, userId, currentProfile, plan, o
         adminOverrideJson: options.adminOverrideJson
     });
     try {
-        if (currentProfile?.$id) {
-            return await databases.updateDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, currentProfile.$id, payload);
-        }
-        return await databases.createDocument(APPWRITE_DATABASE_ID, PROFILES_COLLECTION_ID, safeUserId, {
-            user_id: safeUserId,
-            ...payload
-        });
+        const targetDocId = currentProfile?.$id || safeUserId;
+        return await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, targetDocId, payload);
     } catch {
         return {
             ...(currentProfile || {}),
@@ -1503,20 +1536,6 @@ const hasUltraPlanAccess = async (databases, userId) => {
     try {
         const safeUserId = String(userId || '').trim();
         if (!safeUserId) return false;
-
-        const profile = await databases.getDocument(
-            APPWRITE_DATABASE_ID,
-            PROFILES_COLLECTION_ID,
-            safeUserId
-        ).catch(() => null);
-
-        if (profile) {
-            const planCode = String(profile.plan_code || '').trim().toLowerCase();
-            const status = String(profile.subscription_status || 'active').trim().toLowerCase();
-            if (planCode === 'ultra' && status !== 'inactive' && status !== 'expired') {
-                return true;
-            }
-        }
 
         const igResponse = await databases.listDocuments(
             APPWRITE_DATABASE_ID,
@@ -1606,6 +1625,7 @@ module.exports = {
     resolvePlanEntitlements,
     resolvePlanLimits,
     resolveIgAccountActionLimits,
+    buildAccountPlanSnapshot,
     updateUserSelfPlanMemory,
     upsertEffectiveProfile,
     resolveUserPlanContext,

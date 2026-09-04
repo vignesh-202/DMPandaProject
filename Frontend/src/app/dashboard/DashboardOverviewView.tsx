@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
 import InstagramStats from '../../components/dashboard/InstagramStats';
-import Gauge from '../../components/ui/gauge';
+import Gauge, { getGaugeLevelStyle } from '../../components/ui/gauge';
 import Card from '../../components/ui/card';
 import { AtSign, Check, ChevronRight, FileStack, Lightbulb as SuggestIcon, Sparkles, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -16,22 +16,38 @@ const COUNT_CARDS: { key: CountsKey; label: string; view: import('../../contexts
   { key: 'suggest_more', label: 'Suggest More', view: 'Suggest More', icon: SuggestIcon },
 ];
 
-const GaugeCard = ({ label, value, max, updatedText }: { label: string; value: number; max: number; updatedText: string }) => {
+const GaugeCard = ({
+  label,
+  value,
+  max,
+  allocated,
+  remained,
+  updatedText,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  allocated: number;
+  remained: number;
+  updatedText: string;
+}) => {
   const { setCurrentView } = useDashboard();
+  const remainingStyle = getGaugeLevelStyle(value, max);
 
   return (
     <Card
       variant="elevated"
-      className="relative flex min-h-[208px] cursor-pointer flex-col transition-all group ig-card hover:-translate-y-0.5 hover:shadow-md lg:min-h-[236px]"
+      className="relative flex min-h-[220px] cursor-pointer flex-col justify-between p-4 transition-all group ig-card hover:-translate-y-0.5 hover:shadow-md lg:min-h-[250px]"
       onClick={() => setCurrentView('Analytics')}
     >
-      <div className="absolute left-3.5 top-3.5 z-10 sm:left-4 sm:top-4">
+      <div className="flex items-start justify-between w-full">
         <h3 className="text-2xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors group-hover:text-primary">
           {label}
         </h3>
+        <ChevronRight className="h-4 w-4 text-primary opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
 
-      <div className="flex flex-1 items-center justify-center px-2 pt-6 sm:px-3 sm:pt-5">
+      <div className="flex flex-1 items-center justify-center py-2">
         <Gauge
           value={value}
           max={max}
@@ -41,8 +57,30 @@ const GaugeCard = ({ label, value, max, updatedText }: { label: string; value: n
         />
       </div>
 
-      <div className="absolute right-3.5 top-3.5 z-10 opacity-0 transition-opacity group-hover:opacity-100 sm:right-4 sm:top-4">
-        <ChevronRight className="h-4 w-4 text-primary" />
+      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/50 pt-2.5 text-center text-xs">
+        <div
+          className={cn(
+            "rounded-lg px-2 py-1.5 transition-all duration-300 border",
+            remainingStyle.bgClass,
+            remainingStyle.borderClass
+          )}
+          style={{
+            backgroundColor: `${remainingStyle.color}1a`,
+            borderColor: `${remainingStyle.color}40`,
+          }}
+        >
+          <p
+            className={cn("text-[10px] font-bold uppercase tracking-wider transition-colors duration-300", remainingStyle.textClass)}
+            style={{ color: remainingStyle.color }}
+          >
+            Remaining
+          </p>
+          <p className="text-sm font-black text-foreground">{remained.toLocaleString()}</p>
+        </div>
+        <div className="rounded-lg bg-primary/10 px-2 py-1.5 border border-primary/20">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Allocated</p>
+          <p className="text-sm font-black text-foreground">{allocated.toLocaleString()}</p>
+        </div>
       </div>
     </Card>
   );
@@ -64,6 +102,12 @@ const DashboardOverviewView: React.FC = () => {
     daily_action_limit: 0,
     monthly_actions_used: 0,
     monthly_action_limit: 0,
+    allocated_hourly_credits: 0,
+    remained_hourly_credits: 0,
+    allocated_daily_credits: 0,
+    remained_daily_credits: 0,
+    allocated_monthly_credits: 0,
+    remained_monthly_credits: 0,
   });
   const countsInFlight = useRef(false);
 
@@ -77,6 +121,14 @@ const DashboardOverviewView: React.FC = () => {
       .then((res) => (res.ok ? res.json() : {}))
       .then((payload: any) => {
         const actionWindowMetrics = payload.action_window_metrics || payload.gauge_metrics || {};
+        const hourlyLimit = actionWindowMetrics.allocated_hourly_credits ?? actionWindowMetrics.hourly_action_limit ?? 0;
+        const dailyLimit = actionWindowMetrics.allocated_daily_credits ?? actionWindowMetrics.daily_action_limit ?? 0;
+        const monthlyLimit = actionWindowMetrics.allocated_monthly_credits ?? actionWindowMetrics.monthly_action_limit ?? 0;
+
+        const hourlyUsed = actionWindowMetrics.hourly_actions_used ?? 0;
+        const dailyUsed = actionWindowMetrics.daily_actions_used ?? 0;
+        const monthlyUsed = actionWindowMetrics.monthly_actions_used ?? 0;
+
         setCounts({
           reply_templates: payload.reply_templates ?? 0,
           mention: payload.mention ?? 0,
@@ -84,12 +136,18 @@ const DashboardOverviewView: React.FC = () => {
           suggest_more: payload.suggest_more ?? 0,
         });
         setGaugeMetrics({
-          hourly_actions_used: actionWindowMetrics.hourly_actions_used ?? 0,
-          hourly_action_limit: actionWindowMetrics.hourly_action_limit ?? 0,
-          daily_actions_used: actionWindowMetrics.daily_actions_used ?? 0,
-          daily_action_limit: actionWindowMetrics.daily_action_limit ?? 0,
-          monthly_actions_used: actionWindowMetrics.monthly_actions_used ?? 0,
-          monthly_action_limit: actionWindowMetrics.monthly_action_limit ?? 0,
+          hourly_actions_used: hourlyUsed,
+          hourly_action_limit: hourlyLimit,
+          daily_actions_used: dailyUsed,
+          daily_action_limit: dailyLimit,
+          monthly_actions_used: monthlyUsed,
+          monthly_action_limit: monthlyLimit,
+          allocated_hourly_credits: hourlyLimit,
+          remained_hourly_credits: Math.max(0, hourlyLimit - hourlyUsed),
+          allocated_daily_credits: dailyLimit,
+          remained_daily_credits: Math.max(0, dailyLimit - dailyUsed),
+          allocated_monthly_credits: monthlyLimit,
+          remained_monthly_credits: Math.max(0, monthlyLimit - monthlyUsed),
         });
       })
       .catch(() => {})
@@ -102,20 +160,26 @@ const DashboardOverviewView: React.FC = () => {
     {
       label: 'Hourly Action Usage',
       value: gaugeMetrics.hourly_actions_used,
-      max: Math.max(gaugeMetrics.hourly_action_limit, 1),
-      updatedText: `${gaugeMetrics.hourly_actions_used}/${Math.max(gaugeMetrics.hourly_action_limit, 1)} current hour window`
+      max: Math.max(gaugeMetrics.allocated_hourly_credits || gaugeMetrics.hourly_action_limit, 1),
+      allocated: gaugeMetrics.allocated_hourly_credits || gaugeMetrics.hourly_action_limit,
+      remained: gaugeMetrics.remained_hourly_credits,
+      updatedText: `out of ${(gaugeMetrics.allocated_hourly_credits || gaugeMetrics.hourly_action_limit || 0).toLocaleString()}`
     },
     {
       label: 'Daily Action Usage',
       value: gaugeMetrics.daily_actions_used,
-      max: Math.max(gaugeMetrics.daily_action_limit, 1),
-      updatedText: `${gaugeMetrics.daily_actions_used}/${Math.max(gaugeMetrics.daily_action_limit, 1)} current day window`
+      max: Math.max(gaugeMetrics.allocated_daily_credits || gaugeMetrics.daily_action_limit, 1),
+      allocated: gaugeMetrics.allocated_daily_credits || gaugeMetrics.daily_action_limit,
+      remained: gaugeMetrics.remained_daily_credits,
+      updatedText: `out of ${(gaugeMetrics.allocated_daily_credits || gaugeMetrics.daily_action_limit || 0).toLocaleString()}`
     },
     {
       label: 'Monthly Action Usage',
       value: gaugeMetrics.monthly_actions_used,
-      max: Math.max(gaugeMetrics.monthly_action_limit, 1),
-      updatedText: `${gaugeMetrics.monthly_actions_used}/${Math.max(gaugeMetrics.monthly_action_limit, 1)} current month window`
+      max: Math.max(gaugeMetrics.allocated_monthly_credits || gaugeMetrics.monthly_action_limit, 1),
+      allocated: gaugeMetrics.allocated_monthly_credits || gaugeMetrics.monthly_action_limit,
+      remained: gaugeMetrics.remained_monthly_credits,
+      updatedText: `out of ${(gaugeMetrics.allocated_monthly_credits || gaugeMetrics.monthly_action_limit || 0).toLocaleString()}`
     },
   ];
 
@@ -185,6 +249,8 @@ const DashboardOverviewView: React.FC = () => {
               label={gauge.label}
               value={gauge.value}
               max={gauge.max}
+              allocated={gauge.allocated}
+              remained={gauge.remained}
               updatedText={gauge.updatedText}
             />
           ))}

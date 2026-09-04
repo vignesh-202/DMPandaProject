@@ -12,6 +12,46 @@ interface GaugeProps {
   className?: string;
 }
 
+export interface GaugeLevelStyle {
+  color: string;
+  level: 'QUIET' | 'ACTIVE' | 'PEAK';
+  bgClass: string;
+  textClass: string;
+  borderClass: string;
+}
+
+export const getGaugeLevelStyle = (value: number, max: number): GaugeLevelStyle => {
+  const safeMax = Math.max(Number(max || 0), 0);
+  const safeVal = Math.max(Number(value || 0), 0);
+  const percent = safeMax > 0 ? (safeVal / safeMax) * 100 : 0;
+
+  if (percent >= 75) {
+    return {
+      color: '#ef4444',
+      level: 'PEAK',
+      bgClass: 'bg-red-500/10 dark:bg-red-500/15',
+      textClass: 'text-red-500 dark:text-red-400',
+      borderClass: 'border-red-500/30 dark:border-red-500/40'
+    };
+  }
+  if (percent >= 25) {
+    return {
+      color: '#eab308',
+      level: 'ACTIVE',
+      bgClass: 'bg-yellow-500/10 dark:bg-yellow-500/15',
+      textClass: 'text-yellow-500 dark:text-yellow-400',
+      borderClass: 'border-yellow-500/30 dark:border-yellow-500/40'
+    };
+  }
+  return {
+    color: '#22c55e',
+    level: 'QUIET',
+    bgClass: 'bg-emerald-500/10 dark:bg-emerald-500/15',
+    textClass: 'text-emerald-500 dark:text-emerald-400',
+    borderClass: 'border-emerald-500/30 dark:border-emerald-500/40'
+  };
+};
+
 // Global sync state for coordinated intro animations
 const syncState: Record<string, { startTime: number; expiresAt: number; active: boolean }> = {};
 
@@ -45,7 +85,7 @@ const Gauge: React.FC<GaugeProps> = ({
   size = 'md',
   showNeedle = true,
   syncId,
-  updatedText = 'Updated 1 day ago',
+  updatedText,
   className
 }) => {
   const [animatedPercent, setAnimatedPercent] = useState(0);
@@ -436,7 +476,9 @@ const Gauge: React.FC<GaugeProps> = ({
             {((animatedPercent / 100) * max).toFixed(2)}
           </div>
           <div className="text-muted-foreground font-semibold text-2xs sm:text-xs mt-1.5 sm:mt-1 uppercase tracking-wide">
-            {updatedText}
+            {updatedText !== undefined
+              ? updatedText
+              : `out of ${max.toLocaleString()}`}
           </div>
           {label && (
             <div className="absolute top-0 text-2xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
