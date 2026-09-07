@@ -100,7 +100,7 @@ export const VVDealsTopTeaser: React.FC<VVDealsTopTeaserProps> = ({
               </span>
             </div>
             <p className="text-sm sm:text-base font-black text-foreground mt-1 tracking-tight">
-              Get up to <span className="text-purple-600 dark:text-purple-400">₹39,660</span> in free subscriptions included with Ultra Plans
+              Get up to <span className="text-purple-600 dark:text-purple-400">₹39,660</span> in free subscriptions included with Pro Plans
             </p>
           </div>
         </div>

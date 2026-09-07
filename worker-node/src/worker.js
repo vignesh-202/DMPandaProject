@@ -474,20 +474,18 @@ class DMWorker {
         const allocatedHourly = igAccount?.allocated_hourly_credits != null
             ? Number(igAccount.allocated_hourly_credits)
             : (isFreePlan ? 100 : Number(igAccount?.hourly_action_limit ?? profile?.hourly_action_limit ?? 100));
-        const allocatedDaily = igAccount?.allocated_daily_credits != null
-            ? Number(igAccount.allocated_daily_credits)
-            : (isFreePlan ? 100 : Number(igAccount?.daily_action_limit ?? profile?.daily_action_limit ?? 1000));
-        const allocatedMonthly = igAccount?.allocated_monthly_credits != null
-            ? Number(igAccount.allocated_monthly_credits)
-            : (isFreePlan ? 1000 : (igAccount?.monthly_action_limit != null ? Number(igAccount.monthly_action_limit) : (profile?.monthly_action_limit == null ? null : Number(profile.monthly_action_limit))));
+        const rawDailyCredit = igAccount?.allocated_daily_credits ?? igAccount?.daily_action_limit ?? profile?.daily_action_limit;
+        const allocatedDaily = isFreePlan ? 100 : (rawDailyCredit == null || Number(rawDailyCredit) <= 0 ? null : Number(rawDailyCredit));
+        const rawMonthlyCredit = igAccount?.allocated_monthly_credits ?? igAccount?.monthly_action_limit ?? profile?.monthly_action_limit;
+        const allocatedMonthly = isFreePlan ? 1000 : (rawMonthlyCredit == null || Number(rawMonthlyCredit) <= 0 ? null : Number(rawMonthlyCredit));
 
         const hourlyActionsUsed = Number(igAccount?.hourly_actions_used ?? 0);
         const dailyActionsUsed = Number(igAccount?.daily_actions_used ?? 0);
         const monthlyActionsUsed = Number(igAccount?.monthly_actions_used ?? 0);
 
-        const remainedHourly = Math.max(0, allocatedHourly - hourlyActionsUsed);
-        const remainedDaily = Math.max(0, allocatedDaily - dailyActionsUsed);
-        const remainedMonthly = Math.max(0, (allocatedMonthly ?? 0) - monthlyActionsUsed);
+        const remainedHourly = allocatedHourly != null ? Math.max(0, allocatedHourly - hourlyActionsUsed) : null;
+        const remainedDaily = allocatedDaily != null ? Math.max(0, allocatedDaily - dailyActionsUsed) : null;
+        const remainedMonthly = allocatedMonthly != null ? Math.max(0, allocatedMonthly - monthlyActionsUsed) : null;
 
         return {
             ...profile,

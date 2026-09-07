@@ -2776,8 +2776,12 @@ router.post('/users/:userId/instagram-accounts/:accountId/reset-credits', loginR
             };
 
         const hourlyLimit = Number(targetPlan.actions_per_hour_limit || 100);
-        const dailyLimit = Number(targetPlan.actions_per_day_limit || 100);
-        const monthlyLimit = Number(targetPlan.actions_per_month_limit || 1000);
+        const dailyLimit = (effectivePlanCode === 'pro' || effectivePlanCode === 'ultra' || targetPlan.actions_per_day_limit == null || targetPlan.actions_per_day_limit === '')
+            ? 0
+            : Number(targetPlan.actions_per_day_limit);
+        const monthlyLimit = (effectivePlanCode === 'pro' || effectivePlanCode === 'ultra' || targetPlan.actions_per_month_limit == null || targetPlan.actions_per_month_limit === '')
+            ? 0
+            : Number(targetPlan.actions_per_month_limit);
         const planSnapshot = buildAccountPlanSnapshot(targetPlan, account);
 
         // 4. "If it's already done then don't do it" check

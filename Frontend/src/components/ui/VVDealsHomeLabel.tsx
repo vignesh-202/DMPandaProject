@@ -37,7 +37,7 @@ export const VVDealsHomeLabel: React.FC<VVDealsHomeLabelProps> = ({ className = 
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/15 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-purple-700 dark:text-purple-300 border border-purple-500/30">
                 <Gift className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-                Ultra Plan Bonus Perks
+                Pro Plan Bonus Perks
               </span>
               <span className="text-xs font-semibold text-muted-foreground">
                 Fulfilled by <strong className="text-foreground">VVDeals.cloud</strong>
@@ -46,12 +46,12 @@ export const VVDealsHomeLabel: React.FC<VVDealsHomeLabelProps> = ({ className = 
 
             {/* Main Catchy Heading with Bold Worth */}
             <h3 className="mt-3 text-xl sm:text-2xl lg:text-3xl font-black text-foreground tracking-tight leading-snug">
-              Get Up to <span className="text-purple-600 dark:text-purple-400">₹39,660</span> in Free Subscriptions with Ultra Plan
+              Get Up to <span className="text-purple-600 dark:text-purple-400">₹39,660</span> in Free Subscriptions with Pro Plan
             </h3>
 
             {/* Natural & Clear Description */}
             <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-3xl">
-              Subscribe to DM Panda Ultra and receive complimentary bonus subscriptions to industry-leading AI, video editing, 4K streaming, and music tools dispatched directly by VV Deals.
+              Subscribe to DM Panda Pro and receive complimentary bonus subscriptions to industry-leading AI, video editing, 4K streaming, and music tools dispatched directly by VV Deals.
             </p>
 
             {/* Spacious Product Badges with Values */}

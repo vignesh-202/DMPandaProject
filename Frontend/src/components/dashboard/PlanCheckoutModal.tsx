@@ -45,13 +45,12 @@ const PLAN_TIER_RANKS: Record<string, number> = {
   free: 0,
   basic: 1,
   pro: 2,
-  ultra: 3
+  ultra: 2
 };
 
 export const getPlanRank = (planIdentifier?: string | null): number => {
   const code = String(planIdentifier || '').trim().toLowerCase();
-  if (code.includes('ultra')) return 3;
-  if (code.includes('pro')) return 2;
+  if (code.includes('ultra') || code.includes('pro')) return 2;
   if (code.includes('basic')) return 1;
   return PLAN_TIER_RANKS[code] ?? 0;
 };

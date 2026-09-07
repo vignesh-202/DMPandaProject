@@ -473,12 +473,12 @@ const Gauge: React.FC<GaugeProps> = ({
               textShadow: `0 0 20px ${mainColor}40`
             }}
           >
-            {((animatedPercent / 100) * max).toFixed(2)}
+            {max > 0 ? ((animatedPercent / 100) * max).toFixed(2) : value.toLocaleString()}
           </div>
           <div className="text-muted-foreground font-semibold text-2xs sm:text-xs mt-1.5 sm:mt-1 uppercase tracking-wide">
             {updatedText !== undefined
               ? updatedText
-              : `out of ${max.toLocaleString()}`}
+              : (max > 0 ? `out of ${max.toLocaleString()}` : 'Unlimited')}
           </div>
           {label && (
             <div className="absolute top-0 text-2xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">

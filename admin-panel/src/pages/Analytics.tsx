@@ -686,10 +686,6 @@ export const AnalyticsPage: React.FC = () => {
     const revenueSummaryLabel = revenueWindow === 'custom'
         ? `${revenueFilterMeta.start_date || revenueCustomRange.start} to ${revenueFilterMeta.end_date || revenueCustomRange.end}`
         : selectedRevenueWindow;
-    const metaHourlyCapacity = Number(displayData?.meta_pool?.capacity_per_hour || 0);
-    const metaLinkedAccounts = Number(displayData?.meta_pool?.linked_accounts || 0);
-    const metaHourlyUsage = Number(displayData?.meta_pool?.usage_last_hour || displayData?.plan_pools?.hourly?.usage || displayData?.pool?.usage_last_hour || 0);
-    const metaHourlyUsagePercent = Number(displayData?.meta_pool?.usage_percent || 0);
     const planHourlyCapacity = Number(displayData?.plan_pools?.hourly?.capacity || displayData?.pool?.capacity_per_hour || 0);
     const planHourlyUsage = Number(displayData?.plan_pools?.hourly?.usage || displayData?.pool?.usage_last_hour || 0);
     const planHourlyUsagePercent = Number(displayData?.plan_pools?.hourly?.usage_percent || displayData?.pool?.usage_percent || 0);
@@ -699,13 +695,6 @@ export const AnalyticsPage: React.FC = () => {
     const planMonthlyCapacity = Number(displayData?.plan_pools?.monthly?.capacity || 0);
     const planMonthlyUsage = Number(displayData?.plan_pools?.monthly?.usage || 0);
     const planMonthlyUsagePercent = Number(displayData?.plan_pools?.monthly?.usage_percent || 0);
-    const hourlyBalanceValue = Number(displayData?.hourly_pool_balance?.gauge_value || 0);
-    const hourlyBalanceMax = Number(displayData?.hourly_pool_balance?.gauge_max || metaHourlyCapacity || 0);
-    const hourlyBalanceHelper = hourlyBalanceValue > metaHourlyCapacity
-        ? `Sold hourly limits exceed Meta by ${numberFormatter.format(hourlyBalanceValue - metaHourlyCapacity)} actions/hour.`
-        : metaHourlyCapacity > hourlyBalanceValue
-            ? `Meta still has ${numberFormatter.format(metaHourlyCapacity - hourlyBalanceValue)} actions/hour of headroom.`
-            : 'Meta and sold hourly plan limits are aligned.';
     const peakTrafficPoint = trafficChartData.reduce((peak: any, row: any) => {
         if (!peak || Number(row.value || 0) > Number(peak.value || 0)) return row;
         return peak;
@@ -830,34 +819,7 @@ export const AnalyticsPage: React.FC = () => {
                 ))}
             </section>
 
-            <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-                <AdminGauge
-                    label="Meta Hourly Pool"
-                    sublabel="200 per linked Instagram account"
-                    value={metaHourlyUsage}
-                    max={Math.max(metaHourlyCapacity, 1)}
-                    helper={`${numberFormatter.format(metaLinkedAccounts)} linked accounts define the platform cap.`}
-                    helperBelowValue={`${metaHourlyUsagePercent}% of Meta hourly capacity is currently in use.`}
-                    infoDescription="This gauge measures real hourly automation usage against the Meta platform ceiling."
-                    infoFormula="Numerator: sum of hourly_actions_used from all linked ig_accounts. Denominator: total linked ig_accounts × 200."
-                    infoNotes={[
-                        'Each linked Instagram account adds 200 hourly Meta actions to the pool.',
-                        'Usage comes only from ig_accounts, not from profile rows.'
-                    ]}
-                />
-                <AdminGauge
-                    label="Hourly Limit Balance"
-                    sublabel="Meta allocation vs user-plan hourly cap"
-                    value={hourlyBalanceValue}
-                    max={Math.max(hourlyBalanceMax, 1)}
-                    helper={hourlyBalanceHelper}
-                    infoDescription="This gauge shows how much hourly capacity has been sold to linked Instagram accounts compared with the Meta hourly pool."
-                    infoFormula="Numerator: for each linked ig_account, sum the owning profile.hourly_action_limit. Denominator: total linked ig_accounts × 200."
-                    infoNotes={[
-                        'This is the oversell monitor for hourly automation capacity.',
-                        'A value above the denominator means customer plan limits exceed Meta hourly allocation.'
-                    ]}
-                />
+            <section className="grid grid-cols-1 gap-5 md:grid-cols-3">
                 <AdminGauge
                     label="User Plan Hourly Pool"
                     sublabel="Linked users' hourly consumption against allocated hourly limits"

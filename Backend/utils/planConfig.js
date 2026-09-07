@@ -354,7 +354,7 @@ const normalizePlanDocument = (plan) => {
         instagram_connections_limit: activeAccountLimit,
         instagram_link_limit: linkedAccountLimit != null ? linkedAccountLimit : activeAccountLimit,
         actions_per_hour_limit: toFiniteNumber(plan?.actions_per_hour_limit) || 0,
-        actions_per_day_limit: toFiniteNumber(plan?.actions_per_day_limit) || 0,
+        actions_per_day_limit: normalizeStoredLimit(plan?.actions_per_day_limit),
         actions_per_month_limit: monthlyLimit,
         monthly_duration_days: toFiniteNumber(plan?.monthly_duration_days) || PLAN_DURATION_DAYS.monthly,
         yearly_duration_days: toFiniteNumber(plan?.yearly_duration_days) || PLAN_DURATION_DAYS.yearly
@@ -390,9 +390,10 @@ const getPlanLimitsEnvelope = (limits = {}) => {
     const connections = Number(accountEnvelope.instagram_connections_limit || 0);
     const linkLimit = Number(accountEnvelope.instagram_link_limit || connections || 0);
     const hourly = Number(limits.hourly_action_limit ?? limits.actions_per_hour_limit ?? 0);
-    const daily = Number(limits.daily_action_limit ?? limits.actions_per_day_limit ?? 0);
+    const dailyRaw = limits.daily_action_limit ?? limits.actions_per_day_limit;
+    const daily = dailyRaw == null || Number(dailyRaw) <= 0 ? null : Number(dailyRaw);
     const monthlyRaw = limits.monthly_action_limit ?? limits.actions_per_month_limit;
-    const monthly = monthlyRaw == null ? null : Number(monthlyRaw || 0);
+    const monthly = monthlyRaw == null || Number(monthlyRaw) <= 0 ? null : Number(monthlyRaw);
     return {
         connections,
         instagram_connections_limit: connections,
@@ -975,9 +976,14 @@ const parseRuntimeFeatures = (profile = null) => {
 };
 
 const buildAccountPlanSnapshot = (plan, existingAccount = null) => {
+    const isUnlimited = plan?.plan_code === 'pro' || plan?.plan_code === 'ultra';
     const hourlyLimit = toFiniteNumber(plan?.actions_per_hour_limit) ?? 100;
-    const dailyLimit = toFiniteNumber(plan?.actions_per_day_limit) ?? 100;
-    const monthlyLimit = toFiniteNumber(plan?.actions_per_month_limit) ?? 1000;
+    const dailyLimit = (isUnlimited || plan?.actions_per_day_limit == null || Number(plan?.actions_per_day_limit) <= 0)
+        ? 0
+        : (toFiniteNumber(plan?.actions_per_day_limit) ?? 100);
+    const monthlyLimit = (isUnlimited || plan?.actions_per_month_limit == null || Number(plan?.actions_per_month_limit) <= 0)
+        ? 0
+        : (toFiniteNumber(plan?.actions_per_month_limit) ?? 1000);
 
     const features = {};
     BENEFIT_KEYS.forEach((key) => {
@@ -1016,35 +1022,42 @@ const resolveIgAccountActionLimits = (account = {}, pricingPlans = []) => {
     });
     const targetPlan = findPlanByIdentifier(plans, effectivePlanCode) || (
         effectivePlanCode === 'basic'
-            ? { actions_per_hour_limit: 150, actions_per_day_limit: 1000, actions_per_month_limit: 25000 }
-            : (effectivePlanCode === 'pro'
-                ? { actions_per_hour_limit: 200, actions_per_day_limit: 2500, actions_per_month_limit: 70000 }
-                : (effectivePlanCode === 'ultra'
-                    ? { actions_per_hour_limit: 250, actions_per_day_limit: 4000, actions_per_month_limit: 100000 }
-                    : freePlan))
+            ? { actions_per_hour_limit: 200, actions_per_day_limit: 2500, actions_per_month_limit: 70000 }
+            : (effectivePlanCode === 'pro' || effectivePlanCode === 'ultra'
+                ? { actions_per_hour_limit: 750, actions_per_day_limit: null, actions_per_month_limit: null }
+                : freePlan)
     );
 
+    const isUnlimited = effectivePlanCode === 'pro' || effectivePlanCode === 'ultra';
     const defaultHourly = toFiniteNumber(targetPlan?.actions_per_hour_limit) ?? 100;
-    const defaultDaily = toFiniteNumber(targetPlan?.actions_per_day_limit) ?? 100;
-    const defaultMonthly = toFiniteNumber(targetPlan?.actions_per_month_limit) ?? 1000;
+    const defaultDaily = (isUnlimited || targetPlan?.actions_per_day_limit == null || Number(targetPlan?.actions_per_day_limit) <= 0)
+        ? 0
+        : (toFiniteNumber(targetPlan?.actions_per_day_limit) ?? 100);
+    const defaultMonthly = (isUnlimited || targetPlan?.actions_per_month_limit == null || Number(targetPlan?.actions_per_month_limit) <= 0)
+        ? 0
+        : (toFiniteNumber(targetPlan?.actions_per_month_limit) ?? 1000);
 
     const allocatedHourly = (account?.allocated_hourly_credits != null && isActive)
         ? Number(account.allocated_hourly_credits)
         : defaultHourly;
-    const allocatedDaily = (account?.allocated_daily_credits != null && isActive)
-        ? Number(account.allocated_daily_credits)
-        : defaultDaily;
-    const allocatedMonthly = (account?.allocated_monthly_credits != null && isActive)
-        ? Number(account.allocated_monthly_credits)
-        : defaultMonthly;
+    const allocatedDaily = (isUnlimited && isActive)
+        ? 0
+        : ((account?.allocated_daily_credits != null && isActive)
+            ? Number(account.allocated_daily_credits)
+            : defaultDaily);
+    const allocatedMonthly = (isUnlimited && isActive)
+        ? 0
+        : ((account?.allocated_monthly_credits != null && isActive)
+            ? Number(account.allocated_monthly_credits)
+            : defaultMonthly);
 
     const hourlyUsed = Number(account?.hourly_actions_used || 0);
     const dailyUsed = Number(account?.daily_actions_used || 0);
     const monthlyUsed = Number(account?.monthly_actions_used || 0);
 
-    const remainedHourly = Math.max(0, allocatedHourly - hourlyUsed);
-    const remainedDaily = Math.max(0, allocatedDaily - dailyUsed);
-    const remainedMonthly = Math.max(0, allocatedMonthly - monthlyUsed);
+    const remainedHourly = allocatedHourly > 0 ? Math.max(0, allocatedHourly - hourlyUsed) : null;
+    const remainedDaily = allocatedDaily > 0 ? Math.max(0, allocatedDaily - dailyUsed) : null;
+    const remainedMonthly = allocatedMonthly > 0 ? Math.max(0, allocatedMonthly - monthlyUsed) : null;
 
     return {
         plan_code: effectivePlanCode,
@@ -1072,9 +1085,9 @@ const buildAccountActionLimitSnapshot = (limits = {}) => ({
     allocated_hourly_credits: Number(limits?.allocated_hourly_credits ?? limits?.hourly_action_limit ?? 0),
     allocated_daily_credits: Number(limits?.allocated_daily_credits ?? limits?.daily_action_limit ?? 0),
     allocated_monthly_credits: Number(limits?.allocated_monthly_credits ?? limits?.monthly_action_limit ?? 0),
-    remained_hourly_credits: Number(limits?.remained_hourly_credits ?? 0),
-    remained_daily_credits: Number(limits?.remained_daily_credits ?? 0),
-    remained_monthly_credits: Number(limits?.remained_monthly_credits ?? 0)
+    remained_hourly_credits: limits?.remained_hourly_credits == null ? null : Number(limits?.remained_hourly_credits),
+    remained_daily_credits: limits?.remained_daily_credits == null ? null : Number(limits?.remained_daily_credits),
+    remained_monthly_credits: limits?.remained_monthly_credits == null ? null : Number(limits?.remained_monthly_credits)
 });
 
 const buildAccountActionUsageSnapshot = (account = {}) => ({
@@ -1267,7 +1280,7 @@ const resolvePlanEntitlements = (plan, profile = null) => {
 
 const resolvePlanLimits = (plan, profile = null) => {
     const hourlyPlanLimit = toFiniteNumber(plan?.actions_per_hour_limit);
-    const dailyPlanLimit = toFiniteNumber(plan?.actions_per_day_limit);
+    const dailyPlanLimit = normalizeStoredLimit(plan?.actions_per_day_limit);
     const monthlyPlanLimit = normalizeStoredLimit(plan?.actions_per_month_limit);
     const planActiveLimit = toFiniteNumber(plan?.instagram_connections_limit) || 0;
     const profileMonthlyLimit = normalizeStoredLimit(
@@ -1276,7 +1289,7 @@ const resolvePlanLimits = (plan, profile = null) => {
     const profileHourlyLimit = toFiniteNumber(
         profile?.hourly_action_limit
     );
-    const profileDailyLimit = toFiniteNumber(
+    const profileDailyLimit = normalizeStoredLimit(
         profile?.daily_action_limit
     );
     const profileConnectionsLimit = toFiniteNumber(
@@ -1297,7 +1310,7 @@ const resolvePlanLimits = (plan, profile = null) => {
             : (hourlyPlanLimit != null ? hourlyPlanLimit : 0),
         daily_action_limit: profileDailyLimit != null
             ? profileDailyLimit
-            : (dailyPlanLimit != null ? dailyPlanLimit : 0),
+            : (plan ? dailyPlanLimit : null),
         monthly_action_limit: profileMonthlyLimit != null
             ? profileMonthlyLimit
             : (plan ? monthlyPlanLimit : null),

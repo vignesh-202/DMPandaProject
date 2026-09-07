@@ -1435,8 +1435,14 @@ export const UsersPage: React.FC = () => {
                                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Daily Credits</span>
                                                                 <div className="mt-1 flex items-baseline justify-between gap-1">
                                                                     <span className="font-semibold text-foreground">
-                                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, Number(acc.allocated_daily_credits ?? acc.daily_action_limit ?? 1000) - Number(acc.daily_actions_used ?? 0)).toLocaleString()}</span>
-                                                                        <span className="text-muted-foreground font-normal text-[11px]"> / {Number(acc.allocated_daily_credits ?? acc.daily_action_limit ?? 1000).toLocaleString()}</span>
+                                                                        {Number(acc.allocated_daily_credits ?? acc.daily_action_limit ?? 1000) <= 0 ? (
+                                                                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">Unlimited</span>
+                                                                        ) : (
+                                                                            <>
+                                                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, Number(acc.allocated_daily_credits ?? acc.daily_action_limit ?? 1000) - Number(acc.daily_actions_used ?? 0)).toLocaleString()}</span>
+                                                                                <span className="text-muted-foreground font-normal text-[11px]"> / {Number(acc.allocated_daily_credits ?? acc.daily_action_limit ?? 1000).toLocaleString()}</span>
+                                                                            </>
+                                                                        )}
                                                                     </span>
                                                                     <span className="text-[10px] text-muted-foreground font-medium">Used: {Number(acc.daily_actions_used ?? 0).toLocaleString()}</span>
                                                                 </div>
@@ -1445,8 +1451,14 @@ export const UsersPage: React.FC = () => {
                                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Monthly Credits</span>
                                                                 <div className="mt-1 flex items-baseline justify-between gap-1">
                                                                     <span className="font-semibold text-foreground">
-                                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, Number(acc.allocated_monthly_credits ?? acc.monthly_action_limit ?? 25000) - Number(acc.monthly_actions_used ?? 0)).toLocaleString()}</span>
-                                                                        <span className="text-muted-foreground font-normal text-[11px]"> / {Number(acc.allocated_monthly_credits ?? acc.monthly_action_limit ?? 25000).toLocaleString()}</span>
+                                                                        {Number(acc.allocated_monthly_credits ?? acc.monthly_action_limit ?? 25000) <= 0 ? (
+                                                                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">Unlimited</span>
+                                                                        ) : (
+                                                                            <>
+                                                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, Number(acc.allocated_monthly_credits ?? acc.monthly_action_limit ?? 25000) - Number(acc.monthly_actions_used ?? 0)).toLocaleString()}</span>
+                                                                                <span className="text-muted-foreground font-normal text-[11px]"> / {Number(acc.allocated_monthly_credits ?? acc.monthly_action_limit ?? 25000).toLocaleString()}</span>
+                                                                            </>
+                                                                        )}
                                                                     </span>
                                                                     <span className="text-[10px] text-muted-foreground font-medium">Used: {Number(acc.monthly_actions_used ?? 0).toLocaleString()}</span>
                                                                 </div>

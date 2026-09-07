@@ -160,7 +160,7 @@ PLAN_DEFINITIONS = {
     "ultra": {
         "name": "Ultra Plan",
         "prices": (499, 3588, 299),
-        "limits": (1, 400, 5000, 100000),
+        "limits": (1, 750, None, None),
         "benefits": [
             "unlimited_contacts",
             "post_comment_dm_automation",

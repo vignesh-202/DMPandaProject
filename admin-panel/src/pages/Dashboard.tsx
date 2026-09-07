@@ -123,19 +123,17 @@ export const Dashboard: React.FC = () => {
     );
 
     const topPlan = planDistribution[0];
-    const poolUsagePercent = Number(metrics?.plan_pools?.hourly?.usage_percent || 0);
-    const metaUsagePercent = Number(metrics?.meta_pool?.usage_percent || 0);
-    const metaHourlyUsage = Number(metrics?.meta_pool?.usage_last_hour || metrics?.plan_pools?.hourly?.usage || 0);
-    const metaHourlyCapacity = Number(metrics?.meta_pool?.capacity_per_hour || 0);
     const planHourlyUsage = Number(metrics?.plan_pools?.hourly?.usage || metrics?.pool?.usage_last_hour || 0);
     const planHourlyCapacity = Number(metrics?.plan_pools?.hourly?.capacity || metrics?.pool?.capacity_per_hour || 0);
-    const hourlyBalanceValue = Number(metrics?.hourly_pool_balance?.gauge_value || 0);
-    const hourlyBalanceMax = Number(metrics?.hourly_pool_balance?.gauge_max || metaHourlyCapacity || 0);
-    const hourlyBalanceHelper = hourlyBalanceValue > metaHourlyCapacity
-        ? `Sold hourly limits exceed Meta capacity by ${numberFormatter.format(hourlyBalanceValue - metaHourlyCapacity)} actions/hour.`
-        : hourlyBalanceValue < metaHourlyCapacity
-            ? `Meta still has ${numberFormatter.format(metaHourlyCapacity - hourlyBalanceValue)} actions/hour of headroom.`
-            : 'Sold hourly limits are exactly aligned with Meta hourly capacity.';
+    const planHourlyUsagePercent = Number(metrics?.plan_pools?.hourly?.usage_percent || 0);
+
+    const planDailyUsage = Number(metrics?.plan_pools?.daily?.usage || 0);
+    const planDailyCapacity = Number(metrics?.plan_pools?.daily?.capacity || 0);
+    const planDailyUsagePercent = Number(metrics?.plan_pools?.daily?.usage_percent || 0);
+
+    const planMonthlyUsage = Number(metrics?.plan_pools?.monthly?.usage || 0);
+    const planMonthlyCapacity = Number(metrics?.plan_pools?.monthly?.capacity || 0);
+    const planMonthlyUsagePercent = Number(metrics?.plan_pools?.monthly?.usage_percent || 0);
     const revenueLast30Days = Number(metrics?.revenue_last_30_days || 0);
     const revenueLast7Days = Number(metrics?.revenue_last_7_days || 0);
     const paidUsersCount = Number(metrics?.totals?.paid_users || 0);
@@ -202,43 +200,42 @@ export const Dashboard: React.FC = () => {
 
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <AdminGauge
-                            label="Meta Hourly Pool"
-                            sublabel="200 per linked Instagram account"
-                            value={metaHourlyUsage}
-                            max={Math.max(metaHourlyCapacity, 1)}
-                            helper={`${numberFormatter.format(Number(metrics?.meta_pool?.linked_accounts || 0))} linked accounts define the platform cap.`}
-                            helperBelowValue={`${metaUsagePercent}% of Meta hourly capacity is currently in use.`}
-                            infoDescription="This gauge measures real hourly usage against the Meta platform cap."
-                            infoFormula="Numerator: sum of hourly_actions_used across all linked ig_accounts. Denominator: total linked ig_accounts × 200."
-                            infoNotes={[
-                                'Every linked Instagram account contributes 200 Meta hourly actions to the platform pool.',
-                                'The used side comes only from the ig_accounts collection.'
-                            ]}
-                        />
-                        <AdminGauge
-                            label="Hourly Limit Balance"
-                            sublabel="Sold hourly limits vs Meta hourly capacity"
-                            value={hourlyBalanceValue}
-                            max={Math.max(hourlyBalanceMax, 1)}
-                            helper={hourlyBalanceHelper}
-                            infoDescription="This gauge shows how much hourly capacity has been sold to linked Instagram accounts compared with the Meta platform pool."
-                            infoFormula="Numerator: for each linked ig_account, take the owning profile.hourly_action_limit and sum it. Denominator: total linked ig_accounts × 200."
-                            infoNotes={[
-                                'If the numerator is higher than the denominator, customer plan limits exceed the Meta hourly pool.',
-                                'This is the oversell risk indicator for hourly automation capacity.'
-                            ]}
-                        />
-                        <AdminGauge
-                            label="User Plan Hourly Pool"
+                            label="Hourly Plan Pool"
                             sublabel="Linked users' hourly consumption against allocated hourly limits"
                             value={planHourlyUsage}
                             max={Math.max(planHourlyCapacity, 1)}
-                            helper={`${poolUsagePercent}% of hourly capacity is in use right now.`}
-                            infoDescription="This gauge shows how much hourly limit customers have used against the hourly limit allocated to every linked Instagram account."
-                            infoFormula="Numerator: sum of hourly_actions_used across all ig_accounts. Denominator: for each linked ig_account, sum the owning profile.hourly_action_limit."
+                            helper={`${planHourlyUsagePercent}% of hourly profile capacity is in use.`}
+                            infoDescription="This gauge shows total hourly usage against the hourly limits allocated to each linked Instagram account."
+                            infoFormula="Numerator: sum of hourly_actions_used across ig_accounts. Denominator: for each linked ig_account, sum the owning profile.hourly_action_limit."
                             infoNotes={[
-                                'Usage is stored on ig_accounts.',
-                                'Limit capacity is read from the linked account owner profile and counted once per linked account.'
+                                'Usage is tracked per Instagram account.',
+                                'Profile limits are counted once for every linked account owned by that profile.'
+                            ]}
+                        />
+                        <AdminGauge
+                            label="Daily Plan Pool"
+                            sublabel="Linked users' daily consumption against allocated daily limits"
+                            value={planDailyUsage}
+                            max={Math.max(planDailyCapacity, 1)}
+                            helper={`${planDailyUsagePercent}% of daily profile capacity is in use.`}
+                            infoDescription="This gauge shows total daily usage against daily limits allocated to linked Instagram accounts."
+                            infoFormula="Numerator: sum of daily_actions_used across ig_accounts. Denominator: for each linked ig_account, add the owning profile.daily_action_limit."
+                            infoNotes={[
+                                'Daily usage is stored on ig_accounts.',
+                                'Daily capacity is derived from owner profiles and counted per linked account.'
+                            ]}
+                        />
+                        <AdminGauge
+                            label="Monthly Plan Pool"
+                            sublabel="Linked users' monthly consumption against allocated monthly limits"
+                            value={planMonthlyUsage}
+                            max={Math.max(planMonthlyCapacity, 1)}
+                            helper={`${planMonthlyUsagePercent}% of monthly profile capacity is in use.`}
+                            infoDescription="This gauge shows total monthly usage against monthly limits allocated to linked Instagram accounts."
+                            infoFormula="Numerator: sum of monthly_actions_used across ig_accounts. Denominator: for each linked ig_account, add the owning profile.monthly_action_limit."
+                            infoNotes={[
+                                'Monthly usage is stored on ig_accounts.',
+                                'Monthly capacity is derived from owner profiles and counted per linked account.'
                             ]}
                         />
                     </div>

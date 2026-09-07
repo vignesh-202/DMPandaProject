@@ -136,7 +136,9 @@ PRICING_UPDATES = {
             "Seen + Typing",
             "No Watermark",
             "Once Per User / 24h"
-        ])
+        ]),
+        "actions_per_day_limit": None,
+        "actions_per_month_limit": None,
     }
 }
 

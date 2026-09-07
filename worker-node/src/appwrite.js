@@ -916,24 +916,20 @@ class AppwriteClient {
             } catch (_) {}
         }
         const hasOwnMonthlyLimit = Object.prototype.hasOwnProperty.call(hydrated, 'monthly_action_limit');
-        hydrated.hourly_action_limit = Number(
-            hydrated.allocated_hourly_credits
+        const rawHourly = hydrated.allocated_hourly_credits
             ?? hydrated.hourly_action_limit
-            ?? plan.actions_per_hour_limit
-            ?? 0
-        );
-        hydrated.daily_action_limit = Number(
-            hydrated.allocated_daily_credits
+            ?? plan.actions_per_hour_limit;
+        hydrated.hourly_action_limit = rawHourly != null ? Number(rawHourly) : 0;
+
+        const rawDaily = hydrated.allocated_daily_credits
             ?? hydrated.daily_action_limit
-            ?? plan.actions_per_day_limit
-            ?? 0
-        );
-        hydrated.monthly_action_limit = Number(
-            hydrated.allocated_monthly_credits
+            ?? plan.actions_per_day_limit;
+        hydrated.daily_action_limit = (rawDaily != null && Number(rawDaily) > 0) ? Number(rawDaily) : null;
+
+        const rawMonthly = hydrated.allocated_monthly_credits
             ?? (hasOwnMonthlyLimit ? hydrated.monthly_action_limit : null)
-            ?? plan.actions_per_month_limit
-            ?? 0
-        );
+            ?? plan.actions_per_month_limit;
+        hydrated.monthly_action_limit = (rawMonthly != null && Number(rawMonthly) > 0) ? Number(rawMonthly) : null;
         return hydrated;
     }
 

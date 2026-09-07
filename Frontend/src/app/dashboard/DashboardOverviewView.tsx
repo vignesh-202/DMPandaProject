@@ -32,7 +32,8 @@ const GaugeCard = ({
   updatedText: string;
 }) => {
   const { setCurrentView } = useDashboard();
-  const remainingStyle = getGaugeLevelStyle(value, max);
+  const isUnlimited = allocated <= 0;
+  const remainingStyle = getGaugeLevelStyle(value, isUnlimited ? 0 : max);
 
   return (
     <Card
@@ -50,10 +51,10 @@ const GaugeCard = ({
       <div className="flex flex-1 items-center justify-center py-2">
         <Gauge
           value={value}
-          max={max}
+          max={isUnlimited ? 0 : max}
           size="lg"
           syncId="dashboard-gauges"
-          updatedText={updatedText}
+          updatedText={isUnlimited ? 'Unlimited actions' : updatedText}
         />
       </div>
 
@@ -75,11 +76,11 @@ const GaugeCard = ({
           >
             Remaining
           </p>
-          <p className="text-sm font-black text-foreground">{remained.toLocaleString()}</p>
+          <p className="text-sm font-black text-foreground">{isUnlimited ? 'Unlimited' : remained.toLocaleString()}</p>
         </div>
         <div className="rounded-lg bg-primary/10 px-2 py-1.5 border border-primary/20">
           <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Allocated</p>
-          <p className="text-sm font-black text-foreground">{allocated.toLocaleString()}</p>
+          <p className="text-sm font-black text-foreground">{isUnlimited ? 'Unlimited' : allocated.toLocaleString()}</p>
         </div>
       </div>
     </Card>

@@ -225,7 +225,8 @@ const ActionLimitGaugeCard = ({
     remained: number;
     updatedText: string;
 }) => {
-    const remainingStyle = getGaugeLevelStyle(value, max);
+    const isUnlimited = allocated <= 0;
+    const remainingStyle = getGaugeLevelStyle(value, isUnlimited ? 0 : max);
 
     return (
         <Card
@@ -240,10 +241,10 @@ const ActionLimitGaugeCard = ({
             <div className="flex-1 flex items-center justify-center py-2">
                 <Gauge
                     value={value}
-                    max={max}
+                    max={isUnlimited ? 0 : max}
                     size="lg"
                     syncId="analytics-action-limits"
-                    updatedText={updatedText}
+                    updatedText={isUnlimited ? 'Unlimited actions' : updatedText}
                 />
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/50 pt-2.5 text-center text-xs">
@@ -264,11 +265,11 @@ const ActionLimitGaugeCard = ({
                     >
                         Remaining
                     </p>
-                    <p className="text-sm font-black text-foreground">{remained.toLocaleString()}</p>
+                    <p className="text-sm font-black text-foreground">{isUnlimited ? 'Unlimited' : remained.toLocaleString()}</p>
                 </div>
                 <div className="rounded-lg bg-primary/10 px-2 py-1.5 border border-primary/20">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Allocated</p>
-                    <p className="text-sm font-black text-foreground">{allocated.toLocaleString()}</p>
+                    <p className="text-sm font-black text-foreground">{isUnlimited ? 'Unlimited' : allocated.toLocaleString()}</p>
                 </div>
             </div>
         </Card>

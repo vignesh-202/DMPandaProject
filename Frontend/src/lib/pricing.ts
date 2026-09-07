@@ -206,7 +206,7 @@ export const formatMoney = (value: number, _currency?: string) => {
 };
 
 export const formatPlanLimit = (value: number | null, suffix?: string) => {
-  if (value == null) return 'Unlimited';
+  if (value == null || value <= 0) return 'Unlimited';
   const formatted = new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 0
   }).format(Number(value || 0));

@@ -28,6 +28,7 @@ lerna-debug.log*
 .idea/
 .vscode/
 .cursor/
+.kilo/
 *.swp
 *.swo
 *.suo

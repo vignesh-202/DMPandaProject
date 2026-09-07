@@ -156,9 +156,7 @@
         "inbox_menu",
         "collect_email",
         "suggest_more",
-        "followers_only",
-        "comment_moderation",
-        "seen_typing"
+        "followers_only"
       ]
     },
     "basic": {
@@ -166,44 +164,6 @@
       "display_order": 2,
       "button_text": "Choose Plan",
       "is_popular": false,
-      "is_custom": false,
-      "prices": {
-        "monthly_inr": 149,
-        "yearly_inr": 1188,
-        "yearly_monthly_inr": 99
-      },
-      "limits": {
-        "actions_per_hour_limit": 100,
-        "actions_per_day_limit": 1000,
-        "actions_per_month_limit": 25000
-      },
-      "enabledFeatures": [
-        "unlimited_contacts",
-        "post_comment_dm_reply",
-        "post_comment_reply_automation",
-        "reel_comment_dm_reply",
-        "reel_comment_reply_automation",
-        "share_reel_to_admin",
-        "share_post_to_admin",
-        "super_profile",
-        "inbox_menu",
-        "collect_email",
-        "suggest_more",
-        "followers_only",
-        "comment_moderation",
-        "seen_typing",
-        "welcome_message",
-        "convo_starters",
-        "dm_automation",
-        "story_automation",
-        "no_watermark"
-      ]
-    },
-    "pro": {
-      "name": "Pro Plan",
-      "display_order": 3,
-      "button_text": "Choose Plan",
-      "is_popular": true,
       "is_custom": false,
       "prices": {
         "monthly_inr": 249,
@@ -242,11 +202,11 @@
         "priority_support"
       ]
     },
-    "ultra": {
-      "name": "Ultra Plan",
-      "display_order": 4,
+    "pro": {
+      "name": "Pro Plan",
+      "display_order": 3,
       "button_text": "Choose Plan",
-      "is_popular": false,
+      "is_popular": true,
       "is_custom": false,
       "prices": {
         "monthly_inr": 499,
@@ -254,9 +214,9 @@
         "yearly_monthly_inr": 399
       },
       "limits": {
-        "actions_per_hour_limit": 400,
-        "actions_per_day_limit": 5000,
-        "actions_per_month_limit": 100000
+        "actions_per_hour_limit": 750,
+        "actions_per_day_limit": null,
+        "actions_per_month_limit": null
       },
       "enabledFeatures": [
         "unlimited_contacts",

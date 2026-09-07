@@ -1112,7 +1112,7 @@ def load_pricing_contract():
     plan_catalog = contract.get("planCatalog") or {}
     feature_labels = contract.get("featureLabels") or {}
     benefit_keys = contract.get("benefitKeys") or BENEFIT_KEYS
-    required_plan_codes = ["free", "basic", "pro", "ultra"]
+    required_plan_codes = ["free", "basic", "pro"]
     missing = [plan_code for plan_code in required_plan_codes if plan_code not in plan_catalog]
     if missing:
         raise SystemExit(f"Pricing contract missing plans: {', '.join(missing)}")
@@ -1128,7 +1128,7 @@ def build_pricing_seed_documents():
     feature_labels = contract["feature_labels"]
     benefit_keys = contract["benefit_keys"]
     documents = []
-    for plan_code in ("free", "basic", "pro", "ultra"):
+    for plan_code in ("free", "basic", "pro"):
         definition = contract["plan_catalog"][plan_code]
         enabled = set(definition.get("enabledFeatures") or [])
         prices = definition.get("prices") or {}
@@ -1160,8 +1160,8 @@ def build_pricing_seed_documents():
             "monthly_duration_days": 30,
             "yearly_duration_days": 364,
             "actions_per_hour_limit": int(limits.get("actions_per_hour_limit") or 0),
-            "actions_per_day_limit": int(limits.get("actions_per_day_limit") or 0),
-            "actions_per_month_limit": int(limits.get("actions_per_month_limit") or 0),
+            "actions_per_day_limit": int(limits.get("actions_per_day_limit")) if limits.get("actions_per_day_limit") is not None else None,
+            "actions_per_month_limit": int(limits.get("actions_per_month_limit")) if limits.get("actions_per_month_limit") is not None else None,
         }
         for key, enabled_value in entitlements.items():
             payload[benefit_attribute_key(key)] = bool(enabled_value)

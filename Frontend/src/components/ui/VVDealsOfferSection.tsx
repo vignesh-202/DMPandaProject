@@ -82,7 +82,7 @@ const OFFER_FAQS: OfferFAQ[] = [
     answer: (
       <div className="space-y-2">
         <p>
-          Once you subscribe to an eligible full-price DM Panda Ultra plan (Monthly or Yearly), you can activate your bonus subscriptions directly with VV Deals:
+          Once you subscribe to an eligible full-price DM Panda Pro plan (Monthly or Yearly), you can activate your bonus subscriptions directly with VV Deals:
         </p>
         <ul className="list-disc pl-5 space-y-1">
           <li>
@@ -112,13 +112,13 @@ const OFFER_FAQS: OfferFAQ[] = [
     )
   },
   {
-    question: 'What exact products and values are bundled with Ultra plans?',
+    question: 'What exact products and values are bundled with Pro plans?',
     answer: (
       <div className="space-y-4">
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <p className="font-extrabold text-foreground text-xs sm:text-sm uppercase tracking-wide text-purple-600 dark:text-purple-400">
-              ★ Ultra Yearly Plan (5 Subscriptions — Total Value: ₹39,660):
+              ★ Pro Yearly Plan (5 Subscriptions — Total Value: ₹39,660):
             </p>
             <span className="rounded-md bg-purple-500/15 px-2 py-0.5 text-[11px] font-black text-purple-700 dark:text-purple-300 border border-purple-500/25">
               ₹39,660 Total Value
@@ -201,7 +201,7 @@ const OFFER_FAQS: OfferFAQ[] = [
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <p className="font-extrabold text-foreground text-xs sm:text-sm uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
-              ★ Ultra Monthly Plan (3 Subscriptions — Total Value: ₹898):
+              ★ Pro Monthly Plan (3 Subscriptions — Total Value: ₹898):
             </p>
             <span className="rounded-md bg-indigo-500/15 px-2 py-0.5 text-[11px] font-black text-indigo-700 dark:text-indigo-300 border border-indigo-500/25">
               ₹898 Total Value
@@ -259,7 +259,7 @@ const OFFER_FAQS: OfferFAQ[] = [
     question: 'Is the offer valid if I use a discount coupon during checkout?',
     answer: (
       <p>
-        <strong>No.</strong> The VV Deals promotional bonus subscriptions offer is <strong>strictly not valid if any discount coupon or promo code is applied</strong> during billing. Only full-price Ultra plan subscriptions (without coupon deductions) qualify for the free bonus subscriptions.
+        <strong>No.</strong> The VV Deals promotional bonus subscriptions offer is <strong>strictly not valid if any discount coupon or promo code is applied</strong> during billing. Only full-price Pro plan subscriptions (without coupon deductions) qualify for the free bonus subscriptions.
       </p>
     )
   },
@@ -275,7 +275,7 @@ const OFFER_FAQS: OfferFAQ[] = [
     question: 'Can I claim the offer multiple times if I upgrade multiple Instagram accounts?',
     answer: (
       <p>
-        Yes, each individual full-price Ultra plan subscription activated on a linked Instagram account qualifies for its respective VV Deals bonus perks.
+        Yes, each individual full-price Pro plan subscription activated on a linked Instagram account qualifies for its respective VV Deals bonus perks.
       </p>
     )
   },
@@ -322,11 +322,11 @@ export const VVDealsOfferSection: React.FC<{ className?: string }> = ({ classNam
         </div>
 
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-foreground">
-          ₹39,660 in Premium Subscriptions. Included Free with Ultra.
+          ₹39,660 in Premium Subscriptions. Included Free with Pro.
         </h2>
 
         <p className="mt-4 text-base text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-          Upgrade to DM Panda Ultra and receive complimentary bonus subscriptions to industry-leading AI, video editing, 4K streaming, and music tools.
+          Upgrade to DM Panda Pro and receive complimentary bonus subscriptions to industry-leading AI, video editing, 4K streaming, and music tools.
         </p>
 
         {/* 3 Structured Benefit Highlights Bar */}
@@ -337,7 +337,7 @@ export const VVDealsOfferSection: React.FC<{ className?: string }> = ({ classNam
             </div>
             <div className="min-w-0">
               <p className="text-xs font-black text-foreground">100% Free Partner Perks</p>
-              <p className="text-[11px] text-muted-foreground truncate">Bundled with Ultra plans</p>
+              <p className="text-[11px] text-muted-foreground truncate">Bundled with Pro plans</p>
             </div>
           </div>
 
@@ -365,14 +365,14 @@ export const VVDealsOfferSection: React.FC<{ className?: string }> = ({ classNam
 
       {/* Side-by-Side Detailed Breakdown Cards */}
       <div className="relative z-10 mt-12 grid grid-cols-1 gap-8 lg:grid-cols-2">
-        {/* Tier 1: Ultra Yearly Plan */}
+        {/* Tier 1: Pro Yearly Plan */}
         <div className="relative flex flex-col justify-between rounded-3xl border-2 border-purple-500/40 bg-gradient-to-b from-purple-500/[0.04] via-card to-card p-6 sm:p-8 shadow-xl dark:border-purple-500/40">
           <div>
             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3 border-b border-border/80 pb-6">
               <div>
                 <div className="inline-flex items-center gap-1.5 rounded-md bg-purple-500/15 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-300 border border-purple-500/30 mb-2">
                   <Gift size={12} className="text-purple-600 dark:text-purple-400" />
-                  <span>Yearly Ultra Bundle</span>
+                  <span>Yearly Pro Bundle</span>
                 </div>
                 <h3 className="text-2xl font-black text-foreground">Ultra Yearly Plan</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">5 Subscriptions Included Free</p>
@@ -539,14 +539,14 @@ export const VVDealsOfferSection: React.FC<{ className?: string }> = ({ classNam
           </div>
         </div>
 
-        {/* Tier 2: Ultra 1-Month Plan */}
+        {/* Tier 2: Pro 1-Month Plan */}
         <div className="relative flex flex-col justify-between rounded-3xl border border-border/90 bg-card p-6 sm:p-8 shadow-lg">
           <div>
             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3 border-b border-border/80 pb-6">
               <div>
                 <div className="inline-flex items-center gap-1.5 rounded-md bg-indigo-500/15 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 mb-2">
                   <Gift size={12} className="text-indigo-600 dark:text-indigo-400" />
-                  <span>Monthly Ultra Bundle</span>
+                  <span>Monthly Pro Bundle</span>
                 </div>
                 <h3 className="text-2xl font-black text-foreground">Ultra 1-Month Plan</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">3 Subscriptions Included Free</p>
@@ -703,7 +703,7 @@ export const VVDealsOfferSection: React.FC<{ className?: string }> = ({ classNam
             </h4>
             <ul className="list-disc pl-4 space-y-1.5 text-xs text-muted-foreground leading-relaxed">
               <li>
-                <strong className="text-foreground">Coupon Ineligibility:</strong> This promotional offer is strictly valid on full-price Ultra plan subscriptions. If any coupon or promotional discount code is applied during checkout, the account is not eligible for free partner perks.
+                <strong className="text-foreground">Coupon Ineligibility:</strong> This promotional offer is strictly valid on full-price Pro plan subscriptions. If any coupon or promotional discount code is applied during checkout, the account is not eligible for free partner perks.
               </li>
               <li>
                 <strong className="text-foreground">Third-Party Warranty & Fulfillment:</strong> All subscriptions and credentials are provided directly by VV Deals. DM Panda does not warrant or guarantee third-party platform uptime or policies.

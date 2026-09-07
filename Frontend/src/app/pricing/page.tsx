@@ -156,7 +156,9 @@ const PricingPage: React.FC = () => {
             Loading pricing plans...
           </div>
         ) : (
-          <div className="mb-16 grid grid-cols-1 gap-6 sm:mb-24 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8 items-stretch">
+          <div className={`mb-16 grid grid-cols-1 gap-6 sm:mb-24 sm:grid-cols-2 lg:gap-8 items-stretch justify-center mx-auto ${
+            plans.length <= 3 ? 'lg:grid-cols-3 max-w-6xl' : 'lg:grid-cols-4 max-w-7xl'
+          }`}>
             {plans.map((plan) => {
               const allFeatures = plan.feature_items
                 ? plan.feature_items.map((item) => ({ key: item.key || item.label, label: item.label || item.key, enabled: Boolean(item.enabled) }))
@@ -164,7 +166,7 @@ const PricingPage: React.FC = () => {
               const visibleFeatures = allExpanded ? allFeatures : allFeatures.slice(0, 7);
               const hasMoreFeatures = allFeatures.length > 7;
               const isPopular = plan.is_popular;
-              const isUltra = plan.plan_code === 'ultra' || plan.name.toLowerCase().includes('ultra');
+              const isPro = plan.plan_code === 'pro' || plan.name.toLowerCase().includes('pro') || plan.plan_code === 'ultra';
               const unitMonthly = plan.price_monthly_inr;
               const unitYearly = plan.price_yearly_inr;
               const unitYearlyMonthly = plan.price_yearly_monthly_inr;
@@ -177,7 +179,7 @@ const PricingPage: React.FC = () => {
                   className={`relative flex flex-col justify-between rounded-3xl p-6 sm:p-7 transition-all duration-300 hover:translate-y-[-2px] ${
                     isPopular
                       ? 'z-10 bg-gray-900 text-white shadow-2xl ring-2 ring-purple-500/50 dark:bg-gradient-to-b dark:from-purple-950/40 dark:via-neutral-900 dark:to-neutral-950'
-                      : isUltra
+                      : isPro
                       ? 'border-2 border-purple-500/40 bg-gradient-to-b from-purple-50/50 via-white to-white text-gray-900 shadow-xl hover:border-purple-500/60 dark:border-purple-500/40 dark:from-purple-950/25 dark:via-neutral-900/60 dark:to-neutral-950 dark:text-gray-100'
                       : 'border border-gray-200 bg-white text-gray-900 hover:border-gray-300 hover:shadow-xl dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100 dark:hover:border-white/[0.14]'
                   }`}
@@ -187,7 +189,7 @@ const PricingPage: React.FC = () => {
                       Most Popular
                     </div>
                   )}
-                  {isUltra && !isPopular && (
+                  {isPro && !isPopular && (
                     <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-md shadow-purple-500/25 whitespace-nowrap">
                       Includes {isYearly ? '₹39,660' : '₹898'} Free Tools
                     </div>
@@ -225,8 +227,8 @@ const PricingPage: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Ultra Plan VVDeals Bonus Highlight Box - Clickable & Compact */}
-                      {isUltra && (
+                      {/* Pro Plan VVDeals Bonus Highlight Box - Clickable & Compact */}
+                      {isPro && (
                         <div
                           role="button"
                           tabIndex={0}

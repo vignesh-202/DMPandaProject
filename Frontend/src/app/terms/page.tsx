@@ -69,7 +69,7 @@ const TermsPage: React.FC = () => {
           <section>
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4">Promotional Offers, Coupons & Partner Perks</h2>
             <p>
-              From time to time, DM Panda may run promotional offers or provide bundled third-party partner perks (such as bonus subscriptions provided in partnership with VV Deals on eligible Ultra plans).
+              From time to time, DM Panda may run promotional offers or provide bundled third-party partner perks (such as bonus subscriptions provided in partnership with VV Deals on eligible Pro plans).
             </p>
             <p className="mt-2">
               <strong className="text-gray-900 dark:text-gray-200">Coupon Usage Ineligibility:</strong> Promotional partner perks and bonus subscriptions are valid exclusively on full-price plan purchases. If any discount coupon, voucher code, or promotional billing reduction is applied during checkout or billing, the subscription is strictly ineligible for any promotional bonus perks, external credentials, or third-party gift subscriptions.

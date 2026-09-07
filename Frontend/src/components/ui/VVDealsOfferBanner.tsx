@@ -89,14 +89,14 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 border border-purple-500/20">
                 <Gift className="h-3 w-3 text-pink-500" />
-                Ultra Subscription Bonus
+                Pro Subscription Bonus
               </span>
               <span className="text-xs font-semibold text-muted-foreground">
                 Partnered with VVDeals
               </span>
             </div>
             <h3 className="mt-1 text-lg font-black tracking-tight text-foreground sm:text-xl">
-              Google AI Pro, Amazon Prime, Spotify, CapCut & Netflix on Ultra Plans
+              Google AI Pro, Amazon Prime, Spotify, CapCut & Netflix on Pro Plans
             </h3>
           </div>
         </div>
@@ -112,7 +112,7 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
 
       {/* Perks Grid - Clicking redirecting to /pricing */}
       <div className="relative z-10 mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Yearly Ultra Perks */}
+        {/* Yearly Pro Perks */}
         <Link
           to="/pricing"
           className="group block rounded-2xl border border-border/80 bg-background/60 p-4 sm:p-5 shadow-xs transition-all hover:border-purple-500/40 hover:bg-background/90"
@@ -123,7 +123,7 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
                 <Star className="h-3.5 w-3.5 fill-current" />
               </span>
               <span className="text-sm font-extrabold text-foreground">
-                Ultra Plan • Yearly Subscription
+                Pro Plan • Yearly Subscription
               </span>
             </div>
             <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
@@ -143,38 +143,38 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
             <div className="flex items-center gap-2 rounded-xl bg-card p-2 border border-border/70">
               <AmazonPrimeLogo className="h-4 w-4" />
               <div className="min-w-0">
-                <p className="font-extrabold text-foreground truncate">6M Prime (₹1,794)</p>
-                <p className="text-[10px] text-muted-foreground truncate">Video & Delivery</p>
+                <p className="font-extrabold text-foreground truncate">6M Prime (₹1,499)</p>
+                <p className="text-[10px] text-muted-foreground truncate">Free Delivery & Video</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 rounded-xl bg-card p-2 border border-border/70">
               <SpotifyLogo className="h-4 w-4" />
               <div className="min-w-0">
-                <p className="font-extrabold text-foreground truncate">3M Spotify (₹597)</p>
-                <p className="text-[10px] text-muted-foreground truncate">Premium Music</p>
+                <p className="font-extrabold text-foreground truncate">1M Spotify (₹199)</p>
+                <p className="text-[10px] text-muted-foreground truncate">Individual Plan</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 rounded-xl bg-card p-2 border border-border/70">
               <CapCutLogo className="h-4 w-4" />
               <div className="min-w-0">
-                <p className="font-extrabold text-foreground truncate">1M CapCut (₹2,000)</p>
-                <p className="text-[10px] text-muted-foreground truncate">Pro Creator</p>
+                <p className="font-extrabold text-foreground truncate">1M CapCut (₹2,693)</p>
+                <p className="text-[10px] text-muted-foreground truncate">Pro Video Editing</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 rounded-xl bg-card p-2 border border-border/70 sm:col-span-2 md:col-span-1">
+            <div className="flex items-center gap-2 rounded-xl bg-card p-2 border border-border/70 col-span-2 sm:col-span-1">
               <NetflixLogo className="h-4 w-4" />
               <div className="min-w-0">
                 <p className="font-extrabold text-foreground truncate">1M Netflix (₹169)</p>
-                <p className="text-[10px] text-muted-foreground truncate">Premium 4K (1 Dev)</p>
+                <p className="text-[10px] text-muted-foreground truncate">1 Device Access</p>
               </div>
             </div>
           </div>
         </Link>
 
-        {/* 1-Month Ultra Perks */}
+        {/* 1-Month Pro Perks */}
         <Link
           to="/pricing"
           className="group block rounded-2xl border border-border/80 bg-background/60 p-4 sm:p-5 shadow-xs transition-all hover:border-purple-500/40 hover:bg-background/90"
@@ -185,7 +185,7 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
                 <Sparkles className="h-3.5 w-3.5" />
               </span>
               <span className="text-sm font-extrabold text-foreground">
-                Ultra Plan • 1-Month Subscription
+                Pro Plan • 1-Month Subscription
               </span>
             </div>
             <span className="rounded-full bg-purple-500/15 px-2.5 py-0.5 text-[10px] font-black uppercase text-purple-600 dark:text-purple-300 border border-purple-500/30">
@@ -218,7 +218,7 @@ export const VVDealsOfferBanner: React.FC<VVDealsOfferBannerProps> = ({
       {/* Footer link to pricing */}
       <div className="relative z-10 mt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-muted-foreground">
         <p>
-          * Bonus vouchers and credentials provided via VVDeals upon activation of any eligible full-price Ultra plan (coupons not applicable).
+          * Bonus vouchers and credentials provided via VVDeals upon activation of any eligible full-price Pro plan (coupons not applicable).
         </p>
         <Link
           to="/pricing"
