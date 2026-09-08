@@ -1,70 +1,52 @@
 import React from 'react';
-import { MailPlus, Sparkles, Clock } from 'lucide-react';
-import Card from '../../components/ui/card';
+import { MailPlus, CheckCircle2, Clock } from 'lucide-react';
 
 const EmailCollectorView: React.FC = () => {
   return (
-    <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
       {/* Header */}
-      <div className="border-b border-border pb-8">
-        <div className="flex items-center gap-2 text-primary mb-2">
-          <MailPlus className="w-4 h-4" />
-          <span className="text-[10px] font-black uppercase tracking-widest">Email Collector</span>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-black text-foreground">Email Collection in DMs</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Ask users for their email within the DM conversation and automatically add it to your mailing list
+      <div className="border-b border-border/60 pb-6">
+        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Email Collector</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-xl leading-relaxed">
+          Prompt viewers for their email inside direct message flows and automatically sync them to your newsletter.
         </p>
       </div>
 
-      {/* Content Card */}
-      <div className="flex flex-col items-center justify-center p-4 sm:p-8 min-h-[400px] relative overflow-hidden animate-fadeIn">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 blur-[120px] rounded-full animate-pulse pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary/10 blur-[120px] rounded-full animate-pulse pointer-events-none" style={{ animationDelay: '2s' }} />
+      {/* Modern Minimalist Preview Card */}
+      <div className="flex items-center justify-center py-8">
+        <div className="w-full max-w-xl rounded-2xl border border-border/80 bg-card p-6 sm:p-10 text-center space-y-6 shadow-xs">
+          <div className="w-12 h-12 rounded-xl border border-border/80 bg-muted/40 flex items-center justify-center mx-auto text-foreground">
+            <MailPlus className="w-5 h-5" />
+          </div>
 
-        <Card
-          className="w-full max-w-2xl overflow-hidden border border-content shadow-lg rounded-3xl bg-card/80 backdrop-blur-xl relative z-10"
-          padding="none"
-        >
-          <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0" />
-
-          <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center space-y-8">
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-125 animate-pulse" />
-              <div className="relative w-24 h-24 bg-card rounded-2xl flex items-center justify-center shadow-lg border border-content group hover:scale-105 transition-transform duration-500">
-                <MailPlus className="w-12 h-12 text-primary" />
-              </div>
-              <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/30 animate-bounce">
-                <Sparkles className="w-5 h-5 text-primary-foreground" />
-              </div>
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border/60">
+              <Clock className="w-3 h-3" />
+              <span>In Development</span>
             </div>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">
+              Direct-to-Inbox Lead Capture
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
+              Collect verified email addresses directly inside the conversation and export leads to webhooks, spreadsheets, or your ESP.
+            </p>
+          </div>
 
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full border border-primary/20">
-                <Clock className="w-4 h-4" />
-                <span className="text-2xs font-bold uppercase tracking-widest">Coming Soon</span>
-              </div>
-
-              <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
-                Build your email list from Instagram DMs
-              </h2>
-
-              <p className="text-muted-foreground text-base sm:text-lg leading-relaxed max-w-md mx-auto">
-                Seamlessly collect emails within the DM conversation and automatically add contacts to your mailing list. Turn Instagram followers into valuable, long-term business leads.
-              </p>
+          <div className="pt-2 border-t border-border/60 text-left space-y-2.5 max-w-sm mx-auto">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CheckCircle2 className="w-3.5 h-3.5 text-foreground shrink-0" />
+              <span>Inline email validation and retry prompts</span>
             </div>
-
-            <div className="pt-6">
-              <div className="px-6 py-3 rounded-xl bg-muted border border-content flex items-center gap-3">
-                <div className="relative">
-                  <div className="w-2 h-2 rounded-full bg-primary" />
-                  <div className="absolute inset-0 w-2 h-2 rounded-full bg-primary animate-ping" />
-                </div>
-                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">In development</span>
-              </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CheckCircle2 className="w-3.5 h-3.5 text-foreground shrink-0" />
+              <span>Webhook integration with Zapier, Make, and ESPs</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CheckCircle2 className="w-3.5 h-3.5 text-foreground shrink-0" />
+              <span>Optional Gmail-only filter for cleaner leads</span>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );

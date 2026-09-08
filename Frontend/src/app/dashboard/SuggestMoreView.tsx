@@ -247,40 +247,37 @@ const SuggestMoreView: React.FC = () => {
                             }
                             centerContent={
                                 <div className="min-w-0">
-                                    <div className="flex items-center gap-2 text-warning mb-0.5">
-                                        <Lightbulb className="w-4 h-4" />
-                                        <span className="text-xs font-semibold uppercase tracking-wider">Suggest More</span>
-                                    </div>
-                                    <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Suggest More</h1>
-                                    <p className="text-muted-foreground text-sm font-normal">Show additional reply suggestions to users.</p>
+                                    <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Suggest More</h1>
+                                    <p className="text-muted-foreground text-xs sm:text-sm font-normal mt-0.5">Show additional reply suggestions to users when an automation finishes.</p>
                                 </div>
                             }
                         />
                     </div>
                     {/* Active Toggle */}
                     <LockedFeatureToggle
-                        icon={<Lightbulb className={`w-5 h-5 ${isActive ? 'text-warning' : 'text-muted-foreground'}`} />}
+                        icon={<Lightbulb className={`w-5 h-5 ${isActive ? 'text-foreground' : 'text-muted-foreground'}`} />}
                         title="Enable Suggest More"
-                        description="When enabled, users will see this response."
+                        description="When enabled, users will see this follow-up suggestion."
                         checked={isActive}
                         onToggle={() => setIsActive(!isActive)}
                         locked={!suggestMoreAvailable}
                         note="Suggest More is locked on your current plan. Upgrade to enable this response layer."
                         onUpgrade={() => setCurrentView('My Plan')}
-                        activeIconClassName="text-warning"
+                        activeIconClassName="text-foreground"
                     />
 
                     {/* Template Selector */}
-                    <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Select Reply Action
-                            </label>
+                    <div className="bg-card border border-border/80 rounded-2xl p-5 sm:p-6 space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-border/60">
+                            <div>
+                                <h3 className="text-sm font-semibold text-foreground">Linked Reply Template</h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">Choose the template sent as a follow-up recommendation.</p>
+                            </div>
                             {selectedTemplate && !showTemplateSelector && (
                                 <button
                                     type="button"
                                     onClick={() => setShowTemplateSelector(true)}
-                                    className="text-xs font-semibold text-primary hover:underline"
+                                    className="text-xs font-medium text-foreground hover:underline"
                                 >
                                     Change Template
                                 </button>
@@ -300,24 +297,19 @@ const SuggestMoreView: React.FC = () => {
                             />
                         )}
                         {!selectedTemplate && (
-                            <p className="text-xs text-muted-foreground font-medium mt-2">
+                            <p className="text-xs text-muted-foreground mt-2">
                                 Choose an existing template or create a new one to use for Suggest More responses.
                             </p>
                         )}
                         {selectedTemplate && !showTemplateSelector && (
-                            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between">
+                            <div className="p-4 bg-muted/40 border border-border/80 rounded-xl flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-semibold text-foreground">{selectedTemplate.name}</p>
+                                    <p className="text-sm font-medium text-foreground">{selectedTemplate.name}</p>
                                     <p className="text-xs text-muted-foreground capitalize">{selectedTemplate.template_type.replace('template_', '').replace('_', ' ')}</p>
                                 </div>
-                                <div className="px-2.5 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium rounded-md">Selected</div>
+                                <div className="px-2.5 py-1 bg-muted border border-border/60 text-foreground text-xs font-medium rounded-md">Selected</div>
                             </div>
                         )}
-                        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
-                            <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
-                                Reply templates sent from automations include the workspace watermark unless the account is on a premium plan with watermark removal.
-                            </p>
-                        </div>
                     </div>
                 </div>
 

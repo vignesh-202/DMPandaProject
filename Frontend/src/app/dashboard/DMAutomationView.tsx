@@ -1639,20 +1639,20 @@ const DMAutomationView: React.FC = () => {
                                 />
                             </div>
                             <div className="space-y-6 p-6 pb-8">
-                                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Automation Core</h3>
+                                <h3 className="text-sm font-semibold text-foreground">Automation Core</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-center gap-2 mb-1 px-1">
-                                            <div className="flex items-center gap-2">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Internal Reference Title</label>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center gap-2">
+                                            <div className="flex items-center gap-1.5">
+                                                <label className="text-xs font-medium text-foreground">Internal Reference Title</label>
                                                 <div className="group relative">
-                                                    <HelpCircle className="w-3 h-3 text-muted-foreground/60 cursor-help" />
-                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-foreground text-background text-[9px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-foreground text-background text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                                                         This name is only for you to identify this automation in the dashboard. Max {AUTOMATION_TITLE_MAX} UTF-8 bytes.
                                                     </div>
                                                 </div>
                                             </div>
-                                            <span className={`text-[9px] font-bold ${getByteLength(editingAutomation.title || '') > AUTOMATION_TITLE_MAX ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                            <span className={`text-xs ${getByteLength(editingAutomation.title || '') > AUTOMATION_TITLE_MAX ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                                                 {getByteLength(editingAutomation.title || '')}/{AUTOMATION_TITLE_MAX}
                                             </span>
                                         </div>
@@ -1671,54 +1671,54 @@ const DMAutomationView: React.FC = () => {
                                                     }
                                                 }
                                             }}
-                                            className={`w-full bg-muted/40  border-2 ${fieldErrors['title'] ? 'border-destructive' : 'border-transparent'} focus:border-primary outline-none rounded-2xl py-4 px-6 text-sm font-black text-foreground transition-all`}
+                                            className={`w-full bg-background border ${fieldErrors['title'] ? 'border-destructive' : 'border-border'} focus:border-primary focus:ring-1 focus:ring-primary outline-none rounded-xl px-3.5 py-2.5 text-sm font-normal text-foreground transition-all`}
                                             placeholder="e.g. Price Check"
                                         />
-                                        <p className="text-[9px] text-muted-foreground font-medium px-2">Required. Max {AUTOMATION_TITLE_MAX} UTF-8 bytes. This title helps you organize and find your automations easily later.</p>
+                                        <p className="text-xs text-muted-foreground">Required. Max {AUTOMATION_TITLE_MAX} UTF-8 bytes. This title helps you organize and find your automations easily later.</p>
                                         {fieldErrors['title'] && (
-                                            <p className="text-[9px] font-bold text-destructive px-2 flex items-center gap-1">
-                                                <AlertCircle className="w-3 h-3" /> {fieldErrors['title']}
+                                            <p className="text-xs font-medium text-destructive flex items-center gap-1">
+                                                <AlertCircle className="w-3.5 h-3.5" /> {fieldErrors['title']}
                                             </p>
                                         )}
                                     </div>
-                                    <div className="space-y-4">
-                                        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Trigger Keywords (Max 5)</label>
+                                    <div className="space-y-2">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <label className="text-xs font-medium text-foreground">Trigger Keywords (Max 5)</label>
                                             <span className="flex items-center gap-2">
-                                                <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest">
+                                                <span className="text-xs text-muted-foreground">
                                                     {(editingAutomation.keywords || []).length}/5
                                                 </span>
                                                 <button
                                                     type="button"
                                                     onClick={(e) => { e.preventDefault(); handleAddKeyword(); }}
                                                     disabled={!keywordInput.trim() || (editingAutomation.keywords || []).length >= 5}
-                                                    className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary/20 active:scale-95"
+                                                    className="h-8 px-3 bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium transition-all active:scale-95"
                                                 >
                                                     Add
                                                 </button>
                                             </span>
                                         </div>
-                                        <div className="space-y-4" id="field_keywords">
+                                        <div className="space-y-2.5" id="field_keywords">
                                             <div className="relative">
                                                 <input
                                                     value={keywordInput}
                                                     onChange={e => setKeywordInput(e.target.value.toUpperCase())}
                                                     onKeyDown={handleKeywordKeyDown}
-                                                    className={`w-full bg-primary/10  border-2 ${fieldErrors['keywords'] ? 'border-destructive' : 'border-transparent'} focus:border-primary outline-none rounded-2xl py-4 px-6 pr-12 text-sm font-black text-primary  placeholder:text-muted-foreground/70 transition-all`}
+                                                    className={`w-full bg-background border ${fieldErrors['keywords'] ? 'border-destructive' : 'border-border'} focus:border-primary focus:ring-1 focus:ring-primary outline-none rounded-xl px-3.5 py-2.5 pr-10 text-sm font-normal text-foreground placeholder:text-muted-foreground/60 transition-all`}
                                                     placeholder="Type keyword and press Enter..."
                                                     maxLength={15}
                                                     disabled={(editingAutomation.keywords || []).length >= 5}
                                                 />
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                                    <Smartphone className="w-4 h-4 text-primary/60" />
+                                                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                    <Smartphone className="w-4 h-4 text-muted-foreground" />
                                                 </div>
                                             </div>
-                                            <div className="flex justify-between items-center px-2">
-                                                <p className="text-[9px] text-muted-foreground font-medium">Required: Set at least one keyword that customers should type to trigger this reply.</p>
-                                                <span className={`text-[9px] font-bold ${keywordInput.length > 15 ? 'text-destructive' : 'text-muted-foreground'}`}>{keywordInput.length}/15</span>
+                                            <div className="flex justify-between items-center text-xs text-muted-foreground">
+                                                <p>Required: Set at least one keyword that customers should type to trigger this reply.</p>
+                                                <span className={keywordInput.length > 15 ? 'text-destructive font-medium' : ''}>{keywordInput.length}/15</span>
                                             </div>
 
-                                            <div className="flex flex-wrap gap-2 min-h-[40px] p-2 bg-muted/40 rounded-2xl border border-content">
+                                            <div className="flex flex-wrap gap-2 min-h-[40px] p-2 bg-muted/30 rounded-xl border border-border">
                                                 {(editingAutomation.keywords || []).map((kw: string, idx: number) => {
                                                     const isLocalDuplicate = isKeywordDuplicate(kw);
                                                     const isBackendDuplicate = keywordConflictSet.has(String(kw || '').trim().toUpperCase());
@@ -1727,15 +1727,15 @@ const DMAutomationView: React.FC = () => {
                                                     return (
                                                         <div
                                                             key={idx}
-                                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider transition-all animate-in zoom-in-95 duration-200 ${isError
-                                                                ? 'bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20'
-                                                                : 'bg-primary text-primary-foreground'
+                                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${isError
+                                                                ? 'bg-destructive/10 text-destructive border border-destructive/20'
+                                                                : 'bg-muted text-foreground border border-border'
                                                                 }`}
                                                         >
                                                             <span>{kw}</span>
                                                             <button
                                                                 onClick={() => removeKeywordTag(idx)}
-                                                                className="hover:bg-foreground/10 rounded-full p-0.5 transition-colors"
+                                                                className="hover:bg-foreground/10 rounded p-0.5 transition-colors"
                                                             >
                                                                 <X className="w-3 h-3" />
                                                             </button>
@@ -1745,41 +1745,39 @@ const DMAutomationView: React.FC = () => {
                                             </div>
 
                                             {fieldErrors['keywords'] && (
-                                                <p className="text-[9px] font-bold text-destructive px-2 flex items-center gap-1">
-                                                    <AlertCircle className="w-3 h-3" /> {fieldErrors['keywords']}
+                                                <p className="text-xs font-medium text-destructive flex items-center gap-1">
+                                                    <AlertCircle className="w-3.5 h-3.5" /> {fieldErrors['keywords']}
                                                 </p>
                                             )}
-
-
                                         </div>
                                     </div>
                                 </div>
                                 {/* Case Sensitivity Note - MOVED UP */}
-                                <div className="mt-8 flex items-start gap-4 bg-warning-muted/40 p-5 rounded-[28px] border border-warning/20">
-                                    <div className="p-3 bg-card rounded-2xl shadow-sm border border-warning/20 shrink-0">
-                                        <Lightbulb className="w-5 h-5 text-yellow-500" />
+                                <div className="mt-6 flex items-start gap-3 rounded-xl border border-border bg-muted/40 p-4">
+                                    <div className="p-2 bg-card rounded-lg border border-border shrink-0">
+                                        <Lightbulb className="w-4 h-4 text-amber-500" />
                                     </div>
                                     <div>
-                                        <p className="text-[11px] font-black text-foreground uppercase tracking-[0.15em] mb-1">Important: Matching Rules</p>
-                                        <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
-                                            <span className="font-bold text-muted-foreground ">Titles are Case Sensitive:</span> "Promo" and "promo" are different rules.<br />
-                                            <span className="font-bold text-muted-foreground ">Keywords are Case Insensitive:</span> All keywords are treated as UPPERCASE. "Price", "price", and "PRICE" are considered the same trigger.
+                                        <p className="text-xs font-medium text-foreground mb-0.5">Important: Matching Rules</p>
+                                        <p className="text-xs text-muted-foreground leading-relaxed">
+                                            <span className="font-semibold text-foreground">Titles are Case Sensitive:</span> "Promo" and "promo" are different rules.<br />
+                                            <span className="font-semibold text-foreground">Keywords are Case Insensitive:</span> All keywords are treated as UPPERCASE. "Price", "price", and "PRICE" are considered the same trigger.
                                         </p>
                                     </div>
                                 </div>
 
                                 <div className="pt-6 border-t border-border/60 mt-6 lg:mt-8">
-                                    <div className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${editingAutomation.is_active !== false ? 'ring-1 ring-primary/15' : ''}`}>
-                                        <div className="flex items-start gap-3 sm:items-center sm:gap-4">
-                                            <div className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-sm border ${editingAutomation.is_active !== false
-                                                ? 'bg-white dark:bg-gray-900 border-emerald-100 dark:border-emerald-500/10'
-                                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                                    <div className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-border bg-card p-4 sm:p-5 transition-all ${editingAutomation.is_active !== false ? '' : 'opacity-80'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-lg border ${editingAutomation.is_active !== false
+                                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                                : 'bg-muted border-border text-muted-foreground'
                                                 }`}>
-                                                <Power className={`w-5 h-5 transition-colors ${editingAutomation.is_active !== false ? 'text-emerald-500' : 'text-gray-400'}`} />
+                                                <Power className={`w-4 h-4 transition-colors ${editingAutomation.is_active !== false ? 'text-emerald-500' : 'text-muted-foreground'}`} />
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-[10px] sm:text-[11px] font-black text-foreground uppercase tracking-[0.14em] sm:tracking-[0.15em] mb-0.5">Automation Status</p>
-                                                <p className="text-[11px] sm:text-[10px] leading-5 sm:leading-normal font-medium text-muted-foreground">Turn this DM automation on or off before you publish it.</p>
+                                                <p className="text-sm font-medium text-foreground">Automation Status</p>
+                                                <p className="text-xs text-muted-foreground">Turn this DM automation on or off before you publish it.</p>
                                             </div>
                                         </div>
                                         <div className="flex w-full justify-end sm:w-auto">

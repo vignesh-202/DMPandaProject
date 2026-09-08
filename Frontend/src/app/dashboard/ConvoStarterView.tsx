@@ -795,34 +795,22 @@ const ConvoStarterView: React.FC = () => {
 
             {/* Status Action Center - Based on convo starter status */}
             {!isCreatingItem && convoStarterData && ['mismatch', 'ig_only', 'db_only', 'none'].includes(convoStarterData.status) && (
-                <div className={`flex flex-col items-center justify-center py-12 px-6 bg-white dark:bg-gray-950 border-2 rounded-[2.5rem] shadow-lg ${convoStarterData.status === 'db_only' || convoStarterData.status === 'none' || convoStarterData.status === 'mismatch'
-                    ? 'border-blue-200 dark:border-blue-900/30'
-                    : 'border-red-200 dark:border-red-900/30'
-                    }`}>
-                    <div className={`p-6 rounded-3xl mb-6 ${convoStarterData.status === 'db_only' || convoStarterData.status === 'none' || convoStarterData.status === 'mismatch'
-                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500'
-                        : 'bg-red-50 dark:bg-red-900/20 text-red-500'
-                        }`}>
+                <div className="flex flex-col items-center justify-center p-8 sm:p-10 bg-card border border-border rounded-2xl shadow-xs text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-muted/60 flex items-center justify-center mb-4 text-foreground">
                         {convoStarterData.status === 'db_only' || convoStarterData.status === 'mismatch' ? (
-                            <RefreshCw className="w-10 h-10" />
+                            <RefreshCw className="w-7 h-7 text-primary" />
                         ) : convoStarterData.status === 'none' ? (
-                            <PlusSquare className="w-10 h-10" />
+                            <PlusSquare className="w-7 h-7 text-primary" />
                         ) : (
-                            <AlertCircle className="w-10 h-10" />
+                            <AlertCircle className="w-7 h-7 text-destructive" />
                         )}
                     </div>
-                    <h2 className={`text-2xl font-black mb-2 text-center ${convoStarterData.status === 'db_only' || convoStarterData.status === 'none' || convoStarterData.status === 'mismatch'
-                        ? 'text-blue-900 dark:text-blue-300'
-                        : 'text-red-900 dark:text-red-300'
-                        }`}>
+                    <h2 className="text-xl font-semibold text-foreground mb-2">
                         {convoStarterData.status === 'db_only' ? 'Starters Ready to Sync' :
                             convoStarterData.status === 'ig_only' ? 'Manual Starters Detected' :
                                 convoStarterData.status === 'mismatch' ? 'Starters Out of Sync' : 'No Starters Yet'}
                     </h2>
-                    <p className={`font-bold text-center max-w-lg mb-8 text-sm ${convoStarterData.status === 'db_only' || convoStarterData.status === 'none' || convoStarterData.status === 'mismatch'
-                        ? 'text-blue-700 dark:text-blue-300'
-                        : 'text-red-700 dark:text-red-300'
-                        }`}>
+                    <p className="text-sm text-muted-foreground font-normal max-w-md mb-6 leading-relaxed">
                         {convoStarterData.status === 'db_only'
                             ? 'You have saved conversation starters in our database that are not yet live on Instagram. Use Sync to push them to Instagram, or Delete to remove them and start over.'
                             : convoStarterData.status === 'ig_only'
@@ -832,14 +820,14 @@ const ConvoStarterView: React.FC = () => {
                                     : 'No conversation starters exist in your database or on Instagram. Create new starters to get started.'}
                     </p>
 
-                    <div className="flex flex-wrap items-center justify-center gap-4">
+                    <div className="flex flex-wrap items-center justify-center gap-3">
                         {/* Case 1: db_only - Sync (DB→IG) + Delete (DB only) */}
                         {convoStarterData.status === 'db_only' && (
                             <>
                                 <button
                                     onClick={handleSync}
                                     disabled={saving || syncing || isDeleting}
-                                    className="inline-flex items-center gap-2 h-10 px-5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-sm font-semibold transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
+                                    className="inline-flex items-center gap-2 h-10 px-5 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-sm font-medium transition-all shadow-xs active:scale-[0.98] disabled:opacity-50"
                                 >
                                     {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                                     Sync
@@ -847,7 +835,7 @@ const ConvoStarterView: React.FC = () => {
                                 <button
                                     onClick={handleDeleteFromStatusCenter}
                                     disabled={saving || syncing || isDeleting}
-                                    className="inline-flex items-center gap-2 h-10 px-5 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground rounded-xl text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50"
+                                    className="inline-flex items-center gap-2 h-10 px-5 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground rounded-xl text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50"
                                 >
                                     {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                     Delete
@@ -860,7 +848,7 @@ const ConvoStarterView: React.FC = () => {
                             <button
                                 onClick={handleDeleteFromStatusCenter}
                                 disabled={saving || syncing || isDeleting}
-                                className="inline-flex items-center gap-2 h-10 px-5 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground rounded-xl text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50"
+                                className="inline-flex items-center gap-2 h-10 px-5 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground rounded-xl text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50"
                             >
                                 {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                 Delete
@@ -873,7 +861,7 @@ const ConvoStarterView: React.FC = () => {
                                 <button
                                     onClick={handleSync}
                                     disabled={saving || syncing || isDeleting}
-                                    className="inline-flex items-center gap-2 h-10 px-5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-sm font-semibold transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
+                                    className="inline-flex items-center gap-2 h-10 px-5 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-sm font-medium transition-all shadow-xs active:scale-[0.98] disabled:opacity-50"
                                 >
                                     {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                                     Sync
@@ -881,7 +869,7 @@ const ConvoStarterView: React.FC = () => {
                                 <button
                                     onClick={handleDeleteFromStatusCenter}
                                     disabled={saving || syncing || isDeleting}
-                                    className="inline-flex items-center gap-2 h-10 px-5 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground rounded-xl text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50"
+                                    className="inline-flex items-center gap-2 h-10 px-5 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground rounded-xl text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50"
                                 >
                                     {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                     Delete
@@ -894,7 +882,7 @@ const ConvoStarterView: React.FC = () => {
                             <button
                                 onClick={() => void startCreate()}
                                 disabled={saving || syncing || isDeleting}
-                                className="inline-flex items-center gap-2 h-10 px-5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-sm font-semibold transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
+                                className="inline-flex items-center gap-2 h-10 px-5 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-sm font-medium transition-all shadow-xs active:scale-[0.98] disabled:opacity-50"
                             >
                                 <Plus className="w-4 h-4" />
                                 Create New Starters
@@ -911,29 +899,30 @@ const ConvoStarterView: React.FC = () => {
                     <div className="order-2 space-y-6 xl:order-1 xl:col-span-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                         {isCreatingItem && newItem ? (
                             /* Edit Form */
-                            <div className="space-y-8 rounded-[2rem] border border-content bg-card p-4 shadow-2xl shadow-foreground/10 sm:rounded-[2.25rem] sm:p-6 lg:space-y-10 lg:rounded-[2.5rem] lg:p-8 xl:space-y-12 xl:p-10">
-                                <div className="-mx-2 rounded-[2rem] bg-card/95 px-2 py-2">
-                                    <div className="flex flex-col gap-4 border border-content/70 rounded-[2rem] bg-card px-5 py-4 shadow-lg md:flex-row md:items-start md:justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <button
-                                                onClick={handleCloseEditor}
-                                                className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
-                                            >
-                                                <ArrowLeft className="w-5 h-5" />
-                                            </button>
-                                            <div className="flex items-center gap-2 text-primary">
-                                                <Plus className="w-4 h-4" />
-                                                <span className="text-xs font-semibold uppercase tracking-wider">{editingIndex !== null ? 'Edit Question' : 'New Question'}</span>
-                                            </div>
+                            <div className="space-y-8 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-xs">
+                                <div className="flex flex-col gap-4 border-b border-border pb-5 md:flex-row md:items-center md:justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={handleCloseEditor}
+                                            className="p-2 rounded-xl border border-border hover:bg-muted text-foreground transition-all"
+                                            title="Back"
+                                        >
+                                            <ArrowLeft className="w-4 h-4" />
+                                        </button>
+                                        <div>
+                                            <h2 className="text-base font-semibold text-foreground">
+                                                {editingIndex !== null ? 'Edit Question' : 'New Question'}
+                                            </h2>
+                                            <p className="text-xs text-muted-foreground">Configure the conversation starter and linked response.</p>
                                         </div>
-                                        <AutomationActionBar
-                                            hasExisting={editingIndex !== null}
-                                            isSaving={saving}
-                                            onSave={handleSave}
-                                            onDelete={handleDeleteCurrentStarter}
-                                            saveDisabled={!selectedTemplate}
-                                        />
                                     </div>
+                                    <AutomationActionBar
+                                        hasExisting={editingIndex !== null}
+                                        isSaving={saving}
+                                        onSave={handleSave}
+                                        onDelete={handleDeleteCurrentStarter}
+                                        saveDisabled={!selectedTemplate}
+                                    />
                                 </div>
 
                                 <div className="space-y-2">
@@ -978,40 +967,46 @@ const ConvoStarterView: React.FC = () => {
                                     />
 
                                     {newItem.followers_only && !followersOnlyCollapsed && (
-                                        <div className="space-y-4 rounded-2xl border border-content bg-card p-4 sm:p-6">
+                                        <div className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
                                             <div className="space-y-2">
-                                                <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Followers-Only Message</label>
+                                                <div className="flex justify-between items-center">
+                                                    <label className="text-xs font-medium text-foreground">Followers-Only Message</label>
+                                                    <span className="text-xs text-muted-foreground">{getByteLength(newItem.followers_only_message || '')}/300 bytes</span>
+                                                </div>
                                                 <textarea
                                                     value={newItem.followers_only_message || ''}
                                                     onChange={(e) => setNewItem({ ...newItem, followers_only_message: e.target.value })}
-                                                    className="input-base min-h-[96px] text-sm"
+                                                    className="w-full min-h-[88px] rounded-xl border border-border bg-background p-3 text-xs font-normal text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                                     placeholder={FOLLOWERS_ONLY_MESSAGE_DEFAULT}
                                                 />
-                                                <div className="flex justify-end">
-                                                    <span className="text-[10px] font-black text-muted-foreground">{getByteLength(newItem.followers_only_message || '')}/300 bytes</span>
-                                                </div>
-                                                {validationErrors.followers_only_message && <p className="text-[10px] text-destructive font-bold">{validationErrors.followers_only_message}</p>}
+                                                {validationErrors.followers_only_message && <p className="text-xs text-destructive font-medium">{validationErrors.followers_only_message}</p>}
                                             </div>
                                             <div className="grid gap-4 md:grid-cols-2">
                                                 <div className="space-y-2">
-                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Follow Button Text</label>
+                                                    <div className="flex justify-between items-center">
+                                                        <label className="text-xs font-medium text-foreground">Follow Button Text</label>
+                                                        <span className="text-xs text-muted-foreground">{getByteLength(newItem.followers_only_primary_button_text || '')}/40 bytes</span>
+                                                    </div>
                                                     <input
                                                         value={newItem.followers_only_primary_button_text || ''}
                                                         onChange={(e) => setNewItem({ ...newItem, followers_only_primary_button_text: e.target.value })}
-                                                        className="input-base text-sm"
+                                                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-normal text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                                         placeholder={FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT}
                                                     />
-                                                    {validationErrors.followers_only_primary_button_text && <p className="text-[10px] text-destructive font-bold">{validationErrors.followers_only_primary_button_text}</p>}
+                                                    {validationErrors.followers_only_primary_button_text && <p className="text-xs text-destructive font-medium">{validationErrors.followers_only_primary_button_text}</p>}
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Retry Button Text</label>
+                                                    <div className="flex justify-between items-center">
+                                                        <label className="text-xs font-medium text-foreground">Retry Button Text</label>
+                                                        <span className="text-xs text-muted-foreground">{getByteLength(newItem.followers_only_secondary_button_text || '')}/40 bytes</span>
+                                                    </div>
                                                     <input
                                                         value={newItem.followers_only_secondary_button_text || ''}
                                                         onChange={(e) => setNewItem({ ...newItem, followers_only_secondary_button_text: e.target.value })}
-                                                        className="input-base text-sm"
+                                                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-normal text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                                         placeholder={FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT}
                                                     />
-                                                    {validationErrors.followers_only_secondary_button_text && <p className="text-[10px] text-destructive font-bold">{validationErrors.followers_only_secondary_button_text}</p>}
+                                                    {validationErrors.followers_only_secondary_button_text && <p className="text-xs text-destructive font-medium">{validationErrors.followers_only_secondary_button_text}</p>}
                                                 </div>
                                             </div>
                                         </div>
@@ -1030,9 +1025,9 @@ const ConvoStarterView: React.FC = () => {
                                             activeIconClassName="text-yellow-500"
                                         />
                                         {newItem.suggest_more_enabled && !getPlanGate('suggest_more').isLocked && (
-                                            <div className="ml-2 flex items-center gap-2 rounded-2xl border border-yellow-200 dark:border-yellow-500/20 bg-yellow-50/60 dark:bg-yellow-500/5 px-4 py-3">
-                                                <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
-                                                <p className="text-[10px] font-bold text-yellow-700 dark:text-yellow-300">Suggest More must be configured in the <button type="button" onClick={() => setCurrentView('Suggest More')} className="underline hover:no-underline font-black">Suggest More</button> section for this toggle to take effect.</p>
+                                            <div className="ml-2 flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3.5 py-2.5">
+                                                <Info className="w-4 h-4 text-primary shrink-0" />
+                                                <p className="text-xs text-muted-foreground">Suggest More must be configured in the <button type="button" onClick={() => setCurrentView('Suggest More')} className="underline hover:no-underline font-medium text-foreground">Suggest More</button> section for this toggle to take effect.</p>
                                             </div>
                                         )}
                                     </div>
@@ -1062,13 +1057,13 @@ const ConvoStarterView: React.FC = () => {
                                     />
                                 </div>
 
-                                <div className={`space-y-6 pt-6 border-t ${validationErrors.template ? 'border-destructive' : 'border-content'}`}>
+                                <div className={`space-y-4 pt-6 border-t ${validationErrors.template ? 'border-destructive' : 'border-border'}`}>
                                     <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Select Reply Action</label>
-                                        {selectedTemplate && <button onClick={() => setSelectedTemplate(null)} className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">Change Template</button>}
+                                        <label className="text-xs font-medium text-foreground">Select Reply Action</label>
+                                        {selectedTemplate && <button onClick={() => setSelectedTemplate(null)} className="text-xs font-medium text-primary hover:underline">Change Template</button>}
                                     </div>
                                     {!selectedTemplate ? (
-                                        <div className={`rounded-2xl border-2 ${validationErrors.template ? 'border-destructive' : 'border-transparent'}`}>
+                                        <div className={`rounded-xl border ${validationErrors.template ? 'border-destructive' : 'border-border'}`}>
                                             <TemplateSelector
                                                 selectedTemplateId={undefined}
                                                 onSelect={(template) => {
@@ -1097,19 +1092,19 @@ const ConvoStarterView: React.FC = () => {
                                             />
                                         </div>
                                     ) : (
-                                        <div className="flex flex-col gap-3 rounded-[1.5rem] border-2 border-primary/20 bg-primary/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-3xl sm:p-6">
-                                            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-                                                <div className="rounded-2xl bg-primary p-2.5 text-primary-foreground shadow-lg shadow-primary/20 sm:p-3"><Reply className="w-5 h-5" /></div>
+                                        <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <div className="rounded-lg bg-primary/10 p-2.5 text-primary"><Reply className="w-4 h-4" /></div>
                                                 <div className="min-w-0">
-                                                    <p className="truncate text-sm font-black uppercase tracking-tight text-foreground">{selectedTemplate.name}</p>
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{selectedTemplate.template_type.replace('template_', '')}</p>
+                                                    <p className="truncate text-sm font-semibold text-foreground">{selectedTemplate.name}</p>
+                                                    <p className="text-xs text-muted-foreground capitalize">{selectedTemplate.template_type.replace('template_', '')}</p>
                                                 </div>
                                             </div>
-                                            <div className="w-fit rounded-lg bg-success-muted/60 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-success">Selected</div>
+                                            <div className="w-fit rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-foreground">Selected</div>
                                         </div>
                                     )}
                                     {validationErrors.template && (
-                                        <p className="text-[10px] text-destructive font-bold px-2">{validationErrors.template}</p>
+                                        <p className="text-xs text-destructive font-medium px-1">{validationErrors.template}</p>
                                     )}
                                 </div>
 
@@ -1117,7 +1112,7 @@ const ConvoStarterView: React.FC = () => {
                         ) : (
                             /* List View */
                             <div className="space-y-6">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                <p className="text-xs font-medium text-muted-foreground">
                                     Active Starters ({convoStarters.length}/{MAX_CONVO_STARTERS})
                                 </p>
                                 {convoStarters.length === 0 ? (

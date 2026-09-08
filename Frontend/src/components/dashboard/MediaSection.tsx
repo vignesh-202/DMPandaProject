@@ -904,11 +904,11 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                 {type !== 'mention' && type !== 'story' && !(viewMode === 'create' && (type === 'reel' || type === 'post')) && hasAnyContent && (
                     <button
                         onClick={toggleView}
-                        className="w-full bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-200 px-5 py-3 rounded-2xl flex items-center justify-center transition-all shadow-lg hover:shadow-xl active:scale-95 text-xs font-bold uppercase tracking-wider md:w-auto"
+                        className="w-full md:w-auto h-10 px-4 rounded-xl bg-foreground text-background hover:bg-foreground/90 font-medium text-xs sm:text-sm active:scale-[0.98] transition-all inline-flex items-center justify-center gap-2"
                     >
                         {viewMode === 'list' ? (
                             <>
-                                <Plus className="w-4 h-4 mr-2" />
+                                <Plus className="w-4 h-4" />
                                 Create New
                             </>
                         ) : (type === 'reel' || type === 'post') ? null : (
@@ -921,27 +921,27 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
             <div className="flex-1 flex flex-col">
                 {/* CASE 1: No content found on account at all */}
                         {!hasAnyContent && (
-                            <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-gray-50/50 dark:bg-gray-900/30 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-500">
-                                <div className="w-24 h-24 bg-gradient-to-tr from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                                    <Ghost className="w-10 h-10 text-gray-400" />
+                            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 sm:p-12 bg-card rounded-2xl border border-dashed border-border animate-in fade-in zoom-in-95 duration-300">
+                                <div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center mb-4 text-muted-foreground">
+                                    <Ghost className="w-6 h-6" />
                                 </div>
-                                <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
+                                <h3 className="text-base font-semibold text-foreground mb-1">
                                     {type === 'mention' ? "No Mentions Found" : type === 'story' ? "No Stories Found" : `No ${type.charAt(0).toUpperCase() + type.slice(1)}s Found`}
                                 </h3>
-                                <div className="text-gray-500 dark:text-gray-400 max-w-lg leading-relaxed mb-8 text-sm font-medium">
+                                <p className="text-xs text-muted-foreground max-w-sm leading-relaxed mb-6">
                                     {type === 'story' ? (
                                         "Stories disappear after 24 hours. We only fetch currently active stories."
                                     ) : (
                                         `We couldn't find any recent ${type}s on your connected Instagram account.`
                                     )}
-                                </div>
+                                </p>
 
                                 <button
                                     onClick={handleRefresh}
                                     disabled={cooldown > 0 || isRefreshing}
-                                    className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
+                                    className="inline-flex items-center gap-2 h-9 px-4 rounded-xl text-xs font-medium border border-border bg-background hover:bg-muted text-foreground transition-all active:scale-[0.98] disabled:opacity-50"
                                 >
-                                    {isRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                                    {isRefreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcw className="w-3.5 h-3.5" />}
                                     {isRefreshing ? 'Refreshing...' : 'Refresh'}
                                 </button>
                             </div>
@@ -949,36 +949,35 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
 
                         {/* CASE 2: Content exists, but no automations -> CTA State */}
                         {hasAnyContent && !hasAnyAutomation && viewMode === 'list' && type !== 'mention' && type !== 'story' && (
-                            <div className="flex-1 flex flex-col items-center justify-center p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                <div className="relative mb-8">
-                                    <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full"></div>
-                                    <div className="relative w-28 h-28 bg-white dark:bg-gray-900 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-blue-500/10 border border-slate-200 dark:border-slate-700">
-                                        <Inbox className="w-12 h-12 text-blue-600 dark:text-blue-400" />
-                                        <div className="absolute -top-2 -right-2 bg-black text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-                                            {mediaItems.length}
-                                        </div>
+                            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 sm:p-12 bg-card rounded-2xl border border-dashed border-border animate-in fade-in duration-300">
+                                <div className="relative mb-4">
+                                    <div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center text-muted-foreground">
+                                        <Inbox className="w-6 h-6" />
                                     </div>
+                                    <span className="absolute -top-1.5 -right-1.5 bg-foreground text-background text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-5">
+                                        {mediaItems.length}
+                                    </span>
                                 </div>
-                                <h3 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white mb-4 text-center">
+                                <h3 className="text-base font-semibold text-foreground mb-1">
                                     Ready to Automate
                                 </h3>
-                                <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-8 font-medium">
+                                <p className="text-xs text-muted-foreground max-w-sm leading-relaxed mb-6">
                                     {`You have ${mediaItems.length} ${type}s available. Select one to start setting up auto-replies and boost your engagement.`}
                                 </p>
-                                <div className="flex flex-col sm:flex-row gap-4 w-full justify-center px-4">
+                                <div className="flex flex-col sm:flex-row gap-3 w-full justify-center max-w-xs sm:max-w-md">
                                     <button
                                         onClick={() => setViewMode('create')}
-                                        className="bg-black dark:bg-white text-white dark:text-black hover:bg-gray-900 dark:hover:bg-gray-100 px-10 py-5 rounded-2xl flex items-center justify-center shadow-2xl transition-all hover:-translate-y-1 active:scale-95 font-bold text-sm uppercase tracking-wider"
+                                        className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl bg-foreground text-background hover:bg-foreground/90 font-medium text-xs sm:text-sm active:scale-[0.98] transition-all"
                                     >
-                                        <Plus className="w-5 h-5 mr-3" />
+                                        <Plus className="w-4 h-4" />
                                         Start First Automation
                                     </button>
                                     <button
                                         onClick={handleRefresh}
                                         disabled={cooldown > 0 || isRefreshing}
-                                        className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 px-8 py-5 rounded-2xl flex items-center justify-center shadow-lg transition-all active:scale-95 font-bold text-sm uppercase tracking-wider disabled:opacity-50"
+                                        className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-border bg-background hover:bg-muted text-foreground font-medium text-xs sm:text-sm active:scale-[0.98] transition-all disabled:opacity-50"
                                     >
-                                        <RefreshCcw className={`w-4 h-4 mr-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                        <RefreshCcw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
                                         {isRefreshing ? 'Refreshing...' : 'Refresh'}
                                     </button>
                                 </div>

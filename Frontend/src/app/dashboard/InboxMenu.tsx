@@ -1194,34 +1194,22 @@ const InboxMenu: React.FC = () => {
                 <div className="space-y-12">
                     {/* Status Action Center - Based on menu status */}
                     {!isEditing && inboxMenuData && ['mismatch', 'ig_only', 'db_only', 'none'].includes(inboxMenuData.status) && (
-                        <div className={`flex flex-col items-center justify-center py-12 px-6 bg-white dark:bg-gray-950 border-2 rounded-[2.5rem] shadow-lg ${inboxMenuData.status === 'db_only' || inboxMenuData.status === 'none' || inboxMenuData.status === 'mismatch'
-                            ? 'border-blue-200 dark:border-blue-900/30'
-                            : 'border-red-200 dark:border-red-900/30'
-                            }`}>
-                            <div className={`p-6 rounded-3xl mb-6 ${inboxMenuData.status === 'db_only' || inboxMenuData.status === 'none' || inboxMenuData.status === 'mismatch'
-                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-500'
-                                : 'bg-red-50 dark:bg-red-900/20 text-red-500'
-                                }`}>
+                        <div className="flex flex-col items-center justify-center p-8 sm:p-10 bg-card border border-border rounded-2xl shadow-xs text-center">
+                            <div className="w-14 h-14 rounded-2xl bg-muted/60 flex items-center justify-center mb-4 text-foreground">
                                 {inboxMenuData.status === 'db_only' || inboxMenuData.status === 'mismatch' ? (
-                                    <RefreshCw className="w-10 h-10" />
+                                    <RefreshCw className="w-7 h-7 text-primary" />
                                 ) : inboxMenuData.status === 'none' ? (
-                                    <PlusSquare className="w-10 h-10" />
+                                    <PlusSquare className="w-7 h-7 text-primary" />
                                 ) : (
-                                    <AlertCircle className="w-10 h-10" />
+                                    <AlertCircle className="w-7 h-7 text-destructive" />
                                 )}
                             </div>
-                            <h2 className={`text-2xl font-black mb-2 text-center ${inboxMenuData.status === 'db_only' || inboxMenuData.status === 'none' || inboxMenuData.status === 'mismatch'
-                                ? 'text-blue-900 dark:text-blue-300'
-                                : 'text-red-900 dark:text-red-300'
-                                }`}>
+                            <h2 className="text-xl font-semibold text-foreground mb-2">
                                 {inboxMenuData.status === 'db_only' ? 'Menu Ready to Sync' :
                                     inboxMenuData.status === 'ig_only' ? 'Manual Menu Detected' :
                                         inboxMenuData.status === 'mismatch' ? 'Menu Out of Sync' : 'No Menu Yet'}
                             </h2>
-                            <p className={`font-bold text-center max-w-lg mb-8 ${inboxMenuData.status === 'db_only' || inboxMenuData.status === 'none' || inboxMenuData.status === 'mismatch'
-                                ? 'text-blue-700 dark:text-blue-300'
-                                : 'text-red-700 dark:text-red-300'
-                                }`}>
+                            <p className="text-sm text-muted-foreground font-normal max-w-md mb-6 leading-relaxed">
                                 {inboxMenuData.status === 'db_only'
                                     ? 'You have a saved menu in our database that is not yet live on Instagram. Use Sync to push it to Instagram, or Delete to remove it and start over.'
                                     : inboxMenuData.status === 'ig_only'
@@ -1231,14 +1219,14 @@ const InboxMenu: React.FC = () => {
                                             : 'No menu exists in your database or on Instagram. Create a new menu to get started.'}
                             </p>
 
-                            <div className="flex flex-wrap items-center justify-center gap-4">
+                            <div className="flex flex-wrap items-center justify-center gap-3">
                                 {/* Case 1: db_only - Sync (DB→IG) + Delete (DB only) */}
                                 {inboxMenuData.status === 'db_only' && (
                                     <>
                                         <button
                                             onClick={handleSync}
                                             disabled={isActionLoading}
-                                            className="px-10 py-4 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                            className="inline-flex items-center gap-2 h-10 px-5 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-sm font-medium transition-all shadow-xs active:scale-[0.98] disabled:opacity-50"
                                         >
                                             {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                                             Sync
@@ -1246,7 +1234,7 @@ const InboxMenu: React.FC = () => {
                                         <button
                                             onClick={handleDeleteFromStatusCenter}
                                             disabled={isActionLoading}
-                                            className="px-10 py-4 bg-red-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-red-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                            className="inline-flex items-center gap-2 h-10 px-5 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground rounded-xl text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50"
                                         >
                                             {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                             Delete
@@ -1259,7 +1247,7 @@ const InboxMenu: React.FC = () => {
                                     <button
                                         onClick={handleDeleteFromStatusCenter}
                                         disabled={isActionLoading}
-                                        className="px-10 py-4 bg-red-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-red-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                        className="inline-flex items-center gap-2 h-10 px-5 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground rounded-xl text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50"
                                     >
                                         {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                         Delete
@@ -1272,7 +1260,7 @@ const InboxMenu: React.FC = () => {
                                         <button
                                             onClick={handleSync}
                                             disabled={isActionLoading}
-                                            className="px-10 py-4 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                            className="inline-flex items-center gap-2 h-10 px-5 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-sm font-medium transition-all shadow-xs active:scale-[0.98] disabled:opacity-50"
                                         >
                                             {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                                             Sync
@@ -1280,7 +1268,7 @@ const InboxMenu: React.FC = () => {
                                         <button
                                             onClick={handleDeleteFromStatusCenter}
                                             disabled={isActionLoading}
-                                            className="px-10 py-4 bg-red-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-red-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                            className="inline-flex items-center gap-2 h-10 px-5 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground rounded-xl text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50"
                                         >
                                             {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                             Delete
@@ -1291,9 +1279,9 @@ const InboxMenu: React.FC = () => {
                                 {/* Case 4: none - Show Create button */}
                                 {inboxMenuData.status === 'none' && (
                                     <button
-                                            onClick={() => void handleCreateItem([])}
+                                        onClick={() => void handleCreateItem([])}
                                         disabled={isActionLoading}
-                                        className="px-10 py-4 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                                        className="inline-flex items-center gap-2 h-10 px-5 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-sm font-medium transition-all shadow-xs active:scale-[0.98] disabled:opacity-50"
                                     >
                                         <Plus className="w-4 h-4" />
                                         Create New Menu
@@ -1309,44 +1297,45 @@ const InboxMenu: React.FC = () => {
                             {/* Editor/List Section */}
                             <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:space-y-10 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
                                 {isCreatingItem ? (
-                                    <div className="bg-white dark:bg-gray-950 border border-content rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-10 space-y-8 md:space-y-10 animate-in slide-in-from-left duration-500">
-                                        <div className="-mx-2 rounded-[2rem] bg-white/95 px-2 py-2 dark:bg-gray-950/95">
-                                            <div className="flex flex-col gap-4 rounded-[2rem] border border-content bg-white px-5 py-4 shadow-lg dark:bg-gray-950 md:flex-row md:items-start md:justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <button
-                                                        onClick={handleCloseItemEditor}
-                                                        className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
-                                                    >
-                                                        <ArrowLeft className="w-5 h-5" />
-                                                    </button>
-                                                    <div className="flex items-center gap-2 text-blue-600">
-                                                        <Plus className="w-5 h-5" />
-                                                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">{editingItemIndex !== null ? 'Edit Menu Element' : 'New Menu Element'}</span>
-                                                    </div>
+                                    <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 space-y-8 shadow-xs animate-in slide-in-from-left duration-300">
+                                        <div className="flex flex-col gap-4 border-b border-border pb-5 md:flex-row md:items-center md:justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={handleCloseItemEditor}
+                                                    className="p-2 rounded-xl border border-border hover:bg-muted text-foreground transition-all"
+                                                    title="Back"
+                                                >
+                                                    <ArrowLeft className="w-4 h-4" />
+                                                </button>
+                                                <div>
+                                                    <h2 className="text-base font-semibold text-foreground">
+                                                        {editingItemIndex !== null ? 'Edit Menu Element' : 'New Menu Element'}
+                                                    </h2>
+                                                    <p className="text-xs text-muted-foreground">Configure the label and action for this menu item.</p>
                                                 </div>
-                                                <AutomationActionBar
-                                                    hasExisting={editingItemIndex !== null}
-                                                    isSaving={isActionLoading}
-                                                    onSave={handleSaveMenuItem}
-                                                    onDelete={handleDeleteEditingItem}
-                                                />
                                             </div>
+                                            <AutomationActionBar
+                                                hasExisting={editingItemIndex !== null}
+                                                isSaving={isActionLoading}
+                                                onSave={handleSaveMenuItem}
+                                                onDelete={handleDeleteEditingItem}
+                                            />
                                         </div>
 
-                                        <div className="space-y-8">
+                                        <div className="space-y-6">
                                             {/* 1. Title Field First */}
-                                            <div className="space-y-4">
-                                                <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Menu Item Title</label>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <label className="text-xs font-medium text-foreground">Menu Item Title</label>
                                                         <div className="group relative">
-                                                            <HelpCircle className="w-3 h-3 text-gray-300 cursor-help" />
-                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-900 text-white text-[9px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                                            <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-foreground text-background text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                                                                 This is the text that users will see in the menu. Max 25 UTF-8 bytes.
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <span className={`text-[8px] font-bold ${getByteLength(newItem.title || '') > 25 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                    <span className={`text-xs ${getByteLength(newItem.title || '') > 25 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                                                         {getByteLength(newItem.title || '')}/25
                                                     </span>
                                                 </div>
@@ -1360,21 +1349,21 @@ const InboxMenu: React.FC = () => {
                                                             setValidationErrors(n);
                                                         }
                                                     }}
-                                                    className={`w-full bg-gray-50 dark:bg-gray-900 border-2 ${validationErrors.title ? 'border-red-500' : 'border-transparent'} focus:border-blue-500 outline-none rounded-2xl py-4 px-6 text-sm font-black text-gray-900 dark:text-gray-100 transition-all`}
+                                                    className={`w-full bg-background border ${validationErrors.title ? 'border-destructive' : 'border-border'} focus:border-primary focus:ring-1 focus:ring-primary outline-none rounded-xl px-3.5 py-2.5 text-sm font-normal text-foreground transition-all`}
                                                     placeholder="e.g. Chat with us"
                                                 />
-                                                <p className="text-[9px] text-gray-400 font-medium px-2">Required. Max 25 UTF-8 bytes. This title is visible to your customers in the Instagram menu.</p>
-                                                {validationErrors.title && <p className="text-[10px] text-red-500 font-bold px-2">{validationErrors.title}</p>}
+                                                <p className="text-xs text-muted-foreground px-1">Required. Max 25 UTF-8 bytes. This title is visible to your customers in the Instagram menu.</p>
+                                                {validationErrors.title && <p className="text-xs text-destructive font-medium px-1">{validationErrors.title}</p>}
                                             </div>
 
                                             {/* 2. Action Type Toggle */}
-                                            <div className="space-y-3">
+                                            <div className="space-y-2">
                                                 <label className="text-xs font-medium text-foreground">Select Action Type</label>
-                                                <div className="grid grid-cols-2 gap-2 p-1 bg-muted/50 rounded-xl border border-border">
+                                                <div className="grid grid-cols-2 gap-2 p-1 bg-muted/40 rounded-xl border border-border">
                                                     <button
                                                         type="button"
                                                         onClick={() => setNewItem({ ...newItem, type: 'web_url' })}
-                                                        className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-semibold ${newItem.type === 'web_url' ? 'bg-card shadow-xs text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                                        className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-medium ${newItem.type === 'web_url' ? 'bg-background shadow-xs text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
                                                     >
                                                         <Globe className="w-3.5 h-3.5" />
                                                         Open Website
@@ -1382,7 +1371,7 @@ const InboxMenu: React.FC = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => setNewItem({ ...newItem, type: 'postback' })}
-                                                        className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-semibold ${newItem.type === 'postback' ? 'bg-card shadow-xs text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                                        className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-medium ${newItem.type === 'postback' ? 'bg-background shadow-xs text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
                                                     >
                                                         <MessageSquare className="w-3.5 h-3.5" />
                                                         Send Message
@@ -1393,12 +1382,12 @@ const InboxMenu: React.FC = () => {
                                             {/* 3. Conditional Content */}
                                             {newItem.type === 'web_url' ? (
                                                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                                                    <div className="space-y-4">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Website URL</label>
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <label className="text-xs font-medium text-foreground">Website URL</label>
                                                             <div className="group relative">
-                                                                <HelpCircle className="w-3 h-3 text-gray-300 cursor-help" />
-                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-900 text-white text-[9px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                                                <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-foreground text-background text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                                                                     The web address you want to send users to when they click this menu item.
                                                                 </div>
                                                             </div>
@@ -1416,20 +1405,20 @@ const InboxMenu: React.FC = () => {
                                                                         setValidationErrors(newErrors);
                                                                     }
                                                                 }}
-                                                                className={`w-full pl-8 pr-12 py-5 bg-gray-50 dark:bg-gray-800/50 border-2 ${validationErrors.url ? 'border-red-500' : 'border-transparent'} focus:border-blue-500/30 rounded-[2rem] outline-none transition-all font-bold text-gray-900 dark:text-white shadow-inner`}
+                                                                className={`w-full pl-3.5 pr-10 py-2.5 bg-background border ${validationErrors.url ? 'border-destructive' : 'border-border'} focus:border-primary focus:ring-1 focus:ring-primary rounded-xl outline-none transition-all text-sm font-normal text-foreground`}
                                                                 placeholder="https://example.com"
                                                             />
-                                                            <div className="absolute right-6 top-1/2 -translate-y-1/2">
-                                                                <ExternalLink className="w-5 h-5 text-gray-400" />
+                                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                                <ExternalLink className="w-4 h-4 text-muted-foreground" />
                                                             </div>
                                                         </div>
-                                                        <p className="text-[9px] text-gray-400 font-medium px-2">Required: Provide a valid URL starting with http:// or https://</p>
-                                                        {validationErrors.url && <p id="err_url" className="text-[10px] text-red-500 font-bold px-2">{validationErrors.url}</p>}
+                                                        <p className="text-xs text-muted-foreground px-1">Required: Provide a valid URL starting with http:// or https://</p>
+                                                        {validationErrors.url && <p id="err_url" className="text-xs text-destructive font-medium px-1">{validationErrors.url}</p>}
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="space-y-8 animate-in fade-in slide-in-from-top-2">
-                                                                                                        <LockedFeatureToggle
+                                                <div className="space-y-6 animate-in fade-in slide-in-from-top-2">
+                                                    <LockedFeatureToggle
                                                         icon={<Power className={`w-5 h-5 ${newItem.followers_only ? 'text-blue-500' : 'text-gray-400'}`} />}
                                                         title="Followers Only"
                                                         description="Only respond to users who already follow your account."
@@ -1468,14 +1457,14 @@ const InboxMenu: React.FC = () => {
                                                     {/* Template Selector */}
                                                     <div className="space-y-3">
                                                         <div className="flex items-center justify-between">
-                                                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">
+                                                            <label className="text-xs font-medium text-foreground">
                                                                 Select Reply Action
                                                             </label>
                                                             {selectedTemplate && !showTemplateSelector && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setShowTemplateSelector(true)}
-                                                                    className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
+                                                                    className="text-xs font-medium text-primary hover:underline"
                                                                 >
                                                                     Change Template
                                                                 </button>
@@ -1518,32 +1507,32 @@ const InboxMenu: React.FC = () => {
                                                             />
                                                         )}
                                                         {validationErrors['template'] && (
-                                                            <p id="err_template" className="text-[10px] text-red-500 font-bold px-2 flex items-center gap-1 mt-2">
-                                                                <AlertCircle className="w-3 h-3" />
+                                                            <p id="err_template" className="text-xs text-destructive font-medium flex items-center gap-1 mt-2">
+                                                                <AlertCircle className="w-3.5 h-3.5" />
                                                                 {validationErrors['template']}
                                                             </p>
                                                         )}
                                                         {!selectedTemplate && showTemplateSelector && (
-                                                            <p className="text-xs text-gray-400 font-medium mt-2">
+                                                            <p className="text-xs text-muted-foreground mt-2">
                                                                 Choose an existing template or create a new one to use for this menu item.
                                                             </p>
                                                         )}
                                                     </div>
 
                                                     {selectedTemplate && !showTemplateSelector && (
-                                                        <div className="p-6 bg-primary/10 border-2 border-primary/20 rounded-3xl flex items-center justify-between">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="p-3 bg-primary text-primary-foreground rounded-2xl shadow-lg shadow-primary/20">
-                                                                    <Reply className="w-5 h-5" />
+                                                        <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                                                            <div className="flex min-w-0 items-center gap-3">
+                                                                <div className="rounded-lg bg-primary/10 p-2.5 text-primary">
+                                                                    <Reply className="w-4 h-4" />
                                                                 </div>
-                                                                <div>
-                                                                    <p className="text-sm font-black text-foreground uppercase tracking-tight">{selectedTemplate.name}</p>
-                                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                                                <div className="min-w-0">
+                                                                    <p className="truncate text-sm font-semibold text-foreground">{selectedTemplate.name}</p>
+                                                                    <p className="text-xs text-muted-foreground capitalize">
                                                                         {selectedTemplate.template_type.replace('template_', '')}
                                                                     </p>
                                                                 </div>
                                                             </div>
-                                                            <div className="px-3 py-1.5 bg-success-muted/60 text-success text-[9px] font-black uppercase tracking-widest rounded-lg">
+                                                            <div className="w-fit rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
                                                                 Selected
                                                             </div>
                                                         </div>
@@ -1894,14 +1883,12 @@ const InboxMenu: React.FC = () => {
                                             )}
                                         </div>
                                     </div>
-
                                 ) : Boolean(editingMenu.length || currentDisplayMenu.length) ? (
                                     <div className="space-y-6">
-
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                        <p className="text-xs font-medium text-muted-foreground">
                                             Items ({(isEditing ? editingMenu : currentDisplayMenu).length}/{MAX_INBOX_MENU_ITEMS})
                                         </p>
-                                        <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-4"}>
+                                        <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "space-y-3"}>
                                             {(isEditing ? editingMenu : currentDisplayMenu).map((item: MenuItem, idx: number) => (
                                                 <Card
                                                     key={idx}
@@ -1911,65 +1898,63 @@ const InboxMenu: React.FC = () => {
                                                     onDragOver={(e) => isEditing && !isActionLoading && handleDragOver(e, idx)}
                                                     onDragLeave={isEditing && !isActionLoading ? handleDragLeave : undefined}
                                                     onDrop={(e) => isEditing && !isActionLoading && handleDrop(e, idx)}
-                                                    className={`group p-6 transition-all duration-500 relative bg-white dark:bg-gray-950 border ${isEditing && !isActionLoading ? 'border-blue-500/20 ring-1 ring-blue-500/10 cursor-move' : 'border-content'} ${dragOverIndex === idx ? 'ring-2 ring-blue-500 scale-105' : ''} ${draggedIndex === idx ? 'opacity-50' : ''} rounded-[2rem] hover:shadow-2xl`}
+                                                    className={`group p-4 transition-all duration-150 relative bg-card border ${isEditing && !isActionLoading ? 'border-primary/40 ring-1 ring-primary/20 cursor-move' : 'border-border'} ${dragOverIndex === idx ? 'ring-2 ring-primary scale-[1.02]' : ''} ${draggedIndex === idx ? 'opacity-50' : ''} rounded-xl hover:shadow-sm`}
                                                 >
-                                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="text-xl font-black text-gray-300 dark:text-gray-700 w-8 shrink-0">
+                                                    <div className="flex items-center justify-between mb-3 gap-3">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <div className="text-sm font-semibold text-muted-foreground w-5 shrink-0">
                                                                 {String(idx + 1).padStart(2, '0')}
                                                             </div>
                                                             {isEditing && !isActionLoading && (
-                                                                <div className="p-2 bg-gray-100 dark:bg-gray-800 text-gray-400 rounded-lg cursor-grab active:cursor-grabbing shrink-0">
-                                                                    <GripVertical className="w-4 h-4" />
+                                                                <div className="p-1 bg-muted/60 text-muted-foreground rounded-md cursor-grab active:cursor-grabbing shrink-0">
+                                                                    <GripVertical className="w-3.5 h-3.5" />
                                                                 </div>
                                                             )}
-                                                            <div className="p-4 bg-gray-50 dark:bg-gray-900 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 text-gray-400 group-hover:text-blue-500 rounded-2xl transition-all duration-500 shrink-0">
-                                                                {item.type === 'web_url' ? <Globe className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
+                                                            <div className="p-2 bg-primary/10 text-primary rounded-lg shrink-0">
+                                                                {item.type === 'web_url' ? <Globe className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
                                                             </div>
                                                         </div>
-                                                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-                                                            <span className={`px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-lg transition-all shrink-0 ${item.type === 'web_url' ? 'bg-orange-500/10 text-orange-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            <span className={`px-2 py-0.5 text-xs font-medium rounded-md ${item.type === 'web_url' ? 'bg-muted text-foreground' : 'bg-primary/10 text-primary'}`}>
                                                                 {item.type === 'web_url' ? 'Web URL' : 'Auto Reply'}
                                                             </span>
                                                             {item.type === 'postback' && !item.template_data && (
-                                                                <span className="px-3 py-1 bg-red-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg animate-pulse shrink-0">
+                                                                <span className="px-2 py-0.5 bg-destructive/10 text-destructive text-xs font-medium rounded-md">
                                                                     Broken
                                                                 </span>
                                                             )}
-                                                            <div className="flex items-center gap-2 ml-auto sm:ml-0">
-                                                                <button
-                                                                    onClick={() => void handleEditItem(idx)}
-                                                                    disabled={isActionLoading}
-                                                                    className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all shadow-sm disabled:opacity-50 disabled:pointer-events-none"
-                                                                    title="Edit Menu Item"
-                                                                >
-                                                                    <Pencil className="w-4 h-4" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleRemoveItem(idx)}
-                                                                    disabled={isActionLoading}
-                                                                    className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all shadow-sm disabled:opacity-50 disabled:pointer-events-none"
-                                                                    title="Remove Menu Item"
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
+                                                            <button
+                                                                onClick={() => void handleEditItem(idx)}
+                                                                disabled={isActionLoading}
+                                                                className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-all disabled:opacity-50"
+                                                                title="Edit"
+                                                            >
+                                                                <Pencil className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleRemoveItem(idx)}
+                                                                disabled={isActionLoading}
+                                                                className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive-muted/30 rounded-md transition-all disabled:opacity-50"
+                                                                title="Remove"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
                                                         </div>
                                                     </div>
 
-                                                    <div className="space-y-4">
-                                                        <h3 className="text-xl font-black text-gray-900 dark:text-white line-clamp-1">{item.title}</h3>
-                                                        <div className="p-4 bg-gray-50/50 dark:bg-gray-900/50 rounded-2xl border border-content/50">
-                                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">
+                                                    <div className="space-y-3">
+                                                        <h3 className="text-sm font-semibold text-foreground line-clamp-1">{item.title}</h3>
+                                                        <div className="p-2.5 bg-muted/30 rounded-lg border border-border/60">
+                                                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                                                                 {item.type === 'web_url' ? 'External Redirect' : 'Connected Reply Template'}
                                                             </p>
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-1.5">
                                                                 {item.type === 'web_url' ? (
-                                                                    <ExternalLink className="w-3 h-3 text-blue-400" />
+                                                                    <ExternalLink className="w-3 h-3 text-primary shrink-0" />
                                                                 ) : (
-                                                                    <MessageSquare className="w-3 h-3 text-blue-400" />
+                                                                    <MessageSquare className="w-3 h-3 text-primary shrink-0" />
                                                                 )}
-                                                                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 truncate">
+                                                                <p className="text-xs font-normal text-muted-foreground truncate">
                                                                     {item.type === 'web_url' ? (item.url || 'No URL set') : (item.template_name || 'No reply template selected')}
                                                                 </p>
                                                             </div>
@@ -1978,21 +1963,19 @@ const InboxMenu: React.FC = () => {
                                                 </Card>
                                             ))}
                                         </div>
-
-
                                     </div>
                                 ) : !inboxMenuLoading && (inboxMenuData?.status === 'none' || !inboxMenuData) && (
-                                    <div className="flex flex-col items-center justify-center py-24 bg-gray-50/50 dark:bg-gray-900/30 rounded-[3rem] border-2 border-dashed border-gray-100 dark:border-gray-800">
-                                        <div className="p-6 bg-white dark:bg-gray-950 rounded-3xl shadow-sm mb-6">
-                                            <MessageSquare className="w-8 h-8 text-gray-200" />
+                                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/40 px-4 py-12 sm:py-16 text-center">
+                                        <div className="p-4 bg-muted/60 rounded-xl mb-4 text-muted-foreground">
+                                            <MessageSquare className="w-6 h-6" />
                                         </div>
-                                        <h3 className="text-lg font-black text-gray-900 dark:text-white mb-2">No Menu Found</h3>
-                                        <p className="text-gray-500 font-medium text-sm text-center px-6">
+                                        <h3 className="text-base font-semibold text-foreground mb-1.5">No Menu Found</h3>
+                                        <p className="text-muted-foreground font-normal text-sm max-w-sm mb-6">
                                             Create your first persistent menu to guide your users and provide quick access to key features.
                                         </p>
                                         <button
                                             onClick={() => void handleCreateItem(currentDisplayMenu)}
-                                            className="mt-8 px-10 py-4 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2"
+                                            className="inline-flex items-center gap-2 h-10 px-5 rounded-xl bg-foreground text-background hover:bg-foreground/90 text-sm font-medium transition-all shadow-xs active:scale-[0.98]"
                                         >
                                             <Plus className="w-4 h-4" /> Create New Menu
                                         </button>

@@ -541,10 +541,6 @@ const MentionsView: React.FC = () => {
                             }
                             centerContent={
                                 <div className="min-w-0">
-                                    <div className="flex items-center gap-2 text-primary mb-0.5">
-                                        <AtSign className="w-4 h-4" />
-                                        <span className="text-xs font-semibold uppercase tracking-wider">Mentions</span>
-                                    </div>
                                     <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Mentions</h1>
                                     <p className="text-muted-foreground text-sm font-normal">Auto-reply when someone mentions you.</p>
                                 </div>
@@ -592,7 +588,10 @@ const MentionsView: React.FC = () => {
                     />
 
                     {followersOnly && !followersOnlyCollapsed && (
-                        <div className="bg-card border border-content rounded-2xl p-6 space-y-3">
+                        <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+                            <label className="block text-xs font-medium text-foreground">
+                                Followers-Only Message
+                            </label>
                             <textarea
                                 value={followersOnlyMessage}
                                 onChange={(e) => setFollowersOnlyMessage(e.target.value)}
@@ -618,7 +617,7 @@ const MentionsView: React.FC = () => {
 
                     <div className="space-y-2">
                         <LockedFeatureToggle
-                            icon={<Lightbulb className={`w-5 h-5 ${suggestMoreEnabled ? 'text-yellow-500' : 'text-gray-400'}`} />}
+                            icon={<Lightbulb className={`w-5 h-5 ${suggestMoreEnabled ? 'text-warning' : 'text-muted-foreground'}`} />}
                             title="Suggest More"
                             description="Add a Suggest More button after this automation reply."
                             checked={suggestMoreEnabled}
@@ -626,18 +625,18 @@ const MentionsView: React.FC = () => {
                             locked={suggestMoreGate.isLocked}
                             note={suggestMoreGate.note}
                             onUpgrade={() => setCurrentView('My Plan')}
-                            activeIconClassName="text-yellow-500"
+                            activeIconClassName="text-warning"
                         />
                         {suggestMoreEnabled && !suggestMoreGate.isLocked && (
-                            <div className="ml-2 flex items-center gap-2 rounded-2xl border border-yellow-200 dark:border-yellow-500/20 bg-yellow-50/60 dark:bg-yellow-500/5 px-4 py-3">
-                                <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
-                                <p className="text-[10px] font-bold text-yellow-700 dark:text-yellow-300">Suggest More must be configured in the <button type="button" onClick={() => setCurrentView('Suggest More')} className="underline hover:no-underline font-black">Suggest More</button> section for this toggle to take effect.</p>
+                            <div className="ml-2 flex items-start gap-2.5 rounded-xl border border-warning/20 bg-warning-muted/20 px-4 py-3">
+                                <Info className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                                <p className="text-xs font-medium text-foreground">Suggest More must be configured in the <button type="button" onClick={() => setCurrentView('Suggest More')} className="underline hover:no-underline font-semibold text-primary">Suggest More</button> section for this toggle to take effect.</p>
                             </div>
                         )}
                     </div>
 
                     <LockedFeatureToggle
-                        icon={<Calendar className={`w-5 h-5 ${oncePerUser ? 'text-cyan-500' : 'text-gray-400'}`} />}
+                        icon={<Calendar className={`w-5 h-5 ${oncePerUser ? 'text-primary' : 'text-muted-foreground'}`} />}
                         title="Once Per User (24h)"
                         description="Prevent the same person from retriggering this automation again for 24 hours. Turn on to save action limits."
                         checked={oncePerUser}
@@ -645,12 +644,12 @@ const MentionsView: React.FC = () => {
                         locked={getPlanGate('once_per_user_24h').isLocked}
                         note={getPlanGate('once_per_user_24h').note}
                         onUpgrade={() => setCurrentView('My Plan')}
-                        activeIconClassName="text-cyan-500"
+                        activeIconClassName="text-primary"
                     />
 
                     <div className="space-y-3">
                         <LockedFeatureToggle
-                            icon={<Mail className={`w-5 h-5 ${collectEmailEnabled ? 'text-indigo-500' : 'text-gray-400'}`} />}
+                            icon={<Mail className={`w-5 h-5 ${collectEmailEnabled ? 'text-primary' : 'text-muted-foreground'}`} />}
                             title="Collect Email"
                             description="Prompt users for their email address before completing the automation flow."
                             checked={collectEmailEnabled}
@@ -664,48 +663,48 @@ const MentionsView: React.FC = () => {
                             locked={collectEmailGate.isLocked}
                             note={collectEmailGate.note}
                             onUpgrade={() => setCurrentView('My Plan')}
-                            activeIconClassName="text-indigo-500"
+                            activeIconClassName="text-primary"
                             isCollapsed={collectEmailCollapsed}
                             onCollapseToggle={() => setCollectEmailCollapsed(!collectEmailCollapsed)}
                         />
 
                         {collectEmailEnabled && !collectEmailGate.isLocked && !collectEmailCollapsed && (
-                            <div className="ml-2 rounded-[24px] border border-indigo-100 dark:border-indigo-500/10 bg-indigo-50/40 dark:bg-indigo-500/5 p-4 space-y-3">
+                            <div className="ml-2 rounded-xl border border-border bg-card p-4 space-y-4">
                                 <LockedFeatureToggle
-                                    icon={<Mail className={`w-5 h-5 ${collectEmailOnlyGmail ? 'text-indigo-500' : 'text-gray-400'}`} />}
+                                    icon={<Mail className={`w-5 h-5 ${collectEmailOnlyGmail ? 'text-primary' : 'text-muted-foreground'}`} />}
                                     title="Allow Only Gmail"
                                     description="Only accept @gmail.com email addresses."
                                     checked={collectEmailOnlyGmail}
                                     onToggle={() => setCollectEmailOnlyGmail(!collectEmailOnlyGmail)}
-                                    activeIconClassName="text-indigo-500"
+                                    activeIconClassName="text-primary"
                                 />
-                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Prompt Message</p>
-                                    <textarea value={collectEmailPromptMessage} onChange={(e) => setCollectEmailPromptMessage(e.target.value)} className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary" placeholder={COLLECT_EMAIL_PROMPT_DEFAULT} />
-                                    <p className="text-[9px] text-muted-foreground">{new Blob([collectEmailPromptMessage]).size}/1000 bytes</p>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-foreground">Prompt Message</label>
+                                    <textarea value={collectEmailPromptMessage} onChange={(e) => setCollectEmailPromptMessage(e.target.value)} className="input-base min-h-[90px] text-sm" placeholder={COLLECT_EMAIL_PROMPT_DEFAULT} />
+                                    <p className="text-xs text-muted-foreground">{new Blob([collectEmailPromptMessage]).size}/1000 bytes</p>
                                 </div>
-                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Retry Message</p>
-                                    <textarea value={collectEmailFailRetryMessage} onChange={(e) => setCollectEmailFailRetryMessage(e.target.value)} className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary" placeholder={COLLECT_EMAIL_FAIL_RETRY_DEFAULT} />
-                                    <p className="text-[9px] text-muted-foreground">{new Blob([collectEmailFailRetryMessage]).size}/1000 bytes</p>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-foreground">Retry Message</label>
+                                    <textarea value={collectEmailFailRetryMessage} onChange={(e) => setCollectEmailFailRetryMessage(e.target.value)} className="input-base min-h-[90px] text-sm" placeholder={COLLECT_EMAIL_FAIL_RETRY_DEFAULT} />
+                                    <p className="text-xs text-muted-foreground">{new Blob([collectEmailFailRetryMessage]).size}/1000 bytes</p>
                                 </div>
-                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Success Message</p>
-                                    <textarea value={collectEmailSuccessReplyMessage} onChange={(e) => setCollectEmailSuccessReplyMessage(e.target.value)} className="w-full min-h-[90px] rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary" placeholder={COLLECT_EMAIL_SUCCESS_DEFAULT} />
-                                    <p className="text-[9px] text-muted-foreground">{new Blob([collectEmailSuccessReplyMessage]).size}/1000 bytes</p>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-foreground">Success Message</label>
+                                    <textarea value={collectEmailSuccessReplyMessage} onChange={(e) => setCollectEmailSuccessReplyMessage(e.target.value)} className="input-base min-h-[90px] text-sm" placeholder={COLLECT_EMAIL_SUCCESS_DEFAULT} />
+                                    <p className="text-xs text-muted-foreground">{new Blob([collectEmailSuccessReplyMessage]).size}/1000 bytes</p>
                                 </div>
-                                <div className="rounded-2xl border border-content/70 bg-card/80 p-4 space-y-3">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="space-y-3 pt-2 border-t border-border">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                         <div>
-                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground">Delivery Destination</p>
-                                            <p className="text-[10px] text-muted-foreground mt-1 sm:mt-0">Paste a webhook URL, then verify it with a sample lead payload.</p>
+                                            <label className="text-xs font-medium text-foreground">Delivery Destination</label>
+                                            <p className="text-xs text-muted-foreground mt-0.5">Paste a webhook URL, then verify it with a sample lead payload.</p>
                                         </div>
                                         {collectorDestinationLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                                     </div>
                                     <input
                                         value={collectorDestination.webhook_url || ''}
                                         onChange={(e) => setCollectorDestination((prev) => ({ ...prev, destination_type: 'webhook', webhook_url: e.target.value, verified: false, verified_at: null, verification_token: null, verification_expires_at: null }))}
-                                        className="w-full rounded-2xl border border-content/70 bg-card px-4 py-3 text-xs font-medium text-foreground outline-none focus:border-primary"
+                                        className="input-base text-sm"
                                         placeholder="https://example.com/webhook"
                                     />
                                     <div className="flex flex-wrap items-center gap-3">
@@ -716,11 +715,11 @@ const MentionsView: React.FC = () => {
                                                 const ok = await verifyCollectorDestination(String(config.doc_id || ''));
                                                 if (ok) showSuccess('Email collector destination verified.');
                                             }}
-                                            className="h-9 px-4 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="h-9 px-4 rounded-xl bg-foreground text-background hover:bg-foreground/90 text-xs font-medium shadow-xs transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {collectorDestinationSaving ? 'Verifying...' : 'Verify Destination'}
                                         </button>
-                                        <span className={`text-xs font-medium ${collectorDestination.verified ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                                        <span className={`text-xs font-normal ${collectorDestination.verified ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-muted-foreground'}`}>
                                             {collectorDestination.verified
                                                 ? `Verified${collectorDestination.verified_at ? ` on ${new Date(collectorDestination.verified_at).toLocaleString()}` : ''}`
                                                 : config.doc_id ? 'Not verified yet' : 'Save the mentions automation once, then verify the destination'}
@@ -746,14 +745,14 @@ const MentionsView: React.FC = () => {
                     {/* Template Selector */}
                     <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            <label className="block text-xs font-medium text-foreground">
                                 Select Reply Action
                             </label>
                             {selectedTemplate && !showTemplateSelector && (
                                 <button
                                     type="button"
                                     onClick={() => setShowTemplateSelector(true)}
-                                    className="text-xs font-semibold text-primary hover:underline"
+                                    className="text-xs font-medium text-primary hover:underline"
                                 >
                                     Change Template
                                 </button>
@@ -773,7 +772,7 @@ const MentionsView: React.FC = () => {
                             />
                         )}
                         {!selectedTemplate && (
-                            <p className="text-xs text-muted-foreground font-medium mt-2">
+                            <p className="text-xs text-muted-foreground font-normal mt-2">
                                 Choose an existing template or create a new one to use for Mentions responses.
                             </p>
                         )}
@@ -786,8 +785,8 @@ const MentionsView: React.FC = () => {
                                 <div className="self-start sm:self-auto px-2.5 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium rounded-md">Selected</div>
                             </div>
                         )}
-                        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
-                            <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5">
+                            <p className="text-xs text-amber-700 dark:text-amber-300 font-normal">
                                 Reply templates sent from automations include the workspace watermark unless the account is on a premium plan with watermark removal.
                             </p>
                         </div>
