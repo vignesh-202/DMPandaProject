@@ -640,7 +640,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         <div className="relative flex-1 min-h-0">
           <main
             ref={mainRef}
-            className="h-full overflow-y-auto overflow-x-hidden p-3 pb-24 sm:p-4 sm:pb-28 lg:p-6 lg:pb-6"
+            className="h-full overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] p-3 pb-24 sm:p-4 sm:pb-28 lg:p-6 lg:pb-6"
             data-dashboard-section-scroll-root
           >
             <div className="animate-fadeIn relative min-h-full">

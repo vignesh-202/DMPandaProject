@@ -1355,3 +1355,8 @@ select,
   --card: 18 18 18;
   --card-foreground: 245 245 245;
 }
+
+main[data-dashboard-section-scroll-root] {
+  scrollbar-gutter: stable;
+}
+

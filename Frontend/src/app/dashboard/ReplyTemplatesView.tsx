@@ -381,10 +381,7 @@ export default function ReplyTemplatesView() {
     }));
   }, [authenticatedFetch, getAutomationCount]);
 
-  const openCreate = useCallback((pushRoute = true) => {
-    if (pushRoute && location.pathname !== '/dashboard/reply-templates/create') {
-      navigate('/dashboard/reply-templates/create');
-    }
+  const initCreateState = useCallback(() => {
     setEditorMode('create');
     setName('');
     setTemplateType('template_text');
@@ -398,7 +395,14 @@ export default function ReplyTemplatesView() {
       data: getDefaultTemplateData('template_text')
     };
     setHasUnsavedChanges(false);
-  }, [location.pathname, navigate, setHasUnsavedChanges]);
+  }, [setHasUnsavedChanges]);
+
+  const openCreate = useCallback((pushRoute = true) => {
+    initCreateState();
+    if (pushRoute && location.pathname !== '/dashboard/reply-templates/create') {
+      navigate('/dashboard/reply-templates/create');
+    }
+  }, [initCreateState, location.pathname, navigate]);
 
   const openEdit = useCallback(async (t: (typeof templates)[0], pushRoute = true) => {
     if (pushRoute && location.pathname !== `/dashboard/reply-templates/edit/${t.id}`) {
@@ -455,23 +459,26 @@ export default function ReplyTemplatesView() {
   const [showBackModal, setShowBackModal] = useState(false);
 
   const goBack = useCallback(() => {
-    if (location.pathname !== '/dashboard/reply-templates') {
-      navigate('/dashboard/reply-templates');
-    }
     setEditorMode(null);
     setSaving(false);
     setEditorError(null);
     setShowBackModal(false);
     setHasUnsavedChanges(false);
+    if (location.pathname !== '/dashboard/reply-templates') {
+      navigate('/dashboard/reply-templates');
+    }
   }, [location.pathname, navigate, setHasUnsavedChanges]);
 
   useEffect(() => {
     if (loading) return;
 
     if (location.pathname === '/dashboard/reply-templates/create') {
-      if (editorMode !== 'create') {
-        openCreate(false);
-      }
+      setEditorMode((current) => {
+        if (current !== 'create') {
+          initCreateState();
+        }
+        return 'create';
+      });
       return;
     }
 
@@ -497,13 +504,18 @@ export default function ReplyTemplatesView() {
       }
     }
 
-    if (editorMode !== null) {
-      setEditorMode(null);
-      setShowBackModal(false);
-      setEditorError(null);
-      setHasUnsavedChanges(false);
+    if (location.pathname === '/dashboard/reply-templates') {
+      setEditorMode((current) => {
+        if (current !== null) {
+          setShowBackModal(false);
+          setEditorError(null);
+          setHasUnsavedChanges(false);
+          return null;
+        }
+        return current;
+      });
     }
-  }, [editorMode, loading, location.pathname, openCreate, openEdit, setHasUnsavedChanges, templates]);
+  }, [loading, location.pathname, initCreateState, openEdit, templates]);
 
   // Validate template data based on template type
   const validateTemplateData = (type: TemplateType, data: TemplateData): Record<string, string> => {
