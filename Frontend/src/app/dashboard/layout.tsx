@@ -353,33 +353,41 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       >
         {/* Sidebar Header */}
         <div className={cn(
-          "border-b border-sidebar-border py-3.5 flex items-center justify-center h-[73px] transition-all duration-200",
-          isSidebarOpen ? "px-4 sm:px-6" : "px-0"
+          "border-b border-border/80 flex items-center h-[72px] transition-all duration-200 bg-sidebar",
+          isSidebarOpen ? "px-4 sm:px-5 justify-between" : "px-0 justify-center"
         )}>
           {isSidebarOpen ? (
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full">
-              <div aria-hidden />
-              <Link to="/" className="justify-self-center transition-opacity hover:opacity-80">
-                <h1 className="font-display truncate text-[2rem] font-extrabold tracking-tight bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] bg-clip-text text-transparent">
+            <>
+              <Link to="/" className="flex items-center gap-2.5 min-w-0 transition-opacity hover:opacity-80">
+                <img
+                  src="/images/logo.png"
+                  alt="DM Panda"
+                  className="h-8 w-auto object-contain shrink-0"
+                />
+                <span className="font-display truncate text-lg font-bold tracking-tight text-foreground">
                   DM Panda
-                </h1>
+                </span>
               </Link>
               <button
                 onClick={toggleSidebar}
-                className="absolute top-4 right-2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+                className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors flex items-center justify-center shrink-0"
                 title="Collapse sidebar"
                 aria-label="Collapse sidebar"
               >
                 <PanelLeftClose size={18} />
               </button>
-            </div>
+            </>
           ) : (
             <button
               onClick={toggleSidebar}
               className="h-10 w-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-sidebar-accent active:scale-95 transition-all duration-150 flex items-center justify-center border border-border/60 shadow-xs"
               title="Expand Sidebar"
             >
-              <Menu size={20} />
+              <img
+                src="/images/logo.png"
+                alt="DM Panda"
+                className="h-6 w-auto object-contain"
+              />
             </button>
           )}
         </div>
@@ -445,52 +453,57 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   setIsProfileMenuOpen(false);
                 }}
                 className={cn(
-                  'relative flex h-10 w-10 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm transition-all hover:border-primary/40 hover:text-foreground',
-                  unreadNotificationCount > 0 && 'border-red-500/30 text-red-500 shadow-red-500/10 bg-red-500/5 dark:bg-red-500/10'
+                  'relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground shadow-xs transition-colors hover:bg-muted hover:text-foreground active:scale-95',
+                  unreadNotificationCount > 0 && 'border-primary/40 text-primary'
                 )}
                 aria-label="Notifications"
                 aria-expanded={isNotificationMenuOpen}
               >
-                <Bell className={cn("h-4.5 w-4.5", unreadNotificationCount > 0 && "fill-red-500/10")} />
+                <Bell className={cn("h-4.5 w-4.5", unreadNotificationCount > 0 && "text-primary")} />
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex min-w-[1.15rem] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-black text-white shadow-lg shadow-red-500/20">
+                  <span className="absolute -right-1 -top-1 flex min-w-[1.1rem] h-[1.1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-xs">
                     {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
                   </span>
                 )}
               </button>
 
               <div className={cn(
-                `ig-topline fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+4.5rem)] w-auto overflow-hidden rounded-2xl border border-border bg-card shadow-lg z-[180] ${FAST_TRANSITION} origin-top sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[22rem] sm:max-w-[calc(100vw-1.5rem)] sm:origin-top-right`,
+                `fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+4.5rem)] w-auto overflow-hidden rounded-2xl border border-border bg-card shadow-xl z-[180] ${FAST_TRANSITION} origin-top sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[22rem] sm:max-w-[calc(100vw-1.5rem)] sm:origin-top-right`,
                 isNotificationMenuOpen
                   ? 'visible translate-y-0 scale-100 opacity-100'
                   : 'invisible -translate-y-2 scale-95 opacity-0'
               )}>
-                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                <div className="flex items-center justify-between border-b border-border/80 px-4 py-3 bg-muted/20">
                   <div>
                     <p className="text-sm font-semibold text-foreground">Notifications</p>
                     <p className="text-xs text-muted-foreground">
-                      {unreadNotificationCount > 0 ? `${unreadNotificationCount} unread item${unreadNotificationCount === 1 ? '' : 's'}` : 'All caught up'}
+                      {unreadNotificationCount > 0 ? `${unreadNotificationCount} unread notification${unreadNotificationCount === 1 ? '' : 's'}` : 'All caught up'}
                     </p>
                   </div>
+                  {unreadNotificationCount > 0 && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
+                      {unreadNotificationCount} new
+                    </span>
+                  )}
                 </div>
 
-                <div className="max-h-[min(65vh,24rem)] overflow-y-auto overscroll-contain">
+                <div className="max-h-[min(65vh,24rem)] overflow-y-auto overscroll-contain divide-y divide-border/40">
                   {isNotificationsLoading ? (
                     <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                       Loading notifications...
                     </div>
                   ) : notifications.length === 0 ? (
                     <div className="px-4 py-8 text-center">
-                      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                         <Bell className="h-5 w-5" />
                       </div>
                       <p className="text-sm font-semibold text-foreground">No notifications yet</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-1 text-xs text-muted-foreground px-4">
                         We’ll alert you about expiring subscriptions and automation processing errors here.
                       </p>
                     </div>
                   ) : (
-                    <div className="p-2">
+                    <div className="p-1.5 space-y-1">
                       {notifications.map((notification) => {
                         const isUnread = !seenNotificationIds.includes(notification.id);
                         return (
@@ -499,33 +512,33 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                             type="button"
                             onClick={() => handleNotificationClick(notification)}
                             className={cn(
-                              'mb-1.5 flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-primary/10',
-                              isUnread ? 'bg-primary/5' : 'bg-transparent'
+                              'flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted/70',
+                              isUnread ? 'bg-primary/[0.04]' : 'bg-transparent'
                             )}
                           >
                             <div className={cn(
-                              'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl',
+                              'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl',
                               notification.kind === 'subscription_expiring'
-                                ? 'bg-amber-500/10 text-amber-600'
-                                : 'bg-rose-500/10 text-rose-600'
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                : 'bg-destructive/10 text-destructive'
                             )}>
                               {notification.kind === 'subscription_expiring'
-                                ? <CalendarClock className="h-4.5 w-4.5" />
-                                : <AlertTriangle className="h-4.5 w-4.5" />}
+                                ? <CalendarClock className="h-4 w-4" />
+                                : <AlertTriangle className="h-4 w-4" />}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-3">
-                                <p className="text-sm font-semibold text-foreground">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-xs sm:text-sm font-medium text-foreground leading-snug">
                                   {notification.title}
                                 </p>
                                 {isUnread && (
-                                  <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
+                                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
                                 )}
                               </div>
-                              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                                 {notification.description}
                               </p>
-                              <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                              <p className="mt-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
                                 {formatNotificationDate(notification.createdAt)}
                               </p>
                             </div>
@@ -544,13 +557,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   setIsProfileMenuOpen(!isProfileMenuOpen);
                   setIsNotificationMenuOpen(false);
                 }}
-                className="relative p-[2px] rounded-full transition-all duration-200 bg-border hover:bg-border-hover shadow-sm group"
+                className="relative p-0.5 rounded-xl border border-border bg-card hover:bg-muted hover:border-border/80 shadow-xs transition-all duration-150 group active:scale-95"
+                aria-label="User Profile"
               >
                 {user ? (
                   <img
                     src={`https://cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(user.name)}&width=100&height=100`}
                     alt={user.name}
-                    className="w-[30px] h-[30px] sm:w-[36px] sm:h-[36px] rounded-full object-cover border-2 border-card transition-transform duration-200 group-hover:scale-105"
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover"
                     onError={(e) => {
                       (e.target as HTMLElement).style.display = 'none';
                       (e.target as HTMLElement).nextElementSibling?.classList.remove('hidden');
@@ -559,52 +573,52 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   />
                 ) : null}
                 <div className={cn(
-                  "w-[30px] h-[30px] sm:w-[36px] sm:h-[36px] rounded-full bg-primary/10 items-center justify-center border-2 border-card transition-transform duration-200 group-hover:scale-105",
+                  "w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-primary/10 items-center justify-center font-semibold text-xs sm:text-sm text-primary",
                   user ? "hidden" : "flex"
                 )}>
-                  <span className="text-xs sm:text-sm font-semibold text-primary">
-                    {userInitials}
-                  </span>
+                  {userInitials}
                 </div>
               </button>
 
-              {/* Profile Dropdown - Instagram themed */}
+              {/* Profile Dropdown - Tasteful & Modern */}
               <div className={cn(
-                `ig-topline absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-2xl shadow-lg overflow-hidden z-[180] ${FAST_TRANSITION} origin-top-right`,
+                `absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-[180] ${FAST_TRANSITION} origin-top-right`,
                 isProfileMenuOpen
                   ? "opacity-100 scale-100 translate-y-0 visible"
                   : "opacity-0 scale-95 -translate-y-2 invisible"
               )}>
-                {/* User Info */}
-                <div className="px-4 py-3 border-b border-border">
-                  <p className="text-2xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                    Signed in as
-                  </p>
-                  <p className="text-sm font-semibold text-foreground truncate">
-                    {user?.name}
-                  </p>
-                  {user?.email && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {user.email}
-                    </p>
-                  )}
+                {/* User Info Header */}
+                <div className="px-4 py-3 border-b border-border/80 bg-muted/20">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-semibold text-xs shrink-0">
+                      {userInitials}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {user?.name || 'Account'}
+                      </p>
+                      {user?.email && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {user.email}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Menu Items */}
-                <div className="p-2">
-                  {/* Theme Toggle - Instagram styled */}
-                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-primary/10 transition-colors duration-200 gap-3">
-                    <span className="flex items-center gap-3 text-sm text-foreground flex-shrink-0">
+                <div className="p-1.5 space-y-0.5">
+                  {/* Theme Toggle */}
+                  <div className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-muted transition-colors duration-150 gap-3">
+                    <span className="flex items-center gap-2.5 text-sm text-foreground">
                       {isDarkMode ? (
-                        <Moon size={18} className="text-primary flex-shrink-0" />
+                        <Moon size={16} className="text-muted-foreground" />
                       ) : (
-                        <Sun size={18} className="text-ig-yellow flex-shrink-0" />
+                        <Sun size={16} className="text-muted-foreground" />
                       )}
-                      <span className="whitespace-nowrap">Dark Mode</span>
+                      <span>Dark Mode</span>
                     </span>
-                    <div className="flex-shrink-0">
-                      <ToggleSwitch isChecked={isDarkMode} onChange={toggleTheme} />
-                    </div>
+                    <ToggleSwitch isChecked={isDarkMode} onChange={toggleTheme} />
                   </div>
 
                   {/* Settings */}
@@ -613,11 +627,13 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                       setCurrentView('Account Settings');
                       setIsProfileMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground rounded-xl hover:bg-primary/10 hover:text-primary transition-colors duration-200"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-foreground rounded-xl hover:bg-muted transition-colors duration-150"
                   >
-                    <Settings size={18} className="text-muted-foreground" />
+                    <Settings size={16} className="text-muted-foreground" />
                     Settings
                   </button>
+
+                  <div className="my-1 border-t border-border/60" />
 
                   {/* Logout */}
                   <button
@@ -625,9 +641,9 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                       logout();
                       navigate('/login');
                     }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-destructive rounded-xl hover:bg-destructive/10 transition-colors duration-200 font-medium"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-destructive rounded-xl hover:bg-destructive/10 transition-colors duration-150"
                   >
-                    <LogOut size={18} />
+                    <LogOut size={16} />
                     Logout
                   </button>
                 </div>

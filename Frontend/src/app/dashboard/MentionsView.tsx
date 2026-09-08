@@ -715,7 +715,7 @@ const MentionsView: React.FC = () => {
                                                 const ok = await verifyCollectorDestination(String(config.doc_id || ''));
                                                 if (ok) showSuccess('Email collector destination verified.');
                                             }}
-                                            className="h-9 px-4 rounded-xl bg-foreground text-background hover:bg-foreground/90 text-xs font-medium shadow-xs transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="h-9 px-4 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium shadow-xs transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {collectorDestinationSaving ? 'Verifying...' : 'Verify Destination'}
                                         </button>

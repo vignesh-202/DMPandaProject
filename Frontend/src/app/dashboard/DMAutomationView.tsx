@@ -1692,7 +1692,7 @@ const DMAutomationView: React.FC = () => {
                                                     type="button"
                                                     onClick={(e) => { e.preventDefault(); handleAddKeyword(); }}
                                                     disabled={!keywordInput.trim() || (editingAutomation.keywords || []).length >= 5}
-                                                    className="h-8 px-3 bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium transition-all active:scale-95"
+                                                    className="h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium transition-all active:scale-95 shadow-xs"
                                                 >
                                                     Add
                                                 </button>

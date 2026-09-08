@@ -281,7 +281,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
             <div key={sectionIndex} className={cn(sectionIndex > 0 && "mt-4")}>
               {/* Section Title */}
               {!isCollapsed && section.title && (
-                <div className="sidebar-section-title">
+                <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
                   {section.title}
                 </div>
               )}
@@ -301,11 +301,11 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                       key={item.name}
                       onClick={() => handleNavigation(item.name)}
                       className={cn(
-                        "w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 group",
+                        "w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-150 group",
                         isCollapsed && "justify-center px-2",
                         isActive
-                          ? "bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white font-semibold shadow-md shadow-[#833AB4]/25"
-                          : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground font-medium",
+                          ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground font-medium",
                         !isActive && isLocked && "opacity-75"
                       )}
                     >
@@ -324,7 +324,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                       {isLocked && !isCollapsed && (
                         <Lock className={cn(
                           "h-[15px] w-[15px] flex-shrink-0",
-                          isActive ? "text-white" : "text-muted-foreground/80"
+                          isActive ? "text-primary-foreground/80" : "text-muted-foreground/70"
                         )} />
                       )}
                     </button>

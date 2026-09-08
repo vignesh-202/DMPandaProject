@@ -963,10 +963,10 @@ const MyPlanView: React.FC = () => {
                           'flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all shadow-xs active:scale-98',
                           isAccountPaid
                             ? 'border border-border bg-background hover:bg-muted text-foreground'
-                            : 'bg-foreground text-background hover:bg-foreground/90'
+                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
                         )}
                       >
-                        <Zap size={12} className={isAccountPaid ? 'text-foreground' : 'fill-background'} />
+                        <Zap size={12} className={isAccountPaid ? 'text-foreground' : 'fill-primary-foreground'} />
                         {isAccountPaid ? 'Change Plan' : 'Upgrade Plan'}
                       </button>
                     </div>
@@ -1056,7 +1056,7 @@ const MyPlanView: React.FC = () => {
                   className={cn(
                     'rounded-lg px-3 py-1 text-xs font-medium transition-all',
                     !isYearly
-                      ? 'bg-foreground text-background shadow-xs'
+                      ? 'bg-primary text-primary-foreground shadow-xs'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
@@ -1068,7 +1068,7 @@ const MyPlanView: React.FC = () => {
                   className={cn(
                     'rounded-lg px-3 py-1 text-xs font-medium transition-all flex items-center gap-1.5',
                     isYearly
-                      ? 'bg-foreground text-background shadow-xs'
+                      ? 'bg-primary text-primary-foreground shadow-xs'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
@@ -1120,7 +1120,7 @@ const MyPlanView: React.FC = () => {
                     )}
                   >
                     {entry.is_popular && (
-                      <div className="absolute -top-2.5 right-5 rounded-md bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background shadow-xs">
+                      <div className="absolute -top-2.5 right-5 rounded-md bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-xs">
                         Popular
                       </div>
                     )}
@@ -1211,7 +1211,7 @@ const MyPlanView: React.FC = () => {
                           isUnavailable
                             ? 'bg-muted text-muted-foreground shadow-none cursor-not-allowed'
                             : entry.is_popular
-                            ? 'bg-foreground text-background hover:bg-foreground/90'
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                             : 'border border-border bg-background hover:bg-muted text-foreground'
                         )}
                         disabled={syncingPlan || isUnavailable}
