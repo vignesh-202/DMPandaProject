@@ -767,28 +767,6 @@ const ConvoStarterView: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        {/* Action buttons below */}
-                        {status === 'match' && (
-                            <div className="flex flex-col gap-2 md:flex-row md:justify-end md:gap-2.5">
-                                {convoStarters.length < MAX_CONVO_STARTERS && (
-                                    <button
-                                        onClick={() => {
-                                            void startCreate();
-                                        }}
-                                        className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all active:scale-[0.98]"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        Add Question
-                                    </button>
-                                )}
-                                {hasChanges && editingIndex === null && (
-                                    <button onClick={handlePublish} disabled={saving} className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50">
-                                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                        Publish Changes
-                                    </button>
-                                )}
-                            </div>
-                        )}
                     </div>
                 </>
             )}
@@ -1112,9 +1090,34 @@ const ConvoStarterView: React.FC = () => {
                         ) : (
                             /* List View */
                             <div className="space-y-6">
-                                <p className="text-xs font-medium text-muted-foreground">
-                                    Active Starters ({convoStarters.length}/{MAX_CONVO_STARTERS})
-                                </p>
+                                <div className="flex items-center justify-between gap-4">
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                        Active Starters ({convoStarters.length}/{MAX_CONVO_STARTERS})
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        {hasChanges && editingIndex === null && (
+                                            <button
+                                                onClick={handlePublish}
+                                                disabled={saving}
+                                                className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                                            >
+                                                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                                Publish Changes
+                                            </button>
+                                        )}
+                                        {status === 'match' && convoStarters.length < MAX_CONVO_STARTERS && (
+                                            <button
+                                                onClick={() => {
+                                                    void startCreate();
+                                                }}
+                                                className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-medium bg-foreground text-background hover:bg-foreground/90 transition-all active:scale-[0.98]"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" />
+                                                Add Question
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                                 {convoStarters.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/40 px-4 py-12 sm:py-16">
                                         <div className="p-4 bg-muted/60 rounded-xl mb-4 text-muted-foreground">

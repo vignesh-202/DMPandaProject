@@ -1148,37 +1148,6 @@ const InboxMenu: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        {/* Action buttons below */}
-                        <div className="flex flex-col gap-2 md:flex-row md:justify-end md:gap-2.5">
-                            {status === 'match' && !inboxMenuLoading && (
-                                <button
-                                    onClick={() => {
-                                        void handleCreateItem(currentDisplayMenu);
-                                    }}
-                                    disabled={isActionLoading || ((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS)}
-                                    title={((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS) ? `Maximum ${MAX_INBOX_MENU_ITEMS} menu items allowed.` : undefined}
-                                    className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    {(editingMenu.length > 0 || currentDisplayMenu.length > 0) ? 'Add Menu Item' : 'Create New Menu'}
-                                </button>
-                            )}
-
-                            {!inboxMenuLoading && (isEditing || isCreatingItem) && !hasIssue && hasAnyLocalChanges && editingItemIndex === null && (
-                                <button
-                                    onClick={handleSaveMenu}
-                                    disabled={isActionLoading}
-                                    className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
-                                >
-                                    {isPublishing ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <CheckCircle2 className="w-4 h-4" />
-                                    )}
-                                    {isPublishing ? 'Publishing...' : 'Publish'}
-                                </button>
-                            )}
-                        </div>
                     </div>
                 </>
             )}
@@ -1885,9 +1854,40 @@ const InboxMenu: React.FC = () => {
                                     </div>
                                 ) : Boolean(editingMenu.length || currentDisplayMenu.length) ? (
                                     <div className="space-y-6">
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            Items ({(isEditing ? editingMenu : currentDisplayMenu).length}/{MAX_INBOX_MENU_ITEMS})
-                                        </p>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <p className="text-xs font-medium text-muted-foreground">
+                                                Items ({(isEditing ? editingMenu : currentDisplayMenu).length}/{MAX_INBOX_MENU_ITEMS})
+                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                {!inboxMenuLoading && (isEditing || isCreatingItem) && !hasIssue && hasAnyLocalChanges && editingItemIndex === null && (
+                                                    <button
+                                                        onClick={handleSaveMenu}
+                                                        disabled={isActionLoading}
+                                                        className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                                                    >
+                                                        {isPublishing ? (
+                                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                        ) : (
+                                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                                        )}
+                                                        {isPublishing ? 'Publishing...' : 'Publish'}
+                                                    </button>
+                                                )}
+                                                {status === 'match' && !inboxMenuLoading && (
+                                                    <button
+                                                        onClick={() => {
+                                                            void handleCreateItem(currentDisplayMenu);
+                                                        }}
+                                                        disabled={isActionLoading || ((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS)}
+                                                        title={((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS) ? `Maximum ${MAX_INBOX_MENU_ITEMS} menu items allowed.` : undefined}
+                                                        className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-medium bg-foreground text-background hover:bg-foreground/90 transition-all active:scale-[0.98] disabled:opacity-50"
+                                                    >
+                                                        <Plus className="w-3.5 h-3.5" />
+                                                        {(editingMenu.length > 0 || currentDisplayMenu.length > 0) ? 'Add Menu Item' : 'Create New Menu'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
                                         <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "space-y-3"}>
                                             {(isEditing ? editingMenu : currentDisplayMenu).map((item: MenuItem, idx: number) => (
                                                 <Card
