@@ -339,7 +339,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
         <div className="px-2 sm:px-3 pt-2.5 pb-3 sm:pb-4 border-t border-sidebar-border flex-shrink-0 mt-auto relative" ref={profileMenuRef}>
           {/* Flyout Menu */}
           <div className={cn(
-            "ig-topline absolute bottom-full mb-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-[100] transition-all duration-200",
+            "absolute bottom-full mb-2 bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-[100] transition-all duration-200",
             isCollapsed
               ? "left-full ml-3 w-64 origin-left"
               : "left-1 right-1 sm:left-2 sm:right-2",
@@ -347,15 +347,15 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
               ? "opacity-100 translate-y-0 visible"
               : "opacity-0 translate-y-2 invisible pointer-events-none"
           )}>
-            <div className="p-2 pb-2.5 min-w-[200px]">
+            <div className="p-2.5 min-w-[200px]">
               {/* Menu Header */}
-              <div className="px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              <div className="px-2.5 py-1.5 text-xs font-semibold text-muted-foreground mb-1">
                 Switch Account
               </div>
 
               {/* Account List - scrollable, shows ~3 accounts */}
               {igAccounts && igAccounts.length > 0 ? (
-                <div className="max-h-[190px] overflow-y-auto custom-scrollbar space-y-0.5 px-1 pr-0.5">
+                <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-1 px-0.5">
                   {[...igAccounts]
                     .sort((a, b) => {
                       const getVal = (acc: any) => {
@@ -393,31 +393,27 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                           handleAccountSwitch(account);
                         }}
                         className={cn(
-                          "w-full flex items-center gap-2.5 p-2.5 rounded-lg transition-all duration-150 min-h-[44px]",
+                          "w-full flex items-center gap-2.5 p-2 rounded-xl transition-all duration-150 min-h-[42px]",
                           isSelected
-                            ? "bg-primary/10"
-                            : "hover:bg-muted",
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "hover:bg-muted text-foreground",
                           isInactive && "opacity-60",
-                          isReconnectRequired && "bg-red-500/5"
+                          isReconnectRequired && "bg-destructive/5 text-destructive"
                         )}
                       >
-                        {/* Profile Picture with Instagram ring */}
+                        {/* Profile Picture with clean border */}
                         <div className="relative flex-shrink-0">
-                          <div className={cn(
-                            "p-[2px] rounded-full",
-                            isSelected
-                              ? "bg-gradient-to-tr from-ig-yellow via-ig-pink to-ig-purple"
-                              : "bg-border"
-                          )}>
-                            <img
-                              src={toBrowserPreviewUrl(account.profile_picture_url || '') || '/images/logo.png'}
-                              alt={account.username}
-                              className="w-8 h-8 rounded-full object-cover border-2 border-card"
-                            />
-                          </div>
+                          <img
+                            src={toBrowserPreviewUrl(account.profile_picture_url || '') || '/images/logo.png'}
+                            alt={account.username}
+                            className={cn(
+                              "w-8 h-8 rounded-full object-cover border border-border",
+                              isSelected && "ring-2 ring-primary ring-offset-1 ring-offset-card"
+                            )}
+                          />
                           <div className={cn(
                             "absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card",
-                              isReconnectRequired ? "bg-red-500" : (account.status === 'active' ? "bg-success" : "bg-muted-foreground/40")
+                            isReconnectRequired ? "bg-destructive" : (account.status === 'active' ? "bg-emerald-500" : "bg-muted-foreground/40")
                           )} />
                         </div>
 
@@ -432,14 +428,14 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                                 @{account.username}
                               </p>
                               {isPlanLocked && (
-                                <span className="flex-shrink-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                                <span className="flex-shrink-0 text-[8px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                                   Locked
                                 </span>
                               )}
                             </div>
                             <p className={cn(
-                              "text-2xs font-medium uppercase tracking-wide",
-                              isReconnectRequired ? "text-red-500" : (account.status === 'active' && account.effective_access !== false ? "text-success" : "text-muted-foreground")
+                              "text-[10px] font-medium mt-0.5",
+                              isReconnectRequired ? "text-destructive" : (account.status === 'active' && account.effective_access !== false ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")
                             )}>
                               {accountSubtitle}
                             </p>
@@ -449,7 +445,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                         {/* Check Mark or Re-authorize */}
                         {isInactive ? (
                           <div
-                            className="p-1.5 rounded-md hover:bg-primary/20 text-primary transition-colors cursor-pointer"
+                            className="p-1 rounded-md hover:bg-primary/20 text-primary transition-colors cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleNavigation('Account Settings');
@@ -457,7 +453,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                             }}
                             title="Open account settings"
                           >
-                            <RefreshCw className="w-4 h-4" />
+                            <RefreshCw className="w-3.5 h-3.5" />
                           </div>
                         ) : isSelected ? (
                           <Check className="w-4 h-4 text-primary flex-shrink-0" />
@@ -467,22 +463,17 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                   })}
                 </div>
               ) : (
-                <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                <div className="px-3 py-4 text-center text-xs text-muted-foreground">
                   No Instagram accounts linked
                 </div>
               )}
 
-              {/* Add Account Button - Instagram styled */}
+              {/* Add Account Button */}
               <div className="mt-2 pt-2 border-t border-border">
                 {!isCollapsed && (
-                  <div className="mb-2 px-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground flex justify-between">
-                      <span>Linked</span>
-                      <span>{linkedAccountCount}</span>
-                    </p>
-                    <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground font-medium">
-                      {activeAccountCount} {activeAccountCount === 1 ? 'account is' : 'accounts are'} active
-                    </p>
+                  <div className="mb-2 px-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Linked accounts</span>
+                    <span className="font-medium text-foreground">{linkedAccountCount}</span>
                   </div>
                 )}
                 <button
@@ -491,98 +482,72 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                     handleNavigation('Account Settings');
                     setProfileMenuOpen(false);
                   }}
-                  className="w-full flex items-center gap-2 p-2.5 rounded-xl text-muted-foreground hover:text-primary hover:bg-secondary transition-all duration-200"
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-medium transition-all active:scale-[0.98]"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
                   {!isCollapsed && (
-                    <span className="text-xs font-semibold">Add Account</span>
+                    <span>Add Account</span>
                   )}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Current Account Display - Instagram themed with gradient effects */}
+          {/* Current Account Display */}
           <button
             onClick={() => setProfileMenuOpen(!isProfileMenuOpen)}
             className={cn(
-              "w-full flex items-center gap-2 p-2.5 sm:p-3 rounded-2xl",
-              "bg-card border border-sidebar-border shadow-sm",
-              "hover:shadow-md hover:border-primary/30",
-              "transition-all duration-200 ease-out",
-              "min-h-[52px]",
-              "group relative overflow-hidden",
-              "hover:scale-[1.02] active:scale-[0.98]",
-              isCollapsed && "justify-center p-2.5 gap-0 rounded-full min-h-0 h-11 w-11 mx-auto"
+              "w-full flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl",
+              "bg-card border border-border shadow-xs",
+              "hover:border-primary/40 hover:bg-muted/30",
+              "transition-all duration-150 ease-out",
+              "min-h-[48px]",
+              "group relative",
+              "active:scale-[0.98]",
+              isCollapsed && "justify-center p-2 gap-0 rounded-xl min-h-0 h-10 w-10 mx-auto"
             )}
           >
-            {/* Subtle Instagram gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-ig-purple/0 via-ig-pink/5 to-ig-yellow/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-            {/* Profile Picture with Instagram story ring effect */}
+            {/* Profile Picture */}
             {activeAccount ? (
-              <div className="relative flex-shrink-0 z-10">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-ig-yellow via-ig-pink to-ig-purple blur-md opacity-0 group-hover:opacity-40 transition-opacity duration-300 scale-125" />
-                <div className={cn(
-                  "p-[2px] rounded-full transition-all duration-300",
-                  "bg-border group-hover:bg-gradient-to-tr group-hover:from-ig-yellow group-hover:via-ig-pink group-hover:to-ig-purple"
-                )}>
-                  <img
-                    src={toBrowserPreviewUrl(activeAccount.profile_picture_url || '') || '/images/logo.png'}
-                    alt="Profile"
-                    className={cn(
-                      isCollapsed ? "relative w-9 h-9" : "relative w-10 h-10",
-                      "rounded-full object-cover",
-                      "border-2 border-card",
-                      "transition-all duration-300 ease-out",
-                      "group-hover:scale-105"
-                    )}
-                  />
-                </div>
+              <div className="relative flex-shrink-0">
+                <img
+                  src={toBrowserPreviewUrl(activeAccount.profile_picture_url || '') || '/images/logo.png'}
+                  alt="Profile"
+                  className={cn(
+                    isCollapsed ? "w-8 h-8" : "w-8 h-8 sm:w-9 sm:h-9",
+                    "rounded-full object-cover border border-border",
+                    "transition-all duration-150"
+                  )}
+                />
                 {!isCollapsed && (
                   <div className={cn(
-                    "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full",
-                    "border-2 border-card shadow-md",
-                    "transition-all duration-300",
+                    "absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full",
+                    "border-2 border-card",
                     activeAccount.status === 'active' && activeAccount.admin_status !== 'inactive' && activeAccount.disabled_by_admin !== true
-                      ? "bg-success group-hover:shadow-success/50"
+                      ? "bg-emerald-500"
                       : "bg-muted-foreground/40"
                   )} />
                 )}
               </div>
             ) : (
-              <div className="relative flex-shrink-0 z-10">
+              <div className="relative flex-shrink-0">
                 <div className={cn(
-                  "p-[2px] rounded-full transition-all duration-300",
-                  "bg-border group-hover:bg-gradient-to-tr group-hover:from-ig-yellow group-hover:via-ig-pink group-hover:to-ig-purple"
+                  isCollapsed ? "w-8 h-8" : "w-8 h-8 sm:w-9 sm:h-9",
+                  "rounded-full bg-muted flex items-center justify-center border border-border"
                 )}>
-                  <div className={cn(
-                    isCollapsed ? "w-9 h-9" : "w-10 h-10",
-                    "rounded-full bg-muted flex items-center justify-center border-2 border-card"
-                  )}>
-                    <Instagram className="w-5 h-5 text-muted-foreground transition-colors duration-300 group-hover:text-primary" />
-                  </div>
+                  <Instagram className="w-4 h-4 text-muted-foreground" />
                 </div>
               </div>
             )}
 
-            {/* Account Info with smooth text transitions */}
+            {/* Account Info */}
             {!isCollapsed && (
               <>
-                <div className="flex-1 min-w-0 text-left z-10 overflow-hidden">
-                  <p className={cn(
-                    "text-xs font-semibold truncate",
-                    "text-foreground group-hover:text-primary",
-                    "transition-colors duration-300 ease-out",
-                    "leading-tight"
-                  )}>
+                <div className="flex-1 min-w-0 text-left overflow-hidden">
+                  <p className="text-xs font-semibold truncate text-foreground leading-tight">
                     {activeAccount ? `@${activeAccount.username}` : 'No Account'}
                   </p>
-                  <p className={cn(
-                    "text-2xs font-medium uppercase tracking-wide mt-0.5",
-                    "text-muted-foreground group-hover:text-muted-foreground/80",
-                    "transition-colors duration-300"
-                  )}>
+                  <p className="text-[10px] font-medium text-muted-foreground mt-0.5 truncate">
                     {activeAccount
                       ? ((activeAccount.admin_status === 'inactive' || activeAccount.disabled_by_admin === true)
                         ? 'Admin Disabled'
@@ -597,12 +562,8 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                   </p>
                 </div>
 
-                {/* Chevron with smooth rotation */}
                 <ChevronUp className={cn(
-                  "w-4 h-4 flex-shrink-0 z-10 ml-1",
-                  "text-muted-foreground group-hover:text-primary",
-                  "transition-all duration-300 ease-out",
-                  "group-hover:scale-110",
+                  "w-4 h-4 flex-shrink-0 ml-1 text-muted-foreground transition-transform duration-200",
                   !isProfileMenuOpen && "rotate-180"
                 )} />
               </>

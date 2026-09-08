@@ -533,30 +533,25 @@ const MyPlanView: React.FC = () => {
         {/* SECTION 1: Active Overview Hero & Limit Gauges */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Main Active Account Plan Card */}
-          <div className="relative overflow-hidden rounded-[2rem] border border-border/80 bg-gradient-to-br from-card via-card to-primary/5 p-6 sm:p-8 shadow-sm lg:col-span-8 flex flex-col justify-between">
-            <div className="absolute -right-6 -top-6 h-48 w-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-            <div className="absolute right-6 top-6 opacity-5 pointer-events-none">
-              <Award size={160} className="text-primary" />
-            </div>
-
+          <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 sm:p-7 shadow-xs lg:col-span-8 flex flex-col justify-between">
             <div>
               <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-primary">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Active Subscription
                   </span>
-                  <span className="h-1 w-1 rounded-full bg-muted-foreground/50" />
+                  <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
                   <span className="text-xs text-muted-foreground">
                     Cycle: {(plan?.active_account_plan?.billing_cycle || 'monthly').toUpperCase()}
                   </span>
                 </div>
                 <div
                   className={cn(
-                    'flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold',
+                    'flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-xs font-medium',
                     statusBadge.bg
                   )}
                 >
-                  <div className={cn('h-2 w-2 rounded-full', statusBadge.dot)} />
+                  <div className={cn('h-1.5 w-1.5 rounded-full', statusBadge.dot)} />
                   {statusBadge.label}
                 </div>
               </div>
@@ -564,56 +559,56 @@ const MyPlanView: React.FC = () => {
               {/* Plan Title & Price */}
               <div className="flex flex-wrap items-baseline justify-between gap-4 mb-6">
                 <div>
-                  <h2 className="flex items-center gap-3 text-3xl sm:text-4xl font-black text-foreground">
+                  <h2 className="flex items-center gap-2.5 text-2xl sm:text-3xl font-bold text-foreground">
                     {currentPlanName}
-                    <Zap className="fill-primary text-primary" size={26} />
+                    <Zap className="fill-primary text-primary" size={22} />
                   </h2>
-                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
-                    Plan Code: <span className="font-mono font-bold uppercase">{planCode}</span> &bull; Source: <span className="capitalize">{plan?.plan_source || 'system'}</span>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Plan Code: <span className="font-mono font-medium uppercase text-foreground">{planCode}</span> &bull; Source: <span className="capitalize">{plan?.plan_source || 'system'}</span>
                   </p>
                 </div>
-                <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-right">
-                  <span className="text-2xl sm:text-3xl font-black text-primary">
+                <div className="rounded-xl border border-border bg-muted/30 px-3.5 py-2 text-right">
+                  <span className="text-2xl font-bold text-foreground">
                     ₹{plan?.active_account_plan?.plan_price || plan?.details?.price_monthly_inr || 0}
                   </span>
-                  <span className="text-xs font-semibold text-muted-foreground"> / month</span>
+                  <span className="text-xs font-normal text-muted-foreground"> / month</span>
                 </div>
               </div>
 
               {/* Active Selected IG Account Highlight Card */}
               {plan?.active_account_plan ? (
-                <div className="mb-6 rounded-2xl border border-purple-500/20 bg-gradient-to-r from-purple-500/10 via-pink-500/5 to-transparent p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="mb-6 rounded-xl border border-border bg-muted/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5 min-w-0">
                     <div className="relative">
                       {plan.active_account_plan.profile_picture_url ? (
                         <img
                           src={toBrowserPreviewUrl(plan.active_account_plan.profile_picture_url)}
                           alt={plan.active_account_plan.username}
-                          className="h-12 w-12 rounded-full object-cover border-2 border-purple-500/40 shadow-xs"
+                          className="h-11 w-11 rounded-full object-cover border border-border shadow-xs"
                         />
                       ) : (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-600 text-white font-black text-base shadow-xs">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted border border-border text-foreground font-semibold text-sm shadow-xs">
                           {plan.active_account_plan.username.charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-pink-500 text-white shadow-xs">
-                        <Instagram size={11} />
+                      <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-muted border border-border text-foreground shadow-xs">
+                        <Instagram size={9} />
                       </div>
                     </div>
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="rounded-md bg-purple-500/15 px-2 py-0.5 text-[10px] font-black uppercase text-purple-600 dark:text-purple-300">
+                        <span className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                           Active IG Account
                         </span>
                         {plan.active_account_plan.is_active && (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                             Live
                           </span>
                         )}
                       </div>
-                      <h3 className="truncate text-base font-bold text-foreground mt-0.5">
+                      <h3 className="truncate text-sm font-semibold text-foreground mt-0.5">
                         @{plan.active_account_plan.username}
                       </h3>
                     </div>
@@ -622,9 +617,9 @@ const MyPlanView: React.FC = () => {
                   <div className="flex items-center gap-2 self-end sm:self-center">
                     <button
                       onClick={() => openAccountUpgrade(plan.active_account_plan!.account_id)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all active:scale-95"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-foreground hover:bg-foreground/90 px-3.5 py-2 text-xs font-medium text-background shadow-xs transition-all active:scale-98"
                     >
-                      <Zap size={13} className="fill-white" />
+                      <Zap size={12} className="fill-background" />
                       Upgrade This Account
                     </button>
                   </div>
@@ -633,43 +628,43 @@ const MyPlanView: React.FC = () => {
 
               {/* Subscription Meta Chips */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-background/60 p-3.5 shadow-xs">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
-                    <Calendar size={18} />
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-xs">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground border border-border">
+                    <Calendar size={15} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                       Expiry Date
                     </p>
-                    <p className="truncate text-xs sm:text-sm font-bold text-foreground">
+                    <p className="truncate text-xs font-semibold text-foreground">
                       {formattedExpiryDate ? formattedExpiryDate : 'Permanent / Free'}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-background/60 p-3.5 shadow-xs">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-500">
-                    <Clock size={18} />
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-xs">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground border border-border">
+                    <Clock size={15} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                       Days Remaining
                     </p>
-                    <p className="truncate text-xs sm:text-sm font-bold text-foreground">
+                    <p className="truncate text-xs font-semibold text-foreground">
                       {expiryDaysRemaining != null ? `${expiryDaysRemaining} Days` : 'Unlimited'}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-background/60 p-3.5 shadow-xs">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
-                    <ShieldCheck size={18} />
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-xs">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground border border-border">
+                    <ShieldCheck size={15} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                       Billing Type
                     </p>
-                    <p className="truncate text-xs sm:text-sm font-bold text-foreground">
+                    <p className="truncate text-xs font-semibold text-foreground">
                       {(plan?.active_account_plan?.billing_cycle || 'monthly').toUpperCase()} Recurring
                     </p>
                   </div>
@@ -678,32 +673,31 @@ const MyPlanView: React.FC = () => {
             </div>
 
             {/* Bottom Actions Bar */}
-            <div className="mt-8 pt-6 border-t border-border/80 flex flex-wrap items-center justify-between gap-3">
+            <div className="mt-6 pt-5 border-t border-border flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-muted-foreground">
                 Need more accounts or custom agency quota?
               </p>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => openCheckout()}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-foreground hover:underline"
                 >
                   Change Plan Tier &rarr;
                 </button>
               </div>
             </div>
           </div>
-
           {/* Right Column: Account Limits & Quota Gauge */}
           <div className="flex flex-col gap-6 lg:col-span-4">
-            <div className="rounded-[2rem] border border-border bg-card p-6 shadow-sm flex-1 flex flex-col justify-between">
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-xs flex-1 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <Activity size={18} />
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-foreground border border-border">
+                      <Activity size={15} />
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-foreground">Action Limits</h3>
+                      <h3 className="text-sm font-semibold text-foreground">Action Limits</h3>
                       <p className="text-[11px] text-muted-foreground">Per account automation limits</p>
                     </div>
                   </div>
@@ -718,68 +712,68 @@ const MyPlanView: React.FC = () => {
                   />
                 </div>
 
-                <div className="space-y-4 mt-6">
+                <div className="space-y-3 mt-4">
                   {/* Hourly Action Limit */}
-                  <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <div className="rounded-xl border border-border bg-muted/20 p-3.5">
                     <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-semibold text-muted-foreground">Hourly Action Limit</span>
-                      <span className="font-black text-foreground">
+                      <span className="font-medium text-muted-foreground">Hourly Action Limit</span>
+                      <span className="font-semibold text-foreground">
                         {plan?.limits?.hourly_action_limit ?? 100} / hr
                       </span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-blue-500 rounded-full w-3/4" />
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary rounded-full w-3/4" />
                     </div>
                   </div>
 
                   {/* Daily Action Limit */}
-                  <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <div className="rounded-xl border border-border bg-muted/20 p-3.5">
                     <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-semibold text-muted-foreground">Daily Action Limit</span>
-                      <span className="font-black text-foreground">
+                      <span className="font-medium text-muted-foreground">Daily Action Limit</span>
+                      <span className="font-semibold text-foreground">
                         {plan?.limits?.daily_action_limit ?? 500} / day
                       </span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-purple-500 rounded-full w-4/5" />
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary rounded-full w-4/5" />
                     </div>
                   </div>
 
                   {/* Monthly Action Limit */}
-                  <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <div className="rounded-xl border border-border bg-muted/20 p-3.5">
                     <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-semibold text-muted-foreground">Monthly Action Limit</span>
-                      <span className="font-black text-foreground">
+                      <span className="font-medium text-muted-foreground">Monthly Action Limit</span>
+                      <span className="font-semibold text-foreground">
                         {plan?.limits?.monthly_action_limit == null
                           ? 'Unlimited'
                           : `${Number(plan.limits.monthly_action_limit).toLocaleString()} / mo`}
                       </span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full w-full" />
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary rounded-full w-full" />
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Accounts Summary Pill */}
-              <div className="mt-6 rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-center justify-between">
+              <div className="mt-5 rounded-xl border border-border bg-muted/20 p-3.5 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-xs">
-                    <Users size={15} />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-background font-semibold text-xs">
+                    <Users size={13} />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-foreground">
+                    <p className="text-xs font-semibold text-foreground">
                       {allAccounts.length} Linked {allAccounts.length === 1 ? 'Account' : 'Accounts'}
                     </p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[10px] text-muted-foreground">
                       {paidAccountsCount} Paid &bull; {freeAccountsCount} Free
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => openCheckout()}
-                  className="text-xs font-black text-primary hover:underline"
+                  className="text-xs font-medium text-foreground hover:underline"
                 >
                   Upgrade +
                 </button>
@@ -788,25 +782,25 @@ const MyPlanView: React.FC = () => {
           </div>
         </div>
 
-        {/* SECTION 2: All Instagram Accounts & Individual Plan Upgrade Grid (TASK 4) */}
-        <div className="rounded-[2rem] border border-border bg-card p-6 sm:p-8 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-6 border-b border-border">
+        {/* SECTION 2: All Instagram Accounts & Individual Plan Upgrade Grid */}
+        <div className="rounded-2xl border border-border bg-card p-6 sm:p-7 shadow-xs">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-5 border-b border-border">
             <div>
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-pink-500/10 text-pink-500">
-                  <Instagram size={18} />
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-foreground border border-border">
+                  <Instagram size={16} />
                 </div>
-                <h2 className="text-2xl font-black text-foreground">
+                <h2 className="text-lg font-bold text-foreground">
                   Instagram Accounts & Plans
                 </h2>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Each Instagram account has its own independent subscription plan. Upgrade or manage any account individually.
               </p>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+              <span className="rounded-md border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground">
                 {allAccounts.length} Connected {allAccounts.length === 1 ? 'Account' : 'Accounts'}
               </span>
             </div>
@@ -814,7 +808,7 @@ const MyPlanView: React.FC = () => {
 
           {/* Accounts Grid */}
           {allAccounts.length > 0 ? (
-            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {allAccounts.map((account) => {
                 const isSelectedActive =
                   account.account_id === activeAccountID ||
@@ -829,62 +823,60 @@ const MyPlanView: React.FC = () => {
                   <div
                     key={account.account_id}
                     className={cn(
-                      'relative flex flex-col justify-between rounded-3xl border p-5 transition-all duration-200 shadow-xs hover:shadow-md',
+                      'relative flex flex-col justify-between rounded-xl border p-4 transition-all duration-150 shadow-xs',
                       isSelectedActive
-                        ? 'border-primary/50 bg-gradient-to-b from-primary/5 to-card ring-2 ring-primary/15'
-                        : 'border-border bg-card hover:border-border/80'
+                        ? 'border-primary/40 bg-primary/[0.02]'
+                        : 'border-border bg-card hover:border-primary/20'
                     )}
                   >
                     {/* Top Status & Plan Pill */}
                     <div>
-                      <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="flex items-start justify-between gap-3 mb-3.5">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="relative shrink-0">
                             {account.profile_picture_url ? (
                               <img
                                 src={toBrowserPreviewUrl(account.profile_picture_url)}
                                 alt={account.username}
-                                className="h-12 w-12 rounded-full object-cover border-2 border-border shadow-xs"
+                                className="h-10 w-10 rounded-full object-cover border border-border shadow-xs"
                               />
                             ) : (
-                              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500 via-purple-500 to-indigo-500 text-white font-bold text-base shadow-xs">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted border border-border text-foreground font-semibold text-sm shadow-xs">
                                 {account.username.charAt(0).toUpperCase()}
                               </div>
                             )}
-                            <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-pink-500 text-white shadow-xs">
-                              <Instagram size={10} />
+                            <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-muted border border-border text-foreground shadow-xs">
+                              <Instagram size={8} />
                             </div>
                           </div>
 
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <h3 className="truncate text-base font-bold text-foreground">
-                                @{account.username}
-                              </h3>
-                            </div>
-                            <p className="text-xs text-muted-foreground truncate">
+                            <h3 className="truncate text-sm font-semibold text-foreground">
+                              @{account.username}
+                            </h3>
+                            <p className="text-[11px] text-muted-foreground truncate">
                               ID: {account.account_id}
                             </p>
                           </div>
                         </div>
 
                         {isSelectedActive && (
-                          <span className="rounded-full bg-primary/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-primary shrink-0">
-                            Current Active
+                          <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary shrink-0">
+                            Active
                           </span>
                         )}
                       </div>
 
                       {/* Plan Badge & Status Details */}
-                      <div className="rounded-2xl border border-border/70 bg-muted/25 p-3.5 mb-4 space-y-2.5">
+                      <div className="rounded-lg border border-border bg-muted/20 p-3 mb-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground font-semibold">Plan Tier:</span>
+                          <span className="text-xs text-muted-foreground font-medium">Plan Tier:</span>
                           <span
                             className={cn(
-                              'rounded-lg px-2 py-0.5 text-xs font-black',
+                              'rounded-md px-1.5 py-0.5 text-xs font-semibold',
                               isAccountPaid
-                                ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'
-                                : 'bg-muted text-muted-foreground'
+                                ? 'bg-foreground text-background'
+                                : 'bg-muted text-muted-foreground border border-border'
                             )}
                           >
                             {account.plan_name}
@@ -892,17 +884,17 @@ const MyPlanView: React.FC = () => {
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground font-semibold">Price:</span>
-                          <span className="text-xs font-bold text-foreground">
+                          <span className="text-xs text-muted-foreground font-medium">Price:</span>
+                          <span className="text-xs font-semibold text-foreground">
                             {isAccountPaid ? `₹${account.plan_price}/mo` : 'Free Tier (₹0)'}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground font-semibold">Status:</span>
+                          <span className="text-xs text-muted-foreground font-medium">Status:</span>
                           <span
                             className={cn(
-                              'inline-flex items-center gap-1 text-xs font-bold',
+                              'inline-flex items-center gap-1 text-xs font-medium',
                               account.is_expired
                                 ? 'text-destructive'
                                 : account.is_active
@@ -916,7 +908,7 @@ const MyPlanView: React.FC = () => {
                                 account.is_expired
                                   ? 'bg-destructive'
                                   : account.is_active
-                                  ? 'bg-emerald-500 animate-pulse'
+                                  ? 'bg-emerald-500'
                                   : 'bg-muted-foreground'
                               )}
                             />
@@ -925,7 +917,7 @@ const MyPlanView: React.FC = () => {
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground font-semibold">Valid Until:</span>
+                          <span className="text-xs text-muted-foreground font-medium">Valid Until:</span>
                           <span className="text-xs font-medium text-foreground">
                             {accExpiryFormatted || 'Permanent Free'}
                           </span>
@@ -933,36 +925,34 @@ const MyPlanView: React.FC = () => {
                       </div>
 
                       {/* Limits snapshot */}
-                      <div className="grid grid-cols-3 gap-2 text-center text-[11px] mb-4">
-                        <div className="rounded-xl border border-border/50 bg-background/50 p-2">
+                      <div className="grid grid-cols-3 gap-2 text-center text-[11px] mb-3">
+                        <div className="rounded-lg border border-border bg-background p-1.5">
                           <p className="text-muted-foreground text-[10px]">Hourly</p>
-                          <p className="font-bold text-foreground">
+                          <p className="font-semibold text-foreground">
                             {account.limits?.hourly_action_limit ?? 100}
                           </p>
                         </div>
-                        <div className="rounded-xl border border-border/50 bg-background/50 p-2">
+                        <div className="rounded-lg border border-border bg-background p-1.5">
                           <p className="text-muted-foreground text-[10px]">Daily</p>
-                          <p className="font-bold text-foreground">
+                          <p className="font-semibold text-foreground">
                             {account.limits?.daily_action_limit ?? 500}
                           </p>
                         </div>
-                        <div className="rounded-xl border border-border/50 bg-background/50 p-2">
+                        <div className="rounded-lg border border-border bg-background p-1.5">
                           <p className="text-muted-foreground text-[10px]">Monthly</p>
-                          <p className="font-bold text-foreground">
-                            {account.limits?.monthly_action_limit == null
-                              ? 'Unltd'
-                              : `${Number(account.limits.monthly_action_limit) / 1000}k`}
+                          <p className="font-semibold text-foreground">
+                            {account.limits?.monthly_action_limit == null ? '∞' : `${Math.round(account.limits.monthly_action_limit / 1000)}k`}
                           </p>
                         </div>
                       </div>
                     </div>
 
                     {/* Card Actions */}
-                    <div className="pt-3 border-t border-border/70 flex items-center gap-2">
+                    <div className="pt-2.5 border-t border-border flex items-center gap-2">
                       {!isSelectedActive && (
                         <button
                           onClick={() => handleSelectAccount(account.account_id)}
-                          className="flex-1 rounded-xl border border-border hover:bg-muted py-2.5 text-xs font-bold text-foreground transition-all"
+                          className="flex-1 rounded-lg border border-border hover:bg-muted py-2 text-xs font-medium text-foreground transition-all"
                         >
                           Select
                         </button>
@@ -970,13 +960,13 @@ const MyPlanView: React.FC = () => {
                       <button
                         onClick={() => openAccountUpgrade(account.account_id)}
                         className={cn(
-                          'flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all shadow-xs active:scale-95',
+                          'flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all shadow-xs active:scale-98',
                           isAccountPaid
-                            ? 'border border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300 hover:bg-purple-500/20'
-                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                            ? 'border border-border bg-background hover:bg-muted text-foreground'
+                            : 'bg-foreground text-background hover:bg-foreground/90'
                         )}
                       >
-                        <Zap size={13} className={isAccountPaid ? 'text-purple-500' : 'fill-primary-foreground'} />
+                        <Zap size={12} className={isAccountPaid ? 'text-foreground' : 'fill-background'} />
                         {isAccountPaid ? 'Change Plan' : 'Upgrade Plan'}
                       </button>
                     </div>
@@ -985,17 +975,17 @@ const MyPlanView: React.FC = () => {
               })}
             </div>
           ) : (
-            <div className="mt-6 rounded-3xl border border-dashed border-border bg-muted/20 p-8 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-pink-500/10 text-pink-500 mb-3">
-                <Instagram size={24} />
+            <div className="mt-6 rounded-xl border border-dashed border-border bg-muted/10 p-8 text-center">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-muted border border-border text-muted-foreground mb-3">
+                <Instagram size={20} />
               </div>
-              <h3 className="text-base font-bold text-foreground">No Instagram Accounts Connected</h3>
+              <h3 className="text-sm font-semibold text-foreground">No Instagram Accounts Connected</h3>
               <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
                 Connect your Instagram account from Account Settings to link and manage plans for individual handles.
               </p>
               <button
                 onClick={() => setCurrentView('Account Settings')}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-xs font-bold text-background hover:opacity-90 transition-all"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2 text-xs font-medium text-background hover:bg-foreground/90 transition-all"
               >
                 Go to Account Settings &rarr;
               </button>
@@ -1004,38 +994,38 @@ const MyPlanView: React.FC = () => {
         </div>
 
         {/* SECTION 3: Active Account Features Breakdown */}
-        <div className="rounded-[2rem] border border-border bg-card p-6 sm:p-8 shadow-sm">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6 pb-6 border-b border-border">
+        <div className="rounded-2xl border border-border bg-card p-6 sm:p-7 shadow-xs">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-5 pb-5 border-b border-border">
             <div>
-              <span className="text-xs font-black uppercase tracking-wider text-primary">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Entitlements & Features
               </span>
-              <h2 className="text-2xl font-black text-foreground mt-1">
+              <h2 className="text-lg font-bold text-foreground mt-0.5">
                 {currentPlanName} Features Included
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 All features unlocked for your currently active Instagram subscription.
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-success-muted/60 px-3 py-1 text-xs font-bold text-success flex items-center gap-1.5">
-                <CheckCircle2 size={13} />
+              <span className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <CheckCircle2 size={12} />
                 Fully Enabled
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {(plan?.active_account_plan?.details?.features || plan?.details?.features || []).map(
               (feature, index) => (
                 <div
                   key={`${feature}-${index}`}
-                  className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/50 p-4 transition-all hover:border-border"
+                  className="flex items-center gap-2.5 rounded-xl border border-border bg-background/60 p-3 transition-all"
                 >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-success-muted/60 text-success">
-                    <Check size={14} strokeWidth={3} />
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                    <Check size={11} strokeWidth={2.5} />
                   </div>
-                  <span className="text-sm font-semibold text-foreground">{feature}</span>
+                  <span className="text-xs font-medium text-foreground">{feature}</span>
                 </div>
               )
             )}
@@ -1043,66 +1033,67 @@ const MyPlanView: React.FC = () => {
         </div>
 
         {/* SECTION 4: Available Plans & Upgrade Catalog */}
-        <div className="rounded-[2rem] border border-border bg-card p-6 sm:p-8 shadow-sm">
-          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between pb-6 border-b border-border">
+        <div className="rounded-2xl border border-border bg-card p-6 sm:p-7 shadow-xs">
+          <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between pb-5 border-b border-border">
             <div>
-              <span className="text-xs font-black uppercase tracking-wider text-primary">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Available Upgrades
               </span>
-              <h2 className="text-2xl sm:text-3xl font-black text-foreground mt-1">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground mt-0.5">
                 Explore All Subscription Tiers
               </h2>
-              <p className="text-sm text-muted-foreground max-w-xl">
-                Choose the best plan tier for your Instagram accounts. You can upgrade any connected account at any time.
+              <p className="text-xs text-muted-foreground max-w-xl">
+                Choose the best plan for your automation volume. Plans apply per Instagram account.
               </p>
             </div>
 
-            {/* Monthly / Yearly Billing Toggle */}
-            <div className="flex items-center gap-3 self-start md:self-auto">
-              <div className="inline-flex rounded-2xl border border-border bg-muted/60 p-1">
+            {/* Currency & Billing Cycle Toggles */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center rounded-xl border border-border bg-muted/40 p-1">
                 <button
+                  type="button"
                   onClick={() => setIsYearly(false)}
                   className={cn(
-                    'rounded-xl px-4 py-2 text-xs font-bold transition-all',
+                    'rounded-lg px-3 py-1 text-xs font-medium transition-all',
                     !isYearly
-                      ? 'bg-card text-foreground shadow-xs'
+                      ? 'bg-foreground text-background shadow-xs'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   Monthly
                 </button>
                 <button
+                  type="button"
                   onClick={() => setIsYearly(true)}
                   className={cn(
-                    'rounded-xl px-4 py-2 text-xs font-bold transition-all flex items-center gap-1.5',
+                    'rounded-lg px-3 py-1 text-xs font-medium transition-all flex items-center gap-1.5',
                     isYearly
-                      ? 'bg-card text-foreground shadow-xs'
+                      ? 'bg-foreground text-background shadow-xs'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   Yearly
-                  <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-black text-emerald-600 dark:text-emerald-400">
-                    SAVE 20%
+                  <span className="rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1 py-0.2 text-[10px] font-semibold">
+                    Save 20%
                   </span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* VVDeals Partner Offer Banner */}
-          <VVDealsOfferBanner className="mb-8" />
-
+          {/* Pricing Grid */}
           {plansLoading ? (
-            <div className="rounded-2xl border border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-              <RefreshCw className="mx-auto h-6 w-6 animate-spin mb-2 text-primary" />
-              Loading available plans...
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-96 rounded-2xl border border-border bg-muted/20 animate-pulse" />
+              ))}
             </div>
           ) : plansError ? (
-            <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+            <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
               {plansError}
             </div>
           ) : plans.length === 0 ? (
-            <div className="rounded-2xl border border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-xl border border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
               No plans are available right now.
             </div>
           ) : (
@@ -1119,39 +1110,39 @@ const MyPlanView: React.FC = () => {
                   <div
                     key={entry.id}
                     className={cn(
-                      'relative flex flex-col justify-between rounded-3xl p-7 text-foreground transition-all duration-300',
+                      'relative flex flex-col justify-between rounded-2xl p-6 text-foreground transition-all duration-150 border bg-card shadow-xs',
                       entry.is_popular
-                        ? 'border-2 border-primary bg-card shadow-xl ring-2 ring-primary/20 scale-[1.02]'
+                        ? 'border-primary/50 ring-1 ring-primary/20'
                         : isUltra
-                        ? 'border-2 border-purple-500/40 bg-gradient-to-b from-purple-50/40 via-card to-card dark:from-purple-950/20 shadow-md hover:border-purple-500/60'
-                        : 'border border-border bg-card hover:border-border/80 hover:shadow-lg',
+                        ? 'border-border'
+                        : 'border-border',
                       isUnavailable ? 'opacity-80' : ''
                     )}
                   >
                     {entry.is_popular && (
-                      <div className="absolute -top-3 right-6 rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground shadow-xs">
+                      <div className="absolute -top-2.5 right-5 rounded-md bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background shadow-xs">
                         Popular
                       </div>
                     )}
                     {isUltra && !entry.is_popular && (
-                      <div className="absolute -top-3 right-6 rounded-full bg-purple-600 px-3 py-0.5 text-[11px] font-semibold text-white shadow-xs">
+                      <div className="absolute -top-2.5 right-5 rounded-md bg-muted border border-border px-2 py-0.5 text-[10px] font-semibold text-foreground shadow-xs">
                         Bonus Included
                       </div>
                     )}
 
                     <div>
-                      <h3 className="text-xl font-bold text-foreground">{entry.name}</h3>
+                      <h3 className="text-lg font-bold text-foreground">{entry.name}</h3>
 
-                      <div className="mt-4 mb-6">
+                      <div className="mt-3.5 mb-5">
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+                          <span className="text-3xl font-bold tracking-tight text-foreground">
                             {formatMoney(bigPrice, currency)}
                           </span>
-                          <span className="text-xs font-medium text-muted-foreground">
+                          <span className="text-xs font-normal text-muted-foreground">
                             / account / mo
                           </span>
                         </div>
-                        <p className="mt-1.5 text-xs text-muted-foreground">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {isYearly
                             ? `Billed yearly at ${formatMoney(billedTotal, currency)} / account`
                             : `Billed monthly at ${formatMoney(billedTotal, currency)} / account`}
@@ -1162,30 +1153,28 @@ const MyPlanView: React.FC = () => {
                           </p>
                         )}
 
-                        {/* Ultra Plan VVDeals Bonus Box */}
+                        {/* Ultra Plan Bonus Box */}
                         {isUltra && (
-                          <div className="mt-3.5 rounded-xl border border-purple-500/20 bg-purple-500/5 p-3 text-xs dark:bg-purple-950/20">
-                            <div className="flex items-center gap-1.5 font-semibold text-purple-700 dark:text-purple-300">
-                              <Gift size={14} className="text-pink-500" />
+                          <div className="mt-3 rounded-xl border border-border bg-muted/30 p-3 text-xs">
+                            <div className="flex items-center gap-1.5 font-medium text-foreground">
+                              <Gift size={13} className="text-muted-foreground" />
                               <span>VV Deals Included Bonus:</span>
                             </div>
-                            <p className="mt-1 text-[11px] font-medium text-foreground/80 leading-snug">
+                            <p className="mt-1 text-[11px] font-normal text-muted-foreground leading-snug">
                               {isYearly
-                                ? '✨ 18m Google AI Pro, 6m Prime, 3m Spotify, 1m CapCut Pro, 1m Netflix (₹39,660 Value)'
-                                : '✨ 1m Amazon Prime, 7 days CapCut Pro, 5 days Netflix on Mobile/TV (₹898 Value)'}
+                                ? '18m Google AI Pro, 6m Prime, 3m Spotify, 1m CapCut Pro, 1m Netflix (₹39,660 Value)'
+                                : '1m Amazon Prime, 7 days CapCut Pro, 5 days Netflix on Mobile/TV (₹898 Value)'}
                             </p>
                           </div>
                         )}
                       </div>
 
                       {/* Plan Limits Box */}
-                      <div className="rounded-xl border border-border/70 bg-muted/30 p-4 mb-6">
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-xs font-semibold text-muted-foreground">
-                            Included Limits
-                          </p>
-                        </div>
-                        <div className="space-y-2">
+                      <div className="rounded-xl border border-border bg-muted/20 p-3.5 mb-5">
+                        <p className="text-xs font-medium text-muted-foreground mb-2.5">
+                          Included Limits
+                        </p>
+                        <div className="space-y-1.5">
                           {planLimits.map((item) => (
                             <div
                               key={`${entry.id}-${item.label}`}
@@ -1199,36 +1188,36 @@ const MyPlanView: React.FC = () => {
                       </div>
 
                       {/* Feature List */}
-                      <div className="space-y-3 mb-6">
-                        <p className="text-xs font-semibold text-muted-foreground">
+                      <div className="space-y-2.5 mb-5">
+                        <p className="text-xs font-medium text-muted-foreground">
                           Key Capabilities
                         </p>
                         {entry.features.map((feature, index) => (
-                          <div key={`${entry.id}-${index}`} className="flex items-start gap-2.5 text-xs">
-                            <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                              <Check size={11} strokeWidth={2.5} />
+                          <div key={`${entry.id}-${index}`} className="flex items-start gap-2 text-xs">
+                            <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                              <Check size={10} strokeWidth={2.5} />
                             </div>
-                            <span className="text-muted-foreground font-medium">{feature}</span>
+                            <span className="text-muted-foreground font-normal">{feature}</span>
                           </div>
                         ))}
                       </div>
                     </div>
 
                     {/* Bottom CTA Button */}
-                    <div className="pt-6 border-t border-border/70">
+                    <div className="pt-5 border-t border-border">
                       <button
                         className={cn(
-                          'flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-semibold shadow-xs transition-all duration-200 active:scale-98',
+                          'flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-medium shadow-xs transition-all duration-150 active:scale-98',
                           isUnavailable
                             ? 'bg-muted text-muted-foreground shadow-none cursor-not-allowed'
                             : entry.is_popular
-                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                            : 'bg-foreground text-background hover:bg-foreground/90'
+                            ? 'bg-foreground text-background hover:bg-foreground/90'
+                            : 'border border-border bg-background hover:bg-muted text-foreground'
                         )}
                         disabled={syncingPlan || isUnavailable}
                         onClick={() => openCheckout(entry)}
                       >
-                        <CreditCard size={15} />
+                        <CreditCard size={14} />
                         {isCurrentPlan
                           ? 'Current Active Plan'
                           : entry.plan_code === 'free'
@@ -1244,20 +1233,20 @@ const MyPlanView: React.FC = () => {
         </div>
 
         {/* SECTION 5: FAQs & Helpful Information */}
-        <div className="rounded-[2rem] border border-border bg-card p-6 sm:p-8 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
-              <HelpCircle size={18} />
+        <div className="rounded-2xl border border-border bg-card p-6 sm:p-7 shadow-xs">
+          <div className="flex items-center gap-2.5 mb-5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-foreground border border-border">
+              <HelpCircle size={16} />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-foreground">Frequently Asked Questions</h3>
+              <h3 className="text-base font-bold text-foreground">Frequently Asked Questions</h3>
               <p className="text-xs text-muted-foreground">Clear answers about billing, account upgrades, and limits</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-border/70 bg-background/50 p-4">
-              <h4 className="font-bold text-sm text-foreground mb-1">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <h4 className="font-semibold text-xs text-foreground mb-1">
                 How does per-account billing work?
               </h4>
               <p className="text-xs text-muted-foreground leading-relaxed">
@@ -1265,8 +1254,8 @@ const MyPlanView: React.FC = () => {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border/70 bg-background/50 p-4">
-              <h4 className="font-bold text-sm text-foreground mb-1">
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <h4 className="font-semibold text-xs text-foreground mb-1">
                 Can I upgrade accounts individually?
               </h4>
               <p className="text-xs text-muted-foreground leading-relaxed">
@@ -1274,8 +1263,8 @@ const MyPlanView: React.FC = () => {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border/70 bg-background/50 p-4">
-              <h4 className="font-bold text-sm text-foreground mb-1">
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <h4 className="font-semibold text-xs text-foreground mb-1">
                 What happens when a plan expires?
               </h4>
               <p className="text-xs text-muted-foreground leading-relaxed">
@@ -1283,12 +1272,12 @@ const MyPlanView: React.FC = () => {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border/70 bg-background/50 p-4">
-              <h4 className="font-bold text-sm text-foreground mb-1">
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <h4 className="font-semibold text-xs text-foreground mb-1">
                 Where can I download invoices and receipts?
               </h4>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Visit the <button onClick={() => setCurrentView('Transactions')} className="font-bold text-primary underline">Invoices & Transactions</button> tab to view, search, and download official PDF transaction receipts.
+                Head to the Transactions tab in your left navigation menu to view full payment receipts and download PDF invoices anytime.
               </p>
             </div>
           </div>

@@ -675,7 +675,7 @@ const AccountSettingsView = () => {
       {/* Settings Grid Structure */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
         {/* Navigation Sidebar (Fully Responsive Grid/Sidebar) */}
-        <div className="w-full lg:col-span-1 grid grid-cols-2 md:grid-cols-4 lg:flex lg:flex-col gap-2 p-2 bg-card/60 dark:bg-neutral-900/60 backdrop-blur-md rounded-2xl border border-border shrink-0">
+        <div className="w-full lg:col-span-1 grid grid-cols-2 md:grid-cols-4 lg:flex lg:flex-col gap-1.5 p-1.5 bg-card rounded-2xl border border-border shrink-0 shadow-xs">
           {tabs.map((tab) => {
             const isTabActive = activeTab === tab.id;
             return (
@@ -683,12 +683,12 @@ const AccountSettingsView = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={cn(
-                  "flex items-center justify-center lg:justify-start gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 w-full text-center lg:text-left",
+                  "flex items-center justify-center lg:justify-start gap-2.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 w-full text-center lg:text-left",
                   isTabActive
                     ? tab.id === 'danger'
                       ? "bg-destructive text-destructive-foreground shadow-xs"
-                      : "bg-primary text-primary-foreground shadow-xs"
-                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                      : "bg-foreground text-background shadow-xs"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 <tab.icon className="h-4 w-4 shrink-0" />
@@ -704,24 +704,24 @@ const AccountSettingsView = () => {
           {activeTab === 'profile' && (
             <div className="space-y-4 animate-fadeIn">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                  <User className="h-5 w-5" />
+                <div className="p-2 rounded-xl bg-muted text-foreground border border-border">
+                  <User className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-foreground">Profile Information</h3>
+                  <h3 className="text-base font-semibold text-foreground">Profile Information</h3>
                   <p className="text-xs text-muted-foreground">Manage your personal information and contact details.</p>
                 </div>
               </div>
 
-              <Card className="border border-content shadow-sm hover:shadow-md transition-shadow duration-300">
-                <form onSubmit={handleInfoSubmit} className="p-4 sm:p-6 space-y-5 sm:space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                    <div className="space-y-2">
-                      <label htmlFor="name" className="text-sm font-semibold text-foreground">Full Name</label>
-                      <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your Name" className="h-12 rounded-xl" />
+              <Card className="border border-border bg-card rounded-2xl shadow-xs">
+                <form onSubmit={handleInfoSubmit} className="p-5 sm:p-6 space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-1.5">
+                      <label htmlFor="name" className="text-xs font-medium text-foreground">Full Name</label>
+                      <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your Name" className="h-10 rounded-xl text-sm" />
                     </div>
-                    <div className="space-y-2">
-                      <label htmlFor="email" className="text-sm font-semibold text-foreground flex items-center justify-between">
+                    <div className="space-y-1.5">
+                      <label htmlFor="email" className="text-xs font-medium text-foreground flex items-center justify-between">
                         <span>Email Address</span>
                         <button
                           type="button"
@@ -733,7 +733,7 @@ const AccountSettingsView = () => {
                               setShowEmailModal(true);
                             }
                           }}
-                          className="text-xs text-primary hover:underline font-bold"
+                          className="text-xs text-primary hover:underline font-medium"
                         >
                           Change Email
                         </button>
@@ -743,12 +743,12 @@ const AccountSettingsView = () => {
                         type="email"
                         value={user?.email || ''}
                         disabled
-                        className="h-12 rounded-xl bg-muted/50 border-border text-muted-foreground cursor-not-allowed"
+                        className="h-10 rounded-xl bg-muted/50 border-border text-muted-foreground cursor-not-allowed text-sm"
                       />
                     </div>
                   </div>
 
-                  <Button type="submit" disabled={isSubmittingInfo} className="px-6 h-12 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold w-full sm:w-auto shadow-lg shadow-primary/10 hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 flex items-center justify-center gap-2">
+                  <Button type="submit" disabled={isSubmittingInfo} className="px-5 h-10 rounded-xl bg-foreground text-background hover:bg-foreground/90 font-medium text-sm w-full sm:w-auto transition-all inline-flex items-center justify-center gap-2">
                     {isSubmittingInfo && <Loader2 className="h-4 w-4 animate-spin" />}
                     <span>Save Changes</span>
                   </Button>
@@ -762,20 +762,20 @@ const AccountSettingsView = () => {
           {activeTab === 'security' && (
             <div className="space-y-4 animate-fadeIn">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                  <Shield className="h-5 w-5" />
+                <div className="p-2 rounded-xl bg-muted text-foreground border border-border">
+                  <Shield className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-foreground">Security & Credentials</h3>
+                  <h3 className="text-base font-semibold text-foreground">Security & Credentials</h3>
                   <p className="text-xs text-muted-foreground">Keep your account secure by updating password credentials.</p>
                 </div>
               </div>
 
               {hasPassword ? (
-                <Card className="border border-content shadow-sm hover:shadow-md transition-shadow duration-300">
-                  <div className="p-4 sm:p-6">
-                    <h4 className="text-base font-semibold text-foreground mb-4">Update Password</h4>
-                    <form onSubmit={handlePasswordChangeSubmit} className="space-y-5 sm:space-y-6 max-w-md">
+                <Card className="border border-border bg-card rounded-2xl shadow-xs">
+                  <div className="p-5 sm:p-6">
+                    <h4 className="text-sm font-semibold text-foreground mb-4">Update Password</h4>
+                    <form onSubmit={handlePasswordChangeSubmit} className="space-y-4 max-w-md">
                       <PasswordInput
                         label="New Password"
                         value={newPassword}
@@ -789,7 +789,7 @@ const AccountSettingsView = () => {
                         showMatchIcon={true}
                         isMatch={confirmPassword === newPassword && confirmPassword !== ''}
                       />
-                      <Button type="submit" disabled={isSubmittingPassword} className="h-12 px-6 rounded-xl bg-foreground text-background hover:bg-foreground/90 w-full sm:w-auto font-semibold shadow-md flex items-center justify-center gap-2">
+                      <Button type="submit" disabled={isSubmittingPassword} className="h-10 px-5 rounded-xl bg-foreground text-background hover:bg-foreground/90 w-full sm:w-auto font-medium text-sm shadow-xs inline-flex items-center justify-center gap-2">
                         {isSubmittingPassword && <Loader2 className="h-4 w-4 animate-spin" />}
                         <span>Change Password</span>
                       </Button>
@@ -798,15 +798,15 @@ const AccountSettingsView = () => {
                   </div>
                 </Card>
               ) : (
-                <Card className="border border-content shadow-sm p-6 text-center space-y-4">
-                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto">
-                    <Shield className="h-6 w-6 text-muted-foreground" />
+                <Card className="border border-border bg-card rounded-2xl shadow-xs p-6 text-center space-y-4">
+                  <div className="w-12 h-12 rounded-xl bg-muted border border-border flex items-center justify-center mx-auto">
+                    <Shield className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div>
-                    <h4 className="text-base font-bold text-foreground">No Password Configured</h4>
+                    <h4 className="text-sm font-semibold text-foreground">No Password Configured</h4>
                     <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">You log in via OAuth. Set up a secure master password to confirm administrative changes.</p>
                   </div>
-                  <Button onClick={() => setShowSetPassword(true)} className="h-11 px-6 rounded-xl bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all duration-300">
+                  <Button onClick={() => setShowSetPassword(true)} className="h-10 px-5 rounded-xl bg-foreground text-background hover:bg-foreground/90 font-medium text-sm transition-all shadow-xs">
                     Set a Password
                   </Button>
                 </Card>
@@ -819,11 +819,11 @@ const AccountSettingsView = () => {
             <div className="space-y-4 animate-fadeIn" id="instagram-accounts-section">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                    <Instagram className="h-5 w-5" />
+                  <div className="p-2 rounded-xl bg-muted text-foreground border border-border">
+                    <Instagram className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-foreground">IG Accounts</h3>
+                    <h3 className="text-base font-semibold text-foreground">IG Accounts</h3>
                     <p className="text-xs text-muted-foreground">Link and manage the Instagram accounts you wish to automate.</p>
                   </div>
                 </div>
@@ -832,32 +832,32 @@ const AccountSettingsView = () => {
                   size="sm"
                   onClick={fetchIgAccounts}
                   disabled={isLoadingAccounts}
-                  className="rounded-xl h-10 px-4 border border-border hover:bg-muted transition-all flex items-center gap-2 group self-start sm:self-auto shadow-sm"
+                  className="rounded-xl h-9 px-3.5 border border-border bg-background hover:bg-muted transition-all inline-flex items-center gap-2 self-start sm:self-auto shadow-xs"
                 >
-                  <RefreshCw className={cn("h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors", isLoadingAccounts && "animate-spin text-primary")} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground group-hover:text-foreground">Refresh List</span>
+                  <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground transition-colors", isLoadingAccounts && "animate-spin text-primary")} />
+                  <span className="text-xs font-medium text-foreground">Refresh List</span>
                 </Button>
               </div>
 
-              <Card className="overflow-visible border border-content shadow-sm hover:shadow-md transition-shadow duration-300">
-                <div className="p-4 sm:p-6 space-y-6">
+              <Card className="border border-border bg-card rounded-2xl shadow-xs">
+                <div className="p-4 sm:p-6 space-y-5">
                   {isLoadingAccounts ? (
-                    <div className="grid gap-4">
+                    <div className="grid gap-3">
                       {[1, 2].map((i) => (
-                        <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl bg-muted/40 border border-content gap-4">
+                        <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl bg-muted/40 border border-border gap-4">
                           <div className="flex items-center gap-4 w-full">
-                            <Skeleton className="w-12 h-12 rounded-full shrink-0" />
+                            <Skeleton className="w-11 h-11 rounded-full shrink-0" />
                             <div className="space-y-2 flex-1">
-                              <Skeleton className="h-5 w-32" />
+                              <Skeleton className="h-4 w-32" />
                               <Skeleton className="h-3 w-20" />
                             </div>
                           </div>
-                          <Skeleton className="h-9 w-24 rounded-lg shrink-0" />
+                          <Skeleton className="h-8 w-20 rounded-lg shrink-0" />
                         </div>
                       ))}
                     </div>
                   ) : igAccounts && igAccounts.length > 0 ? (
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3">
                       {igAccounts.map((account) => {
                         const accountKey = account.ig_user_id || account.id;
                         const isSelected = activeAccountID === accountKey;
@@ -879,43 +879,36 @@ const AccountSettingsView = () => {
                           <div
                             key={account.id}
                             className={cn(
-                              "group relative overflow-visible rounded-2xl border p-4 transition-all duration-300 bg-card/40 backdrop-blur-sm",
+                              "rounded-xl border p-4 transition-all duration-150 bg-card shadow-xs",
                               isSelected
-                                ? "border-primary/45 shadow-[0_12px_24px_-10px_rgba(131,58,180,0.15)] bg-gradient-to-br from-card to-primary/[0.02]"
+                                ? "border-primary/40 bg-primary/[0.02]"
                                 : "border-border hover:border-primary/20",
-                              !isActive && "opacity-80 bg-neutral-500/[0.02] border-dashed",
-                              isReconnectRequired && "border-red-300 dark:border-red-950 bg-red-500/[0.01]"
+                              !isActive && "opacity-80 border-dashed",
+                              isReconnectRequired && "border-destructive/30 bg-destructive/[0.02]"
                             )}
                           >
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                               {/* Left Side: Avatar + Details */}
-                              <div className="flex items-start gap-4 flex-1 min-w-0">
+                              <div className="flex items-start gap-3.5 flex-1 min-w-0">
                                 <div className="relative shrink-0">
-                                  <div className={cn(
-                                    "rounded-full p-[2px] transition-all duration-300",
-                                    isActive
-                                      ? "bg-gradient-to-tr from-ig-yellow via-ig-pink to-ig-purple"
-                                      : "bg-slate-200 dark:bg-slate-700"
-                                  )}>
-                                    <img
-                                      src={toBrowserPreviewUrl(account.profile_picture_url || '') || '/images/logo.png'}
-                                      alt={account.username}
-                                      className="h-12 w-12 rounded-full border-2 border-card object-cover shadow-sm sm:h-14 sm:w-14"
-                                    />
-                                  </div>
+                                  <img
+                                    src={toBrowserPreviewUrl(account.profile_picture_url || '') || '/images/logo.png'}
+                                    alt={account.username}
+                                    className="h-11 w-11 rounded-full border border-border object-cover shadow-xs"
+                                  />
                                   <span
                                     className={cn(
-                                      "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card shadow-sm",
-                                      isReconnectRequired ? "bg-red-500" : (isActive ? "bg-success" : (isAdminDisabled ? "bg-destructive" : "bg-amber-400"))
+                                      "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card",
+                                      isReconnectRequired ? "bg-destructive" : (isActive ? "bg-emerald-500" : (isAdminDisabled ? "bg-destructive" : "bg-amber-400"))
                                     )}
                                   />
                                 </div>
 
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <h4 className="truncate text-sm sm:text-base font-bold text-foreground">@{account.username}</h4>
+                                    <h4 className="truncate text-sm font-semibold text-foreground">@{account.username}</h4>
                                     {isSelected && (
-                                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                      <span className="rounded-md border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                                         Current
                                       </span>
                                     )}
@@ -926,11 +919,11 @@ const AccountSettingsView = () => {
 
                                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                     <span className={cn(
-                                      "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                                      "inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
                                       isReconnectRequired
-                                        ? "border-red-400/30 bg-red-500/10 text-red-600 dark:text-red-400"
+                                        ? "border-destructive/30 bg-destructive/10 text-destructive"
                                         : isActive
-                                        ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                                         : isAdminDisabled
                                           ? "border-destructive/20 bg-destructive/10 text-destructive"
                                           : "border-amber-400/20 bg-amber-400/10 text-amber-600 dark:text-amber-400"
@@ -938,12 +931,12 @@ const AccountSettingsView = () => {
                                       {displayStatusLabel}
                                     </span>
                                     {account.plan_locked === true && (
-                                      <span className="inline-flex rounded-full border border-amber-400/30 bg-amber-400/5 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                                      <span className="inline-flex rounded-md border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
                                         Plan Limit Locked
                                       </span>
                                     )}
                                     {isReconnectRequired && (
-                                      <span className="inline-flex items-center rounded-full border border-red-400/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-500">
+                                      <span className="inline-flex items-center rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
                                         <AlertTriangle className="mr-1 h-2.5 w-2.5 shrink-0" />
                                         Automations Stopped
                                       </span>
@@ -955,13 +948,13 @@ const AccountSettingsView = () => {
                                           onClick={() => setInactiveInfoCardId((current) => current === account.id ? null : account.id)}
                                           onMouseEnter={() => setInactiveInfoCardId(account.id)}
                                           onMouseLeave={() => setInactiveInfoCardId((current) => current === account.id ? null : current)}
-                                          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:text-primary"
+                                          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:text-foreground"
                                           aria-label="Admin disabled support info"
                                         >
-                                          <Info className="h-3 w-3" />
+                                          <Info className="h-2.5 w-2.5" />
                                         </button>
                                         {inactiveInfoCardId === account.id && (
-                                          <div className="absolute left-1/2 top-[calc(100%+0.5rem)] z-40 w-64 -translate-x-1/2 rounded-xl border border-border bg-card p-3 text-xs font-semibold leading-relaxed text-muted-foreground shadow-xl sm:left-0 sm:translate-x-0">
+                                          <div className="absolute left-1/2 top-[calc(100%+0.5rem)] z-40 w-64 -translate-x-1/2 rounded-xl border border-border bg-card p-3 text-xs font-medium leading-relaxed text-muted-foreground shadow-xl sm:left-0 sm:translate-x-0">
                                             Contact support to solve this issue if you need this Instagram account reactivated.
                                           </div>
                                         )}
@@ -969,8 +962,10 @@ const AccountSettingsView = () => {
                                     )}
                                   </div>
                                 </div>
-                              </div>                              {/* Right Side: Active Status Toggle + Actions */}
-                              <div className="flex items-center justify-between gap-3 w-full md:w-auto md:justify-end shrink-0">
+                              </div>
+
+                              {/* Right Side: Active Status Toggle + Actions */}
+                              <div className="flex items-center justify-between gap-2.5 w-full md:w-auto md:justify-end shrink-0">
                                 {isReconnectRequired ? (
                                   <div className="flex items-center gap-2 flex-1 md:flex-initial">
                                     <Button
@@ -978,7 +973,7 @@ const AccountSettingsView = () => {
                                       size="sm"
                                       onClick={() => handleInstagramLink(account.id)}
                                       disabled={linkingAccountID === account.id}
-                                      className="h-8 px-3.5 transition-all duration-200 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg flex items-center justify-center text-xs font-bold flex-1 md:flex-initial"
+                                      className="h-8 px-3 transition-all bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg flex items-center justify-center text-xs font-medium flex-1 md:flex-initial"
                                     >
                                       {linkingAccountID === account.id ? (
                                         <Loader2 className="mr-1.5 h-3 w-3 animate-spin shrink-0" />
@@ -992,7 +987,7 @@ const AccountSettingsView = () => {
                                       size="sm"
                                       onClick={() => handleVerifyConnection(account.id)}
                                       disabled={isVerifyingConnection === account.id}
-                                      className="h-8 px-2.5 transition-all duration-200 rounded-lg flex items-center justify-center text-xs font-medium text-muted-foreground hover:text-foreground border-border"
+                                      className="h-8 px-2.5 transition-all rounded-lg flex items-center justify-center text-xs font-medium text-muted-foreground hover:text-foreground border-border bg-background"
                                       title="Check if this account's connection is actually working before reconnecting"
                                     >
                                       {isVerifyingConnection === account.id ? (
@@ -1005,8 +1000,8 @@ const AccountSettingsView = () => {
                                   </div>
                                 ) : (
                                   /* Active status mini switch */
-                                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-muted/40 border border-border/50 shrink-0">
-                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Active:</span>
+                                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-muted/30 border border-border shrink-0">
+                                    <span className="text-[11px] font-medium text-muted-foreground">Active</span>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -1021,29 +1016,29 @@ const AccountSettingsView = () => {
                                       role="switch"
                                       aria-checked={isActive}
                                       className={cn(
-                                        "relative inline-flex h-6 w-12 shrink-0 !min-h-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
-                                        isActive ? "bg-success" : "bg-muted"
+                                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
+                                        isActive ? "bg-emerald-500" : "bg-muted-foreground/30"
                                       )}
                                       title={isAdminDisabled ? 'Disabled by administrator.' : undefined}
                                     >
                                       <span className={cn(
-                                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                                        isActive ? "translate-x-6" : "translate-x-0"
+                                        "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-150 ease-in-out",
+                                        isActive ? "translate-x-4" : "translate-x-0"
                                       )} />
                                     </button>
                                   </div>
                                 )}
 
-                                <div className="flex gap-2 flex-1 md:flex-initial">
+                                <div className="flex gap-1.5 flex-1 md:flex-initial">
                                   {!isReconnectRequired && (
                                     <Button
                                       variant="outline"
                                       size="sm"
                                       onClick={() => setActiveAccountID(accountKey)}
                                       disabled={isSelected}
-                                      className="h-8 border-border px-3 text-foreground transition-all duration-200 hover:border-primary/50 hover:bg-primary/10 hover:text-primary rounded-lg text-xs font-bold flex-1 md:flex-initial"
+                                      className="h-8 border-border bg-background px-2.5 text-foreground transition-all hover:bg-muted rounded-lg text-xs font-medium flex-1 md:flex-initial"
                                     >
-                                      <ArrowRightLeft className="mr-1.5 h-3 w-3 shrink-0" />
+                                      <ArrowRightLeft className="mr-1.5 h-3 w-3 shrink-0 text-muted-foreground" />
                                       <span>Switch</span>
                                     </Button>
                                   )}
@@ -1054,7 +1049,7 @@ const AccountSettingsView = () => {
                                       size="sm"
                                       onClick={() => setShowDeleteIGConfirm(account.id)}
                                       disabled={isDeletingIG === account.id}
-                                      className="h-8 border-0 bg-destructive-muted/50 px-3 font-bold text-destructive hover:bg-destructive-muted rounded-lg text-xs flex-1 md:flex-initial"
+                                      className="h-8 border-0 bg-destructive/10 px-2.5 font-medium text-destructive hover:bg-destructive/20 rounded-lg text-xs flex-1 md:flex-initial"
                                     >
                                       {isDeletingIG === account.id ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin shrink-0" /> : <Trash2 className="mr-1.5 h-3 w-3 shrink-0" />}
                                       <span>Delete</span>
@@ -1068,33 +1063,33 @@ const AccountSettingsView = () => {
                       })}
                     </div>
                   ) : (
-                    <div className="text-center py-8 space-y-4">
-                      <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
-                        <Instagram className="h-8 w-8 text-muted-foreground" />
+                    <div className="text-center py-8 space-y-3">
+                      <div className="w-12 h-12 bg-muted border border-border rounded-xl flex items-center justify-center mx-auto">
+                        <Instagram className="h-6 w-6 text-muted-foreground" />
                       </div>
-                      <p className="text-muted-foreground">No Instagram accounts connected yet.</p>
+                      <p className="text-xs text-muted-foreground">No Instagram accounts connected yet.</p>
                     </div>
                   )}
 
-                  <div className="pt-6 border-t border-border">
+                  <div className="pt-5 border-t border-border">
                     <InlineMessage section="instagram" />
-                    <p className="mt-4 text-xs font-semibold text-muted-foreground">
+                    <p className="text-xs font-medium text-muted-foreground">
                       {igAccounts.length} Instagram account{igAccounts.length === 1 ? '' : 's'} linked. Unlimited account links allowed.
                     </p>
                     <Button
                       onClick={() => handleInstagramLink('new')}
                       disabled={linkingAccountID === 'new'}
-                      className="w-full mt-4 h-11 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs transition-all duration-200 rounded-xl border-0 font-semibold flex items-center justify-center gap-2"
+                      className="w-full mt-3 h-10 bg-foreground text-background hover:bg-foreground/90 shadow-xs transition-all duration-150 rounded-xl font-medium flex items-center justify-center gap-2 text-sm"
                     >
                       {linkingAccountID === 'new' ? (
                         <Loader2 className="h-4 w-4 animate-spin shrink-0" />
                       ) : (
                         <>
                           <Instagram className="h-4 w-4 shrink-0" />
-                          <Plus className="h-4 w-4 opacity-90 shrink-0" />
+                          <Plus className="h-3.5 w-3.5 opacity-90 shrink-0" />
                         </>
                       )}
-                      <span className="text-sm font-semibold">
+                      <span>
                         {linkingAccountID === 'new'
                           ? 'Connecting to Instagram...'
                           : 'Add Instagram Account'}
@@ -1110,26 +1105,26 @@ const AccountSettingsView = () => {
           {activeTab === 'danger' && (
             <div className="space-y-4 animate-fadeIn">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-destructive/10 text-destructive">
-                  <AlertTriangle className="h-5 w-5" />
+                <div className="p-2 rounded-xl bg-destructive/10 text-destructive border border-destructive/20">
+                  <AlertTriangle className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-destructive">Danger Zone</h3>
+                  <h3 className="text-base font-semibold text-destructive">Danger Zone</h3>
                   <p className="text-xs text-muted-foreground">Irreversible administrative actions for your account.</p>
                 </div>
               </div>
 
-              <Card className="border-2 border-destructive/20 bg-destructive/5 hover:border-destructive/30 transition-all duration-300">
-                <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <Card className="border border-destructive/30 bg-destructive/[0.03] rounded-2xl shadow-xs">
+                <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
-                    <h4 className="font-bold text-destructive">Delete My Account</h4>
+                    <h4 className="text-sm font-semibold text-destructive">Delete My Account</h4>
                     <p className="text-xs text-muted-foreground max-w-md">Permanently wipe your account, dashboard access, linking tokens, and all automated DM actions.</p>
                   </div>
                   <div className="flex flex-col gap-2 shrink-0">
                     <Button
                       variant="destructive"
                       onClick={() => setShowDeleteModal(true)}
-                      className="bg-destructive hover:bg-destructive/90 h-12 px-6 rounded-xl border-0 shadow-md shadow-destructive/15 hover:shadow-lg transition-all duration-200 font-semibold"
+                      className="bg-destructive hover:bg-destructive/90 h-10 px-5 rounded-xl border-0 shadow-xs transition-all font-medium text-sm"
                     >
                       Delete Account
                     </Button>
@@ -1142,30 +1137,33 @@ const AccountSettingsView = () => {
         </div>
       </div>
 
-      {/* PORTALS & MODALS (Kept completely functional, with responsive padding) */}
+      {/* PORTALS & MODALS */}
       {showDeleteModal && typeof document !== 'undefined' && createPortal(
         <div className={sectionModalClass}>
-          <Card className="w-full max-w-md p-5 sm:p-8 shadow-2xl border border-border bg-card rounded-3xl relative">
+          <Card className="w-full max-w-md p-6 shadow-xl border border-border bg-card rounded-2xl relative">
             <button onClick={closeDeleteModal} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5" />
             </button>
-            <h3 className="text-xl sm:text-2xl font-bold text-destructive mb-2 text-center">Delete Your Account?</h3>
-            <div className="p-4 bg-destructive-muted/45 rounded-2xl border border-destructive/25 mb-6">
-              <p className="text-sm text-destructive font-bold mb-2">Warning: Irreversible Actions</p>
-              <ul className="text-xs text-destructive/80 space-y-2 text-left list-disc list-inside font-medium leading-relaxed">
+            <h3 className="text-lg font-semibold text-destructive mb-1 text-center">Delete Your Account?</h3>
+            <p className="text-muted-foreground mb-4 text-center text-xs">
+              This action cannot be undone. Please read the consequences below.
+            </p>
+            <div className="p-4 bg-destructive/10 rounded-xl border border-destructive/20 mb-5">
+              <p className="text-xs text-destructive font-semibold mb-2">Warning: Irreversible Actions</p>
+              <ul className="text-xs text-destructive/90 space-y-1.5 text-left list-disc list-inside font-normal leading-relaxed">
                 <li>All active automations will be stopped immediately.</li>
                 <li>Your automation configurations, history, and analytics will be permanently erased.</li>
                 <li>You will lose all access to the dashboard and its features.</li>
                 <li>All linked Instagram accounts will be disconnected.</li>
               </ul>
             </div>
-            <p className="text-muted-foreground mb-6 text-center text-sm font-semibold">
+            <p className="text-muted-foreground mb-4 text-center text-xs">
               Please enter your password to confirm account deletion.
             </p>
 
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Password</label>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Password</label>
                 <Input
                   type="password"
                   value={deletePassword}
@@ -1173,26 +1171,26 @@ const AccountSettingsView = () => {
                     setDeletePassword(e.target.value);
                     if (deleteModalError) setDeleteModalError('');
                   }}
-                  className="h-12 rounded-xl text-center text-lg border bg-muted focus:border-destructive focus:ring-2 focus:ring-destructive/20 transition-all text-black dark:text-white"
+                  className="h-10 rounded-xl text-center text-sm border bg-background focus:border-destructive transition-all"
                   placeholder="Enter your password"
                   error={deleteModalError || undefined}
                 />
               </div>
 
-              <div className="flex flex-col gap-3 pt-2">
+              <div className="flex flex-col gap-2 pt-2">
                 <Button
-                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground h-12 rounded-xl text-lg font-bold"
+                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground h-10 rounded-xl text-sm font-medium"
                   onClick={handleDeleteAccount}
                   disabled={isDeleting || !deletePassword}
                 >
-                  {isDeleting ? <Loader2 className="h-5 w-5 animate-spin mr-2 shrink-0" /> : null}
+                  {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null}
                   Confirm Delete
                 </Button>
                 <Button
                   variant="ghost"
                   onClick={closeDeleteModal}
                   disabled={isDeleting}
-                  className="h-12 text-muted-foreground hover:text-foreground"
+                  className="h-10 text-muted-foreground hover:text-foreground text-sm font-medium"
                 >
                   Cancel
                 </Button>
@@ -1206,24 +1204,23 @@ const AccountSettingsView = () => {
       {/* Unlink Confirmation Modal */}
       {showUnlinkConfirm && typeof document !== 'undefined' && createPortal(
         <div className={sectionModalClass}>
-          <Card className="w-full max-w-md p-5 sm:p-8 shadow-2xl border border-border bg-card rounded-3xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-destructive"></div>
+          <Card className="w-full max-w-md p-6 shadow-xl border border-border bg-card rounded-2xl relative">
             <button onClick={() => setShowUnlinkConfirm(null)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5" />
             </button>
 
             <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 bg-destructive-muted/40 rounded-full flex items-center justify-center">
-                <Unlink className="h-8 w-8 text-destructive" />
+              <div className="w-12 h-12 bg-destructive/10 border border-destructive/20 rounded-xl flex items-center justify-center">
+                <Unlink className="h-5 w-5 text-destructive" />
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-xl sm:text-2xl font-bold text-foreground">Turn Active Off?</h3>
-                <div className="p-4 bg-warning-muted/40 rounded-2xl border border-warning/20">
-                  <p className="text-sm text-warning font-medium">
+                <h3 className="text-lg font-semibold text-foreground">Turn Active Off?</h3>
+                <div className="p-4 bg-amber-500/10 rounded-xl border border-amber-500/20 text-left">
+                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
                     Critical Consequence:
                   </p>
-                  <ul className="text-xs text-warning/80 mt-2 space-y-1 text-left list-disc list-inside">
+                  <ul className="text-xs text-amber-700/90 dark:text-amber-300/90 mt-1.5 space-y-1 list-disc list-inside">
                     <li>All active automations for this account will stop immediately.</li>
                     <li>Automation sections will stay locked until you turn this account back on.</li>
                     <li>Your linked account data and analytics view will still remain available.</li>
@@ -1231,9 +1228,9 @@ const AccountSettingsView = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col w-full gap-3 pt-4">
+              <div className="flex flex-col w-full gap-2 pt-2">
                 <Button
-                  className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground h-12 rounded-xl font-bold shadow-lg shadow-destructive/20"
+                  className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground h-10 rounded-xl font-medium text-sm shadow-xs"
                   onClick={async () => {
                     const id = showUnlinkConfirm;
                     setShowUnlinkConfirm(null);
@@ -1246,7 +1243,7 @@ const AccountSettingsView = () => {
                 <Button
                   variant="ghost"
                   onClick={() => setShowUnlinkConfirm(null)}
-                  className="w-full h-12 text-muted-foreground hover:text-foreground"
+                  className="w-full h-10 text-muted-foreground hover:text-foreground text-sm font-medium"
                 >
                   Keep Active
                 </Button>
@@ -1260,24 +1257,23 @@ const AccountSettingsView = () => {
       {/* Permanent IG Delete Confirmation Modal */}
       {showDeleteIGConfirm && typeof document !== 'undefined' && createPortal(
         <div className={sectionModalClass}>
-          <Card className="w-full max-w-md p-5 sm:p-8 shadow-2xl border border-border bg-card rounded-3xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-destructive"></div>
+          <Card className="w-full max-w-md p-6 shadow-xl border border-border bg-card rounded-2xl relative">
             <button onClick={() => { setShowDeleteIGConfirm(null); setDeleteIGPassword(''); }} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5" />
             </button>
 
             <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 bg-destructive-muted/40 rounded-full flex items-center justify-center">
-                <Trash2 className="h-8 w-8 text-destructive" />
+              <div className="w-12 h-12 bg-destructive/10 border border-destructive/20 rounded-xl flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-destructive" />
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-xl sm:text-2xl font-bold text-foreground">Delete Instagram Account?</h3>
-                <div className="p-4 bg-destructive-muted/40 rounded-2xl border border-destructive/20">
-                  <p className="text-sm text-destructive font-bold mb-2 text-left">
+                <h3 className="text-lg font-semibold text-foreground">Delete Instagram Account?</h3>
+                <div className="p-4 bg-destructive/10 rounded-xl border border-destructive/20 text-left">
+                  <p className="text-xs text-destructive font-medium mb-1.5">
                     Irreversible Warning:
                   </p>
-                  <ul className="text-xs text-destructive/80 space-y-2 text-left list-disc list-inside font-medium leading-relaxed">
+                  <ul className="text-xs text-destructive/90 space-y-1.5 list-disc list-inside font-normal leading-relaxed">
                     <li>All analytics data for this account will be wiped.</li>
                     <li>Automation history and logs will be permanently deleted.</li>
                     <li>Related automation records linked to this Instagram account will be removed.</li>
@@ -1286,21 +1282,21 @@ const AccountSettingsView = () => {
                 </div>
               </div>
 
-              <div className="w-full space-y-4 pt-2">
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">Verify with your password to continue</p>
+              <div className="w-full space-y-3 pt-1">
+                <div className="space-y-1.5 text-left">
+                  <label className="text-xs text-muted-foreground font-medium">Verify with your password to continue</label>
                   <Input
                     type="password"
                     value={deleteIGPassword}
                     onChange={(e) => setDeleteIGPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="h-11 rounded-xl text-center"
+                    className="h-10 rounded-xl text-center text-sm"
                   />
                 </div>
 
-                <div className="flex flex-col w-full gap-3">
+                <div className="flex flex-col w-full gap-2 pt-1">
                   <Button
-                    className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground h-12 rounded-xl font-bold shadow-lg shadow-destructive/20"
+                    className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground h-10 rounded-xl font-medium text-sm shadow-xs"
                     disabled={!deleteIGPassword || isDeletingIG !== null}
                     onClick={async () => {
                       const id = showDeleteIGConfirm;
@@ -1314,7 +1310,7 @@ const AccountSettingsView = () => {
                   <Button
                     variant="ghost"
                     onClick={() => { setShowDeleteIGConfirm(null); setDeleteIGPassword(''); }}
-                    className="w-full h-12 text-muted-foreground hover:text-foreground"
+                    className="w-full h-10 text-muted-foreground hover:text-foreground text-sm font-medium"
                   >
                     Keep Record
                   </Button>
@@ -1329,26 +1325,25 @@ const AccountSettingsView = () => {
       {/* Set Password Modal */}
       {showSetPassword && typeof document !== 'undefined' && createPortal(
         <div className={sectionModalClass}>
-          <Card className="w-full max-w-md p-5 sm:p-8 shadow-2xl border border-border bg-card rounded-3xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-primary"></div>
+          <Card className="w-full max-w-md p-6 shadow-xl border border-border bg-card rounded-2xl relative">
             <button onClick={() => { setShowSetPassword(false); setNewPassword(''); setConfirmPassword(''); }} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5" />
             </button>
 
             <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                <LinkIcon className="h-8 w-8 text-primary" />
+              <div className="w-12 h-12 bg-muted border border-border rounded-xl flex items-center justify-center">
+                <LinkIcon className="h-5 w-5 text-foreground" />
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-xl sm:text-2xl font-bold text-foreground">Set a Password</h3>
-                <p className="text-sm text-muted-foreground">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold text-foreground">Set a Password</h3>
+                <p className="text-xs text-muted-foreground">
                   Protect your account by adding a password for sensitive changes.
                 </p>
               </div>
 
-              <form onSubmit={handleSetPasswordSubmit} className="w-full space-y-6 pt-2">
-                <div className="text-left">
+              <form onSubmit={handleSetPasswordSubmit} className="w-full space-y-4 pt-1">
+                <div className="text-left space-y-1.5">
                   <PasswordInput
                     label="Choose Password"
                     value={newPassword}
@@ -1358,7 +1353,7 @@ const AccountSettingsView = () => {
                   <PasswordStrengthIndicator password={newPassword} />
                 </div>
 
-                <div className="text-left">
+                <div className="text-left space-y-1.5">
                   <PasswordInput
                     label="Confirm Password"
                     value={confirmPassword}
@@ -1369,20 +1364,20 @@ const AccountSettingsView = () => {
                   />
                 </div>
 
-                <div className="flex flex-col w-full gap-3">
+                <div className="flex flex-col w-full gap-2 pt-2">
                   <Button
                     type="submit"
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 rounded-xl font-bold shadow-lg shadow-primary/20"
+                    className="w-full bg-foreground text-background hover:bg-foreground/90 h-10 rounded-xl font-medium text-sm shadow-xs"
                     disabled={!confirmPassword || confirmPassword !== newPassword || isSubmittingSetPassword}
                   >
-                    {isSubmittingSetPassword ? <Loader2 className="h-5 w-5 animate-spin mr-2 shrink-0" /> : null}
+                    {isSubmittingSetPassword ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null}
                     Secure My Account
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={() => { setShowSetPassword(false); setNewPassword(''); setConfirmPassword(''); }}
-                    className="w-full h-12 text-muted-foreground hover:text-foreground"
+                    className="w-full h-10 text-muted-foreground hover:text-foreground text-sm font-medium"
                   >
                     Maybe Later
                   </Button>
@@ -1397,40 +1392,39 @@ const AccountSettingsView = () => {
       {/* Change Email Modal */}
       {showEmailModal && typeof document !== 'undefined' && createPortal(
         <div className={sectionModalClass}>
-          <Card className="w-full max-w-md p-5 sm:p-8 shadow-2xl border border-border bg-card rounded-3xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-primary"></div>
+          <Card className="w-full max-w-md p-6 shadow-xl border border-border bg-card rounded-2xl relative">
             <button onClick={() => { setShowEmailModal(false); setNewEmail(''); setEmailChangePassword(''); }} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5" />
             </button>
 
             <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                <User className="h-8 w-8 text-primary" />
+              <div className="w-12 h-12 bg-muted border border-border rounded-xl flex items-center justify-center">
+                <User className="h-5 w-5 text-foreground" />
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-xl sm:text-2xl font-bold text-foreground">Change Email</h3>
-                <p className="text-sm text-muted-foreground">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold text-foreground">Change Email</h3>
+                <p className="text-xs text-muted-foreground">
                   Enter your new email address and password to request a secure email change.
                 </p>
               </div>
 
-              <form onSubmit={handleEmailChangeSubmit} className="w-full space-y-6 pt-2">
-                <div className="text-left space-y-2">
-                  <label htmlFor="newEmailInput" className="text-sm font-semibold text-foreground">New Email Address</label>
+              <form onSubmit={handleEmailChangeSubmit} className="w-full space-y-4 pt-1">
+                <div className="text-left space-y-1.5">
+                  <label htmlFor="newEmailInput" className="text-xs font-medium text-foreground">New Email Address</label>
                   <Input
                     id="newEmailInput"
                     type="email"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     placeholder="new-email@example.com"
-                    className="h-12 rounded-xl"
+                    className="h-10 rounded-xl text-sm"
                     required
                   />
                 </div>
 
                 {hasPassword && (
-                  <div className="text-left">
+                  <div className="text-left space-y-1.5">
                     <PasswordInput
                       label="Current Password"
                       id="emailChangePassword"
@@ -1441,20 +1435,20 @@ const AccountSettingsView = () => {
                   </div>
                 )}
 
-                <div className="flex flex-col w-full gap-3">
+                <div className="flex flex-col w-full gap-2 pt-2">
                   <Button
                     type="submit"
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 rounded-xl font-bold shadow-lg shadow-primary/20"
+                    className="w-full bg-foreground text-background hover:bg-foreground/90 h-10 rounded-xl font-medium text-sm shadow-xs"
                     disabled={!newEmail || (hasPassword && !emailChangePassword) || isRequestingEmailChange}
                   >
-                    {isRequestingEmailChange ? <Loader2 className="h-5 w-5 animate-spin mr-2 shrink-0" /> : null}
+                    {isRequestingEmailChange ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null}
                     Send Verification Email
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={() => { setShowEmailModal(false); setNewEmail(''); setEmailChangePassword(''); }}
-                    className="w-full h-12 text-muted-foreground hover:text-foreground"
+                    className="w-full h-10 text-muted-foreground hover:text-foreground text-sm font-medium"
                   >
                     Cancel
                   </Button>
