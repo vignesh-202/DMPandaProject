@@ -492,42 +492,76 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                 permalink: '',
                 caption: automation?.title || (liveIsActive ? 'Instagram Live is active' : 'Live automation'),
                 timestamp: new Date().toISOString(),
-                ...(automation?.$id ? { automation_id: automation.$id } : {})
+                ...(automation?.$id ? { automation_id: automation.$id } : (automation?.id ? { automation_id: automation.id } : {}))
             } as MediaItem);
         };
 
+        const handleToggleLiveSlot = async (automation: any) => {
+            const autoId = automation?.$id || automation?.id;
+            if (!autoId) return;
+            const newStatus = automation.is_active === false;
+
+            setLiveAutomations(prev => prev.map(a =>
+                (a.$id === autoId || a.id === autoId) ? { ...a, is_active: newStatus } : a
+            ));
+
+            try {
+                const baseUrl = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram`;
+                const res = await authenticatedFetch(`${baseUrl}/automations/${autoId}?type=live`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: newStatus })
+                });
+                if (!res.ok) throw new Error('Failed to toggle live automation');
+            } catch (err) {
+                setLiveAutomations(prev => prev.map(a =>
+                    (a.$id === autoId || a.id === autoId) ? { ...a, is_active: !newStatus } : a
+                ));
+            }
+        };
+
+        const activeCount = liveAutomations.filter(a => a.is_active !== false).length;
+
         return (
-            <div className="flex h-full min-h-[420px] flex-col rounded-[2rem] border border-border bg-card/90 backdrop-blur-sm p-5 shadow-sm transition-all duration-300 dark:bg-black/60 sm:min-h-[500px] sm:p-7">
+            <div className="bg-card text-card-foreground rounded-2xl sm:rounded-3xl border border-border/80 p-5 sm:p-7 flex flex-col transition-all">
                 {/* Header */}
-                <div className="mb-6 flex flex-col items-start justify-between gap-4 md:mb-8 md:flex-row md:items-center">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border/60">
                     <div>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">{title}</h2>
-                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
-                                liveIsActive
-                                    ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-sm shadow-pink-500/25 animate-pulse'
-                                    : 'bg-muted text-muted-foreground border border-border/80'
-                            }`}>
-                                <span className={`w-2 h-2 rounded-full ${liveIsActive ? 'bg-white' : 'bg-muted-foreground'}`} />
-                                {liveIsActive ? 'LIVE NOW' : 'STREAM OFFLINE'}
-                            </span>
+                            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
+                            {liveIsActive ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                    </span>
+                                    Live Now
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border/60">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+                                    Stream Offline
+                                </span>
+                            )}
                         </div>
-                        <p className="text-xs font-normal text-muted-foreground mt-1.5 flex items-center gap-1.5">
-                            {isLoadingStats ? 'Checking live broadcast status...' : liveIsActive ? 'Your Instagram Live is currently active — automations are responding to comments.' : 'Pre-configure your automations now. They will engage viewers automatically once your next live stream starts.'}
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+                            {liveIsActive
+                                ? 'Your Instagram Live is broadcasting now. Automations below are actively listening and responding to viewer comments.'
+                                : 'Set up automatic responses that engage your audience the moment you go live on Instagram.'}
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 items-center">
+                    <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
                         {activeAccountID && (
                             <button
                                 onClick={handleRefresh}
                                 disabled={cooldown > 0 || isRefreshing}
-                                className="group relative h-9 px-4 bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground rounded-xl transition-all border border-border disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xs text-xs font-semibold"
+                                className="inline-flex items-center gap-2 h-9 px-3.5 rounded-xl border border-border bg-background hover:bg-muted/70 text-foreground text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title={cooldown > 0 ? `Rate limit active: Wait ${cooldown} seconds` : 'Refresh live status and automations'}
                             >
-                                <RefreshCcw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
+                                <RefreshCcw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-muted-foreground' : ''}`} />
                                 {cooldown > 0 ? (
-                                    <span className="tabular-nums">{cooldown}s</span>
+                                    <span className="tabular-nums">Wait {cooldown}s</span>
                                 ) : (
                                     <span>Refresh Status</span>
                                 )}
@@ -536,183 +570,184 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                     </div>
                 </div>
 
-                {/* Status & Capabilities Grid */}
-                <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-                    {/* Live Stream Readiness Card */}
-                    <Card className={`relative overflow-hidden rounded-[2rem] border p-6 transition-all duration-300 ${
-                        liveIsActive
-                            ? 'border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-card to-card shadow-lg shadow-emerald-500/5'
-                            : 'border-border bg-card/80 shadow-xs'
-                    }`}>
-                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D]" />
-                        <div className="flex items-start gap-4">
-                            <div className={`mt-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl transition-all ${
-                                liveIsActive
-                                    ? 'bg-gradient-to-tr from-red-500 to-pink-600 text-white shadow-lg shadow-pink-500/30 ring-4 ring-pink-500/20'
-                                    : 'bg-muted/80 text-muted-foreground border border-border'
-                            }`}>
-                                <Radio className={`h-7 w-7 ${liveIsActive ? 'animate-pulse' : ''}`} />
+                {/* Stream Architecture Overview */}
+                <div className="mt-6 rounded-2xl border border-border/70 bg-muted/20 p-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:divide-x md:divide-border/60">
+                        <div className="flex items-start gap-3.5">
+                            <div className="h-9 w-9 shrink-0 rounded-xl border border-border/80 bg-background flex items-center justify-center text-foreground">
+                                <Radio className={`w-4 h-4 ${liveIsActive ? 'text-emerald-500 animate-pulse' : 'text-muted-foreground'}`} />
                             </div>
-                            <div className="space-y-3 min-w-0">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] bg-clip-text text-transparent">
-                                        Broadcast Readiness
-                                    </p>
-                                    <h3 className="mt-1.5 text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-                                        {isLoadingStats ? 'Scanning Instagram Live...' : liveIsActive ? 'Stream active & responding live' : 'Ready for your next stream'}
-                                    </h3>
-                                    <p className="mt-1.5 text-xs sm:text-sm font-normal text-muted-foreground leading-relaxed">
-                                        {liveIsActive
-                                            ? 'Your broadcast is active! Live automations instantly trigger DMs and optional public comments when viewers comment during this session.'
-                                            : 'Configure your reply flows ahead of time. When you tap "Go Live" in Instagram, DM Panda automatically detects your stream and starts replying.'}
-                                    </p>
-                                </div>
-                                <div className="flex flex-wrap gap-2 pt-1">
-                                    <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">1 Universal Trigger</span>
-                                    <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">Up to 5 Keywords</span>
-                                    <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">Public Reply Support</span>
-                                </div>
+                            <div>
+                                <h3 className="text-xs font-semibold text-foreground">Automatic broadcast detection</h3>
+                                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                                    {liveIsActive
+                                        ? 'Broadcast active! Comments left by viewers trigger direct messages and optional public replies in real time.'
+                                        : 'No manual start needed. When you go live in Instagram, DM Panda detects the session and responds to incoming comments.'}
+                                </p>
                             </div>
                         </div>
-                    </Card>
 
-                    {/* Trigger Modes Card */}
-                    <Card className="rounded-[2rem] border border-border bg-card/80 p-6 flex flex-col justify-between">
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] bg-clip-text text-transparent">
-                                Trigger Mechanisms
-                            </p>
-                            <div className="mt-3.5 space-y-3">
-                                <div className="rounded-2xl border border-border/80 bg-card p-3.5 shadow-2xs hover:border-primary/40 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-500 to-indigo-600 text-white shadow-sm shadow-blue-500/25">
-                                            <MessageSquare className="h-5 w-5" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-bold text-foreground">Keyword Replies</p>
-                                            <p className="text-[11px] font-normal text-muted-foreground truncate">Matches specific words (e.g. LINK, PROMO) in live comments.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="rounded-2xl border border-border/80 bg-card p-3.5 shadow-2xs hover:border-primary/40 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-500 to-pink-600 text-white shadow-sm shadow-pink-500/25">
-                                            <Reply className="h-5 w-5" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-bold text-foreground">All Comments Mode</p>
-                                            <p className="text-[11px] font-normal text-muted-foreground truncate">Replies universally to every viewer comment in your live stream.</p>
-                                        </div>
-                                    </div>
-                                </div>
+                        <div className="flex items-start gap-3.5 pt-4 md:pt-0 md:pl-5 border-t md:border-t-0 border-border/60">
+                            <div className="h-9 w-9 shrink-0 rounded-xl border border-border/80 bg-background flex items-center justify-center text-foreground">
+                                <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                            <div>
+                                <h3 className="text-xs font-semibold text-foreground">Supported trigger modes</h3>
+                                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                                    Configure the <strong>Universal</strong> slot to reply to every viewer, or use up to 5 <strong>Keyword</strong> slots to deliver targeted links and offers.
+                                </p>
                             </div>
                         </div>
-                    </Card>
+                    </div>
                 </div>
 
                 {/* Configured Slots Section */}
-                <div className="mt-6 flex-1 rounded-[2rem] border border-border bg-card/80 p-6 sm:p-7 shadow-xs">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-5">
-                        <div>
-                            <div className="flex items-center gap-2.5">
-                                <h3 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">Live Automation Slots</h3>
-                                <span className="rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-[11px] font-bold">
-                                    {liveAutomations.length}/2 Active
-                                </span>
-                            </div>
-                            <p className="text-xs font-normal text-muted-foreground mt-1">
-                                Customize your dedicated slots. Changes persist automatically and activate whenever live streaming.
-                            </p>
+                <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-border/60">
+                    <div>
+                        <div className="flex items-center gap-2.5">
+                            <h3 className="text-base font-semibold text-foreground">Configured Slots</h3>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted text-foreground border border-border/60">
+                                {activeCount} active · {liveAutomations.length} configured
+                            </span>
                         </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Slots are evaluated whenever comments are received during your live broadcast.
+                        </p>
                     </div>
+                </div>
 
-                    {loadingLiveAutomations ? (
-                        <div className="flex min-h-[220px] flex-col items-center justify-center gap-3">
-                            <Loader2 className="h-7 w-7 animate-spin text-primary" />
-                            <p className="text-xs font-medium text-muted-foreground">Loading live automation slots...</p>
-                        </div>
-                    ) : (
-                        <div className="mt-6 grid gap-5 md:grid-cols-2">
-                            {liveAutomationSlots.map((slot) => {
-                                const automation = slot.automation;
-                                const keywordList = Array.isArray(automation?.keyword_list) ? automation.keyword_list : [];
-                                const isAllComments = slot.slotLabel === 'All Comments';
-                                const hasCommentReply = Boolean(String(automation?.comment_reply || '').trim());
+                {loadingLiveAutomations ? (
+                    <div className="flex min-h-[220px] flex-col items-center justify-center gap-3">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        <p className="text-xs font-medium text-muted-foreground">Loading live automation slots...</p>
+                    </div>
+                ) : (
+                    <div className="mt-6 grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                        {liveAutomationSlots.map((slot, index) => {
+                            const automation = slot.automation;
+                            const keywordList = Array.isArray(automation?.keyword_list) ? automation.keyword_list : [];
+                            const isAllComments = slot.slotLabel === 'All Comments';
+                            const hasCommentReply = Boolean(String(automation?.comment_reply || '').trim());
+                            const isConfigured = Boolean(automation);
+                            const isActive = automation?.is_active !== false;
 
-                                return (
-                                    <Card
-                                        key={slot.slotId}
-                                        className={`relative flex flex-col justify-between rounded-2xl border p-5 sm:p-6 transition-all duration-300 hover:shadow-md ${
-                                            automation
-                                                ? 'border-border bg-card shadow-xs'
-                                                : 'border-dashed border-border bg-muted/20 hover:border-primary/40'
-                                        }`}
-                                    >
-                                        <div>
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div>
-                                                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">
-                                                        {slot.slotLabel}
+                            return (
+                                <div
+                                    key={slot.slotId}
+                                    className={`flex flex-col justify-between rounded-2xl border p-5 transition-all duration-200 ${
+                                        isConfigured
+                                            ? 'border-border/80 bg-card hover:border-foreground/25 hover:shadow-sm'
+                                            : 'border-dashed border-border/90 bg-muted/10 hover:border-border hover:bg-muted/20'
+                                    }`}
+                                >
+                                    <div>
+                                        {/* Slot Top Bar */}
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <span className="inline-block text-[11px] font-medium text-muted-foreground">
+                                                    {isAllComments ? 'Universal Trigger' : `Keyword Slot ${index}`}
+                                                </span>
+                                                <h4 className="mt-1 text-sm font-semibold text-foreground truncate">
+                                                    {automation?.title || (isAllComments ? 'All Comments Mode' : `Keyword Automation ${index}`)}
+                                                </h4>
+                                            </div>
+
+                                            {isConfigured ? (
+                                                <div 
+                                                    className="flex items-center gap-1.5 px-2 py-1 bg-muted/50 border border-border/70 rounded-lg shrink-0"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <ToggleSwitch
+                                                        isChecked={isActive}
+                                                        onChange={() => handleToggleLiveSlot(automation)}
+                                                        variant="plain"
+                                                        size="sm"
+                                                    />
+                                                    <span className="text-[10px] font-medium text-muted-foreground min-w-[32px] text-center">
+                                                        {isActive ? 'Active' : 'Paused'}
                                                     </span>
-                                                    <h4 className="mt-1 text-base sm:text-lg font-bold text-foreground">
-                                                        {automation?.title || slot.slotHint}
-                                                    </h4>
                                                 </div>
-                                                <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                                                    automation
-                                                        ? (automation.is_active !== false
-                                                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20')
-                                                        : 'bg-muted text-muted-foreground border border-border'
-                                                }`}>
-                                                    {automation ? (automation.is_active !== false ? 'Active' : 'Paused') : 'Empty Slot'}
+                                            ) : (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-muted-foreground border border-border/50 shrink-0">
+                                                    Available
                                                 </span>
-                                            </div>
-
-                                            <div className="mt-4 flex flex-wrap gap-2">
-                                                {!automation ? (
-                                                    <span className="rounded-xl border border-dashed border-border bg-card/60 px-3 py-1.5 text-[11px] font-medium text-muted-foreground">
-                                                        Slot available for configuration
-                                                    </span>
-                                                ) : isAllComments ? (
-                                                    <span className="rounded-xl border border-purple-500/20 bg-purple-500/10 px-3 py-1.5 text-[11px] font-semibold text-purple-600 dark:text-purple-300 flex items-center gap-1.5">
-                                                        <Reply className="w-3.5 h-3.5" /> Universal: Every live comment triggers reply
-                                                    </span>
-                                                ) : keywordList.length > 0 ? (
-                                                    keywordList.map((keyword: string) => (
-                                                        <span key={keyword} className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold text-blue-600 dark:text-blue-300">
-                                                            {keyword}
-                                                        </span>
-                                                    ))
-                                                ) : (
-                                                    <span className="rounded-xl border border-border bg-muted/40 px-3 py-1 text-[11px] font-medium text-muted-foreground">
-                                                        No keywords defined yet
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                                <span className="rounded-lg border border-border bg-muted/30 px-2.5 py-1">
-                                                    {automation ? (hasCommentReply ? 'Comment Reply: On' : 'DM Only') : 'Not Configured'}
-                                                </span>
-                                                <span className="rounded-lg border border-border bg-muted/30 px-2.5 py-1">
-                                                    {automation ? (keywordList.length > 0 ? `${keywordList.length}/5 Keywords` : 'All-Comments Mode') : (isAllComments ? 'Universal Slot' : 'Keyword Slot')}
-                                                </span>
-                                            </div>
+                                            )}
                                         </div>
 
-                                        <button
-                                            onClick={() => openLiveEditor(automation || undefined)}
-                                            className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-pink-500/20 transition-all hover:opacity-95 active:scale-[0.98]"
-                                        >
-                                            {automation ? 'Manage Live Automation' : 'Set Up Live Automation'}
-                                        </button>
-                                    </Card>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
+                                        {/* Slot Content */}
+                                        <div className="mt-3.5">
+                                            {!isConfigured ? (
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    {isAllComments 
+                                                        ? 'Send an automated DM and optional public reply to every viewer who comments on your stream.'
+                                                        : 'Target specific words like LINK, INFO, or PROMO to deliver instant automated responses.'}
+                                                </p>
+                                            ) : isAllComments ? (
+                                                <div className="space-y-1.5">
+                                                    <div className="flex items-center gap-1.5 text-xs text-foreground font-medium">
+                                                        <Reply className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                                        <span>Universal responder</span>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                                        Replies to every live comment regardless of keywords.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <div className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                                                        {keywordList.length > 0 ? 'Trigger keywords:' : 'No keywords set'}
+                                                    </div>
+                                                    {keywordList.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {keywordList.map((kw: string) => (
+                                                                <span key={kw} className="font-mono text-xs px-2 py-0.5 rounded-md bg-muted text-foreground border border-border/60">
+                                                                    {kw}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            No keywords configured yet.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Metadata Summary */}
+                                        {isConfigured && (
+                                            <div className="mt-4 pt-3 border-t border-border/60 flex items-center gap-3 text-[11px] text-muted-foreground">
+                                                <span>DM: <strong className="font-medium text-foreground">On</strong></span>
+                                                <span>•</span>
+                                                <span>Public Reply: <strong className="font-medium text-foreground">{hasCommentReply ? 'On' : 'Off'}</strong></span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Action Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => openLiveEditor(automation || undefined)}
+                                        className={`mt-5 w-full inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-3.5 text-xs font-medium transition-all active:scale-[0.98] ${
+                                            isConfigured
+                                                ? 'bg-foreground text-background hover:bg-foreground/90 shadow-xs'
+                                                : 'border border-border/80 bg-background hover:bg-muted text-foreground hover:border-foreground/30'
+                                        }`}
+                                    >
+                                        {isConfigured ? (
+                                            <span>Edit Automation</span>
+                                        ) : (
+                                            <>
+                                                <Plus className="w-3.5 h-3.5" />
+                                                <span>Configure Slot</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         );
     }
