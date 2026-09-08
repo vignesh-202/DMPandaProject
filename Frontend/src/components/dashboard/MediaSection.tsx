@@ -497,13 +497,23 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
         };
 
         return (
-            <div className="flex h-full min-h-[420px] flex-col rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 dark:border-slate-800 dark:bg-black sm:min-h-[500px] sm:rounded-3xl sm:p-6">
+            <div className="flex h-full min-h-[420px] flex-col rounded-[2rem] border border-border bg-card/90 backdrop-blur-sm p-5 shadow-sm transition-all duration-300 dark:bg-black/60 sm:min-h-[500px] sm:p-7">
+                {/* Header */}
                 <div className="mb-6 flex flex-col items-start justify-between gap-4 md:mb-8 md:flex-row md:items-center">
                     <div>
-                        <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">{title}</h2>
-                        <p className="text-xs font-medium text-primary mt-1.5 flex items-center gap-1.5">
-                            <span className={`w-1.5 h-1.5 rounded-full ${liveIsActive ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`} />
-                            {isLoadingStats ? 'Checking live status' : liveIsActive ? 'Instagram Live is active right now' : 'No active live detected right now'}
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">{title}</h2>
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
+                                liveIsActive
+                                    ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-sm shadow-pink-500/25 animate-pulse'
+                                    : 'bg-muted text-muted-foreground border border-border/80'
+                            }`}>
+                                <span className={`w-2 h-2 rounded-full ${liveIsActive ? 'bg-white' : 'bg-muted-foreground'}`} />
+                                {liveIsActive ? 'LIVE NOW' : 'STREAM OFFLINE'}
+                            </span>
+                        </div>
+                        <p className="text-xs font-normal text-muted-foreground mt-1.5 flex items-center gap-1.5">
+                            {isLoadingStats ? 'Checking live broadcast status...' : liveIsActive ? 'Your Instagram Live is currently active — automations are responding to comments.' : 'Pre-configure your automations now. They will engage viewers automatically once your next live stream starts.'}
                         </p>
                     </div>
 
@@ -512,67 +522,87 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                             <button
                                 onClick={handleRefresh}
                                 disabled={cooldown > 0 || isRefreshing}
-                                className="group relative h-9 px-3.5 bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground rounded-xl transition-all border border-border disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xs"
+                                className="group relative h-9 px-4 bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground rounded-xl transition-all border border-border disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xs text-xs font-semibold"
                                 title={cooldown > 0 ? `Rate limit active: Wait ${cooldown} seconds` : 'Refresh live status and automations'}
                             >
-                                <RefreshCcw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                <RefreshCcw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
                                 {cooldown > 0 ? (
-                                    <span className="text-xs font-medium tabular-nums">{cooldown}s</span>
+                                    <span className="tabular-nums">{cooldown}s</span>
                                 ) : (
-                                    <span className="text-xs font-medium hidden sm:inline">Refresh</span>
+                                    <span>Refresh Status</span>
                                 )}
                             </button>
                         )}
                     </div>
                 </div>
 
-                <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-                    <Card className={`relative overflow-hidden rounded-[2rem] border p-6 ${liveIsActive ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-content bg-card/80'}`}>
+                {/* Status & Capabilities Grid */}
+                <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+                    {/* Live Stream Readiness Card */}
+                    <Card className={`relative overflow-hidden rounded-[2rem] border p-6 transition-all duration-300 ${
+                        liveIsActive
+                            ? 'border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-card to-card shadow-lg shadow-emerald-500/5'
+                            : 'border-border bg-card/80 shadow-xs'
+                    }`}>
+                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D]" />
                         <div className="flex items-start gap-4">
-                            <div className={`mt-1 flex h-14 w-14 items-center justify-center rounded-2xl ${liveIsActive ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-300'}`}>
-                                <Radio className={`h-6 w-6 ${liveIsActive ? 'animate-pulse' : ''}`} />
+                            <div className={`mt-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl transition-all ${
+                                liveIsActive
+                                    ? 'bg-gradient-to-tr from-red-500 to-pink-600 text-white shadow-lg shadow-pink-500/30 ring-4 ring-pink-500/20'
+                                    : 'bg-muted/80 text-muted-foreground border border-border'
+                            }`}>
+                                <Radio className={`h-7 w-7 ${liveIsActive ? 'animate-pulse' : ''}`} />
                             </div>
-                            <div className="space-y-3">
+                            <div className="space-y-3 min-w-0">
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">Live Status</p>
-                                    <h3 className="mt-2 text-2xl font-black text-foreground">{isLoadingStats ? 'Scanning Instagram Live' : liveIsActive ? 'Live automation can trigger now' : 'Live automation is ready for your next stream'}</h3>
-                                    <p className="mt-2 text-sm font-medium text-muted-foreground">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] bg-clip-text text-transparent">
+                                        Broadcast Readiness
+                                    </p>
+                                    <h3 className="mt-1.5 text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+                                        {isLoadingStats ? 'Scanning Instagram Live...' : liveIsActive ? 'Stream active & responding live' : 'Ready for your next stream'}
+                                    </h3>
+                                    <p className="mt-1.5 text-xs sm:text-sm font-normal text-muted-foreground leading-relaxed">
                                         {liveIsActive
-                                            ? 'Your broadcast is currently active, so live automations can respond immediately to matching comments.'
-                                            : 'You can configure everything in advance while live is offline. The automations will be ready to respond as soon as your next Instagram Live starts.'}
+                                            ? 'Your broadcast is active! Live automations instantly trigger DMs and optional public comments when viewers comment during this session.'
+                                            : 'Configure your reply flows ahead of time. When you tap "Go Live" in Instagram, DM Panda automatically detects your stream and starts replying.'}
                                     </p>
                                 </div>
-                                <div className="flex flex-wrap gap-2">
-                                    <span className="rounded-full border border-content/70 bg-card px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">1 all-comments trigger</span>
-                                    <span className="rounded-full border border-content/70 bg-card px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">Up to 5 keywords</span>
-                                    <span className="rounded-full border border-content/70 bg-card px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">Public comment reply</span>
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                    <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">1 Universal Trigger</span>
+                                    <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">Up to 5 Keywords</span>
+                                    <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">Public Reply Support</span>
                                 </div>
                             </div>
                         </div>
                     </Card>
 
-                    <Card className="rounded-[2rem] border border-content bg-card/80 p-6">
-                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">Live Trigger Modes</p>
-                        <div className="mt-4 space-y-3">
-                            <div className="rounded-2xl border border-content/70 bg-card px-4 py-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-500">
-                                        <MessageSquare className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-black uppercase tracking-widest text-foreground">Keyword Replies</p>
-                                        <p className="text-[11px] font-medium text-muted-foreground">Set up to 5 live keywords that each open the DM flow and optional public comment reply.</p>
+                    {/* Trigger Modes Card */}
+                    <Card className="rounded-[2rem] border border-border bg-card/80 p-6 flex flex-col justify-between">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] bg-clip-text text-transparent">
+                                Trigger Mechanisms
+                            </p>
+                            <div className="mt-3.5 space-y-3">
+                                <div className="rounded-2xl border border-border/80 bg-card p-3.5 shadow-2xs hover:border-primary/40 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-500 to-indigo-600 text-white shadow-sm shadow-blue-500/25">
+                                            <MessageSquare className="h-5 w-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-bold text-foreground">Keyword Replies</p>
+                                            <p className="text-[11px] font-normal text-muted-foreground truncate">Matches specific words (e.g. LINK, PROMO) in live comments.</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="rounded-2xl border border-content/70 bg-card px-4 py-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-500">
-                                        <Reply className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-black uppercase tracking-widest text-foreground">All Comments Mode</p>
-                                        <p className="text-[11px] font-medium text-muted-foreground">Create one all-comments automation for live so every comment can trigger the same reply flow.</p>
+                                <div className="rounded-2xl border border-border/80 bg-card p-3.5 shadow-2xs hover:border-primary/40 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-500 to-pink-600 text-white shadow-sm shadow-pink-500/25">
+                                            <Reply className="h-5 w-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-bold text-foreground">All Comments Mode</p>
+                                            <p className="text-[11px] font-normal text-muted-foreground truncate">Replies universally to every viewer comment in your live stream.</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -580,23 +610,29 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                     </Card>
                 </div>
 
-                <div className="mt-6 flex-1 rounded-[2rem] border border-content bg-card/80 p-6">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                {/* Configured Slots Section */}
+                <div className="mt-6 flex-1 rounded-[2rem] border border-border bg-card/80 p-6 sm:p-7 shadow-xs">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-5">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">Configured Live Automations</p>
-                            <h3 className="mt-2 text-xl font-black text-foreground">{liveAutomations.length > 0 ? `${liveAutomations.length} live automation${liveAutomations.length === 1 ? '' : 's'} ready` : 'No live automations yet'}</h3>
-                            <p className="mt-1 text-sm font-medium text-muted-foreground">
-                                Manage your saved live comment automations here. They stay available whether the live session is currently active or not.
+                            <div className="flex items-center gap-2.5">
+                                <h3 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">Live Automation Slots</h3>
+                                <span className="rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-[11px] font-bold">
+                                    {liveAutomations.length}/2 Active
+                                </span>
+                            </div>
+                            <p className="text-xs font-normal text-muted-foreground mt-1">
+                                Customize your dedicated slots. Changes persist automatically and activate whenever live streaming.
                             </p>
                         </div>
                     </div>
 
                     {loadingLiveAutomations ? (
-                        <div className="flex min-h-[220px] items-center justify-center">
-                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        <div className="flex min-h-[220px] flex-col items-center justify-center gap-3">
+                            <Loader2 className="h-7 w-7 animate-spin text-primary" />
+                            <p className="text-xs font-medium text-muted-foreground">Loading live automation slots...</p>
                         </div>
                     ) : (
-                        <div className="mt-6 grid gap-4 md:grid-cols-2">
+                        <div className="mt-6 grid gap-5 md:grid-cols-2">
                             {liveAutomationSlots.map((slot) => {
                                 const automation = slot.automation;
                                 const keywordList = Array.isArray(automation?.keyword_list) ? automation.keyword_list : [];
@@ -604,39 +640,72 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                 const hasCommentReply = Boolean(String(automation?.comment_reply || '').trim());
 
                                 return (
-                                    <Card key={slot.slotId} className={`rounded-[1.75rem] border p-5 shadow-sm ${automation ? 'border-content bg-card' : 'border-dashed border-content/70 bg-muted/20'}`}>
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div>
-                                                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">{slot.slotLabel}</p>
-                                                <h4 className="mt-2 text-lg font-black text-foreground">{automation?.title || slot.slotHint}</h4>
-                                            </div>
-                                            <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${automation ? (automation.is_active !== false ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300') : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
-                                                {automation ? (automation.is_active !== false ? 'Active' : 'Paused') : 'Empty'}
-                                            </span>
-                                        </div>
-
-                                        <div className="mt-4 flex flex-wrap gap-2">
-                                            {!automation ? (
-                                                <span className="rounded-full border border-content/70 bg-card px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">Setup available</span>
-                                            ) : isAllComments ? (
-                                                <span className="rounded-full border border-content/70 bg-card px-3 py-1 text-[10px] font-black uppercase tracking-widest text-foreground">Replies to every live comment</span>
-                                            ) : keywordList.map((keyword: string) => (
-                                                <span key={keyword} className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-300">
-                                                    {keyword}
+                                    <Card
+                                        key={slot.slotId}
+                                        className={`relative flex flex-col justify-between rounded-2xl border p-5 sm:p-6 transition-all duration-300 hover:shadow-md ${
+                                            automation
+                                                ? 'border-border bg-card shadow-xs'
+                                                : 'border-dashed border-border bg-muted/20 hover:border-primary/40'
+                                        }`}
+                                    >
+                                        <div>
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">
+                                                        {slot.slotLabel}
+                                                    </span>
+                                                    <h4 className="mt-1 text-base sm:text-lg font-bold text-foreground">
+                                                        {automation?.title || slot.slotHint}
+                                                    </h4>
+                                                </div>
+                                                <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                                                    automation
+                                                        ? (automation.is_active !== false
+                                                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20')
+                                                        : 'bg-muted text-muted-foreground border border-border'
+                                                }`}>
+                                                    {automation ? (automation.is_active !== false ? 'Active' : 'Paused') : 'Empty Slot'}
                                                 </span>
-                                            ))}
-                                        </div>
+                                            </div>
 
-                                        <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                            <span className="rounded-full border border-content/70 bg-card px-3 py-1">{automation ? (hasCommentReply ? 'Comment Reply On' : 'DM Only') : 'Not configured'}</span>
-                                            <span className="rounded-full border border-content/70 bg-card px-3 py-1">{automation ? (keywordList.length > 0 ? `${keywordList.length}/5 keywords` : '1 automation slot used') : (isAllComments ? 'All-comments slot' : 'Keyword slot')}</span>
+                                            <div className="mt-4 flex flex-wrap gap-2">
+                                                {!automation ? (
+                                                    <span className="rounded-xl border border-dashed border-border bg-card/60 px-3 py-1.5 text-[11px] font-medium text-muted-foreground">
+                                                        Slot available for configuration
+                                                    </span>
+                                                ) : isAllComments ? (
+                                                    <span className="rounded-xl border border-purple-500/20 bg-purple-500/10 px-3 py-1.5 text-[11px] font-semibold text-purple-600 dark:text-purple-300 flex items-center gap-1.5">
+                                                        <Reply className="w-3.5 h-3.5" /> Universal: Every live comment triggers reply
+                                                    </span>
+                                                ) : keywordList.length > 0 ? (
+                                                    keywordList.map((keyword: string) => (
+                                                        <span key={keyword} className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold text-blue-600 dark:text-blue-300">
+                                                            {keyword}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="rounded-xl border border-border bg-muted/40 px-3 py-1 text-[11px] font-medium text-muted-foreground">
+                                                        No keywords defined yet
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                                <span className="rounded-lg border border-border bg-muted/30 px-2.5 py-1">
+                                                    {automation ? (hasCommentReply ? 'Comment Reply: On' : 'DM Only') : 'Not Configured'}
+                                                </span>
+                                                <span className="rounded-lg border border-border bg-muted/30 px-2.5 py-1">
+                                                    {automation ? (keywordList.length > 0 ? `${keywordList.length}/5 Keywords` : 'All-Comments Mode') : (isAllComments ? 'Universal Slot' : 'Keyword Slot')}
+                                                </span>
+                                            </div>
                                         </div>
 
                                         <button
                                             onClick={() => openLiveEditor(automation || undefined)}
-                                            className="mt-5 inline-flex items-center justify-center rounded-2xl bg-black px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-gray-900 dark:bg-white dark:text-black dark:hover:bg-gray-100"
+                                            className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-pink-500/20 transition-all hover:opacity-95 active:scale-[0.98]"
                                         >
-                                            {automation ? 'Manage Automation' : 'Setup Automation'}
+                                            {automation ? 'Manage Live Automation' : 'Set Up Live Automation'}
                                         </button>
                                     </Card>
                                 );

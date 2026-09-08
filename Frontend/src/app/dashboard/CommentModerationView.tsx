@@ -191,7 +191,7 @@ const CommentModerationView: React.FC = () => {
     }
 
     return (
-        <div className="p-4 sm:p-6 md:p-8 lg:p-12 max-w-6xl mx-auto space-y-8 pb-32">
+        <div className="p-4 sm:p-6 md:p-8 lg:p-12 max-w-6xl mx-auto space-y-8 pb-12">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 dark:border-slate-900 pb-6">
                 <div className="flex items-start gap-4">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-lg shadow-indigo-500/20">
@@ -210,6 +210,26 @@ const CommentModerationView: React.FC = () => {
                             Manage separate hide and delete keyword lists for comments on your posts and reels.
                         </p>
                     </div>
+                </div>
+
+                <div className="flex items-center gap-3 self-end md:self-auto">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="group relative inline-flex items-center justify-center gap-2.5 overflow-hidden rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:opacity-95 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                        {saving ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Saving Rules...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Save className="w-4 h-4" />
+                                <span>Save Rules</span>
+                            </>
+                        )}
+                    </button>
                 </div>
             </div>
 
@@ -300,32 +320,6 @@ const CommentModerationView: React.FC = () => {
                         </div>
                     );
                 })}
-            </div>
-
-            {/* Sticky Bottom Save Bar */}
-            <div className="sticky bottom-6 flex items-center justify-between rounded-[2rem] border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-lg p-4 shadow-2xl w-full z-50 animate-in slide-in-from-bottom-6 duration-300">
-                <div className="hidden sm:flex items-center gap-2.5 text-xs font-bold text-muted-foreground ml-4">
-                    <CheckCircle2 className="w-4.5 h-4.5 text-emerald-500 shrink-0" />
-                    <span>Changes apply instantly to new comments</span>
-                </div>
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="group relative w-full sm:w-auto flex items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-8 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] sm:hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
-                >
-                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    {saving ? (
-                        <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Saving Rules...</span>
-                        </>
-                    ) : (
-                        <>
-                            <Save className="w-4 h-4 transition-transform group-hover:scale-110" />
-                            <span>Save Moderation Rules</span>
-                        </>
-                    )}
-                </button>
             </div>
         </div>
     );

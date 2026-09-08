@@ -529,12 +529,16 @@ const SuperProfileView: React.FC = () => {
                     </div>
                 </div>
 
-                <AutomationPreviewPanel title="Live Preview" minHeightClassName="min-h-[620px] xl:min-h-[596px] xl:max-h-[596px]">
-                    <div className="mx-auto w-full max-w-[350px] animate-in fade-in slide-in-from-right-8 duration-700 xl:ml-auto">
-                        <div className="h-fit flex flex-col items-center">
-                            <div className="relative flex h-[620px] w-full flex-col overflow-hidden rounded-[55px] border-[10px] border-slate-900 bg-[#f6f8fb] shadow-[0_32px_80px_rgba(15,23,42,0.24)] ring-1 ring-slate-900/15 dark:border-slate-600 dark:bg-slate-700 dark:ring-slate-500/60 dark:shadow-[0_36px_90px_rgba(2,6,23,0.6)] xl:h-[596px] xl:max-h-[596px]">
-                                <div className="absolute top-0 left-1/2 z-40 flex h-7 w-32 -translate-x-1/2 items-center justify-center rounded-b-3xl bg-slate-900 dark:bg-slate-700">
-                                    <div className="h-1.5 w-10 rounded-full bg-slate-500/80 dark:bg-slate-500/80" />
+                <AutomationPreviewPanel
+                    title="Live Preview"
+                    wrapperClassName="order-1 hidden min-h-0 w-full xl:block xl:order-2 xl:col-span-4 xl:self-start xl:max-h-[calc(100vh-7rem)]"
+                >
+                    <div className="mx-auto w-full max-w-[300px] flex-shrink-0 animate-in fade-in slide-in-from-right-8 duration-700 xl:ml-auto overflow-hidden">
+                        <div className="h-fit flex flex-col items-center w-full overflow-hidden">
+                            <div className="relative flex w-full max-w-[300px] h-[540px] sm:h-[550px] flex-col overflow-hidden rounded-[44px] sm:rounded-[55px] border-[8px] sm:border-[10px] border-slate-950 bg-white shadow-[0_24px_50px_-12px_rgba(0,0,0,0.15)] ring-1 ring-black/10 dark:border-zinc-800 dark:bg-black dark:ring-zinc-800 dark:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)]">
+                                {/* Notch / Dynamic Island */}
+                                <div className="absolute top-2.5 left-1/2 z-40 flex h-5 w-24 -translate-x-1/2 items-center justify-center rounded-full bg-slate-950 shadow-[0_2px_8px_rgba(0,0,0,0.15)] dark:bg-zinc-900">
+                                    <div className="h-1.5 w-8 rounded-full bg-slate-800/80 dark:bg-zinc-800" />
                                 </div>
 
                                 <div className="z-30 flex h-12 items-center justify-between px-9 pt-6 text-[11px] font-bold text-slate-900 dark:text-white">

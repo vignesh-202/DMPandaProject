@@ -303,7 +303,10 @@ const LiveAutomationView: React.FC = () => {
                         </section>
                     </div>
 
-                    <AutomationPreviewPanel>
+                    <AutomationPreviewPanel
+                        title="Live Preview"
+                        wrapperClassName="order-1 hidden min-h-0 w-full xl:block xl:order-2 xl:col-span-4 xl:self-start xl:max-h-[calc(100vh-7rem)]"
+                    >
                         <SharedMobilePreview
                             mode="automation"
                             automation={previewAutomation}

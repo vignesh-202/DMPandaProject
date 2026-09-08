@@ -81,6 +81,53 @@ export interface SharedMobilePreviewProps {
     isLoadingPreview?: boolean;
 }
 
+const InstagramPreviewImage: React.FC<{
+    src: string;
+    className?: string;
+    alt?: string;
+    draggable?: boolean;
+    aspectRatio?: string;
+}> = ({ src, className = '', alt = '', draggable = true, aspectRatio }) => {
+    const [loaded, setLoaded] = useState(false);
+    const [hasError, setHasError] = useState(false);
+
+    useEffect(() => {
+        setLoaded(false);
+        setHasError(false);
+    }, [src]);
+
+    return (
+        <div className={`relative overflow-hidden w-full ${aspectRatio || ''} flex items-center justify-center bg-slate-100 dark:bg-zinc-900`}>
+            {!loaded && !hasError && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-100 dark:bg-zinc-800 animate-pulse">
+                    <div className="relative flex items-center justify-center">
+                        <div className="w-7 h-7 rounded-full border-2 border-slate-300 dark:border-zinc-700 border-t-[#E1306C] animate-spin" />
+                        <Instagram className="w-3 h-3 text-slate-400 dark:text-zinc-500 absolute" />
+                    </div>
+                </div>
+            )}
+            <img
+                src={src}
+                referrerPolicy="no-referrer"
+                draggable={draggable}
+                alt={alt}
+                className={`${className} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+                onLoad={() => setLoaded(true)}
+                onError={() => {
+                    setHasError(true);
+                    setLoaded(true);
+                }}
+            />
+            {hasError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center bg-muted/40">
+                    <ImageIcon className="w-5 h-5 text-muted-foreground/60 mb-1" />
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Failed to load</span>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
     mode,
     items = [],
@@ -101,6 +148,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
     const [activeIdx, setActiveIdx] = useState<number | null>(null);
     const [localIsMediaDeleted, setIsMediaDeleted] = useState(false);
     const [sharePostPreviewFailed, setSharePostPreviewFailed] = useState(false);
+    const [mediaVisualLoaded, setMediaVisualLoaded] = useState(false);
     const [resolvedLatestSharePost, setResolvedLatestSharePost] = useState<Record<string, unknown> | null>(null);
     const [resolvedSelectedSharePost, setResolvedSelectedSharePost] = useState<Record<string, unknown> | null>(null);
     const [resolvedLatestSharePostKey, setResolvedLatestSharePostKey] = useState('');
@@ -472,13 +520,16 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
     useEffect(() => {
         setSharePostPreviewFailed(false);
         setIsMediaDeleted(false);
+        setMediaVisualLoaded(false);
     }, [
         auto?.template_type,
         auto?.media_id,
         auto?.media_url,
         auto?.thumbnail_url,
         auto?.preview_media_url,
-        auto?.linked_media_url
+        auto?.linked_media_url,
+        auto?.use_latest_post,
+        auto?.latest_post_type
     ]);
 
     // Carousel drag handlers
@@ -520,23 +571,33 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
     const renderSharePostVisual = (url: string, label: string, isVideo: boolean) => {
         if (isVideo) {
             return (
-                <div className="absolute inset-0">
+                <div className="absolute inset-0 overflow-hidden">
+                    {!mediaVisualLoaded && !sharePostPreviewFailed && (
+                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-100 dark:bg-zinc-800 animate-pulse">
+                            <div className="relative flex items-center justify-center">
+                                <div className="w-8 h-8 rounded-full border-2 border-slate-300 dark:border-zinc-700 border-t-[#E1306C] animate-spin" />
+                                <Instagram className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 absolute" />
+                            </div>
+                        </div>
+                    )}
                     <video
                         src={url}
-                        className={`w-full h-full object-cover ${isMediaDeleted ? 'opacity-50' : ''}`}
+                        className={`w-full h-full object-cover transition-opacity duration-300 ${mediaVisualLoaded ? 'opacity-100' : 'opacity-0'} ${isMediaDeleted ? 'opacity-50' : ''}`}
                         muted
                         playsInline
                         autoPlay
                         loop
                         onLoadedData={() => {
+                            setMediaVisualLoaded(true);
                             setIsMediaDeleted(false);
                         }}
                         onError={() => {
                             setSharePostPreviewFailed(true);
                             setIsMediaDeleted(true);
+                            setMediaVisualLoaded(true);
                         }}
                     />
-                    <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2 py-1 bg-white/20 backdrop-blur-md rounded-lg scale-90 origin-bottom-left border border-white/10">
+                    <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 bg-white/20 backdrop-blur-md rounded-lg scale-90 origin-bottom-left border border-white/10">
                         <Share2 className="w-2.5 h-2.5 text-white" />
                         <span className="text-[8px] text-white font-black uppercase tracking-widest">{label}</span>
                     </div>
@@ -545,26 +606,36 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
         }
 
         return (
-            <div className="absolute inset-0">
+            <div className="absolute inset-0 overflow-hidden">
+                {!mediaVisualLoaded && !sharePostPreviewFailed && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-100 dark:bg-zinc-800 animate-pulse">
+                        <div className="relative flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-full border-2 border-slate-300 dark:border-zinc-700 border-t-[#E1306C] animate-spin" />
+                            <Instagram className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 absolute" />
+                        </div>
+                    </div>
+                )}
                 <img
                     src={url}
                     referrerPolicy="no-referrer"
-                    className={`w-full h-full object-cover ${isMediaDeleted ? 'opacity-50' : ''}`}
+                    className={`w-full h-full object-cover transition-opacity duration-300 ${mediaVisualLoaded ? 'opacity-100' : 'opacity-0'} ${isMediaDeleted ? 'opacity-50' : ''}`}
                     alt=""
                     onLoad={() => {
+                        setMediaVisualLoaded(true);
                         setIsMediaDeleted(false);
                     }}
                     onError={() => {
                         setSharePostPreviewFailed(true);
                         setIsMediaDeleted(true);
+                        setMediaVisualLoaded(true);
                     }}
                 />
-                <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2 py-1 bg-white/20 backdrop-blur-md rounded-lg scale-90 origin-bottom-left border border-white/10">
+                <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 bg-white/20 backdrop-blur-md rounded-lg scale-90 origin-bottom-left border border-white/10">
                     <Share2 className="w-2.5 h-2.5 text-white" />
                     <span className="text-[8px] text-white font-black uppercase tracking-widest">{label}</span>
                 </div>
                 {isMediaDeleted && (
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute inset-0 z-20 flex items-center justify-center">
                         <div className="px-3 py-1 bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg">
                             Media Deleted
                         </div>
@@ -606,6 +677,21 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
             : (requestedLatestType === 'reel' || auto.media_type === 'VIDEO' || td.media_type === 'VIDEO' ? 'Reel' : 'Post');
         const showSharePostMedia = Boolean(activeSharePostUrl);
         const isVideo = sharePostIsVideo && !sharePostPreviewFailed;
+
+        const latestPostType = auto.latest_post_type === 'reel' ? 'reel' : 'post';
+        const expectedLatestKey =
+            auto.template_type === 'template_share_post' && auto.use_latest_post && activeAccountID
+                ? `${activeAccountID}:${latestPostType}`
+                : '';
+        const expectedSelectedKey =
+            auto.template_type === 'template_share_post' && !auto.use_latest_post && activeAccountID && auto.media_id
+                ? `${activeAccountID}:${String(auto.media_id)}`
+                : '';
+
+        const isResolvingPost =
+            (Boolean(expectedLatestKey) && resolvedLatestSharePostKey !== expectedLatestKey) ||
+            (Boolean(expectedSelectedKey) && resolvedSelectedSharePostKey !== expectedSelectedKey);
+
         return (
             <>
                 {(effectiveType === 'template_text' || (!effectiveType && (auto.template_content || td.text))) && (
@@ -623,20 +709,27 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                 {effectiveType === 'template_share_post' && (
                     <div className="w-full min-w-0 max-w-[210px] rounded-2xl overflow-hidden shadow-md border border-gray-200 dark:border-zinc-800 bg-white animate-in fade-in zoom-in-95 message-bubble flex flex-col dark:bg-zinc-900">
                         <div className="p-2.5 flex items-center gap-2 border-b border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-                            <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden ring-1 ring-gray-100 dark:ring-gray-800">
+                            <div className="w-5 h-5 min-w-[20px] max-w-[20px] min-h-[20px] max-h-[20px] shrink-0 aspect-square rounded-full bg-gray-200 flex items-center justify-center overflow-hidden ring-1 ring-gray-100 dark:ring-gray-800">
                                 {safeProfilePic ? (
-                                    <img src={safeProfilePic} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" />
+                                    <img src={safeProfilePic} referrerPolicy="no-referrer" className="w-full h-full object-cover shrink-0 aspect-square" alt="" />
                                 ) : (
-                                    <Instagram className="w-2.5 h-2.5 text-gray-400" />
+                                    <Instagram className="w-2.5 h-2.5 text-gray-400 shrink-0" />
                                 )}
                             </div>
                             <span className="text-[10px] font-bold text-slate-800 dark:text-zinc-200 truncate">
                                 {displayName}
                             </span>
                         </div>
-                            <div className={`aspect-square bg-[#FAFAFA] dark:bg-[#121212] flex items-center justify-center relative group ${isMediaDeleted ? 'ring-4 ring-red-500 ring-inset' : ''}`}>
+                        <div className={`aspect-square bg-[#FAFAFA] dark:bg-[#121212] flex items-center justify-center relative group ${isMediaDeleted ? 'ring-4 ring-red-500 ring-inset' : ''}`}>
                             {auto.use_latest_post && showSharePostMedia ? (
                                 renderSharePostVisual(activeSharePostUrl, `Latest ${sharePostMediaLabel}`, isVideo)
+                            ) : auto.use_latest_post && (isResolvingPost || isLoadingPreview) ? (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 dark:bg-zinc-800 animate-pulse">
+                                    <div className="relative flex items-center justify-center">
+                                        <div className="w-8 h-8 rounded-full border-2 border-slate-300 dark:border-zinc-700 border-t-[#E1306C] animate-spin" />
+                                        <Instagram className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 absolute" />
+                                    </div>
+                                </div>
                             ) : auto.use_latest_post ? (
                                 <div className="flex flex-col items-center gap-2 p-6">
                                     <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -648,6 +741,13 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                 </div>
                             ) : showSharePostMedia ? (
                                 renderSharePostVisual(activeSharePostUrl, sharePostMediaLabel, isVideo)
+                            ) : (isResolvingPost || isLoadingPreview || ((auto.media_id || auto.template_id) && !sharePostPreviewFailed)) ? (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 dark:bg-zinc-800 animate-pulse">
+                                    <div className="relative flex items-center justify-center">
+                                        <div className="w-8 h-8 rounded-full border-2 border-slate-300 dark:border-zinc-700 border-t-[#E1306C] animate-spin" />
+                                        <Instagram className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 absolute" />
+                                    </div>
+                                </div>
                             ) : sharePostPreviewUrl ? (
                                 <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/60 p-6 text-center">
                                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-card shadow-sm">
@@ -693,9 +793,13 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                     >
                         {(auto.template_elements || auto.template_data?.elements || []).map((el: any, i: number) => (
                             <div key={i} className="flex-shrink-0 w-[200px] rounded-xl overflow-hidden border border-gray-200 bg-white shadow-md flex flex-col snap-center dark:border-zinc-800 dark:bg-zinc-900">
-                                <div className="aspect-square bg-gray-100 dark:bg-gray-900 relative">
+                                <div className="aspect-square bg-gray-100 dark:bg-gray-900 relative overflow-hidden">
                                     {el.image_url ? (
-                                        <img src={toBrowserPreviewUrl(el.image_url)} referrerPolicy="no-referrer" className="w-full h-full object-cover" draggable={false} alt="" />
+                                        <InstagramPreviewImage
+                                            src={toBrowserPreviewUrl(el.image_url)}
+                                            className="w-full h-full object-cover"
+                                            draggable={false}
+                                        />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-gray-300">
                                             <ImageIcon className="w-6 h-6" />
@@ -733,11 +837,9 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                     <div className="w-full max-w-[220px] rounded-xl overflow-hidden shadow-md border border-gray-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
                         {(auto.template_content || auto.template_data?.media_url) ? (
                             toBrowserPreviewUrl(auto.template_content || auto.template_data?.media_url || '') ? (
-                                <img
+                                <InstagramPreviewImage
                                     src={toBrowserPreviewUrl(auto.template_content || auto.template_data?.media_url || '')}
-                                    referrerPolicy="no-referrer"
                                     className="w-full h-auto object-cover max-h-[200px]"
-                                    alt=""
                                 />
                             ) : (
                                 <div className="w-full h-[160px] bg-muted/50 rounded-xl flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -754,11 +856,9 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                     <div className="w-full max-w-[220px] rounded-xl overflow-hidden shadow-sm border border-[#DBDBDB] bg-white dark:border-[#363636] dark:bg-[#262626]">
                         {auto.media_url || auto.template_content || auto.template_data?.media_url ? (
                             toBrowserPreviewUrl(auto.media_url || auto.template_content || auto.template_data?.media_url || '') ? (
-                                <img
+                                <InstagramPreviewImage
                                     src={toBrowserPreviewUrl(auto.media_url || auto.template_content || auto.template_data?.media_url || '')}
-                                    referrerPolicy="no-referrer"
                                     className="w-full h-auto object-cover max-h-[200px]"
-                                    alt=""
                                 />
                             ) : (
                                 <div className="w-full h-[160px] bg-muted/50 rounded-xl flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -836,25 +936,25 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
 
                     {/* Instagram Header */}
                     <div className="px-5 py-3 border-b border-slate-100 dark:border-zinc-900 flex items-center justify-between bg-white dark:bg-black mt-2">
-                        <div className="flex items-center gap-3">
-                            <ChevronRight className="w-5 h-5 rotate-180 text-slate-900 dark:text-white" />
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-400 to-purple-600 p-[1.5px]">
-                                <div className="w-full h-full rounded-full bg-white dark:bg-black p-[1px]">
-                                    <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <ChevronRight className="w-5 h-5 shrink-0 rotate-180 text-slate-900 dark:text-white" />
+                            <div className="w-9 h-9 min-w-[36px] max-w-[36px] min-h-[36px] max-h-[36px] shrink-0 aspect-square rounded-full bg-gradient-to-tr from-yellow-400 to-purple-600 p-[1.5px]">
+                                <div className="w-full h-full rounded-full bg-white dark:bg-black p-[1px] aspect-square flex items-center justify-center">
+                                    <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center overflow-hidden aspect-square">
                                         {safeProfilePic ? (
-                                            <img src={safeProfilePic} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" />
+                                            <img src={safeProfilePic} referrerPolicy="no-referrer" className="w-full h-full object-cover shrink-0 aspect-square" alt="" />
                                         ) : (
-                                            <Instagram className="w-5 h-5 text-gray-400" />
+                                            <Instagram className="w-5 h-5 text-gray-400 shrink-0" />
                                         )}
                                     </div>
                                 </div>
                             </div>
-                            <div>
+                            <div className="min-w-0 flex-1">
                                 <div className="text-[13px] font-bold text-slate-900 dark:text-white truncate max-w-[120px]">@{displayName}</div>
                                 <div className="text-[10px] text-gray-400">Instagram</div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4 text-gray-900 dark:text-white">
+                        <div className="flex items-center gap-4 text-gray-900 dark:text-white shrink-0">
                             <Smartphone className="w-4 h-4" />
                             {activePreviewItem && (mode === 'menu' || mode === 'convo_starter') && (
                                 <button
@@ -894,11 +994,11 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
 
                                     {/* Bot Response */}
                                     <div className="flex justify-start items-end gap-2">
-                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex-shrink-0 mb-1 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800">
+                                        <div className="w-6 h-6 min-w-[24px] max-w-[24px] min-h-[24px] max-h-[24px] rounded-full bg-gray-200 shrink-0 aspect-square mb-1 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800">
                                             {safeProfilePic ? (
-                                                <img src={safeProfilePic} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" />
+                                                <img src={safeProfilePic} referrerPolicy="no-referrer" className="w-full h-full object-cover shrink-0 aspect-square" alt="" />
                                             ) : (
-                                                <Instagram className="w-3 h-3 text-gray-400" />
+                                                <Instagram className="w-3 h-3 text-gray-400 shrink-0" />
                                             )}
                                         </div>
                                         <div className="w-full max-w-[92%] space-y-2">
@@ -919,8 +1019,8 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
 
                                             {/* Bot Response */}
                                             <div className="flex justify-start items-end gap-2 animate-in slide-in-from-bottom-4 duration-700 delay-300">
-                                                <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800">
-                                                    {safeProfilePic ? <img src={safeProfilePic} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" /> : <Instagram className="w-3 h-3 text-gray-400" />}
+                                                <div className="w-6 h-6 min-w-[24px] max-w-[24px] min-h-[24px] max-h-[24px] rounded-full bg-gray-200 dark:bg-gray-700 shrink-0 aspect-square flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800">
+                                                    {safeProfilePic ? <img src={safeProfilePic} referrerPolicy="no-referrer" className="w-full h-full object-cover shrink-0 aspect-square" alt="" /> : <Instagram className="w-3 h-3 text-gray-400 shrink-0" />}
                                                 </div>
                                                 <div className="w-full max-w-[92%] space-y-2">
                                                     {auto ? (
