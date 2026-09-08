@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Sidebar from './sidebar';
 import { DashboardProvider, useDashboard } from '../../contexts/DashboardContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { Menu, Sun, Moon, X, ChevronRight, LogOut, Settings, Bell, AlertTriangle, CalendarClock } from 'lucide-react';
+import { Menu, Sun, Moon, X, ChevronRight, LogOut, Settings, Bell, AlertTriangle, CalendarClock, PanelLeftClose } from 'lucide-react';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { ThemeContext } from '../../contexts/ThemeContext';
 import DashboardLoading from '../../components/ui/DashboardLoading';
@@ -360,24 +360,26 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full">
               <div aria-hidden />
               <Link to="/" className="justify-self-center transition-opacity hover:opacity-80">
-                <h1 className="font-display truncate text-[2rem] font-extrabold tracking-tight text-foreground">
+                <h1 className="font-display truncate text-[2rem] font-extrabold tracking-tight bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] bg-clip-text text-transparent">
                   DM Panda
                 </h1>
               </Link>
               <button
                 onClick={toggleSidebar}
                 className="absolute top-4 right-2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+                title="Collapse sidebar"
+                aria-label="Collapse sidebar"
               >
-                <X size={18} />
+                <PanelLeftClose size={18} />
               </button>
             </div>
           ) : (
             <button
               onClick={toggleSidebar}
-              className="h-11 w-11 rounded-xl text-muted-foreground hover:text-foreground hover:bg-sidebar-accent hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center border border-border/50 shadow-sm"
+              className="h-10 w-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-sidebar-accent active:scale-95 transition-all duration-150 flex items-center justify-center border border-border/60 shadow-xs"
               title="Expand Sidebar"
             >
-              <Menu size={22} />
+              <Menu size={20} />
             </button>
           )}
         </div>
@@ -398,7 +400,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
         {/* Header */}
-        <header className="ig-topline sticky top-0 z-[160] flex min-h-16 items-center justify-between gap-3 border-b border-border bg-card px-3 py-2 shadow-sm sm:px-6 sm:py-3">
+        <header className="sticky top-0 z-[160] flex min-h-16 items-center justify-between gap-3 border-b border-border bg-card px-3 py-2 shadow-xs sm:px-6 sm:py-3">
           {/* Left Side - Mobile Menu + Breadcrumb */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
@@ -409,14 +411,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               <Menu size={20} />
             </button>
 
-            {/* Breadcrumb - Instagram themed */}
+            {/* Breadcrumb - Clean & refined */}
             <nav className="flex min-w-0 items-center text-sm font-medium">
               <button
                 onClick={() => setCurrentView('Overview')}
                 className={cn(
-                  "transition-colors duration-200 hover:text-primary",
+                  "transition-colors duration-150 hover:text-foreground",
                   currentView === 'Overview'
-                    ? "ig-gradient-text font-semibold"
+                    ? "text-foreground font-semibold"
                     : "text-muted-foreground"
                 )}
               >
@@ -424,8 +426,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               </button>
               {currentView !== 'Overview' && (
                 <>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground mx-2 flex-shrink-0" />
-                  <span className="ig-gradient-text font-semibold truncate">
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/60 mx-2 flex-shrink-0" />
+                  <span className="text-foreground font-semibold truncate">
                     {currentView}
                   </span>
                 </>

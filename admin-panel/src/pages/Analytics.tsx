@@ -95,7 +95,7 @@ const moneyFormatter = new Intl.NumberFormat('en-IN', {
 
 const numberFormatter = new Intl.NumberFormat('en-IN');
 
-const surfaceClass = 'glass-card rounded-[32px] border border-border/70 bg-card/95 shadow-[0_22px_65px_rgba(15,23,42,0.07)]';
+const surfaceClass = 'rounded-2xl border border-border bg-card shadow-xs';
 const chartGridStroke = 'rgb(148 163 184 / 0.18)';
 const DONUT_SIZE = 280;
 const DONUT_CENTER = DONUT_SIZE / 2;
@@ -182,19 +182,19 @@ const ChartTooltip = ({
     if (!active || !payload?.length) return null;
 
     return (
-        <div className="rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
-            {label && <p className="text-[10px] font-black text-muted-foreground">{label}</p>}
-            <div className="mt-2 space-y-2">
+        <div className="rounded-xl border border-border bg-card px-4 py-2.5 shadow-lg">
+            {label && <p className="text-xs font-semibold text-muted-foreground">{label}</p>}
+            <div className="mt-1.5 space-y-1.5">
                 {payload.map((entry, index) => (
-                    <div key={`${entry.name || 'value'}-${index}`} className="flex items-center justify-between gap-4 text-sm">
+                    <div key={`${entry.name || 'value'}-${index}`} className="flex items-center justify-between gap-4 text-xs">
                         <span className="flex items-center gap-2 text-foreground">
                             <span
-                                className="h-2.5 w-2.5 rounded-full"
+                                className="h-2 w-2 rounded-full"
                                 style={{ backgroundColor: entry.color || CHART_COLORS[index % CHART_COLORS.length] }}
                             />
-                            <span className="font-semibold">{entry.name || 'Value'}</span>
+                            <span className="font-medium">{entry.name || 'Value'}</span>
                         </span>
-                        <span className="font-black text-foreground">
+                        <span className="font-bold text-foreground">
                             {formatter ? formatter(Number(entry.value || 0)) : numberFormatter.format(Number(entry.value || 0))}
                         </span>
                     </div>
@@ -253,21 +253,21 @@ const GraphFilterDropdown = ({
             <button
                 type="button"
                 onClick={() => setOpen((current) => !current)}
-                className="flex w-full items-center justify-between gap-3 rounded-[1.35rem] border border-primary/30 bg-[linear-gradient(135deg,rgba(56,189,248,0.18),rgba(99,102,241,0.16)_52%,rgba(15,23,42,0.06))] px-4 py-3 text-left shadow-[0_24px_44px_-30px_rgba(14,165,233,0.55)] backdrop-blur-xl transition-all hover:border-primary/45 hover:shadow-[0_26px_52px_-30px_rgba(99,102,241,0.45)]"
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-2.5 text-left shadow-xs transition-colors hover:border-primary/40"
             >
                 <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary/80">{title}</p>
-                    <p className="mt-1 truncate text-sm font-black text-foreground">{selected.label}</p>
-                    <p className="mt-1 truncate text-[11px] font-semibold text-foreground">{summary}</p>
-                    <p className="mt-1 line-clamp-2 text-[11px] font-medium text-muted-foreground">{detail}</p>
-                    {loadingText ? <p className="mt-1 text-[10px] font-semibold text-primary">{loadingText}</p> : null}
+                    <p className="text-xs font-semibold text-muted-foreground">{title}</p>
+                    <p className="mt-0.5 truncate text-sm font-bold text-foreground">{selected.label}</p>
+                    <p className="mt-0.5 truncate text-xs font-medium text-foreground">{summary}</p>
+                    {detail ? <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{detail}</p> : null}
+                    {loadingText ? <p className="mt-0.5 text-xs font-semibold text-primary">{loadingText}</p> : null}
                 </div>
-                <ChevronDown className={`h-4 w-4 shrink-0 text-primary transition-transform ${open ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
 
             {open && (
-                <div className="absolute right-0 top-[calc(100%+0.6rem)] z-30 w-full overflow-hidden rounded-[1.4rem] border border-border/70 bg-card/95 p-2 shadow-[0_30px_70px_-34px_rgba(15,23,42,0.52)] backdrop-blur-xl">
-                    <div className="max-h-[12.5rem] overflow-y-auto overscroll-contain">
+                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-full overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-lg">
+                    <div className="max-h-[14rem] overflow-y-auto overscroll-contain space-y-1">
                     {options.map((option) => {
                         const active = option.value === value;
                         return (
@@ -280,21 +280,21 @@ const GraphFilterDropdown = ({
                                         setOpen(false);
                                     }
                                 }}
-                                className={`flex w-full items-center justify-between rounded-[1rem] px-3 py-3 text-left transition-colors ${
+                                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors ${
                                     active
-                                        ? 'bg-primary text-primary-foreground shadow-[0_18px_36px_-24px_rgba(14,165,233,0.85)]'
-                                        : 'text-foreground hover:bg-background/80'
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'text-foreground hover:bg-accent'
                                 }`}
                             >
                                 <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-black">{option.label}</p>
-                                    <p className={`mt-1 text-[11px] ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                                    <p className="truncate text-xs font-bold">{option.label}</p>
+                                    <p className={`mt-0.5 text-[11px] ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                                         {title === 'Revenue Range'
                                             ? REVENUE_WINDOW_DETAILS[option.value as RevenueWindowValue]
                                             : TRAFFIC_WINDOW_DETAILS[option.value as TrafficWindowValue]}
                                     </p>
                                 </div>
-                                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${active ? 'border-primary-foreground/30 text-primary-foreground/90' : 'border-border/70 text-muted-foreground'}`}>
+                                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${active ? 'border-primary-foreground/30 text-primary-foreground' : 'border-border text-muted-foreground'}`}>
                                     {option.value}
                                 </span>
                             </button>
@@ -302,24 +302,24 @@ const GraphFilterDropdown = ({
                     })}
                     </div>
                     {allowCustom && value === 'custom' && onApplyCustom && onCustomStartChange && onCustomEndChange ? (
-                        <div className="mt-2 rounded-[1rem] border border-border/70 bg-background/70 p-3">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                        <div className="mt-2 rounded-lg border border-border bg-background/50 p-2.5">
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                <label className="text-xs font-semibold text-muted-foreground">
                                     From
                                     <input
                                         type="date"
                                         value={customStart || ''}
                                         onChange={(event) => onCustomStartChange(event.target.value)}
-                                        className="input-base mt-2"
+                                        className="input-base mt-1 text-xs"
                                     />
                                 </label>
-                                <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                <label className="text-xs font-semibold text-muted-foreground">
                                     To
                                     <input
                                         type="date"
                                         value={customEnd || ''}
                                         onChange={(event) => onCustomEndChange(event.target.value)}
-                                        className="input-base mt-2"
+                                        className="input-base mt-1 text-xs"
                                     />
                                 </label>
                             </div>
@@ -329,7 +329,7 @@ const GraphFilterDropdown = ({
                                     onApplyCustom();
                                     setOpen(false);
                                 }}
-                                className="mt-3 btn-primary w-full px-4 py-3 text-[10px]"
+                                className="mt-2.5 btn-primary w-full h-8 px-3 rounded-lg text-xs font-medium"
                             >
                                 Apply Custom Range
                             </button>
@@ -352,22 +352,22 @@ const MetricCard = ({
     value: string;
     accent: string;
 }) => (
-    <div className={`${surfaceClass} p-6`}>
+    <div className={`${surfaceClass} p-5`}>
         <div className="flex items-start justify-between gap-4">
-            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${accent}`}>
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accent}`}>
                 <Icon className="h-5 w-5" />
             </div>
-            <p className="text-right text-[10px] font-black text-muted-foreground">{label}</p>
+            <p className="text-right text-xs font-semibold text-muted-foreground">{label}</p>
         </div>
-        <p className="mt-7 text-[2rem] font-extrabold tracking-tight text-foreground">{value}</p>
+        <p className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{value}</p>
     </div>
 );
 
 const InsightTile = ({ label, value, note }: { label: string; value: string; note: string }) => (
-    <div className="rounded-[26px] border border-border/70 bg-background/60 px-5 py-5">
-        <p className="text-[10px] font-black text-muted-foreground">{label}</p>
-        <p className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{value}</p>
-        <p className="mt-2 text-sm text-muted-foreground">{note}</p>
+    <div className="rounded-xl border border-border bg-background/50 px-4 py-3.5">
+        <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+        <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{value}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{note}</p>
     </div>
 );
 
@@ -504,62 +504,62 @@ const DonutChartCard = ({
                                 </>
                             ) : null}
                         </svg>
-                        <div className="absolute inset-[23%] z-20 flex flex-col items-center justify-center rounded-full border border-border/60 bg-card/95 px-4 text-center shadow-[0_24px_45px_-30px_rgba(15,23,42,0.42)] sm:px-6">
-                            <div className="h-2.5 w-2.5 rounded-full bg-primary/80 shadow-[0_0_24px_rgba(59,130,246,0.7)]" />
-                            <p className="mt-3 text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">{centerTitle}</p>
-                            <p className="mt-1 text-2xl font-black text-foreground sm:text-3xl">{centerValue}</p>
-                            <p className="mt-1 max-w-[11rem] text-[10px] leading-relaxed text-muted-foreground sm:text-[11px]">{centerCaption}</p>
+                        <div className="absolute inset-[23%] z-20 flex flex-col items-center justify-center rounded-full border border-border bg-card px-4 text-center shadow-md sm:px-6">
+                            <div className="h-2 w-2 rounded-full bg-primary" />
+                            <p className="mt-2 text-xs font-semibold text-muted-foreground">{centerTitle}</p>
+                            <p className="mt-0.5 text-2xl font-bold text-foreground sm:text-3xl">{centerValue}</p>
+                            <p className="mt-0.5 max-w-[11rem] text-xs leading-relaxed text-muted-foreground">{centerCaption}</p>
                         </div>
                     </div>
                 </div>
                 <div className="relative z-10">
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-primary">{eyebrow}</p>
-                    <h2 className="mt-2 text-xl font-black text-foreground">{title}</h2>
+                    <p className="text-xs font-semibold text-primary">{eyebrow}</p>
+                    <h2 className="mt-1 text-xl font-bold text-foreground">{title}</h2>
                     <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">{description}</p>
-                    <div className={`mt-6 grid gap-3 ${chartState.segments.length <= 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'}`}>
+                    <div className={`mt-5 grid gap-3 ${chartState.segments.length <= 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'}`}>
                         {chartState.segments.map((segment) => (
                             <button
                                 key={segment.key}
                                 type="button"
                                 onMouseEnter={() => !segment.muted && setHoveredKey(segment.key)}
                                 onMouseLeave={() => setHoveredKey((current) => (current === segment.key ? null : current))}
-                                className={`min-h-[104px] rounded-[1.5rem] border px-4 py-4 text-left transition-all ${segment.muted ? 'cursor-default border-border bg-muted/70 text-muted-foreground' : 'border-border/55 bg-background/70 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-26px_rgba(15,23,42,0.35)]'}`}
+                                className={`min-h-[96px] rounded-xl border px-3.5 py-3 text-left transition-all ${segment.muted ? 'cursor-default border-border bg-muted text-muted-foreground' : 'border-border bg-background/50 hover:border-primary/40'}`}
                                 style={segment.muted ? undefined : {
-                                    borderColor: hoveredSegment?.key === segment.key ? `${segment.color}88` : `${segment.color}40`,
-                                    backgroundColor: hoveredSegment?.key === segment.key ? `${segment.color}20` : `${segment.color}12`
+                                    borderColor: hoveredSegment?.key === segment.key ? `${segment.color}88` : undefined,
+                                    backgroundColor: hoveredSegment?.key === segment.key ? `${segment.color}15` : undefined
                                 }}
                             >
-                                <div className="flex items-start justify-between gap-3 min-h-[2.25rem]">
-                                    <div className="flex items-start gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-foreground">
-                                        <span className="h-2.5 w-2.5 rounded-full mt-0.5 flex-shrink-0" style={{ backgroundColor: segment.color }} />
+                                <div className="flex items-start justify-between gap-3 min-h-[2rem]">
+                                    <div className="flex items-start gap-2 text-xs font-semibold text-foreground">
+                                        <span className="h-2 w-2 rounded-full mt-1 flex-shrink-0" style={{ backgroundColor: segment.color }} />
                                         <span className="break-words leading-tight">{segment.label}</span>
                                     </div>
-                                    <span className="text-[11px] font-black shrink-0 mt-px" style={segment.muted ? undefined : { color: segment.color }}>
+                                    <span className="text-xs font-bold shrink-0 mt-px" style={segment.muted ? undefined : { color: segment.color }}>
                                         {segment.muted ? '0%' : `${segment.percent}%`}
                                     </span>
                                 </div>
-                                <p className="mt-3 text-2xl font-black text-foreground">{segment.muted ? '0' : numberFormatter.format(segment.value)}</p>
-                                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/80">
+                                <p className="mt-1 text-xl font-bold text-foreground">{segment.muted ? '0' : numberFormatter.format(segment.value)}</p>
+                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
                                     <div
                                         className="h-full rounded-full transition-all duration-300"
                                         style={{
-                                            width: `${segment.muted ? 100 : segment.percent}%`,
+                                             width: `${segment.muted ? 100 : segment.percent}%`,
                                             backgroundColor: segment.color
                                         }}
                                     />
                                 </div>
-                                <p className="mt-2 text-[10px] font-medium text-muted-foreground">
-                                    {segment.muted ? 'No logs matched this chart yet.' : `${segment.percent}% share of the current window.`}
+                                <p className="mt-1.5 text-[11px] font-medium text-muted-foreground">
+                                    {segment.muted ? 'No logs matched this chart yet.' : `${segment.percent}% share of current window.`}
                                 </p>
                             </button>
                         ))}
                     </div>
-                    <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-muted-foreground">
-                        <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1.5">
-                            Total logs: <span className="font-black text-foreground">{numberFormatter.format(chartState.total)}</span>
+                    <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <span className="rounded-lg border border-border bg-background px-2.5 py-1">
+                            Total logs: <span className="font-bold text-foreground">{numberFormatter.format(chartState.total)}</span>
                         </span>
-                        <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1.5">
-                            Hover a segment to inspect the center value
+                        <span className="rounded-lg border border-border bg-background px-2.5 py-1">
+                            Hover a segment to inspect details
                         </span>
                     </div>
                 </div>
@@ -735,19 +735,19 @@ export const AnalyticsPage: React.FC = () => {
 
     return (
         <div className="space-y-6 sm:space-y-7 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <section className={`${surfaceClass} overflow-hidden p-6 sm:p-8 xl:p-9`}>
-                <div className="space-y-6">
-                    <div className="inline-flex rounded-full border border-primary/20 bg-gradient-to-r from-primary/12 to-transparent px-3 py-1 text-[10px] font-black text-primary">
+            <section className={`${surfaceClass} overflow-hidden p-6 sm:p-7`}>
+                <div className="space-y-5">
+                    <div className="inline-flex rounded-lg border border-border bg-background px-3 py-1 text-xs font-semibold text-muted-foreground">
                         Admin Analytics
                     </div>
                     <div className="max-w-3xl">
-                        <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Analytics overview</h1>
-                        <p className="mt-3 text-sm font-medium leading-6 text-muted-foreground">
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Analytics overview</h1>
+                        <p className="mt-1.5 text-sm text-muted-foreground">
                             Revenue, delivery, usage, and account coverage in one clean view.
                         </p>
                     </div>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] ${refreshing ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border/70 bg-background/70 text-muted-foreground'}`}>
+                        <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${refreshing ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}>
                             <span className={`h-2 w-2 rounded-full ${refreshing ? 'animate-pulse bg-primary' : 'bg-emerald-500'}`} />
                             {refreshing ? 'Refreshing live analytics' : `Last sync ${lastUpdatedLabel}`}
                         </div>
@@ -755,7 +755,7 @@ export const AnalyticsPage: React.FC = () => {
                             type="button"
                             onClick={triggerRefresh}
                             disabled={loading || refreshing}
-                            className={`inline-flex items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs font-black uppercase tracking-[0.18em] transition-all ${refreshing ? 'border-primary/30 bg-primary/10 text-primary shadow-[0_18px_38px_-26px_rgba(14,165,233,0.8)]' : 'border-border/70 bg-background/75 text-foreground hover:border-primary/25 hover:text-primary'}`}
+                            className="btn-secondary h-10 px-4 rounded-xl text-xs font-medium disabled:opacity-60"
                         >
                             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                             {refreshing ? 'Refreshing' : 'Refresh Data'}
@@ -765,29 +765,29 @@ export const AnalyticsPage: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => scrollToSection(revenueSectionRef)}
-                            className="group rounded-[26px] border border-primary/25 bg-[linear-gradient(135deg,rgba(56,189,248,0.2),rgba(99,102,241,0.14),rgba(255,255,255,0.88))] p-5 text-left shadow-[0_24px_54px_-34px_rgba(56,189,248,0.7)] transition-transform duration-300 hover:-translate-y-0.5"
+                            className="group rounded-xl border border-border bg-background/50 p-4 text-left transition-colors hover:border-primary/40 hover:bg-background/80"
                         >
                             <div className="flex items-start justify-between gap-4">
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/80">Jump To</p>
-                                    <p className="mt-3 text-xl font-extrabold tracking-tight text-foreground">Revenue</p>
-                                    <p className="mt-2 text-sm text-muted-foreground">Open the income trend, totals, and revenue window controls.</p>
+                                    <p className="text-xs font-semibold text-primary">Jump To</p>
+                                    <p className="mt-1 text-lg font-bold tracking-tight text-foreground">Revenue</p>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">Open the income trend, totals, and revenue window controls.</p>
                                 </div>
-                                <ArrowDownRight className="h-5 w-5 shrink-0 text-primary transition-transform duration-300 group-hover:translate-x-1 group-hover:translate-y-1" />
+                                <ArrowDownRight className="h-4 w-4 shrink-0 text-primary transition-transform duration-200 group-hover:translate-x-0.5 group-hover:translate-y-0.5" />
                             </div>
                         </button>
                         <button
                             type="button"
                             onClick={() => scrollToSection(automationSectionRef)}
-                            className="group rounded-[26px] border border-border/70 bg-[linear-gradient(135deg,rgba(16,185,129,0.16),rgba(14,165,233,0.12),rgba(255,255,255,0.92))] p-5 text-left shadow-[0_24px_54px_-34px_rgba(16,185,129,0.5)] transition-transform duration-300 hover:-translate-y-0.5"
+                            className="group rounded-xl border border-border bg-background/50 p-4 text-left transition-colors hover:border-emerald-500/40 hover:bg-background/80"
                         >
                             <div className="flex items-start justify-between gap-4">
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Jump To</p>
-                                    <p className="mt-3 text-xl font-extrabold tracking-tight text-foreground">Automation Traffic</p>
-                                    <p className="mt-2 text-sm text-muted-foreground">Go straight to delivery activity, range filters, and traffic signals.</p>
+                                    <p className="text-xs font-semibold text-emerald-600">Jump To</p>
+                                    <p className="mt-1 text-lg font-bold tracking-tight text-foreground">Automation Traffic</p>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">Go straight to delivery activity, range filters, and traffic signals.</p>
                                 </div>
-                                <ArrowDownRight className="h-5 w-5 shrink-0 text-emerald-600 transition-transform duration-300 group-hover:translate-x-1 group-hover:translate-y-1" />
+                                <ArrowDownRight className="h-4 w-4 shrink-0 text-emerald-600 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:translate-y-0.5" />
                             </div>
                         </button>
                     </div>
@@ -800,7 +800,7 @@ export const AnalyticsPage: React.FC = () => {
             </section>
 
             {error && (
-                <div className="rounded-[24px] border border-warning/30 bg-warning-muted/60 px-5 py-4 text-sm text-warning-foreground dark:text-warning">
+                <div className="rounded-xl border border-warning/30 bg-warning-muted/60 px-4 py-3 text-sm text-warning-foreground dark:text-warning">
                     <div className="inline-flex items-center gap-2 font-semibold">
                         <AlertTriangle className="h-4 w-4" /> {error}
                     </div>
@@ -865,17 +865,17 @@ export const AnalyticsPage: React.FC = () => {
                 <section ref={revenueSectionRef} className={`${surfaceClass} ${refreshSurfaceClass} p-5 sm:p-7 xl:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
-                            <div className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
-                                Revenue section
+                            <div className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                                Revenue
                             </div>
-                            <h3 className="mt-4 text-[1.55rem] font-extrabold tracking-tight text-foreground">Revenue trend</h3>
-                            <p className="mt-1 text-[11px] font-black text-muted-foreground">{revenueSummaryLabel}</p>
+                            <h3 className="mt-2 text-xl font-bold tracking-tight text-foreground">Revenue trend</h3>
+                            <p className="mt-0.5 text-xs font-medium text-muted-foreground">{revenueSummaryLabel}</p>
                         </div>
                         <div className="flex w-full flex-col gap-3 lg:max-w-[320px] lg:shrink-0">
                             <button
                                 type="button"
                                 onClick={() => scrollToSection(automationSectionRef)}
-                                className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-emerald-700 transition-colors hover:bg-emerald-500/15"
+                                className="btn-secondary h-9 px-3 rounded-lg text-xs font-medium"
                             >
                                 Automation Traffic
                                 <ArrowUpRight className="h-4 w-4" />
@@ -905,25 +905,25 @@ export const AnalyticsPage: React.FC = () => {
                                     <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} />
                                     <YAxis tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} />
                                     <Tooltip content={<ChartTooltip label="Revenue" formatter={(value) => moneyFormatter.format(value)} />} />
-                                    <Bar dataKey="value" fill="#833AB4" radius={[10, 10, 0, 0]} maxBarSize={30} />
+                                    <Bar dataKey="value" fill="#833AB4" radius={[6, 6, 0, 0]} maxBarSize={30} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="order-1 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:order-2 xl:grid-cols-1">
-                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
-                                <p className="text-[10px] font-black text-muted-foreground">Revenue Total</p>
-                                <p className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">{moneyFormatter.format(revenueTotalForWindow)}</p>
-                                <p className="mt-2 text-sm text-muted-foreground">Total within the selected revenue range.</p>
+                        <div className="order-1 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:order-2 xl:grid-cols-1">
+                            <div className="rounded-xl border border-border bg-background/50 px-4 py-3.5">
+                                <p className="text-xs font-semibold text-muted-foreground">Revenue Total</p>
+                                <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{moneyFormatter.format(revenueTotalForWindow)}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">Total within the selected revenue range.</p>
                             </div>
-                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
-                                <p className="text-[10px] font-black text-muted-foreground">Latest Revenue</p>
-                                <p className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">{moneyFormatter.format(latestRevenue)}</p>
-                                <p className="mt-2 text-sm text-muted-foreground">Most recent plotted day in the active revenue window.</p>
+                            <div className="rounded-xl border border-border bg-background/50 px-4 py-3.5">
+                                <p className="text-xs font-semibold text-muted-foreground">Latest Revenue</p>
+                                <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{moneyFormatter.format(latestRevenue)}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">Most recent plotted day in the active revenue window.</p>
                             </div>
-                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
-                                <p className="text-[10px] font-black text-muted-foreground">Top Automation</p>
-                                <p className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">{topAutomationLabel}</p>
-                                <p className="mt-2 text-sm text-muted-foreground">Most active automation type in the selected traffic range.</p>
+                            <div className="rounded-xl border border-border bg-background/50 px-4 py-3.5">
+                                <p className="text-xs font-semibold text-muted-foreground">Top Automation</p>
+                                <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{topAutomationLabel}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">Most active automation type in the selected traffic range.</p>
                             </div>
                         </div>
                     </div>
@@ -932,17 +932,17 @@ export const AnalyticsPage: React.FC = () => {
                 <section ref={automationSectionRef} className={`${surfaceClass} ${refreshSurfaceClass} p-5 sm:p-7 xl:p-8 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
-                            <div className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
-                                Automation section
+                            <div className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                                Automation
                             </div>
-                            <h3 className="mt-4 text-[1.55rem] font-extrabold tracking-tight text-foreground">Automation traffic</h3>
-                            <p className="mt-1 text-[11px] font-black text-muted-foreground">Last 30 days of stored delivery activity, shown across flexible traffic windows.</p>
+                            <h3 className="mt-2 text-xl font-bold tracking-tight text-foreground">Automation traffic</h3>
+                            <p className="mt-0.5 text-xs font-medium text-muted-foreground">Last 30 days of stored delivery activity, shown across flexible traffic windows.</p>
                         </div>
                         <div className="flex w-full flex-col gap-3 lg:max-w-[320px] lg:shrink-0">
                             <button
                                 type="button"
                                 onClick={() => scrollToSection(revenueSectionRef)}
-                                className="inline-flex items-center justify-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-primary transition-colors hover:bg-primary/15"
+                                className="btn-secondary h-9 px-3 rounded-lg text-xs font-medium"
                             >
                                 Revenue
                                 <ArrowUpRight className="h-4 w-4" />
@@ -1028,50 +1028,50 @@ export const AnalyticsPage: React.FC = () => {
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="order-1 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:order-2 xl:grid-cols-1">
-                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                                <p className="text-[10px] font-black text-muted-foreground">Chart Layers</p>
-                                <div className="mt-4 flex flex-wrap gap-2">
-                                    <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
+                        <div className="order-1 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:order-2 xl:grid-cols-1">
+                            <div className="rounded-xl border border-border bg-background/50 px-4 py-3.5">
+                                <p className="text-xs font-semibold text-muted-foreground">Chart Layers</p>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground">
                                         <span
-                                            className="h-2.5 w-2.5 rounded-full"
+                                            className="h-2 w-2 rounded-full"
                                             style={{ backgroundColor: TRAFFIC_SERIES_COLORS.total }}
                                         />
                                         Total events
                                     </span>
-                                    <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
+                                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground">
                                         <span
-                                            className="h-2.5 w-2.5 rounded-full"
+                                            className="h-2 w-2 rounded-full"
                                             style={{ backgroundColor: TRAFFIC_SERIES_COLORS.successful }}
                                         />
                                         Successful
                                     </span>
-                                    <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
+                                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground">
                                         <span
-                                            className="h-2.5 w-2.5 rounded-full"
+                                            className="h-2 w-2 rounded-full"
                                             style={{ backgroundColor: TRAFFIC_SERIES_COLORS.failed }}
                                         />
                                         Failed
                                     </span>
-                                    <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-[11px] font-semibold text-foreground">
+                                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground">
                                         <span
-                                            className="h-2.5 w-2.5 rounded-full border border-dashed"
+                                            className="h-2 w-2 rounded-full border border-dashed"
                                             style={{ borderColor: TRAFFIC_SERIES_COLORS.rollingAverage }}
                                         />
                                         Rolling average
                                     </span>
                                 </div>
                             </div>
-                            <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
-                                <p className="text-[10px] font-black text-muted-foreground">Active Automation Range</p>
-                                <p className="mt-3 text-2xl font-extrabold tracking-tight text-foreground">{trafficSummaryLabel}</p>
-                            <p className="mt-2 text-sm text-muted-foreground">
+                            <div className="rounded-xl border border-border bg-background/50 px-4 py-3.5">
+                                <p className="text-xs font-semibold text-muted-foreground">Active Automation Range</p>
+                                <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{trafficSummaryLabel}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
                                 Average {trafficAverage.toFixed(1)} actions per {trafficFilterMeta.bucket === 'hour' ? 'hour' : 'point'}.
                             </p>
                         </div>
-                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-5">
-                            <p className="text-[10px] font-black text-muted-foreground">Signals</p>
-                            <div className="mt-4 space-y-4">
+                        <div className="rounded-xl border border-border bg-background/50 px-4 py-3.5">
+                            <p className="text-xs font-semibold text-muted-foreground">Signals</p>
+                            <div className="mt-3 space-y-3">
                                 <InsightTile label="Success Rate" value={`${deliverySuccessRate}%`} note="Success plus skipped events" />
                                 <InsightTile label="Failure Share" value={`${failureShare}%`} note="Share of failed traffic in the selected range" />
                                 <InsightTile
@@ -1105,25 +1105,25 @@ export const AnalyticsPage: React.FC = () => {
                     />
                 </div>
                 <div className={`${surfaceClass} ${refreshSurfaceClass} p-6 sm:p-7 transition-opacity duration-300 ${refreshing ? 'opacity-85' : 'opacity-100'}`}>
-                    <div className="mb-5">
-                        <h3 className="text-[1.45rem] font-extrabold tracking-tight text-foreground">Recent failures</h3>
-                        <p className="mt-1 text-[11px] font-black text-muted-foreground">Latest events in the active automation range</p>
+                    <div className="mb-4">
+                        <h3 className="text-xl font-bold tracking-tight text-foreground">Recent failures</h3>
+                        <p className="mt-0.5 text-xs font-medium text-muted-foreground">Latest events in the active automation range</p>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                         {(Array.isArray(displayData?.recent_failures) ? displayData.recent_failures : []).length === 0 ? (
-                            <div className="rounded-[24px] border border-success/30 bg-success-muted/60 px-5 py-9 text-center text-sm font-medium text-success">
+                            <div className="rounded-xl border border-success/30 bg-success-muted/60 px-4 py-8 text-center text-xs font-medium text-success">
                                 No recent failures.
                             </div>
                         ) : (displayData?.recent_failures as Array<any>).map((item) => (
-                            <div key={item.id} className="rounded-[24px] border border-border/70 bg-background/60 px-4 py-4 sm:px-5">
-                                <div className="flex flex-col gap-3">
-                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                                        <p className="text-sm font-bold text-foreground">{humanizeAnalyticsLabel(item.event_type)}</p>
-                                        <span className="shrink-0 text-[10px] font-black text-muted-foreground">
+                            <div key={item.id} className="rounded-xl border border-border bg-background/50 px-4 py-3">
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                                        <p className="text-sm font-semibold text-foreground">{humanizeAnalyticsLabel(item.event_type)}</p>
+                                        <span className="shrink-0 text-xs font-medium text-muted-foreground">
                                             {formatShortDate(item.sent_at || 0)}
                                         </span>
                                     </div>
-                                    <p className="break-words text-sm leading-6 text-muted-foreground">{item.reason}</p>
+                                    <p className="break-words text-xs leading-relaxed text-muted-foreground">{item.reason}</p>
                                 </div>
                             </div>
                         ))}

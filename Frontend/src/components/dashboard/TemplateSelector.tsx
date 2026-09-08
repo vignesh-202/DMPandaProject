@@ -391,14 +391,14 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
 
       {/* Selected Template Info */}
       {selectedTemplate && allowClear && (
-        <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-500/10 rounded-xl border-2 border-blue-200 dark:border-blue-500/20">
+        <div className="flex items-center justify-between p-3.5 bg-primary/5 rounded-xl border border-primary/20">
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-blue-500" />
+            <CheckCircle2 className="w-4 h-4 text-primary" />
             <div>
-              <p className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                Selected: <span className="font-black">{selectedTemplate.name}</span>
+              <p className="text-xs font-semibold text-foreground">
+                Selected: <span className="text-primary">{selectedTemplate.name}</span>
               </p>
-              <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {TEMPLATE_TYPE_LABELS[selectedTemplate.template_type]}
               </p>
             </div>
@@ -406,10 +406,10 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
           <button
             type="button"
             onClick={handleClear}
-            className="p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-lg transition-colors"
             title="Clear selection"
           >
-            <X className="w-4 h-4 text-red-500" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}

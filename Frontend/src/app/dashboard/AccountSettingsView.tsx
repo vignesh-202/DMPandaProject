@@ -660,10 +660,10 @@ const AccountSettingsView = () => {
       {/* Header Panel */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
         <div className="space-y-1.5">
-          <h2 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight flex items-center gap-3">
-            <span className="p-2 rounded-2xl bg-gradient-to-tr from-ig-blue via-ig-purple to-ig-pink text-white shadow-md">
-              <Settings className="h-6 w-6 animate-[spin-slow_16s_linear_infinite]" />
-            </span>
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+              <Settings className="h-6 w-6" />
+            </div>
             Account Settings
           </h2>
           <p className="text-sm text-muted-foreground">Manage your settings, configure login credentials, and connect IG accounts.</p>
@@ -683,11 +683,11 @@ const AccountSettingsView = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={cn(
-                  "flex items-center justify-center lg:justify-start gap-2.5 px-3 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 w-full text-center lg:text-left",
+                  "flex items-center justify-center lg:justify-start gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 w-full text-center lg:text-left",
                   isTabActive
                     ? tab.id === 'danger'
-                      ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25"
-                      : "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                      ? "bg-destructive text-destructive-foreground shadow-xs"
+                      : "bg-primary text-primary-foreground shadow-xs"
                     : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                 )}
               >
@@ -915,7 +915,7 @@ const AccountSettingsView = () => {
                                   <div className="flex flex-wrap items-center gap-2">
                                     <h4 className="truncate text-sm sm:text-base font-bold text-foreground">@{account.username}</h4>
                                     {isSelected && (
-                                      <span className="rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-primary">
+                                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                                         Current
                                       </span>
                                     )}
@@ -926,7 +926,7 @@ const AccountSettingsView = () => {
 
                                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                     <span className={cn(
-                                      "inline-flex rounded-full border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider",
+                                      "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium",
                                       isReconnectRequired
                                         ? "border-red-400/30 bg-red-500/10 text-red-600 dark:text-red-400"
                                         : isActive
@@ -938,12 +938,12 @@ const AccountSettingsView = () => {
                                       {displayStatusLabel}
                                     </span>
                                     {account.plan_locked === true && (
-                                      <span className="inline-flex rounded-full border border-amber-400/30 bg-amber-400/5 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-amber-600">
+                                      <span className="inline-flex rounded-full border border-amber-400/30 bg-amber-400/5 px-2 py-0.5 text-[10px] font-medium text-amber-600">
                                         Plan Limit Locked
                                       </span>
                                     )}
                                     {isReconnectRequired && (
-                                      <span className="inline-flex items-center rounded-full border border-red-400/30 bg-red-500/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-red-500">
+                                      <span className="inline-flex items-center rounded-full border border-red-400/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-500">
                                         <AlertTriangle className="mr-1 h-2.5 w-2.5 shrink-0" />
                                         Automations Stopped
                                       </span>
@@ -1084,28 +1084,21 @@ const AccountSettingsView = () => {
                     <Button
                       onClick={() => handleInstagramLink('new')}
                       disabled={linkingAccountID === 'new'}
-                      className="w-full mt-4 h-12 bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 transition-all duration-200 rounded-xl border-0 font-semibold flex items-center justify-center gap-2.5 group relative overflow-hidden"
+                      className="w-full mt-4 h-11 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs transition-all duration-200 rounded-xl border-0 font-semibold flex items-center justify-center gap-2"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                      
-                      <div className="relative flex items-center justify-center gap-2.5">
-                        {linkingAccountID === 'new' ? (
-                          <Loader2 className="h-5 w-5 animate-spin shrink-0" />
-                        ) : (
-                          <>
-                            <div className="relative">
-                              <Instagram className="h-5 w-5 shrink-0" />
-                              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-white/30 rounded-full blur-sm" />
-                            </div>
-                            <Plus className="h-4 w-4 opacity-90 shrink-0" />
-                          </>
-                        )}
-                        <span className="text-sm font-semibold">
-                          {linkingAccountID === 'new'
-                            ? 'Connecting to Instagram...'
-                            : 'Add Instagram Account'}
-                        </span>
-                      </div>
+                      {linkingAccountID === 'new' ? (
+                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                      ) : (
+                        <>
+                          <Instagram className="h-4 w-4 shrink-0" />
+                          <Plus className="h-4 w-4 opacity-90 shrink-0" />
+                        </>
+                      )}
+                      <span className="text-sm font-semibold">
+                        {linkingAccountID === 'new'
+                          ? 'Connecting to Instagram...'
+                          : 'Add Instagram Account'}
+                      </span>
                     </Button>
                   </div>
                 </div>

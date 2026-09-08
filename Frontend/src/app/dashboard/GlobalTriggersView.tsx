@@ -516,77 +516,77 @@ const GlobalTriggersView: React.FC = () => {
             ) : (
                 /* List Mode */
                 <>
-                    {/* Header - same layout as DM Automation */}
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-8">
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-primary mb-2">
-                                <Globe className="w-4 h-4" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.3em]">Global Triggers</span>
-                            </div>
-                            <h1 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight">Global Triggers</h1>
-                            <p className="text-muted-foreground font-medium max-w-xl">
-                                Global triggers apply across all your content. When keywords are detected in comments, stories, or live sessions, DMPanda replies automatically.
+                    {/* Header */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/80 pb-6 mb-6">
+                        <div className="space-y-1">
+                            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Global Triggers</h1>
+                            <p className="text-sm text-muted-foreground max-w-xl">
+                                Automatically respond to keywords across all your Instagram content in comments, stories, or live sessions.
                             </p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2.5">
                             <button
                                 onClick={() => { setRefreshing(true); fetchTriggers(true).finally(() => setRefreshing(false)); }}
                                 disabled={loading || refreshing}
-                                className="p-3 bg-muted/40 text-muted-foreground hover:text-primary rounded-2xl transition-all border border-content disabled:opacity-50"
+                                className="h-10 px-3.5 bg-card hover:bg-muted/60 text-foreground rounded-xl transition-colors border border-border/80 shadow-xs flex items-center justify-center disabled:opacity-50"
+                                title="Refresh"
                             >
-                                <RefreshCcw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+                                <RefreshCcw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                             </button>
                             <button
                                 onClick={() => void handleCreateNew()}
-                                className="px-8 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-primary/20 flex items-center gap-2"
+                                className="h-10 px-4 sm:px-5 bg-primary hover:bg-primary/95 text-primary-foreground rounded-xl text-sm font-semibold transition-all shadow-sm shadow-primary/20 flex items-center gap-2 active:scale-[0.98]"
                             >
-                                <Plus className="w-3 h-3" /> Create New Rule
+                                <Plus className="w-4 h-4" />
+                                <span>Create New Rule</span>
                             </button>
                         </div>
                     </div>
 
                     {globalTriggers.length === 0 ? (
-                        <div className="bg-muted/40 border-2 border-dashed border-border rounded-3xl p-20 text-center">
-                            <Globe className="w-12 h-12 text-muted-foreground/60 mx-auto mb-6" />
-                            <h4 className="text-foreground font-black text-xl mb-2">No global triggers yet</h4>
-                            <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-8">Create your first global trigger to automatically respond to keywords across all your Instagram content.</p>
+                        <div className="bg-card border border-dashed border-border rounded-2xl p-12 text-center">
+                            <div className="inline-flex p-3 bg-primary/10 rounded-xl mb-4 text-primary">
+                                <Globe className="w-8 h-8" />
+                            </div>
+                            <h4 className="text-foreground font-bold text-lg mb-1.5">No global triggers yet</h4>
+                            <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">Create your first global trigger to automatically respond to keywords across all your Instagram content.</p>
                             <button
                                 onClick={() => void handleCreateNew()}
-                                className="mx-auto px-8 py-4 bg-card text-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl flex items-center gap-3 hover:scale-105"
+                                className="mx-auto px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all shadow-sm shadow-primary/20 flex items-center gap-2 hover:bg-primary/95 active:scale-[0.98]"
                             >
                                 <Plus className="w-4 h-4" />
-                                Create Your First Trigger
+                                <span>Create Your First Trigger</span>
                             </button>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 gap-6">
+                        <div className="grid grid-cols-1 gap-4">
                             {globalTriggers.map((trigger: any) => {
                                 const isToggling = togglingIds.has(trigger.$id);
                                 const isDeleting = deletingIds.has(trigger.$id);
                                 const t = trigger.template_type || 'template_text';
                                 return (
-                                    <div key={trigger.$id} className="relative group bg-card border border-content rounded-3xl p-6 shadow-sm hover:shadow-2xl hover:border-primary/30 transition-all duration-500 overflow-hidden">
+                                    <div key={trigger.$id} className="relative group bg-card border border-border/80 rounded-2xl p-5 shadow-xs hover:border-primary/40 hover:shadow-sm transition-all overflow-hidden">
                                         {isDeleting && (
-                                            <div className="absolute inset-0 z-20 bg-card/80 backdrop-blur-md rounded-3xl flex items-center justify-center animate-in fade-in duration-300">
-                                                <div className="flex flex-col items-center gap-3">
-                                                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary transition-all">Removing Trigger...</span>
+                                            <div className="absolute inset-0 z-20 bg-card/80 backdrop-blur-md rounded-2xl flex items-center justify-center animate-in fade-in duration-200">
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                                                    <span className="text-xs font-semibold text-primary">Removing Trigger...</span>
                                                 </div>
                                             </div>
                                         )}
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                            <div className="flex items-center gap-4 sm:gap-6">
-                                                <div className="w-16 h-16 shrink-0 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                                    {t === 'template_text' && <FileText className="w-7 h-7" />}
-                                                    {t === 'template_carousel' && <Smartphone className="w-7 h-7" />}
-                                                    {t === 'template_buttons' && <MousePointerClick className="w-7 h-7" />}
-                                                    {t === 'template_media' && <ImageIcon className="w-7 h-7" />}
-                                                    {t === 'template_quick_replies' && <Reply className="w-7 h-7" />}
-                                                    {t === 'template_share_post' && <Share2 className="w-7 h-7" />}
-                                                    {!['template_text', 'template_carousel', 'template_buttons', 'template_media', 'template_quick_replies', 'template_share_post'].includes(t) && <Globe className="w-7 h-7" />}
+                                            <div className="flex items-center gap-3.5">
+                                                <div className="w-12 h-12 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                                    {t === 'template_text' && <FileText className="w-5 h-5" />}
+                                                    {t === 'template_carousel' && <Smartphone className="w-5 h-5" />}
+                                                    {t === 'template_buttons' && <MousePointerClick className="w-5 h-5" />}
+                                                    {t === 'template_media' && <ImageIcon className="w-5 h-5" />}
+                                                    {t === 'template_quick_replies' && <Reply className="w-5 h-5" />}
+                                                    {t === 'template_share_post' && <Share2 className="w-5 h-5" />}
+                                                    {!['template_text', 'template_carousel', 'template_buttons', 'template_media', 'template_quick_replies', 'template_share_post'].includes(t) && <Globe className="w-5 h-5" />}
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-lg font-black text-foreground">{trigger.title || 'Untitled Trigger'}</h4>
+                                                    <h4 className="text-base font-semibold text-foreground">{trigger.title || 'Untitled Trigger'}</h4>
                                                     {trigger.template_content && t === 'template_text' && (
                                                         <p className="text-[10px] text-muted-foreground line-clamp-1 mb-1 font-medium italic">&quot;{trigger.template_content}&quot;</p>
                                                     )}

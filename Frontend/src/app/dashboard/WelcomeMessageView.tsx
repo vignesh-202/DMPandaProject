@@ -254,41 +254,42 @@ const WelcomeMessageView: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => setCurrentView('Overview')}
-                                    className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
+                                    className="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-border bg-card hover:bg-muted/60 text-foreground transition-all active:scale-[0.98]"
+                                    title="Back to Overview"
                                 >
                                     <ArrowLeft className="w-5 h-5" />
                                 </button>
                             }
                             centerContent={
                                 <div className="min-w-0">
-                                    <div className="flex items-center gap-2 text-primary mb-1">
+                                    <div className="flex items-center gap-2 text-primary mb-0.5">
                                         <Sparkles className="w-4 h-4" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Welcome Message</span>
+                                        <span className="text-xs font-semibold uppercase tracking-wider">Welcome Message</span>
                                     </div>
-                                    <h1 className="text-xl font-black text-foreground">Welcome Message</h1>
-                                    <p className="text-muted-foreground text-sm">Runs when no other automation or global trigger matches.</p>
+                                    <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Welcome Message</h1>
+                                    <p className="text-muted-foreground text-sm font-normal">Runs when no other automation or global trigger matches.</p>
                                 </div>
                             }
                         />
                     </div>
-                    <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 px-5 py-4">
-                        <p className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                        <p className="text-xs font-medium text-primary">
                             This welcome message is sent only once per user in 24 hours.
                         </p>
                     </div>
 
                     {/* Active Toggle */}
-                    <div className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${isActive ? 'ring-1 ring-primary/15' : ''}`}>
-                        <div className="flex items-start gap-3 sm:items-center sm:gap-4">
-                            <div className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-sm border ${isActive
-                                ? 'bg-white dark:bg-gray-900 border-emerald-100 dark:border-emerald-500/10'
-                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                    <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-border bg-card p-4 transition-all ${isActive ? 'ring-1 ring-primary/20' : ''}`}>
+                        <div className="flex items-start gap-3 sm:items-center">
+                            <div className={`p-2 rounded-lg border ${isActive
+                                ? 'bg-primary/10 border-primary/20 text-primary'
+                                : 'bg-muted border-border text-muted-foreground'
                             }`}>
-                                <Sparkles className={`w-5 h-5 transition-colors ${isActive ? 'text-emerald-500' : 'text-gray-400'}`} />
+                                <Sparkles className="w-4 h-4" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-[10px] sm:text-[11px] font-black text-foreground uppercase tracking-[0.14em] sm:tracking-[0.15em] mb-0.5">Enable Welcome Message</p>
-                                <p className="text-[11px] sm:text-[10px] leading-5 sm:leading-normal font-medium text-muted-foreground">When enabled, auto-reply to new conversations with no matching automation.</p>
+                                <p className="text-xs font-semibold text-foreground">Enable Welcome Message</p>
+                                <p className="text-xs font-normal text-muted-foreground">When enabled, auto-reply to new conversations with no matching automation.</p>
                             </div>
                         </div>
                         <div className="flex w-full justify-end sm:w-auto">
@@ -301,7 +302,7 @@ const WelcomeMessageView: React.FC = () => {
                     </div>
 
                     <LockedFeatureToggle
-                        icon={<Power className={`w-5 h-5 ${followersOnly ? 'text-blue-500' : 'text-gray-400'}`} />}
+                        icon={<Power className={`w-5 h-5 ${followersOnly ? 'text-primary' : 'text-muted-foreground'}`} />}
                         title="Followers Only"
                         description="Only respond to users who already follow your account."
                         checked={followersOnly}
@@ -315,14 +316,14 @@ const WelcomeMessageView: React.FC = () => {
                         locked={getPlanGate('followers_only').isLocked}
                         note={getPlanGate('followers_only').note}
                         onUpgrade={() => setCurrentView('My Plan')}
-                        activeIconClassName="text-blue-500"
+                        activeIconClassName="text-primary"
                         isCollapsed={followersOnlyCollapsed}
                         onCollapseToggle={() => setFollowersOnlyCollapsed(!followersOnlyCollapsed)}
                     />
 
                     {followersOnly && !followersOnlyCollapsed && (
-                        <div className="bg-card border border-content rounded-2xl p-6 space-y-3">
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+                            <label className="block text-xs font-medium text-foreground">
                                 Followers-Only Message
                             </label>
                             <textarea
@@ -350,7 +351,7 @@ const WelcomeMessageView: React.FC = () => {
 
                     <div className="space-y-2">
                         <LockedFeatureToggle
-                            icon={<Lightbulb className={`w-5 h-5 ${suggestMoreEnabled ? 'text-yellow-500' : 'text-gray-400'}`} />}
+                            icon={<Lightbulb className={`w-5 h-5 ${suggestMoreEnabled ? 'text-warning' : 'text-muted-foreground'}`} />}
                             title="Suggest More"
                             description="Add a Suggest More button after this automation reply."
                             checked={suggestMoreEnabled}
@@ -358,26 +359,26 @@ const WelcomeMessageView: React.FC = () => {
                             locked={suggestMoreGate.isLocked}
                             note={suggestMoreGate.note}
                             onUpgrade={() => setCurrentView('My Plan')}
-                            activeIconClassName="text-yellow-500"
+                            activeIconClassName="text-warning"
                         />
                         {suggestMoreEnabled && !suggestMoreGate.isLocked && (
-                            <div className="ml-2 flex items-start gap-3 rounded-2xl border border-yellow-200 dark:border-yellow-500/20 bg-yellow-50/60 dark:bg-yellow-500/5 px-4 py-3">
-                                <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
-                                <p className="text-[10px] font-bold text-yellow-700 dark:text-yellow-300">Suggest More must be configured in the <button type="button" onClick={() => setCurrentView('Suggest More')} className="underline hover:no-underline font-black">Suggest More</button> section for this toggle to take effect.</p>
+                            <div className="ml-2 flex items-start gap-3 rounded-xl border border-warning/20 bg-warning-muted/20 px-4 py-3">
+                                <Info className="w-4 h-4 text-warning shrink-0" />
+                                <p className="text-xs font-medium text-foreground">Suggest More must be configured in the <button type="button" onClick={() => setCurrentView('Suggest More')} className="underline hover:no-underline font-semibold text-primary">Suggest More</button> section for this toggle to take effect.</p>
                             </div>
                         )}
                     </div>
 
-                    <div className="bg-card border border-content rounded-2xl p-4 sm:p-6 space-y-4">
+                    <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
                         <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
-                            <label className="block text-[9px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest text-muted-foreground">
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                 Select Reply Action
                             </label>
                             {selectedTemplate && !showTemplateSelector && (
                                 <button
                                     type="button"
                                     onClick={() => setShowTemplateSelector(true)}
-                                    className="text-[9px] sm:text-[10px] font-black text-primary uppercase tracking-wider sm:tracking-widest hover:underline whitespace-nowrap"
+                                    className="text-xs font-semibold text-primary hover:underline whitespace-nowrap"
                                 >
                                     Change Template
                                 </button>
@@ -400,12 +401,12 @@ const WelcomeMessageView: React.FC = () => {
                             </p>
                         )}
                         {selectedTemplate && !showTemplateSelector && (
-                            <div className="p-4 sm:p-6 bg-primary/10 border-2 border-primary/20 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div>
-                                    <p className="text-sm font-black text-foreground uppercase tracking-tight">{selectedTemplate.name}</p>
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{selectedTemplate.template_type.replace('template_', '')}</p>
+                                    <p className="text-sm font-semibold text-foreground">{selectedTemplate.name}</p>
+                                    <p className="text-xs text-muted-foreground capitalize">{selectedTemplate.template_type.replace('template_', '').replace('_', ' ')}</p>
                                 </div>
-                                <div className="self-start sm:self-auto px-3 py-1.5 bg-success-muted/60 text-success text-[9px] font-black uppercase tracking-widest rounded-lg">Selected</div>
+                                <div className="self-start sm:self-auto px-2.5 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium rounded-md">Selected</div>
                             </div>
                         )}
                         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">

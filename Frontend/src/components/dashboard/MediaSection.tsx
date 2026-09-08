@@ -374,38 +374,38 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/35" />
                 <div className="absolute left-1.5 top-1.5 sm:left-2.5 sm:top-2.5 flex flex-wrap items-center gap-1 sm:gap-1.5 max-w-[75%]">
-                    <div className="rounded-full bg-black/60 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[6px] sm:text-[7px] font-black uppercase tracking-[0.22em] text-white backdrop-blur-md">
+                    <div className="rounded-md bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-md">
                         {type === 'reel' ? 'Reel' : type === 'story' ? 'Story' : 'Post'}
                     </div>
-                    <div className="rounded-full border border-white/10 bg-white/10 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[6px] sm:text-[7px] font-black uppercase tracking-[0.18em] text-white backdrop-blur-md">
+                    <div className="rounded-md border border-white/10 bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-md">
                         {item.media_type === 'VIDEO' ? 'Video' : item.media_type === 'CAROUSEL_ALBUM' ? 'Carousel' : 'Image'}
                     </div>
                 </div>
                 {isAutomated && (
                     <div className={cn(
-                        'absolute right-1.5 top-1.5 sm:right-2.5 sm:top-2.5 flex h-5 w-5 sm:h-7 sm:w-7 items-center justify-center rounded-full shadow-lg transition-all text-white',
-                        item.is_active !== false ? 'bg-success' : 'bg-amber-500'
+                        'absolute right-1.5 top-1.5 sm:right-2.5 sm:top-2.5 flex h-5 w-5 sm:h-7 sm:w-7 items-center justify-center rounded-full shadow-sm transition-all text-white',
+                        item.is_active !== false ? 'bg-emerald-500' : 'bg-amber-500'
                     )}>
                         {item.is_active !== false ? (
-                            <Check className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 stroke-[3]" />
+                            <Check className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 stroke-[2.5]" />
                         ) : (
-                            <X className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 stroke-[3]" />
+                            <X className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 stroke-[2.5]" />
                         )}
                     </div>
                 )}
             </div>
             <div className="flex flex-1 flex-col gap-1.5 sm:gap-2 px-0.5 pb-0.5 pt-2 sm:pt-3">
                 {type !== 'story' && (
-                    <h3 className="line-clamp-2 text-[10px] sm:text-[13px] font-black leading-snug tracking-tight text-foreground">
+                    <h3 className="line-clamp-2 text-xs sm:text-sm font-semibold leading-snug tracking-tight text-foreground">
                         {item.caption?.trim() || (type === 'reel' ? 'Reel automation item' : 'Post automation item')}
                     </h3>
                 )}
                 {type === 'story' && (
-                    <h3 className="line-clamp-1 text-[10px] sm:text-[13px] font-black leading-snug tracking-tight text-foreground">
+                    <h3 className="line-clamp-1 text-xs sm:text-sm font-semibold leading-snug tracking-tight text-foreground">
                         Story automation item
                     </h3>
                 )}
-                <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-[8px] sm:text-[10px] font-semibold text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-normal text-muted-foreground">
                     <span>{formatMediaDate(item.timestamp)}</span>
                     <span className="h-1 w-1 rounded-full bg-muted-foreground/40 hidden sm:block" />
                     <span>{formatMediaAge(item.timestamp)}</span>
@@ -418,10 +418,10 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                             onCreateAutomation(item);
                         }}
                         className={cn(
-                            'inline-flex h-7 sm:h-9 items-center justify-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl px-2 sm:px-3 text-[8px] sm:text-[10px] font-black uppercase tracking-[0.14em] transition-all sm:tracking-[0.16em] flex-1',
+                            'inline-flex h-8 sm:h-9 items-center justify-center gap-1.5 rounded-lg px-2.5 sm:px-3 text-xs font-semibold transition-all flex-1 active:scale-[0.98]',
                             isAutomated
-                                ? 'bg-primary/12 text-primary hover:bg-primary/18'
-                                : 'bg-foreground text-background hover:bg-foreground/90'
+                                ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                                : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
                         )}
                     >
                         {isAutomated ? <Pencil className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
@@ -429,7 +429,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                     </button>
                     {isAutomated && (
                         <div 
-                            className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg sm:rounded-xl h-7 sm:h-9"
+                            className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 bg-muted/40 border border-border/70 rounded-lg h-8 sm:h-9"
                             onClick={(e) => e.stopPropagation()}
                         >
                             <ToggleSwitch
@@ -438,7 +438,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                 variant="plain"
                                 size="sm"
                             />
-                            <span className="text-[6px] sm:text-[9px] font-black uppercase tracking-wider text-muted-foreground min-w-[28px] sm:min-w-[36px] text-center">
+                            <span className="text-[10px] font-medium text-muted-foreground min-w-[28px] sm:min-w-[36px] text-center">
                                 {item.is_active !== false ? 'Active' : 'Paused'}
                             </span>
                         </div>
@@ -500,9 +500,9 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
             <div className="flex h-full min-h-[420px] flex-col rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 dark:border-slate-800 dark:bg-black sm:min-h-[500px] sm:rounded-3xl sm:p-6">
                 <div className="mb-6 flex flex-col items-start justify-between gap-4 md:mb-8 md:flex-row md:items-center">
                     <div>
-                        <h2 className="text-2xl sm:text-3xl font-black text-black dark:text-white tracking-tight">{title}</h2>
-                        <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mt-2 flex items-center gap-1.5">
-                            <span className={`w-1.5 h-1.5 rounded-full ${liveIsActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                        <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">{title}</h2>
+                        <p className="text-xs font-medium text-primary mt-1.5 flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full ${liveIsActive ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`} />
                             {isLoadingStats ? 'Checking live status' : liveIsActive ? 'Instagram Live is active right now' : 'No active live detected right now'}
                         </p>
                     </div>
@@ -512,14 +512,14 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                             <button
                                 onClick={handleRefresh}
                                 disabled={cooldown > 0 || isRefreshing}
-                                className="group relative px-4 py-2 bg-gray-50 dark:bg-gray-900 hover:bg-white dark:hover:bg-gray-800 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all border border-slate-200 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm"
+                                className="group relative h-9 px-3.5 bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground rounded-xl transition-all border border-border disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xs"
                                 title={cooldown > 0 ? `Rate limit active: Wait ${cooldown} seconds` : 'Refresh live status and automations'}
                             >
-                                <RefreshCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''} group-hover:rotate-180 transition-transform duration-700`} />
+                                <RefreshCcw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
                                 {cooldown > 0 ? (
-                                    <span className="text-[10px] font-black tracking-tighter tabular-nums">{cooldown}s</span>
+                                    <span className="text-xs font-medium tabular-nums">{cooldown}s</span>
                                 ) : (
-                                    <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Refresh</span>
+                                    <span className="text-xs font-medium hidden sm:inline">Refresh</span>
                                 )}
                             </button>
                         )}
@@ -665,10 +665,10 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                 </button>
                             )}
                             <div className="min-w-0 flex-1">
-                                <h2 className="text-2xl sm:text-3xl font-black text-black dark:text-white tracking-tight truncate">{title}</h2>
+                                <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight truncate">{title}</h2>
                                 {type === 'story' && (
-                                    <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mt-2 flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                    <p className="text-xs font-medium text-primary mt-1.5 flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                                         Showing active 24h stories
                                     </p>
                                 )}
@@ -679,14 +679,14 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                             <button
                                 onClick={handleRefresh}
                                 disabled={cooldown > 0 || isRefreshing}
-                                className="group relative px-4 py-2 bg-gray-50 dark:bg-gray-900 hover:bg-white dark:hover:bg-gray-800 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all border border-slate-200 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm shrink-0"
+                                className="group relative h-9 px-3.5 bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground rounded-xl transition-all border border-border disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xs shrink-0"
                                 title={cooldown > 0 ? `Rate limit active: Wait ${cooldown} seconds` : "Refresh items from Instagram"}
                             >
-                                <RefreshCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''} group-hover:rotate-180 transition-transform duration-700`} />
+                                <RefreshCcw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
                                 {cooldown > 0 ? (
-                                    <span className="text-[10px] font-black tracking-tighter tabular-nums">{cooldown}s</span>
+                                    <span className="text-xs font-medium tabular-nums">{cooldown}s</span>
                                 ) : (
-                                    <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Refresh</span>
+                                    <span className="text-xs font-medium hidden sm:inline">Refresh</span>
                                 )}
                             </button>
                         )}
@@ -699,17 +699,15 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                             <div className="relative">
                                 <button
                                     onClick={() => { setDateDropdownOpen(!dateDropdownOpen); setSortDropdownOpen(false); }}
-                                    className="group flex h-11 items-center gap-2 rounded-2xl border border-border/80 bg-background/90 px-4 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.7)] transition-all hover:border-primary/35 hover:bg-card"
+                                    className="group flex h-9 items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground transition-all hover:bg-muted/60"
                                 >
-                                    <Calendar className={`w-3.5 h-3.5 ${mediaDateFilter !== 'all' ? 'text-primary' : 'text-muted-foreground/60'} transition-colors group-hover:text-primary`} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-foreground">
+                                    <Calendar className={`w-3.5 h-3.5 ${mediaDateFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'} transition-colors group-hover:text-primary`} />
+                                    <span>
                                         {mediaDateFilter === 'all' ? 'All Time' :
                                             mediaDateFilter === '7days' ? 'Last 7 Days' :
                                                 mediaDateFilter === '30days' ? 'Last 30 Days' : 'Custom'}
                                     </span>
-                                    <span className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-xl border border-border/70 bg-card/80 transition-colors group-hover:border-primary/35">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 ${dateDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
-                                    </span>
+                                    <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${dateDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
                                 </button>
 
                                 {dateDropdownOpen && (
@@ -728,13 +726,13 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                                         setMediaDateFilter(f.id as any);
                                                         if (f.id !== 'custom') setDateDropdownOpen(false);
                                                     }}
-                                                    className={`w-full rounded-xl px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider transition-all ${mediaDateFilter === f.id ? 'bg-primary text-primary-foreground shadow-[0_18px_34px_-24px_rgba(99,102,241,0.9)]' : 'text-foreground hover:bg-background/80 hover:text-primary'}`}
+                                                    className={`w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-all ${mediaDateFilter === f.id ? 'bg-primary text-primary-foreground font-semibold' : 'text-foreground hover:bg-muted/60'}`}
                                                 >
                                                     {f.label}
                                                 </button>
                                             ))}
                                             {mediaDateFilter === 'custom' && (
-                                                <div className="mt-2 rounded-2xl border border-border/70 bg-background/80 p-1 animate-in slide-in-from-top-2">
+                                                <div className="mt-2 rounded-xl border border-border bg-background p-1 animate-in slide-in-from-top-2">
                                                     <ModernCalendar
                                                         startDate={mediaStartDate}
                                                         endDate={mediaEndDate}
@@ -745,10 +743,10 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                                         onClose={() => setDateDropdownOpen(false)}
                                                     />
                                                     {(mediaStartDate || mediaEndDate) && (
-                                                        <div className="border-t border-border/70 p-2">
+                                                        <div className="border-t border-border p-2">
                                                             <button
                                                                 onClick={(e) => { e.preventDefault(); setDateDropdownOpen(false); }}
-                                                                className="w-full rounded-xl bg-primary py-2 text-[9px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+                                                                className="w-full rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground shadow-xs transition-all hover:bg-primary/90"
                                                             >
                                                                 Apply Range
                                                             </button>
@@ -765,30 +763,28 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                             <div className="relative">
                                 <button
                                     onClick={() => { setSortDropdownOpen(!sortDropdownOpen); setDateDropdownOpen(false); }}
-                                    className="group flex h-11 items-center gap-2 rounded-2xl border border-border/80 bg-background/90 px-4 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.7)] transition-all hover:border-primary/35 hover:bg-card"
+                                    className="group flex h-9 items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground transition-all hover:bg-muted/60"
                                 >
-                                    <RefreshCcw className="w-3.5 h-3.5 text-muted-foreground/60 transition-transform duration-500 group-hover:rotate-180 group-hover:text-primary" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-foreground">
+                                    <RefreshCcw className="w-3.5 h-3.5 text-muted-foreground transition-colors group-hover:text-primary" />
+                                    <span>
                                         {sortOrder === 'recent' ? 'Recent' : 'Oldest'}
                                     </span>
-                                    <span className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-xl border border-border/70 bg-card/80 transition-colors group-hover:border-primary/35">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 ${sortDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
-                                    </span>
+                                    <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${sortDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
                                 </button>
 
                                 {sortDropdownOpen && (
                                     <>
                                         <div className="fixed inset-0 z-[60]" onClick={() => setSortDropdownOpen(false)} />
-                                        <div className="absolute top-full right-0 z-[70] mt-2 min-w-[160px] overflow-hidden rounded-[1.35rem] border border-border/80 bg-card/98 p-1.5 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.72)] backdrop-blur-xl animate-in zoom-in-95 duration-200">
+                                        <div className="absolute top-full right-0 z-[70] mt-2 min-w-[140px] overflow-hidden rounded-xl border border-border bg-card p-1 shadow-md backdrop-blur-xl animate-in zoom-in-95 duration-150">
                                             <button
                                                 onClick={() => { setSortOrder('recent'); setSortDropdownOpen(false); }}
-                                                className={`w-full rounded-xl px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider transition-all ${sortOrder === 'recent' ? 'bg-primary text-primary-foreground shadow-[0_18px_34px_-24px_rgba(99,102,241,0.9)]' : 'text-foreground hover:bg-background/80 hover:text-primary'}`}
+                                                className={`w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-all ${sortOrder === 'recent' ? 'bg-primary text-primary-foreground font-semibold' : 'text-foreground hover:bg-muted/60'}`}
                                             >
                                                 Recent
                                             </button>
                                             <button
                                                 onClick={() => { setSortOrder('oldest'); setSortDropdownOpen(false); }}
-                                                className={`w-full rounded-xl px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider transition-all ${sortOrder === 'oldest' ? 'bg-primary text-primary-foreground shadow-[0_18px_34px_-24px_rgba(99,102,241,0.9)]' : 'text-foreground hover:bg-background/80 hover:text-primary'}`}
+                                                className={`w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-all ${sortOrder === 'oldest' ? 'bg-primary text-primary-foreground font-semibold' : 'text-foreground hover:bg-muted/60'}`}
                                             >
                                                 Oldest
                                             </button>
@@ -839,12 +835,9 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                 <button
                                     onClick={handleRefresh}
                                     disabled={cooldown > 0 || isRefreshing}
-                                    className={`group relative flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl hover:shadow-2xl ${cooldown > 0 || isRefreshing
-                                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white hover:-translate-y-1 active:scale-95'
-                                        }`}
+                                    className="inline-flex items-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
                                 >
-                                    {isRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-700" />}
+                                    {isRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
                                     {isRefreshing ? 'Refreshing...' : 'Refresh'}
                                 </button>
                             </div>
@@ -999,39 +992,39 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                                                 />
 
                                                                 <div className="absolute top-3 inset-x-3 flex justify-between items-start pointer-events-none">
-                                                                    <div className="px-2.5 py-1 bg-black/50 backdrop-blur-md rounded-xl text-white text-[8px] font-black uppercase tracking-widest border border-white/10">
+                                                                    <div className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded-md text-white text-[10px] font-medium border border-white/10">
                                                                         {item.media_type === 'CAROUSEL_ALBUM' ? 'Carousel' : item.media_type === 'VIDEO' ? 'Video' : 'Image'}
                                                                     </div>
                                                                     {isAutomated && (
-                                                                        <div className="bg-blue-600 text-white p-1.5 rounded-full shadow-lg">
-                                                                            <Check className="w-3 h-3 stroke-[4]" />
+                                                                        <div className="bg-primary text-primary-foreground p-1.5 rounded-full shadow-sm">
+                                                                            <Check className="w-3 h-3 stroke-[2.5]" />
                                                                         </div>
                                                                     )}
                                                                 </div>
 
-                                                                <div className={`absolute inset-0 transition-all duration-500 flex items-center justify-center backdrop-blur-[2px] ${isAutomated ? 'bg-blue-900/40 opacity-100' : 'bg-black/60 opacity-0 group-hover:opacity-100'}`}>
+                                                                <div className={`absolute inset-0 transition-all duration-300 flex items-center justify-center backdrop-blur-[2px] ${isAutomated ? 'bg-primary/20 opacity-100' : 'bg-black/50 opacity-0 group-hover:opacity-100'}`}>
                                                                     {isAutomated ? (
-                                                                        <div className="flex flex-col items-center gap-3">
-                                                                            <div className="bg-blue-600 text-white px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-2">
+                                                                        <div className="flex flex-col items-center gap-2">
+                                                                            <div className="bg-primary text-primary-foreground px-4 py-2 rounded-xl font-semibold text-xs shadow-sm flex items-center gap-2">
                                                                                 <Pencil className="w-3.5 h-3.5" /> Edit Automation
                                                                             </div>
-                                                                            <span className="text-[9px] font-black text-white/80 uppercase tracking-widest">Running Active</span>
+                                                                            <span className="text-[10px] font-medium text-white/90">Active</span>
                                                                         </div>
                                                                     ) : (
-                                                                        <div className="bg-white text-black px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transform scale-90 group-hover:scale-100 transition-all duration-300 shadow-2xl flex items-center gap-2">
-                                                                            <Plus className="w-4 h-4" /> Setup Automation
+                                                                        <div className="bg-card text-foreground px-4 py-2 rounded-xl font-semibold text-xs shadow-md flex items-center gap-2">
+                                                                            <Plus className="w-3.5 h-3.5" /> Setup Automation
                                                                         </div>
                                                                     )}
                                                                 </div>
 
-                                                                <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent group-hover:translate-y-full transition-transform duration-300">
-                                                                    <div className="flex items-center gap-2 mb-1.5 opacity-80">
-                                                                        <Calendar className="w-3 h-3 text-white" />
-                                                                        <span className="text-[9px] font-black uppercase tracking-widest text-white">
+                                                                <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                                                                    <div className="flex items-center gap-1.5 mb-1 text-white/80">
+                                                                        <Calendar className="w-3 h-3" />
+                                                                        <span className="text-[10px] font-medium">
                                                                             {new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                                                         </span>
                                                                     </div>
-                                                                    <p className="text-[10px] line-clamp-2 font-bold text-white leading-snug">
+                                                                    <p className="text-xs line-clamp-2 font-medium text-white leading-snug">
                                                                         {item.caption || "No Caption Provided"}
                                                                     </p>
                                                                 </div>

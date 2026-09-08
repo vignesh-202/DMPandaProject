@@ -8,10 +8,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Default - Instagram Purple
-        default: 'bg-primary text-primary-foreground hover:bg-primary-hover shadow-sm hover:shadow-ig-purple',
+        // Default - Instagram Gradient Theme (Matching Home Page Login/Dashboard button)
+        default: 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-sm hover:shadow-lg hover:shadow-[#833AB4]/25 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200',
         // Instagram Gradient - Primary action button
-        instagram: 'bg-ig-gradient text-white shadow-lg hover:shadow-ig-glow hover:scale-[1.02] bg-[length:200%_200%] hover:bg-right transition-all duration-300',
+        instagram: 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-lg hover:shadow-lg hover:shadow-[#833AB4]/30 hover:scale-[1.03] active:scale-[0.98] transition-all duration-300',
         // Destructive
         destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm hover:shadow-md',
         // Outline with Instagram hover effect
@@ -27,7 +27,7 @@ const buttonVariants = cva(
         // Warning - Instagram Yellow
         warning: 'bg-warning text-warning-foreground hover:bg-warning/90 shadow-sm hover:shadow-md',
         // Instagram Outline - Gradient border
-        'instagram-outline': 'bg-transparent text-foreground hover:text-ig-purple border-2 border-transparent bg-clip-padding relative before:absolute before:inset-0 before:rounded-xl before:p-[2px] before:bg-ig-gradient before:-z-10 before:content-[""] hover:shadow-lg',
+        'instagram-outline': 'bg-transparent text-foreground hover:text-ig-purple border-2 border-transparent bg-clip-padding relative before:absolute before:inset-0 before:rounded-xl before:p-[2px] before:bg-gradient-to-r before:from-[#405DE6] before:via-[#833AB4] before:to-[#FD1D1D] before:-z-10 before:content-[""] hover:shadow-lg',
       },
       size: {
         default: 'h-10 px-5 py-2',

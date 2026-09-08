@@ -139,9 +139,9 @@ export default {
         'ig-glow': '0 0 20px rgba(131, 58, 180, 0.25), 0 0 40px rgba(253, 29, 29, 0.15)',
       },
       backgroundImage: {
-        'ig-gradient': 'linear-gradient(45deg, #405DE6, #833AB4, #FD1D1D, #F56040, #FCAF45)',
-        'ig-gradient-reverse': 'linear-gradient(45deg, #FCAF45, #F56040, #FD1D1D, #833AB4, #405DE6)',
-        'ig-gradient-vertical': 'linear-gradient(180deg, #405DE6, #833AB4, #FD1D1D, #F56040, #FCAF45)',
+        'ig-gradient': 'linear-gradient(135deg, #405DE6 0%, #833AB4 50%, #FD1D1D 100%)',
+        'ig-gradient-reverse': 'linear-gradient(135deg, #FD1D1D 0%, #833AB4 50%, #405DE6 100%)',
+        'ig-gradient-vertical': 'linear-gradient(180deg, #405DE6, #833AB4, #FD1D1D)',
         'ig-gradient-radial': 'radial-gradient(circle, #833AB4, #FD1D1D, #F56040)',
       },
       keyframes: {

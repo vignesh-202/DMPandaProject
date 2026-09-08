@@ -1097,26 +1097,26 @@ const InboxMenu: React.FC = () => {
 
             {!isCreatingItem && (
                 <>
-                    <div className="space-y-4 pb-6 md:pb-8 border-b border-border">
+                    <div className="space-y-4 pb-6 border-b border-border/60">
                         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Smart Inbox Control</h1>
+                                    <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Smart Inbox Control</h1>
                                     {inboxMenuData?.status === 'match' && (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-success-muted text-success text-[10px] font-black uppercase tracking-widest rounded-full">
-                                            <CheckCircle2 className="w-2.5 h-2.5" /> Synced
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium rounded-full">
+                                            <CheckCircle2 className="w-3 h-3" /> Synced
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-sm font-medium text-muted-foreground">Set your Instagram menu for quick support, links, and replies.</p>
+                                <p className="text-sm font-normal text-muted-foreground">Set your Instagram menu for quick support, links, and replies.</p>
                             </div>
                             {/* Top row: Delete left, Refresh+Grid right */}
-                            <div className="flex items-center justify-between gap-2 md:justify-end md:gap-3">
+                            <div className="flex items-center justify-between gap-2 md:justify-end md:gap-2.5">
                                 {!inboxMenuLoading && status === 'match' && (isEditing ? editingMenu : currentDisplayMenu).length > 0 && (
                                     <button
                                         onClick={handleDelete}
                                         disabled={inboxMenuLoading || isActionLoading}
-                                        className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-red-500/20 transition-all disabled:opacity-70 disabled:pointer-events-none md:px-6"
+                                        className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground transition-all duration-150 active:scale-[0.98] disabled:opacity-50"
                                     >
                                         {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                         Delete
@@ -1125,21 +1125,22 @@ const InboxMenu: React.FC = () => {
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={handleRefreshClick}
-                                        className="p-3 bg-secondary text-muted-foreground rounded-xl hover:bg-secondary/80 transition-all"
+                                        className="h-10 w-10 inline-flex items-center justify-center border border-border bg-card text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted/60 transition-all"
                                         disabled={inboxMenuLoading || isActionLoading}
+                                        title="Refresh"
                                     >
                                         <RefreshCw className={`w-4 h-4 ${inboxMenuLoading ? 'animate-spin' : ''}`} />
                                     </button>
-                                    <div className="flex bg-secondary p-1 rounded-xl border border-border">
+                                    <div className="flex bg-muted/50 p-1 rounded-xl border border-border">
                                         <button
                                             onClick={() => setViewMode('grid')}
-                                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                            className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-card shadow-xs text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                                         >
                                             <LayoutGrid className="w-4 h-4" />
                                         </button>
                                         <button
                                             onClick={() => setViewMode('list')}
-                                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                            className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card shadow-xs text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                                         >
                                             <List className="w-4 h-4" />
                                         </button>
@@ -1147,8 +1148,8 @@ const InboxMenu: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        {/* Full-width action buttons below */}
-                        <div className="flex flex-col gap-2 md:flex-row md:justify-end md:gap-3">
+                        {/* Action buttons below */}
+                        <div className="flex flex-col gap-2 md:flex-row md:justify-end md:gap-2.5">
                             {status === 'match' && !inboxMenuLoading && (
                                 <button
                                     onClick={() => {
@@ -1156,7 +1157,7 @@ const InboxMenu: React.FC = () => {
                                     }}
                                     disabled={isActionLoading || ((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS)}
                                     title={((isEditing ? editingMenu : currentDisplayMenu).length >= MAX_INBOX_MENU_ITEMS) ? `Maximum ${MAX_INBOX_MENU_ITEMS} menu items allowed.` : undefined}
-                                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-black dark:bg-white text-white dark:text-black px-4 py-3 text-[10px] font-black uppercase tracking-widest shadow-xl shadow-black/10 transition-all disabled:opacity-50 disabled:pointer-events-none md:w-auto md:px-8"
+                                    className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
                                 >
                                     <Plus className="w-4 h-4" />
                                     {(editingMenu.length > 0 || currentDisplayMenu.length > 0) ? 'Add Menu Item' : 'Create New Menu'}
@@ -1167,7 +1168,7 @@ const InboxMenu: React.FC = () => {
                                 <button
                                     onClick={handleSaveMenu}
                                     disabled={isActionLoading}
-                                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-blue-500/20 transition-all disabled:opacity-70 disabled:pointer-events-none md:w-auto md:px-8"
+                                    className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
                                 >
                                     {isPublishing ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1368,19 +1369,23 @@ const InboxMenu: React.FC = () => {
 
                                             {/* 2. Action Type Toggle */}
                                             <div className="space-y-3">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Select Action Type</label>
-                                                <div className="grid grid-cols-2 gap-4 p-1.5 bg-gray-50 dark:bg-gray-800/50 rounded-[2.5rem] border border-content">
+                                                <label className="text-xs font-medium text-foreground">Select Action Type</label>
+                                                <div className="grid grid-cols-2 gap-2 p-1 bg-muted/50 rounded-xl border border-border">
                                                     <button
-                                                        onClick={() => setNewItem({ ...newItem, type: 'web_url', payload: undefined })}
-                                                        className={`py-4 px-6 rounded-[2rem] transition-all flex items-center justify-center gap-3 font-black text-[11px] uppercase tracking-widest ${newItem.type === 'web_url' ? 'bg-white dark:bg-gray-700 shadow-xl text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                                        type="button"
+                                                        onClick={() => setNewItem({ ...newItem, type: 'web_url' })}
+                                                        className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-semibold ${newItem.type === 'web_url' ? 'bg-card shadow-xs text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                                                     >
-                                                        <Globe className="w-4 h-4" /> Web URL
+                                                        <Globe className="w-3.5 h-3.5" />
+                                                        Open Website
                                                     </button>
                                                     <button
-                                                        onClick={() => setNewItem({ ...newItem, type: 'postback', url: undefined })}
-                                                        className={`py-4 px-6 rounded-[2rem] transition-all flex items-center justify-center gap-3 font-black text-[11px] uppercase tracking-widest ${newItem.type === 'postback' ? 'bg-white dark:bg-gray-700 shadow-xl text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                                        type="button"
+                                                        onClick={() => setNewItem({ ...newItem, type: 'postback' })}
+                                                        className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-semibold ${newItem.type === 'postback' ? 'bg-card shadow-xs text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                                                     >
-                                                        <MessageCircle className="w-4 h-4" /> Auto Reply
+                                                        <MessageSquare className="w-3.5 h-3.5" />
+                                                        Send Message
                                                     </button>
                                                 </div>
                                             </div>

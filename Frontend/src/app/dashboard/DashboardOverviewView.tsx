@@ -38,14 +38,14 @@ const GaugeCard = ({
   return (
     <Card
       variant="elevated"
-      className="relative flex min-h-[220px] cursor-pointer flex-col justify-between p-4 transition-all group ig-card hover:-translate-y-0.5 hover:shadow-md lg:min-h-[250px]"
+      className="relative flex min-h-[220px] cursor-pointer flex-col justify-between p-4 sm:p-5 transition-all group hover:-translate-y-0.5 hover:shadow-sm border border-border/80 rounded-2xl lg:min-h-[250px]"
       onClick={() => setCurrentView('Analytics')}
     >
       <div className="flex items-start justify-between w-full">
-        <h3 className="text-2xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors group-hover:text-primary">
+        <h3 className="text-xs font-semibold text-foreground transition-colors group-hover:text-primary">
           {label}
         </h3>
-        <ChevronRight className="h-4 w-4 text-primary opacity-0 transition-opacity group-hover:opacity-100" />
+        <ChevronRight className="h-4 w-4 text-muted-foreground/60 transition-colors group-hover:text-primary" />
       </div>
 
       <div className="flex flex-1 items-center justify-center py-2">
@@ -58,29 +58,29 @@ const GaugeCard = ({
         />
       </div>
 
-      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/50 pt-2.5 text-center text-xs">
+      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/60 pt-2.5 text-center text-xs">
         <div
           className={cn(
-            "rounded-lg px-2 py-1.5 transition-all duration-300 border",
+            "rounded-xl px-2.5 py-1.5 transition-all border",
             remainingStyle.bgClass,
             remainingStyle.borderClass
           )}
           style={{
-            backgroundColor: `${remainingStyle.color}1a`,
-            borderColor: `${remainingStyle.color}40`,
+            backgroundColor: `${remainingStyle.color}14`,
+            borderColor: `${remainingStyle.color}35`,
           }}
         >
           <p
-            className={cn("text-[10px] font-bold uppercase tracking-wider transition-colors duration-300", remainingStyle.textClass)}
+            className="text-[10px] font-semibold uppercase tracking-wider"
             style={{ color: remainingStyle.color }}
           >
             Remaining
           </p>
-          <p className="text-sm font-black text-foreground">{isUnlimited ? 'Unlimited' : remained.toLocaleString()}</p>
+          <p className="text-sm font-bold text-foreground">{isUnlimited ? 'Unlimited' : remained.toLocaleString()}</p>
         </div>
-        <div className="rounded-lg bg-primary/10 px-2 py-1.5 border border-primary/20">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Allocated</p>
-          <p className="text-sm font-black text-foreground">{isUnlimited ? 'Unlimited' : allocated.toLocaleString()}</p>
+        <div className="rounded-xl bg-primary/10 px-2.5 py-1.5 border border-primary/20">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">Allocated</p>
+          <p className="text-sm font-bold text-foreground">{isUnlimited ? 'Unlimited' : allocated.toLocaleString()}</p>
         </div>
       </div>
     </Card>
@@ -191,7 +191,7 @@ const DashboardOverviewView: React.FC = () => {
       </section>
 
       <section>
-        <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4">
           {COUNT_CARDS.map(({ key, label, view, icon: Icon }) => {
             const count = counts[key];
             const isReplyTemplateCard = key === 'reply_templates';
@@ -201,41 +201,34 @@ const DashboardOverviewView: React.FC = () => {
                 key={key}
                 type="button"
                 onClick={() => setCurrentView(view)}
-                className={cn(
-                  'relative flex min-h-[64px] flex-col items-start gap-1 rounded-xl border bg-card px-3.5 py-2.5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-h-[70px] lg:min-h-[64px]',
-                  isReplyTemplateCard
-                    ? (isConfigured
-                      ? 'border-border text-foreground hover:border-primary/40 hover:bg-secondary'
-                      : 'border-border bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted/60')
-                    : (isConfigured
-                      ? 'border-emerald-200/80 bg-emerald-50/70 text-foreground hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/15'
-                      : 'border-rose-200/80 bg-rose-50/70 text-foreground hover:border-rose-300 hover:bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10 dark:hover:bg-rose-500/15')
-                )}
+                className="relative flex min-h-[82px] flex-col justify-between rounded-xl border border-border/80 bg-card p-3.5 sm:p-4 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm group"
               >
-                <Icon
-                  className={cn(
-                    'h-[18px] w-[18px] shrink-0',
-                    isReplyTemplateCard
-                      ? (isConfigured ? 'text-primary' : 'text-muted-foreground')
-                      : (isConfigured ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  {isReplyTemplateCard ? (
+                    <span className="text-base font-bold text-foreground tabular-nums">{count}</span>
+                  ) : (
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold border',
+                        isConfigured
+                          ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : 'border-border/60 bg-muted/50 text-muted-foreground'
+                      )}
+                    >
+                      <span className={cn('h-1.5 w-1.5 rounded-full', isConfigured ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
+                      {isConfigured ? 'Active' : 'Off'}
+                    </span>
                   )}
-                />
-                <span className="w-full truncate text-sm font-semibold">{label}</span>
-                {isReplyTemplateCard ? (
-                  <span className={cn('text-base font-bold tabular-nums', isConfigured ? 'text-primary' : 'text-muted-foreground')}>{count}</span>
-                ) : (
-                  <span
-                    className={cn(
-                      'mt-auto inline-flex h-7 w-7 items-center justify-center rounded-full border',
-                      isConfigured
-                        ? 'border-emerald-300 bg-emerald-100 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300'
-                        : 'border-rose-300 bg-rose-100 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-300'
-                    )}
-                    aria-label={isConfigured ? `${label} configured` : `${label} not configured`}
-                  >
-                    {isConfigured ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                  </span>
-                )}
+                </div>
+                <div className="mt-2.5">
+                  <p className="truncate text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{label}</p>
+                  <p className="text-[11px] text-muted-foreground font-medium">
+                    {isReplyTemplateCard ? 'Saved templates' : (isConfigured ? 'Automation configured' : 'Click to setup')}
+                  </p>
+                </div>
               </button>
             );
           })}

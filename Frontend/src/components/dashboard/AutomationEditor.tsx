@@ -1086,15 +1086,15 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 {(type === 'dm' || type === 'global') && (
                     (type === 'global' && useParentLayout) ? (
                         <div>
-                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Automation Core</h3>
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:gap-8">
-                                <div className="space-y-4">
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Automation Core</h3>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:gap-6">
+                                <div className="space-y-2">
                                     <div className="flex justify-between items-center gap-2 mb-1 px-1">
                                         <div className="flex items-center gap-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Internal Reference Title</label>
+                                            <label className="text-xs font-medium text-foreground">Internal Reference Title</label>
                                             <div className="group relative">
-                                                <HelpCircle className="w-3 h-3 text-gray-300 cursor-help" />
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-900 text-white text-[9px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                                <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-popover text-popover-foreground border border-border text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-md">
                                                     This name is only for you to identify this automation in the dashboard.
                                                 </div>
                                             </div>
@@ -1104,16 +1104,16 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                         id="field_title"
                                         value={automation.title}
                                         onChange={e => setAutomation({ ...automation, title: e.target.value })}
-                                        className={`w-full rounded-2xl border-2 ${fieldErrors['title'] ? 'border-destructive' : 'border-content/70'} bg-card/90 py-4 px-6 text-sm font-black text-foreground transition-all outline-none focus:border-primary`}
+                                        className={`w-full rounded-xl border ${fieldErrors['title'] ? 'border-destructive' : 'border-border'} bg-background py-2.5 px-3.5 text-sm font-normal text-foreground transition-all outline-none focus:border-primary focus:ring-1 focus:ring-primary`}
                                         placeholder="e.g. Price Check"
                                     />
-                                    <p className="text-[9px] text-gray-400 font-medium px-2">Required. This title helps you organize and find your automations easily later.</p>
-                                    {fieldErrors['title'] && <p className="text-[9px] font-bold text-red-500 px-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {fieldErrors['title']}</p>}
+                                    <p className="text-xs text-muted-foreground px-1">Required. This title helps you organize and find your automations easily later.</p>
+                                    {fieldErrors['title'] && <p className="text-xs font-medium text-destructive px-1 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" /> {fieldErrors['title']}</p>}
                                 </div>
-                                <div className="space-y-4">
+                                <div className="space-y-2">
                                     <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Trigger Keyword</label>
-                                        <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">{keywordInput?.length || 0}/15</span>
+                                        <label className="text-xs font-medium text-foreground">Trigger Keyword</label>
+                                        <span className="text-xs font-normal text-muted-foreground">{keywordInput?.length || 0}/15</span>
                                     </div>
                                     <div className="relative flex items-center gap-2">
                                         <input
@@ -1124,10 +1124,10 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                                 setKeywordInput(val);
                                             }}
                                             onKeyDown={handleKeywordKeyDown}
-                                            className={`w-full bg-blue-50 dark:bg-blue-600/5 border-2 ${
-                                                fieldErrors['keywords'] ? 'border-red-500' : 'border-transparent'
-                                            } focus:border-blue-500 outline-none rounded-2xl py-4 px-6 pr-20 text-sm font-black text-blue-600 dark:text-blue-400 placeholder:text-blue-200 transition-all ${
-                                                !isEditingKeyword ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : ''
+                                            className={`w-full bg-background border ${
+                                                fieldErrors['keywords'] ? 'border-destructive' : 'border-border'
+                                            } focus:border-primary focus:ring-1 focus:ring-primary outline-none rounded-xl py-2.5 px-3.5 pr-20 text-sm font-medium text-foreground transition-all ${
+                                                !isEditingKeyword ? 'opacity-70 cursor-not-allowed bg-muted/40' : ''
                                             }`}
                                             placeholder="Type keyword and press Enter..."
                                             maxLength={15}
@@ -1167,25 +1167,25 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                     {fieldErrors['keywords'] && <p className="text-[9px] font-bold text-red-500 px-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {fieldErrors['keywords']}</p>}
                                 </div>
                             </div>
-                            <div className="mt-8 flex items-start gap-4 bg-yellow-50/50 dark:bg-yellow-500/5 p-5 rounded-[28px] border border-yellow-100 dark:border-yellow-500/10">
-                                <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-yellow-50 dark:border-yellow-500/10 shrink-0">
-                                    <Lightbulb className="w-5 h-5 text-yellow-500" />
+                            <div className="mt-6 flex items-start gap-3 bg-muted/40 p-4 rounded-xl border border-border">
+                                <div className="p-2 bg-card rounded-lg border border-border shrink-0">
+                                    <Lightbulb className="w-4 h-4 text-warning" />
                                 </div>
                                 <div>
-                                    <p className="text-xs sm:text-sm font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] mb-1">Important: Matching Rules</p>
-                                    <p className="text-xs sm:text-sm font-medium text-gray-500 leading-relaxed">
-                                        <span className="font-bold text-gray-700 dark:text-gray-300">Keywords are case insensitive:</span> All keywords are treated as UPPERCASE.
+                                    <p className="text-xs font-semibold text-foreground mb-0.5">Important: Matching Rules</p>
+                                    <p className="text-xs font-normal text-muted-foreground leading-relaxed">
+                                        <span className="font-medium text-foreground">Keywords are case insensitive:</span> All keywords are treated as uppercase.
                                     </p>
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-2">
                             <div className="flex items-center gap-2 mb-1">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Internal Reference Title</label>
+                                <label className="text-xs font-medium text-foreground">Internal Reference Title</label>
                                 <div className="group relative">
-                                    <HelpCircle className="w-3 h-3 text-gray-300 cursor-help" />
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-900 text-white text-[9px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-popover text-popover-foreground border border-border text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-md">
                                         This name is only for you to identify this automation in the dashboard.
                                     </div>
                                 </div>
@@ -1194,27 +1194,27 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                 id="field_title"
                                 value={automation.title}
                                 onChange={e => setAutomation({ ...automation, title: e.target.value })}
-                                className={`w-full rounded-2xl border-2 ${fieldErrors['title'] ? 'border-destructive' : 'border-content/70'} bg-card/90 py-4 px-6 text-sm font-black text-foreground transition-all outline-none focus:border-primary`}
+                                className={`w-full rounded-xl border ${fieldErrors['title'] ? 'border-destructive' : 'border-border'} bg-background py-2.5 px-3.5 text-sm font-normal text-foreground transition-all outline-none focus:border-primary focus:ring-1 focus:ring-primary`}
                                 placeholder="e.g. Price Check"
                             />
-                            <p className="text-[9px] text-gray-400 font-medium px-2">Required: This title helps you organize and find your automations easily later.</p>
-                            {fieldErrors['title'] && <p className="text-[10px] text-red-500 font-bold px-2">{fieldErrors['title']}</p>}
+                            <p className="text-xs text-muted-foreground px-1">Required: This title helps you organize and find your automations easily later.</p>
+                            {fieldErrors['title'] && <p className="text-xs text-destructive font-medium px-1">{fieldErrors['title']}</p>}
                         </div>
                     )
                 )}
 
                 {supportsAutomationStatus && (
-                    <div className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5 transition-all hover:bg-muted/55 ${automation.is_active !== false ? 'ring-1 ring-primary/15' : ''}`}>
-                        <div className="flex items-start gap-3 sm:items-center sm:gap-4">
-                            <div className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-sm border ${automation.is_active !== false
-                                ? 'bg-white dark:bg-gray-900 border-emerald-100 dark:border-emerald-500/10'
-                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                    <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-border bg-card p-4 transition-all ${automation.is_active !== false ? 'ring-1 ring-primary/20' : ''}`}>
+                        <div className="flex items-start gap-3 sm:items-center">
+                            <div className={`p-2 rounded-lg border ${automation.is_active !== false
+                                ? 'bg-primary/10 border-primary/20 text-primary'
+                                : 'bg-muted border-border text-muted-foreground'
                                 }`}>
-                                <Power className={`w-5 h-5 transition-colors ${automation.is_active !== false ? 'text-emerald-500' : 'text-gray-400'}`} />
+                                <Power className="w-4 h-4" />
                             </div>
                             <div className="min-w-0">
-                                <p className="mb-0.5 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.14em] sm:tracking-[0.15em] text-foreground">Automation Status</p>
-                                <p className="text-[11px] sm:text-[10px] leading-5 sm:leading-normal font-medium text-muted-foreground">Turn this automation on or off before you publish changes.</p>
+                                <p className="text-xs font-semibold text-foreground">Automation Status</p>
+                                <p className="text-xs font-normal text-muted-foreground">Turn this automation on or off before you publish changes.</p>
                             </div>
                         </div>
                         <div className="flex w-full justify-end sm:w-auto">
@@ -1670,14 +1670,14 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 )}
 
                 {/* 4. Response Settings */}
-                <div className="space-y-6 border-t border-border/60 pt-6">
+                <div className="space-y-4 border-t border-border pt-6">
                     <div className="flex items-center justify-between">
-                        <h3 className="ml-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Response Message</h3>
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Response Message</h3>
                         {selectedTemplate && !showTemplateSelector && (
                             <button
                                 type="button"
                                 onClick={() => setShowTemplateSelector(true)}
-                                className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
+                                className="text-xs font-semibold text-primary hover:underline"
                             >
                                 Change Template
                             </button>
@@ -1717,25 +1717,25 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         />
                     )}
                     {fieldErrors['template'] && (
-                        <p id="field_template" className="mt-2 flex items-center gap-1 px-2 text-[10px] font-bold text-destructive">
-                            <AlertCircle className="w-3 h-3" />
+                        <p id="field_template" className="mt-2 flex items-center gap-1 px-2 text-xs font-medium text-destructive">
+                            <AlertCircle className="w-3.5 h-3.5" />
                             {fieldErrors['template']}
                         </p>
                     )}
                     {selectedTemplate && !showTemplateSelector && (
-                        <div className="flex min-h-[88px] flex-col gap-3 rounded-[24px] border border-primary/20 bg-primary/8 px-4 py-4 shadow-[0_18px_45px_rgba(108,43,217,0.08)] sm:min-h-[104px] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:rounded-[30px] sm:px-6 sm:py-5">
+                        <div className="flex items-center justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                             <div className="flex min-w-0 items-center gap-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-[18px] bg-primary/15 text-primary shadow-sm sm:h-12 sm:w-12 sm:rounded-[22px]">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
                                     <Reply className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="truncate text-sm font-black uppercase tracking-tight text-foreground sm:text-base">{selectedTemplate.name}</p>
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
-                                        {selectedTemplate.template_type.replace('template_', '')}
+                                    <p className="truncate text-sm font-semibold text-foreground">{selectedTemplate.name}</p>
+                                    <p className="text-xs text-muted-foreground capitalize">
+                                        {selectedTemplate.template_type.replace('template_', '').replace('_', ' ')}
                                     </p>
                                 </div>
                             </div>
-                            <div className="w-fit shrink-0 rounded-full bg-success-muted/70 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-success sm:px-3.5 sm:tracking-[0.22em]">
+                            <div className="shrink-0 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 text-xs font-medium">
                                 Selected
                             </div>
                         </div>
@@ -1892,25 +1892,25 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
     if (effectiveVariant === 'card') {
         return (
-            <div className="w-full overflow-hidden rounded-2xl border border-content bg-card shadow-2xl relative">
-                <div className="flex items-center justify-between border-b border-border/70 p-4 sm:p-6 md:p-8">
+            <div className="w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm relative">
+                <div className="flex items-center justify-between border-b border-border/70 p-4 sm:p-6">
                     <div>
-                        <h2 className="text-xl sm:text-2xl font-black text-black dark:text-white uppercase tracking-tight">{titleOverride || "Configure Automation"}</h2>
-                        <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Type: {type.replace('_', ' ')}</p>
+                        <h2 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">{titleOverride || "Configure Automation"}</h2>
+                        <p className="text-xs text-muted-foreground capitalize mt-0.5">Type: {type.replace('_', ' ')}</p>
                     </div>
-                    <button onClick={onClose} className="rounded-2xl bg-muted/40 p-2 sm:p-3 text-muted-foreground transition-all hover:bg-muted hover:text-foreground">
-                        <X className="w-5 h-5" />
+                    <button onClick={onClose} className="rounded-lg bg-muted/60 p-2 text-muted-foreground transition-all hover:bg-muted hover:text-foreground">
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
                 <div className="grid grid-cols-1 gap-0 lg:grid-cols-2 lg:max-h-[calc(100vh-160px)] lg:min-h-0 lg:overflow-hidden">
-                    <div className="p-4 pb-24 sm:p-6 sm:pb-28 md:p-8 md:pb-8 lg:min-h-0 lg:overflow-y-auto">
+                    <div className="p-4 pb-24 sm:p-6 sm:pb-28 md:p-6 md:pb-6 lg:min-h-0 lg:overflow-y-auto">
                         {renderActionBar()}
                         {renderForm()}
                     </div>
                     <AutomationPreviewPanel
                         title="Live Preview"
                         breakpoint="lg"
-                        wrapperClassName="hidden lg:flex lg:flex-col items-center justify-center border-t border-border/70 p-4 sm:p-6 md:p-8 lg:min-h-0 lg:border-l lg:border-t-0 lg:overflow-hidden"
+                        wrapperClassName="hidden lg:flex lg:flex-col items-center justify-center border-t border-border/70 p-4 sm:p-6 md:p-6 lg:min-h-0 lg:border-l lg:border-t-0 lg:overflow-hidden"
                         minHeightClassName="min-h-0 w-full"
                     >
                         {renderPreview()}
@@ -1953,19 +1953,19 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
 
     // Default 'modal' variant
     return (
-        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto">
-            <div className="w-full sm:max-w-4xl sm:overflow-hidden sm:rounded-[40px] border-0 sm:border border-content bg-card sm:shadow-2xl animate-in zoom-in-95 duration-300 min-h-[100dvh] sm:min-h-0 relative">
-                <div className="flex items-center justify-between border-b border-border/70 p-4 sm:p-8 sticky top-0 bg-card z-10">
+        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+            <div className="w-full sm:max-w-4xl sm:overflow-hidden sm:rounded-2xl border-0 sm:border border-border bg-card sm:shadow-xl animate-in zoom-in-95 duration-200 min-h-[100dvh] sm:min-h-0 relative">
+                <div className="flex items-center justify-between border-b border-border p-4 sm:p-6 sticky top-0 bg-card z-10">
                     <div>
-                        <h2 className="text-xl sm:text-2xl font-black text-black dark:text-white uppercase tracking-tight">{titleOverride || "Configure Automation"}</h2>
-                        <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Type: {type.replace('_', ' ')}</p>
+                        <h2 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">{titleOverride || "Configure Automation"}</h2>
+                        <p className="text-xs text-muted-foreground capitalize mt-0.5">Type: {type.replace('_', ' ')}</p>
                     </div>
-                    <button onClick={onClose} className="rounded-2xl bg-muted/40 p-2 sm:p-3 text-muted-foreground transition-all hover:bg-muted hover:text-foreground">
-                        <X className="w-5 h-5" />
+                    <button onClick={onClose} className="rounded-lg bg-muted/60 p-2 text-muted-foreground transition-all hover:bg-muted hover:text-foreground">
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
                 <div className="grid grid-cols-1 gap-0 lg:grid-cols-2 lg:max-h-[78vh] lg:min-h-0 lg:overflow-hidden">
-                    <div className="p-4 pb-24 sm:p-8 sm:pb-28 lg:min-h-0 lg:overflow-y-auto lg:pb-8">
+                    <div className="p-4 pb-24 sm:p-6 sm:pb-28 lg:min-h-0 lg:overflow-y-auto lg:pb-6">
                         {renderActionBar()}
                         {renderForm()}
                     </div>

@@ -368,12 +368,12 @@ const SuperProfileView: React.FC = () => {
                             saveLabel="Save"
                             centerContent={(
                                 <div className="min-w-0">
-                                    <div className="flex items-center gap-2 text-primary mb-1">
+                                    <div className="flex items-center gap-2 text-primary mb-0.5">
                                         <Users className="w-4 h-4" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Super Profile</span>
+                                        <span className="text-xs font-semibold uppercase tracking-wider">Super Profile</span>
                                     </div>
-                                    <h1 className="text-xl font-black text-foreground">Super Profile</h1>
-                                    <p className="text-muted-foreground text-sm">Create a high-converting link-in-bio page for your Instagram account.</p>
+                                    <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Super Profile</h1>
+                                    <p className="text-muted-foreground text-sm font-normal">Create a high-converting link-in-bio page for your Instagram account.</p>
                                 </div>
                             )}
                         />

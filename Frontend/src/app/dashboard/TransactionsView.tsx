@@ -180,61 +180,65 @@ const TransactionsView: React.FC = () => {
 
       {!loading && transactions.length > 0 && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="rounded-3xl border border-border bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.12),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.94))] p-4 shadow-sm dark:bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.14),transparent_42%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.94))]">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Total Spent</p>
-                <p className="mt-2 text-2xl font-black text-foreground">
+                <p className="text-xs font-medium text-muted-foreground">Total Spent</p>
+                <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
                   {formatMoney(summary.totalSpent, 'INR')}
                 </p>
               </div>
-              <Wallet className="h-5 w-5 text-primary" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Wallet className="h-5 w-5" />
+              </div>
             </div>
           </div>
-          <div className="rounded-3xl border border-border bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.12),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.94))] p-4 shadow-sm dark:bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_42%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.94))]">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Receipts</p>
-                <p className="mt-2 text-2xl font-black text-foreground">{summary.count}</p>
+                <p className="text-xs font-medium text-muted-foreground">Receipts</p>
+                <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">{summary.count}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {summary.latestTransaction ? `Latest ${formatShortDate(summary.latestTransaction)}` : 'No payments yet'}
                 </p>
               </div>
-              <Receipt className="h-5 w-5 text-primary" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Receipt className="h-5 w-5" />
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="relative rounded-3xl border border-border bg-card p-4 sm:p-5">
+      <div className="relative rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-xs">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <p className="text-sm font-semibold text-foreground">Filter by date</p>
               <p className="text-xs text-muted-foreground">Choose a date window between your first transaction and today, then apply it from the calendar.</p>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[220px_220px_auto]">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[200px_200px_auto]">
               <div ref={fromFieldRef} className="relative">
                 <button
                   type="button"
                   onClick={() => handleOpenCalendar('from')}
                   aria-expanded={calendarOpen && activeField === 'from'}
-                  className={`flex h-12 w-full items-center justify-between rounded-2xl border bg-background px-4 text-left transition ${
+                  className={`flex h-10 w-full items-center justify-between rounded-xl border bg-background px-3.5 text-left transition ${
                     calendarOpen && activeField === 'from'
-                      ? 'border-primary/60 shadow-sm shadow-primary/10'
-                      : 'border-border hover:border-primary/40'
+                      ? 'border-primary shadow-xs ring-2 ring-primary/10'
+                      : 'border-border hover:border-border/80'
                   }`}
                 >
-                  <span className="space-y-1">
-                    <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">From</span>
-                    <span className="block text-sm font-semibold text-foreground">{fromDate ? formatShortDate(fromDate) : 'Select date'}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">From:</span>
+                    <span className="text-xs font-semibold text-foreground">{fromDate ? formatShortDate(fromDate) : 'Select'}</span>
                   </span>
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </button>
 
                 {calendarOpen && activeField === 'from' && (
                   <div className="mt-3 w-full sm:absolute sm:left-0 sm:top-full sm:z-20 sm:mt-2 sm:w-[296px]">
-                    <div className="rounded-[1.5rem] border border-border/70 bg-card/92 p-1.5 shadow-[0_24px_50px_-28px_rgba(15,23,42,0.55)] backdrop-blur-md">
+                    <div className="rounded-xl border border-border bg-card p-1.5 shadow-lg">
                       <ModernCalendar
                         startDate={fromDate || dateBounds.min_from}
                         endDate={toDate || dateBounds.max_to}
@@ -256,22 +260,22 @@ const TransactionsView: React.FC = () => {
                   type="button"
                   onClick={() => handleOpenCalendar('to')}
                   aria-expanded={calendarOpen && activeField === 'to'}
-                  className={`flex h-12 w-full items-center justify-between rounded-2xl border bg-background px-4 text-left transition ${
+                  className={`flex h-10 w-full items-center justify-between rounded-xl border bg-background px-3.5 text-left transition ${
                     calendarOpen && activeField === 'to'
-                      ? 'border-primary/60 shadow-sm shadow-primary/10'
-                      : 'border-border hover:border-primary/40'
+                      ? 'border-primary shadow-xs ring-2 ring-primary/10'
+                      : 'border-border hover:border-border/80'
                   }`}
                 >
-                  <span className="space-y-1">
-                    <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">To</span>
-                    <span className="block text-sm font-semibold text-foreground">{toDate ? formatShortDate(toDate) : 'Select date'}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">To:</span>
+                    <span className="text-xs font-semibold text-foreground">{toDate ? formatShortDate(toDate) : 'Select'}</span>
                   </span>
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </button>
 
                 {calendarOpen && activeField === 'to' && (
                   <div className="mt-3 w-full sm:absolute sm:right-0 sm:top-full sm:z-20 sm:mt-2 sm:w-[296px]">
-                    <div className="rounded-[1.5rem] border border-border/70 bg-card/92 p-1.5 shadow-[0_24px_50px_-28px_rgba(15,23,42,0.55)] backdrop-blur-md">
+                    <div className="rounded-xl border border-border bg-card p-1.5 shadow-lg">
                       <ModernCalendar
                         startDate={fromDate || dateBounds.min_from}
                         endDate={toDate || dateBounds.max_to}
@@ -292,7 +296,7 @@ const TransactionsView: React.FC = () => {
                 type="button"
                 onClick={() => void handleResetFilters()}
                 disabled={loading}
-                className="h-12 rounded-2xl border border-border bg-background px-5 text-sm font-black uppercase tracking-[0.16em] text-foreground transition hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-10 rounded-xl border border-border bg-background px-4 text-xs font-semibold text-foreground transition hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Reset
               </button>
@@ -302,69 +306,69 @@ const TransactionsView: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="rounded-3xl border border-border bg-card p-10 flex items-center justify-center">
+        <div className="rounded-2xl border border-border bg-card p-10 flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       ) : transactions.length === 0 ? (
-        <div className="rounded-3xl border border-border bg-card p-10 text-center text-muted-foreground">
+        <div className="rounded-2xl border border-border bg-card p-10 text-center text-muted-foreground">
           No successful subscription transactions have been recorded yet.
         </div>
       ) : (
         <div className="space-y-4">
           {transactions.map((transaction) => (
-            <div key={transaction.document_id || transaction.id} className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-6">
+            <div key={transaction.document_id || transaction.id} className="rounded-2xl border border-border bg-card p-4 shadow-xs sm:p-5">
               <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                 <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="text-lg font-bold text-foreground">{transaction.plan_name}</h3>
-                    <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-muted text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h3 className="text-base font-bold text-foreground">{transaction.plan_name}</h3>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                       {transaction.billing_cycle}
                     </span>
-                    <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-success-muted/60 text-success">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                       {transaction.status}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {formatShortDate(transaction.created_at)} | Validity {transaction.validity_days} days
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    {formatShortDate(transaction.created_at)} &bull; Validity {transaction.validity_days} days
                   </p>
                 </div>
                 <div className="text-left sm:text-right">
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">Final charged</p>
-                  <p className="text-2xl font-black text-foreground">{formatMoney(transaction.final_amount, transaction.currency)}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Final charged</p>
+                  <p className="text-xl font-bold tracking-tight text-foreground">{formatMoney(transaction.final_amount, transaction.currency)}</p>
                   <button
                     type="button"
                     onClick={() => handleDownload(transaction.document_id || transaction.id)}
                     disabled={downloadingId === (transaction.document_id || transaction.id)}
-                    className="mt-3 inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-foreground transition hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-2.5 inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 shadow-xs"
                   >
-                    {downloadingId === (transaction.document_id || transaction.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                    {downloadingId === (transaction.document_id || transaction.id) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                     Download PDF
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-6 text-sm">
-                <div className="rounded-2xl bg-muted/40 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Base amount</p>
-                  <p className="mt-1 font-semibold text-foreground">{formatMoney(transaction.base_amount, transaction.currency)}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 text-xs">
+                <div className="rounded-xl bg-muted/40 px-3.5 py-2.5">
+                  <p className="text-xs font-medium text-muted-foreground">Base amount</p>
+                  <p className="mt-0.5 font-semibold text-foreground">{formatMoney(transaction.base_amount, transaction.currency)}</p>
                 </div>
-                <div className="rounded-2xl bg-muted/40 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Discount</p>
-                  <p className="mt-1 font-semibold text-foreground">{formatMoney(transaction.discount_amount, transaction.currency)}</p>
+                <div className="rounded-xl bg-muted/40 px-3.5 py-2.5">
+                  <p className="text-xs font-medium text-muted-foreground">Discount</p>
+                  <p className="mt-0.5 font-semibold text-foreground">{formatMoney(transaction.discount_amount, transaction.currency)}</p>
                 </div>
-                <div className="rounded-2xl bg-muted/40 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Coupon</p>
-                  <p className="mt-1 font-semibold text-foreground">{transaction.coupon_code || 'None'}</p>
+                <div className="rounded-xl bg-muted/40 px-3.5 py-2.5">
+                  <p className="text-xs font-medium text-muted-foreground">Coupon</p>
+                  <p className="mt-0.5 font-semibold text-foreground">{transaction.coupon_code || 'None'}</p>
                 </div>
-                <div className="rounded-2xl bg-muted/40 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Currency</p>
-                  <p className="mt-1 font-semibold text-foreground">{transaction.currency}</p>
+                <div className="rounded-xl bg-muted/40 px-3.5 py-2.5">
+                  <p className="text-xs font-medium text-muted-foreground">Currency</p>
+                  <p className="mt-0.5 font-semibold text-foreground">{transaction.currency}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 mt-4 text-xs text-muted-foreground md:grid-cols-2">
-                <div className="break-all">Order ID: {transaction.razorpay_order_id || 'N/A'}</div>
-                <div className="break-all">Payment ID: {transaction.razorpay_payment_id || 'N/A'}</div>
+              <div className="grid grid-cols-1 gap-2 mt-3 text-xs text-muted-foreground md:grid-cols-2">
+                <div className="break-all font-mono text-[11px]">Order ID: {transaction.razorpay_order_id || 'N/A'}</div>
+                <div className="break-all font-mono text-[11px]">Payment ID: {transaction.razorpay_payment_id || 'N/A'}</div>
               </div>
             </div>
           ))}

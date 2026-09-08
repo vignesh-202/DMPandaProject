@@ -199,10 +199,10 @@ type ResetActionState = 'resetPlan' | 'restoreLimits' | null;
 
 const toComparableValue = (value: unknown) => String(value ?? '').trim();
 
-const surfaceClass = 'glass-card rounded-[32px] border border-border/80 bg-card/95 shadow-sm';
-const popupSectionClass = 'rounded-[28px] border border-border/80 bg-card/90 p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.45)] backdrop-blur-xl';
-const popupInsetClass = 'rounded-[22px] border border-border/70 bg-background/70 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]';
-const popupHeaderBandClass = 'rounded-[24px] border border-border/70 bg-gradient-to-br from-background via-background/96 to-muted/35 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]';
+const surfaceClass = 'rounded-2xl border border-border bg-card shadow-xs';
+const popupSectionClass = 'rounded-2xl border border-border bg-card p-5 shadow-sm';
+const popupInsetClass = 'rounded-xl border border-border bg-background/70 px-4 py-4 shadow-xs';
+const popupHeaderBandClass = 'rounded-xl border border-border bg-muted/20 p-5 shadow-xs';
 const DEFAULT_POPUP_SECTION_STATE: Record<PopupSectionKey, boolean> = {
     planSettings: false,
     instagram: false,
@@ -893,9 +893,9 @@ export const UsersPage: React.FC = () => {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                    <p className="text-[10px] font-black text-muted-foreground">Users</p>
-                    <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">User Management</h1>
-                    <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+                    <p className="text-xs font-semibold text-primary">Users</p>
+                    <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-foreground">User Management</h1>
+                    <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
                         Search, filter, and manage individual users with audited plan controls and direct dashboard access.
                     </p>
                 </div>
@@ -913,7 +913,7 @@ export const UsersPage: React.FC = () => {
 
             {!userId && (notice || errorMessage) && (
                 <div className={cn(
-                    'rounded-[24px] border px-5 py-4 text-sm font-semibold',
+                    'rounded-xl border px-4 py-3 text-sm font-medium shadow-xs',
                     errorMessage
                         ? 'border-destructive/20 bg-destructive/5 text-destructive'
                         : 'border-success/20 bg-success/5 text-success'
@@ -982,12 +982,12 @@ export const UsersPage: React.FC = () => {
             <section className={surfaceClass}>
                 <div className="flex flex-col gap-4 border-b border-border/70 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h2 className="text-xl font-extrabold text-foreground">All Users</h2>
-                        <p className="mt-1 text-sm text-muted-foreground">
+                        <h2 className="text-lg font-bold text-foreground">All Users</h2>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
                             Paginated results with debounced search and server-side filtering.
                         </p>
                     </div>
-                    <div className="status-pill border border-border bg-background/70 text-foreground">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/70 px-3 py-1 text-xs font-medium text-foreground">
                         {pagination.total} matching users
                     </div>
                 </div>
@@ -996,11 +996,11 @@ export const UsersPage: React.FC = () => {
                     <table className="min-w-[42rem] w-full text-left sm:min-w-full">
                         <thead>
                             <tr className="border-b border-border/70 bg-background/40">
-                                <th className="px-6 py-4 text-[10px] font-black text-muted-foreground">User</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-muted-foreground">Plan</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-muted-foreground">IG Accounts</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-muted-foreground">Ban</th>
-                                <th className="px-6 py-4 text-right text-[10px] font-black text-muted-foreground">Action</th>
+                                <th className="px-6 py-3.5 text-xs font-semibold text-muted-foreground">User</th>
+                                <th className="px-6 py-3.5 text-xs font-semibold text-muted-foreground">Plan</th>
+                                <th className="px-6 py-3.5 text-xs font-semibold text-muted-foreground">IG Accounts</th>
+                                <th className="px-6 py-3.5 text-xs font-semibold text-muted-foreground">Ban</th>
+                                <th className="px-6 py-3.5 text-right text-xs font-semibold text-muted-foreground">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/60">

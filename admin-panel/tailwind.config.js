@@ -77,7 +77,7 @@ export default {
         card: 'var(--shadow-card)',
       },
       backgroundImage: {
-        'ig-gradient': 'linear-gradient(45deg, #405DE6, #833AB4, #FD1D1D, #F56040, #FCAF45)',
+        'ig-gradient': 'linear-gradient(135deg, #405DE6 0%, #833AB4 50%, #FD1D1D 100%)',
       },
       fontSize: {
         '2xs': ['0.625rem', { lineHeight: '0.875rem' }],

@@ -119,21 +119,21 @@ const SupportView: React.FC<SupportViewProps> = ({ mode = 'support' }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border border-content shadow-sm">
             <div className="p-4">
-              <div className="text-xs font-black uppercase tracking-widest text-primary mb-2">{isContactMode ? 'Official Channel' : 'Monthly'}</div>
+              <div className="text-xs font-semibold text-primary mb-1.5">{isContactMode ? 'Official Channel' : 'Monthly'}</div>
               <h4 className="text-lg font-bold text-foreground mb-2">{isContactMode ? SUPPORT_EMAIL : '30 Days'}</h4>
               <p className="text-sm text-muted-foreground">{isContactMode ? 'Email is the official support path for billing reviews, linking issues, and automation troubleshooting.' : 'Monthly plans renew every 30 days, not a calendar month.'}</p>
             </div>
           </Card>
           <Card className="border border-content shadow-sm">
             <div className="p-4">
-              <div className="text-xs font-black uppercase tracking-widest text-primary mb-2">{isContactMode ? 'Before You Email' : 'Yearly'}</div>
+              <div className="text-xs font-semibold text-primary mb-1.5">{isContactMode ? 'Before You Email' : 'Yearly'}</div>
               <h4 className="text-lg font-bold text-foreground mb-2">{isContactMode ? 'Collect the right details' : '364-Day Term'}</h4>
               <p className="text-sm text-muted-foreground">{isContactMode ? 'Include your login email, Instagram handle, and any payment or automation identifiers related to the issue.' : 'Yearly plans stay active for 364 days and show the lower monthly-on-yearly comparison price.'}</p>
             </div>
           </Card>
           <Card className="border border-content shadow-sm">
             <div className="p-4">
-              <div className="text-xs font-black uppercase tracking-widest text-primary mb-2">{isContactMode ? 'Response Quality' : 'Checkout'}</div>
+              <div className="text-xs font-semibold text-primary mb-1.5">{isContactMode ? 'Response Quality' : 'Checkout'}</div>
               <h4 className="text-lg font-bold text-foreground mb-2">{isContactMode ? 'Describe the problem exactly' : 'Server-Side Pricing'}</h4>
               <p className="text-sm text-muted-foreground">{isContactMode ? 'Tell the support team which section you used, what you expected, and what changed after loading or saving.' : 'The charged amount is always calculated by the backend using the current Appwrite pricing table.'}</p>
             </div>
@@ -207,7 +207,7 @@ const SupportView: React.FC<SupportViewProps> = ({ mode = 'support' }) => {
             <p className="text-muted-foreground mb-4">If you need a manual review of a payment, subscription change, linking failure, or automation issue, email support with your account details and any relevant payment or automation identifiers.</p>
             <a
               href="/contact"
-              className="inline-flex items-center px-4 py-2 bg-foreground text-background rounded-md hover:opacity-90 transition-opacity"
+              className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-xs font-semibold rounded-xl hover:bg-primary/90 transition shadow-xs"
             >
               <Mail className="w-4 h-4 mr-2" />
               Contact Us

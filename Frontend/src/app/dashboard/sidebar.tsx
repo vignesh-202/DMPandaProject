@@ -301,23 +301,23 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                       key={item.name}
                       onClick={() => handleNavigation(item.name)}
                       className={cn(
-                        "w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 group",
+                        "w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 group",
                         isCollapsed && "justify-center px-2",
                         isActive
-                          ? "bg-gradient-to-r from-ig-purple via-ig-pink to-ig-orange text-white shadow-lg shadow-primary/25 ring-1 ring-white/30"
-                          : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                        !isActive && isLocked && "opacity-80"
+                          ? "bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white font-semibold shadow-md shadow-[#833AB4]/25"
+                          : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground font-medium",
+                        !isActive && isLocked && "opacity-75"
                       )}
                     >
                       <div className="flex items-center gap-3 truncate">
                         <Icon className={cn(
-                          "w-[18px] h-[18px] flex-shrink-0 transition-all duration-200",
-                          isActive && "drop-shadow-sm",
-                          !isActive && "group-hover:scale-110",
-                          isLocked && isCollapsed && "opacity-80"
+                          "w-[18px] h-[18px] flex-shrink-0 transition-all duration-150",
+                          isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground",
+                          !isActive && "group-hover:scale-105",
+                          isLocked && isCollapsed && "opacity-75"
                         )} />
                         {!isCollapsed && (
-                          <span className="truncate font-bold">{item.name}</span>
+                          <span className="truncate">{item.name}</span>
                         )}
                       </div>
 

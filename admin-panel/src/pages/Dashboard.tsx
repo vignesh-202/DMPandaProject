@@ -39,7 +39,7 @@ const moneyFormatter = new Intl.NumberFormat('en-IN', {
     maximumFractionDigits: 0
 });
 
-const surfaceClass = 'glass-card rounded-[30px] border border-border/70 bg-card/95';
+const surfaceClass = 'rounded-2xl border border-border bg-card shadow-xs';
 const chartGridStroke = 'rgb(148 163 184 / 0.18)';
 
 const ChartTooltip = ({
@@ -56,19 +56,19 @@ const ChartTooltip = ({
     if (!active || !payload?.length) return null;
 
     return (
-        <div className="rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
-            {label && <p className="text-[10px] font-black text-muted-foreground">{label}</p>}
-            <div className="mt-2 space-y-2">
+        <div className="rounded-xl border border-border bg-card/95 px-3.5 py-2.5 shadow-md backdrop-blur-xl">
+            {label && <p className="text-xs font-semibold text-muted-foreground">{label}</p>}
+            <div className="mt-1.5 space-y-1.5">
                 {payload.map((entry, index) => (
-                    <div key={`${entry.name || 'value'}-${index}`} className="flex items-center justify-between gap-4 text-sm">
+                    <div key={`${entry.name || 'value'}-${index}`} className="flex items-center justify-between gap-4 text-xs">
                         <span className="flex items-center gap-2 text-foreground">
                             <span
-                                className="h-2.5 w-2.5 rounded-full"
+                                className="h-2 w-2 rounded-full"
                                 style={{ backgroundColor: entry.color || COLORS[index % COLORS.length] }}
                             />
-                            <span className="font-semibold">{entry.name || 'Value'}</span>
+                            <span className="font-medium">{entry.name || 'Value'}</span>
                         </span>
-                        <span className="font-black text-foreground">
+                        <span className="font-bold text-foreground">
                             {valueFormatter ? valueFormatter(Number(entry.value || 0)) : numberFormatter.format(Number(entry.value || 0))}
                         </span>
                     </div>
@@ -168,28 +168,28 @@ export const Dashboard: React.FC = () => {
                 <div className="flex flex-col gap-8">
                     <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                         <div>
-                            <p className="text-[10px] font-black text-primary/75">Overview</p>
-                            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Platform Control</h1>
-                            <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-muted-foreground">
+                            <p className="text-xs font-semibold text-primary">Overview</p>
+                            <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Platform Control</h1>
+                            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
                                 Track growth, subscriptions, and automation health from one clean view.
                             </p>
-                            <div className="mt-6 flex flex-wrap gap-3">
-                                <div className="status-pill status-pill-success">
-                                    <span className="h-2 w-2 rounded-full bg-success" />
+                            <div className="mt-5 flex flex-wrap gap-2.5">
+                                <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                                     Live data
                                 </div>
-                                <div className="status-pill border border-border bg-card text-foreground">
-                                    <ArrowUpRight className="h-3.5 w-3.5" />
+                                <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-foreground">
+                                    <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
                                     {topPlan ? `${topPlan.name} leads plan mix` : 'Plan mix ready'}
                                 </div>
                             </div>
                         </div>
 
                         <div className="w-full shrink-0 xl:max-w-96">
-                            <div className="rounded-[26px] border border-border/70 bg-background/70 p-4 sm:p-5">
-                                <p className="text-[10px] font-black text-muted-foreground">Plan Leader</p>
-                                <p className="mt-3 text-xl sm:text-2xl font-extrabold text-foreground">{topPlan?.name || 'No plan data'}</p>
-                                <p className="mt-2 text-sm text-muted-foreground">
+                            <div className="rounded-xl border border-border bg-background/70 p-4 sm:p-5 shadow-xs">
+                                <p className="text-xs font-medium text-muted-foreground">Plan Leader</p>
+                                <p className="mt-1.5 text-xl sm:text-2xl font-bold text-foreground">{topPlan?.name || 'No plan data'}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
                                     {topPlan
                                         ? `${numberFormatter.format(topPlan.value)} users are on the leading plan.`
                                         : 'Plan distribution appears here after data is loaded.'}
@@ -244,14 +244,14 @@ export const Dashboard: React.FC = () => {
 
             <section className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
                 {overviewCards.map((card) => (
-                    <div key={card.label} className={`${surfaceClass} px-4 py-4 sm:px-5 sm:py-5`}>
+                    <div key={card.label} className={`${surfaceClass} px-4 py-4`}>
                         <div className="flex items-start justify-between gap-2 sm:gap-4">
-                            <div className={cn('flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl sm:rounded-2xl', card.tone)}>
-                                <card.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                            <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', card.tone)}>
+                                <card.icon className="h-4 w-4" />
                             </div>
-                            <p className="text-right text-[9px] sm:text-[10px] font-black text-muted-foreground">{card.label}</p>
+                            <p className="text-right text-xs font-medium text-muted-foreground">{card.label}</p>
                         </div>
-                        <p className="mt-3 sm:mt-5 text-lg sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">{card.value}</p>
+                        <p className="mt-3 text-lg sm:text-2xl font-bold tracking-tight text-foreground">{card.value}</p>
                     </div>
                 ))}
             </section>
@@ -260,31 +260,31 @@ export const Dashboard: React.FC = () => {
                 <div className={`${surfaceClass} p-4 sm:p-6 lg:p-7`}>
                     <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h2 className="text-lg sm:text-xl font-extrabold text-foreground">Revenue Pulse</h2>
-                            <p className="mt-1 text-xs font-black text-muted-foreground">Last 30 days</p>
+                            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">Revenue Pulse</h2>
+                            <p className="mt-1 text-xs font-medium text-muted-foreground">Last 30 days</p>
                         </div>
-                        <div className="status-pill border border-border bg-background/70 text-foreground">
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/70 px-3 py-1 text-xs font-medium text-foreground">
                             <BarChart3 className="h-3.5 w-3.5 text-primary" />
                             Cashflow trend
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-                        <div className="rounded-[20px] sm:rounded-[24px] border border-border/70 bg-background/60 px-3 py-3 sm:px-5 sm:py-4">
-                            <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground">30 day revenue</p>
-                            <p className="mt-2 text-base sm:text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenueLast30Days)}</p>
+                        <div className="rounded-xl border border-border/70 bg-background/60 px-3.5 py-3 shadow-xs">
+                            <p className="text-xs font-medium text-muted-foreground">30 day revenue</p>
+                            <p className="mt-1.5 text-base sm:text-xl font-bold text-foreground">{moneyFormatter.format(revenueLast30Days)}</p>
                         </div>
-                        <div className="rounded-[20px] sm:rounded-[24px] border border-border/70 bg-background/60 px-3 py-3 sm:px-5 sm:py-4">
-                            <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground">7 day revenue</p>
-                            <p className="mt-2 text-base sm:text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenueLast7Days)}</p>
+                        <div className="rounded-xl border border-border/70 bg-background/60 px-3.5 py-3 shadow-xs">
+                            <p className="text-xs font-medium text-muted-foreground">7 day revenue</p>
+                            <p className="mt-1.5 text-base sm:text-xl font-bold text-foreground">{moneyFormatter.format(revenueLast7Days)}</p>
                         </div>
-                        <div className="rounded-[20px] sm:rounded-[24px] border border-border/70 bg-background/60 px-3 py-3 sm:px-5 sm:py-4">
-                            <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground">Avg / day</p>
-                            <p className="mt-2 text-base sm:text-2xl font-extrabold text-foreground">{moneyFormatter.format(averageDailyRevenue)}</p>
+                        <div className="rounded-xl border border-border/70 bg-background/60 px-3.5 py-3 shadow-xs">
+                            <p className="text-xs font-medium text-muted-foreground">Avg / day</p>
+                            <p className="mt-1.5 text-base sm:text-xl font-bold text-foreground">{moneyFormatter.format(averageDailyRevenue)}</p>
                         </div>
-                        <div className="rounded-[20px] sm:rounded-[24px] border border-border/70 bg-background/60 px-3 py-3 sm:px-5 sm:py-4">
-                            <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground">Revenue / paid user</p>
-                            <p className="mt-2 text-base sm:text-2xl font-extrabold text-foreground">{moneyFormatter.format(revenuePerPaidUser)}</p>
+                        <div className="rounded-xl border border-border/70 bg-background/60 px-3.5 py-3 shadow-xs">
+                            <p className="text-xs font-medium text-muted-foreground">Revenue / paid user</p>
+                            <p className="mt-1.5 text-base sm:text-xl font-bold text-foreground">{moneyFormatter.format(revenuePerPaidUser)}</p>
                         </div>
                     </div>
 
@@ -307,36 +307,36 @@ export const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className={`${surfaceClass} p-6 sm:p-7`}>
+                <div className={`${surfaceClass} p-6`}>
                     <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                             <Wallet className="h-5 w-5" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-extrabold text-foreground">Revenue Notes</h2>
-                            <p className="mt-1 text-xs font-black text-muted-foreground">Quick read</p>
+                            <h2 className="text-lg font-bold text-foreground">Revenue Notes</h2>
+                            <p className="text-xs text-muted-foreground">Quick read</p>
                         </div>
                     </div>
 
-                    <div className="mt-6 space-y-4">
-                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black text-muted-foreground">Paid conversion</p>
-                            <p className="mt-2 text-2xl font-extrabold text-foreground">{paidConversionRate}%</p>
-                            <p className="mt-1 text-sm text-muted-foreground">Share of users on paid plans.</p>
+                    <div className="mt-5 space-y-3">
+                        <div className="rounded-xl border border-border/70 bg-background/60 px-4 py-3 shadow-xs">
+                            <p className="text-xs font-medium text-muted-foreground">Paid conversion</p>
+                            <p className="mt-1 text-xl font-bold text-foreground">{paidConversionRate}%</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Share of users on paid plans.</p>
                         </div>
-                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black text-muted-foreground">Leading plan</p>
-                            <p className="mt-2 text-2xl font-extrabold text-foreground">{topPlan?.name || 'No plan data'}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">
+                        <div className="rounded-xl border border-border/70 bg-background/60 px-4 py-3 shadow-xs">
+                            <p className="text-xs font-medium text-muted-foreground">Leading plan</p>
+                            <p className="mt-1 text-xl font-bold text-foreground">{topPlan?.name || 'No plan data'}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
                                 {topPlan
                                     ? `${numberFormatter.format(topPlan.value)} users are on the most common plan.`
                                     : 'Plan distribution appears here after data is loaded.'}
                             </p>
                         </div>
-                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black text-muted-foreground">Revenue signal</p>
-                            <p className="mt-2 text-2xl font-extrabold text-foreground">{revenueLast7Days >= averageDailyRevenue * 7 ? 'Ahead' : 'Steady'}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">
+                        <div className="rounded-xl border border-border/70 bg-background/60 px-4 py-3 shadow-xs">
+                            <p className="text-xs font-medium text-muted-foreground">Revenue signal</p>
+                            <p className="mt-1 text-xl font-bold text-foreground">{revenueLast7Days >= averageDailyRevenue * 7 ? 'Ahead' : 'Steady'}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
                                 {revenueLast7Days >= averageDailyRevenue * 7
                                     ? 'The last 7 days are pacing above the rolling daily average.'
                                     : 'The last 7 days are close to the rolling daily average.'}
@@ -350,10 +350,10 @@ export const Dashboard: React.FC = () => {
                 <div className={`${surfaceClass} p-4 sm:p-6 lg:p-7`}>
                     <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h2 className="text-lg sm:text-xl font-extrabold text-foreground">User Growth</h2>
-                            <p className="mt-1 text-xs font-black text-muted-foreground">Last 7 days</p>
+                            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">User Growth</h2>
+                            <p className="mt-1 text-xs font-medium text-muted-foreground">Last 7 days</p>
                         </div>
-                        <div className="status-pill border border-border bg-background/70 text-foreground">
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/70 px-3 py-1 text-xs font-medium text-foreground">
                             <TrendingUp className="h-3.5 w-3.5 text-primary" />
                             Signup trend
                         </div>
@@ -371,16 +371,16 @@ export const Dashboard: React.FC = () => {
                                 <XAxis dataKey="day" tick={{ fill: 'currentColor', fontSize: 11 }} tickLine={false} axisLine={false} />
                                 <YAxis allowDecimals={false} tick={{ fill: 'currentColor', fontSize: 11 }} tickLine={false} axisLine={false} />
                                 <Tooltip content={<ChartTooltip label="Daily Signups" valueFormatter={(value) => `${numberFormatter.format(value)} users`} />} />
-                                <Area type="monotone" dataKey="users" stroke="#405DE6" fill="url(#dashboardGrowthFill)" strokeWidth={3} />
+                                <Area type="monotone" dataKey="users" stroke="#405DE6" fill="url(#dashboardGrowthFill)" strokeWidth={2.5} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
-                <div className={`${surfaceClass} p-6 sm:p-7`}>
+                <div className={`${surfaceClass} p-6`}>
                     <div className="mb-5">
-                        <h2 className="text-xl font-extrabold text-foreground">Plan Distribution</h2>
-                        <p className="mt-1 text-xs font-black text-muted-foreground">All user profiles</p>
+                        <h2 className="text-lg font-bold text-foreground">Plan Distribution</h2>
+                        <p className="mt-1 text-xs text-muted-foreground">All user profiles</p>
                     </div>
                     <div className="grid gap-5 xl:grid-cols-1">
                         <div className="mx-auto flex h-[200px] w-full max-w-[240px] items-center justify-center sm:h-[220px] sm:max-w-[260px]">
@@ -396,34 +396,34 @@ export const Dashboard: React.FC = () => {
                                         stroke="none"
                                     >
                                         {planDistribution.map((entry, index) => (
-                                            <Cell key={`${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
+                                             <Cell key={`${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
                                     <Tooltip content={<ChartTooltip label="Plan Mix" valueFormatter={(value) => `${numberFormatter.format(value)} users`} />} />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-4 py-4 text-center">
-                            <p className="text-[10px] font-black text-muted-foreground">Tracked Profiles</p>
-                            <p className="mt-2 text-2xl sm:text-3xl font-extrabold text-foreground">{numberFormatter.format(totalPlanUsers)}</p>
+                        <div className="rounded-xl border border-border/70 bg-background/60 px-4 py-3 text-center shadow-xs">
+                            <p className="text-xs font-medium text-muted-foreground">Tracked Profiles</p>
+                            <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{numberFormatter.format(totalPlanUsers)}</p>
                         </div>
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                             {planDistribution.length === 0 ? (
-                                <div className="rounded-[22px] border border-dashed border-border bg-background/60 px-4 py-6 text-center text-sm font-medium text-muted-foreground">
+                                <div className="rounded-xl border border-dashed border-border bg-background/60 px-4 py-6 text-center text-sm font-medium text-muted-foreground">
                                     No plan distribution data is available yet.
                                 </div>
                             ) : planDistribution.map((entry, index) => {
                                 const share = totalPlanUsers > 0 ? Math.round((entry.value / totalPlanUsers) * 100) : 0;
                                 return (
-                                    <div key={entry.name} className="rounded-[22px] border border-border/70 bg-background/60 px-4 py-4">
+                                    <div key={entry.name} className="rounded-xl border border-border/70 bg-background/60 px-3.5 py-2.5 shadow-xs">
                                         <div className="flex items-center justify-between gap-4">
-                                            <div className="flex min-w-0 items-center gap-3">
-                                                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                                                <span className="truncate text-sm font-bold text-foreground">{entry.name}</span>
+                                            <div className="flex min-w-0 items-center gap-2.5">
+                                                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                                                <span className="truncate text-xs font-semibold text-foreground">{entry.name}</span>
                                             </div>
-                                            <span className="text-sm font-black text-foreground">{share}%</span>
+                                            <span className="text-xs font-bold text-foreground">{share}%</span>
                                         </div>
-                                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
                                             <div
                                                 className="h-full rounded-full"
                                                 style={{ width: `${share}%`, backgroundColor: COLORS[index % COLORS.length] }}
@@ -441,10 +441,10 @@ export const Dashboard: React.FC = () => {
                 <div className={`${surfaceClass} overflow-hidden`}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 px-4 py-4 sm:px-6 sm:py-5 lg:px-7">
                         <div>
-                            <h2 className="text-lg sm:text-xl font-extrabold text-foreground">Recent Users</h2>
-                            <p className="mt-1 text-xs font-black text-muted-foreground">Latest signups</p>
+                            <h2 className="text-lg sm:text-xl font-bold text-foreground">Recent Users</h2>
+                            <p className="mt-1 text-xs text-muted-foreground">Latest signups</p>
                         </div>
-                        <div className="status-pill border border-border bg-background/70 text-foreground">
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/70 px-3 py-1 text-xs font-medium text-foreground">
                             <Users className="h-3.5 w-3.5 text-primary" />
                             {recentUsers.length} shown
                         </div>
@@ -453,12 +453,12 @@ export const Dashboard: React.FC = () => {
                         {recentUsers.length === 0 ? (
                             <div className="px-4 sm:px-6 py-12 text-center text-sm text-muted-foreground">No recent users available.</div>
                         ) : recentUsers.map((user) => (
-                            <div key={user.$id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5 lg:px-7">
+                            <div key={user.$id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
                                 <div className="min-w-0">
-                                    <p className="truncate text-sm font-bold text-foreground">{user.name || 'Unnamed User'}</p>
+                                    <p className="truncate text-sm font-semibold text-foreground">{user.name || 'Unnamed User'}</p>
                                     <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                                 </div>
-                                <span className="text-[11px] font-semibold text-muted-foreground">
+                                <span className="text-xs font-medium text-muted-foreground">
                                     {new Date(user.$createdAt).toLocaleDateString()}
                                 </span>
                             </div>
@@ -466,31 +466,31 @@ export const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className={`${surfaceClass} p-6 sm:p-7`}>
+                <div className={`${surfaceClass} p-6`}>
                     <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-warning/15 text-warning">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/15 text-warning">
                             <AlertTriangle className="h-5 w-5" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-extrabold text-foreground">Operational Notes</h2>
-                            <p className="mt-1 text-xs font-black text-muted-foreground">Quick review</p>
+                            <h2 className="text-lg font-bold text-foreground">Operational Notes</h2>
+                            <p className="text-xs text-muted-foreground">Quick review</p>
                         </div>
                     </div>
 
-                    <div className="mt-6 space-y-4">
-                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black text-muted-foreground">Linked Account Coverage</p>
-                            <p className="mt-2 text-2xl font-extrabold text-foreground">
+                    <div className="mt-5 space-y-3">
+                        <div className="rounded-xl border border-border/70 bg-background/60 px-4 py-3 shadow-xs">
+                            <p className="text-xs font-medium text-muted-foreground">Linked Account Coverage</p>
+                            <p className="mt-1 text-xl font-bold text-foreground">
                                 {numberFormatter.format(Number(metrics?.totals?.linked_instagram_accounts || 0))}
                             </p>
-                            <p className="mt-1 text-sm text-muted-foreground">Instagram accounts connected across the workspace.</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Instagram accounts connected across the workspace.</p>
                         </div>
-                        <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-                            <p className="text-[10px] font-black text-muted-foreground">Conversion Snapshot</p>
-                            <p className="mt-2 text-2xl font-extrabold text-foreground">
+                        <div className="rounded-xl border border-border/70 bg-background/60 px-4 py-3 shadow-xs">
+                            <p className="text-xs font-medium text-muted-foreground">Conversion Snapshot</p>
+                            <p className="mt-1 text-xl font-bold text-foreground">
                                 {numberFormatter.format(Number(metrics?.totals?.paid_users || 0))}
                             </p>
-                            <p className="mt-1 text-sm text-muted-foreground">Paid users active right now.</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Paid users active right now.</p>
                         </div>
                     </div>
                 </div>

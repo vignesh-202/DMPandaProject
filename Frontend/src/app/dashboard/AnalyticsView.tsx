@@ -260,16 +260,16 @@ const ActionLimitGaugeCard = ({
                     }}
                 >
                     <p
-                        className={cn("text-[10px] font-bold uppercase tracking-wider transition-colors duration-300", remainingStyle.textClass)}
+                        className={cn("text-xs font-medium transition-colors duration-300", remainingStyle.textClass)}
                         style={{ color: remainingStyle.color }}
                     >
                         Remaining
                     </p>
-                    <p className="text-sm font-black text-foreground">{isUnlimited ? 'Unlimited' : remained.toLocaleString()}</p>
+                    <p className="text-sm font-bold text-foreground">{isUnlimited ? 'Unlimited' : remained.toLocaleString()}</p>
                 </div>
                 <div className="rounded-lg bg-primary/10 px-2 py-1.5 border border-primary/20">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Allocated</p>
-                    <p className="text-sm font-black text-foreground">{isUnlimited ? 'Unlimited' : allocated.toLocaleString()}</p>
+                    <p className="text-xs font-medium text-primary">Allocated</p>
+                    <p className="text-sm font-bold text-foreground">{isUnlimited ? 'Unlimited' : allocated.toLocaleString()}</p>
                 </div>
             </div>
         </Card>
@@ -1084,10 +1084,10 @@ const AnalyticsView: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">Analytics</p>
-                    <h1 className="text-2xl sm:text-3xl font-black text-foreground mt-1">
+                    <p className="text-xs font-semibold text-primary">Analytics</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
                         {activeAccount?.username ? `@${activeAccount.username}` : 'Instagram Account'}
                     </h1>
                 </div>
@@ -1096,7 +1096,7 @@ const AnalyticsView: React.FC = () => {
                         type="button"
                         onClick={() => void refreshAnalytics()}
                         disabled={loadingLogs || refreshingAll}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 shadow-xs transition-all active:scale-95"
                     >
                         {(loadingLogs || refreshingAll)
                             ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -1107,8 +1107,8 @@ const AnalyticsView: React.FC = () => {
             </div>
 
             {error && (
-                <Card className="p-4 border border-destructive/30 bg-destructive/10 rounded-2xl">
-                    <p className="text-xs font-bold text-destructive">{error}</p>
+                <Card className="p-4 border border-destructive/30 bg-destructive/10 rounded-xl">
+                    <p className="text-xs font-semibold text-destructive">{error}</p>
                 </Card>
             )}
 
@@ -1139,11 +1139,11 @@ const AnalyticsView: React.FC = () => {
                 />
             </div>
 
-            <Card className="p-6 border border-content rounded-3xl bg-card/95">
+            <Card className="p-6 border border-border rounded-2xl bg-card/95 shadow-xs">
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">Automation Traffic</p>
-                        <h2 className="mt-1 text-xl font-black text-foreground">{selectedTrafficWindow}</h2>
+                        <p className="text-xs font-semibold text-primary">Automation Traffic</p>
+                        <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">{selectedTrafficWindow}</h2>
                         <p className="text-xs text-muted-foreground">
                             Traffic charts follow the selected log range, while action usage gauges reflect the live counters for the selected Instagram account.
                         </p>

@@ -1001,90 +1001,79 @@ export default function ReplyTemplatesView() {
                   <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div className="min-w-0">
-                  <h1 className="truncate text-2xl font-black uppercase tracking-tight text-foreground">
+                  <h1 className="truncate text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                     {editorMode === 'create' ? 'Create New Template' : 'Edit Template'}
                   </h1>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground font-medium">
                     {editorMode === 'create' ? 'Build a reusable template for your automations' : 'Update your template settings'}
                   </p>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center justify-start gap-3 sm:justify-end">
+              <div className="flex flex-wrap items-center justify-start gap-2.5 sm:justify-end">
                 {isEditorEdit && currentEditedTemplate && (
                   <button
                     type="button"
                     onClick={() => requestDelete(currentEditedTemplate)}
                     disabled={saving || editorLoading}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-destructive px-5 py-3 text-[10px] font-black uppercase tracking-widest text-destructive-foreground shadow-lg shadow-destructive/20 transition-all hover:bg-destructive/90 disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-2 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
                   >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete</span>
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={async () => { const ok = await handleSave(); if (ok) goBack(); }}
                   disabled={saving || editorLoading}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground shadow-xs shadow-primary/20 transition-all hover:bg-primary/95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {editorMode === 'create' ? 'Create' : 'Update'}
+                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <span>{editorMode === 'create' ? 'Create Template' : 'Save Changes'}</span>
                 </button>
               </div>
             </div>
 
             {editorError && (
-              <div className="p-4 rounded-2xl bg-destructive-muted/40 border-2 border-destructive/30 text-destructive text-sm flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 shrink-0" />
-                <span className="font-bold">{editorError}</span>
+              <div className="p-3.5 rounded-xl bg-destructive-muted/40 border border-destructive/30 text-destructive text-sm flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span className="font-semibold">{editorError}</span>
               </div>
             )}
 
             {/* Template Name */}
-            <div className="rounded-2xl border-2 border-border bg-card p-4 shadow-sm sm:p-6">
-              <div className="flex justify-between items-center mb-3">
-                <label className="block text-sm font-black text-foreground uppercase tracking-widest">
+            <div className="rounded-xl border border-border/80 bg-card p-4 shadow-xs sm:p-5">
+              <div className="flex justify-between items-center mb-2.5">
+                <label className="block text-xs font-semibold text-foreground">
                   Template Name
                 </label>
-                <span className={`text-xs font-bold ${getByteLength(name || '') > TEMPLATE_NAME_MAX ? 'text-destructive' : 'text-muted-foreground'}`}>
+                <span className={`text-xs font-medium ${getByteLength(name || '') > TEMPLATE_NAME_MAX ? 'text-destructive' : 'text-muted-foreground'}`}>
                   {getByteLength(name || '')}/{TEMPLATE_NAME_MAX} bytes
                 </span>
               </div>
               <input
-                id="field_name"
+                type="text"
                 value={name}
-                onChange={e => {
-                  const val = e.target.value;
-                  // Enforce TEMPLATE_NAME_MAX UTF-8 byte limit
-                  if (getByteLength(val) <= TEMPLATE_NAME_MAX) {
-                    setName(val);
-                    // Clear error when user types
-                    if (editorFieldErrors['name']) {
-                      setEditorFieldErrors(prev => {
-                        const next = { ...prev };
-                        delete next['name'];
-                        return next;
-                      });
-                    }
-                  }
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setEditorFieldErrors(prev => ({ ...prev, name: '' }));
                 }}
-                className={`w-full px-5 py-3.5 rounded-xl border-2 bg-muted/40 text-foreground font-bold transition-all ${editorFieldErrors['name']
-                  ? 'border-destructive focus:border-destructive focus:ring-2 focus:ring-destructive/20'
-                  : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'
+                placeholder="e.g. Lead Magnet Delivery, Welcome Offer"
+                maxLength={TEMPLATE_NAME_MAX}
+                className={`w-full h-10 px-3.5 rounded-xl border bg-card text-foreground text-sm placeholder:text-muted-foreground outline-none transition-all shadow-xs ${editorFieldErrors['name']
+                  ? 'border-destructive focus:ring-2 focus:ring-destructive/20'
+                  : 'border-border/80 focus:border-primary focus:ring-2 focus:ring-primary/20'
                   }`}
-                placeholder="e.g. Welcome Message"
               />
               {editorFieldErrors['name'] && (
-                <p className="mt-2 text-sm font-bold text-destructive flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
+                <p className="mt-1.5 text-xs font-medium text-destructive">
                   {editorFieldErrors['name']}
                 </p>
               )}
             </div>
 
             {/* Template Type */}
-            <div className="rounded-2xl border-2 border-border bg-card p-4 shadow-sm sm:p-6">
-              <label className="block text-sm font-black text-foreground uppercase tracking-widest mb-4">
+            <div className="rounded-xl border border-border/80 bg-card p-4 shadow-xs sm:p-5">
+              <label className="block text-xs font-semibold text-foreground mb-3">
                 Template Type
               </label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
@@ -1100,13 +1089,13 @@ export default function ReplyTemplatesView() {
                         setTemplateData(getDefaultTemplateData(opt.id));
                         setTemplateValidationErrors({});
                       }}
-                        className={`flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-xl border-2 p-3 text-center transition-all sm:p-4 ${isSelected
-                        ? 'border-primary bg-primary/10 text-primary shadow-lg shadow-primary/10'
-                        : 'border-border hover:border-border/70 hover:bg-muted/40'
+                      className={`flex min-h-[82px] flex-col items-center justify-center gap-2 rounded-xl border p-3 text-center transition-all ${isSelected
+                        ? 'border-primary bg-primary/10 text-primary shadow-xs'
+                        : 'border-border/80 hover:border-border hover:bg-muted/50 text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                      <Icon className={`w-6 h-6 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <span className={`text-xs font-black uppercase tracking-widest ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+                      <Icon className="w-5 h-5" />
+                      <span className="text-xs font-semibold">
                         {opt.label}
                       </span>
                     </button>
@@ -1116,8 +1105,8 @@ export default function ReplyTemplatesView() {
             </div>
 
             {/* Content Editor */}
-            <div className="rounded-2xl border-2 border-border bg-card p-4 shadow-sm sm:p-6">
-              <label className="block text-sm font-black text-foreground uppercase tracking-widest mb-4">
+            <div className="rounded-xl border border-border/80 bg-card p-4 shadow-xs sm:p-5">
+              <label className="block text-xs font-semibold text-foreground mb-3">
                 Template Content
               </label>
               <SharedTemplateEditor
@@ -1189,40 +1178,40 @@ export default function ReplyTemplatesView() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-foreground uppercase tracking-tight mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight mb-1.5">
             Reply Templates
           </h1>
           <p className="text-sm text-muted-foreground">
             Create reusable templates for DM, Post, Reel, Story, and Live automations
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 sm:justify-end lg:flex-nowrap">
-          <div className="relative w-full min-w-0 md:w-[320px] lg:w-[360px]">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="flex flex-wrap items-center gap-2.5 sm:justify-end lg:flex-nowrap">
+          <div className="relative w-full min-w-0 md:w-[300px] lg:w-[340px]">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search templates"
-              className="h-11 w-full rounded-xl border-2 border-border bg-card pl-11 pr-10 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15"
+              placeholder="Search templates..."
+              className="h-10 w-full rounded-xl border border-border/80 bg-card pl-9 pr-9 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-xs"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Clear search"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
           {/* View Mode Toggle */}
-          <div className="h-11 flex flex-1 sm:flex-none items-center gap-1 p-1 bg-muted rounded-xl">
+          <div className="h-10 flex flex-1 sm:flex-none items-center gap-1 p-1 bg-muted/60 rounded-xl border border-border/50">
             <button
               onClick={() => setViewMode('grid')}
-              className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid'
-                ? 'bg-card text-primary shadow-sm'
+              className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid'
+                ? 'bg-card text-primary shadow-xs'
                 : 'text-muted-foreground hover:text-foreground'
                 }`}
               title="Grid view"
@@ -1231,8 +1220,8 @@ export default function ReplyTemplatesView() {
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list'
-                ? 'bg-card text-primary shadow-sm'
+              className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list'
+                ? 'bg-card text-primary shadow-xs'
                 : 'text-muted-foreground hover:text-foreground'
                 }`}
               title="List view"
@@ -1244,99 +1233,99 @@ export default function ReplyTemplatesView() {
           <button
             onClick={() => fetchList(true)}
             disabled={loading}
-            className="flex h-11 flex-1 sm:flex-none items-center justify-center gap-2 px-4 rounded-xl border-2 border-border bg-card text-foreground hover:bg-muted/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex h-10 flex-1 sm:flex-none items-center justify-center gap-2 px-3.5 rounded-xl border border-border/80 bg-card text-foreground hover:bg-muted/60 transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
             title="Refresh templates"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="sm:hidden text-sm font-semibold">Refresh</span>
+            <span className="sm:hidden text-sm font-medium">Refresh</span>
           </button>
-          {/* Create Button */}
+          {/* Create Button - Clean, modern, high-contrast */}
           <button
             onClick={() => openCreate()}
-            className="flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-black uppercase tracking-[0.14em] text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 sm:px-6 sm:tracking-widest"
+            className="flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-primary px-4 sm:px-5 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/25 transition-all hover:bg-primary/95 active:scale-[0.98]"
           >
-            <Plus className="w-5 h-5" />
-            Create Template
+            <Plus className="w-4 h-4" />
+            <span>Create Template</span>
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-2xl bg-destructive-muted/40 border-2 border-destructive/30 flex items-center gap-3 text-destructive">
+        <div className="mb-6 p-4 rounded-xl bg-destructive-muted/40 border border-destructive/30 flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5 shrink-0" />
-          <span className="font-bold">{error}</span>
+          <span className="font-semibold">{error}</span>
         </div>
       )}
 
       {loading ? (
         <LoadingOverlay variant="fullscreen" message="Loading Reply Templates" subMessage="Fetching your templates..." />
       ) : templates.length === 0 ? (
-        <div className="py-20 text-center rounded-3xl border-2 border-dashed border-border bg-muted/40">
-          <div className="inline-flex p-4 bg-primary/10 rounded-2xl mb-6">
-            <LayoutTemplate className="w-12 h-12 text-primary" />
+        <div className="py-16 text-center rounded-2xl border border-dashed border-border bg-card/50">
+          <div className="inline-flex p-3.5 bg-primary/10 rounded-2xl mb-4 text-primary">
+            <LayoutTemplate className="w-10 h-10" />
           </div>
-          <h3 className="text-xl font-black text-foreground mb-2">No Templates Yet</h3>
-          <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+          <h3 className="text-lg font-bold text-foreground mb-1.5">No Templates Yet</h3>
+          <p className="text-sm text-muted-foreground mb-5 max-w-md mx-auto">
             Create your first reply template to reuse across all your automations
           </p>
           <button
             onClick={() => openCreate()}
-            className="px-6 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/95 transition-all shadow-sm shadow-primary/20 active:scale-[0.98]"
           >
-            <Plus className="w-5 h-5 inline mr-2" />
-            Create Your First Template
+            <Plus className="w-4 h-4" />
+            <span>Create Your First Template</span>
           </button>
         </div>
       ) : filteredTemplates.length === 0 ? (
-        <div className="py-16 text-center rounded-3xl border-2 border-dashed border-border bg-muted/30">
-          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <Search className="h-6 w-6" />
+        <div className="py-14 text-center rounded-2xl border border-dashed border-border bg-card/40">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <Search className="h-5 w-5" />
           </div>
-          <h3 className="text-lg font-black text-foreground">No matching templates</h3>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+          <h3 className="text-base font-bold text-foreground">No matching templates</h3>
+          <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
             Try a different template name, type, or linked automation keyword.
           </p>
         </div>
       ) : (
         <div className={viewMode === 'grid'
-          ? 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6'
-          : 'space-y-4'
+          ? 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3'
+          : 'space-y-3'
         }>
           {filteredTemplates.map((t, index) => {
             const Icon = TEMPLATE_TYPE_OPTIONS.find(opt => opt.id === t.template_type)?.icon || FileText;
             return (
               <div
                 key={t.id}
-                className={`group rounded-2xl border-2 border-border bg-card shadow-sm transition-all hover:border-primary hover:shadow-xl ${viewMode === 'list' ? 'flex flex-col gap-4 p-4 sm:flex-row sm:items-center' : 'p-4 sm:p-6'
+                className={`group rounded-xl border border-border/80 bg-card shadow-xs transition-all hover:border-primary/40 hover:shadow-sm ${viewMode === 'list' ? 'flex flex-col gap-4 p-4 sm:flex-row sm:items-center' : 'p-4 sm:p-5 flex flex-col justify-between'
                   }`}
               >
                 {viewMode === 'list' ? (
                   <>
                     {/* Serial Number */}
-                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 text-primary font-black text-sm">
+                    <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-muted text-muted-foreground font-semibold text-xs">
                       {index + 1}
                     </div>
                     {/* Icon */}
-                    <div className="flex-shrink-0 p-3 bg-primary/10 rounded-xl group-hover:bg-primary/15 transition-colors">
-                      <Icon className="w-6 h-6 text-primary" />
+                    <div className="flex-shrink-0 p-2.5 bg-primary/10 rounded-lg text-primary">
+                      <Icon className="w-5 h-5" />
                     </div>
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-black text-foreground mb-1 truncate">
+                      <h3 className="text-base font-semibold text-foreground truncate capitalize">
                         {t.name}
                       </h3>
-                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                      <span className="text-xs font-medium text-muted-foreground">
                         {typeLabel(t.template_type)}
                       </span>
-                      <div className="mt-2">
+                      <div className="mt-1.5">
                         <button
                           type="button"
                           onClick={() => openLinkedAutomations(t)}
                           disabled={getAutomationCount(t) === 0}
-                          className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold bg-primary/10 text-primary disabled:opacity-60 disabled:cursor-not-allowed hover:bg-primary/15 transition-colors"
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/15 transition-colors"
                           title={getAutomationCount(t) === 0 ? 'No linked automations' : 'View linked automations'}
                         >
-                          {getAutomationCount(t)} Automations
+                          {getAutomationCount(t)} {getAutomationCount(t) === 1 ? 'Automation' : 'Automations'}
                         </button>
                       </div>
                     </div>
@@ -1344,72 +1333,75 @@ export default function ReplyTemplatesView() {
                     <div className="grid flex-shrink-0 grid-cols-2 gap-2 sm:flex sm:items-center">
                       <button
                         onClick={() => openEdit(t)}
-                        className="rounded-xl border-2 border-border bg-card px-4 py-2.5 font-bold text-foreground transition-all hover:bg-muted/40"
+                        className="rounded-lg border border-border/80 bg-card px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/60 shadow-xs flex items-center justify-center gap-1.5"
                       >
-                        <Pencil className="w-4 h-4 inline mr-2" />
-                        Edit
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>Edit</span>
                       </button>
                       <button
                         onClick={() => requestDelete(t)}
-                        className="rounded-xl border-2 border-destructive/30 bg-destructive-muted/40 px-4 py-2.5 font-bold text-destructive transition-all hover:bg-destructive-muted/60"
+                        className="rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-1.5 text-destructive transition-colors hover:bg-destructive/20 flex items-center justify-center"
+                        title="Delete template"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        {/* Serial Number */}
-                        <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary font-black text-xs">
-                          {index + 1}
+                    <div>
+                      <div className="mb-3.5 flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <div className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-muted text-muted-foreground font-semibold text-xs">
+                            {index + 1}
+                          </div>
+                          <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="truncate text-base font-semibold text-foreground capitalize">
+                              {t.name}
+                            </h3>
+                            <span className="text-xs font-medium text-muted-foreground">
+                              {typeLabel(t.template_type)}
+                            </span>
+                          </div>
                         </div>
-                        <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/15 transition-colors">
-                          <Icon className="w-6 h-6 text-primary" />
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="mb-1 truncate text-lg font-black text-foreground">
-                            {t.name}
-                          </h3>
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                            {typeLabel(t.template_type)}
+                      </div>
+
+                      {/* Usage Count Badge */}
+                      <div className="mb-4 border-t border-border/60 pt-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Used by
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => openLinkedAutomations(t)}
+                            disabled={getAutomationCount(t) === 0}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/15 transition-colors"
+                            title={getAutomationCount(t) === 0 ? 'No linked automations' : 'View linked automations'}
+                          >
+                            {getAutomationCount(t)} {getAutomationCount(t) === 1 ? 'Automation' : 'Automations'}
+                          </button>
                         </div>
                       </div>
                     </div>
 
-                    {/* Live Usage Count Badge */}
-                    <div className="mb-4 border-b border-border pb-4">
-                      <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
-                        Used By
-                      </p>
-                      <div className="flex flex-wrap gap-1.5 align-middle">
-                        <button
-                          type="button"
-                          onClick={() => openLinkedAutomations(t)}
-                          disabled={getAutomationCount(t) === 0}
-                          className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold bg-primary/10 text-primary disabled:opacity-60 disabled:cursor-not-allowed hover:bg-primary/15 transition-colors"
-                          title={getAutomationCount(t) === 0 ? 'No linked automations' : 'View linked automations'}
-                        >
-                          {getAutomationCount(t)} Automations
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-[1fr_auto] gap-2">
+                    <div className="grid grid-cols-[1fr_auto] gap-2 pt-2">
                       <button
                         onClick={() => openEdit(t)}
-                        className="flex-1 rounded-xl border-2 border-border bg-card px-4 py-2.5 font-bold text-foreground transition-all hover:bg-muted/40"
+                        className="flex-1 rounded-xl border border-border/80 bg-card px-4 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/60 shadow-xs flex items-center justify-center gap-1.5"
                       >
-                        <Pencil className="w-4 h-4 inline mr-2" />
-                        Edit
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>Edit</span>
                       </button>
                       <button
                         onClick={() => requestDelete(t)}
-                        className="px-4 py-2.5 rounded-xl border-2 border-destructive/30 bg-destructive-muted/40 text-destructive font-bold hover:bg-destructive-muted/60 transition-all"
+                        className="px-3 py-2 rounded-xl border border-destructive/25 bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex items-center justify-center"
+                        title="Delete template"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </>

@@ -1615,8 +1615,8 @@ const DMAutomationView: React.FC = () => {
             <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                     <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
-                        <section className="bg-card rounded-[40px] border border-content shadow-sm">
-                            <div className="rounded-t-[40px] border-b border-content/70 bg-card/95 px-8 py-5">
+                        <section className="bg-card rounded-2xl border border-border/70 shadow-xs">
+                            <div className="rounded-t-2xl border-b border-border/60 bg-card/95 px-6 py-4">
                                 <AutomationActionBar
                                     hasExisting={Boolean(editingAutomation.$id)}
                                     isSaving={saving}
@@ -1630,15 +1630,16 @@ const DMAutomationView: React.FC = () => {
                                         <button
                                             type="button"
                                             onClick={handleBack}
-                                            className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
+                                            className="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-border bg-card hover:bg-muted/60 text-foreground transition-all active:scale-[0.98]"
+                                            title="Back"
                                         >
                                             <ArrowLeft className="w-5 h-5" />
                                         </button>
                                     }
                                 />
                             </div>
-                            <div className="space-y-8 p-8 pb-10">
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-6">Automation Core</h3>
+                            <div className="space-y-6 p-6 pb-8">
+                                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Automation Core</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-center gap-2 mb-1 px-1">
@@ -3181,31 +3182,33 @@ const DMAutomationView: React.FC = () => {
     return (
         <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-12">
 
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-8">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-primary mb-2">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/60 pb-6">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-primary">
                         <MessageSquare className="w-4 h-4" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Direct Messaging</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider">Direct Messaging</span>
                     </div>
-                    <h1 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight">DM Automation</h1>
-                    <p className="text-muted-foreground font-medium max-w-xl">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">DM Automation</h1>
+                    <p className="text-sm text-muted-foreground font-normal max-w-xl">
                         Keywords-based responses. When a user sends a keyword, DMPanda replies automatically.
                     </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2.5">
                     <button
                         onClick={() => fetchAutomations(true)}
                         disabled={refreshing || loading}
-                        className="p-3 bg-muted/40  text-muted-foreground hover:text-primary rounded-2xl transition-all border border-content disabled:opacity-50"
+                        className="inline-flex items-center justify-center h-10 w-10 bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground rounded-xl transition-all border border-border disabled:opacity-50"
+                        title="Refresh"
                     >
-                        <RefreshCcw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+                        <RefreshCcw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     </button>
                     <button
                         onClick={handleCreate}
-                        className="px-8 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-primary/20 flex items-center gap-2"
+                        className="inline-flex items-center gap-2 h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow active:scale-[0.98]"
                     >
-                        <Plus className="w-3 h-3" /> Create New Rule
+                        <Plus className="w-4 h-4" />
+                        <span>Create Rule</span>
                     </button>
                 </div>
             </div>
@@ -3213,48 +3216,49 @@ const DMAutomationView: React.FC = () => {
             {loading ? (
                 <LoadingOverlay variant="fullscreen" message="Loading DM Automation" subMessage="Fetching your rules..." />
             ) : dmAutomations.length === 0 ? (
-                <div className="bg-muted/40 border-2 border-dashed border-border rounded-3xl p-20 text-center">
-                    <Lightbulb className="w-12 h-12 text-muted-foreground/60 mx-auto mb-6" />
-                    <h4 className="text-foreground font-black text-xl mb-2">No active rules</h4>
-                    <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-8">Click "Create New" to start automating your Instagram inbox with powered responses.</p>
+                <div className="bg-card/40 border border-dashed border-border/80 rounded-2xl p-12 text-center">
+                    <div className="w-12 h-12 rounded-xl bg-muted/60 flex items-center justify-center mx-auto mb-4 text-muted-foreground">
+                        <Lightbulb className="w-6 h-6" />
+                    </div>
+                    <h4 className="text-foreground font-semibold text-base mb-1.5">No active rules</h4>
+                    <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">Create a keyword-based rule to start automating your Instagram direct messages.</p>
                     <button
-                        onClick={() => fetchAutomations(true)}
-                        disabled={refreshing}
-                        className="mx-auto px-8 py-4 bg-card text-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl flex items-center gap-3 hover:scale-105"
+                        onClick={handleCreate}
+                        className="inline-flex items-center gap-2 h-10 px-5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-sm font-semibold transition-all shadow-sm active:scale-[0.98]"
                     >
-                        <RefreshCcw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                        {refreshing ? 'Refreshing...' : 'Refresh'}
+                        <Plus className="w-4 h-4" />
+                        <span>Create First Rule</span>
                     </button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-1 gap-3">
                     {dmAutomations.map((auto) => (
-                        <div key={auto.$id} className="relative group bg-card border border-content rounded-3xl p-6 shadow-sm hover:shadow-2xl hover:border-primary/30 transition-all duration-500 overflow-hidden">
+                        <div key={auto.$id} className="relative group bg-card border border-border/70 hover:border-border rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-sm transition-all duration-150 overflow-hidden">
                             {deletingIds.has(auto.$id!) && (
-                                <div className="absolute inset-0 z-20 bg-card/80 backdrop-blur-md rounded-3xl flex items-center justify-center animate-in fade-in duration-300">
-                                    <div className="flex flex-col items-center gap-3">
-                                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary transition-all">Removing Rule...</span>
+                                <div className="absolute inset-0 z-20 bg-card/80 backdrop-blur-sm rounded-xl flex items-center justify-center animate-in fade-in duration-200">
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                                        <span className="text-xs font-medium text-primary">Removing Rule...</span>
                                     </div>
                                 </div>
                             )}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-                                    <div className="w-16 h-16 shrink-0 rounded-2xl bg-primary/10  flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                        {auto.template_type === 'template_text' && <FileText className="w-7 h-7" />}
-                                        {auto.template_type === 'template_carousel' && <Smartphone className="w-7 h-7" />}
-                                        {auto.template_type === 'template_buttons' && <MousePointerClick className="w-7 h-7" />}
-                                        {auto.template_type === 'template_media' && <ImageIcon className="w-7 h-7" />}
-                                        {auto.template_type === 'template_quick_replies' && <Reply className="w-7 h-7" />}
-                                        {auto.template_type === 'template_share_post' && <Share2 className="w-7 h-7" />}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex items-start sm:items-center gap-4 min-w-0">
+                                    <div className="w-11 h-11 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                        {auto.template_type === 'template_text' && <FileText className="w-5 h-5" />}
+                                        {auto.template_type === 'template_carousel' && <Smartphone className="w-5 h-5" />}
+                                        {auto.template_type === 'template_buttons' && <MousePointerClick className="w-5 h-5" />}
+                                        {auto.template_type === 'template_media' && <ImageIcon className="w-5 h-5" />}
+                                        {auto.template_type === 'template_quick_replies' && <Reply className="w-5 h-5" />}
+                                        {auto.template_type === 'template_share_post' && <Share2 className="w-5 h-5" />}
                                     </div>
-                                    <div>
-                                        <h4 className="text-lg font-black text-foreground">{auto.title || 'Untitled Rule'}</h4>
+                                    <div className="min-w-0 space-y-1">
+                                        <h4 className="text-base font-semibold text-foreground truncate">{auto.title || 'Untitled Rule'}</h4>
                                         {auto.template_content && auto.template_type === 'template_text' && (
-                                            <p className="text-[10px] text-muted-foreground line-clamp-1 mb-1 font-medium italic">"{auto.template_content}"</p>
+                                            <p className="text-xs text-muted-foreground line-clamp-1 italic">"{auto.template_content}"</p>
                                         )}
                                         {auto.template_content && auto.template_type === 'template_carousel' && (
-                                            <p className="text-[10px] text-muted-foreground line-clamp-1 mb-1 font-medium italic">
+                                            <p className="text-xs text-muted-foreground line-clamp-1 italic">
                                                 {(() => {
                                                     try {
                                                         const el = typeof auto.template_content === 'string' ? JSON.parse(auto.template_content) : auto.template_content;
@@ -3265,40 +3269,42 @@ const DMAutomationView: React.FC = () => {
                                             </p>
                                         )}
                                         {auto.template_content && auto.template_type === 'template_media' && (
-                                            <p className="text-[10px] text-muted-foreground line-clamp-1 mb-1 font-medium italic">
+                                            <p className="text-xs text-muted-foreground line-clamp-1 italic">
                                                 Image/Video Attachment
                                             </p>
                                         )}
-                                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                                             {(Array.isArray(auto.keyword) ? auto.keyword : [auto.keyword]).map((kw: string, ki: number) => (
-                                                <span key={ki} className="px-2 py-0.5 bg-primary/10 text-primary text-[9px] font-black rounded-lg tracking-wider">{kw}</span>
+                                                <span key={ki} className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-medium rounded-md">{kw}</span>
                                             ))}
                                             {auto.followers_only && (
-                                                <span className="px-2 py-0.5 bg-warning-muted/60 text-warning text-[10px] font-black rounded-lg uppercase tracking-wider flex items-center gap-1">
-                                                    <CheckCircle2 className="w-2.5 h-2.5" /> Followers Only
+                                                <span className="px-2 py-0.5 bg-warning-muted/60 text-warning text-xs font-medium rounded-md flex items-center gap-1">
+                                                    <CheckCircle2 className="w-3 h-3" /> Followers Only
                                                 </span>
                                             )}
 
-                                            <span className="text-[10px] font-bold text-muted-foreground capitalize">{auto.template_type?.replace('template_', '').replace('_', ' ')} Response</span>
+                                            <span className="text-xs text-muted-foreground capitalize">{auto.template_type?.replace('template_', '').replace('_', ' ')}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                                     <button
                                         onClick={() => handleEdit(auto)}
-                                        className="p-3 bg-muted/40  text-muted-foreground hover:text-primary rounded-xl transition-all"
+                                        className="inline-flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-lg transition-all"
+                                        title="Edit"
                                     >
-                                        <Pencil className="w-5 h-5" />
+                                        <Pencil className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleDelete(auto.$id!)}
-                                        className="p-3 bg-destructive-muted/40 text-destructive hover:bg-destructive hover:text-primary-foreground rounded-xl transition-all"
+                                        className="inline-flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive-muted/30 rounded-lg transition-all"
+                                        title="Delete"
                                     >
-                                        <Trash2 className="w-5 h-5" />
+                                        <Trash2 className="w-4 h-4" />
                                     </button>
-                                    <div className="h-8 w-[1px] bg-border  mx-2" />
+                                    <div className="h-5 w-[1px] bg-border mx-1" />
                                     {togglingIds.has(auto.$id) ? (
-                                        <div className="w-[44px] h-[24px] flex items-center justify-center bg-muted  rounded-full">
+                                        <div className="w-[44px] h-[24px] flex items-center justify-center bg-muted rounded-full">
                                             <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />
                                         </div>
                                     ) : (

@@ -104,31 +104,21 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
             <button
                 type="button"
                 onClick={toggleTheme}
-                className="group inline-flex w-full items-center justify-between rounded-full border border-border/80 bg-background/80 p-1 shadow-sm transition hover:border-primary/30"
+                className="group inline-flex w-full items-center justify-between rounded-xl border border-border/80 bg-background/80 p-1.5 shadow-xs transition hover:border-primary/40"
                 aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
                 title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             >
-                <span className="pl-3 text-[11px] font-black text-foreground">
-                    {theme === 'light' ? 'Light' : 'Dark'}
+                <span className="pl-2 text-xs font-semibold text-foreground">
+                    {theme === 'light' ? 'Light Theme' : 'Dark Theme'}
                 </span>
                 <span
                     className={cn(
-                        'relative flex h-10 w-[78px] items-center rounded-full transition-all duration-300',
-                        theme === 'dark'
-                            ? 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700'
-                            : 'bg-gradient-to-r from-amber-300 via-orange-300 to-yellow-200'
+                        'flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 bg-card text-foreground shadow-xs transition-colors'
                     )}
                 >
-                    <span
-                        className={cn(
-                            'absolute top-1 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md transition-all duration-300',
-                            theme === 'dark' ? 'left-[38px]' : 'left-1'
-                        )}
-                    >
-                        {theme === 'dark'
-                            ? <Moon className="h-4 w-4 text-slate-700" />
-                            : <Sun className="h-4 w-4 text-amber-500" />}
-                    </span>
+                    {theme === 'dark'
+                        ? <Moon className="h-3.5 w-3.5 text-primary" />
+                        : <Sun className="h-3.5 w-3.5 text-amber-500" />}
                 </span>
             </button>
         );
@@ -156,8 +146,8 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
                     ) : (
                         <>
                             <div className="min-w-0">
-                                <p className="font-display text-[1.2rem] font-extrabold tracking-tight text-foreground">DM Panda</p>
-                                <p className="text-[10px] font-black text-muted-foreground">admin panel</p>
+                                <p className="font-display text-[1.2rem] font-extrabold tracking-tight bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] bg-clip-text text-transparent">DM Panda</p>
+                                <p className="text-[10px] font-semibold text-muted-foreground">admin panel</p>
                             </div>
                             <button
                                 type="button"
@@ -173,22 +163,22 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
                 </div>
             </div>
 
-            <nav className={cn('custom-scrollbar flex-1 space-y-1.5 overflow-y-auto py-4', desktopCollapsed ? 'px-3' : 'px-4')}>
+            <nav className={cn('custom-scrollbar flex-1 space-y-1 overflow-y-auto py-4', desktopCollapsed ? 'px-3' : 'px-4')}>
                 {navItems.map((item) => (
                     <NavLink
                         key={item.to}
                         to={item.to}
                         title={desktopCollapsed ? item.label : undefined}
                         className={({ isActive }) => cn(
-                            'group flex items-center rounded-xl text-sm font-bold transition-all duration-200',
+                            'group flex items-center rounded-xl text-sm transition-all duration-150',
                             desktopCollapsed ? 'justify-center px-2 py-2.5' : 'space-x-3 px-3 py-2.5',
                             isActive
-                                ? 'bg-ig-gradient text-white shadow-[0_18px_40px_rgba(131,58,180,0.22)]'
-                                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                                ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white font-semibold shadow-xs shadow-[#833AB4]/25'
+                                : 'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium'
                         )}
                     >
-                        <item.icon className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:scale-110" />
-                        {!desktopCollapsed && <span className="truncate font-bold">{item.label}</span>}
+                        <item.icon className="h-5 w-5 shrink-0 transition-transform duration-150 group-hover:scale-105" />
+                        {!desktopCollapsed && <span className="truncate">{item.label}</span>}
                     </NavLink>
                 ))}
             </nav>
@@ -250,7 +240,7 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
                         <div className="border-b border-sidebar-border px-4 py-4 sm:px-5">
                     <div className="relative flex items-center gap-3 pr-12">
                                 <div>
-                                    <h2 className="font-display text-[1.2rem] font-extrabold tracking-tight text-foreground">DM Panda</h2>
+                                    <h2 className="font-display text-[1.2rem] font-extrabold tracking-tight bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] bg-clip-text text-transparent">DM Panda</h2>
                                     <p className="text-[10px] font-black text-muted-foreground">admin panel</p>
                                 </div>
                                 <button
@@ -269,14 +259,14 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
                                     key={item.to}
                                     to={item.to}
                                     className={({ isActive }) => cn(
-                                        'group flex items-center space-x-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-200',
+                                        'group flex items-center space-x-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-150',
                                         isActive
-                                            ? 'bg-ig-gradient text-white shadow-[0_18px_40px_rgba(131,58,180,0.22)]'
-                                            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                                            ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white font-semibold shadow-xs shadow-[#833AB4]/25'
+                                            : 'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium'
                                     )}
                                 >
-                                    <item.icon className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
-                                    <span className="font-bold">{item.label}</span>
+                                    <item.icon className="h-5 w-5 shrink-0 transition-transform duration-150 group-hover:scale-105" />
+                                    <span>{item.label}</span>
                                 </NavLink>
                             ))}
                         </nav>

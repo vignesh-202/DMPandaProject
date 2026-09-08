@@ -80,7 +80,7 @@ interface CampaignPagePayload {
   };
 }
 
-const surfaceClass = 'glass-card rounded-[32px] border border-border/70 bg-card/95 shadow-sm';
+const surfaceClass = 'rounded-2xl border border-border bg-card shadow-xs';
 
 const defaultFilters: CampaignFilters = {
   search: '',
@@ -291,15 +291,15 @@ export const EmailCampaignsPage: React.FC = () => {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 xl:-mx-2 2xl:-mx-4">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-[10px] font-black text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1 text-xs font-semibold text-muted-foreground">
             <Mail className="h-3.5 w-3.5" />
             Email Campaigns
           </div>
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-              {view === 'list' ? 'Sent campaign activity.' : 'Create a new email campaign.'}
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              {view === 'list' ? 'Sent campaign activity' : 'Create a new email campaign'}
             </h1>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+            <p className="mt-1.5 max-w-3xl text-sm text-muted-foreground">
               {view === 'list'
                 ? 'Review delivery activity, sent counts, and recent audience coverage without mixing the list with the create workflow.'
                 : 'Choose the exact segment first, confirm the live recipient count, then compose and send.'}
@@ -312,13 +312,13 @@ export const EmailCampaignsPage: React.FC = () => {
             type="button"
             onClick={() => void fetchAudienceAndCampaigns(filters, campaignPage)}
             disabled={refreshing}
-            className="btn-secondary px-4 py-3 text-[10px] disabled:opacity-60"
+            className="btn-secondary h-10 px-4 rounded-xl text-xs font-medium disabled:opacity-60"
           >
             {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Refresh
           </button>
           {view === 'list' ? (
-            <button type="button" onClick={startCreateFlow} className="btn-primary px-4 py-3 text-[10px]">
+            <button type="button" onClick={startCreateFlow} className="btn-primary h-10 px-4 rounded-xl text-xs font-medium">
               <Send className="h-4 w-4" />
               Create Campaign
             </button>
@@ -328,7 +328,7 @@ export const EmailCampaignsPage: React.FC = () => {
 
       {(notice || error) && (
         <div className={cn(
-          'rounded-[28px] border px-5 py-4 text-sm font-medium shadow-sm animate-in fade-in slide-in-from-top-2 duration-300',
+          'rounded-xl border px-5 py-3 text-sm font-medium shadow-xs animate-in fade-in slide-in-from-top-2 duration-300',
           notice
             ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
             : 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300'
@@ -340,34 +340,34 @@ export const EmailCampaignsPage: React.FC = () => {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {topMetrics.map(([label, value]) => (
           <div key={String(label)} className={`${surfaceClass} p-5`}>
-            <p className="text-[10px] font-black text-muted-foreground">{label}</p>
-            <p className="mt-4 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">{value}</p>
+            <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+            <p className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{value}</p>
           </div>
         ))}
       </div>
 
       {view === 'list' ? (
         <section className={surfaceClass}>
-          <div className="flex flex-col gap-4 border-b border-border/70 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-4 border-b border-border px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-[10px] font-black text-muted-foreground">Sent campaigns</p>
-              <h2 className="mt-2 text-2xl font-extrabold text-foreground">Delivery activity</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Only already-sent campaigns are shown here.</p>
+              <p className="text-xs font-semibold text-muted-foreground">Sent campaigns</p>
+              <h2 className="mt-1 text-xl font-bold text-foreground">Delivery activity</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Only already-sent campaigns are shown here.</p>
             </div>
-            <div className="status-pill border border-border bg-background/70 text-foreground">
+            <div className="status-pill border border-border bg-background text-foreground text-xs font-medium">
               {campaignsPagination?.total || 0} campaigns
             </div>
           </div>
 
-          <div className="divide-y divide-border/70">
+          <div className="divide-y divide-border">
             {campaigns.length === 0 ? (
               <div className="px-6 py-16 text-center">
-                <div className="mx-auto w-full max-w-xl rounded-[28px] border border-dashed border-border bg-background/55 px-6 py-10">
-                  <p className="text-lg font-extrabold text-foreground">No campaigns yet</p>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                <div className="mx-auto w-full max-w-xl rounded-2xl border border-dashed border-border bg-background/50 px-6 py-10">
+                  <p className="text-lg font-bold text-foreground">No campaigns yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Start a campaign to create the first delivery record and send history entry.
                   </p>
-                  <button type="button" onClick={startCreateFlow} className="btn-primary mt-5 px-4 py-3 text-[10px]">
+                  <button type="button" onClick={startCreateFlow} className="btn-primary mt-5 h-10 px-4 rounded-xl text-xs font-medium">
                     <Send className="h-4 w-4" />
                     Create Campaign
                   </button>
@@ -378,38 +378,38 @@ export const EmailCampaignsPage: React.FC = () => {
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(250px,0.7fr)] xl:items-center">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">
-                      <p className="truncate text-lg font-extrabold text-foreground">{campaign.subject}</p>
-                      <span className="rounded-full border border-border px-2.5 py-1 text-[10px] font-black text-muted-foreground">
+                      <p className="truncate text-base font-bold text-foreground">{campaign.subject}</p>
+                      <span className="rounded-full border border-border px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                         {campaign.status}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-muted-foreground">
+                    <p className="mt-1.5 text-xs text-muted-foreground">
                       Sent {formatDateTime(campaign.sent_at || campaign.created_at)} | Scheduled {formatDateTime(campaign.scheduled_at)}
                     </p>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {[
                         ['Targeted', campaign.target_total || 0],
                         ['Queued', campaign.queued_total || 0],
                         ['Delivered', campaign.delivered_total || 0],
                         ['Failed', campaign.failed_total || 0]
                       ].map(([label, value]) => (
-                        <div key={String(label)} className="rounded-[22px] border border-border/70 bg-background/55 px-4 py-4">
-                          <p className="text-[10px] font-black text-muted-foreground">{label}</p>
-                          <p className="mt-2 text-2xl font-extrabold text-foreground">{value}</p>
+                        <div key={String(label)} className="rounded-xl border border-border bg-background/50 px-3.5 py-3">
+                          <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+                          <p className="mt-1 text-xl font-bold text-foreground">{value}</p>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div className="rounded-[24px] border border-border/70 bg-background/55 px-4 py-4 text-xs text-muted-foreground">
-                    <p className="font-black text-foreground">Message ID</p>
-                    <p className="mt-2 break-all">{campaign.appwrite_message_id || 'Not available'}</p>
+                  <div className="rounded-xl border border-border bg-background/50 px-4 py-4 text-xs text-muted-foreground">
+                    <p className="font-semibold text-foreground">Message ID</p>
+                    <p className="mt-1 font-mono text-[11px] break-all">{campaign.appwrite_message_id || 'Not available'}</p>
                     <button
                       type="button"
                       onClick={() => setCampaignPendingDelete(campaign)}
                       disabled={deletingCampaignId === campaign.id}
-                      className="btn-secondary mt-4 w-full px-4 py-2 text-[10px] disabled:opacity-60"
+                      className="btn-secondary mt-3 w-full h-8 px-3 rounded-lg text-xs font-medium disabled:opacity-60"
                     >
-                      {deletingCampaignId === campaign.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      {deletingCampaignId === campaign.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                       Delete
                     </button>
                   </div>
@@ -419,7 +419,7 @@ export const EmailCampaignsPage: React.FC = () => {
           </div>
 
           {campaignsPagination && campaignsPagination.total_pages > 1 ? (
-            <div className="flex flex-col gap-4 border-t border-border/70 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">
                 Page {campaignsPagination.page} of {campaignsPagination.total_pages}
               </p>
@@ -428,7 +428,7 @@ export const EmailCampaignsPage: React.FC = () => {
                   type="button"
                   onClick={() => setCampaignPage(Math.max(1, campaignsPagination.page - 1))}
                   disabled={!campaignsPagination.has_previous || refreshing}
-                  className="btn-secondary px-4 py-2 text-[10px] disabled:opacity-60"
+                  className="btn-secondary h-8 px-3 rounded-lg text-xs font-medium disabled:opacity-60"
                 >
                   <ChevronLeft className="h-4 w-4" />
                   Previous
@@ -437,7 +437,7 @@ export const EmailCampaignsPage: React.FC = () => {
                   type="button"
                   onClick={() => setCampaignPage(campaignsPagination.page + 1)}
                   disabled={!campaignsPagination.has_next || refreshing}
-                  className="btn-secondary px-4 py-2 text-[10px] disabled:opacity-60"
+                  className="btn-secondary h-8 px-3 rounded-lg text-xs font-medium disabled:opacity-60"
                 >
                   Next
                   <ChevronRight className="h-4 w-4" />
@@ -452,7 +452,7 @@ export const EmailCampaignsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => void returnToList()}
-              className="inline-flex items-center gap-2 text-xs font-black text-muted-foreground transition hover:text-foreground"
+              className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground transition hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to list
@@ -463,27 +463,27 @@ export const EmailCampaignsPage: React.FC = () => {
             <section className={`${surfaceClass} p-6 sm:p-7`}>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black text-muted-foreground">Campaign setup</p>
-                  <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">
-                    {step === 'segment' ? 'Choose the exact segment.' : 'Write the email content.'}
+                  <p className="text-xs font-semibold text-muted-foreground">Campaign setup</p>
+                  <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">
+                    {step === 'segment' ? 'Choose the exact segment' : 'Write the email content'}
                   </h2>
                 </div>
-                <div className="status-pill border border-border bg-background/70 text-foreground">
+                <div className="status-pill border border-border bg-background text-foreground text-xs font-medium">
                   Step {step === 'segment' ? '1' : '2'} of 2
                 </div>
               </div>
 
               {step === 'segment' ? (
                 <div className="mt-6 space-y-5">
-                  <div className="flex items-center justify-between gap-3 rounded-[24px] border border-border/70 bg-background/55 px-4 py-4">
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/50 px-4 py-3.5">
                     <div>
-                      <p className="text-[10px] font-black text-muted-foreground">Live audience</p>
-                      <p className="mt-2 text-2xl font-extrabold text-foreground">{matchingRecipients}</p>
+                      <p className="text-xs font-semibold text-muted-foreground">Live audience</p>
+                      <p className="mt-1 text-2xl font-bold text-foreground">{matchingRecipients}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setFilters(defaultFilters)}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary"
+                      className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3.5 py-2 text-xs font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary"
                     >
                       <Filter className="h-4 w-4" />
                       Reset
@@ -497,9 +497,9 @@ export const EmailCampaignsPage: React.FC = () => {
                         type="button"
                         onClick={() => setFilters((current) => ({ ...current, segment: segment.value }))}
                         className={cn(
-                          'rounded-[24px] border px-4 py-4 text-left text-sm font-bold transition-all',
+                          'rounded-xl border px-4 py-3 text-left text-xs font-bold transition-all',
                           filters.segment === segment.value
-                            ? 'border-transparent bg-foreground text-background shadow-lg'
+                            ? 'border-transparent bg-primary text-primary-foreground shadow-xs'
                             : 'border-border bg-background text-foreground hover:border-primary/30 hover:text-primary'
                         )}
                       >
@@ -531,9 +531,9 @@ export const EmailCampaignsPage: React.FC = () => {
                         type="button"
                         onClick={() => togglePlan(plan.value)}
                         className={cn(
-                          'rounded-full border px-4 py-2 text-sm font-semibold transition-all',
+                          'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all',
                           filters.plan_codes.includes(plan.value)
-                            ? 'border-transparent bg-foreground text-background'
+                            ? 'border-transparent bg-primary text-primary-foreground'
                             : 'border-border bg-background text-foreground hover:border-primary/30 hover:text-primary'
                         )}
                       >
@@ -580,7 +580,7 @@ export const EmailCampaignsPage: React.FC = () => {
                       type="button"
                       onClick={() => setStep('compose')}
                       disabled={matchingRecipients === 0}
-                      className="btn-primary px-5 py-3 text-[10px] disabled:opacity-60"
+                      className="btn-primary h-10 px-5 rounded-xl text-xs font-medium disabled:opacity-60"
                     >
                       Proceed To Email
                       <ChevronRight className="h-4 w-4" />
@@ -589,10 +589,10 @@ export const EmailCampaignsPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="mt-6 space-y-4">
-                  <div className="rounded-[24px] border border-border/70 bg-background/55 px-4 py-4">
-                    <p className="text-[10px] font-black text-muted-foreground">Selected audience</p>
-                    <p className="mt-2 text-2xl font-extrabold text-foreground">{matchingRecipients}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">Recipients will be resolved from the current segment filters at send time.</p>
+                  <div className="rounded-xl border border-border bg-background/50 px-4 py-3.5">
+                    <p className="text-xs font-semibold text-muted-foreground">Selected audience</p>
+                    <p className="mt-1 text-2xl font-bold text-foreground">{matchingRecipients}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Recipients will be resolved from the current segment filters at send time.</p>
                   </div>
 
                   <input value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Campaign subject" className="input-base" />
@@ -603,9 +603,9 @@ export const EmailCampaignsPage: React.FC = () => {
                     </SelectField>
                     <input type="datetime-local" value={toDateTimeLocal(scheduledAt)} onChange={(event) => setScheduledAt(event.target.value)} className="input-base" />
                   </div>
-                  <textarea value={content} onChange={(event) => setContent(event.target.value)} rows={10} className="input-base min-h-[18rem] resize-y py-4" />
+                  <textarea value={content} onChange={(event) => setContent(event.target.value)} rows={10} className="input-base min-h-[18rem] resize-y py-3.5" />
                   <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
-                    <button type="button" onClick={() => setStep('segment')} className="btn-secondary px-4 py-3 text-[10px]">
+                    <button type="button" onClick={() => setStep('segment')} className="btn-secondary h-10 px-4 rounded-xl text-xs font-medium">
                       <ArrowLeft className="h-4 w-4" />
                       Back To Segment
                     </button>
@@ -613,7 +613,7 @@ export const EmailCampaignsPage: React.FC = () => {
                       type="button"
                       onClick={() => void sendCampaign()}
                       disabled={sending || !subject.trim() || !content.trim() || matchingRecipients === 0}
-                      className="btn-primary px-5 py-3.5 text-[10px] disabled:opacity-60"
+                      className="btn-primary h-10 px-5 rounded-xl text-xs font-medium disabled:opacity-60"
                     >
                       {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       {scheduledAt ? 'Schedule Campaign' : 'Send Campaign'}
@@ -627,21 +627,21 @@ export const EmailCampaignsPage: React.FC = () => {
               <div className={`${surfaceClass} p-6 sm:p-7`}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black text-muted-foreground">Match Snapshot</p>
-                    <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">Current audience</h2>
+                    <p className="text-xs font-semibold text-muted-foreground">Match Snapshot</p>
+                    <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">Current audience</h2>
                   </div>
                   <Users className="h-5 w-5 text-primary" />
                 </div>
-                <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="mt-4 grid grid-cols-2 gap-3">
                   {[
                     ['Recipients', data?.matching_summary?.recipients || 0],
                     ['Paid now', data?.matching_summary?.current_paid_users || 0],
                     ['Free now', data?.matching_summary?.current_free_users || 0],
                     ['Connected IG', data?.matching_summary?.connected_instagram_users || 0]
                   ].map(([label, value]) => (
-                    <div key={String(label)} className="rounded-[24px] border border-border bg-background px-4 py-4">
-                      <p className="text-[10px] font-black text-muted-foreground">{label}</p>
-                      <p className="mt-3 text-2xl font-extrabold tracking-tight text-foreground">{value}</p>
+                    <div key={String(label)} className="rounded-xl border border-border bg-background px-3.5 py-3">
+                      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+                      <p className="mt-1 text-xl font-bold tracking-tight text-foreground">{value}</p>
                     </div>
                   ))}
                 </div>
@@ -650,21 +650,21 @@ export const EmailCampaignsPage: React.FC = () => {
               <div className={`${surfaceClass} p-6 sm:p-7`}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black text-muted-foreground">Recipient Preview</p>
-                    <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">Sample recipients</h2>
+                    <p className="text-xs font-semibold text-muted-foreground">Recipient Preview</p>
+                    <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">Sample recipients</h2>
                   </div>
                   <CalendarRange className="h-5 w-5 text-primary" />
                 </div>
-                <div className="mt-5 space-y-3">
+                <div className="mt-4 space-y-2.5">
                   {(data?.audience_preview || []).map((item) => (
-                    <div key={item.id} className="rounded-[24px] border border-border bg-background px-4 py-4">
+                    <div key={item.id} className="rounded-xl border border-border bg-background px-4 py-3">
                       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-foreground">{item.name}</p>
+                          <p className="truncate text-sm font-semibold text-foreground">{item.name}</p>
                           <p className="truncate text-xs text-muted-foreground">{item.email}</p>
                         </div>
-                        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                          <span className="font-semibold text-foreground">{item.current_plan || 'free'}</span>
+                        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{item.current_plan || 'free'}</span>
                           <span>{item.current_status || 'inactive'}</span>
                           <span>{item.linked_instagram_accounts} IG</span>
                           <span>{item.last_subscription_at ? new Date(item.last_subscription_at).toLocaleDateString() : 'No payment yet'}</span>
@@ -673,7 +673,7 @@ export const EmailCampaignsPage: React.FC = () => {
                     </div>
                   ))}
                   {data?.audience_preview?.length === 0 && (
-                    <div className="rounded-[24px] border border-dashed border-border bg-background px-5 py-10 text-center text-sm text-muted-foreground">
+                    <div className="rounded-xl border border-dashed border-border bg-background px-5 py-8 text-center text-xs text-muted-foreground">
                       No recipients match the current filters.
                     </div>
                   )}
@@ -683,23 +683,23 @@ export const EmailCampaignsPage: React.FC = () => {
               <div className={`${surfaceClass} p-6 sm:p-7`}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black text-muted-foreground">Last delivery</p>
-                    <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">Most recent campaign</h2>
+                    <p className="text-xs font-semibold text-muted-foreground">Last delivery</p>
+                    <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">Most recent campaign</h2>
                   </div>
                   <CheckCircle2 className="h-5 w-5 text-primary" />
                 </div>
-                <div className="mt-5 space-y-3">
+                <div className="mt-4 space-y-2.5">
                   {campaigns.slice(0, 1).map((campaign) => (
-                    <div key={campaign.id} className="rounded-[24px] border border-border bg-background px-4 py-4">
-                      <p className="text-sm font-bold text-foreground">{campaign.subject}</p>
+                    <div key={campaign.id} className="rounded-xl border border-border bg-background px-4 py-3">
+                      <p className="text-sm font-semibold text-foreground">{campaign.subject}</p>
                       <p className="mt-1 text-xs text-muted-foreground">Delivered {campaign.delivered_total || 0} of {campaign.target_total || 0}</p>
-                      <p className="mt-3 text-xs text-muted-foreground">
+                      <p className="mt-2 text-xs text-muted-foreground">
                         Sent {formatDateTime(campaign.sent_at || campaign.created_at)}
                       </p>
                     </div>
                   ))}
                   {campaigns.length === 0 && (
-                    <div className="rounded-[24px] border border-dashed border-border bg-background px-5 py-10 text-center text-sm text-muted-foreground">
+                    <div className="rounded-xl border border-dashed border-border bg-background px-5 py-8 text-center text-xs text-muted-foreground">
                       No sent campaigns yet.
                     </div>
                   )}

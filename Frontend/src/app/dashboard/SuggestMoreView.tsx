@@ -239,19 +239,20 @@ const SuggestMoreView: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => setCurrentView('Overview')}
-                                    className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
+                                    className="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-border bg-card hover:bg-muted/60 text-foreground transition-all active:scale-[0.98]"
+                                    title="Back to Overview"
                                 >
                                     <ArrowLeft className="w-5 h-5" />
                                 </button>
                             }
                             centerContent={
                                 <div className="min-w-0">
-                                    <div className="flex items-center gap-2 text-warning mb-1">
+                                    <div className="flex items-center gap-2 text-warning mb-0.5">
                                         <Lightbulb className="w-4 h-4" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Suggest More</span>
+                                        <span className="text-xs font-semibold uppercase tracking-wider">Suggest More</span>
                                     </div>
-                                    <h1 className="text-xl font-black text-foreground">Suggest More</h1>
-                                    <p className="text-muted-foreground text-sm">Show additional reply suggestions to users.</p>
+                                    <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Suggest More</h1>
+                                    <p className="text-muted-foreground text-sm font-normal">Show additional reply suggestions to users.</p>
                                 </div>
                             }
                         />
@@ -270,16 +271,16 @@ const SuggestMoreView: React.FC = () => {
                     />
 
                     {/* Template Selector */}
-                    <div className="bg-card border border-content rounded-2xl p-6 space-y-4">
+                    <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
                         <div className="flex items-center justify-between">
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                 Select Reply Action
                             </label>
                             {selectedTemplate && !showTemplateSelector && (
                                 <button
                                     type="button"
                                     onClick={() => setShowTemplateSelector(true)}
-                                    className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
+                                    className="text-xs font-semibold text-primary hover:underline"
                                 >
                                     Change Template
                                 </button>
@@ -304,12 +305,12 @@ const SuggestMoreView: React.FC = () => {
                             </p>
                         )}
                         {selectedTemplate && !showTemplateSelector && (
-                            <div className="p-6 bg-primary/10 border-2 border-primary/20 rounded-3xl flex items-center justify-between">
+                            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-black text-foreground uppercase tracking-tight">{selectedTemplate.name}</p>
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{selectedTemplate.template_type.replace('template_', '')}</p>
+                                    <p className="text-sm font-semibold text-foreground">{selectedTemplate.name}</p>
+                                    <p className="text-xs text-muted-foreground capitalize">{selectedTemplate.template_type.replace('template_', '').replace('_', ' ')}</p>
                                 </div>
-                                <div className="px-3 py-1.5 bg-success-muted/60 text-success text-[9px] font-black uppercase tracking-widest rounded-lg">Selected</div>
+                                <div className="px-2.5 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium rounded-md">Selected</div>
                             </div>
                         )}
                         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">

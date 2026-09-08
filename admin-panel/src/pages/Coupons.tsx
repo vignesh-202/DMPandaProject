@@ -498,7 +498,7 @@ export const CouponsPage: React.FC = () => {
                     </div>
                 </div>
                 <div>
-                    <label className="text-[10px] font-black text-muted-foreground">Value</label>
+                    <label className="text-xs font-medium text-muted-foreground">Value</label>
                     <input
                         type="number"
                         min="0"
@@ -506,21 +506,21 @@ export const CouponsPage: React.FC = () => {
                         value={form.value}
                         onChange={(event) => setField('value', event.target.value)}
                         placeholder={form.type === 'percent' ? '20' : '499'}
-                        className="input-base mt-2"
+                        className="input-base mt-1.5"
                     />
                 </div>
                 <div>
-                    <label className="text-[10px] font-black text-muted-foreground">Expiry</label>
+                    <label className="text-xs font-medium text-muted-foreground">Expiry</label>
                     <input
                         type="datetime-local"
                         value={form.expires_at}
                         onChange={(event) => setField('expires_at', event.target.value)}
-                        className="input-base mt-2"
+                        className="input-base mt-1.5"
                     />
                 </div>
                 <div>
-                    <label className="text-[10px] font-black text-muted-foreground">Billing cycle targeting</label>
-                    <div className="segmented-control mt-2">
+                    <label className="text-xs font-medium text-muted-foreground">Billing cycle targeting</label>
+                    <div className="segmented-control mt-1.5">
                         {[
                             { value: 'monthly', label: 'Monthly' },
                             { value: 'yearly', label: 'Yearly' }
@@ -541,7 +541,7 @@ export const CouponsPage: React.FC = () => {
                     </div>
                 </div>
                 <div>
-                    <label className="text-[10px] font-black text-muted-foreground">Total Usage Limit</label>
+                    <label className="text-xs font-medium text-muted-foreground">Total Usage Limit</label>
                     <input
                         type="number"
                         min="0"
@@ -549,12 +549,12 @@ export const CouponsPage: React.FC = () => {
                         value={form.usage_limit}
                         onChange={(event) => setField('usage_limit', event.target.value)}
                         placeholder="0 = unlimited"
-                        className="input-base mt-2"
+                        className="input-base mt-1.5"
                     />
                 </div>
                 {!editingId && (
                     <div>
-                        <label className="text-[10px] font-black text-muted-foreground">Bulk Quantity</label>
+                        <label className="text-xs font-medium text-muted-foreground">Bulk Quantity</label>
                         <input
                             type="number"
                             min="1"
@@ -563,17 +563,17 @@ export const CouponsPage: React.FC = () => {
                             value={form.bulk_count}
                             onChange={(event) => setField('bulk_count', event.target.value)}
                             placeholder="1"
-                            className="input-base mt-2"
+                            className="input-base mt-1.5"
                         />
                     </div>
                 )}
             </div>
 
-            <div className="mt-5 rounded-[28px] border border-border/80 bg-background/40 p-4 sm:p-5">
+            <div className="mt-4 rounded-xl border border-border bg-background/40 p-4 shadow-xs">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="text-sm font-bold text-foreground">Coupon status</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Inactive coupons stay saved but cannot be redeemed.</p>
+                        <p className="text-sm font-semibold text-foreground">Coupon status</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Inactive coupons stay saved but cannot be redeemed.</p>
                     </div>
                     <div className="segmented-control shrink-0">
                         {[
@@ -597,11 +597,11 @@ export const CouponsPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="mt-5 rounded-[28px] border border-border/80 bg-background/40 p-4 sm:p-5">
+            <div className="mt-4 rounded-xl border border-border bg-background/40 p-4 shadow-xs">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="text-sm font-bold text-foreground">One-time per user</p>
-                        <p className="mt-1 text-xs text-muted-foreground">When enabled, the same user can redeem this coupon only once before it expires.</p>
+                        <p className="text-sm font-semibold text-foreground">One-time per user</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">When enabled, the same user can redeem this coupon only once before it expires.</p>
                     </div>
                     <div className="segmented-control shrink-0">
                         {[
@@ -625,17 +625,17 @@ export const CouponsPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="mt-5 rounded-[28px] border border-border/80 bg-background/40 p-5">
+            <div className="mt-4 rounded-xl border border-border bg-background/40 p-4 shadow-xs">
                 <div className="flex items-center justify-between gap-3">
                     <div>
-                        <p className="text-sm font-bold text-foreground">Plan targeting</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Leave empty to allow the coupon on every plan.</p>
+                        <p className="text-sm font-semibold text-foreground">Plan targeting</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Leave empty to allow the coupon on every plan.</p>
                     </div>
-                    <span className="status-pill status-pill-warning">{form.plan_ids.length || 0} selected</span>
+                    <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">{form.plan_ids.length || 0} selected</span>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                     {availablePlans.length === 0 && (
-                        <div className="rounded-2xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
+                        <div className="rounded-xl border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
                             No pricing plans were returned by the backend.
                         </div>
                     )}
@@ -647,18 +647,16 @@ export const CouponsPage: React.FC = () => {
                                 type="button"
                                 onClick={() => togglePlan(plan.id)}
                                 className={active
-                                    ? 'rounded-2xl bg-ig-gradient px-4 py-3 text-left text-xs font-black text-white shadow-card'
-                                    : 'rounded-2xl border border-border bg-card px-4 py-3 text-left text-xs font-black text-foreground'}
+                                    ? 'rounded-xl bg-primary px-3.5 py-2 text-left text-xs font-semibold text-primary-foreground shadow-xs'
+                                    : 'rounded-xl border border-border bg-card px-3.5 py-2 text-left text-xs font-medium text-foreground hover:bg-muted'}
                             >
-                                <span className="block">{plan.name}</span>
-                                <span className={`mt-1 block text-[10px] ${active ? 'text-white/70' : 'text-muted-foreground'}`}>
-                                    {plan.plan_code || plan.id}
-                                </span>
+                                {plan.name}
                             </button>
                         );
                     })}
                 </div>
             </div>
+
 
             <div className="mt-5">
                 <label className="text-[10px] font-black text-muted-foreground">User IDs</label>
@@ -761,9 +759,9 @@ export const CouponsPage: React.FC = () => {
                     ['Redemptions', data?.stats?.redemptions_total || 0],
                     ['Revenue', revenueLabel]
                 ].map(([label, value]) => (
-                    <div key={String(label)} className="glass-card rounded-[28px] p-6">
-                        <p className="text-[10px] font-black text-muted-foreground">{label}</p>
-                        <p className="mt-4 text-2xl sm:text-3xl font-extrabold text-foreground">{value}</p>
+                    <div key={String(label)} className="rounded-2xl border border-border bg-card p-5 shadow-xs">
+                        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                        <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{value}</p>
                     </div>
                 ))}
             </div>
@@ -774,33 +772,33 @@ export const CouponsPage: React.FC = () => {
                     {editorForm}
 
                     <div className="space-y-6">
-                        <div className="glass-card rounded-[32px] p-6">
-                            <p className="text-[10px] font-black text-muted-foreground">Workflow</p>
-                            <h2 className="mt-3 text-2xl font-extrabold text-foreground">Coupon publishing guide</h2>
-                            <div className="mt-5 space-y-4 text-sm text-muted-foreground">
+                        <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
+                            <p className="text-xs font-semibold text-primary">Workflow</p>
+                            <h2 className="mt-2 text-xl font-bold text-foreground">Coupon publishing guide</h2>
+                            <div className="mt-4 space-y-3 text-xs leading-relaxed text-muted-foreground">
                                 <p>Use a clear code or prefix, confirm the discount type, then decide whether the coupon should be reusable or single-use.</p>
                                 <p>Leave plan targeting empty to make the offer available everywhere, or pin it to selected plans for campaign-specific pricing.</p>
                                 <p>After saving, the coupon returns to the live list immediately so you can verify status, copy the code, and monitor redemption activity.</p>
                             </div>
                         </div>
 
-                        <div className="glass-card rounded-[32px] p-6">
+                        <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
                             <div className="flex items-center justify-between gap-4">
                                 <div>
-                                    <p className="text-[10px] font-black text-muted-foreground">Overview</p>
-                                    <h2 className="mt-3 text-2xl font-extrabold text-foreground">Current coupon health</h2>
+                                    <p className="text-xs font-semibold text-primary">Overview</p>
+                                    <h2 className="mt-1 text-xl font-bold text-foreground">Current coupon health</h2>
                                 </div>
-                                <span className="status-pill status-pill-success">{data?.stats?.active_coupons || 0} active</span>
+                                <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">{data?.stats?.active_coupons || 0} active</span>
                             </div>
-                            <div className="mt-5 grid grid-cols-1 gap-3">
+                            <div className="mt-4 grid grid-cols-1 gap-2.5">
                                 {[
                                     ['Coupons total', data?.stats?.coupons_total || 0],
                                     ['Redemptions', data?.stats?.redemptions_total || 0],
                                     ['Revenue', revenueLabel]
                                 ].map(([label, value]) => (
-                                    <div key={String(label)} className="rounded-[24px] border border-border/80 bg-background/40 px-4 py-4">
-                                        <p className="text-[10px] font-black text-muted-foreground">{label}</p>
-                                        <p className="mt-2 text-xl font-extrabold text-foreground">{value}</p>
+                                    <div key={String(label)} className="rounded-xl border border-border/70 bg-background/40 px-3.5 py-3 shadow-xs">
+                                        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                                        <p className="mt-1 text-lg font-bold text-foreground">{value}</p>
                                     </div>
                                 ))}
                             </div>
@@ -811,16 +809,16 @@ export const CouponsPage: React.FC = () => {
             <div className="grid grid-cols-1 gap-6">
 
                 <div className="space-y-6">
-                    <div className="glass-card rounded-[32px] p-6">
+                    <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
                         <div className="flex items-center justify-between gap-4">
                             <div>
-                                <h2 className="text-2xl font-extrabold text-foreground">Coupon Codes</h2>
-                                <p className="mt-1 text-sm text-muted-foreground">Sort live offers, narrow by type or timing, and keep the list contained in one clean panel.</p>
+                                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Coupon Codes</h2>
+                                <p className="mt-1 text-xs text-muted-foreground">Sort live offers, narrow by type or timing, and keep the list contained in one clean panel.</p>
                             </div>
-                            <span className="status-pill status-pill-success">{filteredCoupons.length} shown</span>
+                            <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">{filteredCoupons.length} shown</span>
                         </div>
                         <div className="mt-5 space-y-4">
-                            <div className="rounded-[24px] border border-border/80 bg-background/50 p-4">
+                            <div className="rounded-xl border border-border/80 bg-background/50 p-4">
                                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_auto]">
                                     <div className="relative">
                                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

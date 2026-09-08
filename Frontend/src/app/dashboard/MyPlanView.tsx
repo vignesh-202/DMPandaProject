@@ -479,7 +479,7 @@ const MyPlanView: React.FC = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-primary">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
                 <Sparkles size={12} />
                 Subscription & Billing
               </span>
@@ -488,7 +488,7 @@ const MyPlanView: React.FC = () => {
                 Independent Per-Account Billing
               </span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               My Plan & Accounts
             </h1>
             <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
@@ -500,7 +500,7 @@ const MyPlanView: React.FC = () => {
             <button
               onClick={() => refreshAfterPayment()}
               disabled={syncingPlan}
-              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5 text-xs font-bold text-foreground transition-all hover:bg-muted active:scale-95 shadow-xs"
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-medium text-foreground transition-all hover:bg-muted active:scale-95 shadow-xs"
               title="Refresh Plan Details"
             >
               <RefreshCw size={14} className={syncingPlan ? 'animate-spin' : ''} />
@@ -508,16 +508,16 @@ const MyPlanView: React.FC = () => {
             </button>
             <button
               onClick={() => setCurrentView('Transactions')}
-              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5 text-xs font-bold text-foreground transition-all hover:bg-muted active:scale-95 shadow-xs"
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-medium text-foreground transition-all hover:bg-muted active:scale-95 shadow-xs"
             >
               <CreditCard size={14} />
               Invoices
             </button>
             <button
               onClick={() => openCheckout()}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-purple-600 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-md hover:opacity-95 active:scale-95 transition-all"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 active:scale-95 transition-all"
             >
-              <Zap size={14} className="fill-white" />
+              <Zap size={14} />
               Upgrade Plan
             </button>
           </div>
@@ -1129,25 +1129,25 @@ const MyPlanView: React.FC = () => {
                     )}
                   >
                     {entry.is_popular && (
-                      <div className="absolute -top-3.5 right-6 rounded-full bg-gradient-to-r from-primary to-purple-600 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-md">
-                        ★ MOST POPULAR
+                      <div className="absolute -top-3 right-6 rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground shadow-xs">
+                        Popular
                       </div>
                     )}
                     {isUltra && !entry.is_popular && (
-                      <div className="absolute -top-3.5 right-6 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-md">
-                        🎁 GET BONUS
+                      <div className="absolute -top-3 right-6 rounded-full bg-purple-600 px-3 py-0.5 text-[11px] font-semibold text-white shadow-xs">
+                        Bonus Included
                       </div>
                     )}
 
                     <div>
-                      <h3 className="text-2xl font-black text-foreground">{entry.name}</h3>
+                      <h3 className="text-xl font-bold text-foreground">{entry.name}</h3>
 
                       <div className="mt-4 mb-6">
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-4xl sm:text-5xl font-black text-foreground">
+                          <span className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
                             {formatMoney(bigPrice, currency)}
                           </span>
-                          <span className="text-xs font-semibold text-muted-foreground">
+                          <span className="text-xs font-medium text-muted-foreground">
                             / account / mo
                           </span>
                         </div>
@@ -1157,19 +1157,19 @@ const MyPlanView: React.FC = () => {
                             : `Billed monthly at ${formatMoney(billedTotal, currency)} / account`}
                         </p>
                         {isYearly && entry.yearly_bonus && (
-                          <p className="mt-1 text-xs font-bold text-emerald-500">
+                          <p className="mt-1 text-xs font-semibold text-emerald-500">
                             {entry.yearly_bonus}
                           </p>
                         )}
 
                         {/* Ultra Plan VVDeals Bonus Box */}
                         {isUltra && (
-                          <div className="mt-3.5 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-3 text-xs dark:bg-purple-950/40">
-                            <div className="flex items-center gap-1.5 font-black text-purple-700 dark:text-purple-300">
+                          <div className="mt-3.5 rounded-xl border border-purple-500/20 bg-purple-500/5 p-3 text-xs dark:bg-purple-950/20">
+                            <div className="flex items-center gap-1.5 font-semibold text-purple-700 dark:text-purple-300">
                               <Gift size={14} className="text-pink-500" />
                               <span>VV Deals Included Bonus:</span>
                             </div>
-                            <p className="mt-1 text-[11px] font-semibold text-foreground/80 leading-snug">
+                            <p className="mt-1 text-[11px] font-medium text-foreground/80 leading-snug">
                               {isYearly
                                 ? '✨ 18m Google AI Pro, 6m Prime, 3m Spotify, 1m CapCut Pro, 1m Netflix (₹39,660 Value)'
                                 : '✨ 1m Amazon Prime, 7 days CapCut Pro, 5 days Netflix on Mobile/TV (₹898 Value)'}
@@ -1179,9 +1179,9 @@ const MyPlanView: React.FC = () => {
                       </div>
 
                       {/* Plan Limits Box */}
-                      <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 mb-6">
+                      <div className="rounded-xl border border-border/70 bg-muted/30 p-4 mb-6">
                         <div className="flex items-center justify-between mb-3">
-                          <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
+                          <p className="text-xs font-semibold text-muted-foreground">
                             Included Limits
                           </p>
                         </div>
@@ -1192,7 +1192,7 @@ const MyPlanView: React.FC = () => {
                               className="flex items-center justify-between text-xs"
                             >
                               <span className="text-muted-foreground">{item.label}</span>
-                              <span className="font-bold text-foreground">{item.value}</span>
+                              <span className="font-semibold text-foreground">{item.value}</span>
                             </div>
                           ))}
                         </div>
@@ -1200,13 +1200,13 @@ const MyPlanView: React.FC = () => {
 
                       {/* Feature List */}
                       <div className="space-y-3 mb-6">
-                        <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
+                        <p className="text-xs font-semibold text-muted-foreground">
                           Key Capabilities
                         </p>
                         {entry.features.map((feature, index) => (
                           <div key={`${entry.id}-${index}`} className="flex items-start gap-2.5 text-xs">
                             <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                              <Check size={11} strokeWidth={3} />
+                              <Check size={11} strokeWidth={2.5} />
                             </div>
                             <span className="text-muted-foreground font-medium">{feature}</span>
                           </div>
@@ -1218,12 +1218,12 @@ const MyPlanView: React.FC = () => {
                     <div className="pt-6 border-t border-border/70">
                       <button
                         className={cn(
-                          'flex h-13 w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-xs font-black uppercase tracking-widest shadow-md transition-all duration-200 active:scale-98',
+                          'flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-semibold shadow-xs transition-all duration-200 active:scale-98',
                           isUnavailable
                             ? 'bg-muted text-muted-foreground shadow-none cursor-not-allowed'
                             : entry.is_popular
-                            ? 'bg-gradient-to-r from-primary to-purple-600 text-white hover:opacity-95'
-                            : 'bg-foreground text-background hover:opacity-90'
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                            : 'bg-foreground text-background hover:bg-foreground/90'
                         )}
                         disabled={syncingPlan || isUnavailable}
                         onClick={() => openCheckout(entry)}

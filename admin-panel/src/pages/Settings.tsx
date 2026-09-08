@@ -67,53 +67,53 @@ export const SettingsPage: React.FC = () => {
     ];
 
     const booleanCardClass = (active: boolean) => cn(
-        'segmented-option min-h-[112px] flex-col items-start gap-2 rounded-[24px] p-4 text-left',
+        'segmented-option min-h-[100px] flex-col items-start gap-2 rounded-xl p-4 text-left',
         active ? 'is-active' : ''
     );
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div>
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white">Global Settings</h1>
-                <p className="mt-2 text-sm text-gray-500 dark:text-neutral-400">Manage the shared watermark policy with safe fallback behavior.</p>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Global Settings</h1>
+                <p className="mt-1.5 text-sm text-muted-foreground">Manage the shared watermark policy with safe fallback behavior.</p>
             </div>
 
-            <div className="glass-card rounded-[24px] sm:rounded-[32px] p-4 sm:p-6 shadow-sm space-y-6">
+            <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-xs space-y-6">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
-                        <p className="text-sm font-semibold text-muted-foreground">Watermark policy</p>
-                        <h2 className="mt-2 text-xl font-extrabold text-foreground">Global watermark enforcement</h2>
-                        <p className="mt-2 text-sm text-muted-foreground">Choose whether watermarking stays enabled across all automated replies.</p>
-                        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-border bg-background/50 p-5">
+                        <p className="text-xs font-semibold text-muted-foreground">Watermark policy</p>
+                        <h2 className="mt-1 text-lg font-bold text-foreground">Global watermark enforcement</h2>
+                        <p className="mt-1 text-xs text-muted-foreground">Choose whether watermarking stays enabled across all automated replies.</p>
+                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <button type="button" className={booleanCardClass(policy.enabled)} onClick={() => setPolicy((prev) => ({ ...prev, enabled: true }))}>
                                 <span className="segmented-dot" />
                                 <div>
-                                    <p className="text-sm font-semibold text-foreground">Enabled</p>
-                                    <p className="mt-1 text-xs font-medium text-muted-foreground">Apply the shared watermark policy to outgoing automation replies.</p>
+                                    <p className="text-xs font-semibold text-foreground">Enabled</p>
+                                    <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">Apply the shared watermark policy to outgoing automation replies.</p>
                                 </div>
                             </button>
                             <button type="button" className={booleanCardClass(!policy.enabled)} onClick={() => setPolicy((prev) => ({ ...prev, enabled: false }))}>
                                 <span className="segmented-dot" />
                                 <div>
-                                    <p className="text-sm font-semibold text-foreground">Disabled</p>
-                                    <p className="mt-1 text-xs font-medium text-muted-foreground">Turn off platform-level watermark enforcement.</p>
+                                    <p className="text-xs font-semibold text-foreground">Disabled</p>
+                                    <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">Turn off platform-level watermark enforcement.</p>
                                 </div>
                             </button>
                         </div>
                     </div>
 
-                    <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
-                        <p className="text-sm font-semibold text-muted-foreground">Watermark type</p>
-                        <h2 className="mt-2 text-xl font-extrabold text-foreground">Rendering format</h2>
-                        <p className="mt-2 text-sm text-muted-foreground">The backend currently supports text watermarking.</p>
-                        <div className="mt-5 rounded-[22px] border border-border/70 bg-card/70 px-4 py-4">
-                            <p className="text-sm font-semibold text-foreground">Text watermark</p>
-                            <p className="mt-1 text-xs font-medium text-muted-foreground">Replies use the shared text watermark with per-user fallback logic.</p>
+                    <div className="rounded-xl border border-border bg-background/50 p-5">
+                        <p className="text-xs font-semibold text-muted-foreground">Watermark type</p>
+                        <h2 className="mt-1 text-lg font-bold text-foreground">Rendering format</h2>
+                        <p className="mt-1 text-xs text-muted-foreground">The backend currently supports text watermarking.</p>
+                        <div className="mt-4 rounded-xl border border-border bg-card px-4 py-3.5">
+                            <p className="text-xs font-semibold text-foreground">Text watermark</p>
+                            <p className="mt-0.5 text-xs font-medium text-muted-foreground">Replies use the shared text watermark with per-user fallback logic.</p>
                         </div>
                     </div>
 
-                    <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
-                        <label className="text-sm font-semibold text-muted-foreground">Opacity</label>
+                    <div className="rounded-xl border border-border bg-background/50 p-5">
+                        <label className="text-xs font-semibold text-muted-foreground">Opacity</label>
                         <input
                             type="range"
                             min={0}
@@ -121,7 +121,7 @@ export const SettingsPage: React.FC = () => {
                             step={0.05}
                             value={policy.opacity}
                             onChange={(e) => setPolicy((prev) => ({ ...prev, opacity: Number(e.target.value) }))}
-                            className="mt-4 w-full"
+                            className="mt-4 w-full accent-primary"
                         />
                         <div className="mt-3 flex items-center justify-between text-xs font-semibold text-muted-foreground">
                             <span>Subtle</span>
@@ -132,9 +132,9 @@ export const SettingsPage: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr,0.9fr]">
-                    <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
-                        <label className="text-sm font-semibold text-muted-foreground">Placement strategy</label>
-                        <div className="mt-3 space-y-3">
+                    <div className="rounded-xl border border-border bg-background/50 p-5">
+                        <label className="text-xs font-semibold text-muted-foreground">Placement strategy</label>
+                        <div className="mt-3 space-y-2.5">
                             {positionOptions.map((option) => {
                                 const active = policy.position === option.value;
                                 return (
@@ -142,27 +142,27 @@ export const SettingsPage: React.FC = () => {
                                         key={option.value}
                                         type="button"
                                         onClick={() => setPolicy((prev) => ({ ...prev, position: option.value }))}
-                                        className={cn('segmented-option w-full justify-start rounded-[22px] px-4 py-4 text-left', active ? 'is-active' : '')}
+                                        className={cn('segmented-option w-full justify-start rounded-xl px-4 py-3 text-left', active ? 'is-active' : '')}
                                     >
                                         <span className="segmented-dot" />
                                         <div>
-                                            <p className="text-sm font-semibold text-foreground">{option.label}</p>
-                                            <p className="mt-1 text-xs font-medium text-muted-foreground">{option.description}</p>
+                                            <p className="text-xs font-semibold text-foreground">{option.label}</p>
+                                            <p className="mt-0.5 text-xs font-medium text-muted-foreground">{option.description}</p>
                                         </div>
                                     </button>
                                 );
                             })}
                         </div>
                     </div>
-                    <div className="rounded-[28px] border border-border/70 bg-background/55 p-5">
-                        <p className="text-sm font-semibold text-muted-foreground">Resolution order</p>
-                        <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+                    <div className="rounded-xl border border-border bg-background/50 p-5">
+                        <p className="text-xs font-semibold text-muted-foreground">Resolution order</p>
+                        <div className="mt-3 space-y-2 text-xs text-muted-foreground">
                             <p>1. Admin-configured system policy</p>
                             <p>2. Plan-based behavior</p>
                             <p>3. Environment default fallback</p>
                         </div>
-                        <p className="mt-4 text-sm text-gray-500 dark:text-neutral-400">
-                            updated: {policy.updated_at ? new Date(policy.updated_at).toLocaleString() : 'not saved yet'}
+                        <p className="mt-4 text-xs text-muted-foreground">
+                            Updated: {policy.updated_at ? new Date(policy.updated_at).toLocaleString() : 'Not saved yet'}
                         </p>
                     </div>
                 </div>
@@ -171,7 +171,7 @@ export const SettingsPage: React.FC = () => {
                     <button
                         onClick={save}
                         disabled={saving}
-                        className="btn-primary inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-xs sm:w-auto disabled:opacity-60"
+                        className="btn-primary inline-flex w-full items-center justify-center gap-2 h-10 px-5 rounded-xl text-xs font-medium sm:w-auto disabled:opacity-60"
                     >
                         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Save Policy

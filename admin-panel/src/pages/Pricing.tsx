@@ -35,7 +35,7 @@ type PricingPlan = {
   benefits?: Array<{ key: string; label: string; enabled: boolean }>;
 };
 
-const surfaceClass = 'glass-card rounded-[32px] border border-border/70 bg-card/95 shadow-[0_22px_65px_rgba(15,23,42,0.07)]';
+const surfaceClass = 'rounded-2xl border border-border bg-card shadow-xs';
 
 const inrFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -54,9 +54,9 @@ const numericFields: Array<{ key: keyof PricingPlan; label: string }> = [
 ];
 
 const StatTile = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-[24px] border border-border/70 bg-background/60 px-5 py-4">
-    <p className="text-[10px] font-black text-muted-foreground">{label}</p>
-    <p className="mt-2 text-2xl font-extrabold text-foreground">{value}</p>
+  <div className="rounded-xl border border-border/70 bg-background/60 px-4 py-3 shadow-xs">
+    <p className="text-xs font-medium text-muted-foreground">{label}</p>
+    <p className="mt-1 text-xl font-bold tracking-tight text-foreground">{value}</p>
   </div>
 );
 
@@ -74,13 +74,13 @@ const TogglePill = ({
   <button
     type="button"
     onClick={onChange}
-    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black transition ${
+    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
       checked
         ? 'border-primary/40 bg-primary/10 text-primary'
-        : 'border-border bg-background/70 text-muted-foreground hover:border-primary/20 hover:text-foreground'
+        : 'border-border bg-background/70 text-muted-foreground hover:border-border hover:text-foreground'
     }`}
   >
-    <span className={`h-2.5 w-2.5 rounded-full ${checked ? 'bg-primary' : 'bg-muted-foreground/50'}`} />
+    <span className={`h-2 w-2 rounded-full ${checked ? 'bg-primary' : 'bg-muted-foreground/50'}`} />
     {checked ? activeLabel : label}
   </button>
 );
@@ -96,14 +96,14 @@ const SummaryMetric = ({
   value: string;
   accent: string;
 }) => (
-  <div className="rounded-[24px] border border-border/70 bg-background/60 px-4 py-4">
+  <div className="rounded-xl border border-border/70 bg-background/60 px-3.5 py-3 shadow-xs">
     <div className="flex items-center gap-3">
-      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${accent}`}>
-        <Icon className="h-5 w-5" />
+      <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${accent}`}>
+        <Icon className="h-4 w-4" />
       </div>
       <div>
-        <p className="text-[10px] font-black text-muted-foreground">{label}</p>
-        <p className="mt-1 text-sm font-extrabold text-foreground">{value}</p>
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="mt-0.5 text-sm font-bold text-foreground">{value}</p>
       </div>
     </div>
   </div>
@@ -278,16 +278,16 @@ export const PricingPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-9 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <section className={`${surfaceClass} overflow-hidden p-5 sm:p-7 lg:p-9`}>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <section className={`${surfaceClass} overflow-hidden p-5 sm:p-7`}>
         <div className="grid gap-6 lg:gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,380px)] xl:items-start">
-          <div className="space-y-5">
-            <div className="inline-flex rounded-full border border-primary/20 bg-gradient-to-r from-primary/12 to-transparent px-3 py-1 text-[10px] font-black text-primary">
+          <div className="space-y-4">
+            <div className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
               Pricing Control
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground">Plan management</h1>
-              <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-muted-foreground">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Plan management</h1>
+              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                 Keep summaries visible. Open a plan only when you need to tune billing, limits, or feature copy.
               </p>
             </div>
@@ -309,21 +309,21 @@ export const PricingPage: React.FC = () => {
 
           return (
             <article key={plan.id} className={`${surfaceClass} overflow-hidden`}>
-              <div className="border-b border-border/60 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+              <div className="border-b border-border/60 px-4 py-5 sm:px-6 sm:py-5 lg:px-8">
                 <div className="flex flex-col gap-4 lg:gap-6 xl:flex-row xl:items-start xl:justify-between">
                   <div className="space-y-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-xl sm:text-[1.7rem] font-extrabold tracking-tight text-foreground">{plan.name}</h2>
-                      <span className="rounded-full border border-border/70 bg-background/60 px-3 py-1 text-[10px] font-black text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">{plan.name}</h2>
+                      <span className="rounded-full border border-border/70 bg-background/60 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                         {plan.plan_code || 'no code'}
                       </span>
                       {plan.is_popular && (
-                        <span className="rounded-full border border-primary/20 bg-gradient-to-r from-primary/15 to-primary/5 px-3 py-1 text-[10px] font-black text-primary">
+                        <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
                           Popular
                         </span>
                       )}
                       {plan.is_custom && (
-                        <span className="rounded-full border border-warning/30 bg-warning-muted/70 px-3 py-1 text-[10px] font-black text-warning-foreground">
+                        <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
                           Custom
                         </span>
                       )}
@@ -334,7 +334,7 @@ export const PricingPage: React.FC = () => {
                         icon={BadgeIndianRupee}
                         label="Monthly / account"
                         value={`${inrFormatter.format(Number(plan.price_monthly_inr || 0))}`}
-                        accent="bg-primary/12 text-primary"
+                        accent="bg-primary/10 text-primary"
                       />
                       <SummaryMetric
                         icon={BadgeIndianRupee}
@@ -357,7 +357,7 @@ export const PricingPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+                  <div className="flex flex-wrap items-center gap-2.5 xl:justify-end">
                     <TogglePill
                       checked={plan.is_popular}
                       onChange={() => updatePlan(plan.id, 'is_popular', !plan.is_popular)}
@@ -373,7 +373,7 @@ export const PricingPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => togglePlan(plan.id)}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background/70 px-4 py-3 text-xs font-black text-foreground transition hover:border-primary/30 hover:text-primary"
+                      className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-muted"
                     >
                       {isExpanded ? 'Collapse' : 'Advanced'}
                       <ChevronDown className={`h-4 w-4 transition ${isExpanded ? 'rotate-180' : ''}`} />
@@ -381,7 +381,7 @@ export const PricingPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => savePlan(plan)}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-[rgb(64,93,230)] px-4 py-3 text-xs font-black text-white shadow-lg shadow-primary/20 transition hover:opacity-95"
+                      className="inline-flex items-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition active:scale-95"
                     >
                       {savingId === plan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Save plan

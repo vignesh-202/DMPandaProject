@@ -533,32 +533,33 @@ const MentionsView: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => setCurrentView('Overview')}
-                                    className="p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105"
+                                    className="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-border bg-card hover:bg-muted/60 text-foreground transition-all active:scale-[0.98]"
+                                    title="Back to Overview"
                                 >
                                     <ArrowLeft className="w-5 h-5" />
                                 </button>
                             }
                             centerContent={
                                 <div className="min-w-0">
-                                    <div className="flex items-center gap-2 text-primary mb-1">
+                                    <div className="flex items-center gap-2 text-primary mb-0.5">
                                         <AtSign className="w-4 h-4" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Mentions</span>
+                                        <span className="text-xs font-semibold uppercase tracking-wider">Mentions</span>
                                     </div>
-                                    <h1 className="text-xl font-black text-foreground">Mentions</h1>
-                                    <p className="text-muted-foreground text-sm">Auto-reply when someone mentions you.</p>
+                                    <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Mentions</h1>
+                                    <p className="text-muted-foreground text-sm font-normal">Auto-reply when someone mentions you.</p>
                                 </div>
                             }
                         />
                     </div>
                     {/* Active Toggle */}
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[28px] border border-content/70 bg-muted/40 p-5">
-                        <div className="flex items-start gap-3 sm:items-center sm:gap-4">
-                            <div className="p-2.5 sm:p-3 bg-card rounded-xl sm:rounded-2xl shadow-sm">
-                                <AtSign className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-border bg-card p-4">
+                        <div className="flex items-start gap-3 sm:items-center">
+                            <div className="p-2 bg-primary/10 text-primary rounded-lg">
+                                <AtSign className="w-4 h-4" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-[10px] sm:text-[11px] font-black text-foreground uppercase tracking-[0.14em] sm:tracking-[0.15em]">Enable Mentions Response</p>
-                                <p className="text-[11px] sm:text-[10px] leading-5 sm:leading-normal font-medium text-muted-foreground">When enabled, auto-reply to story/post mentions</p>
+                                <p className="text-xs font-semibold text-foreground">Enable Mentions Response</p>
+                                <p className="text-xs font-normal text-muted-foreground">When enabled, auto-reply to story/post mentions</p>
                             </div>
                         </div>
                         <div className="flex w-full justify-end sm:w-auto">
@@ -715,11 +716,11 @@ const MentionsView: React.FC = () => {
                                                 const ok = await verifyCollectorDestination(String(config.doc_id || ''));
                                                 if (ok) showSuccess('Email collector destination verified.');
                                             }}
-                                            className="rounded-2xl bg-black px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-gray-100"
+                                            className="h-9 px-4 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {collectorDestinationSaving ? 'Verifying...' : 'Verify Destination'}
                                         </button>
-                                        <span className={`text-[10px] font-bold ${collectorDestination.verified ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                                        <span className={`text-xs font-medium ${collectorDestination.verified ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
                                             {collectorDestination.verified
                                                 ? `Verified${collectorDestination.verified_at ? ` on ${new Date(collectorDestination.verified_at).toLocaleString()}` : ''}`
                                                 : config.doc_id ? 'Not verified yet' : 'Save the mentions automation once, then verify the destination'}
@@ -731,7 +732,7 @@ const MentionsView: React.FC = () => {
                     </div>
 
                     <LockedFeatureToggle
-                        icon={<MessageSquare className={`w-5 h-5 ${seenTypingEnabled ? 'text-violet-500' : 'text-gray-400'}`} />}
+                        icon={<MessageSquare className={`w-5 h-5 ${seenTypingEnabled ? 'text-primary' : 'text-muted-foreground'}`} />}
                         title="Seen + Typing Reaction"
                         description="Simulate seen and typing indicators before sending the automated reply."
                         checked={seenTypingEnabled}
@@ -739,20 +740,20 @@ const MentionsView: React.FC = () => {
                         locked={seenTypingGate.isLocked}
                         note={seenTypingGate.note}
                         onUpgrade={() => setCurrentView('My Plan')}
-                        activeIconClassName="text-violet-500"
+                        activeIconClassName="text-primary"
                     />
 
                     {/* Template Selector */}
-                    <div className="bg-card border border-content rounded-2xl p-6 space-y-4">
+                    <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                 Select Reply Action
                             </label>
                             {selectedTemplate && !showTemplateSelector && (
                                 <button
                                     type="button"
                                     onClick={() => setShowTemplateSelector(true)}
-                                    className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
+                                    className="text-xs font-semibold text-primary hover:underline"
                                 >
                                     Change Template
                                 </button>
@@ -777,12 +778,12 @@ const MentionsView: React.FC = () => {
                             </p>
                         )}
                         {selectedTemplate && !showTemplateSelector && (
-                            <div className="p-4 sm:p-6 bg-primary/10 border-2 border-primary/20 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div>
-                                    <p className="text-sm font-black text-foreground uppercase tracking-tight">{selectedTemplate.name}</p>
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{selectedTemplate.template_type.replace('template_', '')}</p>
+                                    <p className="text-sm font-semibold text-foreground">{selectedTemplate.name}</p>
+                                    <p className="text-xs text-muted-foreground capitalize">{selectedTemplate.template_type.replace('template_', '').replace('_', ' ')}</p>
                                 </div>
-                                <div className="self-start sm:self-auto px-3 py-1.5 bg-success-muted/60 text-success text-[9px] font-black uppercase tracking-widest rounded-lg">Selected</div>
+                                <div className="self-start sm:self-auto px-2.5 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium rounded-md">Selected</div>
                             </div>
                         )}
                         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
