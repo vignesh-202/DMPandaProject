@@ -535,7 +535,7 @@ const GlobalTriggersView: React.FC = () => {
                             </button>
                             <button
                                 onClick={() => void handleCreateNew()}
-                                className="h-10 px-4 sm:px-5 bg-primary hover:bg-primary/95 text-primary-foreground rounded-xl text-sm font-semibold transition-all shadow-sm shadow-primary/20 flex items-center gap-2 active:scale-[0.98]"
+                                className="h-10 px-4 sm:px-5 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2 active:scale-[0.98]"
                             >
                                 <Plus className="w-4 h-4" />
                                 <span>Create New Rule</span>
@@ -552,7 +552,7 @@ const GlobalTriggersView: React.FC = () => {
                             <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">Create your first global trigger to automatically respond to keywords across all your Instagram content.</p>
                             <button
                                 onClick={() => void handleCreateNew()}
-                                className="mx-auto px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all shadow-sm shadow-primary/20 flex items-center gap-2 hover:bg-primary/95 active:scale-[0.98]"
+                                className="mx-auto px-5 py-2.5 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2 hover:opacity-95 active:scale-[0.98]"
                             >
                                 <Plus className="w-4 h-4" />
                                 <span>Create Your First Trigger</span>

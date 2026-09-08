@@ -855,7 +855,7 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                     className={cn(
                       'rounded-lg px-3.5 py-1.5 text-xs sm:text-sm font-bold transition-all',
                       billingCycle === 'monthly'
-                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-xs'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -867,7 +867,7 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                     className={cn(
                       'rounded-lg px-3.5 py-1.5 text-xs sm:text-sm font-bold transition-all',
                       billingCycle === 'yearly'
-                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-xs'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -1079,7 +1079,7 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                   type="button"
                   onClick={handleStartCheckout}
                   disabled={!selectedPlan || accountsCount <= 0 || eligibleAccounts.length === 0 || isStartingCheckout || syncingPlan || loadingPlanId === selectedPlan?.id}
-                  className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-xl bg-foreground px-5 text-sm font-black text-background transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
+                  className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-5 text-sm font-semibold text-white transition hover:opacity-95 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
                 >
                   {isStartingCheckout || syncingPlan || loadingPlanId === selectedPlan?.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

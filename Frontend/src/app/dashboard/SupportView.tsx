@@ -199,7 +199,7 @@ const SupportView: React.FC<SupportViewProps> = ({ mode = 'support' }) => {
             <p className="text-xs text-muted-foreground leading-relaxed">If you need a manual review of a payment, subscription change, linking failure, or automation issue, email support with your account details and any relevant payment or automation identifiers.</p>
             <a
               href="/contact"
-              className="inline-flex items-center h-9 px-4 bg-primary text-primary-foreground text-xs font-medium rounded-xl hover:bg-primary/90 transition shadow-xs"
+              className="inline-flex items-center h-9 px-4 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white text-xs font-medium rounded-xl hover:opacity-95 transition shadow-sm active:scale-[0.98]"
             >
               <Mail className="w-3.5 h-3.5 mr-2" />
               Contact Us

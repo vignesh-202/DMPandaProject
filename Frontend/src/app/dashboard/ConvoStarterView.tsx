@@ -805,7 +805,7 @@ const ConvoStarterView: React.FC = () => {
                                 <button
                                     onClick={handleSync}
                                     disabled={saving || syncing || isDeleting}
-                                    className="inline-flex items-center gap-2 h-10 px-5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-sm font-medium transition-all shadow-xs active:scale-[0.98] disabled:opacity-50"
+                                    className="inline-flex items-center gap-2 h-10 px-5 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 rounded-xl text-sm font-medium transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
                                 >
                                     {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                                     Sync
@@ -839,7 +839,7 @@ const ConvoStarterView: React.FC = () => {
                                 <button
                                     onClick={handleSync}
                                     disabled={saving || syncing || isDeleting}
-                                    className="inline-flex items-center gap-2 h-10 px-5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-sm font-medium transition-all shadow-xs active:scale-[0.98] disabled:opacity-50"
+                                    className="inline-flex items-center gap-2 h-10 px-5 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 rounded-xl text-sm font-medium transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
                                 >
                                     {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                                     Sync
@@ -860,7 +860,7 @@ const ConvoStarterView: React.FC = () => {
                             <button
                                 onClick={() => void startCreate()}
                                 disabled={saving || syncing || isDeleting}
-                                className="inline-flex items-center gap-2 h-10 px-5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-sm font-medium transition-all shadow-xs active:scale-[0.98] disabled:opacity-50"
+                                className="inline-flex items-center gap-2 h-10 px-5 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 rounded-xl text-sm font-medium transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
                             >
                                 <Plus className="w-4 h-4" />
                                 Create New Starters
@@ -1099,7 +1099,7 @@ const ConvoStarterView: React.FC = () => {
                                             <button
                                                 onClick={handlePublish}
                                                 disabled={saving}
-                                                className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                                                className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-xl text-xs font-semibold bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
                                             >
                                                 {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                                                 Publish Changes
@@ -1110,7 +1110,7 @@ const ConvoStarterView: React.FC = () => {
                                                 onClick={() => {
                                                     void startCreate();
                                                 }}
-                                                className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-[0.98] shadow-xs"
+                                                className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-medium bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 transition-all active:scale-[0.98] shadow-sm"
                                             >
                                                 <Plus className="w-3.5 h-3.5" />
                                                 Add Question
@@ -1129,7 +1129,7 @@ const ConvoStarterView: React.FC = () => {
                                         </p>
                                         <button
                                             onClick={() => { void startCreate(); }}
-                                            className="inline-flex items-center gap-2 h-10 px-5 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 shadow-sm transition-all active:scale-[0.98]"
+                                            className="inline-flex items-center gap-2 h-10 px-5 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 text-sm font-semibold shadow-sm transition-all active:scale-[0.98]"
                                         >
                                             <Plus className="w-4 h-4" /> Create First Question
                                         </button>

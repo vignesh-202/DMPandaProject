@@ -1037,7 +1037,7 @@ export default function ReplyTemplatesView() {
                   type="button"
                   onClick={async () => { const ok = await handleSave(); if (ok) goBack(); }}
                   disabled={saving || editorLoading}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground shadow-xs shadow-primary/20 transition-all hover:bg-primary/95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-5 py-2 text-xs font-semibold text-white shadow-xs transition-all hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   <span>{editorMode === 'create' ? 'Create Template' : 'Save Changes'}</span>
@@ -1254,7 +1254,7 @@ export default function ReplyTemplatesView() {
           {/* Create Button - Clean, modern, high-contrast */}
           <button
             onClick={() => openCreate()}
-            className="flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-primary px-4 sm:px-5 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/25 transition-all hover:bg-primary/95 active:scale-[0.98]"
+            className="flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-4 sm:px-5 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-95 active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             <span>Create Template</span>
@@ -1282,7 +1282,7 @@ export default function ReplyTemplatesView() {
           </p>
           <button
             onClick={() => openCreate()}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/95 transition-all shadow-sm shadow-primary/20 active:scale-[0.98]"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white text-sm font-semibold hover:opacity-95 transition-all shadow-sm active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             <span>Create Your First Template</span>

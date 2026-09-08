@@ -461,7 +461,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               >
                 <Bell className={cn("h-4.5 w-4.5", unreadNotificationCount > 0 && "text-primary")} />
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex min-w-[1.1rem] h-[1.1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-xs">
+                  <span className="absolute -right-1 -top-1 flex min-w-[1.1rem] h-[1.1rem] items-center justify-center rounded-full bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-1 text-[10px] font-bold text-white shadow-xs">
                     {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
                   </span>
                 )}
@@ -481,7 +481,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                     </p>
                   </div>
                   {unreadNotificationCount > 0 && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-[#405DE6]/15 via-[#833AB4]/15 to-[#FD1D1D]/15 text-[#833AB4] dark:text-purple-300 border border-[#833AB4]/20">
                       {unreadNotificationCount} new
                     </span>
                   )}
@@ -498,54 +498,50 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                         <Bell className="h-5 w-5" />
                       </div>
                       <p className="text-sm font-semibold text-foreground">No notifications yet</p>
-                      <p className="mt-1 text-xs text-muted-foreground px-4">
-                        We’ll alert you about expiring subscriptions and automation processing errors here.
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">We'll alert you when something important happens</p>
                     </div>
                   ) : (
-                    <div className="p-1.5 space-y-1">
-                      {notifications.map((notification) => {
-                        const isUnread = !seenNotificationIds.includes(notification.id);
-                        return (
-                          <button
-                            key={notification.id}
-                            type="button"
-                            onClick={() => handleNotificationClick(notification)}
-                            className={cn(
-                              'flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted/70',
-                              isUnread ? 'bg-primary/[0.04]' : 'bg-transparent'
-                            )}
-                          >
-                            <div className={cn(
-                              'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl',
-                              notification.kind === 'subscription_expiring'
-                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                : 'bg-destructive/10 text-destructive'
-                            )}>
-                              {notification.kind === 'subscription_expiring'
-                                ? <CalendarClock className="h-4 w-4" />
-                                : <AlertTriangle className="h-4 w-4" />}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="text-xs sm:text-sm font-medium text-foreground leading-snug">
-                                  {notification.title}
-                                </p>
-                                {isUnread && (
-                                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                                )}
-                              </div>
-                              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                                {notification.description}
+                    notifications.map((notification) => {
+                      const isUnread = !seenNotificationIds.includes(notification.id);
+                      return (
+                        <button
+                          key={notification.id}
+                          type="button"
+                          onClick={() => handleNotificationClick(notification)}
+                          className={cn(
+                            'w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60',
+                            isUnread ? 'bg-primary/[0.04]' : 'bg-transparent'
+                          )}
+                        >
+                          <div className={cn(
+                            'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl',
+                            notification.kind === 'subscription_expiring'
+                              ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                              : 'bg-destructive/10 text-destructive border border-destructive/20'
+                          )}>
+                            {notification.kind === 'subscription_expiring'
+                              ? <CalendarClock className="h-4 w-4" />
+                              : <AlertTriangle className="h-4 w-4" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xs sm:text-sm font-medium text-foreground leading-snug">
+                                {notification.title}
                               </p>
-                              <p className="mt-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-                                {formatNotificationDate(notification.createdAt)}
-                              </p>
+                              {isUnread && (
+                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D]" />
+                              )}
                             </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                              {notification.description}
+                            </p>
+                            <p className="mt-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                              {formatNotificationDate(notification.createdAt)}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -573,7 +569,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   />
                 ) : null}
                 <div className={cn(
-                  "w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-primary/10 items-center justify-center font-semibold text-xs sm:text-sm text-primary",
+                  "w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] items-center justify-center font-semibold text-xs sm:text-sm text-white shadow-xs",
                   user ? "hidden" : "flex"
                 )}>
                   {userInitials}
@@ -590,7 +586,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 {/* User Info Header */}
                 <div className="px-4 py-3 border-b border-border/80 bg-muted/20">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-semibold text-xs shrink-0">
+                    <div className="h-9 w-9 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white flex items-center justify-center font-semibold text-xs shrink-0 shadow-xs">
                       {userInitials}
                     </div>
                     <div className="min-w-0 flex-1">

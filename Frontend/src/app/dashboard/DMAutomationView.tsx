@@ -1692,7 +1692,7 @@ const DMAutomationView: React.FC = () => {
                                                     type="button"
                                                     onClick={(e) => { e.preventDefault(); handleAddKeyword(); }}
                                                     disabled={!keywordInput.trim() || (editingAutomation.keywords || []).length >= 5}
-                                                    className="h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium transition-all active:scale-95 shadow-xs"
+                                                    className="h-8 px-3 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium transition-all active:scale-95 shadow-xs"
                                                 >
                                                     Add
                                                 </button>
@@ -3203,7 +3203,7 @@ const DMAutomationView: React.FC = () => {
                     </button>
                     <button
                         onClick={handleCreate}
-                        className="inline-flex items-center gap-2 h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow active:scale-[0.98]"
+                        className="inline-flex items-center gap-2 h-10 px-4 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 rounded-xl text-sm font-semibold transition-all shadow-sm active:scale-[0.98]"
                     >
                         <Plus className="w-4 h-4" />
                         <span>Create Rule</span>
@@ -3222,7 +3222,7 @@ const DMAutomationView: React.FC = () => {
                     <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">Create a keyword-based rule to start automating your Instagram direct messages.</p>
                     <button
                         onClick={handleCreate}
-                        className="inline-flex items-center gap-2 h-10 px-5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-sm font-semibold transition-all shadow-sm active:scale-[0.98]"
+                        className="inline-flex items-center gap-2 h-10 px-5 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 rounded-xl text-sm font-semibold transition-all shadow-sm active:scale-[0.98]"
                     >
                         <Plus className="w-4 h-4" />
                         <span>Create First Rule</span>

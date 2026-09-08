@@ -572,7 +572,7 @@ const SuperProfileView: React.FC = () => {
                                 <div className="relative flex flex-1 flex-col overflow-hidden bg-[#f6f8fb] dark:bg-black">
                                     <div className="flex-1 overflow-y-auto custom-scrollbar px-5 pb-5 pt-4">
                                         <div className="mb-4 text-center">
-                                    <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-[1.6rem] bg-primary text-primary-foreground shadow-lg shadow-primary/25">
+                                    <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-[1.6rem] bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-lg shadow-[#833AB4]/20">
                                         <Users className="h-8 w-8" />
                                     </div>
                                     <h2 className="text-lg font-black text-foreground">Smart Profile</h2>
@@ -581,7 +581,7 @@ const SuperProfileView: React.FC = () => {
 
                                         {activeAccount && (
                                             <div className="mb-4 text-center">
-                                                <div className="mx-auto mb-2 h-20 w-20 rounded-full bg-primary/20 p-[2px] shadow-lg shadow-primary/10">
+                                                <div className="mx-auto mb-2 h-20 w-20 rounded-full bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] p-[2px] shadow-lg shadow-[#833AB4]/15">
                                                     <img
                                                         src={toBrowserPreviewUrl(activeAccount.profile_picture_url || '') || '/images/logo.png'}
                                                         alt={activeAccount.username}

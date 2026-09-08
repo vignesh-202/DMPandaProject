@@ -304,7 +304,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                         "w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-150 group",
                         isCollapsed && "justify-center px-2",
                         isActive
-                          ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                          ? "bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white font-semibold shadow-md shadow-[#833AB4]/20 hover:opacity-95 active:scale-[0.99]"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground font-medium",
                         !isActive && isLocked && "opacity-75"
                       )}
@@ -312,7 +312,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                       <div className="flex items-center gap-3 truncate">
                         <Icon className={cn(
                           "w-[18px] h-[18px] flex-shrink-0 transition-all duration-150",
-                          isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground",
+                          isActive ? "text-white" : "text-muted-foreground group-hover:text-foreground",
                           !isActive && "group-hover:scale-105",
                           isLocked && isCollapsed && "opacity-75"
                         )} />
@@ -324,7 +324,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                       {isLocked && !isCollapsed && (
                         <Lock className={cn(
                           "h-[15px] w-[15px] flex-shrink-0",
-                          isActive ? "text-primary-foreground/80" : "text-muted-foreground/70"
+                          isActive ? "text-white/90" : "text-muted-foreground/70"
                         )} />
                       )}
                     </button>
@@ -395,7 +395,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                         className={cn(
                           "w-full flex items-center gap-2.5 p-2 rounded-xl transition-all duration-150 min-h-[42px]",
                           isSelected
-                            ? "bg-primary/10 text-primary font-medium"
+                            ? "bg-gradient-to-r from-[#405DE6]/10 via-[#833AB4]/10 to-[#FD1D1D]/10 text-foreground font-semibold border border-[#833AB4]/30"
                             : "hover:bg-muted text-foreground",
                           isInactive && "opacity-60",
                           isReconnectRequired && "bg-destructive/5 text-destructive"
@@ -408,7 +408,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                             alt={account.username}
                             className={cn(
                               "w-8 h-8 rounded-full object-cover border border-border",
-                              isSelected && "ring-2 ring-primary ring-offset-1 ring-offset-card"
+                              isSelected && "ring-2 ring-[#833AB4] ring-offset-1 ring-offset-card"
                             )}
                           />
                           <div className={cn(
@@ -456,7 +456,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                             <RefreshCw className="w-3.5 h-3.5" />
                           </div>
                         ) : isSelected ? (
-                          <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                          <Check className="w-4 h-4 text-[#833AB4] flex-shrink-0" />
                         ) : null}
                       </button>
                     );

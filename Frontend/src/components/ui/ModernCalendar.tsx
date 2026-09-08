@@ -177,10 +177,10 @@ const ModernCalendar: React.FC<ModernCalendarProps> = ({
                     disabled={disabled}
                     onClick={() => handleDateClick(d)}
                     className={`w-full p-2 font-bold transition-all flex items-center justify-center relative ${dayButtonClass}
-              ${isSel ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' :
-                            inRange ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' :
-                                'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}
-              ${today && !isSel ? 'border border-blue-200 dark:border-blue-800' : ''}
+              ${isSel ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-sm' :
+                            inRange ? 'bg-primary/10 text-primary font-bold' :
+                                'hover:bg-muted text-foreground'}
+              ${today && !isSel ? 'border border-primary/40' : ''}
               ${disabled ? 'opacity-20 cursor-not-allowed grayscale' : ''}
             `}
                 >
@@ -217,7 +217,7 @@ const ModernCalendar: React.FC<ModernCalendarProps> = ({
                             setView('days');
                         }}
                         className={`${monthButtonClass} font-black uppercase tracking-widest transition-all
-                ${currentMonth.getMonth() === idx ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400'}
+                ${currentMonth.getMonth() === idx ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-sm' : 'hover:bg-muted text-muted-foreground'}
                 ${isDisabled ? 'opacity-20 cursor-not-allowed grayscale' : ''}
               `}
                     >
@@ -265,7 +265,7 @@ const ModernCalendar: React.FC<ModernCalendarProps> = ({
                             disabled={isDisabled}
                             onClick={() => handleYearSelect(y)}
                             className={`${monthButtonClass} font-black uppercase tracking-widest transition-all
-                ${currentMonth.getFullYear() === y ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400'}
+                ${currentMonth.getFullYear() === y ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-sm' : 'hover:bg-muted text-muted-foreground'}
                 ${isDisabled ? 'opacity-5 opacity-20 cursor-not-allowed grayscale' : ''}
               `}
                         >
@@ -303,15 +303,17 @@ const ModernCalendar: React.FC<ModernCalendarProps> = ({
                     <div className="flex items-center gap-1">
                         <button
                             onClick={() => setView(view === 'months' ? 'days' : 'months')}
-                            className={`${compact ? 'px-2.5 py-1.5' : 'px-3 py-1.5'} rounded-xl transition-all group ${view === 'months' ? 'bg-blue-600' : 'hover:bg-blue-50 dark:hover:bg-blue-900/10'}`}
+                            className={`${compact ? 'px-2.5 py-1.5' : 'px-3 py-1.5'} rounded-xl transition-all group ${view === 'months' ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-xs' : 'hover:bg-muted text-foreground'}`}
                         >
-                            <span className={`text-[11px] font-black uppercase tracking-[0.2em] ${view === 'months' ? 'text-white' : 'text-gray-900 dark:text-white group-hover:text-blue-600'}`}>
-                                {months[currentMonth.getMonth()]}
-                            </span>
+                            <span className="text-xs font-black uppercase tracking-wider">{months[currentMonth.getMonth()]}</span>
                         </button>
                         <button
-                            onClick={() => setView(view === 'years' ? 'days' : 'years')}
-                            className={`${compact ? 'px-2.5 py-1.5' : 'px-3 py-1.5'} rounded-xl transition-all group ${view === 'years' ? 'bg-blue-600' : 'hover:bg-blue-50 dark:hover:bg-blue-900/10'}`}
+                            type="button"
+                            onClick={() => {
+                                setViewYear(currentMonth.getFullYear());
+                                setView(view === 'years' ? 'days' : 'years');
+                            }}
+                            className={`${compact ? 'px-2.5 py-1.5' : 'px-3 py-1.5'} rounded-xl transition-all group ${view === 'years' ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-xs' : 'hover:bg-muted text-foreground'}`}
                         >
                             <span className={`text-[11px] font-black uppercase tracking-[0.2em] ${view === 'years' ? 'text-white' : 'text-gray-900 dark:text-white group-hover:text-blue-600'}`}>
                                 {currentMonth.getFullYear()}
@@ -384,7 +386,7 @@ const ModernCalendar: React.FC<ModernCalendarProps> = ({
                     <button
                         onClick={() => onSelect(tempStart ? formatDate(tempStart) : '', tempEnd ? formatDate(tempEnd) : '')}
                         disabled={!tempStart || !tempEnd}
-                        className={`${compact ? 'px-4' : 'px-6'} h-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50`}
+                        className={`${compact ? 'px-4' : 'px-6'} h-full bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] hover:opacity-95 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider shadow-sm transition-all disabled:opacity-50 active:scale-[0.98]`}
                     >
                         Apply Range
                     </button>

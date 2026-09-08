@@ -687,7 +687,7 @@ const AccountSettingsView = () => {
                   isTabActive
                     ? tab.id === 'danger'
                       ? "bg-destructive text-destructive-foreground shadow-xs"
-                      : "bg-primary text-primary-foreground shadow-xs"
+                      : "bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-sm"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
@@ -748,7 +748,7 @@ const AccountSettingsView = () => {
                     </div>
                   </div>
 
-                  <Button type="submit" disabled={isSubmittingInfo} className="px-5 h-10 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm w-full sm:w-auto transition-all shadow-xs inline-flex items-center justify-center gap-2">
+                  <Button type="submit" disabled={isSubmittingInfo} className="px-5 h-10 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 font-medium text-sm w-full sm:w-auto transition-all shadow-sm active:scale-[0.98] inline-flex items-center justify-center gap-2">
                     {isSubmittingInfo && <Loader2 className="h-4 w-4 animate-spin" />}
                     <span>Save Changes</span>
                   </Button>
@@ -789,7 +789,7 @@ const AccountSettingsView = () => {
                         showMatchIcon={true}
                         isMatch={confirmPassword === newPassword && confirmPassword !== ''}
                       />
-                      <Button type="submit" disabled={isSubmittingPassword} className="h-10 px-5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto font-medium text-sm shadow-xs inline-flex items-center justify-center gap-2">
+                      <Button type="submit" disabled={isSubmittingPassword} className="h-10 px-5 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 w-full sm:w-auto font-medium text-sm shadow-sm active:scale-[0.98] inline-flex items-center justify-center gap-2">
                         {isSubmittingPassword && <Loader2 className="h-4 w-4 animate-spin" />}
                         <span>Change Password</span>
                       </Button>
@@ -806,7 +806,7 @@ const AccountSettingsView = () => {
                     <h4 className="text-sm font-semibold text-foreground">No Password Configured</h4>
                     <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">You log in via OAuth. Set up a secure master password to confirm administrative changes.</p>
                   </div>
-                  <Button onClick={() => setShowSetPassword(true)} className="h-10 px-5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-sm transition-all shadow-xs">
+                  <Button onClick={() => setShowSetPassword(true)} className="h-10 px-5 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 font-medium text-sm transition-all shadow-sm active:scale-[0.98]">
                     Set a Password
                   </Button>
                 </Card>
@@ -973,7 +973,7 @@ const AccountSettingsView = () => {
                                       size="sm"
                                       onClick={() => handleInstagramLink(account.id)}
                                       disabled={linkingAccountID === account.id}
-                                      className="h-8 px-3 transition-all bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg flex items-center justify-center text-xs font-medium flex-1 md:flex-initial"
+                                      className="h-8 px-3 transition-all bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm rounded-lg flex items-center justify-center text-xs font-medium flex-1 md:flex-initial"
                                     >
                                       {linkingAccountID === account.id ? (
                                         <Loader2 className="mr-1.5 h-3 w-3 animate-spin shrink-0" />
@@ -1079,7 +1079,7 @@ const AccountSettingsView = () => {
                     <Button
                       onClick={() => handleInstagramLink('new')}
                       disabled={linkingAccountID === 'new'}
-                      className="w-full mt-3 h-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs transition-all duration-150 rounded-xl font-medium flex items-center justify-center gap-2 text-sm"
+                      className="w-full mt-3 h-10 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm transition-all duration-150 rounded-xl font-medium flex items-center justify-center gap-2 text-sm active:scale-[0.98]"
                     >
                       {linkingAccountID === 'new' ? (
                         <Loader2 className="h-4 w-4 animate-spin shrink-0" />
@@ -1367,7 +1367,7 @@ const AccountSettingsView = () => {
                 <div className="flex flex-col w-full gap-2 pt-2">
                   <Button
                     type="submit"
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 rounded-xl font-medium text-sm shadow-xs"
+                    className="w-full bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 h-10 rounded-xl font-medium text-sm shadow-sm active:scale-[0.98]"
                     disabled={!confirmPassword || confirmPassword !== newPassword || isSubmittingSetPassword}
                   >
                     {isSubmittingSetPassword ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null}
@@ -1438,7 +1438,7 @@ const AccountSettingsView = () => {
                 <div className="flex flex-col w-full gap-2 pt-2">
                   <Button
                     type="submit"
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 rounded-xl font-medium text-sm shadow-xs"
+                    className="w-full bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 h-10 rounded-xl font-medium text-sm shadow-sm active:scale-[0.98]"
                     disabled={!newEmail || (hasPassword && !emailChangePassword) || isRequestingEmailChange}
                   >
                     {isRequestingEmailChange ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null}
