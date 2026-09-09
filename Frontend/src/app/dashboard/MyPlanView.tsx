@@ -715,17 +715,6 @@ const MyPlanView: React.FC = () => {
                 <div className="space-y-3 mt-4">
                   {(planCode === 'pro' || planCode === 'ultra' || currentPlanName.toLowerCase().includes('pro')) ? (
                     <>
-                      {/* Monthly Action Limit */}
-                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="font-medium text-muted-foreground">Monthly Action Limit</span>
-                          <span className="font-semibold text-foreground">Unlimited</span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                          <div className="h-full bg-primary rounded-full w-full" />
-                        </div>
-                      </div>
-
                       {/* Meta Rate Limits Breakdown */}
                       <div className="rounded-xl border border-border bg-muted/20 p-3.5 text-xs space-y-2">
                         <div className="flex items-center justify-between">
@@ -739,6 +728,17 @@ const MyPlanView: React.FC = () => {
                         <div className="flex items-center justify-between">
                           <span className="text-muted-foreground">Comment Actions</span>
                           <span className="font-semibold text-foreground">4,800 × views / 24h</span>
+                        </div>
+                      </div>
+
+                      {/* Monthly Action Limit at bottom */}
+                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-medium text-muted-foreground">Actions / month</span>
+                          <span className="font-semibold text-foreground">Unlimited</span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div className="h-full bg-primary rounded-full w-full" />
                         </div>
                       </div>
                     </>

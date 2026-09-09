@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Check, X, Sparkles, Zap, Gift, ArrowRight } fro
 import InfoPopover from '../../components/ui/InfoPopover';
 import VVDealsTopTeaser from '../../components/ui/VVDealsTopTeaser';
 import VVDealsOfferSection from '../../components/ui/VVDealsOfferSection';
+import PricingFAQSection from '../../components/ui/PricingFAQSection';
 import { buildCountryHeaders, detectGeoCurrency } from '../../lib/geoCurrency';
 import {
   PricingPlan,
@@ -409,6 +410,9 @@ const PricingPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Pricing FAQs Section */}
+        <PricingFAQSection className="mt-20 sm:mt-28" />
 
       </div>
     </section>
