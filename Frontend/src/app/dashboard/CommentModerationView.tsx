@@ -185,25 +185,25 @@ const CommentModerationView: React.FC = () => {
     }
 
     return (
-        <div className="p-4 sm:p-6 md:p-8 max-w-5xl mx-auto space-y-6 pb-12">
+        <div className="w-full max-w-7xl mx-auto space-y-6 p-4 sm:p-6 lg:p-8 pb-16">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border/70">
                 <div className="flex items-center gap-3.5">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
-                        <Shield className="w-5 h-5" />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#405DE6]/10 via-[#833AB4]/10 to-[#FD1D1D]/10 text-[#833AB4] border border-[#833AB4]/20 shadow-xs">
+                        <Shield className="w-6 h-6" />
                     </div>
                     <div>
-                        <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className="flex items-center gap-3 flex-wrap">
                             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                                 Comment Moderation
                             </h1>
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                                 Active Protection
                             </span>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            Automatically hide or delete unwanted comments on your Instagram posts and reels.
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Automatically filter, hide, or permanently remove unwanted spam and toxic comments on your Instagram posts and reels.
                         </p>
                     </div>
                 </div>
@@ -212,7 +212,7 @@ const CommentModerationView: React.FC = () => {
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-5 py-2.5 text-xs font-semibold text-white shadow-xs shadow-[#833AB4]/25 transition hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-6 py-2.5 text-xs font-semibold text-white shadow-xs shadow-[#833AB4]/25 transition hover:opacity-95 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                     >
                         {saving ? (
                             <>
@@ -235,9 +235,9 @@ const CommentModerationView: React.FC = () => {
                     <Shield className="h-4 w-4" />
                 </div>
                 <div>
-                    <h3 className="text-xs font-semibold text-foreground">Keyword Exclusivity</h3>
+                    <h3 className="text-xs font-semibold text-foreground">Keyword Exclusivity & Safe Isolation</h3>
                     <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                        Keywords assigned here are strictly protected. They cannot overlap between Hide and Delete, and will not conflict with your DM automations.
+                        Keywords assigned here are strictly protected. They cannot overlap between Hide and Delete, and will never trigger or interfere with your active direct message keyword automations.
                     </p>
                 </div>
             </div>
@@ -250,28 +250,31 @@ const CommentModerationView: React.FC = () => {
                     const keywords = keywordLists[action];
 
                     return (
-                        <div key={action} className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs flex flex-col justify-between">
-                            <div className="space-y-5">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted/60 border border-border/60 text-foreground">
+                        <div
+                            key={action}
+                            className="rounded-2xl border border-border/80 bg-card p-6 sm:p-7 shadow-xs flex flex-col justify-between min-h-[480px]"
+                        >
+                            <div className="flex-1 flex flex-col space-y-5">
+                                <div className="flex items-start justify-between gap-3 pb-4 border-b border-border/60">
+                                    <div className="flex items-center gap-3.5">
+                                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted/60 border border-border/60 text-foreground">
                                             <Icon className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <h2 className="text-base font-semibold text-foreground tracking-tight">{meta.title}</h2>
+                                            <h2 className="text-lg font-bold text-foreground tracking-tight">{meta.title}</h2>
                                             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{meta.description}</p>
                                         </div>
                                     </div>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold shrink-0 ${meta.badgeClasses}`}>
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold shrink-0 ${meta.badgeClasses}`}>
                                         {keywords.length} {keywords.length === 1 ? 'word' : 'words'}
                                     </span>
                                 </div>
 
                                 <div className="space-y-3">
-                                    <label className="text-[11px] font-semibold text-muted-foreground block">
-                                        Keywords
+                                    <label className="text-xs font-semibold text-muted-foreground block">
+                                        Add Filter Keyword
                                     </label>
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2.5">
                                         <input
                                             type="text"
                                             value={keywordInputs[action]}
@@ -283,29 +286,43 @@ const CommentModerationView: React.FC = () => {
                                                 }
                                             }}
                                             placeholder={`Type a keyword and press Add or Enter...`}
-                                            className="input-base flex-1 rounded-xl text-xs py-2 px-3"
+                                            className="input-base flex-1 rounded-xl text-sm py-2.5 px-3.5"
                                         />
                                         <button
                                             type="button"
                                             onClick={() => addKeyword(action)}
-                                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-semibold transition active:scale-[0.98]"
+                                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-semibold transition active:scale-[0.98]"
                                         >
                                             <Plus className="w-3.5 h-3.5" />
                                             <span>Add</span>
                                         </button>
                                     </div>
+                                </div>
+
+                                <div className="flex-1 flex flex-col space-y-2 pt-1">
+                                    <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                                        <span>Configured Keywords</span>
+                                        {keywords.length > 0 && (
+                                            <span className="text-[11px] text-muted-foreground/60">
+                                                Click × on any tag to remove
+                                            </span>
+                                        )}
+                                    </div>
 
                                     {keywords.length === 0 ? (
-                                        <div className="rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 py-7 text-center flex flex-col items-center justify-center">
-                                            <p className="text-xs font-medium text-muted-foreground">No keywords added</p>
-                                            <p className="text-[11px] text-muted-foreground/60 mt-0.5">Add keywords above to enable automatic {meta.title.toLowerCase()}.</p>
+                                        <div className="flex-1 min-h-[220px] rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center flex flex-col items-center justify-center">
+                                            <div className="h-10 w-10 rounded-xl bg-muted/40 flex items-center justify-center text-muted-foreground mb-2">
+                                                <Icon className="w-5 h-5 opacity-60" />
+                                            </div>
+                                            <p className="text-sm font-semibold text-muted-foreground">No keywords added</p>
+                                            <p className="text-xs text-muted-foreground/60 mt-0.5">Add keywords above to enable automatic {meta.title.toLowerCase()}.</p>
                                         </div>
                                     ) : (
-                                        <div className="flex flex-wrap gap-1.5 max-h-[200px] overflow-y-auto pr-1">
+                                        <div className="flex-1 min-h-[220px] max-h-[320px] overflow-y-auto custom-scrollbar p-3.5 rounded-xl border border-border/60 bg-muted/10 flex flex-wrap content-start gap-2">
                                             {keywords.map((keyword) => (
                                                 <div
                                                     key={`${action}-${keyword}`}
-                                                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${meta.chipClasses}`}
+                                                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${meta.chipClasses}`}
                                                 >
                                                     <span>{keyword}</span>
                                                     <button
@@ -326,9 +343,39 @@ const CommentModerationView: React.FC = () => {
                     );
                 })}
             </div>
+
+            {/* Moderation Operational Guidelines */}
+            <div className="grid gap-5 md:grid-cols-3 pt-2">
+                <div className="rounded-xl border border-border/70 bg-card/60 p-5 space-y-2">
+                    <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
+                        01
+                    </div>
+                    <h4 className="text-sm font-semibold text-foreground">Auto-Hide Spam</h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                        Hidden comments remain visible only to the commenter, preventing spammers from noticing they have been muted while keeping your public community feed clean.
+                    </p>
+                </div>
+                <div className="rounded-xl border border-border/70 bg-card/60 p-5 space-y-2">
+                    <div className="h-8 w-8 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xs">
+                        02
+                    </div>
+                    <h4 className="text-sm font-semibold text-foreground">Permanent Deletion</h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                        Toxic, abusive, or harmful comments containing blacklisted terms are permanently purged from your posts and reels instantly upon detection.
+                    </p>
+                </div>
+                <div className="rounded-xl border border-border/70 bg-card/60 p-5 space-y-2">
+                    <div className="h-8 w-8 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-xs">
+                        03
+                    </div>
+                    <h4 className="text-sm font-semibold text-foreground">Zero Conflict System</h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                        Moderation rules take immediate precedence over DM triggers. Flagged comments are quarantined before any automated reply workflows can fire.
+                    </p>
+                </div>
+            </div>
         </div>
     );
 };
 
 export default CommentModerationView;
-

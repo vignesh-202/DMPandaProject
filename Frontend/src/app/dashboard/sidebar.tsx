@@ -276,7 +276,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
     <>
       <div className="flex min-h-0 flex-1 flex-col">
         {/* Navigation */}
-        <nav className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 py-2">
+        <nav className={cn("flex-1 min-h-0 overflow-y-auto custom-scrollbar py-3", isCollapsed ? "px-3" : "px-4")}>
           {menuSections.map((section, sectionIndex) => (
             <div key={sectionIndex} className={cn(sectionIndex > 0 && "mt-4")}>
               {/* Section Title */}
@@ -302,8 +302,8 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                       onClick={() => handleNavigation(item.name)}
                       title={isCollapsed ? item.name : undefined}
                       className={cn(
-                        "group w-full flex items-center rounded-xl text-sm transition-all duration-150",
-                        isCollapsed ? "justify-center px-2 py-2.5" : "space-x-3 px-3 py-2.5",
+                        "group w-full flex items-center rounded-lg text-sm transition-all duration-150 min-h-[42px]",
+                        isCollapsed ? "justify-center px-2 py-2" : "space-x-3 px-3.5 py-2.5",
                         isActive
                           ? "bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white font-semibold shadow-xs shadow-[#833AB4]/25"
                           : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium",
