@@ -702,12 +702,14 @@ const MyPlanView: React.FC = () => {
                       <p className="text-[11px] text-muted-foreground">Per account automation limits</p>
                     </div>
                   </div>
-                  <InfoPopover
-                    title="Meta Rate Limits"
-                    badge="Per IG Account"
-                    description="Official Meta ceilings. Each account has independent limits."
-                    rateLimits={META_RATE_LIMITS_SUMMARY}
-                  />
+                  {(planCode === 'pro' || planCode === 'ultra' || currentPlanName.toLowerCase().includes('pro')) && (
+                    <InfoPopover
+                      title="Meta Rate Limits"
+                      badge="Per IG Account"
+                      description="Official Meta ceilings. Actions on the Pro plan run directly at Meta's maximum certified rate limits."
+                      rateLimits={META_RATE_LIMITS_SUMMARY}
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-3 mt-4">
@@ -716,7 +718,9 @@ const MyPlanView: React.FC = () => {
                     <div className="flex items-center justify-between text-xs mb-1.5">
                       <span className="font-medium text-muted-foreground">Hourly Action Limit</span>
                       <span className="font-semibold text-foreground">
-                        {plan?.limits?.hourly_action_limit ?? 100} / hr
+                        {(planCode === 'pro' || planCode === 'ultra' || currentPlanName.toLowerCase().includes('pro'))
+                          ? '750 / hr (Meta Limit)'
+                          : `${plan?.limits?.hourly_action_limit ?? 100} / hr`}
                       </span>
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -1173,12 +1177,14 @@ const MyPlanView: React.FC = () => {
                           <p className="text-xs font-medium text-muted-foreground">
                             Included Limits
                           </p>
-                          <InfoPopover
-                            title="Meta Rate Limits"
-                            badge="Per IG Account"
-                            description="Official Meta ceilings. Plan actions operate safely within them."
-                            rateLimits={META_RATE_LIMITS_SUMMARY}
-                          />
+                          {(entry.plan_code === 'pro' || entry.name.toLowerCase().includes('pro') || entry.plan_code === 'ultra') && (
+                            <InfoPopover
+                              title="Meta Rate Limits"
+                              badge="Per IG Account"
+                              description="Official Meta ceilings. Actions on the Pro plan operate directly at Meta's maximum allowed limits."
+                              rateLimits={META_RATE_LIMITS_SUMMARY}
+                            />
+                          )}
                         </div>
                         <div className="space-y-1.5">
                           {planLimits.map((item) => (

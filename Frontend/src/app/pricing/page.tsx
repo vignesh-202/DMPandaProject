@@ -283,13 +283,15 @@ const PricingPage: React.FC = () => {
                         <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                           Account Limits
                         </p>
-                        <InfoPopover
-                          title="Meta Rate Limits"
-                          badge="Per IG Account"
-                          description="Official Meta ceilings. Plan actions operate safely within these limits."
-                          rateLimits={META_RATE_LIMITS_SUMMARY}
-                          className="shrink-0"
-                        />
+                        {isPro && (
+                          <InfoPopover
+                            title="Meta Rate Limits"
+                            badge="Per IG Account"
+                            description="Official Meta ceilings. Actions on the Pro plan run directly at Meta's maximum allowed limits."
+                            rateLimits={META_RATE_LIMITS_SUMMARY}
+                            className="shrink-0"
+                          />
+                        )}
                       </div>
                       <div className="space-y-2.5">
                         {planLimits.map((item) => (

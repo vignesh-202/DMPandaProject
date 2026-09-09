@@ -213,6 +213,12 @@ export const formatPlanLimit = (value: number | null, suffix?: string) => {
   return suffix ? `${formatted} ${suffix}` : formatted;
 };
 
+export const isProPlan = (plan: PricingPlan) => {
+  const code = (plan?.plan_code || '').toLowerCase();
+  const name = (plan?.name || '').toLowerCase();
+  return code === 'pro' || code === 'ultra' || name.includes('pro') || name.includes('ultra');
+};
+
 const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
   key: string;
   label: string;
@@ -221,12 +227,12 @@ const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
   {
     key: 'actions_per_hour_limit',
     label: 'Actions per hour',
-    value: (plan) => formatPlanLimit(plan.actions_per_hour_limit)
+    value: (plan) => isProPlan(plan) ? '750 (Meta Limit)' : formatPlanLimit(plan.actions_per_hour_limit)
   },
   {
     key: 'actions_per_day_limit',
     label: 'Actions per day',
-    value: (plan) => formatPlanLimit(plan.actions_per_day_limit)
+    value: (plan) => isProPlan(plan) ? '4,800 × views (Meta)' : formatPlanLimit(plan.actions_per_day_limit)
   },
   {
     key: 'actions_per_month_limit',
@@ -235,11 +241,22 @@ const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
   }
 ];
 
-export const buildPlanLimitItems = (plan: PricingPlan): Array<{ label: string; value: string }> => ([
-  { label: 'Actions / hour', value: formatPlanLimit(plan.actions_per_hour_limit) },
-  { label: 'Actions / day', value: formatPlanLimit(plan.actions_per_day_limit) },
-  { label: 'Actions / month', value: formatPlanLimit(plan.actions_per_month_limit) }
-]);
+export const buildPlanLimitItems = (plan: PricingPlan): Array<{ label: string; value: string }> => {
+  if (isProPlan(plan)) {
+    return [
+      { label: 'Actions / hour', value: '750 (Meta Limit)' },
+      { label: 'Direct Messages', value: '100 / sec' },
+      { label: 'Comment Actions', value: '4,800 × views / 24h' },
+      { label: 'Actions / month', value: 'Unlimited' }
+    ];
+  }
+
+  return [
+    { label: 'Actions / hour', value: formatPlanLimit(plan.actions_per_hour_limit) },
+    { label: 'Actions / day', value: formatPlanLimit(plan.actions_per_day_limit) },
+    { label: 'Actions / month', value: formatPlanLimit(plan.actions_per_month_limit) }
+  ];
+};
 
 export const META_RATE_LIMITS_SUMMARY = [
   { label: 'Comment to DM', limit: '750 / hr' },
