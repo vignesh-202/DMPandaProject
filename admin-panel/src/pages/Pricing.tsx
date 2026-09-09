@@ -381,7 +381,7 @@ export const PricingPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => savePlan(plan)}
-                      className="inline-flex items-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition active:scale-95"
+                      className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-95 transition active:scale-95 disabled:opacity-50"
                     >
                       {savingId === plan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Save plan
@@ -474,9 +474,9 @@ export const PricingPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setFeatureEditorMode((current) => ({ ...current, [plan.id]: 'list' }))}
-                            className={`rounded-xl px-3 py-2 text-[10px] font-black transition ${
+                            className={`rounded-xl px-3 py-1.5 text-[10px] font-bold transition ${
                               (featureEditorMode[plan.id] || 'list') === 'list'
-                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-xs'
                                 : 'text-muted-foreground hover:text-foreground'
                             }`}
                           >
@@ -485,9 +485,9 @@ export const PricingPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setFeatureEditorMode((current) => ({ ...current, [plan.id]: 'text' }))}
-                            className={`rounded-xl px-3 py-2 text-[10px] font-black transition ${
+                            className={`rounded-xl px-3 py-1.5 text-[10px] font-bold transition ${
                               (featureEditorMode[plan.id] || 'list') === 'text'
-                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-xs'
                                 : 'text-muted-foreground hover:text-foreground'
                             }`}
                           >
@@ -498,7 +498,7 @@ export const PricingPage: React.FC = () => {
                           type="button"
                           onClick={() => addFeature(plan.id)}
                           disabled={(featureEditorMode[plan.id] || 'list') === 'text'}
-                          className="inline-flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-2.5 text-xs font-black text-primary transition hover:bg-primary hover:text-primary-foreground"
+                          className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                         >
                           <Plus className="h-4 w-4" />
                           Add feature

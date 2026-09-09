@@ -647,7 +647,7 @@ export const CouponsPage: React.FC = () => {
                                 type="button"
                                 onClick={() => togglePlan(plan.id)}
                                 className={active
-                                    ? 'rounded-xl bg-primary px-3.5 py-2 text-left text-xs font-semibold text-primary-foreground shadow-xs'
+                                    ? 'rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-3.5 py-2 text-left text-xs font-semibold text-white shadow-sm'
                                     : 'rounded-xl border border-border bg-card px-3.5 py-2 text-left text-xs font-medium text-foreground hover:bg-muted'}
                             >
                                 {plan.name}
