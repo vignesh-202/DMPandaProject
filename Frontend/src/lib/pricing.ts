@@ -244,10 +244,10 @@ const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
 export const buildPlanLimitItems = (plan: PricingPlan): Array<{ label: string; value: string }> => {
   if (isProPlan(plan)) {
     return [
-      { label: 'Actions / hour', value: '750 (Meta Limit)' },
-      { label: 'Direct Messages', value: '100 / sec' },
-      { label: 'Comment Actions', value: '4,800 × views / 24h' },
-      { label: 'Actions / month', value: 'Unlimited' }
+      { label: 'Actions / month', value: 'Unlimited' },
+      { label: 'Comment to DM', value: '750 / hr (Meta Limit)' },
+      { label: 'Direct Messages', value: '100 / sec (Meta Limit)' },
+      { label: 'Comment Actions', value: '4,800 × views / 24h' }
     ];
   }
 

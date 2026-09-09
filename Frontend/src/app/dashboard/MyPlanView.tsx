@@ -713,48 +713,79 @@ const MyPlanView: React.FC = () => {
                 </div>
 
                 <div className="space-y-3 mt-4">
-                  {/* Hourly Action Limit */}
-                  <div className="rounded-xl border border-border bg-muted/20 p-3.5">
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-medium text-muted-foreground">Hourly Action Limit</span>
-                      <span className="font-semibold text-foreground">
-                        {(planCode === 'pro' || planCode === 'ultra' || currentPlanName.toLowerCase().includes('pro'))
-                          ? '750 / hr (Meta Limit)'
-                          : `${plan?.limits?.hourly_action_limit ?? 100} / hr`}
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-primary rounded-full w-3/4" />
-                    </div>
-                  </div>
+                  {(planCode === 'pro' || planCode === 'ultra' || currentPlanName.toLowerCase().includes('pro')) ? (
+                    <>
+                      {/* Monthly Action Limit */}
+                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-medium text-muted-foreground">Monthly Action Limit</span>
+                          <span className="font-semibold text-foreground">Unlimited</span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div className="h-full bg-primary rounded-full w-full" />
+                        </div>
+                      </div>
 
-                  {/* Daily Action Limit */}
-                  <div className="rounded-xl border border-border bg-muted/20 p-3.5">
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-medium text-muted-foreground">Daily Action Limit</span>
-                      <span className="font-semibold text-foreground">
-                        {plan?.limits?.daily_action_limit ?? 500} / day
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-primary rounded-full w-4/5" />
-                    </div>
-                  </div>
+                      {/* Meta Rate Limits Breakdown */}
+                      <div className="rounded-xl border border-border bg-muted/20 p-3.5 text-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Comment to DM</span>
+                          <span className="font-semibold text-foreground">750 / hr (Meta Limit)</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Direct Messages</span>
+                          <span className="font-semibold text-foreground">100 / sec (Meta Limit)</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Comment Actions</span>
+                          <span className="font-semibold text-foreground">4,800 × views / 24h</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Hourly Action Limit */}
+                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-medium text-muted-foreground">Hourly Action Limit</span>
+                          <span className="font-semibold text-foreground">
+                            {plan?.limits?.hourly_action_limit ?? 100} / hr
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div className="h-full bg-primary rounded-full w-3/4" />
+                        </div>
+                      </div>
 
-                  {/* Monthly Action Limit */}
-                  <div className="rounded-xl border border-border bg-muted/20 p-3.5">
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-medium text-muted-foreground">Monthly Action Limit</span>
-                      <span className="font-semibold text-foreground">
-                        {plan?.limits?.monthly_action_limit == null
-                          ? 'Unlimited'
-                          : `${Number(plan.limits.monthly_action_limit).toLocaleString()} / mo`}
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-primary rounded-full w-full" />
-                    </div>
-                  </div>
+                      {/* Daily Action Limit */}
+                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-medium text-muted-foreground">Daily Action Limit</span>
+                          <span className="font-semibold text-foreground">
+                            {plan?.limits?.daily_action_limit ?? 500} / day
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div className="h-full bg-primary rounded-full w-4/5" />
+                        </div>
+                      </div>
+
+                      {/* Monthly Action Limit */}
+                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-medium text-muted-foreground">Monthly Action Limit</span>
+                          <span className="font-semibold text-foreground">
+                            {plan?.limits?.monthly_action_limit == null
+                              ? 'Unlimited'
+                              : `${Number(plan.limits.monthly_action_limit).toLocaleString()} / mo`}
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div className="h-full bg-primary rounded-full w-full" />
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
