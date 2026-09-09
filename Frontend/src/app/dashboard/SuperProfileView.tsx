@@ -569,51 +569,87 @@ const SuperProfileView: React.FC = () => {
                                     </button>
                                 </div>
 
-                                <div className="relative flex flex-1 flex-col overflow-hidden bg-[#f6f8fb] dark:bg-black">
-                                    <div className="flex-1 overflow-y-auto custom-scrollbar px-5 pb-5 pt-4">
-                                        <div className="mb-4 text-center">
-                                    <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-[1.6rem] bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white shadow-lg shadow-[#833AB4]/20">
-                                        <Users className="h-8 w-8" />
-                                    </div>
-                                    <h2 className="text-lg font-black text-foreground">Smart Profile</h2>
-                                    <p className="text-xs font-medium text-muted-foreground">Build a clean link hub for your audience</p>
+                                <div className="relative flex flex-1 flex-col overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+                                    {/* Ambient floating blobs */}
+                                    <div className="sp-blob absolute -top-16 -right-16 h-36 w-36 rounded-full blur-2xl bg-amber-300/15 dark:bg-amber-300/10 pointer-events-none" />
+                                    <div className="sp-blob sp-blob-delayed absolute -bottom-16 -left-16 h-40 w-40 rounded-full blur-2xl bg-sky-300/15 dark:bg-sky-300/10 pointer-events-none" />
+
+                                    <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-5 pt-3 relative z-10">
+                                        {/* DM Panda branding logo */}
+                                        <div className="flex items-center justify-center mb-3">
+                                            <img
+                                                src="/images/logo.png"
+                                                alt="DM Panda"
+                                                className="h-5 w-auto opacity-80"
+                                            />
                                         </div>
 
-                                        {activeAccount && (
-                                            <div className="mb-4 text-center">
-                                                <div className="mx-auto mb-2 h-20 w-20 rounded-full bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] p-[2px] shadow-lg shadow-[#833AB4]/15">
-                                                    <img
-                                                        src={toBrowserPreviewUrl(activeAccount.profile_picture_url || '') || '/images/logo.png'}
-                                                        alt={activeAccount.username}
-                                                        className="h-full w-full rounded-full object-cover"
-                                                    />
+                                        {/* Super Profile Card matching public page design */}
+                                        <div className="rounded-[24px] border border-border/70 bg-card/85 backdrop-blur-xl p-4 sm:p-5 shadow-md text-center">
+                                            {/* Profile Picture with ambient ring */}
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="relative">
+                                                    <div className="absolute -inset-1.5 rounded-full blur-md bg-gradient-to-tr from-[#405DE6]/30 via-[#833AB4]/30 to-[#FD1D1D]/30" />
+                                                    <div className="relative h-16 w-16 rounded-full p-[2px] shadow-md bg-card border border-border">
+                                                        <img
+                                                            src={toBrowserPreviewUrl(activeAccount?.profile_picture_url || '') || '/images/logo.png'}
+                                                            alt={activeAccount?.username || 'Super Profile'}
+                                                            className="h-full w-full rounded-full object-cover"
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <h3 className="text-base font-bold text-foreground">@{activeAccount.username}</h3>
-                                            </div>
-                                        )}
 
-                                        <div className="space-y-2">
-                                            {buttons.length > 0 ? (
-                                                buttons.map((button) => (
-                                                    <a
-                                                        key={button.id}
-                                                        href={button.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-sm transition-colors hover:border-primary/50"
-                                                    >
-                                                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/60">
-                                                            <SocialIcon id={button.icon || 'internet'} className="h-4 w-4 text-slate-800 dark:text-white" />
-                                                        </div>
-                                                        <span className="flex-1 truncate text-sm font-semibold text-foreground">{button.title || 'Button'}</span>
-                                                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                                                    </a>
-                                                ))
-                                            ) : (
-                                                <div className="flex min-h-[220px] items-center justify-center rounded-[1.75rem] border border-dashed border-border bg-card/70 px-4 text-center text-sm font-medium text-muted-foreground">
-                                                    No buttons added yet
+                                                <div className="flex flex-col items-center">
+                                                    <p className="text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground/70">SUPER PROFILE</p>
+                                                    <h3 className="mt-0.5 text-sm font-bold text-foreground truncate max-w-[200px]">
+                                                        {activeAccount?.name || (activeAccount?.username ? `@${activeAccount.username}` : 'Super Profile')}
+                                                    </h3>
+                                                    {activeAccount?.username && (
+                                                        <p className="text-[11px] font-semibold text-muted-foreground">@{activeAccount.username}</p>
+                                                    )}
                                                 </div>
-                                            )}
+
+                                                {isActive && (
+                                                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                        <span className="text-[10px] font-bold">Live</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Links / Buttons matching public design */}
+                                            <div className="mt-4 space-y-2">
+                                                {buttons.length > 0 ? (
+                                                    buttons.map((button) => (
+                                                        <a
+                                                            key={button.id}
+                                                            href={button.url || '#'}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="group flex items-center gap-2.5 p-2.5 rounded-xl border border-border/80 bg-background/80 hover:bg-background hover:border-border transition-all duration-200 shadow-2xs w-full text-left"
+                                                        >
+                                                            <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-foreground text-background shrink-0 group-hover:scale-105 transition-transform">
+                                                                <SocialIcon id={button.icon || 'internet'} className="h-3.5 w-3.5" />
+                                                            </div>
+                                                            <span className="flex-1 min-w-0 text-xs font-semibold truncate text-foreground">
+                                                                {button.title || 'Visit Link'}
+                                                            </span>
+                                                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground shrink-0 transition-colors" />
+                                                        </a>
+                                                    ))
+                                                ) : (
+                                                    <div className="rounded-xl border border-dashed border-border/70 bg-muted/10 p-5 text-center text-xs text-muted-foreground">
+                                                        No links added yet. Add buttons in the editor.
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Powered by DM Panda Footer */}
+                                            <div className="mt-4 text-center">
+                                                <span className="text-[10px] font-medium text-muted-foreground">
+                                                    Powered by <strong className="font-bold text-foreground">DM Panda</strong>
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

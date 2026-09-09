@@ -16,28 +16,22 @@ const ACTION_META: Record<ModerationAction, {
     title: string;
     description: string;
     icon: typeof Eye;
-    accentClasses: string;
+    badgeClasses: string;
     chipClasses: string;
-    buttonClasses: string;
-    inputBorderClasses: string;
 }> = {
     hide: {
         title: 'Hide Comments',
-        description: 'Comments with these keywords stay out of sight without removing them permanently.',
+        description: 'Comments with these keywords stay hidden from public view automatically.',
         icon: Eye,
-        accentClasses: 'border-blue-500/20 bg-gradient-to-b from-blue-500/5 to-transparent hover:border-blue-500/40 dark:from-blue-500/5 dark:to-transparent',
-        chipClasses: 'border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-300 hover:bg-blue-500/20',
-        buttonClasses: 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 hover:shadow-blue-500/35',
-        inputBorderClasses: 'focus:border-blue-500'
+        badgeClasses: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20',
+        chipClasses: 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/15'
     },
     delete: {
         title: 'Delete Comments',
-        description: 'Comments with these keywords are removed completely from the thread.',
+        description: 'Comments with these keywords are permanently deleted from your posts.',
         icon: Trash2,
-        accentClasses: 'border-rose-500/20 bg-gradient-to-b from-rose-500/5 to-transparent hover:border-rose-500/40 dark:from-rose-500/5 dark:to-transparent',
-        chipClasses: 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300 hover:bg-rose-500/20',
-        buttonClasses: 'bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-500/20 hover:shadow-rose-500/35',
-        inputBorderClasses: 'focus:border-rose-500'
+        badgeClasses: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20',
+        chipClasses: 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/15'
     }
 };
 
@@ -191,37 +185,39 @@ const CommentModerationView: React.FC = () => {
     }
 
     return (
-        <div className="p-4 sm:p-6 md:p-8 lg:p-12 max-w-6xl mx-auto space-y-8 pb-12">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 dark:border-slate-900 pb-6">
-                <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-lg shadow-indigo-500/20">
-                        <Shield className="w-7 h-7" />
+        <div className="p-4 sm:p-6 md:p-8 max-w-5xl mx-auto space-y-6 pb-12">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border/70">
+                <div className="flex items-center gap-3.5">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+                        <Shield className="w-5 h-5" />
                     </div>
                     <div>
                         <div className="flex items-center gap-2.5 flex-wrap">
-                            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 bg-clip-text text-transparent dark:from-violet-400 dark:via-fuchsia-400 dark:to-pink-400">
+                            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                                 Comment Moderation
                             </h1>
-                            <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 animate-pulse">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                                 Active Protection
                             </span>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1.5 font-medium leading-relaxed">
-                            Manage separate hide and delete keyword lists for comments on your posts and reels.
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Automatically hide or delete unwanted comments on your Instagram posts and reels.
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 self-end md:self-auto">
+                <div className="flex items-center gap-3 self-start sm:self-auto">
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="group relative inline-flex items-center justify-center gap-2.5 overflow-hidden rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:opacity-95 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-5 py-2.5 text-xs font-semibold text-white shadow-xs shadow-[#833AB4]/25 transition hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                     >
                         {saving ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                <span>Saving Rules...</span>
+                                <span>Saving...</span>
                             </>
                         ) : (
                             <>
@@ -233,41 +229,47 @@ const CommentModerationView: React.FC = () => {
                 </div>
             </div>
 
-            <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-slate-800/60 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md p-6 shadow-xl hover:shadow-2xl transition-all duration-300">
-                <div className="absolute -right-16 -top-16 h-36 w-36 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
-                <div className="absolute -left-16 -bottom-16 h-36 w-36 rounded-full bg-violet-500/10 blur-3xl pointer-events-none" />
-                
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    Keyword Exclusivity Rules
-                </p>
-                <p className="mt-3 text-sm leading-relaxed font-medium text-muted-foreground max-w-4xl">
-                    Moderation keywords are kept strictly exclusive. If a word is used here, it cannot be reused in automations or global triggers, and vice versa. This prevents conflicting automation paths.
-                </p>
+            {/* Keyword Exclusivity Info */}
+            <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 sm:p-5 flex items-start gap-3.5">
+                <div className="h-8 w-8 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <Shield className="h-4 w-4" />
+                </div>
+                <div>
+                    <h3 className="text-xs font-semibold text-foreground">Keyword Exclusivity</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                        Keywords assigned here are strictly protected. They cannot overlap between Hide and Delete, and will not conflict with your DM automations.
+                    </p>
+                </div>
             </div>
 
-            <div className="grid gap-8 lg:grid-cols-2">
+            {/* Moderation Action Cards */}
+            <div className="grid gap-6 lg:grid-cols-2">
                 {(['hide', 'delete'] as ModerationAction[]).map((action) => {
                     const meta = ACTION_META[action];
                     const Icon = meta.icon;
                     const keywords = keywordLists[action];
 
                     return (
-                        <div key={action} className={`group relative rounded-[2rem] border border-slate-200/80 dark:border-slate-800/80 shadow-xl overflow-hidden transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl ${meta.accentClasses}`}>
-                            <div className="p-6 sm:p-8 space-y-6">
-                                <div className="flex items-start gap-4">
-                                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-card border border-slate-200/80 dark:border-slate-800/80 shadow-md group-hover:scale-110 transition-transform duration-300">
-                                        <Icon className="w-6 h-6 text-foreground" />
+                        <div key={action} className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs flex flex-col justify-between">
+                            <div className="space-y-5">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted/60 border border-border/60 text-foreground">
+                                            <Icon className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-base font-semibold text-foreground tracking-tight">{meta.title}</h2>
+                                            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{meta.description}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h2 className="text-xl font-black text-foreground tracking-tight">{meta.title}</h2>
-                                        <p className="text-xs text-muted-foreground mt-1.5 font-medium leading-relaxed">{meta.description}</p>
-                                    </div>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold shrink-0 ${meta.badgeClasses}`}>
+                                        {keywords.length} {keywords.length === 1 ? 'word' : 'words'}
+                                    </span>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground/80 block">
-                                        Keywords List
+                                <div className="space-y-3">
+                                    <label className="text-[11px] font-semibold text-muted-foreground block">
+                                        Keywords
                                     </label>
                                     <div className="flex gap-2">
                                         <input
@@ -280,36 +282,39 @@ const CommentModerationView: React.FC = () => {
                                                     addKeyword(action);
                                                 }
                                             }}
-                                            placeholder={`Add a ${action} keyword...`}
-                                            className={`input-base flex-1 rounded-2xl border-2 border-content bg-card/90 py-3.5 px-5 text-xs font-bold outline-none transition-all focus:bg-card ${meta.inputBorderClasses}`}
+                                            placeholder={`Type a keyword and press Add or Enter...`}
+                                            className="input-base flex-1 rounded-xl text-xs py-2 px-3"
                                         />
                                         <button
+                                            type="button"
                                             onClick={() => addKeyword(action)}
-                                            className={`px-5 py-3.5 text-[10px] font-black uppercase tracking-wider rounded-2xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] ${meta.buttonClasses}`}
+                                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-semibold transition active:scale-[0.98]"
                                         >
-                                            <Plus className="w-4 h-4" />
+                                            <Plus className="w-3.5 h-3.5" />
                                             <span>Add</span>
                                         </button>
                                     </div>
 
                                     {keywords.length === 0 ? (
-                                        <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-card/40 px-4 py-8 text-center flex flex-col items-center justify-center">
-                                            <p className="text-xs font-semibold text-muted-foreground">No keywords added yet</p>
-                                            <p className="text-[10px] text-muted-foreground/50 mt-1">Comments will not trigger {meta.title.toLowerCase()}</p>
+                                        <div className="rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 py-7 text-center flex flex-col items-center justify-center">
+                                            <p className="text-xs font-medium text-muted-foreground">No keywords added</p>
+                                            <p className="text-[11px] text-muted-foreground/60 mt-0.5">Add keywords above to enable automatic {meta.title.toLowerCase()}.</p>
                                         </div>
                                     ) : (
-                                        <div className="flex flex-wrap gap-2 max-h-[220px] overflow-y-auto pr-1">
+                                        <div className="flex flex-wrap gap-1.5 max-h-[200px] overflow-y-auto pr-1">
                                             {keywords.map((keyword) => (
                                                 <div
                                                     key={`${action}-${keyword}`}
-                                                    className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] ${meta.chipClasses}`}
+                                                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${meta.chipClasses}`}
                                                 >
                                                     <span>{keyword}</span>
                                                     <button
+                                                        type="button"
                                                         onClick={() => removeKeyword(action, keyword)}
-                                                        className="rounded p-0.5 transition-colors hover:bg-black/10 dark:hover:bg-white/20"
+                                                        className="rounded p-0.5 transition-colors hover:bg-foreground/10"
+                                                        aria-label={`Remove keyword ${keyword}`}
                                                     >
-                                                        <X className="w-3.5 h-3.5" />
+                                                        <X className="w-3 h-3" />
                                                     </button>
                                                 </div>
                                             ))}

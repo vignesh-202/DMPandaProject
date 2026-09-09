@@ -523,14 +523,14 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
         const activeCount = liveAutomations.filter(a => a.is_active !== false).length;
 
         return (
-            <div className="bg-card text-card-foreground rounded-2xl sm:rounded-3xl border border-border/80 p-5 sm:p-7 flex flex-col transition-all">
+            <div className="bg-card text-card-foreground rounded-2xl border border-border/80 p-5 sm:p-6 flex flex-col transition-all">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border/60">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-border/60">
                     <div>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
+                            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">{title}</h2>
                             {liveIsActive ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                     <span className="relative flex h-2 w-2">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -544,10 +544,10 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+                        <p className="text-xs text-muted-foreground mt-1">
                             {liveIsActive
-                                ? 'Your Instagram Live is broadcasting now. Automations below are actively listening and responding to viewer comments.'
-                                : 'Set up automatic responses that engage your audience the moment you go live on Instagram.'}
+                                ? 'Broadcasting live · Automations are actively responding to viewer comments.'
+                                : 'Automate responses to viewer comments during Instagram Live sessions.'}
                         </p>
                     </div>
 
@@ -570,49 +570,13 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                     </div>
                 </div>
 
-                {/* Stream Architecture Overview */}
-                <div className="mt-6 rounded-2xl border border-border/70 bg-muted/20 p-5">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:divide-x md:divide-border/60">
-                        <div className="flex items-start gap-3.5">
-                            <div className="h-9 w-9 shrink-0 rounded-xl border border-border/80 bg-background flex items-center justify-center text-foreground">
-                                <Radio className={`w-4 h-4 ${liveIsActive ? 'text-emerald-500 animate-pulse' : 'text-muted-foreground'}`} />
-                            </div>
-                            <div>
-                                <h3 className="text-xs font-semibold text-foreground">Automatic broadcast detection</h3>
-                                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                                    {liveIsActive
-                                        ? 'Broadcast active! Comments left by viewers trigger direct messages and optional public replies in real time.'
-                                        : 'No manual start needed. When you go live in Instagram, DM Panda detects the session and responds to incoming comments.'}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-start gap-3.5 pt-4 md:pt-0 md:pl-5 border-t md:border-t-0 border-border/60">
-                            <div className="h-9 w-9 shrink-0 rounded-xl border border-border/80 bg-background flex items-center justify-center text-foreground">
-                                <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                            <div>
-                                <h3 className="text-xs font-semibold text-foreground">Supported trigger modes</h3>
-                                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                                    Configure the <strong>Universal</strong> slot to reply to every viewer, or use up to 5 <strong>Keyword</strong> slots to deliver targeted links and offers.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Configured Slots Section */}
-                <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-border/60">
-                    <div>
-                        <div className="flex items-center gap-2.5">
-                            <h3 className="text-base font-semibold text-foreground">Configured Slots</h3>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted text-foreground border border-border/60">
-                                {activeCount} active · {liveAutomations.length} configured
-                            </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            Slots are evaluated whenever comments are received during your live broadcast.
-                        </p>
+                {/* Configured Slots Header */}
+                <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-border/60">
+                    <div className="flex items-center gap-2.5">
+                        <h3 className="text-sm font-semibold text-foreground">Automation Slots</h3>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted text-muted-foreground border border-border/60">
+                            {activeCount} active · {liveAutomations.length} configured
+                        </span>
                     </div>
                 </div>
 
@@ -677,19 +641,19 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                         {/* Slot Content */}
                                         <div className="mt-3.5">
                                             {!isConfigured ? (
-                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                <p className="text-xs text-muted-foreground">
                                                     {isAllComments 
-                                                        ? 'Send an automated DM and optional public reply to every viewer who comments on your stream.'
-                                                        : 'Target specific words like LINK, INFO, or PROMO to deliver instant automated responses.'}
+                                                        ? 'Replies to every viewer comment on stream.'
+                                                        : 'Replies when viewers type targeted keywords.'}
                                                 </p>
                                             ) : isAllComments ? (
-                                                <div className="space-y-1.5">
+                                                <div className="space-y-1">
                                                     <div className="flex items-center gap-1.5 text-xs text-foreground font-medium">
                                                         <Reply className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                                                         <span>Universal responder</span>
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Replies to every live comment regardless of keywords.
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Replies to every comment regardless of keywords.
                                                     </p>
                                                 </div>
                                             ) : (

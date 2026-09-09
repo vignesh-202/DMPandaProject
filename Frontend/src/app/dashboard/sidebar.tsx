@@ -300,30 +300,27 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                     <button
                       key={item.name}
                       onClick={() => handleNavigation(item.name)}
+                      title={isCollapsed ? item.name : undefined}
                       className={cn(
-                        "w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-150 group",
-                        isCollapsed && "justify-center px-2",
+                        "group w-full flex items-center rounded-xl text-sm transition-all duration-150",
+                        isCollapsed ? "justify-center px-2 py-2.5" : "space-x-3 px-3 py-2.5",
                         isActive
-                          ? "bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white font-semibold shadow-md shadow-[#833AB4]/20 hover:opacity-95 active:scale-[0.99]"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground font-medium",
+                          ? "bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white font-semibold shadow-xs shadow-[#833AB4]/25"
+                          : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium",
                         !isActive && isLocked && "opacity-75"
                       )}
                     >
-                      <div className="flex items-center gap-3 truncate">
-                        <Icon className={cn(
-                          "w-[18px] h-[18px] flex-shrink-0 transition-all duration-150",
-                          isActive ? "text-white" : "text-muted-foreground group-hover:text-foreground",
-                          !isActive && "group-hover:scale-105",
-                          isLocked && isCollapsed && "opacity-75"
-                        )} />
-                        {!isCollapsed && (
-                          <span className="truncate">{item.name}</span>
-                        )}
-                      </div>
-
+                      <Icon className={cn(
+                        "h-5 w-5 shrink-0 transition-transform duration-150 group-hover:scale-105",
+                        isActive ? "text-white" : "text-muted-foreground group-hover:text-foreground",
+                        isLocked && isCollapsed && "opacity-75"
+                      )} />
+                      {!isCollapsed && (
+                        <span className="flex-1 text-left truncate">{item.name}</span>
+                      )}
                       {isLocked && !isCollapsed && (
                         <Lock className={cn(
-                          "h-[15px] w-[15px] flex-shrink-0",
+                          "h-4 w-4 shrink-0",
                           isActive ? "text-white/90" : "text-muted-foreground/70"
                         )} />
                       )}
