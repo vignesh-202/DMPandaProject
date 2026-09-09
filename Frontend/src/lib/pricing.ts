@@ -241,6 +241,12 @@ export const buildPlanLimitItems = (plan: PricingPlan): Array<{ label: string; v
   { label: 'Actions / month', value: formatPlanLimit(plan.actions_per_month_limit) }
 ]);
 
+export const META_RATE_LIMITS_SUMMARY = [
+  { label: 'Comment to DM', limit: '750 / hr' },
+  { label: 'Direct Messages', limit: '100 / sec' },
+  { label: 'Comment Actions', limit: '4,800 × views / 24h' }
+];
+
 export const buildPricingComparisonRows = (plans: PricingPlan[]): PricingComparisonRow[] => {
   const rows = new Map<string, PricingComparisonRow>();
 

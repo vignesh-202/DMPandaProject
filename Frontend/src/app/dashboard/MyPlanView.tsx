@@ -43,6 +43,7 @@ import {
   getPlanBigPrice,
   getPlanBilledTotal,
   normalizePricingPayload,
+  META_RATE_LIMITS_SUMMARY,
   pricingPlanMatchesIdentifier
 } from '../../lib/pricing';
 import { toBrowserPreviewUrl } from '../../lib/templatePreview';
@@ -702,13 +703,10 @@ const MyPlanView: React.FC = () => {
                     </div>
                   </div>
                   <InfoPopover
-                    title="Account Limits"
-                    description="Each connected Instagram account operates with independent rate limits based on its assigned plan."
-                    formula="Limits refresh continuously on hourly, daily, and 30-day sliding windows."
-                    notes={[
-                      'Upgrading an account increases its specific limits immediately.',
-                      'Different Instagram accounts can have different plan tiers simultaneously.'
-                    ]}
+                    title="Meta Rate Limits"
+                    badge="Per IG Account"
+                    description="Official Meta ceilings. Each account has independent limits."
+                    rateLimits={META_RATE_LIMITS_SUMMARY}
                   />
                 </div>
 
@@ -1171,9 +1169,17 @@ const MyPlanView: React.FC = () => {
 
                       {/* Plan Limits Box */}
                       <div className="rounded-xl border border-border bg-muted/20 p-3.5 mb-5">
-                        <p className="text-xs font-medium text-muted-foreground mb-2.5">
-                          Included Limits
-                        </p>
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Included Limits
+                          </p>
+                          <InfoPopover
+                            title="Meta Rate Limits"
+                            badge="Per IG Account"
+                            description="Official Meta ceilings. Plan actions operate safely within them."
+                            rateLimits={META_RATE_LIMITS_SUMMARY}
+                          />
+                        </div>
                         <div className="space-y-1.5">
                           {planLimits.map((item) => (
                             <div

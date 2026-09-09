@@ -10,7 +10,8 @@ import {
   buildPlanLimitItems,
   buildPricingComparisonRows,
   formatMoney,
-  normalizePricingPayload
+  normalizePricingPayload,
+  META_RATE_LIMITS_SUMMARY
 } from '../../lib/pricing';
 
 let pricingPageBootstrapPromise: Promise<{
@@ -178,7 +179,7 @@ const PricingPage: React.FC = () => {
                   key={plan.id || plan.plan_code}
                   className={`relative flex flex-col justify-between rounded-3xl p-6 sm:p-7 transition-all duration-300 hover:translate-y-[-2px] ${
                     isPopular
-                      ? 'z-10 bg-gray-900 text-white shadow-2xl ring-2 ring-purple-500/50 dark:bg-gradient-to-b dark:from-purple-950/40 dark:via-neutral-900 dark:to-neutral-950'
+                      ? 'z-10 border-2 border-purple-500 bg-gradient-to-b from-purple-50/70 via-white to-white text-gray-900 shadow-2xl shadow-purple-500/15 ring-2 ring-purple-500/20 dark:border-purple-500/50 dark:bg-gradient-to-b dark:from-purple-950/40 dark:via-neutral-900 dark:to-neutral-950 dark:text-white dark:ring-purple-500/30'
                       : isPro
                       ? 'border-2 border-purple-500/40 bg-gradient-to-b from-purple-50/50 via-white to-white text-gray-900 shadow-xl hover:border-purple-500/60 dark:border-purple-500/40 dark:from-purple-950/25 dark:via-neutral-900/60 dark:to-neutral-950 dark:text-gray-100'
                       : 'border border-gray-200 bg-white text-gray-900 hover:border-gray-300 hover:shadow-xl dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100 dark:hover:border-white/[0.14]'
@@ -203,13 +204,13 @@ const PricingPage: React.FC = () => {
                         <span className="text-3xl font-black sm:text-4xl">
                           {plan.plan_code === 'free' ? 'Free' : formatMoney(effectiveDisplayPrice, currency)}
                         </span>
-                        <span className={`text-xs font-semibold ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
                           /month per account
                         </span>
                       </div>
 
                       {plan.plan_code !== 'free' ? (
-                        <p className={`mt-2 text-xs font-medium ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                        <p className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                           {isYearly && plan.price_yearly_inr > 0
                             ? `Billed annually at ${formatMoney(unitYearly, currency)}/year`
                             : 'Billed monthly, cancel anytime'}
@@ -274,26 +275,27 @@ const PricingPage: React.FC = () => {
                     <div
                       className={`mb-6 rounded-2xl border p-4 ${
                         isPopular
-                          ? 'border-white/10 bg-white/5'
+                          ? 'border-purple-500/20 bg-purple-50/60 dark:border-white/10 dark:bg-white/5'
                           : 'border-gray-200 bg-gray-50/80 dark:border-white/[0.08] dark:bg-white/[0.02]'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3 mb-3">
-                        <p className={`text-[11px] font-bold uppercase tracking-wider ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                           Account Limits
                         </p>
                         <InfoPopover
-                          title="Account Usage Limits"
-                          description="Every connected Instagram account gets its own independent action budget and limits."
-                          formula="Limits reset every hourly, daily, and monthly rolling window."
+                          title="Meta Rate Limits"
+                          badge="Per IG Account"
+                          description="Official Meta ceilings. Plan actions operate safely within these limits."
+                          rateLimits={META_RATE_LIMITS_SUMMARY}
                           className="shrink-0"
                         />
                       </div>
                       <div className="space-y-2.5">
                         {planLimits.map((item) => (
                           <div key={`${plan.id}-${item.label}`} className="flex items-center justify-between gap-4 text-xs">
-                            <span className={isPopular ? 'text-gray-300' : 'text-gray-600 dark:text-gray-400'}>{item.label}</span>
-                            <span className="font-bold">{item.value}</span>
+                            <span className="text-gray-600 dark:text-gray-400">{item.label}</span>
+                            <span className="font-bold text-gray-900 dark:text-white">{item.value}</span>
                           </div>
                         ))}
                       </div>
@@ -301,15 +303,15 @@ const PricingPage: React.FC = () => {
 
                     {/* Features List */}
                     <div className="space-y-3">
-                      <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${isPopular ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                      <p className="text-[11px] font-bold uppercase tracking-wider mb-2 text-gray-500 dark:text-gray-400">
                         Included Features
                       </p>
                       {visibleFeatures.map((feature) => (
                         <div key={`${plan.id || plan.plan_code}-${feature.key}`} className={`flex items-start gap-2.5 text-xs sm:text-sm ${!feature.enabled ? 'opacity-40' : ''}`}>
-                          <div className={`mt-0.5 shrink-0 ${feature.enabled ? (isPopular ? 'text-emerald-400' : 'text-emerald-600 dark:text-emerald-400') : 'text-gray-400 dark:text-gray-500'}`}>
+                          <div className={`mt-0.5 shrink-0 ${feature.enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}>
                             {feature.enabled ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={2.5} />}
                           </div>
-                          <span className={feature.enabled ? 'font-medium leading-snug' : 'line-through text-muted-foreground'}>{feature.label}</span>
+                          <span className={feature.enabled ? 'font-medium leading-snug text-gray-900 dark:text-gray-100' : 'line-through text-muted-foreground'}>{feature.label}</span>
                         </div>
                       ))}
                     </div>
@@ -318,9 +320,7 @@ const PricingPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={toggleAllCards}
-                        className={`mt-4 flex items-center gap-1.5 text-xs font-bold hover:underline ${
-                          isPopular ? 'text-purple-300' : 'text-primary'
-                        }`}
+                        className="mt-4 flex items-center gap-1.5 text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 hover:underline"
                       >
                         {allExpanded ? (
                           <>
@@ -338,7 +338,7 @@ const PricingPage: React.FC = () => {
                   </div>
 
                   {/* CTA Button */}
-                  <div className={`mt-8 border-t pt-5 ${isPopular ? 'border-white/10' : 'border-gray-100 dark:border-white/[0.06]'}`}>
+                  <div className={`mt-8 border-t pt-5 ${isPopular ? 'border-purple-500/20 dark:border-white/10' : 'border-gray-100 dark:border-white/[0.06]'}`}>
                     <AuthRedirectButton
                       className={`flex h-12 w-full items-center justify-center rounded-2xl text-xs font-black uppercase tracking-wider shadow-md transition-all duration-200 active:scale-98 ${
                         isPopular
