@@ -983,13 +983,21 @@ const parseRuntimeFeatures = (profile = null) => {
 
 const buildAccountPlanSnapshot = (plan, existingAccount = null) => {
     const isUnlimited = plan?.plan_code === 'pro' || plan?.plan_code === 'ultra';
-    const hourlyLimit = toFiniteNumber(plan?.actions_per_hour_limit) ?? 100;
-    const dailyLimit = (isUnlimited || plan?.actions_per_day_limit == null || Number(plan?.actions_per_day_limit) <= 0)
-        ? 0
-        : (toFiniteNumber(plan?.actions_per_day_limit) ?? 100);
-    const monthlyLimit = (isUnlimited || plan?.actions_per_month_limit == null || Number(plan?.actions_per_month_limit) <= 0)
-        ? 0
-        : (toFiniteNumber(plan?.actions_per_month_limit) ?? 1000);
+    const isHourlyUnlimited = isUnlimited
+        || String(plan?.actions_per_hour_limit || '').toLowerCase() === 'unlimited'
+        || plan?.actions_per_hour_limit == null;
+    const isDailyUnlimited = isUnlimited
+        || String(plan?.actions_per_day_limit || '').toLowerCase() === 'unlimited'
+        || plan?.actions_per_day_limit == null
+        || Number(plan?.actions_per_day_limit) <= 0;
+    const isMonthlyUnlimited = isUnlimited
+        || String(plan?.actions_per_month_limit || '').toLowerCase() === 'unlimited'
+        || plan?.actions_per_month_limit == null
+        || Number(plan?.actions_per_month_limit) <= 0;
+
+    const hourlyLimit = isHourlyUnlimited ? 0 : (toFiniteNumber(plan?.actions_per_hour_limit) ?? 100);
+    const dailyLimit = isDailyUnlimited ? 0 : (toFiniteNumber(plan?.actions_per_day_limit) ?? 100);
+    const monthlyLimit = isMonthlyUnlimited ? 0 : (toFiniteNumber(plan?.actions_per_month_limit) ?? 1000);
 
     const features = {};
     BENEFIT_KEYS.forEach((key) => {
