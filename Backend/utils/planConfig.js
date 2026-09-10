@@ -1030,28 +1030,34 @@ const resolveIgAccountActionLimits = (account = {}, pricingPlans = []) => {
         effectivePlanCode === 'basic'
             ? { actions_per_hour_limit: 200, actions_per_day_limit: 2500, actions_per_month_limit: 70000 }
             : (effectivePlanCode === 'pro' || effectivePlanCode === 'ultra'
-                ? { actions_per_hour_limit: 750, actions_per_day_limit: null, actions_per_month_limit: null }
+                ? { actions_per_hour_limit: 'unlimited', actions_per_day_limit: 'unlimited', actions_per_month_limit: 'unlimited' }
                 : freePlan)
     );
 
-    const isUnlimited = effectivePlanCode === 'pro' || effectivePlanCode === 'ultra';
-    const defaultHourly = toFiniteNumber(targetPlan?.actions_per_hour_limit) ?? 100;
-    const defaultDaily = (isUnlimited || targetPlan?.actions_per_day_limit == null || Number(targetPlan?.actions_per_day_limit) <= 0)
-        ? 0
-        : (toFiniteNumber(targetPlan?.actions_per_day_limit) ?? 100);
-    const defaultMonthly = (isUnlimited || targetPlan?.actions_per_month_limit == null || Number(targetPlan?.actions_per_month_limit) <= 0)
-        ? 0
-        : (toFiniteNumber(targetPlan?.actions_per_month_limit) ?? 1000);
+    const isHourlyUnlimited = String(targetPlan?.actions_per_hour_limit || '').toLowerCase() === 'unlimited'
+        || effectivePlanCode === 'pro' || effectivePlanCode === 'ultra';
+    const isDailyUnlimited = String(targetPlan?.actions_per_day_limit || '').toLowerCase() === 'unlimited'
+        || targetPlan?.actions_per_day_limit == null
+        || effectivePlanCode === 'pro' || effectivePlanCode === 'ultra';
+    const isMonthlyUnlimited = String(targetPlan?.actions_per_month_limit || '').toLowerCase() === 'unlimited'
+        || targetPlan?.actions_per_month_limit == null
+        || effectivePlanCode === 'pro' || effectivePlanCode === 'ultra';
 
-    const allocatedHourly = (account?.allocated_hourly_credits != null && isActive)
-        ? Number(account.allocated_hourly_credits)
-        : defaultHourly;
-    const allocatedDaily = (isUnlimited && isActive)
+    const defaultHourly = isHourlyUnlimited ? 0 : (toFiniteNumber(targetPlan?.actions_per_hour_limit) ?? 100);
+    const defaultDaily = isDailyUnlimited ? 0 : (toFiniteNumber(targetPlan?.actions_per_day_limit) ?? 100);
+    const defaultMonthly = isMonthlyUnlimited ? 0 : (toFiniteNumber(targetPlan?.actions_per_month_limit) ?? 1000);
+
+    const allocatedHourly = (isHourlyUnlimited && isActive)
+        ? 0
+        : ((account?.allocated_hourly_credits != null && isActive)
+            ? Number(account.allocated_hourly_credits)
+            : defaultHourly);
+    const allocatedDaily = (isDailyUnlimited && isActive)
         ? 0
         : ((account?.allocated_daily_credits != null && isActive)
             ? Number(account.allocated_daily_credits)
             : defaultDaily);
-    const allocatedMonthly = (isUnlimited && isActive)
+    const allocatedMonthly = (isMonthlyUnlimited && isActive)
         ? 0
         : ((account?.allocated_monthly_credits != null && isActive)
             ? Number(account.allocated_monthly_credits)

@@ -10,6 +10,7 @@ interface GaugeProps {
   syncId?: string;
   updatedText?: string;
   className?: string;
+  isUnlimited?: boolean;
 }
 
 export interface GaugeLevelStyle {
@@ -86,7 +87,8 @@ const Gauge: React.FC<GaugeProps> = ({
   showNeedle = true,
   syncId,
   updatedText,
-  className
+  className,
+  isUnlimited = false
 }) => {
   const [animatedPercent, setAnimatedPercent] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -100,7 +102,7 @@ const Gauge: React.FC<GaugeProps> = ({
 
   // Normalize target value
   const targetValue = Math.min(Math.max(value, 0), max);
-  const targetPercent = max > 0 ? (targetValue / max) * 100 : 0;
+  const targetPercent = isUnlimited ? 0 : (max > 0 ? (targetValue / max) * 100 : 0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -473,12 +475,18 @@ const Gauge: React.FC<GaugeProps> = ({
               textShadow: `0 0 20px ${mainColor}40`
             }}
           >
-            {max > 0 ? ((animatedPercent / 100) * max).toFixed(2) : value.toLocaleString()}
+            {isUnlimited ? (
+              <span className="text-3xl sm:text-4xl font-black leading-none">∞</span>
+            ) : (
+              max > 0 ? ((animatedPercent / 100) * max).toFixed(2) : value.toLocaleString()
+            )}
           </div>
           <div className="text-muted-foreground font-semibold text-2xs sm:text-xs mt-1.5 sm:mt-1 uppercase tracking-wide">
-            {updatedText !== undefined
-              ? updatedText
-              : (max > 0 ? `out of ${max.toLocaleString()}` : 'Unlimited')}
+            {isUnlimited
+              ? (updatedText !== undefined ? updatedText : 'Unlimited actions')
+              : (updatedText !== undefined
+                  ? updatedText
+                  : (max > 0 ? `out of ${max.toLocaleString()}` : 'Unlimited'))}
           </div>
           {label && (
             <div className="absolute top-0 text-2xs font-bold uppercase tracking-[0.2em] text-muted-foreground/60">

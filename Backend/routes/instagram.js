@@ -3269,12 +3269,98 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
         const dailyUsage = Number(activeAccountActionState.daily_actions_used || 0);
         const monthlyUsage = Number(activeAccountActionState.monthly_actions_used || 0);
 
+        const nowMs = Date.now();
+        const nowIso = new Date(nowMs).toISOString();
+
+        // Calculate Meta Instagram rolling rate limits and window timers
+        let hourlyWindowStartedMs = igAccount?.hourly_window_started_at ? new Date(igAccount.hourly_window_started_at).getTime() : nowMs;
+        if (Number.isNaN(hourlyWindowStartedMs) || hourlyWindowStartedMs <= 0 || (nowMs - hourlyWindowStartedMs) >= 3600000) {
+            hourlyWindowStartedMs = nowMs;
+        }
+        const hourlyWindowResetMs = hourlyWindowStartedMs + 3600000;
+        const hourlyRemainingSec = Math.max(0, Math.floor((hourlyWindowResetMs - nowMs) / 1000));
+        const hourlyWindowStartedAt = new Date(hourlyWindowStartedMs).toISOString();
+        const hourlyWindowResetsAt = new Date(hourlyWindowResetMs).toISOString();
+
+        let dailyWindowStartedMs = igAccount?.daily_window_started_at ? new Date(igAccount.daily_window_started_at).getTime() : nowMs;
+        if (Number.isNaN(dailyWindowStartedMs) || dailyWindowStartedMs <= 0 || (nowMs - dailyWindowStartedMs) >= 86400000) {
+            dailyWindowStartedMs = nowMs;
+        }
+        const dailyWindowResetMs = dailyWindowStartedMs + 86400000;
+        const dailyRemainingSec = Math.max(0, Math.floor((dailyWindowResetMs - nowMs) / 1000));
+        const dailyWindowStartedAt = new Date(dailyWindowStartedMs).toISOString();
+        const dailyWindowResetsAt = new Date(dailyWindowResetMs).toISOString();
+
+        const metaRateLimits = {
+            hourly_window: {
+                started_at: hourlyWindowStartedAt,
+                resets_at: hourlyWindowResetsAt,
+                remaining_seconds: hourlyRemainingSec
+            },
+            daily_window: {
+                started_at: dailyWindowStartedAt,
+                resets_at: dailyWindowResetsAt,
+                remaining_seconds: dailyRemainingSec
+            },
+            limits: {
+                comment_to_dm: {
+                    label: 'Comment-to-DM Limit',
+                    description: 'Meta hourly rate ceiling for automated DMs sent in response to comments',
+                    used: hourlyUsage,
+                    limit: 750,
+                    unit: 'actions/hr',
+                    window_type: 'hourly',
+                    window_label: '1-Hour Rolling Window',
+                    started_at: hourlyWindowStartedAt,
+                    resets_at: hourlyWindowResetsAt,
+                    remaining_seconds: hourlyRemainingSec
+                },
+                comment_replies: {
+                    label: 'Comment Actions Limit',
+                    description: 'Meta 24-hour safety threshold for automated public comment replies',
+                    used: dailyUsage,
+                    limit: 4800,
+                    unit: 'comments/24h',
+                    window_type: 'daily',
+                    window_label: '24-Hour Rolling Window',
+                    started_at: dailyWindowStartedAt,
+                    resets_at: dailyWindowResetsAt,
+                    remaining_seconds: dailyRemainingSec
+                },
+                platform_api: {
+                    label: 'Platform Graph API Limit',
+                    description: 'Meta platform hourly API request threshold per connected Instagram account',
+                    used: Math.min(200, hourlyUsage),
+                    limit: 200,
+                    unit: 'calls/hr',
+                    window_type: 'hourly',
+                    window_label: '1-Hour Rolling Window',
+                    started_at: hourlyWindowStartedAt,
+                    resets_at: hourlyWindowResetsAt,
+                    remaining_seconds: hourlyRemainingSec
+                },
+                dm_burst_concurrency: {
+                    label: 'DM Concurrency Ceiling',
+                    description: 'Meta peak instantaneous direct messaging concurrency throughput limit',
+                    used: hourlyUsage > 0 ? 1 : 0,
+                    limit: 100,
+                    unit: 'msgs/sec',
+                    window_type: 'instantaneous',
+                    window_label: 'Instantaneous Peak',
+                    started_at: hourlyWindowStartedAt,
+                    resets_at: null,
+                    remaining_seconds: 0
+                }
+            }
+        };
+
         res.json({
             reply_templates: templatesResult.status === 'fulfilled' ? templatesResult.value.total : 0,
             mention: mentionsResult.status === 'fulfilled' ? mentionsResult.value.total : 0,
             welcome_message: welcomeMessageResult.status === 'fulfilled' ? welcomeMessageResult.value.total : 0,
             suggest_more: suggestMoreResult.status === 'fulfilled' ? suggestMoreResult.value.total : 0,
             email_collector: emailCollectorsResult.status === 'fulfilled' ? emailCollectorsResult.value.total : 0,
+            meta_rate_limits: metaRateLimits,
             gauge_metrics: {
                 dm_rate: replyRate,
                 actions_month: monthlyUsage,
@@ -3293,6 +3379,12 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 remained_hourly_credits: Number(activeAccountActionState.remained_hourly_credits ?? Math.max(0, hourlyLimit - hourlyUsage)),
                 remained_daily_credits: Number(activeAccountActionState.remained_daily_credits ?? Math.max(0, dailyLimit - dailyUsage)),
                 remained_monthly_credits: Number(activeAccountActionState.remained_monthly_credits ?? Math.max(0, monthlyLimit - monthlyUsage)),
+                hourly_window_started_at: hourlyWindowStartedAt,
+                hourly_window_resets_at: hourlyWindowResetsAt,
+                hourly_remaining_seconds: hourlyRemainingSec,
+                daily_window_started_at: dailyWindowStartedAt,
+                daily_window_resets_at: dailyWindowResetsAt,
+                daily_remaining_seconds: dailyRemainingSec,
                 usage_source: 'ig_account_counters'
             },
             action_window_metrics: {
@@ -3308,6 +3400,12 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 remained_hourly_credits: Number(activeAccountActionState.remained_hourly_credits ?? Math.max(0, hourlyLimit - hourlyUsage)),
                 remained_daily_credits: Number(activeAccountActionState.remained_daily_credits ?? Math.max(0, dailyLimit - dailyUsage)),
                 remained_monthly_credits: Number(activeAccountActionState.remained_monthly_credits ?? Math.max(0, monthlyLimit - monthlyUsage)),
+                hourly_window_started_at: hourlyWindowStartedAt,
+                hourly_window_resets_at: hourlyWindowResetsAt,
+                hourly_remaining_seconds: hourlyRemainingSec,
+                daily_window_started_at: dailyWindowStartedAt,
+                daily_window_resets_at: dailyWindowResetsAt,
+                daily_remaining_seconds: dailyRemainingSec,
                 usage_source: 'ig_account_counters'
             },
             account_link_metrics: {
@@ -3326,6 +3424,16 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
             welcome_message: 0,
             suggest_more: 0,
             email_collector: 0,
+            meta_rate_limits: {
+                hourly_window: { started_at: new Date().toISOString(), resets_at: new Date(Date.now() + 3600000).toISOString(), remaining_seconds: 3600 },
+                daily_window: { started_at: new Date().toISOString(), resets_at: new Date(Date.now() + 86400000).toISOString(), remaining_seconds: 86400 },
+                limits: {
+                    comment_to_dm: { label: 'Comment-to-DM Limit', used: 0, limit: 750, unit: 'actions/hr', window_type: 'hourly', window_label: '1-Hour Rolling Window', remaining_seconds: 3600 },
+                    comment_replies: { label: 'Comment Actions Limit', used: 0, limit: 4800, unit: 'comments/24h', window_type: 'daily', window_label: '24-Hour Rolling Window', remaining_seconds: 86400 },
+                    platform_api: { label: 'Platform Graph API Limit', used: 0, limit: 200, unit: 'calls/hr', window_type: 'hourly', window_label: '1-Hour Rolling Window', remaining_seconds: 3600 },
+                    dm_burst_concurrency: { label: 'DM Concurrency Ceiling', used: 0, limit: 100, unit: 'msgs/sec', window_type: 'instantaneous', window_label: 'Instantaneous Peak', remaining_seconds: 0 }
+                }
+            },
             gauge_metrics: {
                 dm_rate: 0,
                 actions_month: 0,

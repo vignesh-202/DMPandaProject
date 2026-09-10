@@ -1,7 +1,7 @@
 "use client";
 
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Loader2, RefreshCw, Clock3, UserCircle2, ChevronDown } from 'lucide-react';
+import { Download, Loader2, RefreshCw, Clock3, UserCircle2, ChevronDown, Instagram, Zap, ShieldCheck } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import Card from '../../components/ui/card';
 import Gauge, { getGaugeLevelStyle } from '../../components/ui/gauge';
@@ -210,6 +210,19 @@ const GraphFilterDropdown = ({
     );
 };
 
+const formatResetTime = (seconds: number | undefined): string => {
+    if (seconds == null || seconds <= 0) return 'Resetting now';
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const remainingSecs = seconds % 60;
+    if (mins < 60) {
+        return `${mins}m ${remainingSecs < 10 ? '0' : ''}${remainingSecs}s`;
+    }
+    const hours = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    return `${hours}h ${remMins}m ${remainingSecs < 10 ? '0' : ''}${remainingSecs}s`;
+};
+
 const ActionLimitGaugeCard = ({
     label,
     value,
@@ -245,6 +258,7 @@ const ActionLimitGaugeCard = ({
                     size="lg"
                     syncId="analytics-action-limits"
                     updatedText={isUnlimited ? 'Unlimited actions' : updatedText}
+                    isUnlimited={isUnlimited}
                 />
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/50 pt-2.5 text-center text-xs">
@@ -270,6 +284,128 @@ const ActionLimitGaugeCard = ({
                 <div className="rounded-lg bg-primary/10 px-2 py-1.5 border border-primary/20">
                     <p className="text-xs font-medium text-primary">Allocated</p>
                     <p className="text-sm font-bold text-foreground">{isUnlimited ? 'Unlimited' : allocated.toLocaleString()}</p>
+                </div>
+            </div>
+        </Card>
+    );
+};
+
+const MetaRateLimitGaugeCard = ({
+    label,
+    description,
+    value,
+    limit,
+    unit,
+    windowLabel,
+    startedAt,
+    resetsAt,
+    remainingSeconds,
+    syncId
+}: {
+    label: string;
+    description?: string;
+    value: number;
+    limit: number;
+    unit: string;
+    windowLabel: string;
+    startedAt?: string;
+    resetsAt?: string | null;
+    remainingSeconds?: number;
+    syncId?: string;
+}) => {
+    const levelStyle = getGaugeLevelStyle(value, limit);
+    const percentUsed = Math.min(100, Math.round((Math.max(0, value) / Math.max(1, limit)) * 100));
+
+    return (
+        <Card
+            variant="elevated"
+            className="relative flex flex-col justify-between p-4 group ig-card min-h-[260px] border border-border/70 shadow-xs hover:shadow-md transition-all duration-300 rounded-2xl"
+        >
+            <div>
+                <div className="flex items-center justify-between w-full gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="w-6 h-6 rounded-lg bg-linear-to-br from-pink-500/20 via-purple-500/20 to-amber-500/20 flex items-center justify-center border border-pink-500/30 shrink-0">
+                            <Instagram className="w-3.5 h-3.5 text-pink-500" />
+                        </div>
+                        <h3 className="text-xs font-bold text-foreground truncate">
+                            {label}
+                        </h3>
+                    </div>
+                    <span
+                        className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 transition-all",
+                            levelStyle.bgClass,
+                            levelStyle.textClass,
+                            levelStyle.borderClass
+                        )}
+                    >
+                        {levelStyle.level}
+                    </span>
+                </div>
+                {description && (
+                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">
+                        {description}
+                    </p>
+                )}
+            </div>
+
+            <div className="flex-1 flex items-center justify-center py-2">
+                <Gauge
+                    value={value}
+                    max={limit}
+                    size="lg"
+                    syncId={syncId || 'meta-rate-limits'}
+                    updatedText={`out of ${limit.toLocaleString()} ${unit}`}
+                />
+            </div>
+
+            <div className="space-y-2 border-t border-border/50 pt-2.5 text-xs">
+                <div className="grid grid-cols-2 gap-2 text-center">
+                    <div
+                        className={cn(
+                            "rounded-lg px-2 py-1.5 border transition-all",
+                            levelStyle.bgClass,
+                            levelStyle.borderClass
+                        )}
+                        style={{
+                            backgroundColor: `${levelStyle.color}14`,
+                            borderColor: `${levelStyle.color}35`
+                        }}
+                    >
+                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: levelStyle.color }}>
+                            Used
+                        </p>
+                        <p className="text-sm font-bold text-foreground">
+                            {value.toLocaleString()} <span className="text-2xs font-normal text-muted-foreground">({percentUsed}%)</span>
+                        </p>
+                    </div>
+
+                    <div className="rounded-lg bg-primary/10 px-2 py-1.5 border border-primary/20 flex flex-col justify-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                            Window Reset
+                        </p>
+                        <p className="text-xs font-bold text-foreground truncate">
+                            {resetsAt ? (
+                                remainingSeconds != null && remainingSeconds > 0
+                                    ? formatResetTime(remainingSeconds)
+                                    : 'Resetting now'
+                            ) : (
+                                'Peak Burst'
+                            )}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
+                    <span className="flex items-center gap-1 truncate">
+                        <Clock3 className="w-3 h-3 text-muted-foreground/70 shrink-0" />
+                        <span className="truncate">{windowLabel}</span>
+                    </span>
+                    {startedAt && (
+                        <span className="shrink-0 text-muted-foreground/80">
+                            Started {new Date(startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                    )}
                 </div>
             </div>
         </Card>
@@ -544,6 +680,105 @@ const AnalyticsView: React.FC = () => {
         allocated_monthly_credits: 0,
         remained_monthly_credits: 0,
     });
+    const [metaRateLimits, setMetaRateLimits] = useState<{
+        hourly_window?: { started_at: string; resets_at: string; remaining_seconds: number };
+        daily_window?: { started_at: string; resets_at: string; remaining_seconds: number };
+        limits?: {
+            comment_to_dm?: {
+                label: string;
+                description?: string;
+                used: number;
+                limit: number;
+                unit: string;
+                window_type: 'hourly' | 'daily' | 'instantaneous';
+                window_label: string;
+                started_at?: string;
+                resets_at?: string | null;
+                remaining_seconds?: number;
+            };
+            comment_replies?: {
+                label: string;
+                description?: string;
+                used: number;
+                limit: number;
+                unit: string;
+                window_type: 'hourly' | 'daily' | 'instantaneous';
+                window_label: string;
+                started_at?: string;
+                resets_at?: string | null;
+                remaining_seconds?: number;
+            };
+            platform_api?: {
+                label: string;
+                description?: string;
+                used: number;
+                limit: number;
+                unit: string;
+                window_type: 'hourly' | 'daily' | 'instantaneous';
+                window_label: string;
+                started_at?: string;
+                resets_at?: string | null;
+                remaining_seconds?: number;
+            };
+            dm_burst_concurrency?: {
+                label: string;
+                description?: string;
+                used: number;
+                limit: number;
+                unit: string;
+                window_type: 'hourly' | 'daily' | 'instantaneous';
+                window_label: string;
+                started_at?: string;
+                resets_at?: string | null;
+                remaining_seconds?: number;
+            };
+        };
+    } | null>(null);
+
+    // Live countdown timer for Meta rate limit reset windows
+    useEffect(() => {
+        if (!metaRateLimits) return;
+        const interval = setInterval(() => {
+            setMetaRateLimits((prev) => {
+                if (!prev) return prev;
+                const now = Date.now();
+
+                const updateWindow = (win?: { started_at: string; resets_at: string; remaining_seconds: number }) => {
+                    if (!win?.resets_at) return win;
+                    const diffMs = new Date(win.resets_at).getTime() - now;
+                    return {
+                        ...win,
+                        remaining_seconds: Math.max(0, Math.floor(diffMs / 1000))
+                    };
+                };
+
+                const updateItem = (item?: any) => {
+                    if (!item?.resets_at) return item;
+                    const diffMs = new Date(item.resets_at).getTime() - now;
+                    return {
+                        ...item,
+                        remaining_seconds: Math.max(0, Math.floor(diffMs / 1000))
+                    };
+                };
+
+                return {
+                    ...prev,
+                    hourly_window: updateWindow(prev.hourly_window),
+                    daily_window: updateWindow(prev.daily_window),
+                    limits: {
+                        ...prev.limits,
+                        comment_to_dm: updateItem(prev.limits?.comment_to_dm),
+                        comment_replies: updateItem(prev.limits?.comment_replies),
+                        platform_api: updateItem(prev.limits?.platform_api),
+                        dm_burst_concurrency: prev.limits?.dm_burst_concurrency
+                    }
+                };
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [metaRateLimits]);
+
     const [loadingLogs, setLoadingLogs] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [refreshingAll, setRefreshingAll] = useState(false);
@@ -689,6 +924,9 @@ const AnalyticsView: React.FC = () => {
         }
         const data = await res.json();
         const nextMetrics = data?.action_window_metrics || data?.gauge_metrics || {};
+        if (data?.meta_rate_limits) {
+            setMetaRateLimits(data.meta_rate_limits);
+        }
         const hourlyLimit = Number(nextMetrics.allocated_hourly_credits ?? nextMetrics.hourly_action_limit ?? 0);
         const dailyLimit = Number(nextMetrics.allocated_daily_credits ?? nextMetrics.daily_action_limit ?? 0);
         const monthlyLimit = Number(nextMetrics.allocated_monthly_credits ?? nextMetrics.monthly_action_limit ?? 0);
@@ -914,26 +1152,44 @@ const AnalyticsView: React.FC = () => {
             }));
     }, [deferredVisibleLogs]);
 
-    const actionLimitStats = useMemo(() => ({
-        hour: {
-            value: Number(actionUsageMetrics.hourly_actions_used || 0),
-            max: Math.max(Number(actionUsageMetrics.allocated_hourly_credits || actionUsageMetrics.hourly_action_limit || planLimits.hourly_action_limit || 0), 1),
-            allocated: Number(actionUsageMetrics.allocated_hourly_credits || actionUsageMetrics.hourly_action_limit || planLimits.hourly_action_limit || 0),
-            remained: Number(actionUsageMetrics.remained_hourly_credits || 0)
-        },
-        day: {
-            value: Number(actionUsageMetrics.daily_actions_used || 0),
-            max: Math.max(Number(actionUsageMetrics.allocated_daily_credits || actionUsageMetrics.daily_action_limit || planLimits.daily_action_limit || 0), 1),
-            allocated: Number(actionUsageMetrics.allocated_daily_credits || actionUsageMetrics.daily_action_limit || planLimits.daily_action_limit || 0),
-            remained: Number(actionUsageMetrics.remained_daily_credits || 0)
-        },
-        month: {
-            value: Number(actionUsageMetrics.monthly_actions_used || 0),
-            max: Math.max(Number(actionUsageMetrics.allocated_monthly_credits || actionUsageMetrics.monthly_action_limit || planLimits.monthly_action_limit || 0), 1),
-            allocated: Number(actionUsageMetrics.allocated_monthly_credits || actionUsageMetrics.monthly_action_limit || planLimits.monthly_action_limit || 0),
-            remained: Number(actionUsageMetrics.remained_monthly_credits || 0)
-        }
-    }), [
+    const isProAccount = useMemo(() => {
+        const code = String(activeAccount?.plan_code || '').toLowerCase();
+        return code === 'pro' || code === 'ultra';
+    }, [activeAccount?.plan_code]);
+
+    const actionLimitStats = useMemo(() => {
+        const hourlyAllocated = isProAccount
+            ? 0
+            : Number(actionUsageMetrics.allocated_hourly_credits ?? actionUsageMetrics.hourly_action_limit ?? planLimits.hourly_action_limit ?? 0);
+        const dailyAllocated = isProAccount
+            ? 0
+            : Number(actionUsageMetrics.allocated_daily_credits ?? actionUsageMetrics.daily_action_limit ?? planLimits.daily_action_limit ?? 0);
+        const monthlyAllocated = isProAccount
+            ? 0
+            : Number(actionUsageMetrics.allocated_monthly_credits ?? actionUsageMetrics.monthly_action_limit ?? planLimits.monthly_action_limit ?? 0);
+
+        return {
+            hour: {
+                value: Number(actionUsageMetrics.hourly_actions_used || 0),
+                max: hourlyAllocated <= 0 ? 0 : Math.max(hourlyAllocated, 1),
+                allocated: hourlyAllocated,
+                remained: hourlyAllocated <= 0 ? 0 : Number(actionUsageMetrics.remained_hourly_credits || 0)
+            },
+            day: {
+                value: Number(actionUsageMetrics.daily_actions_used || 0),
+                max: dailyAllocated <= 0 ? 0 : Math.max(dailyAllocated, 1),
+                allocated: dailyAllocated,
+                remained: dailyAllocated <= 0 ? 0 : Number(actionUsageMetrics.remained_daily_credits || 0)
+            },
+            month: {
+                value: Number(actionUsageMetrics.monthly_actions_used || 0),
+                max: monthlyAllocated <= 0 ? 0 : Math.max(monthlyAllocated, 1),
+                allocated: monthlyAllocated,
+                remained: monthlyAllocated <= 0 ? 0 : Number(actionUsageMetrics.remained_monthly_credits || 0)
+            }
+        };
+    }, [
+        isProAccount,
         actionUsageMetrics.allocated_daily_credits,
         actionUsageMetrics.allocated_hourly_credits,
         actionUsageMetrics.allocated_monthly_credits,
@@ -1112,31 +1368,115 @@ const AnalyticsView: React.FC = () => {
                 </Card>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                <ActionLimitGaugeCard
-                    label="Hourly Action Usage"
-                    value={actionLimitStats.hour.value}
-                    max={actionLimitStats.hour.max}
-                    allocated={actionLimitStats.hour.allocated}
-                    remained={actionLimitStats.hour.remained}
-                    updatedText={`out of ${actionLimitStats.hour.allocated.toLocaleString()}`}
-                />
-                <ActionLimitGaugeCard
-                    label="Daily Action Usage"
-                    value={actionLimitStats.day.value}
-                    max={actionLimitStats.day.max}
-                    allocated={actionLimitStats.day.allocated}
-                    remained={actionLimitStats.day.remained}
-                    updatedText={`out of ${actionLimitStats.day.allocated.toLocaleString()}`}
-                />
-                <ActionLimitGaugeCard
-                    label="Monthly Action Usage"
-                    value={actionLimitStats.month.value}
-                    max={actionLimitStats.month.max}
-                    allocated={actionLimitStats.month.allocated}
-                    remained={actionLimitStats.month.remained}
-                    updatedText={`out of ${actionLimitStats.month.allocated.toLocaleString()}`}
-                />
+            {/* Meta Instagram Platform Rate Limits Section */}
+            <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-lg bg-linear-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center text-white shrink-0 shadow-xs">
+                                <Instagram className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <h2 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
+                                Meta Instagram API Rate Limits & Safety Ceilings
+                            </h2>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Real-time rolling window constraints enforced by Meta Instagram Graph API. Window timers reset automatically based on account activity.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <MetaRateLimitGaugeCard
+                        label="Comment-to-DM Limit"
+                        description="Meta hourly rolling limit for automated DMs from comments"
+                        value={metaRateLimits?.limits?.comment_to_dm?.used ?? actionUsageMetrics.hourly_actions_used ?? 0}
+                        limit={metaRateLimits?.limits?.comment_to_dm?.limit ?? 750}
+                        unit="actions/hr"
+                        windowLabel="1-Hour Rolling Window"
+                        startedAt={metaRateLimits?.limits?.comment_to_dm?.started_at ?? metaRateLimits?.hourly_window?.started_at}
+                        resetsAt={metaRateLimits?.limits?.comment_to_dm?.resets_at ?? metaRateLimits?.hourly_window?.resets_at}
+                        remainingSeconds={metaRateLimits?.limits?.comment_to_dm?.remaining_seconds ?? metaRateLimits?.hourly_window?.remaining_seconds}
+                        syncId="meta-rate-limits-hourly"
+                    />
+                    <MetaRateLimitGaugeCard
+                        label="Comment Actions Limit"
+                        description="Meta 24-hour safety threshold for automated comments"
+                        value={metaRateLimits?.limits?.comment_replies?.used ?? actionUsageMetrics.daily_actions_used ?? 0}
+                        limit={metaRateLimits?.limits?.comment_replies?.limit ?? 4800}
+                        unit="comments/24h"
+                        windowLabel="24-Hour Rolling Window"
+                        startedAt={metaRateLimits?.limits?.comment_replies?.started_at ?? metaRateLimits?.daily_window?.started_at}
+                        resetsAt={metaRateLimits?.limits?.comment_replies?.resets_at ?? metaRateLimits?.daily_window?.resets_at}
+                        remainingSeconds={metaRateLimits?.limits?.comment_replies?.remaining_seconds ?? metaRateLimits?.daily_window?.remaining_seconds}
+                        syncId="meta-rate-limits-daily"
+                    />
+                    <MetaRateLimitGaugeCard
+                        label="Platform Graph API Limit"
+                        description="Meta platform hourly API call threshold"
+                        value={metaRateLimits?.limits?.platform_api?.used ?? Math.min(200, actionUsageMetrics.hourly_actions_used) ?? 0}
+                        limit={metaRateLimits?.limits?.platform_api?.limit ?? 200}
+                        unit="calls/hr"
+                        windowLabel="1-Hour Rolling Window"
+                        startedAt={metaRateLimits?.limits?.platform_api?.started_at ?? metaRateLimits?.hourly_window?.started_at}
+                        resetsAt={metaRateLimits?.limits?.platform_api?.resets_at ?? metaRateLimits?.hourly_window?.resets_at}
+                        remainingSeconds={metaRateLimits?.limits?.platform_api?.remaining_seconds ?? metaRateLimits?.hourly_window?.remaining_seconds}
+                        syncId="meta-rate-limits-platform"
+                    />
+                    <MetaRateLimitGaugeCard
+                        label="DM Concurrency Ceiling"
+                        description="Meta maximum peak burst direct messaging speed"
+                        value={metaRateLimits?.limits?.dm_burst_concurrency?.used ?? (actionUsageMetrics.hourly_actions_used > 0 ? 1 : 0)}
+                        limit={metaRateLimits?.limits?.dm_burst_concurrency?.limit ?? 100}
+                        unit="msgs/sec"
+                        windowLabel="Peak Concurrency"
+                        startedAt={metaRateLimits?.limits?.dm_burst_concurrency?.started_at}
+                        resetsAt={null}
+                        remainingSeconds={0}
+                        syncId="meta-rate-limits-burst"
+                    />
+                </div>
+            </div>
+
+            {/* Account Plan Action Limits */}
+            <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <div>
+                        <h2 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
+                            Account Action Budget & Plan Quotas
+                        </h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Action budgets allocated by your current plan ({String(activeAccount?.plan_code || 'FREE').toUpperCase()}). Pro plan accounts have unlimited action usage.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <ActionLimitGaugeCard
+                        label="Hourly Action Usage"
+                        value={actionLimitStats.hour.value}
+                        max={actionLimitStats.hour.max}
+                        allocated={actionLimitStats.hour.allocated}
+                        remained={actionLimitStats.hour.remained}
+                        updatedText={actionLimitStats.hour.allocated <= 0 ? 'Unlimited actions' : `out of ${actionLimitStats.hour.allocated.toLocaleString()}`}
+                    />
+                    <ActionLimitGaugeCard
+                        label="Daily Action Usage"
+                        value={actionLimitStats.day.value}
+                        max={actionLimitStats.day.max}
+                        allocated={actionLimitStats.day.allocated}
+                        remained={actionLimitStats.day.remained}
+                        updatedText={actionLimitStats.day.allocated <= 0 ? 'Unlimited actions' : `out of ${actionLimitStats.day.allocated.toLocaleString()}`}
+                    />
+                    <ActionLimitGaugeCard
+                        label="Monthly Action Usage"
+                        value={actionLimitStats.month.value}
+                        max={actionLimitStats.month.max}
+                        allocated={actionLimitStats.month.allocated}
+                        remained={actionLimitStats.month.remained}
+                        updatedText={actionLimitStats.month.allocated <= 0 ? 'Unlimited actions' : `out of ${actionLimitStats.month.allocated.toLocaleString()}`}
+                    />
+                </div>
             </div>
 
             <Card className="p-6 border border-border rounded-2xl bg-card/95 shadow-xs">

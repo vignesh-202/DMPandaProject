@@ -55,6 +55,7 @@ const GaugeCard = ({
           size="lg"
           syncId="dashboard-gauges"
           updatedText={isUnlimited ? 'Unlimited actions' : updatedText}
+          isUnlimited={isUnlimited}
         />
       </div>
 
@@ -161,26 +162,38 @@ const DashboardOverviewView: React.FC = () => {
     {
       label: 'Hourly Action Usage',
       value: gaugeMetrics.hourly_actions_used,
-      max: Math.max(gaugeMetrics.allocated_hourly_credits || gaugeMetrics.hourly_action_limit, 1),
-      allocated: gaugeMetrics.allocated_hourly_credits || gaugeMetrics.hourly_action_limit,
+      max: (gaugeMetrics.allocated_hourly_credits ?? gaugeMetrics.hourly_action_limit ?? 0) <= 0
+        ? 0
+        : Math.max(gaugeMetrics.allocated_hourly_credits ?? gaugeMetrics.hourly_action_limit, 1),
+      allocated: gaugeMetrics.allocated_hourly_credits ?? gaugeMetrics.hourly_action_limit ?? 0,
       remained: gaugeMetrics.remained_hourly_credits,
-      updatedText: `out of ${(gaugeMetrics.allocated_hourly_credits || gaugeMetrics.hourly_action_limit || 0).toLocaleString()}`
+      updatedText: (gaugeMetrics.allocated_hourly_credits ?? gaugeMetrics.hourly_action_limit ?? 0) <= 0
+        ? 'Unlimited actions'
+        : `out of ${(gaugeMetrics.allocated_hourly_credits ?? gaugeMetrics.hourly_action_limit ?? 0).toLocaleString()}`
     },
     {
       label: 'Daily Action Usage',
       value: gaugeMetrics.daily_actions_used,
-      max: Math.max(gaugeMetrics.allocated_daily_credits || gaugeMetrics.daily_action_limit, 1),
-      allocated: gaugeMetrics.allocated_daily_credits || gaugeMetrics.daily_action_limit,
+      max: (gaugeMetrics.allocated_daily_credits ?? gaugeMetrics.daily_action_limit ?? 0) <= 0
+        ? 0
+        : Math.max(gaugeMetrics.allocated_daily_credits ?? gaugeMetrics.daily_action_limit, 1),
+      allocated: gaugeMetrics.allocated_daily_credits ?? gaugeMetrics.daily_action_limit ?? 0,
       remained: gaugeMetrics.remained_daily_credits,
-      updatedText: `out of ${(gaugeMetrics.allocated_daily_credits || gaugeMetrics.daily_action_limit || 0).toLocaleString()}`
+      updatedText: (gaugeMetrics.allocated_daily_credits ?? gaugeMetrics.daily_action_limit ?? 0) <= 0
+        ? 'Unlimited actions'
+        : `out of ${(gaugeMetrics.allocated_daily_credits ?? gaugeMetrics.daily_action_limit ?? 0).toLocaleString()}`
     },
     {
       label: 'Monthly Action Usage',
       value: gaugeMetrics.monthly_actions_used,
-      max: Math.max(gaugeMetrics.allocated_monthly_credits || gaugeMetrics.monthly_action_limit, 1),
-      allocated: gaugeMetrics.allocated_monthly_credits || gaugeMetrics.monthly_action_limit,
+      max: (gaugeMetrics.allocated_monthly_credits ?? gaugeMetrics.monthly_action_limit ?? 0) <= 0
+        ? 0
+        : Math.max(gaugeMetrics.allocated_monthly_credits ?? gaugeMetrics.monthly_action_limit, 1),
+      allocated: gaugeMetrics.allocated_monthly_credits ?? gaugeMetrics.monthly_action_limit ?? 0,
       remained: gaugeMetrics.remained_monthly_credits,
-      updatedText: `out of ${(gaugeMetrics.allocated_monthly_credits || gaugeMetrics.monthly_action_limit || 0).toLocaleString()}`
+      updatedText: (gaugeMetrics.allocated_monthly_credits ?? gaugeMetrics.monthly_action_limit ?? 0) <= 0
+        ? 'Unlimited actions'
+        : `out of ${(gaugeMetrics.allocated_monthly_credits ?? gaugeMetrics.monthly_action_limit ?? 0).toLocaleString()}`
     },
   ];
 
