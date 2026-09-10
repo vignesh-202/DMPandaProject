@@ -284,21 +284,23 @@ const PricingPage: React.FC = () => {
                         <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                           Account Limits
                         </p>
-                        {isPro && (
-                          <InfoPopover
-                            title="Meta Rate Limits"
-                            badge="Per IG Account"
-                            description="Official Meta ceilings. Actions on the Pro plan run directly at Meta's maximum allowed limits."
-                            rateLimits={META_RATE_LIMITS_SUMMARY}
-                            className="shrink-0"
-                          />
-                        )}
                       </div>
                       <div className="space-y-2.5">
                         {planLimits.map((item) => (
                           <div key={`${plan.id}-${item.label}`} className="flex items-center justify-between gap-4 text-xs">
-                            <span className="text-gray-600 dark:text-gray-400">{item.label}</span>
-                            <span className="font-bold text-gray-900 dark:text-white">{item.value}</span>
+                            <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                              <span>{item.label}</span>
+                              {isPro && item.label === 'Actions / hour' && (
+                                <InfoPopover
+                                  title="Meta Rate Limits"
+                                  badge="Per IG Account"
+                                  description="Official Meta ceilings. Actions on the Pro plan run directly at Meta's maximum allowed limits."
+                                  rateLimits={META_RATE_LIMITS_SUMMARY}
+                                  className="shrink-0"
+                                />
+                              )}
+                            </span>
+                            <span className="font-bold text-gray-900 dark:text-white text-right">{item.value}</span>
                           </div>
                         ))}
                       </div>

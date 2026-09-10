@@ -214,7 +214,7 @@
         "yearly_monthly_inr": 399
       },
       "limits": {
-        "actions_per_hour_limit": 750,
+        "actions_per_hour_limit": "based on meta rate limits",
         "actions_per_day_limit": null,
         "actions_per_month_limit": null
       },

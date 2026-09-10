@@ -26,9 +26,9 @@ export type PricingPlan = {
   feature_items?: Array<{ key: string; label: string; enabled: boolean }>;
   feature_flags?: Record<string, boolean>;
   comparison: PricingComparisonItem[];
-  limits?: Record<string, number | null>;
+  limits?: Record<string, number | string | null>;
   instagram_connections_limit?: number | null;
-  actions_per_hour_limit: number | null;
+  actions_per_hour_limit: number | string | null;
   actions_per_day_limit: number | null;
   actions_per_month_limit: number | null;
 };
@@ -69,6 +69,16 @@ const toNullableNumber = (...values: unknown[]): number | null => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+const toNullableNumberOrString = (...values: unknown[]): number | string | null => {
+  const found = values.find((value) => value !== null && value !== undefined && value !== '');
+  if (found === undefined) return null;
+  if (typeof found === 'string' && isNaN(Number(found))) {
+    return found.trim();
+  }
+  const numeric = Number(found);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
 export const normalizePlan = (raw: any): PricingPlan => ({
   id: String(
     raw?.id
@@ -95,7 +105,7 @@ export const normalizePlan = (raw: any): PricingPlan => ({
   feature_flags: raw?.features && typeof raw.features === 'object' && !Array.isArray(raw.features) ? raw.features : undefined,
   comparison: parseObjectArray(raw?.comparison ?? raw?.comparison_json),
   limits: raw?.limits,
-  actions_per_hour_limit: toNullableNumber(raw?.limits?.actions_per_hour_limit, raw?.limits?.per_hour, raw?.actions_per_hour_limit),
+  actions_per_hour_limit: toNullableNumberOrString(raw?.limits?.actions_per_hour_limit, raw?.limits?.per_hour, raw?.actions_per_hour_limit),
   actions_per_day_limit: toNullableNumber(raw?.limits?.actions_per_day_limit, raw?.limits?.per_day, raw?.actions_per_day_limit),
   actions_per_month_limit: toNullableNumber(raw?.limits?.actions_per_month_limit, raw?.limits?.per_month, raw?.actions_per_month_limit)
 });
@@ -205,11 +215,16 @@ export const formatMoney = (value: number, _currency?: string) => {
   }).format(Number(value || 0));
 };
 
-export const formatPlanLimit = (value: number | null, suffix?: string) => {
-  if (value == null || value <= 0) return 'Unlimited';
+export const formatPlanLimit = (value: number | string | null, suffix?: string) => {
+  if (value == null || value === '' || value === 0) return 'Unlimited';
+  if (typeof value === 'string' && isNaN(Number(value))) {
+    return value.trim();
+  }
+  const numeric = Number(value);
+  if (numeric <= 0) return 'Unlimited';
   const formatted = new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 0
-  }).format(Number(value || 0));
+  }).format(numeric);
   return suffix ? `${formatted} ${suffix}` : formatted;
 };
 
@@ -227,26 +242,25 @@ const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
   {
     key: 'actions_per_hour_limit',
     label: 'Actions per hour',
-    value: (plan) => isProPlan(plan) ? '750 (Meta Limit)' : formatPlanLimit(plan.actions_per_hour_limit)
+    value: (plan) => isProPlan(plan) ? 'Based on Meta rate limits' : formatPlanLimit(plan.actions_per_hour_limit)
   },
   {
     key: 'actions_per_day_limit',
     label: 'Actions per day',
-    value: (plan) => isProPlan(plan) ? '4,800 × views (Meta)' : formatPlanLimit(plan.actions_per_day_limit)
+    value: (plan) => isProPlan(plan) ? 'Unlimited' : formatPlanLimit(plan.actions_per_day_limit)
   },
   {
     key: 'actions_per_month_limit',
     label: 'Actions per month',
-    value: (plan) => formatPlanLimit(plan.actions_per_month_limit)
+    value: (plan) => isProPlan(plan) ? 'Unlimited' : formatPlanLimit(plan.actions_per_month_limit)
   }
 ];
 
 export const buildPlanLimitItems = (plan: PricingPlan): Array<{ label: string; value: string }> => {
   if (isProPlan(plan)) {
     return [
-      { label: 'Comment to DM', value: '750 / hr (Meta Limit)' },
-      { label: 'Direct Messages', value: '100 / sec (Meta Limit)' },
-      { label: 'Comment Actions', value: '4,800 × views / 24h' },
+      { label: 'Actions / hour', value: 'Based on Meta rate limits' },
+      { label: 'Actions / day', value: 'Unlimited' },
       { label: 'Actions / month', value: 'Unlimited' }
     ];
   }

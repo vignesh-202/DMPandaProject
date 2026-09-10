@@ -702,36 +702,43 @@ const MyPlanView: React.FC = () => {
                       <p className="text-[11px] text-muted-foreground">Per account automation limits</p>
                     </div>
                   </div>
-                  {(planCode === 'pro' || planCode === 'ultra' || currentPlanName.toLowerCase().includes('pro')) && (
-                    <InfoPopover
-                      title="Meta Rate Limits"
-                      badge="Per IG Account"
-                      description="Official Meta ceilings. Actions on the Pro plan run directly at Meta's maximum certified rate limits."
-                      rateLimits={META_RATE_LIMITS_SUMMARY}
-                    />
-                  )}
                 </div>
 
                 <div className="space-y-3 mt-4">
                   {(planCode === 'pro' || planCode === 'ultra' || currentPlanName.toLowerCase().includes('pro')) ? (
                     <>
-                      {/* Meta Rate Limits Breakdown */}
-                      <div className="rounded-xl border border-border bg-muted/20 p-3.5 text-xs space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Comment to DM</span>
-                          <span className="font-semibold text-foreground">750 / hr (Meta Limit)</span>
+                      {/* Hourly Action Limit */}
+                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-medium text-muted-foreground flex items-center gap-1.5">
+                            Actions / hour
+                            <InfoPopover
+                              title="Meta Rate Limits"
+                              badge="Per IG Account"
+                              description="Official Meta ceilings. Actions on the Pro plan run directly at Meta's maximum allowed limits."
+                              rateLimits={META_RATE_LIMITS_SUMMARY}
+                              className="shrink-0"
+                            />
+                          </span>
+                          <span className="font-semibold text-foreground">Based on Meta rate limits</span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Direct Messages</span>
-                          <span className="font-semibold text-foreground">100 / sec (Meta Limit)</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Comment Actions</span>
-                          <span className="font-semibold text-foreground">4,800 × views / 24h</span>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div className="h-full bg-primary rounded-full w-full" />
                         </div>
                       </div>
 
-                      {/* Monthly Action Limit at bottom */}
+                      {/* Daily Action Limit */}
+                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-medium text-muted-foreground">Actions / day</span>
+                          <span className="font-semibold text-foreground">Unlimited</span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div className="h-full bg-primary rounded-full w-full" />
+                        </div>
+                      </div>
+
+                      {/* Monthly Action Limit */}
                       <div className="rounded-xl border border-border bg-muted/20 p-3.5">
                         <div className="flex items-center justify-between text-xs mb-1.5">
                           <span className="font-medium text-muted-foreground">Actions / month</span>

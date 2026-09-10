@@ -26,7 +26,7 @@ type PricingPlan = {
   is_popular: boolean;
   is_custom?: boolean;
   display_order?: number;
-  actions_per_hour_limit?: number;
+  actions_per_hour_limit?: number | string;
   actions_per_day_limit?: number;
   actions_per_month_limit?: number;
   features: string[];
@@ -447,17 +447,30 @@ export const PricingPage: React.FC = () => {
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {numericFields.map((field) => (
-                      <div key={String(field.key)} className="rounded-[24px] border border-border/70 bg-background/60 p-4">
-                        <label className="text-[10px] font-black text-muted-foreground">{field.label}</label>
-                        <input
-                          type="number"
-                          value={Number(plan[field.key] || 0)}
-                          onChange={(event) => updatePlan(plan.id, field.key, Number(event.target.value || 0))}
-                          className="input-base mt-3"
-                        />
-                      </div>
-                    ))}
+                    {numericFields.map((field) => {
+                      const isHourly = field.key === 'actions_per_hour_limit';
+                      const rawVal = plan[field.key];
+                      const isStringVal = typeof rawVal === 'string' && isNaN(Number(rawVal));
+
+                      return (
+                        <div key={String(field.key)} className="rounded-[24px] border border-border/70 bg-background/60 p-4">
+                          <label className="text-[10px] font-black text-muted-foreground">{field.label}</label>
+                          <input
+                            type={isHourly && isStringVal ? 'text' : 'number'}
+                            value={rawVal != null ? String(rawVal) : ''}
+                            onChange={(event) => {
+                              const val = event.target.value;
+                              if (isHourly) {
+                                updatePlan(plan.id, field.key, isNaN(Number(val)) ? val : Number(val));
+                              } else {
+                                updatePlan(plan.id, field.key, Number(val || 0));
+                              }
+                            }}
+                            className="input-base mt-3"
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <div className="rounded-[30px] border border-border/70 bg-background/60 p-5">

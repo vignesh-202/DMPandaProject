@@ -353,7 +353,9 @@ const normalizePlanDocument = (plan) => {
         entitlements,
         instagram_connections_limit: activeAccountLimit,
         instagram_link_limit: linkedAccountLimit != null ? linkedAccountLimit : activeAccountLimit,
-        actions_per_hour_limit: toFiniteNumber(plan?.actions_per_hour_limit) || 0,
+        actions_per_hour_limit: typeof plan?.actions_per_hour_limit === 'string' && isNaN(Number(plan.actions_per_hour_limit))
+            ? String(plan.actions_per_hour_limit).trim()
+            : (toFiniteNumber(plan?.actions_per_hour_limit) || 0),
         actions_per_day_limit: normalizeStoredLimit(plan?.actions_per_day_limit),
         actions_per_month_limit: monthlyLimit,
         monthly_duration_days: toFiniteNumber(plan?.monthly_duration_days) || PLAN_DURATION_DAYS.monthly,
@@ -389,7 +391,9 @@ const getPlanLimitsEnvelope = (limits = {}) => {
     const accountEnvelope = buildAccountLimitEnvelope(limits);
     const connections = Number(accountEnvelope.instagram_connections_limit || 0);
     const linkLimit = Number(accountEnvelope.instagram_link_limit || connections || 0);
-    const hourly = Number(limits.hourly_action_limit ?? limits.actions_per_hour_limit ?? 0);
+    const rawHourly = limits.hourly_action_limit ?? limits.actions_per_hour_limit;
+    const isStringHourly = typeof rawHourly === 'string' && isNaN(Number(rawHourly));
+    const hourly = isStringHourly ? rawHourly.trim() : Number(rawHourly || 0);
     const dailyRaw = limits.daily_action_limit ?? limits.actions_per_day_limit;
     const daily = dailyRaw == null || Number(dailyRaw) <= 0 ? null : Number(dailyRaw);
     const monthlyRaw = limits.monthly_action_limit ?? limits.actions_per_month_limit;
@@ -1279,7 +1283,9 @@ const resolvePlanEntitlements = (plan, profile = null) => {
 };
 
 const resolvePlanLimits = (plan, profile = null) => {
-    const hourlyPlanLimit = toFiniteNumber(plan?.actions_per_hour_limit);
+    const rawHourlyPlanLimit = plan?.actions_per_hour_limit;
+    const isHourlyString = typeof rawHourlyPlanLimit === 'string' && isNaN(Number(rawHourlyPlanLimit));
+    const hourlyPlanLimit = isHourlyString ? rawHourlyPlanLimit.trim() : toFiniteNumber(rawHourlyPlanLimit);
     const dailyPlanLimit = normalizeStoredLimit(plan?.actions_per_day_limit);
     const monthlyPlanLimit = normalizeStoredLimit(plan?.actions_per_month_limit);
     const planActiveLimit = toFiniteNumber(plan?.instagram_connections_limit) || 0;

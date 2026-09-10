@@ -221,7 +221,9 @@ const normalizePlan = (plan) => {
         button_text: normalized.button_text,
         instagram_connections_limit: Number(normalized.instagram_connections_limit || 0),
         instagram_link_limit: Number(normalized.instagram_link_limit || normalized.instagram_connections_limit || 0),
-        actions_per_hour_limit: Number(normalized.actions_per_hour_limit || 0),
+        actions_per_hour_limit: typeof normalized.actions_per_hour_limit === 'string' && isNaN(Number(normalized.actions_per_hour_limit))
+            ? normalized.actions_per_hour_limit.trim()
+            : Number(normalized.actions_per_hour_limit || 0),
         actions_per_day_limit: Number(normalized.actions_per_day_limit || 0),
         actions_per_month_limit: Number(normalized.actions_per_month_limit || 0),
         features: normalized.features,
@@ -2971,7 +2973,9 @@ router.patch('/pricing/:planId', loginRequired, adminRequired, async (req, res) 
             is_custom: Boolean(req.body?.is_custom),
             display_order: Number(req.body?.display_order || 0),
             button_text: String(req.body?.button_text || 'Choose Plan'),
-            actions_per_hour_limit: Number(req.body?.actions_per_hour_limit || 0),
+            actions_per_hour_limit: typeof req.body?.actions_per_hour_limit === 'string' && isNaN(Number(req.body.actions_per_hour_limit))
+                ? req.body.actions_per_hour_limit.trim()
+                : Number(req.body?.actions_per_hour_limit || 0),
             actions_per_day_limit: Number(req.body?.actions_per_day_limit || 0),
             actions_per_month_limit: Number(req.body?.actions_per_month_limit || 0),
             features: JSON.stringify(Array.isArray(req.body?.features) ? req.body.features : parseFeatures(req.body?.features)),
