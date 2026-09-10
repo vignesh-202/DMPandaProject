@@ -968,15 +968,15 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                                   setExpandedPlanDetailsId((prev) => (prev === entry.id ? null : entry.id));
                                 }}
                                 className={cn(
-                                  "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wide uppercase transition-all duration-150 active:scale-95",
+                                  "inline-flex items-center gap-1 px-2 py-1 rounded-lg transition-all duration-150 active:scale-95",
                                   isExpanded
-                                    ? "bg-primary/20 text-primary border border-primary/30"
-                                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 border border-border/60"
+                                    ? "bg-primary/15 text-primary border border-primary/30 shadow-xs"
+                                    : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60"
                                 )}
                                 title={isExpanded ? "Hide plan details" : "View plan details"}
+                                aria-label={isExpanded ? "Hide plan details" : "View plan details"}
                               >
-                                <Eye className="h-3 w-3" />
-                                <span>{isExpanded ? "Hide Details" : "View Details"}</span>
+                                <Eye className="h-3.5 w-3.5" />
                                 <ChevronDown
                                   className={cn("h-3 w-3 transition-transform duration-200", isExpanded && "rotate-180")}
                                 />
