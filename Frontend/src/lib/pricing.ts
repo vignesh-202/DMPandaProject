@@ -29,8 +29,8 @@ export type PricingPlan = {
   limits?: Record<string, number | string | null>;
   instagram_connections_limit?: number | null;
   actions_per_hour_limit: number | string | null;
-  actions_per_day_limit: number | null;
-  actions_per_month_limit: number | null;
+  actions_per_day_limit: number | string | null;
+  actions_per_month_limit: number | string | null;
 };
 
 const slugifyIdentifier = (value: unknown) =>
@@ -106,8 +106,8 @@ export const normalizePlan = (raw: any): PricingPlan => ({
   comparison: parseObjectArray(raw?.comparison ?? raw?.comparison_json),
   limits: raw?.limits,
   actions_per_hour_limit: toNullableNumberOrString(raw?.limits?.actions_per_hour_limit, raw?.limits?.per_hour, raw?.actions_per_hour_limit),
-  actions_per_day_limit: toNullableNumber(raw?.limits?.actions_per_day_limit, raw?.limits?.per_day, raw?.actions_per_day_limit),
-  actions_per_month_limit: toNullableNumber(raw?.limits?.actions_per_month_limit, raw?.limits?.per_month, raw?.actions_per_month_limit)
+  actions_per_day_limit: toNullableNumberOrString(raw?.limits?.actions_per_day_limit, raw?.limits?.per_day, raw?.actions_per_day_limit),
+  actions_per_month_limit: toNullableNumberOrString(raw?.limits?.actions_per_month_limit, raw?.limits?.per_month, raw?.actions_per_month_limit)
 });
 
 export const normalizePricingPayload = (payload: any): PricingPlan[] => {
@@ -215,10 +215,15 @@ export const formatMoney = (value: number, _currency?: string) => {
   }).format(Number(value || 0));
 };
 
-export const formatPlanLimit = (value: number | string | null, suffix?: string) => {
+export const formatPlanLimit = (value: number | string | null | undefined, suffix?: string) => {
   if (value == null || value === '' || value === 0) return 'Unlimited';
-  if (typeof value === 'string' && isNaN(Number(value))) {
-    return value.trim();
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.toLowerCase() === 'unlimited') return 'Unlimited';
+    if (trimmed.toLowerCase() === 'based on meta rate limits') return 'Based on Meta rate limits';
+    if (isNaN(Number(trimmed))) {
+      return trimmed;
+    }
   }
   const numeric = Number(value);
   if (numeric <= 0) return 'Unlimited';
@@ -242,29 +247,21 @@ const DEFAULT_LIMIT_COMPARISON_ROWS: Array<{
   {
     key: 'actions_per_hour_limit',
     label: 'Actions per hour',
-    value: (plan) => isProPlan(plan) ? 'Based on Meta rate limits' : formatPlanLimit(plan.actions_per_hour_limit)
+    value: (plan) => formatPlanLimit(plan.actions_per_hour_limit)
   },
   {
     key: 'actions_per_day_limit',
     label: 'Actions per day',
-    value: (plan) => isProPlan(plan) ? 'Unlimited' : formatPlanLimit(plan.actions_per_day_limit)
+    value: (plan) => formatPlanLimit(plan.actions_per_day_limit)
   },
   {
     key: 'actions_per_month_limit',
     label: 'Actions per month',
-    value: (plan) => isProPlan(plan) ? 'Unlimited' : formatPlanLimit(plan.actions_per_month_limit)
+    value: (plan) => formatPlanLimit(plan.actions_per_month_limit)
   }
 ];
 
 export const buildPlanLimitItems = (plan: PricingPlan): Array<{ label: string; value: string }> => {
-  if (isProPlan(plan)) {
-    return [
-      { label: 'Actions / hour', value: 'Based on Meta rate limits' },
-      { label: 'Actions / day', value: 'Unlimited' },
-      { label: 'Actions / month', value: 'Unlimited' }
-    ];
-  }
-
   return [
     { label: 'Actions / hour', value: formatPlanLimit(plan.actions_per_hour_limit) },
     { label: 'Actions / day', value: formatPlanLimit(plan.actions_per_day_limit) },

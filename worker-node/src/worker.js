@@ -472,20 +472,30 @@ class DMWorker {
 
         const isFreePlan = effectivePlanCode === 'free';
         const allocatedHourly = igAccount?.allocated_hourly_credits != null
-            ? Number(igAccount.allocated_hourly_credits)
-            : (isFreePlan ? 100 : Number(igAccount?.hourly_action_limit ?? profile?.hourly_action_limit ?? 100));
+            ? (String(igAccount.allocated_hourly_credits).toLowerCase().includes('meta') ? 'based on meta rate limits' : Number(igAccount.allocated_hourly_credits))
+            : (igAccount?.hourly_action_limit ?? profile?.hourly_action_limit ?? 100);
         const rawDailyCredit = igAccount?.allocated_daily_credits ?? igAccount?.daily_action_limit ?? profile?.daily_action_limit;
-        const allocatedDaily = isFreePlan ? 100 : (rawDailyCredit == null || Number(rawDailyCredit) <= 0 ? null : Number(rawDailyCredit));
+        const allocatedDaily = String(rawDailyCredit || '').toLowerCase() === 'unlimited'
+            ? 'unlimited'
+            : ((rawDailyCredit != null && Number(rawDailyCredit) > 0) ? Number(rawDailyCredit) : (rawDailyCredit ?? null));
         const rawMonthlyCredit = igAccount?.allocated_monthly_credits ?? igAccount?.monthly_action_limit ?? profile?.monthly_action_limit;
-        const allocatedMonthly = isFreePlan ? 1000 : (rawMonthlyCredit == null || Number(rawMonthlyCredit) <= 0 ? null : Number(rawMonthlyCredit));
+        const allocatedMonthly = String(rawMonthlyCredit || '').toLowerCase() === 'unlimited'
+            ? 'unlimited'
+            : ((rawMonthlyCredit != null && Number(rawMonthlyCredit) > 0) ? Number(rawMonthlyCredit) : (rawMonthlyCredit ?? null));
 
         const hourlyActionsUsed = Number(igAccount?.hourly_actions_used ?? 0);
         const dailyActionsUsed = Number(igAccount?.daily_actions_used ?? 0);
         const monthlyActionsUsed = Number(igAccount?.monthly_actions_used ?? 0);
 
-        const remainedHourly = allocatedHourly != null ? Math.max(0, allocatedHourly - hourlyActionsUsed) : null;
-        const remainedDaily = allocatedDaily != null ? Math.max(0, allocatedDaily - dailyActionsUsed) : null;
-        const remainedMonthly = allocatedMonthly != null ? Math.max(0, allocatedMonthly - monthlyActionsUsed) : null;
+        const remainedHourly = allocatedHourly === 'based on meta rate limits' || String(allocatedHourly || '').toLowerCase().includes('meta')
+            ? 'based on meta rate limits'
+            : (allocatedHourly != null && !isNaN(Number(allocatedHourly)) ? Math.max(0, Number(allocatedHourly) - hourlyActionsUsed) : null);
+        const remainedDaily = allocatedDaily === 'unlimited'
+            ? 'unlimited'
+            : (allocatedDaily != null && !isNaN(Number(allocatedDaily)) ? Math.max(0, Number(allocatedDaily) - dailyActionsUsed) : null);
+        const remainedMonthly = allocatedMonthly === 'unlimited'
+            ? 'unlimited'
+            : (allocatedMonthly != null && !isNaN(Number(allocatedMonthly)) ? Math.max(0, Number(allocatedMonthly) - monthlyActionsUsed) : null);
 
         return {
             ...profile,
@@ -537,15 +547,15 @@ class DMWorker {
         const nextDaily = Number(budget.usage.daily_actions_used || 0) + pending + delta;
         const nextMonthly = Number(budget.usage.monthly_actions_used || 0) + pending + delta;
 
-        if (Number(budget.limits.hourly_action_limit || 0) > 0 && nextHourly > Number(budget.limits.hourly_action_limit || 0)) {
+        if (budget.limits.hourly_action_limit !== 'based on meta rate limits' && Number(budget.limits.hourly_action_limit || 0) > 0 && nextHourly > Number(budget.limits.hourly_action_limit || 0)) {
             return { allowed: false, code: 'hourly_action_limit_reached', reason: 'meta_api_hourly_limit_reached' };
         }
 
-        if (Number(budget.limits.daily_action_limit || 0) > 0 && nextDaily > Number(budget.limits.daily_action_limit || 0)) {
+        if (budget.limits.daily_action_limit !== 'unlimited' && Number(budget.limits.daily_action_limit || 0) > 0 && nextDaily > Number(budget.limits.daily_action_limit || 0)) {
             return { allowed: false, code: 'daily_action_limit_reached', reason: 'meta_api_daily_limit_reached' };
         }
 
-        if (budget.limits.monthly_action_limit != null && Number(budget.limits.monthly_action_limit || 0) > 0 && nextMonthly > Number(budget.limits.monthly_action_limit || 0)) {
+        if (budget.limits.monthly_action_limit !== 'unlimited' && budget.limits.monthly_action_limit != null && Number(budget.limits.monthly_action_limit || 0) > 0 && nextMonthly > Number(budget.limits.monthly_action_limit || 0)) {
             return { allowed: false, code: 'monthly_action_limit_reached', reason: 'meta_api_monthly_limit_reached' };
         }
 

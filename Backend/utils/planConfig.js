@@ -395,9 +395,11 @@ const getPlanLimitsEnvelope = (limits = {}) => {
     const isStringHourly = typeof rawHourly === 'string' && isNaN(Number(rawHourly));
     const hourly = isStringHourly ? rawHourly.trim() : Number(rawHourly || 0);
     const dailyRaw = limits.daily_action_limit ?? limits.actions_per_day_limit;
-    const daily = dailyRaw == null || Number(dailyRaw) <= 0 ? null : Number(dailyRaw);
+    const isStringDaily = typeof dailyRaw === 'string' && isNaN(Number(dailyRaw));
+    const daily = isStringDaily ? dailyRaw.trim().toLowerCase() : (dailyRaw == null || Number(dailyRaw) <= 0 ? 'unlimited' : Number(dailyRaw));
     const monthlyRaw = limits.monthly_action_limit ?? limits.actions_per_month_limit;
-    const monthly = monthlyRaw == null || Number(monthlyRaw) <= 0 ? null : Number(monthlyRaw);
+    const isStringMonthly = typeof monthlyRaw === 'string' && isNaN(Number(monthlyRaw));
+    const monthly = isStringMonthly ? monthlyRaw.trim().toLowerCase() : (monthlyRaw == null || Number(monthlyRaw) <= 0 ? 'unlimited' : Number(monthlyRaw));
     return {
         connections,
         instagram_connections_limit: connections,

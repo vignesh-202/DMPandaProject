@@ -2976,8 +2976,12 @@ router.patch('/pricing/:planId', loginRequired, adminRequired, async (req, res) 
             actions_per_hour_limit: typeof req.body?.actions_per_hour_limit === 'string' && isNaN(Number(req.body.actions_per_hour_limit))
                 ? req.body.actions_per_hour_limit.trim()
                 : Number(req.body?.actions_per_hour_limit || 0),
-            actions_per_day_limit: Number(req.body?.actions_per_day_limit || 0),
-            actions_per_month_limit: Number(req.body?.actions_per_month_limit || 0),
+            actions_per_day_limit: typeof req.body?.actions_per_day_limit === 'string' && isNaN(Number(req.body.actions_per_day_limit))
+                ? req.body.actions_per_day_limit.trim().toLowerCase()
+                : (req.body?.actions_per_day_limit == null || req.body?.actions_per_day_limit === '' ? 'unlimited' : String(req.body?.actions_per_day_limit)),
+            actions_per_month_limit: typeof req.body?.actions_per_month_limit === 'string' && isNaN(Number(req.body.actions_per_month_limit))
+                ? req.body.actions_per_month_limit.trim().toLowerCase()
+                : (req.body?.actions_per_month_limit == null || req.body?.actions_per_month_limit === '' ? 'unlimited' : String(req.body?.actions_per_month_limit)),
             features: JSON.stringify(Array.isArray(req.body?.features) ? req.body.features : parseFeatures(req.body?.features)),
             comparison_json: JSON.stringify(Array.isArray(req.body?.comparison) ? req.body.comparison : [])
         };

@@ -14,10 +14,21 @@ const numberOrZero = (value) => {
 
 const normalizeActionLimits = (profile = {}) => {
     const parsed = parseJsonObject(profile?.limits_json, {});
-    const hourly = numberOrZero(profile?.allocated_hourly_credits ?? parsed.hourly_action_limit ?? parsed.per_hour ?? profile?.hourly_action_limit);
-    const daily = numberOrZero(profile?.allocated_daily_credits ?? parsed.daily_action_limit ?? parsed.per_day ?? profile?.daily_action_limit);
+    const hourlyRaw = profile?.allocated_hourly_credits ?? parsed.hourly_action_limit ?? parsed.per_hour ?? profile?.hourly_action_limit;
+    const hourly = String(hourlyRaw || '').toLowerCase().includes('meta')
+        ? 'based on meta rate limits'
+        : numberOrZero(hourlyRaw);
+
+    const dailyRaw = profile?.allocated_daily_credits ?? parsed.daily_action_limit ?? parsed.per_day ?? profile?.daily_action_limit;
+    const daily = String(dailyRaw || '').toLowerCase() === 'unlimited'
+        ? 'unlimited'
+        : numberOrZero(dailyRaw);
+
     const monthlyRaw = profile?.allocated_monthly_credits ?? parsed.monthly_action_limit ?? parsed.per_month ?? profile?.monthly_action_limit;
-    const monthly = monthlyRaw == null ? null : numberOrZero(monthlyRaw);
+    const monthly = String(monthlyRaw || '').toLowerCase() === 'unlimited'
+        ? 'unlimited'
+        : (monthlyRaw == null ? null : numberOrZero(monthlyRaw));
+
     return {
         hourly_action_limit: hourly,
         daily_action_limit: daily,
@@ -33,13 +44,13 @@ const evaluateActionRateLimit = (profile = {}) => {
         monthly_actions_used: numberOrZero(profile.monthly_actions_used)
     };
 
-    if (limits.hourly_action_limit > 0 && usage.hourly_actions_used >= limits.hourly_action_limit) {
+    if (limits.hourly_action_limit !== 'based on meta rate limits' && typeof limits.hourly_action_limit === 'number' && limits.hourly_action_limit > 0 && usage.hourly_actions_used >= limits.hourly_action_limit) {
         return { allowed: false, blocked: true, code: 'hourly_action_limit_reached', stage: 'hourly_limit', limits, usage };
     }
-    if (limits.daily_action_limit > 0 && usage.daily_actions_used >= limits.daily_action_limit) {
+    if (limits.daily_action_limit !== 'unlimited' && typeof limits.daily_action_limit === 'number' && limits.daily_action_limit > 0 && usage.daily_actions_used >= limits.daily_action_limit) {
         return { allowed: false, blocked: true, code: 'daily_action_limit_reached', stage: 'daily_limit', limits, usage };
     }
-    if (limits.monthly_action_limit > 0 && usage.monthly_actions_used >= limits.monthly_action_limit) {
+    if (limits.monthly_action_limit !== 'unlimited' && typeof limits.monthly_action_limit === 'number' && limits.monthly_action_limit > 0 && usage.monthly_actions_used >= limits.monthly_action_limit) {
         return { allowed: false, blocked: true, code: 'monthly_action_limit_reached', stage: 'monthly_limit', limits, usage };
     }
 

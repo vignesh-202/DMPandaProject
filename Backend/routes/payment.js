@@ -1707,8 +1707,8 @@ router.get('/my-plan', loginRequired, async (req, res) => {
                 entitlements,
                 limits: {
                     hourly_action_limit: effectivePricingPlan?.actions_per_hour_limit ?? 100,
-                    daily_action_limit: (effectivePricingPlan?.plan_code === 'pro' || effectivePricingPlan?.plan_code === 'ultra' || effectivePricingPlan?.actions_per_day_limit == null) ? null : effectivePricingPlan.actions_per_day_limit,
-                    monthly_action_limit: (effectivePricingPlan?.plan_code === 'pro' || effectivePricingPlan?.plan_code === 'ultra' || effectivePricingPlan?.actions_per_month_limit == null) ? null : effectivePricingPlan.actions_per_month_limit
+                    daily_action_limit: effectivePricingPlan?.actions_per_day_limit ?? 'unlimited',
+                    monthly_action_limit: effectivePricingPlan?.actions_per_month_limit ?? 'unlimited'
                 },
                 details: {
                     name: planName,

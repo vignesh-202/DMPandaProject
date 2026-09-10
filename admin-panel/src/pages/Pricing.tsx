@@ -27,8 +27,8 @@ type PricingPlan = {
   is_custom?: boolean;
   display_order?: number;
   actions_per_hour_limit?: number | string;
-  actions_per_day_limit?: number;
-  actions_per_month_limit?: number;
+  actions_per_day_limit?: number | string;
+  actions_per_month_limit?: number | string;
   features: string[];
   comparison?: Array<{ key?: string; label?: string; value?: boolean | string | number }>;
   entitlements?: Record<string, boolean>;
@@ -448,7 +448,7 @@ export const PricingPage: React.FC = () => {
 
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {numericFields.map((field) => {
-                      const isHourly = field.key === 'actions_per_hour_limit';
+                      const isLimitField = field.key === 'actions_per_hour_limit' || field.key === 'actions_per_day_limit' || field.key === 'actions_per_month_limit';
                       const rawVal = plan[field.key];
                       const isStringVal = typeof rawVal === 'string' && isNaN(Number(rawVal));
 
@@ -456,11 +456,11 @@ export const PricingPage: React.FC = () => {
                         <div key={String(field.key)} className="rounded-[24px] border border-border/70 bg-background/60 p-4">
                           <label className="text-[10px] font-black text-muted-foreground">{field.label}</label>
                           <input
-                            type={isHourly && isStringVal ? 'text' : 'number'}
+                            type={isLimitField && isStringVal ? 'text' : 'number'}
                             value={rawVal != null ? String(rawVal) : ''}
                             onChange={(event) => {
                               const val = event.target.value;
-                              if (isHourly) {
+                              if (isLimitField) {
                                 updatePlan(plan.id, field.key, isNaN(Number(val)) ? val : Number(val));
                               } else {
                                 updatePlan(plan.id, field.key, Number(val || 0));

@@ -39,6 +39,7 @@ import {
   PricingPlan,
   buildPlanLimitItems,
   formatMoney,
+  formatPlanLimit,
   getPaidCheckoutPlans,
   getPlanBigPrice,
   getPlanBilledTotal,
@@ -69,9 +70,9 @@ export type AccountPlanDetail = {
   is_active: boolean;
   is_expired: boolean;
   limits?: {
-    hourly_action_limit?: number;
-    daily_action_limit?: number;
-    monthly_action_limit?: number;
+    hourly_action_limit?: number | string;
+    daily_action_limit?: number | string;
+    monthly_action_limit?: number | string;
   };
   details?: {
     name: string;
@@ -102,9 +103,9 @@ export type UserPlan = {
     yearly_bonus?: string;
   } | null;
   limits?: {
-    hourly_action_limit?: number;
-    daily_action_limit?: number;
-    monthly_action_limit?: number;
+    hourly_action_limit?: number | string;
+    daily_action_limit?: number | string;
+    monthly_action_limit?: number | string;
     instagram_connections_limit?: number;
   };
   active_account_plan?: AccountPlanDetail | null;
@@ -758,96 +759,61 @@ const MyPlanView: React.FC = () => {
                 </div>
 
                 <div className="space-y-3 mt-4">
-                  {(planCode === 'pro' || planCode === 'ultra' || currentPlanName.toLowerCase().includes('pro')) ? (
-                    <>
-                      {/* Hourly Action Limit */}
-                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="font-medium text-muted-foreground flex items-center gap-1.5">
-                            Actions / hour
-                            <InfoPopover
-                              title="Meta Rate Limits"
-                              badge="Per IG Account"
-                              description="Official Meta ceilings. Actions on the Pro plan run directly at Meta's maximum allowed limits."
-                              rateLimits={META_RATE_LIMITS_SUMMARY}
-                              className="shrink-0"
-                            />
-                          </span>
-                          <span className="font-semibold text-foreground">Based on Meta rate limits</span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                          <div className="h-full bg-primary rounded-full w-full" />
-                        </div>
-                      </div>
+                  {/* Hourly Action Limit */}
+                  <div className="rounded-xl border border-border bg-muted/20 p-3.5">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-medium text-muted-foreground flex items-center gap-1.5">
+                        Actions / hour
+                        {String(plan?.limits?.hourly_action_limit ?? '').toLowerCase().includes('meta') && (
+                          <InfoPopover
+                            title="Meta Rate Limits"
+                            badge="Per IG Account"
+                            description="Official Meta ceilings. Actions run directly at Meta's maximum allowed limits."
+                            rateLimits={META_RATE_LIMITS_SUMMARY}
+                            className="shrink-0"
+                          />
+                        )}
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {String(plan?.limits?.hourly_action_limit ?? '').toLowerCase().includes('meta')
+                          ? 'Based on Meta rate limits'
+                          : `${formatPlanLimit(plan?.limits?.hourly_action_limit ?? 100)} / hr`}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary rounded-full w-full" />
+                    </div>
+                  </div>
 
-                      {/* Daily Action Limit */}
-                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="font-medium text-muted-foreground">Actions / day</span>
-                          <span className="font-semibold text-foreground">Unlimited</span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                          <div className="h-full bg-primary rounded-full w-full" />
-                        </div>
-                      </div>
+                  {/* Daily Action Limit */}
+                  <div className="rounded-xl border border-border bg-muted/20 p-3.5">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-medium text-muted-foreground">Actions / day</span>
+                      <span className="font-semibold text-foreground">
+                        {String(plan?.limits?.daily_action_limit ?? '').toLowerCase() === 'unlimited'
+                          ? 'Unlimited'
+                          : `${formatPlanLimit(plan?.limits?.daily_action_limit)} / day`}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary rounded-full w-full" />
+                    </div>
+                  </div>
 
-                      {/* Monthly Action Limit */}
-                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="font-medium text-muted-foreground">Actions / month</span>
-                          <span className="font-semibold text-foreground">Unlimited</span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                          <div className="h-full bg-primary rounded-full w-full" />
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {/* Hourly Action Limit */}
-                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="font-medium text-muted-foreground">Hourly Action Limit</span>
-                          <span className="font-semibold text-foreground">
-                            {plan?.limits?.hourly_action_limit ?? 100} / hr
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                          <div className="h-full bg-primary rounded-full w-3/4" />
-                        </div>
-                      </div>
-
-                      {/* Daily Action Limit */}
-                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="font-medium text-muted-foreground">Daily Action Limit</span>
-                          <span className="font-semibold text-foreground">
-                            {plan?.limits?.daily_action_limit == null
-                              ? 'Unlimited'
-                              : `${Number(plan.limits.daily_action_limit).toLocaleString()} / day`}
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                          <div className="h-full bg-primary rounded-full w-4/5" />
-                        </div>
-                      </div>
-
-                      {/* Monthly Action Limit */}
-                      <div className="rounded-xl border border-border bg-muted/20 p-3.5">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="font-medium text-muted-foreground">Monthly Action Limit</span>
-                          <span className="font-semibold text-foreground">
-                            {plan?.limits?.monthly_action_limit == null
-                              ? 'Unlimited'
-                              : `${Number(plan.limits.monthly_action_limit).toLocaleString()} / mo`}
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                          <div className="h-full bg-primary rounded-full w-full" />
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  {/* Monthly Action Limit */}
+                  <div className="rounded-xl border border-border bg-muted/20 p-3.5">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-medium text-muted-foreground">Actions / month</span>
+                      <span className="font-semibold text-foreground">
+                        {String(plan?.limits?.monthly_action_limit ?? '').toLowerCase() === 'unlimited'
+                          ? 'Unlimited'
+                          : `${formatPlanLimit(plan?.limits?.monthly_action_limit)} / mo`}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary rounded-full w-full" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -909,7 +875,13 @@ const MyPlanView: React.FC = () => {
                   account.account_id === activeAccountID ||
                   (plan?.active_account_plan && plan.active_account_plan.account_id === account.account_id);
                 const isAccountPaid = account.is_active && account.plan_code !== 'free';
-                const isAccountPro = account.plan_code === 'pro' || account.plan_code === 'ultra' || (account.plan_name && account.plan_name.toLowerCase().includes('pro'));
+                const hourlyLimitVal = account.limits?.hourly_action_limit ?? 100;
+                const isMetaHourly = String(hourlyLimitVal).toLowerCase().includes('meta');
+                const dailyLimitVal = account.limits?.daily_action_limit;
+                const isDailyUnlimited = String(dailyLimitVal ?? '').toLowerCase() === 'unlimited' || dailyLimitVal == null;
+                const monthlyLimitVal = account.limits?.monthly_action_limit;
+                const isMonthlyUnlimited = String(monthlyLimitVal ?? '').toLowerCase() === 'unlimited' || monthlyLimitVal == null;
+                const monthlyNumeric = Number(monthlyLimitVal);
                 const parsedAccExpiry = account.expires_at ? new Date(account.expires_at) : null;
                 const accExpiryFormatted = parsedAccExpiry && !Number.isNaN(parsedAccExpiry.getTime())
                   ? parsedAccExpiry.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
@@ -1024,26 +996,24 @@ const MyPlanView: React.FC = () => {
                       <div className="grid grid-cols-3 gap-2 text-center text-[11px] mb-3">
                         <div className="rounded-lg border border-border bg-background p-1.5">
                           <p className="text-muted-foreground text-[10px]">Hourly</p>
-                          <p className="font-semibold text-foreground truncate" title={String(account.limits?.hourly_action_limit ?? (isAccountPro ? 'based on meta rate limits' : 100))}>
-                            {account.limits?.hourly_action_limit ?? (isAccountPro ? 'based on meta rate limits' : 100)}
+                          <p className="font-semibold text-foreground truncate" title={String(hourlyLimitVal)}>
+                            {isMetaHourly ? 'Meta limits' : `${hourlyLimitVal}/hr`}
                           </p>
                         </div>
                         <div className="rounded-lg border border-border bg-background p-1.5">
                           <p className="text-muted-foreground text-[10px]">Daily</p>
                           <p className="font-semibold text-foreground">
-                            {isAccountPro || account.limits?.daily_action_limit == null
-                              ? '∞'
-                              : account.limits.daily_action_limit}
+                            {isDailyUnlimited ? '∞' : dailyLimitVal}
                           </p>
                         </div>
                         <div className="rounded-lg border border-border bg-background p-1.5">
                           <p className="text-muted-foreground text-[10px]">Monthly</p>
                           <p className="font-semibold text-foreground">
-                            {isAccountPro || account.limits?.monthly_action_limit == null
+                            {isMonthlyUnlimited
                               ? '∞'
-                              : account.limits.monthly_action_limit >= 1000
-                              ? `${Math.round(account.limits.monthly_action_limit / 1000)}k`
-                              : account.limits.monthly_action_limit}
+                              : !Number.isNaN(monthlyNumeric) && monthlyNumeric >= 1000
+                              ? `${Math.round(monthlyNumeric / 1000)}k`
+                              : monthlyLimitVal}
                           </p>
                         </div>
                       </div>

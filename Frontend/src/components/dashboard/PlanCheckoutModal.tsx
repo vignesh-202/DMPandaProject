@@ -23,6 +23,7 @@ import {
   PricingPlan,
   findPricingPlan,
   formatMoney,
+  formatPlanLimit,
   getPlanBilledTotal,
   getPaidCheckoutPlans
 } from '../../lib/pricing';
@@ -1018,13 +1019,13 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                               <div className="space-y-0.5 border-x border-border/60">
                                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Daily</p>
                                 <p className="text-xs font-bold text-foreground">
-                                  {entry.actions_per_day_limit ? `${entry.actions_per_day_limit}/day` : 'Unlimited'}
+                                  {formatPlanLimit(entry.actions_per_day_limit)}
                                 </p>
                               </div>
                               <div className="space-y-0.5">
                                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Monthly</p>
                                 <p className="text-xs font-bold text-foreground">
-                                  {entry.actions_per_month_limit ? `${entry.actions_per_month_limit}/mo` : 'Unlimited'}
+                                  {formatPlanLimit(entry.actions_per_month_limit)}
                                 </p>
                               </div>
                             </div>
