@@ -3270,26 +3270,81 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
         const monthlyUsage = Number(activeAccountActionState.monthly_actions_used || 0);
 
         const nowMs = Date.now();
-        const nowIso = new Date(nowMs).toISOString();
+        const oneHourAgoMs = nowMs - 3600000;
+        const oneDayAgoMs = nowMs - 86400000;
 
-        // Calculate Meta Instagram rolling rate limits and window timers
-        let hourlyWindowStartedMs = igAccount?.hourly_window_started_at ? new Date(igAccount.hourly_window_started_at).getTime() : nowMs;
-        if (Number.isNaN(hourlyWindowStartedMs) || hourlyWindowStartedMs <= 0 || (nowMs - hourlyWindowStartedMs) >= 3600000) {
-            hourlyWindowStartedMs = nowMs;
-        }
-        const hourlyWindowResetMs = hourlyWindowStartedMs + 3600000;
-        const hourlyRemainingSec = Math.max(0, Math.floor((hourlyWindowResetMs - nowMs) / 1000));
-        const hourlyWindowStartedAt = new Date(hourlyWindowStartedMs).toISOString();
-        const hourlyWindowResetsAt = new Date(hourlyWindowResetMs).toISOString();
+        // Trailing 60 minutes logs (sliding window as defined by Meta Graph API docs)
+        const trailingHourlyLogs = logs.filter((l) => {
+            const t = new Date(l.sent_at || l.created_at).getTime();
+            return !Number.isNaN(t) && t >= oneHourAgoMs;
+        });
 
-        let dailyWindowStartedMs = igAccount?.daily_window_started_at ? new Date(igAccount.daily_window_started_at).getTime() : nowMs;
-        if (Number.isNaN(dailyWindowStartedMs) || dailyWindowStartedMs <= 0 || (nowMs - dailyWindowStartedMs) >= 86400000) {
-            dailyWindowStartedMs = nowMs;
+        // Trailing 24 hours logs (sliding window as defined by Meta docs)
+        const trailingDailyLogs = logs.filter((l) => {
+            const t = new Date(l.sent_at || l.created_at).getTime();
+            return !Number.isNaN(t) && t >= oneDayAgoMs;
+        });
+
+        // Exact Comment-to-DM actions in the trailing 60 minutes
+        const commentToDmLogs = trailingHourlyLogs.filter((l) => {
+            const at = String(l.automation_type || '').toLowerCase();
+            const et = String(l.event_type || '').toLowerCase();
+            return at === 'comment' || at === 'reel' || at === 'post' || et.includes('comment') || et.includes('dm');
+        });
+
+        // Exact Comment reply actions in the trailing 24 hours
+        const commentActionLogs = trailingDailyLogs.filter((l) => {
+            const at = String(l.automation_type || '').toLowerCase();
+            const et = String(l.event_type || '').toLowerCase();
+            return at === 'comment' || at === 'post' || at === 'reel' || et.includes('comment');
+        });
+
+        // Accurate Meta sliding window usage numbers
+        const metaCommentToDmUsed = Math.max(commentToDmLogs.length, trailingHourlyLogs.length > 0 ? trailingHourlyLogs.length : hourlyUsage);
+        const metaCommentActionsUsed = Math.max(commentActionLogs.length, trailingDailyLogs.length > 0 ? trailingDailyLogs.length : dailyUsage);
+        const metaPlatformApiUsed = Math.max(trailingHourlyLogs.length, hourlyUsage);
+
+        // Calculate exact start & recovery timestamp according to Meta sliding window documentation:
+        // "Rate limiting is calculated on a sliding window. When calls were made, the oldest call in the window determines when quota will start to be regained."
+        let hourlyWindowStartedAt = null;
+        let hourlyWindowResetsAt = null;
+        let hourlyRemainingSec = 0;
+
+        if (trailingHourlyLogs.length > 0) {
+            const oldestHourlyLogMs = Math.min(...trailingHourlyLogs.map((l) => new Date(l.sent_at || l.created_at).getTime()));
+            hourlyWindowStartedAt = new Date(oldestHourlyLogMs).toISOString();
+            const recoveryMs = oldestHourlyLogMs + 3600000;
+            hourlyWindowResetsAt = new Date(recoveryMs).toISOString();
+            hourlyRemainingSec = Math.max(0, Math.floor((recoveryMs - nowMs) / 1000));
+        } else if (hourlyUsage > 0 && igAccount?.hourly_window_started_at) {
+            const startMs = new Date(igAccount.hourly_window_started_at).getTime();
+            if (!Number.isNaN(startMs) && (nowMs - startMs) < 3600000) {
+                hourlyWindowStartedAt = new Date(startMs).toISOString();
+                const recoveryMs = startMs + 3600000;
+                hourlyWindowResetsAt = new Date(recoveryMs).toISOString();
+                hourlyRemainingSec = Math.max(0, Math.floor((recoveryMs - nowMs) / 1000));
+            }
         }
-        const dailyWindowResetMs = dailyWindowStartedMs + 86400000;
-        const dailyRemainingSec = Math.max(0, Math.floor((dailyWindowResetMs - nowMs) / 1000));
-        const dailyWindowStartedAt = new Date(dailyWindowStartedMs).toISOString();
-        const dailyWindowResetsAt = new Date(dailyWindowResetMs).toISOString();
+
+        let dailyWindowStartedAt = null;
+        let dailyWindowResetsAt = null;
+        let dailyRemainingSec = 0;
+
+        if (trailingDailyLogs.length > 0) {
+            const oldestDailyLogMs = Math.min(...trailingDailyLogs.map((l) => new Date(l.sent_at || l.created_at).getTime()));
+            dailyWindowStartedAt = new Date(oldestDailyLogMs).toISOString();
+            const recoveryMs = oldestDailyLogMs + 86400000;
+            dailyWindowResetsAt = new Date(recoveryMs).toISOString();
+            dailyRemainingSec = Math.max(0, Math.floor((recoveryMs - nowMs) / 1000));
+        } else if (dailyUsage > 0 && igAccount?.daily_window_started_at) {
+            const startMs = new Date(igAccount.daily_window_started_at).getTime();
+            if (!Number.isNaN(startMs) && (nowMs - startMs) < 86400000) {
+                dailyWindowStartedAt = new Date(startMs).toISOString();
+                const recoveryMs = startMs + 86400000;
+                dailyWindowResetsAt = new Date(recoveryMs).toISOString();
+                dailyRemainingSec = Math.max(0, Math.floor((recoveryMs - nowMs) / 1000));
+            }
+        }
 
         const metaRateLimits = {
             hourly_window: {
@@ -3305,36 +3360,36 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
             limits: {
                 comment_to_dm: {
                     label: 'Comment-to-DM Limit',
-                    description: 'Meta hourly rate ceiling for automated DMs sent in response to comments',
-                    used: hourlyUsage,
+                    description: 'Meta 60-minute sliding window limit for automated DMs from comments',
+                    used: metaCommentToDmUsed,
                     limit: 750,
                     unit: 'actions/hr',
                     window_type: 'hourly',
-                    window_label: '1-Hour Rolling Window',
+                    window_label: '60-Minute Sliding Window',
                     started_at: hourlyWindowStartedAt,
                     resets_at: hourlyWindowResetsAt,
                     remaining_seconds: hourlyRemainingSec
                 },
                 comment_replies: {
                     label: 'Comment Actions Limit',
-                    description: 'Meta 24-hour safety threshold for automated public comment replies',
-                    used: dailyUsage,
+                    description: 'Meta 24-hour sliding safety threshold for automated public comments',
+                    used: metaCommentActionsUsed,
                     limit: 4800,
                     unit: 'comments/24h',
                     window_type: 'daily',
-                    window_label: '24-Hour Rolling Window',
+                    window_label: '24-Hour Sliding Window',
                     started_at: dailyWindowStartedAt,
                     resets_at: dailyWindowResetsAt,
                     remaining_seconds: dailyRemainingSec
                 },
                 platform_api: {
                     label: 'Platform Graph API Limit',
-                    description: 'Meta platform hourly API request threshold per connected Instagram account',
-                    used: Math.min(200, hourlyUsage),
+                    description: 'Meta platform 60-minute sliding call threshold per connected account',
+                    used: Math.min(200, metaPlatformApiUsed),
                     limit: 200,
                     unit: 'calls/hr',
                     window_type: 'hourly',
-                    window_label: '1-Hour Rolling Window',
+                    window_label: '60-Minute Sliding Window',
                     started_at: hourlyWindowStartedAt,
                     resets_at: hourlyWindowResetsAt,
                     remaining_seconds: hourlyRemainingSec

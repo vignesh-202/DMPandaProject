@@ -382,28 +382,42 @@ const MetaRateLimitGaugeCard = ({
 
                     <div className="rounded-lg bg-primary/10 px-2 py-1.5 border border-primary/20 flex flex-col justify-center">
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
-                            Window Reset
+                            Quota Recovery
                         </p>
                         <p className="text-xs font-bold text-foreground truncate">
-                            {resetsAt ? (
-                                remainingSeconds != null && remainingSeconds > 0
-                                    ? formatResetTime(remainingSeconds)
-                                    : 'Resetting now'
+                            {unit === 'msgs/sec' || windowLabel.toLowerCase().includes('peak') ? (
+                                'Instant / No Lag'
+                            ) : value === 0 ? (
+                                <span className="text-emerald-500">Full Quota Ready</span>
+                            ) : resetsAt && remainingSeconds != null && remainingSeconds > 0 ? (
+                                `Regains in ${formatResetTime(remainingSeconds)}`
                             ) : (
-                                'Peak Burst'
+                                'Regaining quota'
                             )}
                         </p>
                     </div>
                 </div>
 
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
-                    <span className="flex items-center gap-1 truncate">
+                    <span className="flex items-center gap-1 truncate" title="Meta trailing sliding window: each call expires dynamically after window duration">
                         <Clock3 className="w-3 h-3 text-muted-foreground/70 shrink-0" />
                         <span className="truncate">{windowLabel}</span>
                     </span>
-                    {startedAt && (
+                    {unit === 'msgs/sec' || windowLabel.toLowerCase().includes('peak') ? (
+                        <span className="shrink-0 text-emerald-500 font-medium">
+                            Real-time ceiling
+                        </span>
+                    ) : value === 0 ? (
+                        <span className="shrink-0 text-emerald-500 font-medium">
+                            Trailing Window Idle
+                        </span>
+                    ) : startedAt ? (
                         <span className="shrink-0 text-muted-foreground/80">
-                            Started {new Date(startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            Window active since {new Date(startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                    ) : (
+                        <span className="shrink-0 text-muted-foreground/80">
+                            Trailing Sliding Window
                         </span>
                     )}
                 </div>
@@ -1381,7 +1395,7 @@ const AnalyticsView: React.FC = () => {
                             </h2>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            Real-time rolling window constraints enforced by Meta Instagram Graph API. Window timers reset automatically based on account activity.
+                            Real-time sliding window constraints enforced by Meta Instagram Graph API. Quota recovers dynamically as calls age past 60 minutes (or 24 hours).
                         </p>
                     </div>
                 </div>
