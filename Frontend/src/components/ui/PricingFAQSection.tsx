@@ -63,12 +63,6 @@ const FAQ_ITEMS: FAQItem[] = [
       'We accept all major payment methods including Credit Cards (Visa, MasterCard, Amex), Debit Cards, UPI (Google Pay, PhonePe, Paytm, BHIM), Net Banking across 50+ banks, and international payment methods processed through secure, bank-grade encrypted gateways.'
   },
   {
-    category: 'billing',
-    question: 'Do you provide GST tax invoices for business accounting?',
-    answer:
-      'Yes. If you operate a registered business, you can provide your GSTIN and legal business name during checkout or in your account billing settings. Official GST-compliant tax invoices are generated automatically for every transaction and can be downloaded anytime from your Billing tab.'
-  },
-  {
     category: 'safety',
     question: 'Will automating my Instagram account risk shadowbans or suspensions?',
     answer:
@@ -78,7 +72,7 @@ const FAQ_ITEMS: FAQItem[] = [
     category: 'plans',
     question: 'Can I reassign an active plan to a different Instagram account?',
     answer:
-      'Yes. If you disconnect an Instagram handle or wish to transfer your active subscription to another account you manage, you can easily reassign your plan from your Account Settings with a single click.'
+      'No, plan reassignments or transfers are not done automatically. If your premium Instagram account was disconnected by mistake, you must reconnect that exact same account first and contact our support team. If the support team is convinced by the reason provided, the plan can be reassigned back to that same account. However, if you request to transfer that plan to a completely different Instagram account, our management team will manually review whether it is a genuine cause or an attempt to abuse or exploit the system. Reassignments to another account are strictly an app management decision, and there is no guarantee that a transfer request will be approved.'
   }
 ];
 
