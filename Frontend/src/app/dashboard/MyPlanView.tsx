@@ -46,8 +46,13 @@ import {
   META_RATE_LIMITS_SUMMARY,
   pricingPlanMatchesIdentifier
 } from '../../lib/pricing';
+import PlanCheckoutModal, {
+  getPlanRank,
+  getBillingPeriodRank,
+  getAccountEffectivePlanRank,
+  getAccountEffectivePeriodRank
+} from '../../components/dashboard/PlanCheckoutModal';
 import { toBrowserPreviewUrl } from '../../lib/templatePreview';
-import PlanCheckoutModal from '../../components/dashboard/PlanCheckoutModal';
 import { cn } from '../../lib/utils';
 
 export type AccountPlanDetail = {
@@ -125,7 +130,7 @@ const MyPlanView: React.FC = () => {
   const [plansLoading, setPlansLoading] = useState(true);
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null);
   const [syncingPlan, setSyncingPlan] = useState(false);
-  const [isYearly, setIsYearly] = useState(false);
+  const [isYearly, setIsYearly] = useState(true);
   const currency = 'INR';
   const [countryCode, setCountryCode] = useState<string | null>(null);
   const [plansError, setPlansError] = useState<string | null>(null);
@@ -1189,10 +1194,21 @@ const MyPlanView: React.FC = () => {
               {plans.map((entry) => {
                 const bigPrice = getPlanBigPrice(entry, currency, isYearly);
                 const billedTotal = getPlanBilledTotal(entry, currency, isYearly);
-                const isCurrentPlan = isCurrentPricingPlan(entry);
-                const isUnavailable = entry.plan_code === 'free' || isCurrentPlan;
                 const isUltra = entry.plan_code === 'ultra' || entry.name.toLowerCase().includes('ultra');
                 const planLimits = buildPlanLimitItems(entry);
+
+                const targetPlanRank = getPlanRank(entry.plan_code || entry.id);
+                const targetPeriodRank = isYearly ? 2 : 1;
+
+                // Check if any of the connected accounts are eligible for this plan + billing period
+                const eligibleAccountsForPlan = checkoutIgAccounts.filter((acc) => {
+                  const accTierRank = getAccountEffectivePlanRank(acc);
+                  const accPeriodRank = getAccountEffectivePeriodRank(acc);
+                  return accTierRank < targetPlanRank || (accTierRank === targetPlanRank && accPeriodRank < targetPeriodRank);
+                });
+
+                const isPlanFree = entry.plan_code === 'free';
+                const isPlanEligible = !isPlanFree && (checkoutIgAccounts.length === 0 || eligibleAccountsForPlan.length > 0);
 
                 return (
                   <div
@@ -1204,7 +1220,7 @@ const MyPlanView: React.FC = () => {
                         : isUltra
                         ? 'border-border'
                         : 'border-border',
-                      isUnavailable ? 'opacity-80' : ''
+                      !isPlanEligible && !isPlanFree ? 'opacity-85' : ''
                     )}
                   >
                     {entry.is_popular && (
@@ -1305,22 +1321,22 @@ const MyPlanView: React.FC = () => {
                     <div className="pt-5 border-t border-border">
                       <button
                         className={cn(
-                          'flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-medium shadow-xs transition-all duration-150 active:scale-98',
-                          isUnavailable
-                            ? 'bg-muted text-muted-foreground shadow-none cursor-not-allowed'
+                          'flex h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-semibold shadow-xs transition-all duration-150 active:scale-98',
+                          !isPlanEligible
+                            ? 'bg-muted text-muted-foreground shadow-none cursor-not-allowed border border-border/60'
                             : entry.is_popular
                             ? 'bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95'
                             : 'border border-border bg-background hover:bg-muted text-foreground'
                         )}
-                        disabled={syncingPlan || isUnavailable}
+                        disabled={syncingPlan || !isPlanEligible}
                         onClick={() => openCheckout(entry)}
                       >
                         <CreditCard size={14} />
-                        {isCurrentPlan
-                          ? 'Current Active Plan'
-                          : entry.plan_code === 'free'
+                        {isPlanFree
                           ? 'Free Tier'
-                          : `Choose ${entry.name}`}
+                          : isPlanEligible
+                          ? `Choose ${entry.name}`
+                          : 'All Accounts Subscribed'}
                       </button>
                     </div>
                   </div>

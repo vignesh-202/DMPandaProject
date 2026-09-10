@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import {
   Check,
   CheckSquare,
+  ChevronDown,
+  Eye,
   Instagram,
   Loader2,
   Minus,
@@ -259,6 +261,7 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+  const [expandedPlanDetailsId, setExpandedPlanDetailsId] = useState<string | null>(null);
 
   const pricingHeaders = useMemo(() => buildCountryHeaders(countryCode), [countryCode]);
   const selectedPlan = useMemo(
@@ -927,29 +930,57 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                 <div className="grid gap-3">
                   {eligiblePlans.map((entry) => {
                     const isSelected = entry.id === selectedPlanId;
+                    const isExpanded = expandedPlanDetailsId === entry.id;
                     const unitPrice = getPlanBilledTotal(entry, currency, billingCycle === 'yearly');
                     const totalPlanPrice = unitPrice * Math.max(1, accountsCount);
                     return (
-                      <button
+                      <div
                         key={entry.id}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setSelectedPlanId(entry.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedPlanId(entry.id);
+                          }
+                        }}
                         className={cn(
-                          `rounded-2xl border p-4 text-left ${FAST_TRANSITION} transition-all active:scale-[0.99]`,
+                          `rounded-2xl border p-4 text-left ${FAST_TRANSITION} transition-all cursor-pointer`,
                           isSelected
                             ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
                             : 'border-border/80 bg-background/50 hover:border-border hover:bg-background/80'
                         )}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="text-base font-bold text-foreground">{entry.name}</h3>
                               {entry.is_popular && (
                                 <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-primary-foreground">
                                   Popular
                                 </span>
                               )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedPlanDetailsId((prev) => (prev === entry.id ? null : entry.id));
+                                }}
+                                className={cn(
+                                  "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wide uppercase transition-all duration-150 active:scale-95",
+                                  isExpanded
+                                    ? "bg-primary/20 text-primary border border-primary/30"
+                                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 border border-border/60"
+                                )}
+                                title={isExpanded ? "Hide plan details" : "View plan details"}
+                              >
+                                <Eye className="h-3 w-3" />
+                                <span>{isExpanded ? "Hide Details" : "View Details"}</span>
+                                <ChevronDown
+                                  className={cn("h-3 w-3 transition-transform duration-200", isExpanded && "rotate-180")}
+                                />
+                              </button>
                             </div>
                             <p className="mt-1 text-xs text-muted-foreground">
                               {formatMoney(unitPrice, currency)} / account / {billingCycle === 'yearly' ? 'yr' : 'mo'}
@@ -960,7 +991,7 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                           </div>
                           <div
                             className={cn(
-                              'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border transition',
+                              'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border transition mt-0.5',
                               isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-transparent'
                             )}
                           >
@@ -968,15 +999,72 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                           </div>
                         </div>
 
-                        <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
-                          {entry.features.slice(0, 4).map((feature, index) => (
-                            <div key={`${entry.id}-${index}`} className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Check className="h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
-                              <span className="truncate">{feature}</span>
+                        {/* If expanded, show full details and limits */}
+                        {isExpanded ? (
+                          <div
+                            className="mt-3.5 pt-3.5 border-t border-border/70 space-y-3 animate-in fade-in-50 slide-in-from-top-1 duration-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {/* Rate limits summary pill grid */}
+                            <div className="grid grid-cols-3 gap-2 rounded-xl bg-background/80 p-2.5 border border-border/60 text-center">
+                              <div className="space-y-0.5">
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground">Hourly</p>
+                                <p className="text-xs font-bold text-foreground truncate" title={String(entry.actions_per_hour_limit || 'Meta limits')}>
+                                  {typeof entry.actions_per_hour_limit === 'string'
+                                    ? entry.actions_per_hour_limit
+                                    : entry.actions_per_hour_limit ? `${entry.actions_per_hour_limit}/hr` : 'Meta limits'}
+                                </p>
+                              </div>
+                              <div className="space-y-0.5 border-x border-border/60">
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground">Daily</p>
+                                <p className="text-xs font-bold text-foreground">
+                                  {entry.actions_per_day_limit ? `${entry.actions_per_day_limit}/day` : 'Unlimited'}
+                                </p>
+                              </div>
+                              <div className="space-y-0.5">
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground">Monthly</p>
+                                <p className="text-xs font-bold text-foreground">
+                                  {entry.actions_per_month_limit ? `${entry.actions_per_month_limit}/mo` : 'Unlimited'}
+                                </p>
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      </button>
+
+                            {/* All Features list */}
+                            <div className="space-y-1.5">
+                              <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                                Included Features & Capabilities ({entry.features.length})
+                              </p>
+                              <div className="grid gap-1.5 sm:grid-cols-2">
+                                {entry.features.map((feature, index) => (
+                                  <div key={`${entry.id}-full-${index}`} className="flex items-center gap-2 text-xs text-foreground">
+                                    <div className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                                      <Check size={10} strokeWidth={2.5} />
+                                    </div>
+                                    <span className="truncate" title={feature}>{feature}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {billingCycle === 'yearly' && entry.yearly_bonus && (
+                              <div className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                <Sparkles size={12} className="shrink-0" />
+                                <span>{entry.yearly_bonus}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          /* Collapsed preview */
+                          <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                            {entry.features.slice(0, 4).map((feature, index) => (
+                              <div key={`${entry.id}-${index}`} className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Check className="h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
+                                <span className="truncate">{feature}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
