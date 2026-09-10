@@ -37,6 +37,7 @@ export type IgAccountItem = {
   is_active?: boolean;
   plan_code?: string;
   plan_name?: string;
+  billing_cycle?: string;
   expires_at?: string | null;
   subscription_status?: string;
 };
@@ -45,14 +46,21 @@ const PLAN_TIER_RANKS: Record<string, number> = {
   free: 0,
   basic: 1,
   pro: 2,
-  ultra: 2
+  ultra: 3
 };
 
 export const getPlanRank = (planIdentifier?: string | null): number => {
   const code = String(planIdentifier || '').trim().toLowerCase();
-  if (code.includes('ultra') || code.includes('pro')) return 2;
+  if (code.includes('ultra')) return 3;
+  if (code.includes('pro')) return 2;
   if (code.includes('basic')) return 1;
   return PLAN_TIER_RANKS[code] ?? 0;
+};
+
+export const getBillingPeriodRank = (cycle?: string | null): number => {
+  const normalized = String(cycle || '').trim().toLowerCase();
+  if (normalized.includes('year') || normalized.includes('annual')) return 2;
+  return 1;
 };
 
 export const getAccountEffectivePlanRank = (account: IgAccountItem): number => {
@@ -75,6 +83,13 @@ export const getAccountEffectivePlanRank = (account: IgAccountItem): number => {
   }
 
   return getPlanRank(rawCode);
+};
+
+export const getAccountEffectivePeriodRank = (account: IgAccountItem): number => {
+  if (getAccountEffectivePlanRank(account) === 0) {
+    return 0;
+  }
+  return getBillingPeriodRank(account.billing_cycle);
 };
 
 type AppliedCoupon = {
@@ -327,14 +342,30 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
     return getPlanRank(selectedPlan?.plan_code || selectedPlan?.id || selectedPlanId);
   }, [selectedPlan, selectedPlanId]);
 
-  // Show accounts that are eligible for this tier (lower or same tier for cycle switch/renewal)
+  const targetPeriodRank = useMemo(() => {
+    return getBillingPeriodRank(billingCycle);
+  }, [billingCycle]);
+
+  // Show accounts that have less plan status or period than the selected one
   const eligibleAccounts = useMemo(() => {
     if (targetPlanRank === 0) return localAccounts;
     return localAccounts.filter((acc) => {
-      const accRank = getAccountEffectivePlanRank(acc);
-      return accRank <= targetPlanRank;
+      const accTierRank = getAccountEffectivePlanRank(acc);
+      const accPeriodRank = getAccountEffectivePeriodRank(acc);
+
+      // Account is on a strictly lower plan tier (e.g. Free -> Basic, Free -> Pro, Basic -> Pro)
+      if (accTierRank < targetPlanRank) {
+        return true;
+      }
+
+      // Account is on the same tier, but currently on a strictly lower period (e.g. Monthly -> Yearly)
+      if (accTierRank === targetPlanRank && accPeriodRank < targetPeriodRank) {
+        return true;
+      }
+
+      return false;
     });
-  }, [localAccounts, targetPlanRank]);
+  }, [localAccounts, targetPlanRank, targetPeriodRank]);
 
   // Auto-initialize & maintain selection: ensure at least 1 linked eligible account is selected
   useEffect(() => {
@@ -799,7 +830,7 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                                 </p>
                                 {account.plan_code && account.plan_code !== 'free' && (
                                   <span className="rounded-md bg-purple-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                                    {account.plan_name || account.plan_code}
+                                    {account.plan_name || account.plan_code} {account.billing_cycle ? `• ${account.billing_cycle}` : ''}
                                   </span>
                                 )}
                               </div>
@@ -829,7 +860,7 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
                       <Instagram className="mx-auto h-8 w-8 text-muted-foreground mb-2 opacity-50" />
                       <p className="text-xs sm:text-sm font-bold text-foreground">No accounts eligible for this plan</p>
                       <p className="mt-1 text-[11px] text-muted-foreground">
-                        All your connected accounts already have an equal or higher active plan than {selectedPlan?.name || 'this plan'}.
+                        All your connected accounts already have an equal or higher active plan status or period than {selectedPlan?.name || 'this plan'} ({billingCycle}).
                       </p>
                     </div>
                   ) : (

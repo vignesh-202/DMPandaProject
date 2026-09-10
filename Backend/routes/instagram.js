@@ -888,6 +888,7 @@ const serializeIgAccount = (account, profileLimits = {}, pricingPlans = null) =>
         profile_picture_url: account.profile_picture_url,
         plan_code: planCode,
         plan_name: planName,
+        billing_cycle: account?.billing_cycle || 'monthly',
         expires_at: account?.expires_at || null,
         status: normalizedStatus,
         admin_status: normalizedAdminStatus,

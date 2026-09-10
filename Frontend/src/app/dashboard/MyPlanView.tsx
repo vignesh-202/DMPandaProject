@@ -426,6 +426,7 @@ const MyPlanView: React.FC = () => {
           ...account,
           plan_code: planInfo?.plan_code || account.plan_code || 'free',
           plan_name: planInfo?.plan_name || account.plan_name || 'Free Plan',
+          billing_cycle: planInfo?.billing_cycle || (account as any).billing_cycle || 'monthly',
           expires_at: planInfo?.expires_at || account.expires_at || null,
           subscription_status: planInfo?.subscription_status || account.subscription_status || 'active',
           is_active: planInfo?.is_active ?? account.is_active ?? true
@@ -441,6 +442,7 @@ const MyPlanView: React.FC = () => {
       profile_picture_url: acc.profile_picture_url,
       plan_code: acc.plan_code,
       plan_name: acc.plan_name,
+      billing_cycle: acc.billing_cycle || 'monthly',
       expires_at: acc.expires_at,
       subscription_status: acc.subscription_status,
       is_active: acc.is_active
