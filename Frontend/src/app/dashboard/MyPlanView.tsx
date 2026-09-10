@@ -135,6 +135,7 @@ const MyPlanView: React.FC = () => {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedCheckoutPlanId, setSelectedCheckoutPlanId] = useState<string | null>(null);
   const [targetCheckoutAccountId, setTargetCheckoutAccountId] = useState<string | null>(null);
+  const [checkoutBillingCycle, setCheckoutBillingCycle] = useState<'monthly' | 'yearly'>('yearly');
 
   // Success banner (auto-dismisses in 5s)
   const [upgradeSuccessMessage, setUpgradeSuccessMessage] = useState<string | null>(null);
@@ -317,8 +318,31 @@ const MyPlanView: React.FC = () => {
   }, [isActive, isExpired, isPermanentFree, isTemporaryFree]);
 
   const checkoutPlans = useMemo(() => {
-    return getPaidCheckoutPlans(plans, plan?.plan_id, currentPlanName);
-  }, [plans, plan?.plan_id, currentPlanName]);
+    return getPaidCheckoutPlans(plans);
+  }, [plans]);
+
+  // Helper to resolve the top (highest-tier) plan
+  const getTopPlan = React.useCallback((availablePlans: PricingPlan[]) => {
+    if (!availablePlans || availablePlans.length === 0) return null;
+
+    // Prefer Pro or Ultra plan if available
+    const preferredPlan = availablePlans.find((p) => {
+      const code = String(p.plan_code || p.id || '').toLowerCase();
+      const name = String(p.name || '').toLowerCase();
+      return code.includes('pro') || code.includes('ultra') || name.includes('pro') || name.includes('ultra');
+    });
+    if (preferredPlan) return preferredPlan;
+
+    // Otherwise sort by yearly price or monthly price descending
+    const sorted = [...availablePlans].sort((a, b) => {
+      const priceB = b.price_yearly_inr || b.price_monthly_inr || 0;
+      const priceA = a.price_yearly_inr || a.price_monthly_inr || 0;
+      if (priceB !== priceA) return priceB - priceA;
+      return (b.display_order ?? 0) - (a.display_order ?? 0);
+    });
+
+    return sorted[0] || availablePlans[0] || null;
+  }, []);
 
   const isCurrentPricingPlan = React.useCallback(
     (entry: PricingPlan) => {
@@ -333,8 +357,19 @@ const MyPlanView: React.FC = () => {
 
   // Open checkout for general upgrade or specific plan
   const openCheckout = (selectedPlan?: PricingPlan, targetAccountId?: string | null) => {
-    setSelectedCheckoutPlanId(selectedPlan?.id || checkoutPlans[0]?.id || null);
-    setTargetCheckoutAccountId(targetAccountId || null);
+    if (selectedPlan) {
+      // User clicked a specific pricing plan card from the catalog below
+      setSelectedCheckoutPlanId(selectedPlan.id);
+      setTargetCheckoutAccountId(targetAccountId || null);
+      setCheckoutBillingCycle(isYearly ? 'yearly' : 'monthly');
+    } else {
+      // User clicked general "Upgrade Plan" button
+      // Default to top plan with max time period (e.g. Pro Plan yearly)
+      const topPlan = getTopPlan(checkoutPlans);
+      setSelectedCheckoutPlanId(topPlan?.id || checkoutPlans[0]?.id || null);
+      setTargetCheckoutAccountId(targetAccountId || null);
+      setCheckoutBillingCycle('yearly');
+    }
     setCheckoutOpen(true);
   };
 
@@ -343,29 +378,12 @@ const MyPlanView: React.FC = () => {
     setTargetCheckoutAccountId(accountId);
     if (preselectedPlanId) {
       setSelectedCheckoutPlanId(preselectedPlanId);
+      setCheckoutBillingCycle(isYearly ? 'yearly' : 'monthly');
     } else {
-      // Find the account's current plan rank
-      const targetAccount = allAccounts.find((a: any) => a.account_id === accountId);
-      const rawCode = String(targetAccount?.plan_code || 'free').toLowerCase();
-      let currentRank = 0;
-      if (rawCode === 'basic') currentRank = 1;
-      else if (rawCode === 'pro') currentRank = 2;
-      else if (rawCode === 'ultra') currentRank = 3;
-
-      if (targetAccount?.expires_at && new Date(targetAccount.expires_at).getTime() <= Date.now()) {
-        currentRank = 0;
-      }
-
-      const nextHigherPlan = checkoutPlans.find((p) => {
-        const pCode = String(p.plan_code || p.id).toLowerCase();
-        let pRank = 0;
-        if (pCode.includes('basic')) pRank = 1;
-        else if (pCode.includes('pro')) pRank = 2;
-        else if (pCode.includes('ultra')) pRank = 3;
-        return pRank > currentRank;
-      });
-
-      setSelectedCheckoutPlanId(nextHigherPlan?.id || checkoutPlans[0]?.id || null);
+      // Default to top plan with max time period (e.g. Pro Plan yearly)
+      const topPlan = getTopPlan(checkoutPlans);
+      setSelectedCheckoutPlanId(topPlan?.id || checkoutPlans[0]?.id || null);
+      setCheckoutBillingCycle('yearly');
     }
     setCheckoutOpen(true);
   };
@@ -1369,7 +1387,7 @@ const MyPlanView: React.FC = () => {
         currentPlan={plan}
         initialPlanId={selectedCheckoutPlanId}
         targetAccountId={targetCheckoutAccountId}
-        defaultBillingCycle={isYearly ? 'yearly' : 'monthly'}
+        defaultBillingCycle={checkoutBillingCycle}
         currency={currency}
         countryCode={countryCode}
         authenticatedFetch={authenticatedFetch}

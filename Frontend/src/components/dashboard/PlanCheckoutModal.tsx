@@ -202,10 +202,10 @@ const isAccountSelected = (account: IgAccountItem, selectedIds: Set<string>): bo
 export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
   isOpen,
   plans,
-  currentPlan,
+  currentPlan: _currentPlan,
   initialPlanId,
   targetAccountId = null,
-  defaultBillingCycle = 'monthly',
+  defaultBillingCycle = 'yearly',
   currency = 'INR',
   countryCode = 'IN',
   authenticatedFetch,
@@ -217,15 +217,20 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
   onSyncComplete
 }) => {
   const eligiblePlans = useMemo(
-    () => getPaidCheckoutPlans(plans, currentPlan?.plan_id, currentPlan?.details?.name),
-    [plans, currentPlan]
+    () => getPaidCheckoutPlans(plans),
+    [plans]
   );
 
   const resolvedInitialPlanId = useMemo(() => {
     if (findPricingPlan(eligiblePlans, initialPlanId)) {
       return String(initialPlanId);
     }
-    return eligiblePlans[0]?.id || '';
+    const proPlan = eligiblePlans.find((p) => {
+      const code = String(p.plan_code || p.id || '').toLowerCase();
+      const name = String(p.name || '').toLowerCase();
+      return code.includes('pro') || code.includes('ultra') || name.includes('pro') || name.includes('ultra');
+    });
+    return proPlan?.id || eligiblePlans[eligiblePlans.length - 1]?.id || eligiblePlans[0]?.id || '';
   }, [eligiblePlans, initialPlanId]);
 
   const [selectedPlanId, setSelectedPlanId] = useState(resolvedInitialPlanId);
@@ -322,12 +327,12 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
     return getPlanRank(selectedPlan?.plan_code || selectedPlan?.id || selectedPlanId);
   }, [selectedPlan, selectedPlanId]);
 
-  // Only show accounts that have a lower subscription tier than the selected plan
+  // Show accounts that are eligible for this tier (lower or same tier for cycle switch/renewal)
   const eligibleAccounts = useMemo(() => {
     if (targetPlanRank === 0) return localAccounts;
     return localAccounts.filter((acc) => {
       const accRank = getAccountEffectivePlanRank(acc);
-      return accRank < targetPlanRank;
+      return accRank <= targetPlanRank;
     });
   }, [localAccounts, targetPlanRank]);
 
