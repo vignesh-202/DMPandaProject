@@ -822,7 +822,9 @@ const MyPlanView: React.FC = () => {
                         <div className="flex items-center justify-between text-xs mb-1.5">
                           <span className="font-medium text-muted-foreground">Daily Action Limit</span>
                           <span className="font-semibold text-foreground">
-                            {plan?.limits?.daily_action_limit ?? 500} / day
+                            {plan?.limits?.daily_action_limit == null
+                              ? 'Unlimited'
+                              : `${Number(plan.limits.daily_action_limit).toLocaleString()} / day`}
                           </span>
                         </div>
                         <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -907,6 +909,7 @@ const MyPlanView: React.FC = () => {
                   account.account_id === activeAccountID ||
                   (plan?.active_account_plan && plan.active_account_plan.account_id === account.account_id);
                 const isAccountPaid = account.is_active && account.plan_code !== 'free';
+                const isAccountPro = account.plan_code === 'pro' || account.plan_code === 'ultra' || (account.plan_name && account.plan_name.toLowerCase().includes('pro'));
                 const parsedAccExpiry = account.expires_at ? new Date(account.expires_at) : null;
                 const accExpiryFormatted = parsedAccExpiry && !Number.isNaN(parsedAccExpiry.getTime())
                   ? parsedAccExpiry.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
@@ -1021,20 +1024,26 @@ const MyPlanView: React.FC = () => {
                       <div className="grid grid-cols-3 gap-2 text-center text-[11px] mb-3">
                         <div className="rounded-lg border border-border bg-background p-1.5">
                           <p className="text-muted-foreground text-[10px]">Hourly</p>
-                          <p className="font-semibold text-foreground">
-                            {account.limits?.hourly_action_limit ?? 100}
+                          <p className="font-semibold text-foreground truncate" title={String(account.limits?.hourly_action_limit ?? (isAccountPro ? 'based on meta rate limits' : 100))}>
+                            {account.limits?.hourly_action_limit ?? (isAccountPro ? 'based on meta rate limits' : 100)}
                           </p>
                         </div>
                         <div className="rounded-lg border border-border bg-background p-1.5">
                           <p className="text-muted-foreground text-[10px]">Daily</p>
                           <p className="font-semibold text-foreground">
-                            {account.limits?.daily_action_limit ?? 500}
+                            {isAccountPro || account.limits?.daily_action_limit == null
+                              ? '∞'
+                              : account.limits.daily_action_limit}
                           </p>
                         </div>
                         <div className="rounded-lg border border-border bg-background p-1.5">
                           <p className="text-muted-foreground text-[10px]">Monthly</p>
                           <p className="font-semibold text-foreground">
-                            {account.limits?.monthly_action_limit == null ? '∞' : `${Math.round(account.limits.monthly_action_limit / 1000)}k`}
+                            {isAccountPro || account.limits?.monthly_action_limit == null
+                              ? '∞'
+                              : account.limits.monthly_action_limit >= 1000
+                              ? `${Math.round(account.limits.monthly_action_limit / 1000)}k`
+                              : account.limits.monthly_action_limit}
                           </p>
                         </div>
                       </div>
