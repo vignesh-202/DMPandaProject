@@ -26,11 +26,11 @@ import {
   UserCheck,
   Users,
   Zap,
-  Gift
+  Gift,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
-import { useNotification } from '../../contexts/NotificationContext';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import InfoPopover from '../../components/ui/InfoPopover';
 import VVDealsOfferBanner from '../../components/ui/VVDealsOfferBanner';
@@ -136,9 +136,16 @@ const MyPlanView: React.FC = () => {
   const [selectedCheckoutPlanId, setSelectedCheckoutPlanId] = useState<string | null>(null);
   const [targetCheckoutAccountId, setTargetCheckoutAccountId] = useState<string | null>(null);
 
-  // Success banner
+  // Success banner (auto-dismisses in 5s)
   const [upgradeSuccessMessage, setUpgradeSuccessMessage] = useState<string | null>(null);
-  const { showSuccess } = useNotification();
+
+  useEffect(() => {
+    if (!upgradeSuccessMessage) return;
+    const timer = setTimeout(() => {
+      setUpgradeSuccessMessage(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [upgradeSuccessMessage]);
 
   const pricingHeaders = useMemo(() => buildCountryHeaders(countryCode), [countryCode]);
 
@@ -451,28 +458,49 @@ const MyPlanView: React.FC = () => {
       )}
 
       <div className="mx-auto max-w-7xl space-y-8 p-3 sm:p-5 md:p-8">
-        {/* Top Notification Banner for Payment Success */}
+        {/* Modern Minimal Banner for Payment / Upgrade Success */}
         {upgradeSuccessMessage && (
-          <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-primary/10 p-5 text-foreground shadow-md animate-in fade-in slide-in-from-top-3">
-            <div className="flex items-center gap-3.5">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white font-bold shadow-sm">
-                <CheckCircle2 size={24} />
+          <div className="relative overflow-hidden flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/5 dark:bg-emerald-500/10 backdrop-blur-md px-4 py-3 text-foreground shadow-xs animate-in fade-in-50 slide-in-from-top-2 duration-300">
+            <style>{`
+              @keyframes shrinkNotificationProgress {
+                from { width: 100%; }
+                to { width: 0%; }
+              }
+            `}</style>
+            
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <CheckCircle2 className="h-5 w-5" />
               </div>
-              <div>
-                <p className="font-black text-base text-foreground flex items-center gap-2">
-                  Subscription Activated Successfully! <Sparkles size={16} className="text-amber-500" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="font-semibold text-sm text-foreground tracking-tight">
+                    Subscription Activated Successfully!
+                  </p>
+                  <Sparkles size={13} className="text-emerald-500 shrink-0 hidden sm:inline" />
+                </div>
+                <p className="text-xs text-muted-foreground truncate sm:whitespace-normal mt-0.5">
+                  {upgradeSuccessMessage}
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5">{upgradeSuccessMessage}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 self-end sm:self-auto">
+
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setUpgradeSuccessMessage(null)}
-                className="rounded-xl border border-border/70 bg-card px-3.5 py-2 text-xs font-bold hover:bg-muted transition"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-emerald-500/15 transition-colors"
+                title="Dismiss"
+                aria-label="Dismiss notification"
               >
-                Dismiss
+                <X size={15} />
               </button>
             </div>
+
+            {/* 5-second auto-dismiss progress indicator */}
+            <div
+              className="absolute bottom-0 left-0 h-[2px] bg-emerald-500/50 dark:bg-emerald-400/50"
+              style={{ animation: 'shrinkNotificationProgress 5s linear forwards' }}
+            />
           </div>
         )}
 
@@ -1358,7 +1386,6 @@ const MyPlanView: React.FC = () => {
           setTargetCheckoutAccountId(null);
           const msg = `You have successfully activated the ${planName}! All features and slots are ready.`;
           setUpgradeSuccessMessage(msg);
-          showSuccess(`🎉 ${msg}`);
         }}
         onSyncComplete={refreshAfterPayment}
       />
