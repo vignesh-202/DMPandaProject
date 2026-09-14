@@ -12,8 +12,15 @@ env/
 .env.*
 .env.local
 .env.*.local
-!.env.example
-!.env.*.example
+**/.env
+**/.env.*
+!**/.env.example
+!*.example
+
+# Deployment Archives
+deploy-*.tar.gz
+*.tar.gz
+*.zip
 
 # Logs & Temporary Files
 *.log
