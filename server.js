@@ -117,8 +117,8 @@ try {
   const backendApp = require('./Backend/app.js');
   // If Backend/app.js exported the express instance or app
   if (backendApp && typeof backendApp.use === 'function') {
-    app.use('/api', backendApp);
-    console.log('[Unified Gateway] Backend API mounted on /api');
+    app.use(backendApp);
+    console.log('[Unified Gateway] Backend API and Auth routes mounted successfully');
   }
 } catch (backendErr) {
   // If Backend runs as a separate process (e.g. on port 5000), route /api via proxy if available

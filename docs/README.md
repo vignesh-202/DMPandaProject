@@ -7,7 +7,6 @@ This directory is the active documentation home for the recovered DM Panda stack
 - [DMPandaProject_Docs.md](/c:/Users/vigan/PycharmProjects/DMPandaProject/docs/DMPandaProject_Docs.md): project reference and product overview.
 - [IMPORTANT_URLS.md](/c:/Users/vigan/PycharmProjects/DMPandaProject/docs/IMPORTANT_URLS.md): service URLs and project endpoints.
 - [appwrite-schema-inventory.md](/c:/Users/vigan/PycharmProjects/DMPandaProject/docs/appwrite-schema-inventory.md): current Appwrite collection, attribute, and index inventory.
-- [appwrite-schema-live.json](/c:/Users/vigan/PycharmProjects/DMPandaProject/docs/appwrite-schema-live.json): live schema snapshot written by `ProductionSetup/setup_appwrite.py`.
 
 ## Infrastructure docs
 

@@ -80,10 +80,16 @@ app.use('/api', instagramRoutes);
 app.use('/api/admin', adminRoutes);
 
 
-// Root endpoint
-app.get('/', (req, res) => {
-    res.json({ message: 'DM Panda Backend is running!' });
+// Health endpoint
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', message: 'DM Panda Backend is running!' });
 });
+
+if (require.main === module) {
+    app.get('/', (req, res) => {
+        res.json({ message: 'DM Panda Backend is running standalone!' });
+    });
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -91,14 +97,18 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Something went wrong!' });
 });
 
-const server = app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+if (require.main === module) {
+    const server = app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
 
-server.on('error', (error) => {
-    if (error?.code === 'EADDRINUSE') {
-        console.error(`Port ${PORT} is already in use. Stop the existing backend process or set a different PORT before starting this server.`);
-        return;
-    }
-    console.error('Backend server failed to start:', error);
-});
+    server.on('error', (error) => {
+        if (error?.code === 'EADDRINUSE') {
+            console.error(`Port ${PORT} is already in use. Stop the existing backend process or set a different PORT before starting this server.`);
+            return;
+        }
+        console.error('Backend server failed to start:', error);
+    });
+}
+
+module.exports = app;
