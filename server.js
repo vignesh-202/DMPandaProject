@@ -125,14 +125,31 @@ try {
   console.log('[Unified Gateway] Backend running standalone on PORT 5000');
 }
 
-/* ─── Subdomain / Path Routing: Admin Panel ─────────────────────── */
+/* ─── Subdomain / Path Routing: Admin Panel & API ─────────────────────── */
+const isApiSubdomain = (req) => {
+  const host = (req.headers.host || '').toLowerCase();
+  return host.startsWith('api.');
+};
+
 const isAdminRequest = (req) => {
   const host = (req.headers.host || '').toLowerCase();
   return host.startsWith('admin.') || req.path.startsWith('/admin');
 };
 
-// Serve Admin Panel Static Assets
+// Serve Admin Panel Static Assets (Supports both admin.dmpanda.com and dmpanda.com/admin)
 if (fs.existsSync(ADMIN_DIST)) {
+  app.use((req, res, next) => {
+    const host = (req.headers.host || '').toLowerCase();
+    if (host.startsWith('admin.')) {
+      return express.static(ADMIN_DIST, {
+        maxAge: '1y',
+        etag: true,
+        immutable: true
+      })(req, res, next);
+    }
+    next();
+  });
+
   app.use('/admin', express.static(ADMIN_DIST, {
     maxAge: '1y',
     etag: true,
@@ -164,7 +181,12 @@ if (fs.existsSync(FRONTEND_PUBLIC)) {
 
 /* ─── SPA Fallback Routing ──────────────────────────────────────── */
 app.get('*', (req, res) => {
-  // If request is for admin panel
+  // If request is for api subdomain and not handled by an API route
+  if (isApiSubdomain(req)) {
+    return res.status(404).json({ error: 'Endpoint not found', service: 'DM Panda API' });
+  }
+
+  // If request is for admin panel (admin.dmpanda.com or /admin)
   if (isAdminRequest(req)) {
     const adminIndex = path.join(ADMIN_DIST, 'index.html');
     if (fs.existsSync(adminIndex)) {
