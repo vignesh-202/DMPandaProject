@@ -675,7 +675,7 @@ const AccountSettingsView = () => {
       {/* Settings Grid Structure */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
         {/* Navigation Sidebar (Fully Responsive Grid/Sidebar) */}
-        <div className="w-full lg:col-span-1 grid grid-cols-2 md:grid-cols-4 lg:flex lg:flex-col gap-1.5 p-1.5 bg-card rounded-2xl border border-border shrink-0 shadow-xs">
+        <div className="w-full lg:col-span-1 flex overflow-x-auto no-scrollbar sm:grid sm:grid-cols-4 lg:flex lg:flex-col gap-1.5 p-1.5 bg-card rounded-2xl border border-border shrink-0 shadow-xs">
           {tabs.map((tab) => {
             const isTabActive = activeTab === tab.id;
             return (
@@ -683,7 +683,7 @@ const AccountSettingsView = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={cn(
-                  "flex items-center justify-center lg:justify-start gap-2.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 w-full text-center lg:text-left",
+                  "flex items-center justify-center lg:justify-start gap-2 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 shrink-0 sm:shrink sm:w-full text-center lg:text-left whitespace-nowrap",
                   isTabActive
                     ? tab.id === 'danger'
                       ? "bg-destructive text-destructive-foreground shadow-xs"
@@ -954,7 +954,7 @@ const AccountSettingsView = () => {
                                           <Info className="h-2.5 w-2.5" />
                                         </button>
                                         {inactiveInfoCardId === account.id && (
-                                          <div className="absolute left-1/2 top-[calc(100%+0.5rem)] z-40 w-64 -translate-x-1/2 rounded-xl border border-border bg-card p-3 text-xs font-medium leading-relaxed text-muted-foreground shadow-xl sm:left-0 sm:translate-x-0">
+                                          <div className="absolute left-0 top-[calc(100%+0.5rem)] z-40 w-64 max-w-[calc(100vw-4rem)] rounded-xl border border-border bg-card p-3 text-xs font-medium leading-relaxed text-muted-foreground shadow-xl">
                                             Contact support to solve this issue if you need this Instagram account reactivated.
                                           </div>
                                         )}
@@ -965,15 +965,15 @@ const AccountSettingsView = () => {
                               </div>
 
                               {/* Right Side: Active Status Toggle + Actions */}
-                              <div className="flex items-center justify-between gap-2.5 w-full md:w-auto md:justify-end shrink-0">
+                              <div className="pt-3.5 mt-1 border-t border-border/60 md:border-0 md:pt-0 md:mt-0 flex flex-wrap items-center justify-between gap-2.5 w-full md:w-auto md:justify-end shrink-0">
                                 {isReconnectRequired ? (
-                                  <div className="flex items-center gap-2 flex-1 md:flex-initial">
+                                  <div className="flex items-center gap-2 w-full sm:w-auto flex-1 md:flex-initial">
                                     <Button
                                       variant="default"
                                       size="sm"
                                       onClick={() => handleInstagramLink(account.id)}
                                       disabled={linkingAccountID === account.id}
-                                      className="h-8 px-3 transition-all bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm rounded-lg flex items-center justify-center text-xs font-medium flex-1 md:flex-initial"
+                                      className="h-8 px-3 transition-all bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm rounded-lg flex items-center justify-center text-xs font-medium flex-1 sm:flex-initial whitespace-nowrap"
                                     >
                                       {linkingAccountID === account.id ? (
                                         <Loader2 className="mr-1.5 h-3 w-3 animate-spin shrink-0" />
@@ -987,7 +987,7 @@ const AccountSettingsView = () => {
                                       size="sm"
                                       onClick={() => handleVerifyConnection(account.id)}
                                       disabled={isVerifyingConnection === account.id}
-                                      className="h-8 px-2.5 transition-all rounded-lg flex items-center justify-center text-xs font-medium text-muted-foreground hover:text-foreground border-border bg-background"
+                                      className="h-8 px-2.5 transition-all rounded-lg flex items-center justify-center text-xs font-medium text-muted-foreground hover:text-foreground border-border bg-background whitespace-nowrap"
                                       title="Check if this account's connection is actually working before reconnecting"
                                     >
                                       {isVerifyingConnection === account.id ? (
@@ -996,11 +996,12 @@ const AccountSettingsView = () => {
                                         <Shield className="h-3.5 w-3.5" />
                                       )}
                                       <span className="ml-1 hidden sm:inline">Check Connection</span>
+                                      <span className="ml-1 sm:hidden">Check</span>
                                     </Button>
                                   </div>
                                 ) : (
                                   /* Active status mini switch */
-                                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-muted/30 border border-border shrink-0">
+                                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-muted/40 border border-border shrink-0">
                                     <span className="text-[11px] font-medium text-muted-foreground">Active</span>
                                     <button
                                       type="button"
@@ -1029,14 +1030,14 @@ const AccountSettingsView = () => {
                                   </div>
                                 )}
 
-                                <div className="flex gap-1.5 flex-1 md:flex-initial">
+                                <div className="flex items-center gap-1.5 flex-1 sm:flex-initial justify-end">
                                   {!isReconnectRequired && (
                                     <Button
                                       variant="outline"
                                       size="sm"
                                       onClick={() => setActiveAccountID(accountKey)}
                                       disabled={isSelected}
-                                      className="h-8 border-border bg-background px-2.5 text-foreground transition-all hover:bg-muted rounded-lg text-xs font-medium flex-1 md:flex-initial"
+                                      className="h-8 border-border bg-background px-2.5 text-foreground transition-all hover:bg-muted rounded-lg text-xs font-medium flex-1 sm:flex-initial whitespace-nowrap"
                                     >
                                       <ArrowRightLeft className="mr-1.5 h-3 w-3 shrink-0 text-muted-foreground" />
                                       <span>Switch</span>
@@ -1049,7 +1050,7 @@ const AccountSettingsView = () => {
                                       size="sm"
                                       onClick={() => setShowDeleteIGConfirm(account.id)}
                                       disabled={isDeletingIG === account.id}
-                                      className="h-8 border-0 bg-destructive/10 px-2.5 font-medium text-destructive hover:bg-destructive/20 rounded-lg text-xs flex-1 md:flex-initial"
+                                      className="h-8 border-0 bg-destructive/10 px-2.5 font-medium text-destructive hover:bg-destructive/20 rounded-lg text-xs flex-1 sm:flex-initial whitespace-nowrap"
                                     >
                                       {isDeletingIG === account.id ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin shrink-0" /> : <Trash2 className="mr-1.5 h-3 w-3 shrink-0" />}
                                       <span>Delete</span>
@@ -1071,15 +1072,17 @@ const AccountSettingsView = () => {
                     </div>
                   )}
 
-                  <div className="pt-5 border-t border-border">
-                    <InlineMessage section="instagram" />
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {igAccounts.length} Instagram account{igAccounts.length === 1 ? '' : 's'} linked. Unlimited account links allowed.
-                    </p>
+                  <div className="pt-5 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <InlineMessage section="instagram" />
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {igAccounts.length} Instagram account{igAccounts.length === 1 ? '' : 's'} linked. Unlimited account links allowed.
+                      </p>
+                    </div>
                     <Button
                       onClick={() => handleInstagramLink('new')}
                       disabled={linkingAccountID === 'new'}
-                      className="w-full mt-3 h-10 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm transition-all duration-150 rounded-xl font-medium flex items-center justify-center gap-2 text-sm active:scale-[0.98]"
+                      className="w-full sm:w-auto h-10 px-5 bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm transition-all duration-150 rounded-xl font-medium flex items-center justify-center gap-2 text-sm active:scale-[0.98] shrink-0"
                     >
                       {linkingAccountID === 'new' ? (
                         <Loader2 className="h-4 w-4 animate-spin shrink-0" />
