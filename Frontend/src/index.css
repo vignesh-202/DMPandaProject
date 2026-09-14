@@ -376,7 +376,7 @@
 
   /* Ensure touch targets are at least 44px on mobile */
   @media (max-width: 639px) {
-    button, a, [role="button"] {
+    button:not([role="switch"]):not([data-no-min-h]), a, [role="button"] {
       min-height: 44px;
     }
     

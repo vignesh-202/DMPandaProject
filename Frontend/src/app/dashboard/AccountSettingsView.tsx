@@ -675,7 +675,7 @@ const AccountSettingsView = () => {
       {/* Settings Grid Structure */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
         {/* Navigation Sidebar (Fully Responsive Grid/Sidebar) */}
-        <div className="w-full lg:col-span-1 flex overflow-x-auto no-scrollbar sm:grid sm:grid-cols-4 lg:flex lg:flex-col gap-1.5 p-1.5 bg-card rounded-2xl border border-border shrink-0 shadow-xs">
+        <div className="w-full lg:col-span-1 grid grid-cols-2 md:grid-cols-4 lg:flex lg:flex-col gap-1.5 p-1.5 bg-card rounded-2xl border border-border shrink-0 shadow-xs">
           {tabs.map((tab) => {
             const isTabActive = activeTab === tab.id;
             return (
@@ -683,7 +683,7 @@ const AccountSettingsView = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={cn(
-                  "flex items-center justify-center lg:justify-start gap-2 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 shrink-0 sm:shrink sm:w-full text-center lg:text-left whitespace-nowrap",
+                  "flex items-center justify-center lg:justify-start gap-2 px-2.5 py-2.5 sm:px-3.5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 w-full text-center lg:text-left min-h-0 select-none",
                   isTabActive
                     ? tab.id === 'danger'
                       ? "bg-destructive text-destructive-foreground shadow-xs"
@@ -692,7 +692,7 @@ const AccountSettingsView = () => {
                 )}
               >
                 <tab.icon className="h-4 w-4 shrink-0" />
-                <span>{tab.label}</span>
+                <span className="truncate">{tab.label}</span>
               </button>
             );
           })}
@@ -1001,8 +1001,8 @@ const AccountSettingsView = () => {
                                   </div>
                                 ) : (
                                   /* Active status mini switch */
-                                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-muted/40 border border-border shrink-0">
-                                    <span className="text-[11px] font-medium text-muted-foreground">Active</span>
+                                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 border border-border shrink-0">
+                                    <span className="text-xs font-medium text-muted-foreground select-none">Active</span>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -1017,7 +1017,7 @@ const AccountSettingsView = () => {
                                       role="switch"
                                       aria-checked={isActive}
                                       className={cn(
-                                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
+                                        "relative inline-flex !h-5 !w-9 !min-h-[20px] !max-h-[20px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed p-0 m-0",
                                         isActive ? "bg-emerald-500" : "bg-muted-foreground/30"
                                       )}
                                       title={isAdminDisabled ? 'Disabled by administrator.' : undefined}
