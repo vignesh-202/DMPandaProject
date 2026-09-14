@@ -6,12 +6,8 @@ const TemplateRenderer = require('./renderer');
 const sharedPlanFeatures = require('../../shared/planFeatures.json');
 const { evaluateActionRateLimit, normalizeActionLimits } = require('../../shared/actionRateLimiter');
 const { planWatermark, resolveWatermarkPolicy } = require('./watermark');
-const { deliverCollectedEmail } = require('./emailDestinations');
 
 const DEFAULT_FOLLOWERS_ONLY_MESSAGE = 'Please follow this account first, then send your message again.';
-const DEFAULT_COLLECT_EMAIL_PROMPT = '📧 Could you share your best email so we can send the details and updates ✨';
-const DEFAULT_COLLECT_EMAIL_FAIL_RETRY = '⚠️ That email looks invalid. Please send a valid email like name@example.com.';
-const DEFAULT_COLLECT_EMAIL_SUCCESS = 'Perfect, thank you! Your email has been saved ✅';
 const AUTOMATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const EVENT_DEDUPE_TTL_MS = Math.max(
     60_000,
@@ -49,7 +45,6 @@ const SHARE_TRIGGER_FEATURE_MAP = Object.freeze(sharedPlanFeatures.shareTriggerF
 const USE_NEW_GATING = String(process.env.USE_NEW_GATING ?? 'true').trim().toLowerCase() !== 'false';
 const LEGACY_TOGGLE_FEATURE_MAP = Object.freeze({
     suggest_more_enabled: 'suggest_more',
-    collect_email_enabled: 'collect_email',
     seen_typing_enabled: 'seen_typing',
     followers_only: 'followers_only'
 });
@@ -261,10 +256,7 @@ class DMWorker {
         return {
             followers_only_message: DEFAULT_FOLLOWERS_ONLY_MESSAGE,
             followers_only_primary_button_text: '👤 Follow Account',
-            followers_only_secondary_button_text: "✅ I've Followed",
-            collect_email_prompt_message: DEFAULT_COLLECT_EMAIL_PROMPT,
-            collect_email_fail_retry_message: DEFAULT_COLLECT_EMAIL_FAIL_RETRY,
-            collect_email_success_reply_message: DEFAULT_COLLECT_EMAIL_SUCCESS
+            followers_only_secondary_button_text: "✅ I've Followed"
         };
     }
 
@@ -1001,6 +993,9 @@ class DMWorker {
             return false;
         }
 
+        const primaryAccountId = accountId || suggestMoreAutomation.account_id || automation?.account_id;
+        const conversationKey = `${recipientId}:${senderId}`;
+
         const suggestMoreTemplate = await this._resolveAutomationTemplate(
             suggestMoreAutomation,
             suggestMoreAutomation.account_id || automation?.account_id
@@ -1009,7 +1004,7 @@ class DMWorker {
             return false;
         }
 
-        await this.sendRenderedTemplate(
+        const sendSuccess = await this.sendRenderedTemplate(
             instagram,
             senderId,
             suggestMoreTemplate,
@@ -1022,7 +1017,7 @@ class DMWorker {
             {
                 actionUserId,
                 logContext: {
-                    accountId: accountId || suggestMoreAutomation.account_id || automation?.account_id || null,
+                    accountId: primaryAccountId || null,
                     recipientId: senderId,
                     senderName: senderId,
                     automationId: suggestMoreAutomation.$id || null,
@@ -1033,7 +1028,7 @@ class DMWorker {
             }
         );
 
-        return true;
+        return sendSuccess === true;
     }
 
     async _sendAutomationReply({
@@ -1145,26 +1140,6 @@ class DMWorker {
 
     _normalizeConversationState(state) {
         const source = state && typeof state === 'object' ? state : {};
-        const pendingEmail = source.pendingEmail && typeof source.pendingEmail === 'object'
-            ? {
-                automationId: String(source.pendingEmail.automationId || '').trim() || null,
-                automationType: String(source.pendingEmail.automationType || 'dm').trim() || 'dm',
-                collectEmailOnlyGmail: source.pendingEmail.collectEmailOnlyGmail === true,
-                promptMessage: String(source.pendingEmail.promptMessage || DEFAULT_COLLECT_EMAIL_PROMPT).trim() || DEFAULT_COLLECT_EMAIL_PROMPT,
-                failRetryMessage: String(source.pendingEmail.failRetryMessage || DEFAULT_COLLECT_EMAIL_FAIL_RETRY).trim() || DEFAULT_COLLECT_EMAIL_FAIL_RETRY,
-                successReplyMessage: String(source.pendingEmail.successReplyMessage || DEFAULT_COLLECT_EMAIL_SUCCESS).trim() || DEFAULT_COLLECT_EMAIL_SUCCESS,
-                sendTo: String(source.pendingEmail.sendTo || 'everyone').trim() || 'everyone',
-                originalMessageText: String(source.pendingEmail.originalMessageText || '').trim(),
-                receiverName: String(source.pendingEmail.receiverName || '').trim(),
-                sourceEventType: String(source.pendingEmail.sourceEventType || 'message').trim() || 'message',
-                commentId: String(source.pendingEmail.commentId || '').trim() || null,
-                commentReplySent: source.pendingEmail.commentReplySent === true,
-                mediaShareSent: source.pendingEmail.mediaShareSent === true,
-                automationSnapshot: source.pendingEmail.automationSnapshot && typeof source.pendingEmail.automationSnapshot === 'object'
-                    ? source.pendingEmail.automationSnapshot
-                    : null
-            }
-            : null;
 
         const cooldowns = source.automationCooldowns && typeof source.automationCooldowns === 'object'
             ? Object.entries(source.automationCooldowns).reduce((acc, [automationId, expiresAt]) => {
@@ -1178,7 +1153,6 @@ class DMWorker {
             : {};
 
         return {
-            pendingEmail,
             automationCooldowns: cooldowns,
             mediaShareSent: source.mediaShareSent === true
         };
@@ -1213,33 +1187,6 @@ class DMWorker {
     async _clearConversationState(accountId, conversationKey) {
         this.localConversationStates.delete(conversationKey);
         await this.appwrite.clearConversationState(accountId, conversationKey);
-    }
-
-    _normalizeEmail(email) {
-        const safeEmail = String(email || '').trim().toLowerCase();
-        if (!safeEmail.includes('@')) return safeEmail;
-
-        let [local, domain] = safeEmail.split('@');
-        if (['gmail.com', 'googlemail.com'].includes(domain)) {
-            local = local.split('+')[0].replace(/\./g, '');
-            domain = 'gmail.com';
-        }
-        return `${local}@${domain}`;
-    }
-
-    _validateCollectedEmail(email, gmailOnly = false) {
-        const rawEmail = String(email || '').trim();
-        const normalizedEmail = this._normalizeEmail(rawEmail);
-        const isValid = /^[\w.+-]+@[\w.-]+\.\w+$/i.test(rawEmail);
-        if (!isValid) {
-            return { valid: false, normalizedEmail };
-        }
-
-        if (gmailOnly && !normalizedEmail.endsWith('@gmail.com')) {
-            return { valid: false, normalizedEmail };
-        }
-
-        return { valid: true, normalizedEmail };
     }
 
     _isFollowersRetryPayload(payload) {
@@ -1290,10 +1237,8 @@ class DMWorker {
     _isShareToAdminAutomation(automation) {
         if (!automation) return false;
         const triggerType = String(automation.trigger_type || '').trim().toLowerCase();
-        const templateType = String(automation.template_type || '').trim().toLowerCase();
         return triggerType === 'share_to_admin'
-            || automation.share_to_admin_enabled === true
-            || templateType === 'template_share_post';
+            || automation.share_to_admin_enabled === true;
     }
 
     _matchesSharedUrl(automation, sharedUrl) {
@@ -1426,48 +1371,6 @@ class DMWorker {
         return null;
     }
 
-    _buildCollectedEmailDeliveryPayload({
-        email,
-        normalizedEmail,
-        senderId,
-        senderProfileUrl,
-        receiverName,
-        automation
-    }) {
-        return {
-            email: String(email || '').trim(),
-            normalized_email: String(normalizedEmail || '').trim(),
-            sender_id: String(senderId || '').trim(),
-            sender_profile_url: String(senderProfileUrl || '').trim(),
-            receiver_name: String(receiverName || '').trim(),
-            automation_id: String(automation?.$id || '').trim(),
-            automation_title: String(automation?.title || '').trim(),
-            automation_type: String(automation?.automation_type || 'dm').trim() || 'dm',
-            received_at: new Date().toISOString()
-        };
-    }
-
-    async _getCollectorDestinationOrFallback(automationId, accountId) {
-        if (typeof this.appwrite.getEmailCollectorDestination === 'function') {
-            return this.appwrite.getEmailCollectorDestination(automationId, accountId);
-        }
-
-        return {
-            verified: true,
-            destination_type: 'webhook',
-            webhook_url: ''
-        };
-    }
-
-    _isCollectEmailEnabledForAutomation(automation) {
-        if (!automation || automation.collect_email_enabled !== true) {
-            return false;
-        }
-
-        const automationType = String(automation.automation_type || '').trim().toLowerCase();
-        return automationType !== 'convo_starter';
-    }
-
     _isAutomationCoolingDown(state, automationId) {
         const safeAutomationId = String(automationId || '').trim();
         if (!safeAutomationId) return false;
@@ -1579,219 +1482,6 @@ class DMWorker {
             });
         }
         return sent;
-    }
-
-    async _handlePendingEmailCollection({
-        instagram,
-        senderId,
-        messageText,
-        accountId,
-        conversationKey,
-        state,
-        userId,
-        recipientId
-    }) {
-        const pendingEmail = state?.pendingEmail;
-        if (!pendingEmail) return null;
-
-        const validation = this._validateCollectedEmail(messageText, pendingEmail.collectEmailOnlyGmail === true);
-        if (!validation.valid) {
-            const retrySent = await instagram.sendMessage(senderId, 'template_text', {
-                text: pendingEmail.failRetryMessage || DEFAULT_COLLECT_EMAIL_FAIL_RETRY
-            });
-            return {
-                handled: true,
-                automationType: pendingEmail.automationType || 'dm'
-            };
-        }
-
-        const automation = typeof this.appwrite.getAutomation === 'function'
-            ? await this.appwrite.getAutomation(pendingEmail.automationId, accountId)
-            : pendingEmail.automationSnapshot;
-        if (!automation) {
-            console.warn(`Pending email automation ${pendingEmail.automationId} could not be loaded.`);
-            await this._clearConversationState(accountId, conversationKey);
-            return {
-                handled: false,
-                automationType: pendingEmail.automationType || 'dm'
-            };
-        }
-        const executionState = await this.appwrite.getExecutionState(userId);
-        if (!this._hasPlanFeature(executionState?.profile, 'collect_email')) {
-            await this._clearConversationState(accountId, conversationKey);
-            this._logBlockedFeatures({
-                userId,
-                accountId,
-                automation,
-                missingFeatures: ['collect_email'],
-                reason: 'plan_feature_blocked',
-                eventType: 'pending_email_feature_locked'
-            });
-            return {
-                handled: false,
-                automationType: 'invalid_due_to_plan'
-            };
-        }
-
-        const destination = await this._getCollectorDestinationOrFallback(pendingEmail.automationId, accountId);
-        if (!destination?.verified) {
-            console.warn(
-                `Email collector destination is missing or unverified for automation ${pendingEmail.automationId}.`
-            );
-            await this._clearConversationState(accountId, conversationKey);
-            return {
-                handled: false,
-                automationType: pendingEmail.automationType || 'dm'
-            };
-        }
-
-        const senderProfile = await instagram.getUserProfile(senderId);
-        const senderProfileUrl = senderProfile?.username
-            ? `https://www.instagram.com/${String(senderProfile.username).trim()}/`
-            : '';
-        const receiverName = pendingEmail.receiverName || '';
-        const deliveryPayload = this._buildCollectedEmailDeliveryPayload({
-            email: String(messageText || '').trim(),
-            normalizedEmail: validation.normalizedEmail,
-            senderId,
-            senderProfileUrl,
-            receiverName,
-            automation
-        });
-
-        await this.appwrite.recordCollectedEmail({
-            userId,
-            accountId,
-            automationId: pendingEmail.automationId,
-            conversationKey,
-            senderId,
-            recipientId,
-            email: String(messageText || '').trim(),
-            normalizedEmail: validation.normalizedEmail,
-            sendTo: pendingEmail.sendTo || 'everyone',
-            senderProfileUrl,
-            receiverName,
-            automationTitle: automation?.title || '',
-            automationType: automation?.automation_type || pendingEmail.automationType || 'dm'
-        });
-
-        try {
-            await deliverCollectedEmail(destination, deliveryPayload);
-        } catch (error) {
-            console.warn(
-                `Collected email delivery failed for ${pendingEmail.automationId}:`,
-                error?.message || error
-            );
-        }
-
-        const nextState = this._normalizeConversationState(state);
-        nextState.pendingEmail = null;
-        await this._saveConversationState({
-            userId,
-            accountId,
-            conversationKey,
-            senderId,
-            recipientId
-        }, nextState);
-
-        const watermarkPolicy = await this._getWatermarkPolicyForUser(userId);
-        await this._sendWatermarkedText(
-            instagram,
-            senderId,
-            pendingEmail.successReplyMessage || DEFAULT_COLLECT_EMAIL_SUCCESS,
-            watermarkPolicy,
-            {
-                actionUserId: userId,
-                logContext: {
-                    accountId,
-                    recipientId: senderId,
-                    senderName: senderId,
-                    automationId: pendingEmail.automationId || null,
-                    automationType: pendingEmail.automationType || 'dm',
-                    eventType: pendingEmail.sourceEventType || 'message',
-                    source: 'worker_node'
-                }
-            }
-        );
-
-        const template = await this._resolveAutomationTemplate(automation, automation.account_id);
-        let sent = false;
-        if (template) {
-            if (pendingEmail.sourceEventType === 'comment' && pendingEmail.commentId && automation.comment_reply && !pendingEmail.commentReplySent) {
-                await instagram.replyToComment(pendingEmail.commentId, automation.comment_reply);
-            }
-            if (this._isShareToAdminAutomation(automation) && (pendingEmail.mediaShareSent === true || state?.mediaShareSent === true)) {
-                console.log(`Skipping media share for email collection automation ${automation.$id} because it was already sent.`);
-                sent = true;
-            } else {
-                const chainState = { preReplyHintsSent: false };
-                await this._maybeSendSeenTypingPrelude(instagram, senderId, automation, chainState);
-                sent = await this.sendRenderedTemplate(
-                    instagram,
-                    senderId,
-                    template,
-                    {
-                        sender_id: senderId,
-                        recipient_id: recipientId,
-                        message_text: pendingEmail.originalMessageText || String(messageText || '').trim()
-                    },
-                    watermarkPolicy,
-                    {
-                        actionUserId: userId,
-                        logContext: {
-                            accountId,
-                            recipientId: senderId,
-                            senderName: senderId,
-                            automationId: automation?.$id || null,
-                            automationType: automation?.automation_type || pendingEmail.automationType || 'dm',
-                            eventType: pendingEmail.sourceEventType || 'message',
-                            source: 'worker_node'
-                        }
-                    }
-                );
-            }
-
-            await this._sendSuggestMoreFollowUp({
-                instagram,
-                senderId,
-                recipientId,
-                messageText: pendingEmail.originalMessageText || String(messageText || '').trim(),
-                automation,
-                automationAccountIds: [accountId],
-                watermarkPolicy,
-                ownerUserId: userId,
-                eventType: pendingEmail.sourceEventType || 'message',
-                accountId
-            });
-        }
-
-        if (sent && this._isShareToAdminAutomation(automation)) {
-            const finalState = this._normalizeConversationState(nextState);
-            finalState.mediaShareSent = true;
-            await this._saveConversationState({
-                userId,
-                accountId,
-                conversationKey,
-                senderId,
-                recipientId
-            }, finalState);
-        }
-
-        if (automation.once_per_user_24h === true) {
-            const cooldownState = this._withAutomationCooldown({ pendingEmail: null, automationCooldowns: {} }, automation.$id);
-            await this._saveConversationState({
-                userId,
-                accountId,
-                conversationKey,
-                senderId,
-                recipientId
-            }, cooldownState);
-        }
-
-        return {
-            handled: true,
-            automationType: pendingEmail.automationType || 'dm'
-        };
     }
 
     _extractCommentEvent(webhookData) {
@@ -2115,74 +1805,6 @@ class DMWorker {
                 }
             }
 
-            const destination = this._isCollectEmailEnabledForAutomation(matchedAutomation)
-                ? await this._getCollectorDestinationOrFallback(matchedAutomation.$id, primaryAccountId)
-                : null;
-            if (this._isCollectEmailEnabledForAutomation(matchedAutomation)) {
-                if (this._isShareToAdminAutomation(matchedAutomation) && nextConversationState.mediaShareSent === true) {
-                    console.log(`Skipping email collect prompt for share automation because it was already sent.`);
-                    continue;
-                }
-                if (!destination?.verified) {
-                    console.warn(`Skipping collector-gated automation ${matchedAutomation.$id} because no verified destination exists.`);
-                    return {
-                        handled: false,
-                        automationType
-                    };
-                }
-
-                const automationDefaults = await this._getAutomationDefaults();
-                let promptSent = await instagram.sendMessage(commentEvent.senderId, 'template_text', {
-                    text: String(
-                        matchedAutomation.collect_email_prompt_message
-                        || automationDefaults.collect_email_prompt_message
-                        || DEFAULT_COLLECT_EMAIL_PROMPT
-                    ).trim() || DEFAULT_COLLECT_EMAIL_PROMPT
-                }, { commentId: commentEvent.commentId || null });
-
-                if (!promptSent && commentEvent.commentId) {
-                    console.info(`Private reply failed for email collection prompt. Attempting public comment reply fallback.`);
-                    promptSent = await instagram.replyToComment(commentEvent.commentId, String(
-                        matchedAutomation.collect_email_prompt_message
-                        || automationDefaults.collect_email_prompt_message
-                        || DEFAULT_COLLECT_EMAIL_PROMPT
-                    ).trim() || DEFAULT_COLLECT_EMAIL_PROMPT);
-                }
-
-                if (promptSent) {
-                    await this._saveConversationState({
-                        userId: igAccount.user_id,
-                        accountId: primaryAccountId,
-                        conversationKey,
-                        senderId: commentEvent.senderId,
-                        recipientId: commentEvent.recipientId
-                    }, {
-                        pendingEmail: {
-                            automationId: String(matchedAutomation.$id || '').trim() || null,
-                            automationType,
-                            collectEmailOnlyGmail: matchedAutomation.collect_email_only_gmail === true,
-                            promptMessage: String(matchedAutomation.collect_email_prompt_message || automationDefaults.collect_email_prompt_message || DEFAULT_COLLECT_EMAIL_PROMPT).trim() || DEFAULT_COLLECT_EMAIL_PROMPT,
-                            failRetryMessage: String(matchedAutomation.collect_email_fail_retry_message || automationDefaults.collect_email_fail_retry_message || DEFAULT_COLLECT_EMAIL_FAIL_RETRY).trim() || DEFAULT_COLLECT_EMAIL_FAIL_RETRY,
-                            successReplyMessage: String(matchedAutomation.collect_email_success_reply_message || automationDefaults.collect_email_success_reply_message || DEFAULT_COLLECT_EMAIL_SUCCESS).trim() || DEFAULT_COLLECT_EMAIL_SUCCESS,
-                            sendTo: String(matchedAutomation.send_to || 'everyone').trim() || 'everyone',
-                            originalMessageText: commentEvent.text,
-                            receiverName: String(igAccount.username || '').trim(),
-                            sourceEventType: 'comment',
-                            commentId: commentEvent.commentId || null,
-                            commentReplySent: commentReplySent === true,
-                            mediaShareSent: false,
-                            automationSnapshot: matchedAutomation
-                        },
-                        automationCooldowns: nextConversationState.automationCooldowns || {}
-                    });
-                }
-
-                return {
-                    handled: promptSent,
-                    automationType
-                };
-            }
-
             const success = await this._sendAutomationReply({
                 instagram,
                 senderId: commentEvent.senderId,
@@ -2320,57 +1942,6 @@ class DMWorker {
                 await this._sendFollowersOnlyPrompt(instagram, mentionEvent.senderId, igAccount, matchedAutomation);
                 return { handled: true, automationType };
             }
-        }
-
-        const destination = this._isCollectEmailEnabledForAutomation(matchedAutomation)
-            ? await this._getCollectorDestinationOrFallback(matchedAutomation.$id, primaryAccountId)
-            : null;
-        if (this._isCollectEmailEnabledForAutomation(matchedAutomation)) {
-            if (this._isShareToAdminAutomation(matchedAutomation) && nextConversationState.mediaShareSent === true) {
-                console.log(`Skipping email collect prompt for share automation because it was already sent.`);
-                return { handled: true, automationType };
-            }
-            if (!destination?.verified) {
-                return { handled: false, automationType };
-            }
-
-            const automationDefaults = await this._getAutomationDefaults();
-            const promptSent = await instagram.sendMessage(mentionEvent.senderId, 'template_text', {
-                text: String(
-                    matchedAutomation.collect_email_prompt_message
-                    || automationDefaults.collect_email_prompt_message
-                    || DEFAULT_COLLECT_EMAIL_PROMPT
-                ).trim() || DEFAULT_COLLECT_EMAIL_PROMPT
-            });
-
-            if (promptSent) {
-                await this._saveConversationState({
-                    userId: igAccount.user_id,
-                    accountId: primaryAccountId,
-                    conversationKey,
-                    senderId: mentionEvent.senderId,
-                    recipientId: mentionEvent.recipientId
-                }, {
-                    pendingEmail: {
-                        automationId: String(matchedAutomation.$id || '').trim() || null,
-                        automationType,
-                        collectEmailOnlyGmail: matchedAutomation.collect_email_only_gmail === true,
-                        promptMessage: String(matchedAutomation.collect_email_prompt_message || automationDefaults.collect_email_prompt_message || DEFAULT_COLLECT_EMAIL_PROMPT).trim() || DEFAULT_COLLECT_EMAIL_PROMPT,
-                        failRetryMessage: String(matchedAutomation.collect_email_fail_retry_message || automationDefaults.collect_email_fail_retry_message || DEFAULT_COLLECT_EMAIL_FAIL_RETRY).trim() || DEFAULT_COLLECT_EMAIL_FAIL_RETRY,
-                        successReplyMessage: String(matchedAutomation.collect_email_success_reply_message || automationDefaults.collect_email_success_reply_message || DEFAULT_COLLECT_EMAIL_SUCCESS).trim() || DEFAULT_COLLECT_EMAIL_SUCCESS,
-                        sendTo: String(matchedAutomation.send_to || 'everyone').trim() || 'everyone',
-                        originalMessageText: mentionEvent.text,
-                        receiverName: String(igAccount.username || '').trim(),
-                        sourceEventType: 'mention',
-                        commentId: null,
-                        mediaShareSent: false,
-                        automationSnapshot: matchedAutomation
-                    },
-                    automationCooldowns: nextConversationState.automationCooldowns || {}
-                });
-            }
-
-            return { handled: promptSent, automationType };
         }
 
         const watermarkPolicy = await this._getWatermarkPolicyForUser(igAccount.user_id);
@@ -2555,20 +2126,6 @@ class DMWorker {
             const conversationState = await this._getConversationState(primaryAccountId, conversationKey);
             let nextConversationState = this._normalizeConversationState(conversationState);
 
-            const pendingEmailResult = await this._handlePendingEmailCollection({
-                instagram,
-                senderId,
-                messageText: inboundText,
-                accountId: primaryAccountId,
-                conversationKey,
-                state: nextConversationState,
-                userId: igAccount.user_id,
-                recipientId
-            });
-            if (pendingEmailResult) {
-                return pendingEmailResult;
-            }
-
             // 2. Get active automations for this account
             console.log(`Fetching active automations for account identifiers: ${automationAccountIds.join(', ')}`);
             let automations = await this.appwrite.getActiveAutomations(automationAccountIds) || [];
@@ -2647,9 +2204,6 @@ class DMWorker {
                         );
                         
                         if (success) {
-                            if (nextConversationState.pendingEmail) {
-                                nextConversationState.pendingEmail = null;
-                            }
                             const hasCooldowns = Object.keys(nextConversationState.automationCooldowns || {}).length > 0;
                             const hasMediaShare = nextConversationState.mediaShareSent === true;
                             if (hasCooldowns || hasMediaShare) {
@@ -2770,7 +2324,7 @@ class DMWorker {
                 };
             }
 
-            if (this._isShareToAdminAutomation(matchedAutomation) && !isShareEvent && nextConversationState.mediaShareSent === true) {
+            if (isShareEvent && this._isShareToAdminAutomation(matchedAutomation) && nextConversationState.mediaShareSent === true) {
                 console.log(`Skipping media share for automation ${matchedAutomation.$id} because it was already sent.`);
                 return {
                     handled: true,
@@ -2795,67 +2349,6 @@ class DMWorker {
                         automationType
                     };
                 }
-            }
-
-            const collectorDestination = this._isCollectEmailEnabledForAutomation(matchedAutomation)
-                ? await this._getCollectorDestinationOrFallback(matchedAutomation.$id, primaryAccountId)
-                : null;
-            if (this._isCollectEmailEnabledForAutomation(matchedAutomation)) {
-                if (this._isShareToAdminAutomation(matchedAutomation) && !isShareEvent && nextConversationState.mediaShareSent === true) {
-                    console.log(`Skipping email collect prompt for share automation because it was already sent.`);
-                    return {
-                        handled: true,
-                        automationType
-                    };
-                }
-                const automationDefaults = await this._getAutomationDefaults();
-                if (!collectorDestination?.verified) {
-                    console.warn(
-                        `Skipping collector-gated automation ${matchedAutomation.$id || matchedAutomation.title || automationType} because no verified destination exists.`
-                    );
-                    return {
-                        handled: false,
-                        automationType
-                    };
-                }
-
-                const promptSent = await instagram.sendMessage(senderId, 'template_text', {
-                    text: String(
-                        matchedAutomation.collect_email_prompt_message
-                        || automationDefaults.collect_email_prompt_message
-                        || DEFAULT_COLLECT_EMAIL_PROMPT
-                    ).trim() || DEFAULT_COLLECT_EMAIL_PROMPT
-                });
-
-                if (promptSent) {
-                    nextConversationState.pendingEmail = {
-                        automationId: String(matchedAutomation.$id || '').trim() || null,
-                        automationType,
-                        collectEmailOnlyGmail: matchedAutomation.collect_email_only_gmail === true,
-                        promptMessage: String(matchedAutomation.collect_email_prompt_message || automationDefaults.collect_email_prompt_message || DEFAULT_COLLECT_EMAIL_PROMPT).trim() || DEFAULT_COLLECT_EMAIL_PROMPT,
-                        failRetryMessage: String(matchedAutomation.collect_email_fail_retry_message || automationDefaults.collect_email_fail_retry_message || DEFAULT_COLLECT_EMAIL_FAIL_RETRY).trim() || DEFAULT_COLLECT_EMAIL_FAIL_RETRY,
-                        successReplyMessage: String(matchedAutomation.collect_email_success_reply_message || automationDefaults.collect_email_success_reply_message || DEFAULT_COLLECT_EMAIL_SUCCESS).trim() || DEFAULT_COLLECT_EMAIL_SUCCESS,
-                        sendTo: String(matchedAutomation.send_to || 'everyone').trim() || 'everyone',
-                        originalMessageText: inboundText,
-                        receiverName: String(igAccount.username || '').trim(),
-                        sourceEventType: 'message',
-                        commentId: null,
-                        mediaShareSent: false,
-                        automationSnapshot: matchedAutomation
-                    };
-                    await this._saveConversationState({
-                        userId: igAccount.user_id,
-                        accountId: primaryAccountId,
-                        conversationKey,
-                        senderId,
-                        recipientId
-                    }, nextConversationState);
-                }
-
-                return {
-                    handled: promptSent,
-                    automationType
-                };
             }
 
             // 4. Get the template for the automation
@@ -2898,7 +2391,7 @@ class DMWorker {
             );
 
             if (success) {
-                if (this._isShareToAdminAutomation(matchedAutomation)) {
+                if (isShareEvent && this._isShareToAdminAutomation(matchedAutomation)) {
                     nextConversationState.mediaShareSent = true;
                 }
                 if (automationType === 'welcome_message') {
@@ -2924,14 +2417,10 @@ class DMWorker {
                 });
             }
 
-            if (nextConversationState.pendingEmail?.automationId === String(matchedAutomation.$id || '').trim()) {
-                nextConversationState.pendingEmail = null;
-            }
-
             if (success) {
                 const hasCooldowns = Object.keys(nextConversationState.automationCooldowns || {}).length > 0;
                 const hasMediaShare = nextConversationState.mediaShareSent === true;
-                if (nextConversationState.pendingEmail || hasCooldowns || hasMediaShare) {
+                if (hasCooldowns || hasMediaShare) {
                     await this._saveConversationState({
                         userId: igAccount.user_id,
                         accountId: primaryAccountId,

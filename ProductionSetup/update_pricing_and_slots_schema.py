@@ -102,7 +102,7 @@ PRICING_UPDATES = {
             "Story Automation",
             "Suggest More",
             "Comment Moderation",
-            "Seen + Typing",
+            "Seen & Typing Reaction",
             "No Watermark",
             "Once Per User / 24h"
         ])
@@ -133,7 +133,7 @@ PRICING_UPDATES = {
             "Instagram Live Automation",
             "Priority Support",
             "Followers Only",
-            "Seen + Typing",
+            "Seen & Typing Reaction",
             "No Watermark",
             "Once Per User / 24h"
         ]),

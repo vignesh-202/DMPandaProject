@@ -186,7 +186,7 @@ const GlobalTriggersView: React.FC = () => {
             }
 
             // Always fetch the full automation document so that all fields
-            // (collect_email_webhook_url, template_elements, etc.) are populated.
+            // (template_elements, etc.) are populated.
             // The preloadedTrigger from the list uses summary=1 and is missing these fields.
             let resolvedTrigger = preloadedTrigger || { $id: targetId };
             let resolvedTemplate: ReplyTemplate | null = null;

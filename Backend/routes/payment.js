@@ -332,7 +332,59 @@ const getLivePricingPayload = async (currencyPolicy) => {
     }
 };
 
-const buildTransactionPayload = (transaction, pricingMap) => {
+const resolveTransactionIgAccounts = (transaction, userAccounts = []) => {
+    if (transaction?.linked_ig_accounts) return transaction.linked_ig_accounts;
+    if (transaction?.ig_account_name) return transaction.ig_account_name;
+
+    const notes = String(transaction?.notes || '');
+    const accountMatch = notes.match(/account[s]?:\s*([@\w\d_.,\s-]+)/i);
+    if (accountMatch && accountMatch[1]) {
+        return accountMatch[1].trim();
+    }
+
+    const txTime = new Date(transaction?.transactionDate || transaction?.created_at || transaction?.$createdAt || 0).getTime();
+    const txPlanCode = String(transaction?.planCode || transaction?.plan_code || '').trim().toLowerCase();
+
+    if (txTime > 0 && Array.isArray(userAccounts) && userAccounts.length > 0) {
+        const timeCandidates = userAccounts.filter(acc => {
+            if (!acc.paid_at) return false;
+            const paidTime = new Date(acc.paid_at).getTime();
+            return Math.abs(paidTime - txTime) <= 5 * 60 * 1000;
+        });
+
+        if (timeCandidates.length > 0) {
+            const planAndTimingMatches = txPlanCode
+                ? timeCandidates.filter(acc => String(acc.plan_code || '').trim().toLowerCase() === txPlanCode)
+                : [];
+
+            if (planAndTimingMatches.length > 0) {
+                return planAndTimingMatches.map(m => `@${m.username.replace(/^@/, '')}`).join(', ');
+            }
+
+            const sortedByDiff = timeCandidates.sort((a, b) => {
+                const diffA = Math.abs(new Date(a.paid_at).getTime() - txTime);
+                const diffB = Math.abs(new Date(b.paid_at).getTime() - txTime);
+                return diffA - diffB;
+            });
+            return `@${sortedByDiff[0].username.replace(/^@/, '')}`;
+        }
+
+        if (txPlanCode) {
+            const planMatches = userAccounts.filter(acc => String(acc.plan_code || '').trim().toLowerCase() === txPlanCode);
+            if (planMatches.length === 1) {
+                return `@${planMatches[0].username.replace(/^@/, '')}`;
+            }
+        }
+
+        if (userAccounts.length === 1 && userAccounts[0].username) {
+            return `@${userAccounts[0].username.replace(/^@/, '')}`;
+        }
+    }
+
+    return 'Instagram Subscription';
+};
+
+const buildTransactionPayload = (transaction, pricingMap, linkedAccountsText = null) => {
     const rawPlanName = String(pickTransactionValue(transaction, 'plan_name', 'planName') || 'Plan');
     const plan = resolveTransactionPlan(transaction, pricingMap, rawPlanName);
     const billingCycle = normalizeBillingCycle(pickTransactionValue(transaction, 'billing_cycle', 'billingCycle'));
@@ -366,6 +418,7 @@ const buildTransactionPayload = (transaction, pricingMap) => {
         payment_provider: String(pickTransactionValue(transaction, 'payment_provider', 'paymentProvider') || 'razorpay').toUpperCase(),
         razorpay_order_id: pickTransactionValue(transaction, 'razorpay_order_id', 'gatewayOrderId') || null,
         razorpay_payment_id: pickTransactionValue(transaction, 'razorpay_payment_id', 'gatewayPaymentId', 'transactionId') || null,
+        linked_ig_accounts: linkedAccountsText || pickTransactionValue(transaction, 'linked_ig_accounts', 'ig_account_name') || null,
         notes
     };
 };
@@ -913,6 +966,22 @@ const finalizePlanPurchase = async ({
         }
     });
 
+    const hasSpecificSelection = Array.isArray(selectedAccountIds) && selectedAccountIds.length > 0;
+    const selectedSet = new Set((selectedAccountIds || []).map((id) => String(id).trim()));
+    const targetAccounts = hasSpecificSelection
+        ? existingDocs.filter((acc) => selectedSet.has(String(acc.$id)) || selectedSet.has(String(acc.account_id)) || selectedSet.has(String(acc.ig_user_id)))
+        : existingDocs.slice(0, normalizeAccountsCount(pricing?.accounts_count || 1));
+
+    const targetAccountHandles = targetAccounts
+        .map((acc) => (acc.username ? `@${acc.username.replace(/^@/, '')}` : (acc.name || '')))
+        .filter(Boolean);
+    const linkedAccountText = targetAccountHandles.length > 0 ? targetAccountHandles.join(', ') : '';
+
+    const transactionNotes = [
+        linkedAccountText ? `Account: ${linkedAccountText}` : '',
+        notes
+    ].filter(Boolean).join(' | ');
+
     const transaction = await upsertSuccessfulTransaction({
         databases,
         userId,
@@ -921,7 +990,7 @@ const finalizePlanPurchase = async ({
         appliedCoupon,
         razorpay_order_id,
         razorpay_payment_id,
-        notes,
+        notes: transactionNotes,
         paymentAttemptId
     });
 
@@ -1664,6 +1733,19 @@ router.get('/my-plan', loginRequired, async (req, res) => {
         ]).catch(() => ({ documents: [] }));
         const userIgAccounts = igAccountsRes.documents || [];
 
+        // Sort IG accounts from older to newer (oldest account first)
+        userIgAccounts.sort((a, b) => {
+            const getVal = (acc) => {
+                const raw = acc.$createdAt || acc.created_at || acc.createdAt || acc.linked_at || 0;
+                const parsed = new Date(raw).getTime();
+                return Number.isNaN(parsed) ? 0 : parsed;
+            };
+            const timeA = getVal(a);
+            const timeB = getVal(b);
+            if (timeA !== timeB) return timeA - timeB;
+            return String(a.username || '').localeCompare(String(b.username || ''));
+        });
+
         const pricingPlans = await listPricingPlans(databases);
 
         const formatAccountPlan = (acc) => {
@@ -1702,6 +1784,9 @@ router.get('/my-plan', loginRequired, async (req, res) => {
                 expires_at: expiresAt,
                 plan_price: Number(acc.plan_price || pricingPlan?.price_monthly_inr || 0),
                 paid_at: acc.paid_at || null,
+                linked_at: acc.linked_at || null,
+                created_at: acc.$createdAt || acc.created_at || acc.linked_at || null,
+                $createdAt: acc.$createdAt || null,
                 is_active: isActive,
                 is_expired: isExpired,
                 entitlements,
@@ -1764,13 +1849,18 @@ router.get('/my-plan', loginRequired, async (req, res) => {
 router.get('/transactions', loginRequired, async (req, res) => {
     try {
         const databases = getDatabases();
-        const [pricingPlans, transactionsResult] = await Promise.all([
+        const [pricingPlans, transactionsResult, accountsRes] = await Promise.all([
             listPricingPlans(databases),
             databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
                 Query.equal('userId', req.user.$id),
                 Query.limit(250)
-            ])
+            ]),
+            databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
+                Query.equal('user_id', String(req.user.$id).trim()),
+                Query.limit(100)
+            ]).catch(() => ({ documents: [] }))
         ]);
+        const userAccounts = accountsRes.documents || [];
         const pricingMap = new Map(pricingPlans.map((plan) => [plan.id, plan]));
         const sortedDocuments = transactionsResult.documents
             .slice()
@@ -1802,7 +1892,11 @@ router.get('/transactions', loginRequired, async (req, res) => {
                 if (selectedTo && transactionDate > selectedTo) return false;
                 return true;
             })
-            .map((transaction) => buildTransactionPayload(transaction, pricingMap));
+            .map((transaction) => buildTransactionPayload(
+                transaction,
+                pricingMap,
+                resolveTransactionIgAccounts(transaction, userAccounts)
+            ));
 
         return res.json({
             transactions: filteredTransactions,
@@ -1822,21 +1916,27 @@ router.get('/transactions', loginRequired, async (req, res) => {
 router.get('/transactions/:transactionId/pdf', loginRequired, async (req, res) => {
     try {
         const databases = getDatabases();
-        const [pricingPlans, transaction] = await Promise.all([
+        const [pricingPlans, transaction, accountsRes] = await Promise.all([
             listPricingPlans(databases),
             findTransactionDocument(
                 databases,
                 req.user.$id,
                 req.params.transactionId
-            )
+            ),
+            databases.listDocuments(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, [
+                Query.equal('user_id', String(req.user.$id).trim()),
+                Query.limit(100)
+            ]).catch(() => ({ documents: [] }))
         ]);
 
         if (!transaction) {
             return res.status(404).json({ error: 'Transaction not found.' });
         }
 
+        const userAccounts = accountsRes.documents || [];
+        const linkedAccountsText = resolveTransactionIgAccounts(transaction, userAccounts);
         const pricingMap = new Map(pricingPlans.map((plan) => [plan.id, plan]));
-        const payload = buildTransactionPayload(transaction, pricingMap);
+        const payload = buildTransactionPayload(transaction, pricingMap, linkedAccountsText);
         const fileName = `dmpanda-transaction-${payload.id}.pdf`;
         const receipt = buildTransactionReceipt({
             transaction: payload,

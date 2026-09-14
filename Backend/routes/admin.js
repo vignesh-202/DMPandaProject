@@ -2678,7 +2678,7 @@ router.patch('/users/:userId/instagram-accounts/:accountId', loginRequired, admi
     }
 });
 
-router.patch('/users/:userId/instagram-accounts/:accountId/credits', loginRequired, adminRequired, async (req, res) => {
+router.patch('/users/:userId/instagram-accounts/:accountId/plan', loginRequired, adminRequired, async (req, res) => {
     try {
         const { databases } = getServices();
         const userId = String(req.params.userId || '').trim();
@@ -2689,30 +2689,53 @@ router.patch('/users/:userId/instagram-accounts/:accountId/credits', loginRequir
             return fail(res, 404, 'Instagram account not found.');
         }
 
-        const hourlyUsed = Number(account.hourly_actions_used || 0);
-        const dailyUsed = Number(account.daily_actions_used || 0);
-        const monthlyUsed = Number(account.monthly_actions_used || 0);
+        const pricingPlans = await listPricingPlans(databases, true);
+        const requestedPlanCode = String(req.body.plan_code || 'free').trim().toLowerCase();
+        const targetPlan = findPlanByIdentifier(pricingPlans, requestedPlanCode)
+            || findPlanByIdentifier(pricingPlans, 'free');
 
-        const newAllocatedHourly = req.body.allocated_hourly_credits !== undefined
-            ? Math.max(0, Number(req.body.allocated_hourly_credits || 0))
-            : Number(account.allocated_hourly_credits ?? account.hourly_action_limit ?? 100);
+        if (!targetPlan) {
+            return fail(res, 400, 'Selected pricing plan was not found.');
+        }
 
-        const newAllocatedDaily = req.body.allocated_daily_credits !== undefined
-            ? Math.max(0, Number(req.body.allocated_daily_credits || 0))
-            : Number(account.allocated_daily_credits ?? account.daily_action_limit ?? 100);
+        const planCode = String(targetPlan.plan_code || targetPlan.id || 'free').trim().toLowerCase();
+        const isFree = planCode === 'free';
+        const planName = targetPlan.name || targetPlan.plan_name || (isFree ? 'Free' : planCode.toUpperCase());
 
-        const newAllocatedMonthly = req.body.allocated_monthly_credits !== undefined
-            ? Math.max(0, Number(req.body.allocated_monthly_credits || 0))
-            : Number(account.allocated_monthly_credits ?? account.monthly_action_limit ?? 1000);
+        let expiresAt = null;
+        if (!isFree) {
+            if (req.body.expires_at) {
+                const parsed = new Date(req.body.expires_at);
+                if (!Number.isNaN(parsed.getTime())) {
+                    expiresAt = parsed.toISOString();
+                }
+            } else if (req.body.duration_days) {
+                const days = Math.max(1, Number(req.body.duration_days) || 30);
+                expiresAt = new Date(Date.now() + days * 86400000).toISOString();
+            } else {
+                expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
+            }
+        }
+
+        const snapshot = buildAccountPlanSnapshot(targetPlan, account);
 
         const patch = {
-            allocated_hourly_credits: newAllocatedHourly,
-            allocated_daily_credits: newAllocatedDaily,
-            allocated_monthly_credits: newAllocatedMonthly,
-            hourly_action_limit: newAllocatedHourly,
-            daily_action_limit: newAllocatedDaily,
-            monthly_action_limit: newAllocatedMonthly
+            plan_code: planCode,
+            plan_name: planName,
+            subscription_status: isFree ? 'inactive' : 'active',
+            expires_at: expiresAt,
+            plan_source: 'admin',
+            allocated_hourly_credits: snapshot.allocated_hourly_credits,
+            allocated_daily_credits: snapshot.allocated_daily_credits,
+            allocated_monthly_credits: snapshot.allocated_monthly_credits,
+            hourly_action_limit: snapshot.allocated_hourly_credits,
+            daily_action_limit: snapshot.allocated_daily_credits,
+            monthly_action_limit: snapshot.allocated_monthly_credits
         };
+
+        if (snapshot.features_json) {
+            patch.features_json = snapshot.features_json;
+        }
 
         const updatedAccount = await databases.updateDocument(
             APPWRITE_DATABASE_ID,
@@ -2723,28 +2746,40 @@ router.patch('/users/:userId/instagram-accounts/:accountId/credits', loginRequir
 
         await writeAdminAuditLog(databases, {
             adminId: req.user.$id,
-            action: 'instagram_account_credits_update',
+            action: 'instagram_account_plan_update',
             targetUserId: userId,
             payload: {
                 account_id: accountId,
                 username: account.username,
-                allocated_hourly_credits: newAllocatedHourly,
-                allocated_daily_credits: newAllocatedDaily,
-                allocated_monthly_credits: newAllocatedMonthly
+                plan_code: planCode,
+                plan_name: planName,
+                expires_at: expiresAt,
+                snapshot
             }
         });
 
+        updateAutomationPlanValidationForUser(databases, userId).catch(() => {});
+
         return ok(res, {
             account: updatedAccount,
-            message: 'Account credits updated successfully.'
+            message: `Account plan changed to ${planName}. Default limits and features have been synchronized.`
         });
     } catch (error) {
-        console.error('Admin update IG account credits error:', error?.message || String(error));
-        return fail(res, 500, 'Failed to update Instagram account credits.');
+        console.error('Admin update IG account plan error:', error?.message || String(error));
+        return fail(res, 500, 'Failed to update Instagram account plan.');
     }
 });
 
-router.post('/users/:userId/instagram-accounts/:accountId/reset-credits', loginRequired, adminRequired, async (req, res) => {
+router.patch('/users/:userId/instagram-accounts/:accountId/credits', loginRequired, adminRequired, async (req, res) => {
+    // Backward compatibility shim - redirects to plan update if plan_code provided
+    if (req.body.plan_code) {
+        req.url = `/users/${req.params.userId}/instagram-accounts/${req.params.accountId}/plan`;
+        return router.handle(req, res);
+    }
+    return fail(res, 400, 'Direct credit manipulation is disabled. Please assign a plan instead.');
+});
+
+const handleResetAccountPlan = async (req, res) => {
     try {
         const { databases } = getServices();
         const userId = String(req.params.userId || '').trim();
@@ -2755,76 +2790,118 @@ router.post('/users/:userId/instagram-accounts/:accountId/reset-credits', loginR
             return fail(res, 404, 'Instagram account not found.');
         }
 
-        // 1. Fetch live pricing plan table data (force refresh from Appwrite PRICING collection)
+        // 1. Fetch live pricing plans
         const pricingPlans = await listPricingPlans(databases, true);
 
-        // 2. Determine effective plan based on the Instagram account's subscription & expiry status
-        const rawPlanCode = String(account.plan_code || 'free').trim().toLowerCase();
-        const isFree = !rawPlanCode || rawPlanCode === 'free';
-        const expiresAt = account.expires_at ? new Date(account.expires_at) : null;
-        const hasExpiry = expiresAt && !Number.isNaN(expiresAt.getTime());
-        const isExpired = !isFree && Boolean(hasExpiry && expiresAt.getTime() <= Date.now());
-        const isSubscriptionActive = String(account.subscription_status || 'active').trim().toLowerCase() === 'active';
-        const isActive = !isFree && !isExpired && isSubscriptionActive;
-        const effectivePlanCode = isActive ? rawPlanCode : 'free';
+        // 2. Query transactions for this user to find subscribed plan
+        let targetPlanCode = 'free';
+        let targetPlanName = 'Free';
+        let targetExpiresAt = null;
+        let targetSubscriptionStatus = 'inactive';
+        let targetPlanSource = 'system';
+        let foundTransaction = null;
 
-        // 3. Find matching plan in pricing plan table data (fallback to 'free' plan if not found)
-        const targetPlan = findPlanByIdentifier(pricingPlans, effectivePlanCode)
-            || findPlanByIdentifier(pricingPlans, 'free')
-            || {
-                actions_per_hour_limit: 100,
-                actions_per_day_limit: 100,
-                actions_per_month_limit: 1000
-            };
+        let txResponse = await databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
+            Query.equal('user_id', userId),
+            Query.equal('status', 'success'),
+            Query.orderDesc('created_at'),
+            Query.limit(50)
+        ]).catch(() => ({ documents: [] }));
 
-        const hourlyLimit = Number(targetPlan.actions_per_hour_limit || 100);
-        const dailyLimit = (effectivePlanCode === 'pro' || effectivePlanCode === 'ultra' || targetPlan.actions_per_day_limit == null || targetPlan.actions_per_day_limit === '')
-            ? 0
-            : Number(targetPlan.actions_per_day_limit);
-        const monthlyLimit = (effectivePlanCode === 'pro' || effectivePlanCode === 'ultra' || targetPlan.actions_per_month_limit == null || targetPlan.actions_per_month_limit === '')
-            ? 0
-            : Number(targetPlan.actions_per_month_limit);
-        const planSnapshot = buildAccountPlanSnapshot(targetPlan, account);
-
-        // 4. "If it's already done then don't do it" check
-        const currentAllocatedHourly = account.allocated_hourly_credits != null ? Number(account.allocated_hourly_credits) : null;
-        const currentAllocatedDaily = account.allocated_daily_credits != null ? Number(account.allocated_daily_credits) : null;
-        const currentAllocatedMonthly = account.allocated_monthly_credits != null ? Number(account.allocated_monthly_credits) : null;
-        const currentHourlyLimit = account.hourly_action_limit != null ? Number(account.hourly_action_limit) : null;
-        const currentDailyLimit = account.daily_action_limit != null ? Number(account.daily_action_limit) : null;
-        const currentMonthlyLimit = account.monthly_action_limit != null ? Number(account.monthly_action_limit) : null;
-        const currentFeatures = String(account.features_json || '').trim();
-        const targetFeatures = String(planSnapshot.features_json || '').trim();
-
-        const isAlreadyInSync = (
-            currentAllocatedHourly === hourlyLimit &&
-            currentAllocatedDaily === dailyLimit &&
-            currentAllocatedMonthly === monthlyLimit &&
-            currentHourlyLimit === hourlyLimit &&
-            currentDailyLimit === dailyLimit &&
-            currentMonthlyLimit === monthlyLimit &&
-            (!targetFeatures || currentFeatures === targetFeatures)
-        );
-
-        if (isAlreadyInSync) {
-            return ok(res, {
-                account,
-                already_done: true,
-                message: `Account credits are already in sync with ${effectivePlanCode.toUpperCase()} plan defaults (${hourlyLimit.toLocaleString()} hourly / ${dailyLimit.toLocaleString()} daily / ${monthlyLimit.toLocaleString()} monthly).`
-            });
+        if (!txResponse.documents || txResponse.documents.length === 0) {
+            txResponse = await databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
+                Query.equal('userId', userId),
+                Query.equal('status', 'success'),
+                Query.limit(50)
+            ]).catch(() => ({ documents: [] }));
         }
 
-        // 5. Update allocated credits, action limits and features from the pricing plan table
-        const patch = {
-            allocated_hourly_credits: hourlyLimit,
-            allocated_daily_credits: dailyLimit,
-            allocated_monthly_credits: monthlyLimit,
-            hourly_action_limit: hourlyLimit,
-            daily_action_limit: dailyLimit,
-            monthly_action_limit: monthlyLimit
+        const transactions = txResponse.documents || [];
+        const nowMs = Date.now();
+
+        const resolveTxExpiry = (tx) => {
+            if (tx.expiry_date) {
+                const parsed = new Date(tx.expiry_date).getTime();
+                if (!Number.isNaN(parsed)) return parsed;
+            }
+            if (tx.expires_at) {
+                const parsed = new Date(tx.expires_at).getTime();
+                if (!Number.isNaN(parsed)) return parsed;
+            }
+            const created = new Date(tx.created_at || tx.transactionDate || tx.$createdAt || 0).getTime();
+            if (created > 0) {
+                const cycle = String(tx.billing_cycle || tx.billingCycle || 'monthly').toLowerCase();
+                const days = cycle === 'yearly' ? 365 : 30;
+                return created + days * 86400000;
+            }
+            return 0;
         };
-        if (planSnapshot.features_json) {
-            patch.features_json = planSnapshot.features_json;
+
+        const accountKeys = [
+            String(account.username || '').toLowerCase(),
+            String(account.ig_user_id || ''),
+            String(account.account_id || ''),
+            String(account.$id || '')
+        ].filter(Boolean);
+
+        for (const tx of transactions) {
+            const notes = String(tx.notes || '').toLowerCase();
+            const matchesAccount = accountKeys.some(key => key && notes.includes(key));
+            if (matchesAccount) {
+                const expMs = resolveTxExpiry(tx);
+                if (expMs > nowMs) {
+                    foundTransaction = tx;
+                    targetExpiresAt = new Date(expMs).toISOString();
+                    break;
+                }
+            }
+        }
+
+        if (!foundTransaction) {
+            for (const tx of transactions) {
+                const expMs = resolveTxExpiry(tx);
+                if (expMs > nowMs) {
+                    foundTransaction = tx;
+                    targetExpiresAt = new Date(expMs).toISOString();
+                    break;
+                }
+            }
+        }
+
+        if (foundTransaction) {
+            targetPlanCode = String(foundTransaction.plan_code || foundTransaction.planCode || 'free').trim().toLowerCase();
+            targetPlanName = String(foundTransaction.plan_name || foundTransaction.planName || targetPlanCode).trim();
+            targetSubscriptionStatus = 'active';
+            targetPlanSource = 'payment';
+        } else {
+            targetPlanCode = 'free';
+            targetPlanName = 'Free';
+            targetExpiresAt = null;
+            targetSubscriptionStatus = 'inactive';
+            targetPlanSource = 'system';
+        }
+
+        const targetPlan = findPlanByIdentifier(pricingPlans, targetPlanCode)
+            || findPlanByIdentifier(pricingPlans, 'free');
+
+        const snapshot = buildAccountPlanSnapshot(targetPlan, account);
+
+        const patch = {
+            plan_code: targetPlanCode,
+            plan_name: targetPlan?.name || targetPlanName,
+            subscription_status: targetSubscriptionStatus,
+            expires_at: targetExpiresAt,
+            plan_source: targetPlanSource,
+            allocated_hourly_credits: snapshot.allocated_hourly_credits,
+            allocated_daily_credits: snapshot.allocated_daily_credits,
+            allocated_monthly_credits: snapshot.allocated_monthly_credits,
+            hourly_action_limit: snapshot.allocated_hourly_credits,
+            daily_action_limit: snapshot.allocated_daily_credits,
+            monthly_action_limit: snapshot.allocated_monthly_credits
+        };
+
+        if (snapshot.features_json) {
+            patch.features_json = snapshot.features_json;
         }
 
         const updatedAccount = await databases.updateDocument(
@@ -2836,29 +2913,37 @@ router.post('/users/:userId/instagram-accounts/:accountId/reset-credits', loginR
 
         await writeAdminAuditLog(databases, {
             adminId: req.user.$id,
-            action: 'instagram_account_credits_reset_to_plan',
+            action: 'instagram_account_plan_reset',
             targetUserId: userId,
             payload: {
                 account_id: accountId,
                 username: account.username,
-                plan_code: effectivePlanCode,
-                plan_status: isActive ? 'active' : (isExpired ? 'expired' : 'inactive'),
-                allocated_hourly_credits: hourlyLimit,
-                allocated_daily_credits: dailyLimit,
-                allocated_monthly_credits: monthlyLimit
+                restored_plan_code: targetPlanCode,
+                restored_from_transaction: foundTransaction?.$id || null,
+                expires_at: targetExpiresAt,
+                limits: snapshot
             }
         });
 
+        updateAutomationPlanValidationForUser(databases, userId).catch(() => {});
+
+        const resultMessage = foundTransaction
+            ? `Restored subscribed ${targetPlanName.toUpperCase()} plan (active until ${new Date(targetExpiresAt).toLocaleDateString()}) and synchronized default limits.`
+            : 'No active paid subscription found for this account. Reset to Free plan defaults.';
+
         return ok(res, {
             account: updatedAccount,
-            already_done: false,
-            message: `Account credits reset to ${effectivePlanCode.toUpperCase()} plan defaults (${hourlyLimit.toLocaleString()} hourly / ${dailyLimit.toLocaleString()} daily / ${monthlyLimit.toLocaleString()} monthly).`
+            plan_code: targetPlanCode,
+            message: resultMessage
         });
     } catch (error) {
-        console.error('Admin reset IG account credits error:', error?.message || String(error));
-        return fail(res, 500, 'Failed to reset Instagram account credits.');
+        console.error('Admin reset IG account plan error:', error?.message || String(error));
+        return fail(res, 500, 'Failed to reset Instagram account plan.');
     }
-});
+};
+
+router.post('/users/:userId/instagram-accounts/:accountId/reset-plan', loginRequired, adminRequired, handleResetAccountPlan);
+router.post('/users/:userId/instagram-accounts/:accountId/reset-credits', loginRequired, adminRequired, handleResetAccountPlan);
 
 router.post('/users/:userId/instagram-accounts/:accountId/delete', loginRequired, adminRequired, async (req, res) => {
     try {

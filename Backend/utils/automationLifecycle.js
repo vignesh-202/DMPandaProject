@@ -61,11 +61,6 @@ const buildAutomationEnvelope = ({
         private_reply_enabled: merged.private_reply_enabled !== false,
         share_to_admin_enabled: merged.share_to_admin_enabled === true,
         once_per_user_24h: merged.once_per_user_24h === true,
-        collect_email_enabled: merged.collect_email_enabled === true,
-        collect_email_only_gmail: merged.collect_email_only_gmail === true,
-        collect_email_prompt_message: merged.collect_email_prompt_message ?? null,
-        collect_email_fail_retry_message: merged.collect_email_fail_retry_message ?? null,
-        collect_email_success_reply_message: merged.collect_email_success_reply_message ?? null,
         seen_typing_enabled: merged.seen_typing_enabled === true,
         story_scope: merged.story_scope ?? 'shown'
     };
@@ -164,7 +159,6 @@ const deleteAutomationRecord = async ({
     databaseId,
     automation,
     cleanupKeywords,
-    cleanupCollectorDestinations,
     preflight = null
 }) => {
     if (!automation?.$id) return;
@@ -173,9 +167,6 @@ const deleteAutomationRecord = async ({
         await preflight();
     }
 
-    if (typeof cleanupCollectorDestinations === 'function') {
-        await cleanupCollectorDestinations(automation);
-    }
     if (typeof cleanupKeywords === 'function') {
         await cleanupKeywords(automation);
     }
@@ -187,8 +178,7 @@ const inspectAutomationDependencies = async ({
     automationType,
     automation = null,
     candidate = null,
-    loadCollectionInfo = null,
-    loadCollectorDocument = null
+    loadCollectionInfo = null
 }) => {
     const safeType = normalizeAutomationType(automationType || automation?.automation_type || candidate?.automation_type);
     const relatedCollections = [
@@ -201,8 +191,7 @@ const inspectAutomationDependencies = async ({
 
     const result = {
         automationType: safeType,
-        checkedCollections: [],
-        existingCollectorDocument: null
+        checkedCollections: []
     };
 
     if (typeof loadCollectionInfo === 'function') {
@@ -210,10 +199,6 @@ const inspectAutomationDependencies = async ({
             await loadCollectionInfo(collectionId);
             result.checkedCollections.push(collectionId);
         }
-    }
-
-    if (typeof loadCollectorDocument === 'function' && automation?.$id) {
-        result.existingCollectorDocument = await loadCollectorDocument();
     }
 
     return result;

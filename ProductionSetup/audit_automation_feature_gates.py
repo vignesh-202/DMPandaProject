@@ -23,7 +23,6 @@ PAGE_SIZE = 100
 
 TOGGLE_FEATURE_MAP = {
     "suggest_more_enabled": "suggest_more",
-    "collect_email_enabled": "collect_email",
     "seen_typing_enabled": "seen_typing",
     "followers_only": "followers_only",
 }

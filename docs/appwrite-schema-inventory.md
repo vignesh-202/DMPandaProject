@@ -85,13 +85,16 @@ Generated from live Appwrite verification on `2026-04-22`.
 - `payment_attempts`
 - `settings`
 - `admin_settings`
-- `automation_collect_destinations`
 - `email_campaigns`
 
 ## Deprecated / Removed
-- Removed live table:
+- Removed collections:
   - `automation_collected_emails`
-- Kept in setup tooling only as a deprecated collection id so it is not recreated accidentally.
+  - `automation_collect_destinations`
+- Removed attributes:
+  - `automations.collect_email_*`
+  - `pricing.benefit_collect_email`
+- Kept in setup tooling only as deprecated collection/attribute ids so they are not recreated accidentally.
 
 ## Live Cleanup Completed
 - Removed tables:

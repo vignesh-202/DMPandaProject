@@ -22,13 +22,20 @@ export const BlogCard: React.FC<BlogCardProps> = ({ post, featured = false }) =>
     return (
       <article className="group relative grid lg:grid-cols-2 gap-6 lg:gap-10 items-center bg-gray-50 dark:bg-white/[0.03] rounded-3xl p-5 sm:p-6 lg:p-8 border border-gray-100 dark:border-white/[0.06] hover:border-gray-200 dark:hover:border-white/[0.1] transition-all duration-300">
         <div className="relative aspect-[16/9] lg:aspect-[16/9] rounded-2xl overflow-hidden bg-gray-100 dark:bg-white/[0.04]">
-          <img
-            src={post.image}
-            alt={post.title}
-            loading="lazy"
-            decoding="async"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-          />
+          <picture className="w-full h-full block">
+            {post.image && post.image.endsWith('.png') && (
+              <source srcSet={post.image.replace(/\.png$/, '.webp')} type="image/webp" />
+            )}
+            <img
+              src={post.image}
+              alt={post.title}
+              loading="lazy"
+              decoding="async"
+              width={800}
+              height={450}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            />
+          </picture>
         </div>
         <div className="flex flex-col justify-center">
           <div className="flex items-center gap-3 mb-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -65,13 +72,20 @@ export const BlogCard: React.FC<BlogCardProps> = ({ post, featured = false }) =>
   return (
     <article className="group flex flex-col h-full bg-gray-50 dark:bg-white/[0.03] rounded-2xl sm:rounded-3xl border border-gray-100 dark:border-white/[0.06] hover:border-gray-200 dark:hover:border-white/[0.1] hover:-translate-y-1 transition-all duration-300 overflow-hidden">
       <div className="relative aspect-[16/9] overflow-hidden bg-gray-100 dark:bg-white/[0.04]">
-        <img
-          src={post.image}
-          alt={post.title}
-          loading="lazy"
-          decoding="async"
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
-        />
+        <picture className="w-full h-full block">
+          {post.image && post.image.endsWith('.png') && (
+            <source srcSet={post.image.replace(/\.png$/, '.webp')} type="image/webp" />
+          )}
+          <img
+            src={post.image}
+            alt={post.title}
+            loading="lazy"
+            decoding="async"
+            width={600}
+            height={338}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
+          />
+        </picture>
       </div>
       <div className="flex flex-col flex-1 p-5 sm:p-6">
         <div className="flex flex-wrap items-center gap-3 mb-3 text-xs font-medium text-gray-500 dark:text-gray-400">

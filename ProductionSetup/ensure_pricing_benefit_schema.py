@@ -50,7 +50,6 @@ BENEFIT_KEYS = [
     "comment_moderation",
     "global_trigger",
     "mentions",
-    "collect_email",
     "instagram_live_automation",
     "priority_support",
     "followers_only",

@@ -157,15 +157,6 @@ class AppwriteClient {
             ? ''
             : String(automation.comment_reply || '').trim();
 
-        const parsedTemplateElements = this._parseJson(automation.template_elements, null);
-        const collectorDestinationMeta = parsedTemplateElements
-            && typeof parsedTemplateElements === 'object'
-            && !Array.isArray(parsedTemplateElements)
-            && parsedTemplateElements.collector_destination
-            && typeof parsedTemplateElements.collector_destination === 'object'
-            ? parsedTemplateElements.collector_destination
-            : {};
-
         return {
             ...automation,
             menu_item_type: String(
@@ -180,19 +171,6 @@ class AppwriteClient {
                 automation.once_per_user_24h,
                 this._toBoolean(specialMeta?.once_per_user_24h)
             ),
-            collect_email_enabled: this._toBoolean(
-                automation.collect_email_enabled,
-                this._toBoolean(specialMeta?.collect_email_enabled)
-            ),
-            collect_email_only_gmail: this._toBoolean(
-                automation.collect_email_only_gmail,
-                this._toBoolean(specialMeta?.collect_email_only_gmail)
-            ),
-            collect_email_webhook_url: String(automation.collect_email_webhook_url || collectorDestinationMeta.webhook_url || '').trim(),
-            collect_email_destination_type: String(automation.collect_email_destination_type || collectorDestinationMeta.destination_type || '').trim(),
-            collect_email_destination_id: String(automation.collect_email_destination_id || collectorDestinationMeta.destination_id || '').trim(),
-            collect_email_destination_json: this._parseJson(automation.collect_email_destination_json, collectorDestinationMeta),
-            collect_email_webhook_verified_at: String(automation.collect_email_webhook_verified_at || collectorDestinationMeta.verified_at || '').trim() || null,
             seen_typing_enabled: this._toBoolean(
                 automation.seen_typing_enabled,
                 this._toBoolean(specialMeta?.seen_typing_enabled)
@@ -356,11 +334,6 @@ class AppwriteClient {
                         followers_only_secondary_button_text: String(starter?.followers_only_secondary_button_text || '').trim(),
                         suggest_more_enabled: starter?.suggest_more_enabled === true,
                         once_per_user_24h: starter?.once_per_user_24h === true,
-                        collect_email_enabled: starter?.collect_email_enabled === true,
-                        collect_email_only_gmail: starter?.collect_email_only_gmail === true,
-                        collect_email_prompt_message: String(starter?.collect_email_prompt_message || '').trim(),
-                        collect_email_fail_retry_message: String(starter?.collect_email_fail_retry_message || '').trim(),
-                        collect_email_success_reply_message: String(starter?.collect_email_success_reply_message || '').trim(),
                         seen_typing_enabled: starter?.seen_typing_enabled === true
                     });
                     automations.push(normalized);
@@ -1132,10 +1105,7 @@ class AppwriteClient {
         const defaults = {
             followers_only_message: 'Please follow this account first, then send your message again.',
             followers_only_primary_button_text: '👤 Follow Account',
-            followers_only_secondary_button_text: "✅ I've Followed",
-            collect_email_prompt_message: '📧 Could you share your best email so we can send the details and updates ✨',
-            collect_email_fail_retry_message: '⚠️ That email looks invalid. Please send a valid email like name@example.com.',
-            collect_email_success_reply_message: 'Perfect, thank you! Your email has been saved ✅'
+            followers_only_secondary_button_text: "✅ I've Followed"
         };
 
         try {
@@ -1505,58 +1475,6 @@ class AppwriteClient {
             console.warn('Failed to finalize processing event lock:', error?.message || error);
             return false;
         }
-    }
-
-    async getEmailCollectorDestination(automationId, accountId) {
-        try {
-            const automation = await this.getAutomation(automationId, accountId);
-            if (!automation) return null;
-            const webhookUrl = String(automation.collect_email_webhook_url || '').trim();
-            if (!webhookUrl) return null;
-            const destinationJson = this._parseJson(automation.collect_email_destination_json, {});
-
-            return {
-                automation_id: String(automation.$id || '').trim(),
-                account_id: String(automation.account_id || '').trim(),
-                destination_type: String(automation.collect_email_destination_type || 'webhook').trim() || 'webhook',
-                destination_id: String(automation.collect_email_destination_id || '').trim(),
-                webhook_url: webhookUrl,
-                destination_json: destinationJson,
-                verified: destinationJson?.verified === true,
-                verified_at: automation.collect_email_webhook_verified_at || destinationJson?.verified_at || null
-            };
-        } catch (error) {
-            console.warn(
-                `Email collector destination lookup failed for ${String(accountId || '').trim()}:${String(automationId || '').trim()}:`,
-                error?.message || error
-            );
-            return null;
-        }
-    }
-
-    async ensureCollectedEmailsCollection() {
-        // Collected emails are routed to external webhook destinations.
-        // Keep this as a compatibility no-op to avoid recreating DB storage.
-        return false;
-    }
-
-    async recordCollectedEmail({
-        userId,
-        accountId,
-        automationId,
-        conversationKey,
-        senderId,
-        recipientId,
-        email,
-        normalizedEmail,
-        sendTo = 'everyone',
-        senderProfileUrl = '',
-        receiverName = '',
-        automationTitle = '',
-        automationType = ''
-    }) {
-        await this.ensureCollectedEmailsCollection();
-        return true;
     }
 
     async createAutomationLog({

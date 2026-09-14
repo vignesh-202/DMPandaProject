@@ -20,7 +20,6 @@ export type ViewType =
     | 'Story Automation'
     | 'Live Automation'
     | 'Mentions'
-    | 'Email Collector'
     | 'Suggest More'
     | 'Transactions'
     | 'My Plan'
@@ -154,7 +153,6 @@ const VIEW_PATHS: Record<ViewType, string> = {
     'Story Automation': 'story-automation',
     'Live Automation': 'live-automation',
     'Mentions': 'mentions',
-    'Email Collector': 'email-collector',
     'Suggest More': 'suggest-more',
     'Transactions': 'transactions',
     'My Plan': 'my-plan',
@@ -213,6 +211,21 @@ const getPathForView = (view: ViewType): string => {
     return suffix ? `${DASHBOARD_BASE_PATH}/${suffix}` : DASHBOARD_BASE_PATH;
 };
 
+export const getAccountId = (account: any): string => {
+    if (!account) return '';
+    return account.ig_user_id || account.account_id || account.$id || account.id || '';
+};
+
+export const matchesAccountId = (account: any, targetId: string | null | undefined): boolean => {
+    if (!account || !targetId) return false;
+    return (
+        account.ig_user_id === targetId ||
+        account.account_id === targetId ||
+        account.$id === targetId ||
+        account.id === targetId
+    );
+};
+
 export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     const { user, accessState: authAccessState } = useAuth();
     const navigate = useNavigate();
@@ -223,14 +236,14 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         if (!Array.isArray(accounts)) return [];
         return [...accounts].sort((a, b) => {
             const getVal = (acc: any) => {
-                const raw = acc.$createdAt || acc.created_at || acc.createdAt || 0;
+                const raw = acc?.$createdAt || acc?.created_at || acc?.createdAt || acc?.linked_at || 0;
                 const parsed = new Date(raw).getTime();
                 return Number.isNaN(parsed) ? 0 : parsed;
             };
             const timeA = getVal(a);
             const timeB = getVal(b);
             if (timeA !== timeB) return timeA - timeB;
-            return String(a.username || '').localeCompare(String(b.username || ''));
+            return String(a?.username || '').localeCompare(String(b?.username || ''));
         });
     }, []);
     const [igAccounts, setIgAccountsState] = useState<any[]>([]);
@@ -241,7 +254,24 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         });
     }, [sortAccountsOldToNew]);
     const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
-    const [activeAccountID, setActiveAccountID] = useState<string | null>(null);
+    const [activeAccountID, setActiveAccountIDState] = useState<string | null>(() => {
+        if (typeof localStorage !== 'undefined') {
+            return localStorage.getItem('dm_panda_active_account_id') || null;
+        }
+        return null;
+    });
+
+    const setActiveAccountID = useCallback((id: string | null) => {
+        setActiveAccountIDState(id);
+        if (typeof localStorage !== 'undefined') {
+            if (id) {
+                localStorage.setItem('dm_panda_active_account_id', id);
+            } else {
+                localStorage.removeItem('dm_panda_active_account_id');
+            }
+        }
+    }, []);
+
     const [activeAccountStats, setActiveAccountStats] = useState<any>(null);
     const [isLoadingStats, setIsLoadingStats] = useState(false);
     const [analyticsCache, setAnalyticsCache] = useState<Record<string, any>>({});
@@ -515,7 +545,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     // Fetch account stats
     const fetchStats = useCallback(async (accountId: string, accountsOverride?: any[]) => {
         const sourceAccounts = accountsOverride || igAccountsRef.current;
-        const account = sourceAccounts.find(a => a.ig_user_id === accountId || a.id === accountId);
+        const account = sourceAccounts.find(a => matchesAccountId(a, accountId));
         if (!account) {
             setActiveAccountStats(null);
             return;
@@ -567,27 +597,27 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
                 if (accounts.length > 0) {
                     // Logic to determine ID for initial load
-                    let initialTargetID: string | null = null;
-
+                    const savedId = typeof localStorage !== 'undefined' ? localStorage.getItem('dm_panda_active_account_id') : null;
+                    const savedMatch = savedId ? accounts.find((a: any) => matchesAccountId(a, savedId)) : null;
                     const firstActive = accounts.find((a: any) => a.status === 'active' && a.effective_access !== false);
-                    if (firstActive) {
-                        initialTargetID = firstActive.ig_user_id;
-                    } else {
-                        initialTargetID = accounts[0].ig_user_id;
-                    }
+                    const defaultTarget = savedMatch || firstActive || accounts[0];
+                    const initialTargetID = getAccountId(defaultTarget);
 
                     // Update state carefully
-                    setActiveAccountID(prevID => {
+                    setActiveAccountIDState(prevID => {
                         // If we already have a valid ID in state that exists in the new list, keep it
-                        if (prevID && accounts.find((a: any) => (a.ig_user_id === prevID || a.id === prevID))) {
+                        if (prevID && accounts.some((a: any) => matchesAccountId(a, prevID))) {
                             return prevID;
+                        }
+                        if (initialTargetID && typeof localStorage !== 'undefined') {
+                            localStorage.setItem('dm_panda_active_account_id', initialTargetID);
                         }
                         return initialTargetID;
                     });
 
                     // Start stats early, but do not block the first dashboard paint on it.
                     if (initialTargetID) {
-                        const targetAcc = accounts.find((a: any) => a.ig_user_id === initialTargetID || a.id === initialTargetID);
+                        const targetAcc = accounts.find((a: any) => matchesAccountId(a, initialTargetID));
                         if (targetAcc) {
                             lastFetchedStatsAccountID.current = initialTargetID;
                             void fetchStats(initialTargetID, accounts);
@@ -633,12 +663,19 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                 const payload = await response.json().catch(() => null);
                 if (Array.isArray(payload?.ig_accounts)) {
                     setIgAccounts(payload.ig_accounts);
-                    setActiveAccountID((prevID) => {
-                        if (prevID && payload.ig_accounts.some((account: any) => account.ig_user_id === prevID || account.id === prevID)) {
+                    setActiveAccountIDState((prevID) => {
+                        if (prevID && payload.ig_accounts.some((account: any) => matchesAccountId(account, prevID))) {
                             return prevID;
                         }
+                        const savedId = typeof localStorage !== 'undefined' ? localStorage.getItem('dm_panda_active_account_id') : null;
+                        const savedMatch = savedId ? payload.ig_accounts.find((a: any) => matchesAccountId(a, savedId)) : null;
                         const firstAccessible = payload.ig_accounts.find((account: any) => account.status === 'active' && account.effective_access !== false);
-                        return firstAccessible?.ig_user_id || payload.ig_accounts[0]?.ig_user_id || null;
+                        const fallbackTarget = savedMatch || firstAccessible || payload.ig_accounts[0];
+                        const fallbackId = getAccountId(fallbackTarget);
+                        if (fallbackId && typeof localStorage !== 'undefined') {
+                            localStorage.setItem('dm_panda_active_account_id', fallbackId);
+                        }
+                        return fallbackId || null;
                     });
                 }
             } catch (_) {
@@ -695,7 +732,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [activeAccountID]);
 
-    const activeAccount = igAccounts.find(a => a.ig_user_id === activeAccountID || a.id === activeAccountID) || null;
+    const activeAccount = igAccounts.find(a => matchesAccountId(a, activeAccountID)) || null;
 
     const fetchAutomations = useCallback(async (force = false) => {
         if (!activeAccountID) return;

@@ -414,8 +414,21 @@ const MyPlanView: React.FC = () => {
     void fetchMyPlan(accId);
   };
 
+  // Helper to extract timestamp for ordering accounts from older to newer (oldest account first)
+  const getAccountTimestamp = (acc: any): number => {
+    const raw = acc?.created_at || acc?.$createdAt || acc?.linked_at || 0;
+    const parsed = new Date(raw).getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
   const allAccounts = useMemo(() => {
-    return plan?.all_accounts_plans || [];
+    const list = [...(plan?.all_accounts_plans || [])];
+    return list.sort((a: any, b: any) => {
+      const timeA = getAccountTimestamp(a);
+      const timeB = getAccountTimestamp(b);
+      if (timeA !== timeB) return timeA - timeB;
+      return String(a.username || '').localeCompare(String(b.username || ''));
+    });
   }, [plan?.all_accounts_plans]);
 
   const checkoutIgAccounts = useMemo(() => {
@@ -425,8 +438,9 @@ const MyPlanView: React.FC = () => {
       if (acc.id) accountPlanMap.set(String(acc.id), acc);
     });
 
+    let result: any[] = [];
     if (Array.isArray(igAccounts) && igAccounts.length > 0) {
-      return igAccounts.map((account) => {
+      result = igAccounts.map((account) => {
         const planInfo = accountPlanMap.get(String(account.id)) || accountPlanMap.get(String(account.ig_user_id)) || null;
         return {
           ...account,
@@ -435,24 +449,35 @@ const MyPlanView: React.FC = () => {
           billing_cycle: planInfo?.billing_cycle || (account as any).billing_cycle || 'monthly',
           expires_at: planInfo?.expires_at || account.expires_at || null,
           subscription_status: planInfo?.subscription_status || account.subscription_status || 'active',
-          is_active: planInfo?.is_active ?? account.is_active ?? true
+          is_active: planInfo?.is_active ?? account.is_active ?? true,
+          created_at: account.created_at || account.$createdAt || account.linked_at,
+          linked_at: account.linked_at
         };
       });
+    } else {
+      result = (plan?.all_accounts_plans || []).map((acc: any) => ({
+        id: acc.account_id,
+        ig_user_id: acc.account_id,
+        username: acc.username,
+        name: acc.username,
+        profile_picture_url: acc.profile_picture_url,
+        plan_code: acc.plan_code,
+        plan_name: acc.plan_name,
+        billing_cycle: acc.billing_cycle || 'monthly',
+        expires_at: acc.expires_at,
+        subscription_status: acc.subscription_status,
+        is_active: acc.is_active,
+        created_at: acc.created_at || acc.$createdAt || acc.linked_at,
+        linked_at: acc.linked_at
+      }));
     }
 
-    return (plan?.all_accounts_plans || []).map((acc: any) => ({
-      id: acc.account_id,
-      ig_user_id: acc.account_id,
-      username: acc.username,
-      name: acc.username,
-      profile_picture_url: acc.profile_picture_url,
-      plan_code: acc.plan_code,
-      plan_name: acc.plan_name,
-      billing_cycle: acc.billing_cycle || 'monthly',
-      expires_at: acc.expires_at,
-      subscription_status: acc.subscription_status,
-      is_active: acc.is_active
-    }));
+    return result.sort((a: any, b: any) => {
+      const timeA = getAccountTimestamp(a);
+      const timeB = getAccountTimestamp(b);
+      if (timeA !== timeB) return timeA - timeB;
+      return String(a.username || '').localeCompare(String(b.username || ''));
+    });
   }, [igAccounts, plan?.all_accounts_plans]);
 
   const paidAccountsCount = useMemo(() => {

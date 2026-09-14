@@ -55,13 +55,21 @@ const DashboardAppFrame = ({ mode, src, label }: { mode: 'light' | 'dark'; src: 
          {/* Subtle internal gradient glow */}
          <div className={`absolute inset-0 opacity-40 mix-blend-screen pointer-events-none ${isDark ? 'bg-[radial-gradient(ellipse_at_center,rgba(168,85,247,0.12),transparent_60%)]' : 'bg-[radial-gradient(ellipse_at_center,rgba(59,130,246,0.1),transparent_60%)]'}`} />
 
-         <img
-            src={src}
-            alt={label}
-            className={`relative z-10 w-full h-auto object-contain rounded-lg sm:rounded-xl shadow-lg border ${isDark ? 'border-white/10' : 'border-black/5'}`}
-            loading="eager"
-            fetchPriority="high"
-         />
+         <picture className="relative z-10 w-full flex justify-center">
+            {src.endsWith('.png') && (
+              <source srcSet={src.replace(/\.png$/, '.webp')} type="image/webp" />
+            )}
+            <img
+               src={src}
+               alt={label}
+               className={`relative z-10 w-full h-auto object-contain rounded-lg sm:rounded-xl shadow-lg border ${isDark ? 'border-white/10' : 'border-black/5'}`}
+               loading="eager"
+               fetchPriority="high"
+               decoding="async"
+               width={1200}
+               height={750}
+            />
+         </picture>
       </div>
     </div>
   );

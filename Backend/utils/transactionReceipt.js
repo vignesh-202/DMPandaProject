@@ -4,8 +4,8 @@ const PAGE = {
     width: 595.28,
     height: 841.89,
     marginX: 34,
-    top: 34,
-    bottom: 44,
+    top: 30,
+    bottom: 36,
     gutter: 14,
     contentWidth: 527
 };
@@ -17,19 +17,22 @@ const CARD = {
 };
 
 const COLORS = {
-    ink: '#172333',
-    subtext: '#475467',
+    ink: '#0F172A',
+    subtext: '#475569',
     muted: '#64748B',
-    border: '#DCE1EB',
+    border: '#E2E8F0',
     panel: '#FFFFFF',
     panelMuted: '#F8FAFC',
-    banner: '#FCFCFF'
+    banner: '#F8FAFC',
+    accent: '#4F46E5',
+    accentSoft: '#EEF2FF',
+    success: '#059669'
 };
 
-const HEADER_META_WIDTH = 172;
+const HEADER_META_WIDTH = 180;
 const HEADER_TITLE_WIDTH = PAGE.contentWidth - HEADER_META_WIDTH - 18;
-const FOOTER_META_WIDTH = 170;
-const FOOTER_LINE_OFFSET = 10;
+const FOOTER_META_WIDTH = 180;
+const FOOTER_LINE_OFFSET = 8;
 
 const formatMoney = (value, currency) => {
     const code = 'INR';
@@ -81,7 +84,10 @@ const formatSentenceMoney = (value, currency) => {
 };
 
 const buildNotesText = (transaction, gatewaySurcharge) => {
-    const customNotes = String(transaction.notes || '').trim();
+    let customNotes = String(transaction.notes || '').trim();
+    // Clean out internal metadata markers like "Account: @username |" if present
+    customNotes = customNotes.replace(/Account[s]?:\s*[@\w\d_.,\s-]+\s*(\|\s*)?/gi, '').trim();
+
     if (customNotes) return customNotes;
 
     if (gatewaySurcharge <= 0) {
@@ -104,17 +110,18 @@ const drawRect = (doc, x, y, width, height, options = {}) => {
     const {
         fill = COLORS.panel,
         stroke = COLORS.border,
-        lineWidth = 1
+        lineWidth = 1,
+        radius = 12
     } = options;
 
     doc.save();
     doc.lineWidth(lineWidth).strokeColor(stroke).fillColor(fill);
-    doc.roundedRect(x, y, width, height, 18).fillAndStroke(fill, stroke);
+    doc.roundedRect(x, y, width, height, radius).fillAndStroke(fill, stroke);
     doc.restore();
 };
 
 const ROW_LABEL_LINE_HEIGHT = 11;
-const ROW_GAP = 8;
+const ROW_GAP = 6;
 const ROW_VALUE_LINE_GAP = 1;
 
 const measureTextHeight = (doc, text, width, font, fontSize, lineGap = 0) => {
@@ -130,9 +137,9 @@ const measureRowsHeight = (doc, rows, labelWidth, valueWidth) => (
         const labelLines = String(row.label || '').split('\n');
         const labelHeight = (labelLines.length * ROW_LABEL_LINE_HEIGHT) - 1;
         const valueFont = row.emphasis ? 'Helvetica-Bold' : 'Helvetica';
-        const valueSize = row.emphasis ? 10.1 : 9.4;
+        const valueSize = row.emphasis ? 9.5 : 8.8;
         const valueHeight = measureTextHeight(doc, row.value || 'N/A', valueWidth, valueFont, valueSize, ROW_VALUE_LINE_GAP);
-        const rowHeight = Math.max(labelHeight, valueHeight, row.minHeight || 16);
+        const rowHeight = Math.max(labelHeight, valueHeight, row.minHeight || 14);
         return total + rowHeight + (index === rows.length - 1 ? 0 : ROW_GAP);
     }, 0)
 );
@@ -144,17 +151,18 @@ const drawKeyValueRows = (doc, rows, x, startY, labelWidth, valueWidth) => {
         const labelLines = String(row.label || '').split('\n');
         const valueText = row.value || 'N/A';
         const valueFont = row.emphasis ? 'Helvetica-Bold' : 'Helvetica';
-        const valueSize = row.emphasis ? 10.1 : 9.4;
+        const valueSize = row.emphasis ? 9.5 : 8.8;
+        const valueColor = row.color || (row.emphasis ? COLORS.ink : COLORS.ink);
         const labelHeight = (labelLines.length * ROW_LABEL_LINE_HEIGHT) - 1;
         const valueHeight = measureTextHeight(doc, valueText, valueWidth, valueFont, valueSize, ROW_VALUE_LINE_GAP);
-        const rowHeight = Math.max(labelHeight, valueHeight, row.minHeight || 16);
+        const rowHeight = Math.max(labelHeight, valueHeight, row.minHeight || 14);
 
-        doc.font('Helvetica-Bold').fontSize(8.9).fillColor(COLORS.subtext);
+        doc.font('Helvetica-Bold').fontSize(8.5).fillColor(COLORS.subtext);
         labelLines.forEach((line, labelIndex) => {
             drawText(doc, line, x, y + (labelIndex * ROW_LABEL_LINE_HEIGHT), { width: labelWidth });
         });
 
-        doc.font(valueFont).fontSize(valueSize).fillColor(COLORS.ink);
+        doc.font(valueFont).fontSize(valueSize).fillColor(valueColor);
         drawText(doc, valueText, x + labelWidth, y, { width: valueWidth, lineGap: ROW_VALUE_LINE_GAP });
 
         y += rowHeight + (index === rows.length - 1 ? 0 : ROW_GAP);
@@ -171,18 +179,18 @@ const drawSectionCard = (doc, config) => {
         title,
         rows,
         fill = COLORS.panel,
-        labelWidth = 96,
-        padding = 14
+        labelWidth = 100,
+        padding = 12
     } = config;
     const valueWidth = width - (padding * 2) - labelWidth;
-    const titleHeight = 16;
-    const contentTop = y + padding + titleHeight + 10;
+    const titleHeight = 14;
+    const contentTop = y + padding + titleHeight + 8;
     const rowsHeight = measureRowsHeight(doc, rows, labelWidth, valueWidth);
-    const height = (padding * 2) + titleHeight + 10 + rowsHeight;
+    const height = (padding * 2) + titleHeight + 8 + rowsHeight;
 
-    drawRect(doc, x, y, width, height, { fill, stroke: COLORS.border });
-    doc.font('Helvetica-Bold').fontSize(11).fillColor(COLORS.ink);
-    drawText(doc, title, x + padding, y + padding + 1);
+    drawRect(doc, x, y, width, height, { fill, stroke: COLORS.border, radius: 12 });
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(COLORS.ink);
+    drawText(doc, title, x + padding, y + padding);
     drawKeyValueRows(doc, rows, x + padding, contentTop, labelWidth, valueWidth);
 
     return {
@@ -201,47 +209,56 @@ const startReceiptPage = (doc) => {
 const drawReceiptHeader = (doc, { generatedAt, receiptId }) => {
     const metaX = PAGE.width - PAGE.marginX - HEADER_META_WIDTH;
 
-    doc.font('Helvetica-Bold').fontSize(15).fillColor(COLORS.ink);
+    doc.font('Helvetica-Bold').fontSize(14).fillColor(COLORS.ink);
     drawText(doc, 'DM Panda', PAGE.marginX, PAGE.top, { width: HEADER_TITLE_WIDTH });
 
-    doc.font('Helvetica-Bold').fontSize(22).fillColor(COLORS.ink);
-    drawText(doc, 'Billing Receipt', PAGE.marginX, PAGE.top + 18, { width: HEADER_TITLE_WIDTH });
+    doc.font('Helvetica-Bold').fontSize(20).fillColor(COLORS.ink);
+    drawText(doc, 'Billing Receipt', PAGE.marginX, PAGE.top + 17, { width: HEADER_TITLE_WIDTH });
 
-    doc.font('Helvetica').fontSize(8.8).fillColor(COLORS.muted);
-    drawText(doc, `Generated ${formatShortUtcDate(generatedAt)}`, PAGE.marginX, PAGE.top + 47, { width: HEADER_TITLE_WIDTH });
+    doc.font('Helvetica').fontSize(8.5).fillColor(COLORS.muted);
+    drawText(doc, `Generated ${formatShortUtcDate(generatedAt)}`, PAGE.marginX, PAGE.top + 43, { width: HEADER_TITLE_WIDTH });
 
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.subtext);
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(COLORS.subtext);
     drawText(doc, 'Receipt ID', metaX, PAGE.top + 2, { width: HEADER_META_WIDTH, align: 'right' });
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(COLORS.ink);
-    drawText(doc, receiptId || 'N/A', metaX, PAGE.top + 18, {
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.ink);
+    drawText(doc, receiptId || 'N/A', metaX, PAGE.top + 16, {
         width: HEADER_META_WIDTH,
         align: 'right',
         lineGap: 1
     });
 
-    return PAGE.top + 72;
+    return PAGE.top + 64;
 };
 
 const drawReceiptFooter = (doc, { generatedAt, receiptId }) => {
     const footerY = PAGE.height - PAGE.bottom;
     const metaX = PAGE.width - PAGE.marginX - FOOTER_META_WIDTH;
 
-    doc.strokeColor(COLORS.ink)
+    doc.strokeColor(COLORS.border)
         .lineWidth(1)
         .moveTo(PAGE.marginX, footerY)
         .lineTo(PAGE.width - PAGE.marginX, footerY)
         .stroke();
 
-    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(COLORS.ink);
+    doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.ink);
     drawText(doc, 'DM Panda receipt', PAGE.marginX, footerY + FOOTER_LINE_OFFSET);
-    doc.font('Helvetica').fontSize(8.5).fillColor(COLORS.subtext);
-    drawText(doc, `Generated ${formatShortUtcDate(generatedAt)}`, PAGE.marginX, footerY + FOOTER_LINE_OFFSET + 14);
+    doc.font('Helvetica').fontSize(8).fillColor(COLORS.subtext);
+    drawText(doc, `Generated ${formatShortUtcDate(generatedAt)}`, PAGE.marginX, footerY + FOOTER_LINE_OFFSET + 12);
     drawText(doc, receiptId || 'N/A', metaX, footerY + FOOTER_LINE_OFFSET, {
         width: FOOTER_META_WIDTH,
         align: 'right'
     });
+};
 
-    return footerY;
+const formatLinkedAccountsDisplay = (rawText) => {
+    const clean = String(rawText || '').trim();
+    if (!clean || clean.toLowerCase() === 'linked to account') {
+        return 'Instagram Subscription';
+    }
+    // If it's a comma-separated list or single username
+    const parts = clean.split(',').map(s => s.trim()).filter(Boolean);
+    if (parts.length === 0) return 'Instagram Subscription';
+    return parts.map(p => p.startsWith('@') ? p : `@${p}`).join(', ');
 };
 
 const buildTransactionReceipt = ({ transaction, user }) => {
@@ -274,47 +291,55 @@ const buildTransactionReceipt = ({ transaction, user }) => {
 
     startReceiptPage(doc);
     const bannerY = drawReceiptHeader(doc, { generatedAt, receiptId: transaction.id });
-    drawRect(doc, CARD.full.x, bannerY, CARD.full.width, 74, { fill: COLORS.banner, stroke: COLORS.border });
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.ink);
-    drawText(doc, 'Total deducted', CARD.full.x + 16, bannerY + 18);
-    doc.font('Helvetica-Bold').fontSize(19).fillColor(COLORS.ink);
-    drawText(doc, formatMoney(totalDeducted, transaction.currency), CARD.full.x + 16, bannerY + 34);
-    doc.font('Helvetica').fontSize(8.9).fillColor(COLORS.subtext);
+    
+    // Total Deducted Banner
+    drawRect(doc, CARD.full.x, bannerY, CARD.full.width, 62, { fill: COLORS.banner, stroke: COLORS.border, radius: 12 });
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(COLORS.subtext);
+    drawText(doc, 'Total deducted', CARD.full.x + 14, bannerY + 12);
+    doc.font('Helvetica-Bold').fontSize(18).fillColor(COLORS.ink);
+    drawText(doc, formatMoney(totalDeducted, transaction.currency), CARD.full.x + 14, bannerY + 26);
+    doc.font('Helvetica').fontSize(8.2).fillColor(COLORS.muted);
     drawText(
         doc,
         'This is the amount charged by Razorpay to the customer payment method.',
-        CARD.full.x + 16,
-        bannerY + 55,
-        { width: CARD.full.width - 32 }
+        CARD.full.x + 14,
+        bannerY + 46,
+        { width: CARD.full.width - 28 }
     );
 
-    const linkedIgAccountText = transaction.linked_ig_accounts || transaction.ig_account_name || user?.ig_username || 'Linked to account';
+    const linkedIgAccountText = formatLinkedAccountsDisplay(
+        transaction.linked_ig_accounts || transaction.ig_account_name || user?.ig_username
+    );
+    const isMultipleAccounts = linkedIgAccountText.includes(',');
+    const accountLabel = isMultipleAccounts ? 'Instagram Accounts' : 'Instagram Account';
+
     const transactionRows = [
         { label: 'Transaction ID', value: transaction.id },
         { label: 'Transaction date', value: formatShortUtcDate(transaction.created_at) },
-        { label: 'Plan', value: transaction.plan_name || 'Plan' },
-        { label: 'Linked IG Account(s)', value: linkedIgAccountText },
+        { label: 'Plan', value: transaction.plan_name || 'Plan', emphasis: true },
+        { label: accountLabel, value: linkedIgAccountText, emphasis: true },
         { label: 'Billing cycle', value: String(transaction.billing_cycle || 'monthly').replace(/^./, (v) => v.toUpperCase()) },
         { label: 'Coverage until', value: coverageUntil },
-        { label: 'Status', value: normalizeStatus(transaction.status) }
+        { label: 'Status', value: normalizeStatus(transaction.status), color: COLORS.success, emphasis: true }
     ];
 
     const customerRows = [
         { label: 'Customer', value: user?.name || user?.email || 'DM Panda user' },
         { label: 'Email', value: user?.email || 'N/A' },
-        { label: 'Provider', value: transaction.payment_provider || 'RAZORPAY' },
+        { label: 'Payment provider', value: transaction.payment_provider || 'RAZORPAY' },
         { label: 'Gateway payment ID', value: transaction.razorpay_payment_id || 'N/A' },
         { label: 'Gateway order ID', value: transaction.razorpay_order_id || 'N/A' },
-        { label: 'Support', value: 'support@dmpanda.com' }
+        { label: 'Support email', value: 'support@dmpanda.com' }
     ];
 
-    const detailsY = bannerY + 92;
+    const detailsY = bannerY + 74;
     const leftDetails = drawSectionCard(doc, {
         x: CARD.left.x,
         y: detailsY,
         width: CARD.left.width,
         title: 'Transaction Details',
-        rows: transactionRows
+        rows: transactionRows,
+        labelWidth: 98
     });
     const rightDetails = drawSectionCard(doc, {
         x: CARD.right.x,
@@ -322,28 +347,28 @@ const buildTransactionReceipt = ({ transaction, user }) => {
         width: CARD.right.width,
         title: 'Customer Details',
         rows: customerRows,
-        labelWidth: 80
+        labelWidth: 98
     });
 
     const summaryRows = [
         { label: 'Plan amount', value: formatMoney(transaction.base_amount, transaction.currency) },
         { label: 'Discount', value: transaction.discount_amount > 0 ? formatMoney(transaction.discount_amount, transaction.currency) : 'None' },
-        { label: 'Coupon\ncode', value: transaction.coupon_code || 'Not applied' },
-        { label: 'Coupon\nbenefit', value: couponBenefit },
-        { label: 'Approved\nsubscription\ntotal', value: formatMoney(approvedPlanTotal, transaction.currency), emphasis: true, minHeight: 22 },
-        { label: 'Customer\nsurcharge', value: customerSurcharge, minHeight: 20 },
-        { label: 'Total\ndeducted', value: formatMoney(totalDeducted, transaction.currency), emphasis: true, minHeight: 20 }
+        { label: 'Coupon code', value: transaction.coupon_code || 'Not applied' },
+        { label: 'Coupon benefit', value: couponBenefit },
+        { label: 'Approved total', value: formatMoney(approvedPlanTotal, transaction.currency), emphasis: true },
+        { label: 'Gateway surcharge', value: customerSurcharge },
+        { label: 'Total deducted', value: formatMoney(totalDeducted, transaction.currency), emphasis: true }
     ];
 
     const chargeRows = [
-        { label: 'Charged\namount', value: formatMoney(totalDeducted, transaction.currency), emphasis: true, minHeight: 20 },
+        { label: 'Charged amount', value: formatMoney(totalDeducted, transaction.currency), emphasis: true },
         { label: 'Gateway fee', value: gatewaySurcharge > 0 ? formatMoney(gatewaySurcharge, transaction.currency) : 'None' },
         { label: 'Gateway tax', value: gatewayTax > 0 ? formatMoney(gatewayTax, transaction.currency) : 'None' },
-        { label: 'Customer\nsurcharge', value: customerSurcharge, minHeight: 20 },
-        { label: 'Approved\nplan total', value: formatMoney(approvedPlanTotal, transaction.currency), minHeight: 20 }
+        { label: 'Customer surcharge', value: customerSurcharge },
+        { label: 'Approved plan total', value: formatMoney(approvedPlanTotal, transaction.currency) }
     ];
 
-    const financialY = Math.max(leftDetails.bottom, rightDetails.bottom) + 16;
+    const financialY = Math.max(leftDetails.bottom, rightDetails.bottom) + 12;
     const leftSummary = drawSectionCard(doc, {
         x: CARD.left.x,
         y: financialY,
@@ -351,7 +376,7 @@ const buildTransactionReceipt = ({ transaction, user }) => {
         title: 'Bill Summary',
         rows: summaryRows,
         fill: COLORS.panelMuted,
-        labelWidth: 78
+        labelWidth: 98
     });
     const rightCharges = drawSectionCard(doc, {
         x: CARD.right.x,
@@ -359,23 +384,21 @@ const buildTransactionReceipt = ({ transaction, user }) => {
         width: CARD.right.width,
         title: 'Razorpay Charges',
         rows: chargeRows,
-        labelWidth: 72
+        labelWidth: 98
     });
 
-    const notesY = Math.max(leftSummary.bottom, rightCharges.bottom) + 16;
+    const notesY = Math.max(leftSummary.bottom, rightCharges.bottom) + 12;
     const footerY = PAGE.height - PAGE.bottom;
-    const notesHeight = Math.max(
-        104,
-        16 + 18 + 14 + measureTextHeight(doc, notes, CARD.full.width - 32, 'Helvetica', 9, 3) + 16
-    );
-    const notesFitsOnFirstPage = notesY + notesHeight <= footerY - 18;
+    const notesTextHeight = measureTextHeight(doc, notes, CARD.full.width - 28, 'Helvetica', 8.5, 2);
+    const notesHeight = Math.max(54, 12 + 14 + 6 + notesTextHeight + 12);
+    const notesFitsOnFirstPage = notesY + notesHeight <= footerY - 14;
 
     if (notesFitsOnFirstPage) {
-        drawRect(doc, CARD.full.x, notesY, CARD.full.width, notesHeight, { fill: COLORS.panel, stroke: COLORS.border });
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(COLORS.ink);
-        drawText(doc, 'Notes', CARD.full.x + 16, notesY + 18);
-        doc.font('Helvetica').fontSize(9).fillColor(COLORS.subtext);
-        drawText(doc, notes, CARD.full.x + 16, notesY + 50, { width: CARD.full.width - 32, lineGap: 3 });
+        drawRect(doc, CARD.full.x, notesY, CARD.full.width, notesHeight, { fill: COLORS.panel, stroke: COLORS.border, radius: 12 });
+        doc.font('Helvetica-Bold').fontSize(10).fillColor(COLORS.ink);
+        drawText(doc, 'Notes', CARD.full.x + 14, notesY + 12);
+        doc.font('Helvetica').fontSize(8.5).fillColor(COLORS.subtext);
+        drawText(doc, notes, CARD.full.x + 14, notesY + 32, { width: CARD.full.width - 28, lineGap: 2 });
         drawReceiptFooter(doc, { generatedAt, receiptId: transaction.id });
         return doc;
     }
@@ -389,17 +412,17 @@ const buildTransactionReceipt = ({ transaction, user }) => {
     const nextPageFooterY = PAGE.height - PAGE.bottom;
     const nextNotesHeight = Math.min(
         notesHeight,
-        Math.max(104, nextPageFooterY - nextNotesY - 18)
+        Math.max(64, nextPageFooterY - nextNotesY - 14)
     );
 
-    drawRect(doc, CARD.full.x, nextNotesY, CARD.full.width, nextNotesHeight, { fill: COLORS.panel, stroke: COLORS.border });
-    doc.font('Helvetica-Bold').fontSize(11).fillColor(COLORS.ink);
-    drawText(doc, 'Notes', CARD.full.x + 16, nextNotesY + 18);
-    doc.font('Helvetica').fontSize(9).fillColor(COLORS.subtext);
-    drawText(doc, notes, CARD.full.x + 16, nextNotesY + 50, {
-        width: CARD.full.width - 32,
-        height: nextNotesHeight - 64,
-        lineGap: 3
+    drawRect(doc, CARD.full.x, nextNotesY, CARD.full.width, nextNotesHeight, { fill: COLORS.panel, stroke: COLORS.border, radius: 12 });
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(COLORS.ink);
+    drawText(doc, 'Notes', CARD.full.x + 14, nextNotesY + 12);
+    doc.font('Helvetica').fontSize(8.5).fillColor(COLORS.subtext);
+    drawText(doc, notes, CARD.full.x + 14, nextNotesY + 32, {
+        width: CARD.full.width - 28,
+        height: nextNotesHeight - 44,
+        lineGap: 2
     });
     drawReceiptFooter(doc, { generatedAt, receiptId: transaction.id });
 

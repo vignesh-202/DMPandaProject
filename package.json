@@ -11,16 +11,24 @@
   ],
   "scripts": {
     "install-all": "npm install",
+    "build": "npm run build-all",
     "build-all": "npm run build --workspace=Frontend && npm run build --workspace=admin-panel",
+    "start": "node server.js",
+    "start:concurrent": "concurrently --kill-others \"npm run start:backend\" \"npm run start:streamer\" \"npm run start:worker\" \"npm run start:frontend\" \"npm run start:admin\"",
+    "start:pm2": "pm2 start ecosystem.config.js",
     "start:backend": "npm start --workspace=Backend",
     "start:streamer": "npm start --workspace=streamer-node",
     "start:worker": "npm start --workspace=worker-node",
     "start:frontend": "node serve-frontend.js",
     "start:admin": "node serve-admin.js",
-    "start": "concurrently --kill-others \"npm run start:backend\" \"npm run start:streamer\" \"npm run start:worker\" \"npm run start:frontend\" \"npm run start:admin\""
+    "seo:audit": "node scripts/seo-audit.js",
+    "optimize:images": "node scripts/optimize-images.js"
   },
   "dependencies": {
     "concurrently": "^8.2.2",
     "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.4"
   }
 }

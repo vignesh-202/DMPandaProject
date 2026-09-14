@@ -207,7 +207,8 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
   };
 
   const completeAccountSwitch = (account: any) => {
-    setActiveAccountID(account.ig_user_id || account.id);
+    const targetId = account.ig_user_id || account.account_id || account.$id || account.id;
+    setActiveAccountID(targetId);
     setProfileMenuOpen(false);
     onItemClick?.();
   };
@@ -274,9 +275,9 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col w-full">
         {/* Navigation */}
-        <nav className={cn("flex-1 min-h-0 overflow-y-auto custom-scrollbar py-3", isCollapsed ? "px-3" : "px-4")}>
+        <nav className={cn("flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar py-3 w-full", isCollapsed ? "px-2.5" : "px-3")}>
           {menuSections.map((section, sectionIndex) => (
             <div key={sectionIndex} className={cn(sectionIndex > 0 && "mt-4")}>
               {/* Section Title */}
@@ -287,7 +288,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
               )}
 
               {/* Section Items */}
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 w-full">
                 {section.items.map((item) => {
                   const Icon = item.icon;
                   const isActive = currentView === item.name;
@@ -302,8 +303,8 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                       onClick={() => handleNavigation(item.name)}
                       title={isCollapsed ? item.name : undefined}
                       className={cn(
-                        "group w-full flex items-center rounded-lg text-sm transition-all duration-150 min-h-[42px]",
-                        isCollapsed ? "justify-center px-2 py-2" : "space-x-3 px-3.5 py-2.5",
+                        "group w-full flex items-center rounded-xl text-sm transition-all duration-150 min-h-[42px] min-w-0",
+                        isCollapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2.5",
                         isActive
                           ? "bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white font-semibold shadow-xs shadow-[#833AB4]/25"
                           : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium",
@@ -316,11 +317,11 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                         isLocked && isCollapsed && "opacity-75"
                       )} />
                       {!isCollapsed && (
-                        <span className="flex-1 text-left truncate">{item.name}</span>
+                        <span className="flex-1 min-w-0 text-left truncate">{item.name}</span>
                       )}
                       {isLocked && !isCollapsed && (
                         <Lock className={cn(
-                          "h-4 w-4 shrink-0",
+                          "h-4 w-4 shrink-0 ml-auto",
                           isActive ? "text-white/90" : "text-muted-foreground/70"
                         )} />
                       )}
@@ -333,7 +334,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
         </nav>
 
         {/* Account Switcher - Fixed at bottom, lifted upward with modern design */}
-        <div className="px-2 sm:px-3 pt-2.5 pb-3 sm:pb-4 border-t border-sidebar-border flex-shrink-0 mt-auto relative" ref={profileMenuRef}>
+        <div className={cn("pt-2.5 pb-3 sm:pb-4 border-t border-sidebar-border flex-shrink-0 mt-auto w-full relative z-30", isCollapsed ? "px-2.5" : "px-3")} ref={profileMenuRef}>
           {/* Flyout Menu */}
           <div className={cn(
             "absolute bottom-full mb-2 bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-[100] transition-all duration-200",
@@ -356,18 +357,20 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                   {[...igAccounts]
                     .sort((a, b) => {
                       const getVal = (acc: any) => {
-                        const raw = acc.$createdAt || acc.created_at || acc.createdAt || 0;
+                        const raw = acc?.$createdAt || acc?.created_at || acc?.createdAt || acc?.linked_at || 0;
                         const parsed = new Date(raw).getTime();
                         return Number.isNaN(parsed) ? 0 : parsed;
                       };
                       const timeA = getVal(a);
                       const timeB = getVal(b);
                       if (timeA !== timeB) return timeA - timeB;
-                      return String(a.username || '').localeCompare(String(b.username || ''));
+                      return String(a?.username || '').localeCompare(String(b?.username || ''));
                     })
                     .map((account) => {
-                    const accountKey = account.ig_user_id || account.id;
-                    const isSelected = activeAccountID === accountKey;
+                    const accountKey = account.ig_user_id || account.account_id || account.$id || account.id;
+                    const isSelected = activeAccountID === accountKey || (activeAccount && (
+                      accountKey === (activeAccount.ig_user_id || activeAccount.account_id || activeAccount.$id || activeAccount.id)
+                    ));
                     const isReconnectRequired = account.status === 'reconnect_required' || account.access_reason === 'reconnect_required';
                     const isInactive = account.status !== 'active' || account.effective_access === false;
                     const isPlanLocked = account.plan_locked === true;
@@ -494,14 +497,14 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
           <button
             onClick={() => setProfileMenuOpen(!isProfileMenuOpen)}
             className={cn(
-              "w-full flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl",
+              "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl min-w-0",
               "bg-card border border-border shadow-xs",
               "hover:border-primary/40 hover:bg-muted/30",
               "transition-all duration-150 ease-out",
               "min-h-[48px]",
               "group relative",
               "active:scale-[0.98]",
-              isCollapsed && "justify-center p-2 gap-0 rounded-xl min-h-0 h-10 w-10 mx-auto"
+              isCollapsed && "justify-center p-2 gap-0 min-h-0 h-10 w-10 mx-auto"
             )}
           >
             {/* Profile Picture */}
@@ -560,7 +563,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                 </div>
 
                 <ChevronUp className={cn(
-                  "w-4 h-4 flex-shrink-0 ml-1 text-muted-foreground transition-transform duration-200",
+                  "w-4 h-4 shrink-0 ml-auto text-muted-foreground transition-transform duration-200",
                   !isProfileMenuOpen && "rotate-180"
                 )} />
               </>

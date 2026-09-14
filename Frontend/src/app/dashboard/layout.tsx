@@ -11,6 +11,7 @@ import { useLoading } from '../../contexts/LoadingContext';
 import { cn } from '../../lib/utils';
 import { writeTransientState } from '../../lib/transientState';
 import { FAST_TRANSITION, SMOOTH_TRANSITION } from '../../lib/animation';
+import { toBrowserPreviewUrl } from '../../lib/templatePreview';
 
 type DashboardNotification = {
   id: string;
@@ -104,7 +105,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const [seenNotificationIds, setSeenNotificationIds] = useState<string[]>([]);
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
-  const { currentView, setCurrentView, activeAccountID, setActiveAccountID, isInitialLoadComplete, planStatus } = useDashboard();
+  const { currentView, setCurrentView, activeAccountID, setActiveAccountID, isInitialLoadComplete, planStatus, activeAccount } = useDashboard();
   const { logout, user, authenticatedFetch, isLoading: isAuthLoading } = useAuth();
   const { isLoading: isAppLoading } = useLoading();
   const navigate = useNavigate();
@@ -309,7 +310,11 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         .join('')
         .slice(0, 2)
         .toUpperCase()
-    : 'DM';
+    : 'U';
+
+  const displayName = user?.name || user?.email?.split('@')[0] || 'User';
+  const appwriteAvatarUrl = `https://cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(displayName)}&width=120&height=120`;
+  const userAvatarUrl = user?.avatar_url || user?.prefs?.avatar_url || user?.prefs?.avatar || appwriteAvatarUrl;
 
   const unreadNotificationCount = notifications.filter((item) => !seenNotificationIds.includes(item.id)).length;
 
@@ -393,7 +398,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         </div>
 
         {/* Sidebar Content */}
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 flex-col w-full">
           <Sidebar
             isCollapsed={!isSidebarOpen}
             onItemClick={() => {
@@ -553,14 +558,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   setIsProfileMenuOpen(!isProfileMenuOpen);
                   setIsNotificationMenuOpen(false);
                 }}
-                className="relative p-0.5 rounded-xl border border-border bg-card hover:bg-muted hover:border-border/80 shadow-xs transition-all duration-150 group active:scale-95"
+                className="relative p-0.5 rounded-xl border border-border bg-card hover:bg-muted hover:border-border/80 shadow-xs transition-all duration-150 group active:scale-95 flex items-center justify-center shrink-0"
                 aria-label="User Profile"
               >
-                {user ? (
+                {userAvatarUrl ? (
                   <img
-                    src={`https://cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(user.name)}&width=100&height=100`}
-                    alt={user.name}
-                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover"
+                    src={userAvatarUrl}
+                    alt={user?.name || "User Profile"}
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover aspect-square shrink-0"
                     onError={(e) => {
                       (e.target as HTMLElement).style.display = 'none';
                       (e.target as HTMLElement).nextElementSibling?.classList.remove('hidden');
@@ -569,8 +574,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   />
                 ) : null}
                 <div className={cn(
-                  "w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] items-center justify-center font-semibold text-xs sm:text-sm text-white shadow-xs",
-                  user ? "hidden" : "flex"
+                  "w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-muted border border-border items-center justify-center font-semibold text-xs sm:text-sm text-foreground shadow-xs select-none tracking-tight shrink-0",
+                  userAvatarUrl ? "hidden" : "flex"
                 )}>
                   {userInitials}
                 </div>
@@ -586,7 +591,22 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 {/* User Info Header */}
                 <div className="px-4 py-3 border-b border-border/80 bg-muted/20">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white flex items-center justify-center font-semibold text-xs shrink-0 shadow-xs">
+                    {userAvatarUrl ? (
+                      <img
+                        src={userAvatarUrl}
+                        alt={user?.name || "User Profile"}
+                        className="h-9 w-9 rounded-xl object-cover shrink-0 shadow-xs border border-border/40 aspect-square"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                          (e.target as HTMLElement).nextElementSibling?.classList.remove('hidden');
+                          (e.target as HTMLElement).nextElementSibling?.classList.add('flex');
+                        }}
+                      />
+                    ) : null}
+                    <div className={cn(
+                      "h-9 w-9 rounded-xl bg-muted border border-border text-foreground items-center justify-center font-semibold text-xs shrink-0 shadow-xs select-none tracking-tight",
+                      userAvatarUrl ? "hidden" : "flex"
+                    )}>
                       {userInitials}
                     </div>
                     <div className="min-w-0 flex-1">

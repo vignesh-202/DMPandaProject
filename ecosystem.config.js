@@ -1,6 +1,14 @@
 module.exports = {
   apps: [
     {
+      name: 'dm-panda-gateway',
+      script: './server.js',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3000
+      }
+    },
+    {
       name: 'dm-panda-backend',
       script: './Backend/app.js',
       env: {
@@ -12,14 +20,16 @@ module.exports = {
       name: 'dm-panda-streamer',
       script: './streamer-node/index.js',
       env: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        PORT: 3002
       }
     },
     {
       name: 'dm-panda-worker',
       script: './worker-node/index.js',
       env: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        PORT: 3003
       }
     },
     {

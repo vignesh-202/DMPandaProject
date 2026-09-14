@@ -30,7 +30,10 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
       )}>
         <div className="absolute inset-x-0 top-[18vh] mx-auto h-40 w-40 rounded-full bg-primary/12 blur-3xl" />
         <div className="relative flex h-48 w-48 items-center justify-center drop-shadow-2xl">
-          <img src="/images/loading_panda.gif" alt="Loading..." className="h-full w-full object-contain" />
+          <picture className="h-full w-full flex items-center justify-center">
+            <source srcSet="/images/loading_panda.webp" type="image/webp" />
+            <img src="/images/loading_panda.gif" alt="Loading..." className="h-full w-full object-contain" width={192} height={192} />
+          </picture>
         </div>
         <div className="relative space-y-1.5">
           <p className="text-sm font-bold text-foreground">{message || 'Loading section'}</p>

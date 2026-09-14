@@ -173,13 +173,20 @@ const BlogPostPage: React.FC = () => {
           {/* Featured image */}
           <figure className="mb-10 sm:mb-12">
             <div className="rounded-2xl sm:rounded-3xl overflow-hidden bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.06] aspect-[16/9] shadow-lg">
-              <img
-                src={post.image}
-                alt={post.title}
-                loading="eager"
-                decoding="async"
-                className="w-full h-full object-cover"
-              />
+              <picture className="w-full h-full block">
+                {post.image && post.image.endsWith('.png') && (
+                  <source srcSet={post.image.replace(/\.png$/, '.webp')} type="image/webp" />
+                )}
+                <img
+                  src={post.image}
+                  alt={post.title}
+                  loading="eager"
+                  decoding="async"
+                  width={1200}
+                  height={675}
+                  className="w-full h-full object-cover"
+                />
+              </picture>
             </div>
           </figure>
 

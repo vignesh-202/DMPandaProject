@@ -42,7 +42,6 @@ BENEFIT_KEYS = [
     "comment_moderation",
     "global_trigger",
     "mentions",
-    "collect_email",
     "instagram_live_automation",
     "priority_support",
     "followers_only",
@@ -69,11 +68,10 @@ BENEFIT_LABELS = {
     "comment_moderation": "Comment Moderation",
     "global_trigger": "Global Trigger",
     "mentions": "Mentions",
-    "collect_email": "Collect Email",
     "instagram_live_automation": "Instagram Live Automation",
     "priority_support": "Priority Support",
     "followers_only": "Followers Only",
-    "seen_typing": "Seen + Typing",
+    "seen_typing": "Seen & Typing Reaction",
     "no_watermark": "No Watermark",
     "once_per_user_24h": "Once Per User / 24h",
 }
@@ -87,25 +85,23 @@ BENEFIT_STORAGE_KEYS = {
 def benefit_attribute_key(key):
     return f"benefit_{BENEFIT_STORAGE_KEYS.get(key, key)}"
 
-PLAN_DEFINITIONS = {
+# Source of truth for all plans
+PLAN_CATALOG = {
     "free": {
         "name": "Free Plan",
         "prices": (0, 0, 0),
-        "limits": (1, 100, 100, 1000),
+        "limits": (1, 30, 200, 200),
         "benefits": [
-            "unlimited_contacts",
             "post_comment_dm_automation",
             "reel_comment_dm_automation",
-            "super_profile",
-            "welcome_message",
             "convo_starters",
             "inbox_menu",
         ],
     },
     "basic": {
         "name": "Basic Plan",
-        "prices": (199, 1800, 150),
-        "limits": (1, 100, 1000, 25000),
+        "prices": (99, 828, 69),
+        "limits": (1, 60, 1000, 5000),
         "benefits": [
             "unlimited_contacts",
             "post_comment_dm_automation",
@@ -122,6 +118,7 @@ PLAN_DEFINITIONS = {
             "story_automation",
             "suggest_more",
             "comment_moderation",
+            "followers_only",
             "seen_typing",
             "no_watermark",
         ],
@@ -146,7 +143,6 @@ PLAN_DEFINITIONS = {
             "global_trigger",
             "mentions",
             "story_automation",
-            "collect_email",
             "suggest_more",
             "comment_moderation",
             "instagram_live_automation",
@@ -177,7 +173,6 @@ PLAN_DEFINITIONS = {
             "global_trigger",
             "mentions",
             "story_automation",
-            "collect_email",
             "suggest_more",
             "comment_moderation",
             "instagram_live_automation",

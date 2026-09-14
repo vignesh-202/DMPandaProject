@@ -69,14 +69,13 @@ const DEFAULT_PLAN_FEATURES = Object.freeze({
         'share_reel_to_admin',
         'share_post_to_admin',
         'super_profile',
+        'convo_starters',
         'inbox_menu',
-        'collect_email',
         'suggest_more',
         'followers_only',
         'comment_moderation',
         'seen_typing',
         'welcome_message',
-        'convo_starters',
         'dm_automation',
         'story_automation',
         'no_watermark',
@@ -111,8 +110,6 @@ const DEFAULT_PLAN_FEATURES = Object.freeze({
         auto_reply_dm_keywords: 'dm_automation',
         story_mentions_custom_dm: 'mentions',
         mention: 'mentions',
-        email_collector: 'collect_email',
-        webhook_integrations: 'collect_email',
         seen_typing_indicator: 'seen_typing',
         once_per_user: 'once_per_user_24h'
     },
@@ -1036,7 +1033,7 @@ const resolveIgAccountActionLimits = (account = {}, pricingPlans = []) => {
     });
     const targetPlan = findPlanByIdentifier(plans, effectivePlanCode) || (
         effectivePlanCode === 'basic'
-            ? { actions_per_hour_limit: 200, actions_per_day_limit: 2500, actions_per_month_limit: 70000 }
+            ? { actions_per_hour_limit: 200, actions_per_day_limit: 2500, actions_per_month_limit: 40000 }
             : (effectivePlanCode === 'pro' || effectivePlanCode === 'ultra'
                 ? { actions_per_hour_limit: 'unlimited', actions_per_day_limit: 'unlimited', actions_per_month_limit: 'unlimited' }
                 : freePlan)

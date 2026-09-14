@@ -20,9 +20,6 @@ const {
     FUNCTION_REMOVE_INSTAGRAM
 } = require('../utils/appwrite');
 const {
-    sendWebhookPayload
-} = require('../utils/emailCollectors');
-const {
     buildPlanApiPayload,
     resolveUserPlanContext,
     normalizeFeatureKey,
@@ -88,9 +85,6 @@ const FOLLOWERS_ONLY_MESSAGE_DEFAULT = 'Please follow this account first, then s
 const FOLLOWERS_ONLY_MESSAGE_MAX = 300;
 const FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT = '👤 Follow Account';
 const FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT = "✅ I've Followed";
-const COLLECT_EMAIL_PROMPT_DEFAULT = '📧 Could you share your best email so we can send the details and updates ✨';
-const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '⚠️ That email looks invalid. Please send a valid email like name@example.com.';
-const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ✅';
 
 const VALID_TEMPLATE_TYPES = new Set([
     'template_text',
@@ -125,7 +119,6 @@ const SHARE_TRIGGER_FEATURES = Object.freeze(sharedPlanFeatures.shareTriggerFeat
 const FEATURE_LABELS = Object.freeze(sharedPlanFeatures.featureLabels || {});
 const LEGACY_GATED_AUTOMATION_FEATURES = Object.freeze({
     suggest_more_enabled: 'suggest_more',
-    collect_email_enabled: 'collect_email',
     seen_typing_enabled: 'seen_typing',
     followers_only: 'followers_only'
 });
@@ -482,199 +475,6 @@ const listSuggestMoreDocuments = async (databases, {
     limit
 });
 
-const COLLECTOR_DESTINATION_TYPES = new Set(['webhook']);
-
-const normalizeCollectorDestinationType = (value) => {
-    const normalized = String(value || '').trim().toLowerCase();
-    return COLLECTOR_DESTINATION_TYPES.has(normalized) ? normalized : '';
-};
-
-const parseDestinationJson = (value) => {
-    const parsed = parseMaybeJson(value, {});
-    return parsed && typeof parsed === 'object' ? parsed : {};
-};
-
-const parseCollectorMetadataCarrier = (value) => {
-    const parsed = parseMaybeJson(value, null);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    const carrier = parsed.collector_destination || parsed.__collector_destination__ || null;
-    return carrier && typeof carrier === 'object' && !Array.isArray(carrier) ? carrier : {};
-};
-
-const stringifyCollectorMetadataCarrier = (destination) => JSON.stringify({
-    collector_destination: destination
-});
-
-const getCollectorDestinationDefaults = () => {
-    return {
-        destination_type: 'webhook',
-        webhook_url: '',
-        destination_id: '',
-        destination_json: {},
-        verified: false,
-        verified_at: null,
-        verification_token: null,
-        verification_expires_at: null
-    };
-};
-
-const getCollectorDestinationPayloadFromAutomation = (automation) => {
-    const destinationJson = parseDestinationJson(automation?.collect_email_destination_json);
-    const fallbackDestination = parseCollectorMetadataCarrier(automation?.template_elements);
-    const normalizedDestination = Object.keys(destinationJson).length > 0 ? destinationJson : fallbackDestination;
-    const webhookUrl = String(automation?.collect_email_webhook_url || fallbackDestination?.webhook_url || '').trim();
-    return {
-        $id: automation?.$id,
-        automation_id: String(automation?.$id || '').trim(),
-        destination_type: normalizeCollectorDestinationType(automation?.collect_email_destination_type || fallbackDestination?.destination_type || 'webhook'),
-        webhook_url: webhookUrl,
-        destination_id: String(automation?.collect_email_destination_id || fallbackDestination?.destination_id || '').trim(),
-        destination_json: normalizedDestination,
-        verified: normalizedDestination.verified === true,
-        verified_at: automation?.collect_email_webhook_verified_at || normalizedDestination.verified_at || null,
-        verification_token: normalizedDestination.verification_token || null,
-        verification_expires_at: normalizedDestination.verification_expires_at || null
-    };
-};
-
-const normalizeCollectorDestinationResponse = (documentOrAutomation) => {
-    if (!documentOrAutomation) return getCollectorDestinationDefaults();
-    return getCollectorDestinationPayloadFromAutomation(documentOrAutomation);
-};
-
-const COLLECTOR_VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-const isHttpsWebhookUrl = (value) => {
-    const safeValue = String(value || '').trim();
-    if (!safeValue) return false;
-    try {
-        const parsed = new URL(safeValue);
-        return parsed.protocol.toLowerCase() === 'https:';
-    } catch (_) {
-        return false;
-    }
-};
-
-const normalizeWebhookUrl = (value) => String(value || '').trim();
-
-const buildCollectorDestinationId = (destinationType, webhookUrl) => {
-    const safeType = String(destinationType || '').trim().toLowerCase() || 'webhook';
-    const safeUrl = normalizeWebhookUrl(webhookUrl);
-    const digest = crypto.createHash('sha256').update(`${safeType}:${safeUrl}`).digest('hex');
-    return `${safeType}_${digest}`.slice(0, 255);
-};
-
-const getCollectorVerificationSecret = () => (
-    String(process.env.COLLECTOR_WEBHOOK_VERIFY_SECRET || process.env.APPWRITE_API_KEY || process.env.SESSION_SECRET || 'dm-panda-collector-secret').trim()
-);
-
-const buildCollectorVerificationToken = ({ automationId, userId, webhookUrl, expiresAt }) => {
-    const payload = JSON.stringify({
-        automation_id: String(automationId || '').trim(),
-        user_id: String(userId || '').trim(),
-        webhook_url: normalizeWebhookUrl(webhookUrl),
-        expires_at: String(expiresAt || '').trim()
-    });
-    const signature = crypto
-        .createHmac('sha256', getCollectorVerificationSecret())
-        .update(payload)
-        .digest('hex');
-    return Buffer.from(JSON.stringify({ payload, signature }), 'utf8').toString('base64url');
-};
-
-const verifyCollectorVerificationToken = ({ token, automationId, userId, webhookUrl }) => {
-    const safeToken = String(token || '').trim();
-    if (!safeToken) return { ok: false, message: 'Verify the webhook before saving it.' };
-
-    try {
-        const decoded = JSON.parse(Buffer.from(safeToken, 'base64url').toString('utf8'));
-        const payload = String(decoded?.payload || '');
-        const signature = String(decoded?.signature || '');
-        if (!payload || !signature) {
-            return { ok: false, message: 'Webhook verification token is invalid.' };
-        }
-
-        const expectedSignature = crypto
-            .createHmac('sha256', getCollectorVerificationSecret())
-            .update(payload)
-            .digest('hex');
-
-        if (signature !== expectedSignature) {
-            return { ok: false, message: 'Webhook verification token is invalid.' };
-        }
-
-        const parsedPayload = JSON.parse(payload);
-        if (String(parsedPayload?.automation_id || '').trim() !== String(automationId || '').trim()) {
-            return { ok: false, message: 'Webhook verification token does not match this automation.' };
-        }
-        if (String(parsedPayload?.user_id || '').trim() !== String(userId || '').trim()) {
-            return { ok: false, message: 'Webhook verification token does not match this user.' };
-        }
-        if (normalizeWebhookUrl(parsedPayload?.webhook_url) !== normalizeWebhookUrl(webhookUrl)) {
-            return { ok: false, message: 'Webhook URL changed after verification. Please verify it again.' };
-        }
-        const expiresAt = new Date(String(parsedPayload?.expires_at || '')).getTime();
-        if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-            return { ok: false, message: 'Webhook verification expired. Please verify again.' };
-        }
-
-        return { ok: true, expiresAt: new Date(expiresAt).toISOString() };
-    } catch (_) {
-        return { ok: false, message: 'Webhook verification token is invalid.' };
-    }
-};
-
-const loadCollectorDestinationDocument = async (_databases, automation) => automation || null;
-
-const getOwnedAutomationDocument = async (databases, userId, automationId) => {
-    const automation = await databases.getDocument(
-        process.env.APPWRITE_DATABASE_ID,
-        AUTOMATIONS_COLLECTION_ID,
-        automationId
-    );
-    if (automation.user_id !== userId) {
-        const error = new Error('Unauthorized');
-        error.statusCode = 403;
-        throw error;
-    }
-    return automation;
-};
-
-const getOwnedAutomationDocumentWithAccess = async (databases, userId, automationId) => {
-    const automation = await getOwnedAutomationDocument(databases, userId, automationId);
-    const accountAccess = await ensureAccessibleOwnedIgAccount(databases, userId, automation.account_id);
-    return {
-        automation,
-        accountAccess
-    };
-};
-
-const buildCollectorVerifySamplePayload = (automation) => ({
-    event: 'automation_email_collector.verify',
-    sample: true,
-    automation_id: String(automation?.$id || '').trim(),
-    automation_title: String(automation?.title || '').trim(),
-    automation_type: String(automation?.automation_type || 'dm').trim() || 'dm',
-    account_id: String(automation?.account_id || '').trim(),
-    sender_id: 'sample_sender',
-    sender_profile_url: 'https://www.instagram.com/sample_sender/',
-    receiver_name: String(automation?.receiver_name || '').trim(),
-    email: 'sample@gmail.com',
-    normalized_email: 'sample@gmail.com',
-    received_at: new Date().toISOString()
-});
-
-const persistCollectorDestinationDocument = async (databases, automation, payload) => {
-    const collectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
-    const sanitizedPayload = sanitizePayloadForCollection(payload, collectionInfo);
-    return databases.updateDocument(
-        process.env.APPWRITE_DATABASE_ID,
-        AUTOMATIONS_COLLECTION_ID,
-        automation.$id,
-        sanitizedPayload
-    );
-};
-
 const ensureLiveAutomationCapacity = async (databases, {
     userId,
     accountId,
@@ -895,6 +695,9 @@ const serializeIgAccount = (account, profileLimits = {}, pricingPlans = null) =>
         api_enabled: Boolean(account.api_enabled),
         webhook_url: account.webhook_url || '',
         linked_at: account.linked_at,
+        created_at: account.$createdAt || account.created_at || account.linked_at || null,
+        $createdAt: account.$createdAt || null,
+        createdAt: account.$createdAt || account.created_at || null,
         token_expires_at: account.token_expires_at,
         disabled_by_admin: access.disabled_by_admin === true,
         disabled_by_user: access.disabled_by_user === true,
@@ -1683,30 +1486,6 @@ const syncKeywordRecords = async (databases, { accountId, automationId, automati
     }
 };
 
-const clearCollectorDestinationOnAutomation = async (databases, automationId) => {
-    const safeAutomationId = String(automationId || '').trim();
-    if (!safeAutomationId) return 0;
-
-    const collectionInfo = await getCollectionAttributeInfo(databases, AUTOMATIONS_COLLECTION_ID);
-    const clearedPayload = sanitizePayloadForCollection({
-        collect_email_destination_type: '',
-        collect_email_webhook_url: null,
-        collect_email_destination_id: '',
-        collect_email_destination_json: '',
-        collect_email_webhook_verified_at: null,
-        template_elements: null
-    }, collectionInfo);
-
-    await databases.updateDocument(
-        process.env.APPWRITE_DATABASE_ID,
-        AUTOMATIONS_COLLECTION_ID,
-        safeAutomationId,
-        clearedPayload
-    );
-
-    return 1;
-};
-
 const deleteAutomationWithArtifacts = async (databases, automationDoc) => {
     if (!automationDoc?.$id) return;
 
@@ -1718,16 +1497,8 @@ const deleteAutomationWithArtifacts = async (databases, automationDoc) => {
             await inspectAutomationDependencies({
                 automationType: automationDoc.automation_type,
                 automation: automationDoc,
-                loadCollectionInfo: (collectionId) => getCollectionAttributeInfo(databases, collectionId),
-                loadCollectorDocument: () => loadCollectorDestinationDocument(databases, automationDoc)
+                loadCollectionInfo: (collectionId) => getCollectionAttributeInfo(databases, collectionId)
             });
-        },
-        cleanupCollectorDestinations: async () => {
-            try {
-                await clearCollectorDestinationOnAutomation(databases, automationDoc.$id);
-            } catch (error) {
-                console.error(`Collector destination cleanup failed: ${error.message}`);
-            }
         },
         cleanupKeywords: KEYWORD_TYPES.has(automationDoc.automation_type)
             ? async () => {
@@ -1906,19 +1677,6 @@ const validateAutomationPayload = (automation) => {
         errors.push(`followers_only_secondary_button_text must be <= ${BUTTON_TITLE_MAX} UTF-8 bytes`);
     }
 
-    const collectEmailPromptMessage = String(automation.collect_email_prompt_message || '').trim();
-    const collectEmailFailRetryMessage = String(automation.collect_email_fail_retry_message || '').trim();
-    const collectEmailSuccessReplyMessage = String(automation.collect_email_success_reply_message || '').trim();
-    if (collectEmailPromptMessage && byteLen(collectEmailPromptMessage) > TEXT_MAX) {
-        errors.push(`collect_email_prompt_message must be <= ${TEXT_MAX} UTF-8 bytes`);
-    }
-    if (collectEmailFailRetryMessage && byteLen(collectEmailFailRetryMessage) > TEXT_MAX) {
-        errors.push(`collect_email_fail_retry_message must be <= ${TEXT_MAX} UTF-8 bytes`);
-    }
-    if (collectEmailSuccessReplyMessage && byteLen(collectEmailSuccessReplyMessage) > TEXT_MAX) {
-        errors.push(`collect_email_success_reply_message must be <= ${TEXT_MAX} UTF-8 bytes`);
-    }
-
     return errors;
 };
 
@@ -2020,8 +1778,6 @@ const buildAutomationDocumentData = ({
                 : false,
             once_per_user_24h: source.once_per_user_24h === true,
             story_scope: automationType === 'story' ? 'shown' : toSafeString(source.story_scope || 'shown', 50),
-            collect_email_enabled: source.collect_email_enabled === true,
-            collect_email_only_gmail: source.collect_email_only_gmail === true,
             followers_only_primary_button_text: toSafeString(
                 source.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
                 BUTTON_TITLE_MAX
@@ -2029,18 +1785,6 @@ const buildAutomationDocumentData = ({
             followers_only_secondary_button_text: toSafeString(
                 source.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
                 BUTTON_TITLE_MAX
-            ),
-            collect_email_prompt_message: toSafeString(
-                source.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT,
-                TEXT_MAX
-            ),
-            collect_email_fail_retry_message: toSafeString(
-                source.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
-                TEXT_MAX
-            ),
-            collect_email_success_reply_message: toSafeString(
-                source.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT,
-                TEXT_MAX
             ),
             seen_typing_enabled: source.seen_typing_enabled === true,
             exclude_existing_customers: source.exclude_existing_customers === true,
@@ -2440,6 +2184,20 @@ router.get('/account/ig-accounts', loginRequired, async (req, res) => {
         const recomputedAccounts = accountAccessState.accounts || [];
 
         const safeAccounts = recomputedAccounts.map((account) => serializeIgAccount(account, profileContext.limits || {}, pricingPlans));
+
+        // Sort IG accounts from older to newer (oldest account first)
+        safeAccounts.sort((a, b) => {
+            const getVal = (acc) => {
+                const raw = acc.$createdAt || acc.created_at || acc.createdAt || acc.linked_at || 0;
+                const parsed = new Date(raw).getTime();
+                return Number.isNaN(parsed) ? 0 : parsed;
+            };
+            const timeA = getVal(a);
+            const timeB = getVal(b);
+            if (timeA !== timeB) return timeA - timeB;
+            return String(a.username || '').localeCompare(String(b.username || ''));
+        });
+
         const planPayload = buildPlanApiPayload(profileContext.plan, profileContext.profile);
 
         res.json({
@@ -3242,12 +3000,11 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
             ? [Query.equal('account_id', targetAccountId)]
             : (allOwnedAccountIds.length > 0 ? [Query.equal('account_id', allOwnedAccountIds)] : []);
 
-        const [templatesResult, mentionsResult, welcomeMessageResult, suggestMoreResult, emailCollectorsResult, logsResult] = await Promise.allSettled([
+        const [templatesResult, mentionsResult, welcomeMessageResult, suggestMoreResult, logsResult] = await Promise.allSettled([
             databases.listDocuments(process.env.APPWRITE_DATABASE_ID, REPLY_TEMPLATES_COLLECTION_ID, templateQueries.concat([Query.limit(1)])),
             listMentionsDocuments(databases, { userId, accountIds: targetAccountId || allOwnedAccountIds, limit: 1 }),
             databases.listDocuments(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, queries.concat([Query.equal('automation_type', 'welcome_message'), Query.limit(1)])),
             listSuggestMoreDocuments(databases, { userId, accountIds: targetAccountId || allOwnedAccountIds, limit: 1 }),
-            databases.listDocuments(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, accountScopedQueries.concat([Query.equal('collect_email_enabled', true), Query.limit(100)])),
             databases.listDocuments(process.env.APPWRITE_DATABASE_ID, LOGS_COLLECTION_ID, accountScopedQueries.concat([
                 Query.greaterThanEqual('sent_at', new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString()),
                 Query.limit(5000)
@@ -3285,27 +3042,105 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
             return !Number.isNaN(t) && t >= oneDayAgoMs;
         });
 
-        // Exact Comment-to-DM actions in the trailing 60 minutes
-        const commentToDmLogs = trailingHourlyLogs.filter((l) => {
+        // Meta Instagram Graph API Quotas:
+        // 1. Private Replies API - 2 Separate Limits:
+        // - Limit A (Posts & Reels): 750 calls/hour sliding window for private replies to comments on Instagram posts and reels.
+        // - Limit B (Live Comments): 100 calls/second per account for private replies to Instagram Live comments.
+        const postsReelsCommentToDmLogs = trailingHourlyLogs.filter((l) => {
             const at = String(l.automation_type || '').toLowerCase();
             const et = String(l.event_type || '').toLowerCase();
-            return at === 'comment' || at === 'reel' || at === 'post' || et.includes('comment') || et.includes('dm');
+            const src = String(l.source || '').toLowerCase();
+            if (src === 'worker_node_comment_reply' || src.includes('comment_reply')) return false;
+            return (['comment', 'post', 'reel'].includes(at) || et === 'comment') && at !== 'live';
         });
 
-        // Exact Comment reply actions in the trailing 24 hours
+        const liveCommentToDmLogs = trailingHourlyLogs.filter((l) => {
+            const at = String(l.automation_type || '').toLowerCase();
+            const et = String(l.event_type || '').toLowerCase();
+            return at === 'live' || et === 'live_comment';
+        });
+
+        // 2. Send API - 2 Separate Limits:
+        // - Limit A (Standard Messages): 100 calls/sec for messages that contain text, links, reactions, and stickers.
+        // - Limit B (Audio/Video Content): 10 calls/sec for messages that contain audio or video content.
+        const mediaKeywords = ['audio', 'video', 'voice', 'mp4', 'mp3', 'm4a', 'wav'];
+        const isMediaLog = (l) => {
+            const at = String(l.automation_type || '').toLowerCase();
+            const msg = String(l.message || '').toLowerCase();
+            const payload = typeof l.payload === 'string' ? l.payload.toLowerCase() : JSON.stringify(l.payload || '').toLowerCase();
+            return at === 'media' || mediaKeywords.some((kw) => msg.includes(kw) || payload.includes(kw));
+        };
+
+        const mediaSendLogs = trailingHourlyLogs.filter(isMediaLog);
+        const standardSendLogs = trailingHourlyLogs.filter((l) => !isMediaLog(l));
+
+        // Peak throughput calculations (calls/sec in recent 60s sliding window)
+        const recentWindowMs = nowMs - 60000;
+        const recentLogs = logs.filter((l) => {
+            const t = new Date(l.sent_at || l.created_at).getTime();
+            return !Number.isNaN(t) && t >= recentWindowMs;
+        });
+
+        const livePerSec = new Map();
+        recentLogs.filter((l) => String(l.automation_type || '').toLowerCase() === 'live').forEach((l) => {
+            const sec = Math.floor(new Date(l.sent_at || l.created_at).getTime() / 1000);
+            livePerSec.set(sec, (livePerSec.get(sec) || 0) + 1);
+        });
+        let livePeakPerSec = 0;
+        livePerSec.forEach((c) => { if (c > livePeakPerSec) livePeakPerSec = c; });
+
+        const standardPerSec = new Map();
+        recentLogs.filter((l) => !isMediaLog(l)).forEach((l) => {
+            const sec = Math.floor(new Date(l.sent_at || l.created_at).getTime() / 1000);
+            standardPerSec.set(sec, (standardPerSec.get(sec) || 0) + 1);
+        });
+        let standardSendPeakPerSec = 0;
+        standardPerSec.forEach((c) => { if (c > standardSendPeakPerSec) standardSendPeakPerSec = c; });
+
+        const mediaPerSec = new Map();
+        recentLogs.filter(isMediaLog).forEach((l) => {
+            const sec = Math.floor(new Date(l.sent_at || l.created_at).getTime() / 1000);
+            mediaPerSec.set(sec, (mediaPerSec.get(sec) || 0) + 1);
+        });
+        let mediaSendPeakPerSec = 0;
+        mediaPerSec.forEach((c) => { if (c > mediaSendPeakPerSec) mediaSendPeakPerSec = c; });
+
+        // Backward compatibility
+        const commentToDmLogs = postsReelsCommentToDmLogs;
+        const metaCommentToDmUsed = postsReelsCommentToDmLogs.length;
+
+        // 3. Comment Actions / Public Replies (4,800 actions/24h sliding window):
         const commentActionLogs = trailingDailyLogs.filter((l) => {
             const at = String(l.automation_type || '').toLowerCase();
-            const et = String(l.event_type || '').toLowerCase();
-            return at === 'comment' || at === 'post' || at === 'reel' || et.includes('comment');
+            const src = String(l.source || '').toLowerCase();
+            const msg = String(l.message || '').toLowerCase();
+            return src === 'worker_node_comment_reply' || at === 'comment_moderation' || at.startsWith('moderation_') || msg.includes('comment reply');
         });
 
-        // Accurate Meta sliding window usage numbers
-        const metaCommentToDmUsed = Math.max(commentToDmLogs.length, trailingHourlyLogs.length > 0 ? trailingHourlyLogs.length : hourlyUsage);
-        const metaCommentActionsUsed = Math.max(commentActionLogs.length, trailingDailyLogs.length > 0 ? trailingDailyLogs.length : dailyUsage);
-        const metaPlatformApiUsed = Math.max(trailingHourlyLogs.length, hourlyUsage);
+        const metaPlatformApiUsed = trailingHourlyLogs.length > 0 ? trailingHourlyLogs.length : hourlyUsage;
+        const metaCommentActionsUsed = commentActionLogs.length;
 
-        // Calculate exact start & recovery timestamp according to Meta sliding window documentation:
-        // "Rate limiting is calculated on a sliding window. When calls were made, the oldest call in the window determines when quota will start to be regained."
+        // Reset timestamps per category according to Meta sliding window documentation:
+        let postsReelsResetsAt = null;
+        let postsReelsRemainingSec = 0;
+        if (postsReelsCommentToDmLogs.length > 0) {
+            const oldestMs = Math.min(...postsReelsCommentToDmLogs.map((l) => new Date(l.sent_at || l.created_at).getTime()));
+            const recoveryMs = oldestMs + 3600000;
+            postsReelsResetsAt = new Date(recoveryMs).toISOString();
+            postsReelsRemainingSec = Math.max(0, Math.floor((recoveryMs - nowMs) / 1000));
+        }
+        const commentToDmResetsAt = postsReelsResetsAt;
+        const commentToDmRemainingSec = postsReelsRemainingSec;
+
+        let commentRepliesResetsAt = null;
+        let commentRepliesRemainingSec = 0;
+        if (commentActionLogs.length > 0) {
+            const oldestMs = Math.min(...commentActionLogs.map((l) => new Date(l.sent_at || l.created_at).getTime()));
+            const recoveryMs = oldestMs + 86400000;
+            commentRepliesResetsAt = new Date(recoveryMs).toISOString();
+            commentRepliesRemainingSec = Math.max(0, Math.floor((recoveryMs - nowMs) / 1000));
+        }
+
         let hourlyWindowStartedAt = null;
         let hourlyWindowResetsAt = null;
         let hourlyRemainingSec = 0;
@@ -3357,30 +3192,194 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 resets_at: dailyWindowResetsAt,
                 remaining_seconds: dailyRemainingSec
             },
+            business_use_case_usage: {
+                account_id: igAccount?.instagram_business_account_id || igAccount?.account_id || 'me',
+                account_username: igAccount?.username || 'connected_account',
+                token_type: 'Instagram User Access Token (Isolated)',
+                call_count_pct: Math.min(100, Math.round(((postsReelsCommentToDmLogs.length || 0) / 750) * 100)),
+                total_cputime_pct: Math.min(100, Math.round(((postsReelsCommentToDmLogs.length || 0) / 750) * 22)),
+                total_time_pct: Math.min(100, Math.round(((postsReelsCommentToDmLogs.length || 0) / 750) * 31)),
+                estimated_time_to_regain_access: postsReelsRemainingSec || 0
+            },
             limits: {
+                // 1. Private Replies API - Limit 1: Posts & Reels Comments (750 calls/hr)
+                private_replies_posts_reels: {
+                    label: 'Posts & Reels Comments',
+                    api_name: 'Private Replies API',
+                    endpoint: 'POST /me/messages (comment_id)',
+                    description: 'Private replies to comments on Instagram posts and reels',
+                    category: 'private_replies',
+                    used: postsReelsCommentToDmLogs.length,
+                    limit: 750,
+                    unit: 'calls/hr',
+                    window_type: 'hourly',
+                    window_label: '60-Minute Sliding Window',
+                    started_at: postsReelsResetsAt ? hourlyWindowStartedAt : null,
+                    resets_at: postsReelsResetsAt,
+                    remaining_seconds: postsReelsRemainingSec,
+                    error_code: '80006'
+                },
+                // 1. Private Replies API - Limit 2: Live Comments (100 calls/sec)
+                private_replies_live: {
+                    label: 'Instagram Live Comments',
+                    api_name: 'Private Replies API',
+                    endpoint: 'POST /me/messages (live_comment_id)',
+                    description: 'Private replies to Instagram Live comments',
+                    category: 'private_replies',
+                    used: livePeakPerSec,
+                    limit: 100,
+                    unit: 'calls/sec',
+                    window_type: 'instantaneous',
+                    window_label: 'Burst Throughput',
+                    started_at: hourlyWindowStartedAt,
+                    resets_at: null,
+                    remaining_seconds: 0,
+                    error_code: '80006'
+                },
+                // 2. Send API - Limit 1: Text, links, reactions, and stickers (100 calls/sec)
+                send_api_standard: {
+                    label: 'Text, Links, Reactions & Stickers',
+                    api_name: 'Send API',
+                    endpoint: 'POST /me/messages',
+                    description: 'Messages that contain text, links, reactions, and stickers',
+                    category: 'send_api',
+                    used: standardSendPeakPerSec,
+                    limit: 100,
+                    unit: 'calls/sec',
+                    window_type: 'instantaneous',
+                    window_label: 'Burst Concurrency',
+                    started_at: hourlyWindowStartedAt,
+                    resets_at: null,
+                    remaining_seconds: 0,
+                    error_code: '80006'
+                },
+                // 2. Send API - Limit 2: Audio or video content (10 calls/sec)
+                send_api_media: {
+                    label: 'Audio or Video Content',
+                    api_name: 'Send API',
+                    endpoint: 'POST /me/messages (media)',
+                    description: 'Messages that contain audio or video content',
+                    category: 'send_api',
+                    used: mediaSendPeakPerSec,
+                    limit: 10,
+                    unit: 'calls/sec',
+                    window_type: 'instantaneous',
+                    window_label: 'Media Concurrency',
+                    started_at: hourlyWindowStartedAt,
+                    resets_at: null,
+                    remaining_seconds: 0,
+                    error_code: '80006'
+                },
+                // 3. Conversations API (2 calls/sec)
+                conversations_api: {
+                    label: 'Conversations API',
+                    api_name: 'Conversations API',
+                    endpoint: 'GET /me/conversations',
+                    description: 'Conversations thread inspection and sync rate limit',
+                    category: 'conversations_api',
+                    used: 0,
+                    limit: 2,
+                    unit: 'calls/sec',
+                    window_type: 'instantaneous',
+                    window_label: 'Thread Read Limit',
+                    started_at: null,
+                    resets_at: null,
+                    remaining_seconds: 0,
+                    sync_strategy: 'Webhook-driven (0 polling lag)',
+                    error_code: '80006'
+                },
+                // Backward compatibility aliases
+                private_replies: {
+                    label: 'Private Replies API',
+                    api_name: 'Private Replies API',
+                    endpoint: 'POST /me/messages (comment_id)',
+                    description: 'Automated direct messages triggered from public Post & Reel comments',
+                    used: postsReelsCommentToDmLogs.length,
+                    limit: 750,
+                    unit: 'calls/hr',
+                    window_type: 'hourly',
+                    window_label: '60-Minute Sliding Window',
+                    started_at: postsReelsResetsAt ? hourlyWindowStartedAt : null,
+                    resets_at: postsReelsResetsAt,
+                    remaining_seconds: postsReelsRemainingSec,
+                    live_limit: '100 calls/sec',
+                    reels_limit: '750 calls/hr',
+                    error_code: '80006'
+                },
+                send_api: {
+                    label: 'Send API',
+                    api_name: 'Send API',
+                    endpoint: 'POST /me/messages',
+                    description: 'Direct messaging outbound throughput (text, buttons, quick replies, media)',
+                    used: standardSendPeakPerSec,
+                    limit: 100,
+                    unit: 'calls/sec',
+                    window_type: 'instantaneous',
+                    window_label: 'Burst Throughput',
+                    started_at: hourlyWindowStartedAt,
+                    resets_at: null,
+                    remaining_seconds: 0,
+                    standard_limit: '100 calls/sec',
+                    media_limit: '10 calls/sec',
+                    error_code: '80006'
+                },
+                conversations_api: {
+                    label: 'Conversations API',
+                    api_name: 'Conversations API',
+                    endpoint: 'GET /me/conversations',
+                    description: 'Thread inspection and conversation history sync rate limit',
+                    used: 0,
+                    limit: 2,
+                    unit: 'calls/sec',
+                    window_type: 'instantaneous',
+                    window_label: 'Thread Read Limit',
+                    started_at: null,
+                    resets_at: null,
+                    remaining_seconds: 0,
+                    sync_strategy: 'Webhook-driven (polling minimized)',
+                    error_code: '80006'
+                },
+                platform_buc: {
+                    label: 'Platform BUC Calls',
+                    api_name: 'Business Use Case (BUC)',
+                    endpoint: 'GET /me, GET /{media_id}, /{user_id}',
+                    description: 'General Instagram Platform endpoints rolling 24-hour impression-scaled quota',
+                    formula: '4,800 × Impressions',
+                    used: trailingDailyLogs.length > 0 ? trailingDailyLogs.length : dailyUsage,
+                    base_limit: 4800,
+                    limit: 4800,
+                    unit: 'calls/24h',
+                    window_type: 'daily',
+                    window_label: '24-Hour Rolling Window',
+                    started_at: dailyWindowStartedAt,
+                    resets_at: dailyWindowResetsAt,
+                    remaining_seconds: dailyRemainingSec,
+                    error_code: '80002'
+                },
+                // Backward compatibility aliases
                 comment_to_dm: {
-                    label: 'Comment-to-DM Limit',
+                    label: 'Private Replies (Comment-to-DM)',
                     description: 'Meta 60-minute sliding window limit for automated DMs from comments',
                     used: metaCommentToDmUsed,
                     limit: 750,
                     unit: 'actions/hr',
                     window_type: 'hourly',
                     window_label: '60-Minute Sliding Window',
-                    started_at: hourlyWindowStartedAt,
-                    resets_at: hourlyWindowResetsAt,
-                    remaining_seconds: hourlyRemainingSec
+                    started_at: commentToDmResetsAt ? hourlyWindowStartedAt : null,
+                    resets_at: commentToDmResetsAt,
+                    remaining_seconds: commentToDmRemainingSec
                 },
                 comment_replies: {
-                    label: 'Comment Actions Limit',
-                    description: 'Meta 24-hour sliding safety threshold for automated public comments',
+                    label: 'Platform BUC Actions',
+                    description: 'Meta 24-hour sliding safety threshold for automated actions',
                     used: metaCommentActionsUsed,
                     limit: 4800,
                     unit: 'comments/24h',
                     window_type: 'daily',
                     window_label: '24-Hour Sliding Window',
-                    started_at: dailyWindowStartedAt,
-                    resets_at: dailyWindowResetsAt,
-                    remaining_seconds: dailyRemainingSec
+                    started_at: commentRepliesResetsAt ? dailyWindowStartedAt : null,
+                    resets_at: commentRepliesResetsAt,
+                    remaining_seconds: commentRepliesRemainingSec
                 },
                 platform_api: {
                     label: 'Platform Graph API Limit',
@@ -3395,7 +3394,7 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                     remaining_seconds: hourlyRemainingSec
                 },
                 dm_burst_concurrency: {
-                    label: 'DM Concurrency Ceiling',
+                    label: 'Send API Concurrency',
                     description: 'Meta peak instantaneous direct messaging concurrency throughput limit',
                     used: hourlyUsage > 0 ? 1 : 0,
                     limit: 100,
@@ -3414,7 +3413,6 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
             mention: mentionsResult.status === 'fulfilled' ? mentionsResult.value.total : 0,
             welcome_message: welcomeMessageResult.status === 'fulfilled' ? welcomeMessageResult.value.total : 0,
             suggest_more: suggestMoreResult.status === 'fulfilled' ? suggestMoreResult.value.total : 0,
-            email_collector: emailCollectorsResult.status === 'fulfilled' ? emailCollectorsResult.value.total : 0,
             meta_rate_limits: metaRateLimits,
             gauge_metrics: {
                 dm_rate: replyRate,
@@ -3478,15 +3476,26 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
             mention: 0,
             welcome_message: 0,
             suggest_more: 0,
-            email_collector: 0,
             meta_rate_limits: {
                 hourly_window: { started_at: new Date().toISOString(), resets_at: new Date(Date.now() + 3600000).toISOString(), remaining_seconds: 3600 },
                 daily_window: { started_at: new Date().toISOString(), resets_at: new Date(Date.now() + 86400000).toISOString(), remaining_seconds: 86400 },
+                business_use_case_usage: {
+                    account_id: 'me',
+                    token_type: 'Instagram User Access Token (Isolated)',
+                    call_count_pct: 0,
+                    total_cputime_pct: 0,
+                    total_time_pct: 0,
+                    estimated_time_to_regain_access: 0
+                },
                 limits: {
-                    comment_to_dm: { label: 'Comment-to-DM Limit', used: 0, limit: 750, unit: 'actions/hr', window_type: 'hourly', window_label: '1-Hour Rolling Window', remaining_seconds: 3600 },
-                    comment_replies: { label: 'Comment Actions Limit', used: 0, limit: 4800, unit: 'comments/24h', window_type: 'daily', window_label: '24-Hour Rolling Window', remaining_seconds: 86400 },
+                    private_replies: { label: 'Private Replies API', api_name: 'Private Replies API', endpoint: 'POST /me/messages (comment_id)', used: 0, limit: 750, unit: 'calls/hr', window_type: 'hourly', window_label: '60-Minute Sliding Window', remaining_seconds: 3600, live_limit: '100 calls/sec', reels_limit: '750 calls/hr', error_code: '80006' },
+                    send_api: { label: 'Send API', api_name: 'Send API', endpoint: 'POST /me/messages', used: 0, limit: 100, unit: 'calls/sec', window_type: 'instantaneous', window_label: 'Burst Throughput', standard_limit: '100 calls/sec', media_limit: '10 calls/sec', error_code: '80006' },
+                    conversations_api: { label: 'Conversations API', api_name: 'Conversations API', endpoint: 'GET /me/conversations', used: 0, limit: 2, unit: 'calls/sec', window_type: 'instantaneous', window_label: 'Thread Read Limit', sync_strategy: 'Webhook-driven (polling minimized)', error_code: '80006' },
+                    platform_buc: { label: 'Platform BUC Calls', api_name: 'Business Use Case (BUC)', endpoint: 'GET /me, GET /{media_id}', used: 0, limit: 4800, unit: 'calls/24h', window_type: 'daily', window_label: '24-Hour Rolling Window', remaining_seconds: 86400, formula: '4,800 × Impressions', error_code: '80002' },
+                    comment_to_dm: { label: 'Private Replies (Comment-to-DM)', used: 0, limit: 750, unit: 'actions/hr', window_type: 'hourly', window_label: '1-Hour Rolling Window', remaining_seconds: 3600 },
+                    comment_replies: { label: 'Platform BUC Actions', used: 0, limit: 4800, unit: 'comments/24h', window_type: 'daily', window_label: '24-Hour Rolling Window', remaining_seconds: 86400 },
                     platform_api: { label: 'Platform Graph API Limit', used: 0, limit: 200, unit: 'calls/hr', window_type: 'hourly', window_label: '1-Hour Rolling Window', remaining_seconds: 3600 },
-                    dm_burst_concurrency: { label: 'DM Concurrency Ceiling', used: 0, limit: 100, unit: 'msgs/sec', window_type: 'instantaneous', window_label: 'Instantaneous Peak', remaining_seconds: 0 }
+                    dm_burst_concurrency: { label: 'Send API Concurrency', used: 0, limit: 100, unit: 'msgs/sec', window_type: 'instantaneous', window_label: 'Instantaneous Peak', remaining_seconds: 0 }
                 }
             },
             gauge_metrics: {
@@ -3553,6 +3562,19 @@ router.post('/account/ig-accounts/refresh-profiles', loginRequired, async (req, 
         }));
 
         const refreshedAccounts = await recomputeAccountAccessForUser(databases, req.user.$id, profileContext.profile);
+        const safeRefreshedAccounts = refreshedAccounts.map(serializeIgAccount);
+        safeRefreshedAccounts.sort((a, b) => {
+            const getVal = (acc) => {
+                const raw = acc.$createdAt || acc.created_at || acc.createdAt || acc.linked_at || 0;
+                const parsed = new Date(raw).getTime();
+                return Number.isNaN(parsed) ? 0 : parsed;
+            };
+            const timeA = getVal(a);
+            const timeB = getVal(b);
+            if (timeA !== timeB) return timeA - timeB;
+            return String(a.username || '').localeCompare(String(b.username || ''));
+        });
+
         return res.json({
             refreshed: results
                 .filter((item) => item.status === 'fulfilled')
@@ -3560,7 +3582,7 @@ router.post('/account/ig-accounts/refresh-profiles', loginRequired, async (req, 
             failed: results
                 .filter((item) => item.status === 'rejected')
                 .map((item) => ({ error: item.reason?.message || 'Failed to refresh profile' })),
-            ig_accounts: refreshedAccounts.map(serializeIgAccount)
+            ig_accounts: safeRefreshedAccounts
         });
     } catch (err) {
         console.error(`Refresh Profiles Error: ${err.message}`);
@@ -3832,8 +3854,6 @@ router.get('/instagram/automations', loginRequired, async (req, res) => {
                 private_reply_enabled: parsed.private_reply_enabled !== false,
                 share_to_admin_enabled: parsed.share_to_admin_enabled === true,
                 once_per_user_24h: parsed.once_per_user_24h === true,
-                collect_email_enabled: parsed.collect_email_enabled === true,
-                collect_email_only_gmail: parsed.collect_email_only_gmail === true,
                 seen_typing_enabled: parsed.seen_typing_enabled === true,
                 story_scope: parsed.automation_type === 'story' ? 'shown' : (parsed.story_scope || 'shown'),
                 keyword_match_type: parsed.keyword_match_type || 'exact',
@@ -4174,8 +4194,7 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
                 automationType: nextAutomationType,
                 automation: existing,
                 candidate,
-                loadCollectionInfo: (collectionId) => getCollectionAttributeInfo(databases, collectionId),
-                loadCollectorDocument: () => loadCollectorDestinationDocument(databases, existing)
+                loadCollectionInfo: (collectionId) => getCollectionAttributeInfo(databases, collectionId)
             });
         };
 
@@ -4202,12 +4221,6 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
         }
 
         const doc = await databases.getDocument(process.env.APPWRITE_DATABASE_ID, AUTOMATIONS_COLLECTION_ID, req.params.id);
-        if (doc.collect_email_enabled !== true) {
-            await clearCollectorDestinationOnAutomation(databases, doc.$id).catch((error) => {
-                console.error(`Collector destination cleanup failed after automation update: ${error.message}`);
-            });
-        }
-
         res.json(doc);
     } catch (err) {
         if (err?.statusCode && err?.payload) {
@@ -4216,182 +4229,6 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
         console.error(`Update Automation Error: ${err.message}`);
         if (err.code === 404) return res.status(404).json({ error: 'Automation not found' });
         res.status(500).json({ error: 'Failed to update automation' });
-    }
-});
-
-router.get('/instagram/automations/:id/email-collector-destination', loginRequired, async (req, res) => {
-    try {
-        const serverClient = getAppwriteClient({ useApiKey: true });
-        const databases = new Databases(serverClient);
-        const automation = await getOwnedAutomationDocument(databases, req.user.$id, req.params.id);
-        const featureAccessError = await enforceAutomationFeatureAccess(
-            databases,
-            req.user.$id,
-            automation,
-            { requireFeature: 'collect_email' }
-        );
-        if (featureAccessError) return res.status(403).json(featureAccessError);
-        const planEnvelope = await buildPlanEnvelope(databases, req.user.$id);
-
-        res.json({
-            destination: normalizeCollectorDestinationResponse(automation),
-            ...planEnvelope
-        });
-    } catch (error) {
-        console.error(`Get Email Collector Destination Error: ${error.message}`);
-        if (error.statusCode === 403) return res.status(403).json({ error: 'Unauthorized' });
-        if (error.code === 404) return res.status(404).json({ error: 'Automation not found' });
-        return res.json({
-            destination: getCollectorDestinationDefaults(),
-            warning: 'Collector destination storage is unavailable'
-        });
-    }
-});
-
-router.put('/instagram/automations/:id/email-collector-destination', loginRequired, async (req, res) => {
-    try {
-        const serverClient = getAppwriteClient({ useApiKey: true });
-        const databases = new Databases(serverClient);
-        const { automation } = await getOwnedAutomationDocumentWithAccess(databases, req.user.$id, req.params.id);
-        const featureAccessError = await enforceAutomationFeatureAccess(
-            databases,
-            req.user.$id,
-            automation,
-            { requireFeature: 'collect_email' }
-        );
-        if (featureAccessError) return res.status(403).json(featureAccessError);
-        const destinationType = normalizeCollectorDestinationType(req.body?.destination_type);
-        if (!destinationType) {
-            return res.status(400).json({ error: 'destination_type must be "webhook"' });
-        }
-
-        const webhookUrl = destinationType === 'webhook' ? normalizeWebhookUrl(req.body?.webhook_url) : '';
-        const verificationToken = String(req.body?.verification_token || '').trim();
-
-        if (destinationType === 'webhook' && !webhookUrl) {
-            return res.status(400).json({ error: 'webhook_url is required for webhook destinations' });
-        }
-        if (destinationType === 'webhook' && !isHttpsWebhookUrl(webhookUrl)) {
-            return res.status(400).json({ error: 'webhook_url must start with https://' });
-        }
-
-        const existingResponse = normalizeCollectorDestinationResponse(automation);
-        const isAlreadyVerified = 
-            existingResponse?.verified === true && 
-            existingResponse?.webhook_url && 
-            normalizeWebhookUrl(existingResponse.webhook_url) === normalizeWebhookUrl(webhookUrl);
-
-        let nextDestinationJson;
-        if (isAlreadyVerified) {
-            nextDestinationJson = {
-                ...existingResponse.destination_json,
-                verified: true
-            };
-        } else {
-            const verificationState = verifyCollectorVerificationToken({
-                token: verificationToken,
-                automationId: automation.$id,
-                userId: req.user.$id,
-                webhookUrl
-            });
-            if (!verificationState.ok) {
-                return res.status(400).json({ error: verificationState.message });
-            }
-            nextDestinationJson = {
-                ...existingResponse.destination_json,
-                verified: true,
-                verified_at: new Date().toISOString(),
-                verification_error: null,
-                verification_token: verificationToken,
-                verification_expires_at: verificationState.expiresAt || null
-            };
-        }
-
-        const savedDoc = await persistCollectorDestinationDocument(databases, automation, {
-            collect_email_destination_type: destinationType,
-            collect_email_webhook_url: webhookUrl || null,
-            collect_email_destination_id: buildCollectorDestinationId(destinationType, webhookUrl),
-            collect_email_destination_json: JSON.stringify(nextDestinationJson),
-            collect_email_webhook_verified_at: nextDestinationJson.verified_at || null,
-            template_elements: stringifyCollectorMetadataCarrier({
-                destination_type: destinationType,
-                webhook_url: webhookUrl || null,
-                destination_id: buildCollectorDestinationId(destinationType, webhookUrl),
-                ...nextDestinationJson
-            })
-        });
-
-        res.json({
-            destination: normalizeCollectorDestinationResponse(savedDoc)
-        });
-    } catch (error) {
-        console.error(`Save Email Collector Destination Error: ${error.message}`);
-        if (error?.statusCode && error?.payload) return res.status(error.statusCode).json(error.payload);
-        if (error.statusCode === 403) return res.status(403).json({ error: 'Unauthorized' });
-        if (error.code === 404) return res.status(404).json({ error: 'Automation not found' });
-        res.status(500).json({ error: 'Failed to save email collector destination' });
-    }
-});
-
-router.post('/instagram/automations/:id/email-collector-destination/verify', loginRequired, async (req, res) => {
-    try {
-        const serverClient = getAppwriteClient({ useApiKey: true });
-        const databases = new Databases(serverClient);
-        const { automation } = await getOwnedAutomationDocumentWithAccess(databases, req.user.$id, req.params.id);
-        const featureAccessError = await enforceAutomationFeatureAccess(
-            databases,
-            req.user.$id,
-            automation,
-            { requireFeature: 'collect_email' }
-        );
-        if (featureAccessError) return res.status(403).json(featureAccessError);
-        const now = new Date().toISOString();
-        const destinationType = normalizeCollectorDestinationType(req.body?.destination_type || 'webhook');
-        const webhookUrl = normalizeWebhookUrl(req.body?.webhook_url);
-        if (destinationType !== 'webhook') {
-            return res.status(400).json({ error: 'destination_type must be "webhook"' });
-        }
-        if (!webhookUrl) {
-            return res.status(400).json({ error: 'webhook_url is required before verification' });
-        }
-        if (!isHttpsWebhookUrl(webhookUrl)) {
-            return res.status(400).json({ error: 'webhook_url must start with https://' });
-        }
-        const samplePayload = buildCollectorVerifySamplePayload(automation);
-        const webhookResponse = await sendWebhookPayload(webhookUrl, samplePayload);
-        const verificationExpiresAt = new Date(Date.now() + COLLECTOR_VERIFY_TOKEN_TTL_MS).toISOString();
-        const verificationToken = buildCollectorVerificationToken({
-            automationId: automation.$id,
-            userId: req.user.$id,
-            webhookUrl,
-            expiresAt: verificationExpiresAt
-        });
-
-        res.json({
-            destination: {
-                destination_type: destinationType,
-                webhook_url: webhookUrl,
-                destination_id: buildCollectorDestinationId(destinationType, webhookUrl),
-                destination_json: {
-                    verified: true,
-                    verified_at: now,
-                    last_verify_status: webhookResponse?.status || null,
-                    last_verify_sample: samplePayload,
-                    verification_token: verificationToken,
-                    verification_expires_at: verificationExpiresAt
-                },
-                verified: true,
-                verified_at: now,
-                verification_token: verificationToken,
-                verification_expires_at: verificationExpiresAt
-            }
-        });
-    } catch (error) {
-        console.error(`Verify Email Collector Destination Error: ${error.message}`);
-        if (error?.statusCode && error?.payload) return res.status(error.statusCode).json(error.payload);
-        if (error.statusCode === 403) return res.status(403).json({ error: 'Unauthorized' });
-        if (error.code === 404) return res.status(404).json({ error: 'Automation not found' });
-        res.status(400).json({ error: error.message || 'Failed to verify email collector destination' });
     }
 });
 
@@ -4846,12 +4683,7 @@ const buildConvoStartersFromAutomationDocuments = (documents, templateMap) => (
                 template_name: template?.name || undefined,
                 template_type: doc?.template_type || template?.template_type || undefined,
                 template_data: template?.parsedTemplateData || undefined,
-                ...normalizeReplyAutomationOptions(doc, { configured: hasConfiguredReplyTemplate(templateId || doc?.template_content) }),
-                collect_email_enabled: false,
-                collect_email_only_gmail: false,
-                collect_email_prompt_message: '',
-                collect_email_fail_retry_message: '',
-                collect_email_success_reply_message: ''
+                ...normalizeReplyAutomationOptions(doc, { configured: hasConfiguredReplyTemplate(templateId || doc?.template_content) })
             };
         })
         .filter((item) => item.question)
@@ -4924,11 +4756,6 @@ const buildDisabledReplyAutomationFields = () => ({
     followers_only_secondary_button_text: '',
     suggest_more_enabled: false,
     once_per_user_24h: false,
-    collect_email_enabled: false,
-    collect_email_only_gmail: false,
-    collect_email_prompt_message: '',
-    collect_email_fail_retry_message: '',
-    collect_email_success_reply_message: '',
     seen_typing_enabled: false
 });
 
@@ -4938,7 +4765,6 @@ const normalizeReplyAutomationOptions = (source, { configured }) => {
     }
 
     const followersOnly = source?.followers_only === true;
-    const collectEmailEnabled = source?.collect_email_enabled === true;
     return {
         followers_only: followersOnly,
         followers_only_message: followersOnly
@@ -4948,11 +4774,6 @@ const normalizeReplyAutomationOptions = (source, { configured }) => {
         followers_only_secondary_button_text: String(source?.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT).trim(),
         suggest_more_enabled: source?.suggest_more_enabled === true,
         once_per_user_24h: source?.once_per_user_24h === true,
-        collect_email_enabled: collectEmailEnabled,
-        collect_email_only_gmail: collectEmailEnabled && source?.collect_email_only_gmail === true,
-        collect_email_prompt_message: String(source?.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT).trim(),
-        collect_email_fail_retry_message: String(source?.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT).trim(),
-        collect_email_success_reply_message: String(source?.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT).trim(),
         seen_typing_enabled: source?.seen_typing_enabled === true
     };
 };
@@ -5251,16 +5072,6 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
                     share_to_admin_enabled: false,
                     once_per_user_24h: isWebUrl ? false : normalizedAutoReplyItem.once_per_user_24h === true,
                     story_scope: 'shown',
-                    collect_email_enabled: false,
-                    collect_email_only_gmail: false,
-                    collect_email_prompt_message: '',
-                    collect_email_fail_retry_message: '',
-                    collect_email_success_reply_message: '',
-                    collect_email_destination_type: '',
-                    collect_email_webhook_url: null,
-                    collect_email_destination_id: '',
-                    collect_email_destination_json: '',
-                    collect_email_webhook_verified_at: null,
                     seen_typing_enabled: isWebUrl ? false : normalizedAutoReplyItem.seen_typing_enabled === true,
                     comment_reply: isWebUrl
                         ? toSafeString(item.webview_height_ratio || 'full', 1000)
@@ -5631,11 +5442,6 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
                 share_to_admin_enabled: false,
                 once_per_user_24h: starter.once_per_user_24h === true,
                 story_scope: 'shown',
-                collect_email_enabled: false,
-                collect_email_only_gmail: false,
-                collect_email_prompt_message: '',
-                collect_email_fail_retry_message: '',
-                collect_email_success_reply_message: '',
                 seen_typing_enabled: starter.seen_typing_enabled === true,
                 comment_reply: '',
                 linked_media_id: null,
@@ -5669,12 +5475,6 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
                 ...starter,
                 doc_id: String(persistedDoc?.$id || matchedExisting?.$id || '').trim() || undefined
             });
-
-            if (persistedDoc?.$id) {
-                await clearCollectorDestinationOnAutomation(databases, persistedDoc.$id).catch((error) => {
-                    console.error(`Collector destination cleanup failed for convo starter ${persistedDoc.$id}: ${error.message}`);
-                });
-            }
         }
 
         for (const doc of existingDocs) {
@@ -5816,11 +5616,6 @@ router.get('/instagram/mentions-config', loginRequired, async (req, res) => {
                 followers_only_secondary_button_text: normalizedOptions.followers_only_secondary_button_text,
                 suggest_more_enabled: normalizedOptions.suggest_more_enabled,
                 once_per_user_24h: normalizedOptions.once_per_user_24h,
-                collect_email_enabled: normalizedOptions.collect_email_enabled,
-                collect_email_only_gmail: normalizedOptions.collect_email_only_gmail,
-                collect_email_prompt_message: normalizedOptions.collect_email_prompt_message,
-                collect_email_fail_retry_message: normalizedOptions.collect_email_fail_retry_message,
-                collect_email_success_reply_message: normalizedOptions.collect_email_success_reply_message,
                 seen_typing_enabled: normalizedOptions.seen_typing_enabled,
                 ...planEnvelope
             });
@@ -5867,11 +5662,6 @@ router.post('/instagram/mentions-config', loginRequired, async (req, res) => {
             followers_only_secondary_button_text: req.body.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
             suggest_more_enabled: req.body.suggest_more_enabled === true,
             once_per_user_24h: req.body.once_per_user_24h === true,
-            collect_email_enabled: req.body.collect_email_enabled === true,
-            collect_email_only_gmail: req.body.collect_email_only_gmail === true,
-            collect_email_prompt_message: req.body.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT,
-            collect_email_fail_retry_message: req.body.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
-            collect_email_success_reply_message: req.body.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT,
             seen_typing_enabled: req.body.seen_typing_enabled === true
         };
         const validationErrors = validateAutomationPayload(payload);
@@ -5944,12 +5734,6 @@ router.post('/instagram/mentions-config', loginRequired, async (req, res) => {
                 });
             }
         });
-
-        if (payload.collect_email_enabled !== true && savedDoc?.$id) {
-            await clearCollectorDestinationOnAutomation(databases, savedDoc.$id).catch((error) => {
-                console.error(`Collector destination cleanup failed for mentions automation ${savedDoc.$id}: ${error.message}`);
-            });
-        }
 
         res.json({ message: 'Mentions config saved', doc_id: String(savedDoc?.$id || '').trim() || null });
     } catch (err) {

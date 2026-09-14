@@ -11,6 +11,7 @@ interface GaugeProps {
   updatedText?: string;
   className?: string;
   isUnlimited?: boolean;
+  precision?: number;
 }
 
 export interface GaugeLevelStyle {
@@ -88,7 +89,8 @@ const Gauge: React.FC<GaugeProps> = ({
   syncId,
   updatedText,
   className,
-  isUnlimited = false
+  isUnlimited = false,
+  precision
 }) => {
   const [animatedPercent, setAnimatedPercent] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -477,9 +479,16 @@ const Gauge: React.FC<GaugeProps> = ({
           >
             {isUnlimited ? (
               <span className="text-3xl sm:text-4xl font-black leading-none">∞</span>
-            ) : (
-              max > 0 ? ((animatedPercent / 100) * max).toFixed(2) : value.toLocaleString()
-            )}
+            ) : (() => {
+              const displayNumeric = max > 0 ? (animatedPercent / 100) * max : value;
+              if (precision !== undefined) {
+                return displayNumeric.toFixed(precision);
+              }
+              if (Number.isInteger(max) && Number.isInteger(value)) {
+                return Math.round(displayNumeric).toLocaleString();
+              }
+              return displayNumeric.toFixed(1);
+            })()}
           </div>
           <div className="text-muted-foreground font-semibold text-2xs sm:text-xs mt-1.5 sm:mt-1 uppercase tracking-wide">
             {isUnlimited

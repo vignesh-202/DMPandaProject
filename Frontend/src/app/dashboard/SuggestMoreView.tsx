@@ -257,7 +257,7 @@ const SuggestMoreView: React.FC = () => {
                     <LockedFeatureToggle
                         icon={<Lightbulb className={`w-5 h-5 ${isActive ? 'text-foreground' : 'text-muted-foreground'}`} />}
                         title="Enable Suggest More"
-                        description="When enabled, users will see this follow-up suggestion."
+                        description="When enabled, users will see this follow-up suggestion after an automation reply."
                         checked={isActive}
                         onToggle={() => setIsActive(!isActive)}
                         locked={!suggestMoreAvailable}

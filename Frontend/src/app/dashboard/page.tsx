@@ -39,7 +39,6 @@ const PostAutomationView = lazy(() => import('./PostAutomationView'));
 const ReelAutomationView = lazy(() => import('./ReelAutomationView'));
 const LiveAutomationView = lazy(() => import('./LiveAutomationView'));
 const MentionsView = lazy(() => import('./MentionsView'));
-const EmailCollectorView = lazy(() => import('./EmailCollectorView'));
 const SuggestMoreView = lazy(() => import('./SuggestMoreView'));
 const CommentModerationView = lazy(() => import('./CommentModerationView'));
 const AccountSettingsView = lazy(() => import('./AccountSettingsView'));
@@ -79,7 +78,7 @@ const DashboardContent: React.FC = () => {
   // Protected views requiring Instagram account
   const protectedViews = [
     'Overview', 'DM Automation', 'Story Automation', 'Post Automation',
-    'Reel Automation', 'Live Automation', 'Mentions', 'Email Collector',
+    'Reel Automation', 'Live Automation', 'Mentions',
     'Welcome Message',
     'Suggest More', 'Convo Starter', 'Global Trigger', 'Analytics', 'Insights', 'Reply Templates', 'Inbox Menu', 'Super Profile', 'Flow'
   ];
@@ -98,7 +97,7 @@ const DashboardContent: React.FC = () => {
   );
   const automationLockedViews = [
     'DM Automation', 'Story Automation', 'Post Automation', 'Reel Automation', 'Live Automation',
-    'Mentions', 'Email Collector', 'Welcome Message', 'Suggest More', 'Convo Starter',
+    'Mentions', 'Welcome Message', 'Suggest More', 'Convo Starter',
     'Global Trigger', 'Reply Templates', 'Inbox Menu', 'Super Profile', 'Comment Moderation', 'Flow'
   ];
 
@@ -139,7 +138,6 @@ const DashboardContent: React.FC = () => {
     'Reel Automation': 'reel_comment_dm_reply',
     'Live Automation': 'instagram_live_automation',
     'Mentions': 'mentions',
-    'Email Collector': 'collect_email',
     'Welcome Message': 'welcome_message',
     'Suggest More': 'suggest_more',
     'Convo Starter': 'convo_starters',
@@ -196,7 +194,6 @@ const DashboardContent: React.FC = () => {
       {currentView === 'Story Automation' && <StoryAutomationView key={`story-auto-${activeAccountID || 'no-acc'}`} />}
       {currentView === 'Live Automation' && <LiveAutomationView key={`live-auto-${activeAccountID || 'no-acc'}`} />}
       {currentView === 'Mentions' && <MentionsView key={`mentions-${activeAccountID || 'no-acc'}`} />}
-      {currentView === 'Email Collector' && <EmailCollectorView key={`email-col-${activeAccountID || 'no-acc'}`} />}
       {currentView === 'Suggest More' && <SuggestMoreView key={`suggest-more-${activeAccountID || 'no-acc'}`} />}
       {currentView === 'Comment Moderation' && <CommentModerationView key={`comment-mod-${activeAccountID || 'no-acc'}`} />}
       {currentView === 'My Plan' && <MyPlanView key={`my-plan-${activeAccountID || 'no-acc'}`} />}

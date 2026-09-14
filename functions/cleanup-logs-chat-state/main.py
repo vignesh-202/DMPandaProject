@@ -103,11 +103,6 @@ def _parse_json(value, default=None):
         return {} if default is None else default
 
 
-def _normalize_destination_type(value) -> str:
-    normalized = str(value or "").strip().lower()
-    return normalized if normalized == "webhook" else ""
-
-
 def _list_all_documents(client: Client, db_id: str, collection_id: str, queries=None, page_size: int = PAGE_SIZE, max_pages: int = 20):
     base_queries = list(queries or [])
     documents = []
@@ -124,169 +119,6 @@ def _list_all_documents(client: Client, db_id: str, collection_id: str, queries=
         offset += len(docs)
         page += 1
     return documents
-
-
-def _normalize_verified_destinations(collector_doc):
-    config = _parse_json(_obj_get(collector_doc, "config_json") or _obj_get(collector_doc, "template_content"), {})
-    webhooks = config.get("webhooks") if isinstance(config, dict) else []
-    verified_webhooks = {
-        str(_obj_get(entry, "id", "") or "").strip()
-        for entry in (webhooks or [])
-        if _obj_get(entry, "webhook_verified") is True and str(_obj_get(entry, "webhook_url", "") or "").strip()
-    }
-    return {"webhook": verified_webhooks}
-
-
-def _resolve_collect_email_destination(automation_doc):
-    config = _parse_json(_obj_get(automation_doc, "config_json") or _obj_get(automation_doc, "template_content"), {})
-    scoped = config.get("collect_email_destination") if isinstance(config, dict) else None
-    if isinstance(scoped, dict) and scoped.get("scoped") is True:
-        return {
-            "type": _normalize_destination_type(scoped.get("type")),
-            "id": str(scoped.get("id") or "").strip(),
-        }
-    row_type = _normalize_destination_type(
-        _obj_get(automation_doc, "collect_email_destination_type", "")
-        or (config.get("collect_email_destination_type") if isinstance(config, dict) else "")
-    )
-    row_id = str(
-        _obj_get(automation_doc, "collect_email_destination_id", "")
-        or (config.get("collect_email_destination_id") if isinstance(config, dict) else "")
-    ).strip()
-    return {"type": row_type, "id": row_id}
-
-
-def _is_collect_email_link_error(log_doc) -> bool:
-    payload = _parse_json(_obj_get(log_doc, "payload"), {})
-    send_error = payload.get("send_error") if isinstance(payload, dict) else {}
-    code = str(_obj_get(send_error, "code", "") or "").strip().lower()
-    message = str(_obj_get(log_doc, "message", "") or "").strip().lower()
-    return (
-        code in {
-            "destination_not_linked",
-            "destination_missing",
-            "collect_email_destination_not_linked",
-            "collect_email_destination_missing",
-        }
-        or "destination is no longer linked" in message
-        or "destination is not linked" in message
-    )
-
-
-def _delete_resolved_collect_email_errors(client: Client, db_id: str, logs_collection: str, automations_collection: str):
-    deleted = 0
-    failed = 0
-    skipped = 0
-    checked = 0
-
-    failed_logs = _list_all_documents(
-        client,
-        db_id,
-        logs_collection,
-        queries=[Query.equal("status", "failed"), Query.order_desc("sent_at")],
-        page_size=PAGE_SIZE,
-        max_pages=20,
-    )
-
-    collector_cache = {}
-    automation_cache = {}
-
-    for log_doc in failed_logs:
-        if not _is_collect_email_link_error(log_doc):
-            continue
-        checked += 1
-        payload = _parse_json(_obj_get(log_doc, "payload"), {})
-        automation_id = str(payload.get("trigger_automation_id") or _obj_get(log_doc, "automation_id", "") or "").strip()
-        account_id = str(_obj_get(log_doc, "account_id", "") or "").strip()
-        if not automation_id or not account_id:
-            skipped += 1
-            continue
-
-        automation_doc = automation_cache.get(automation_id)
-        if automation_doc is None:
-            try:
-                automation_doc = _call_appwrite(
-                    client,
-                    "get",
-                    f"/databases/{db_id}/collections/{automations_collection}/documents/{automation_id}",
-                )
-            except Exception:  # noqa: BLE001
-                automation_doc = False
-            automation_cache[automation_id] = automation_doc
-
-        if automation_doc is False:
-            try:
-                _delete_document(client, db_id, logs_collection, str(_obj_get(log_doc, "$id", "")))
-                deleted += 1
-            except Exception:  # noqa: BLE001
-                failed += 1
-            continue
-
-        if _obj_get(automation_doc, "is_active") is not True or _obj_get(automation_doc, "collect_email_enabled") is not True:
-            try:
-                _delete_document(client, db_id, logs_collection, str(_obj_get(log_doc, "$id", "")))
-                deleted += 1
-            except Exception:  # noqa: BLE001
-                failed += 1
-            continue
-
-        collector_doc = collector_cache.get(account_id)
-        if collector_doc is None:
-            response = _list_documents(
-                client,
-                db_id,
-                automations_collection,
-                [
-                    Query.equal("account_id", account_id),
-                    Query.equal("automation_type", "email_collector"),
-                    Query.limit(5),
-                ],
-            )
-            docs = _obj_get(response, "documents", []) or []
-            collector_doc = docs[0] if docs else False
-            collector_cache[account_id] = collector_doc
-
-        verified = _normalize_verified_destinations(collector_doc if collector_doc is not False else {})
-        destination = _resolve_collect_email_destination(automation_doc)
-        if destination["type"] and destination["id"] and destination["id"] in verified.get(destination["type"], set()):
-            try:
-                _delete_document(client, db_id, logs_collection, str(_obj_get(log_doc, "$id", "")))
-                deleted += 1
-            except Exception:  # noqa: BLE001
-                failed += 1
-        else:
-            skipped += 1
-
-    return {
-        "checked": checked,
-        "deleted": deleted,
-        "failed": failed,
-        "skipped": skipped,
-    }
-
-
-def _scan_resolved_collect_email_errors(client: Client, db_id: str, logs_collection: str):
-    checked = 0
-    matches = 0
-    failed_logs = _list_all_documents(
-        client,
-        db_id,
-        logs_collection,
-        queries=[Query.equal("status", "failed"), Query.order_desc("sent_at")],
-        page_size=PAGE_SIZE,
-        max_pages=20,
-    )
-    for log_doc in failed_logs:
-        if _is_collect_email_link_error(log_doc):
-            checked += 1
-            matches += 1
-    return {
-        "checked": checked,
-        "deleted": 0,
-        "failed": 0,
-        "skipped": 0,
-        "would_delete": matches,
-    }
 
 
 def main(context):
@@ -313,26 +145,13 @@ def main(context):
         if dry_run:
             old_logs = _list_documents(client, db_id, logs_collection, [Query.less_than("sent_at", logs_cutoff_iso), Query.limit(PAGE_SIZE)])
             old_states = _list_documents(client, db_id, chat_states_collection, [Query.less_than("last_seen_at", chat_states_cutoff_iso), Query.limit(PAGE_SIZE)])
-            collect_email_cleanup = _scan_resolved_collect_email_errors(
-                client,
-                db_id,
-                logs_collection,
-            )
             logs_deleted = 0
             logs_failed = 0
             states_deleted = 0
             states_failed = 0
-            collect_email_cleanup["would_delete_logs_sample"] = len(_obj_get(old_logs, "documents", []) or [])
-            collect_email_cleanup["would_delete_states_sample"] = len(_obj_get(old_states, "documents", []) or [])
         else:
             logs_deleted, logs_failed = _delete_older_than(client, db_id, logs_collection, "sent_at", logs_cutoff_iso)
             states_deleted, states_failed = _delete_older_than(client, db_id, chat_states_collection, "last_seen_at", chat_states_cutoff_iso)
-            collect_email_cleanup = _delete_resolved_collect_email_errors(
-                client,
-                db_id,
-                logs_collection,
-                automations_collection,
-            )
 
         # Cleanup function execution history
         executions_deleted = 0
@@ -388,10 +207,6 @@ def main(context):
                 "logs_failed": logs_failed,
                 "chat_states_deleted": states_deleted,
                 "chat_states_failed": states_failed,
-                "collect_email_notifications_checked": collect_email_cleanup["checked"],
-                "collect_email_notifications_deleted": collect_email_cleanup["deleted"],
-                "collect_email_notifications_failed": collect_email_cleanup["failed"],
-                "collect_email_notifications_skipped": collect_email_cleanup["skipped"],
                 "executions_deleted": executions_deleted,
                 "executions_failed": executions_failed,
                 "execution_details": execution_details,

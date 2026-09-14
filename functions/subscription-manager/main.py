@@ -30,7 +30,6 @@ BENEFIT_KEYS = [
     "share_post_to_admin",
     "super_profile",
     "inbox_menu",
-    "collect_email",
     "suggest_more",
     "followers_only",
     "comment_moderation",

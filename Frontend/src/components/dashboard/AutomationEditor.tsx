@@ -3,7 +3,7 @@ import {
     FileText, Image as ImageIcon, Reply, Save, Loader2, X, Instagram,
     MessageSquare, AlertCircle, CheckCircle2, Trash2, HelpCircle, Power, Globe,
     MousePointerClick, Share2, Film, Radio, BookText, Plus, ChevronRight, Share2 as ShareIcon,
-    Calendar, ChevronDown, Check, Info, Lightbulb, LayoutTemplate, Mail
+    Calendar, ChevronDown, Check, Info, Lightbulb, LayoutTemplate
 } from 'lucide-react';
 import { useDashboard } from '../../contexts/DashboardContext';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -22,12 +22,8 @@ const FOLLOWERS_ONLY_MESSAGE_DEFAULT = 'Please follow this account first, then s
 const FOLLOWERS_ONLY_MESSAGE_MAX = 300;
 const FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT = '👤 Follow Account';
 const FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT = "✅ I've Followed";
-const COLLECT_EMAIL_PROMPT_DEFAULT = '📧 Could you share your best email so we can send the details and updates ✨';
-const COLLECT_EMAIL_FAIL_RETRY_DEFAULT = '⚠️ That email looks invalid. Please send a valid email like name@example.com.';
-const COLLECT_EMAIL_SUCCESS_DEFAULT = 'Perfect, thank you! Your email has been saved ✅';
 const AUTOMATION_TITLE_MAX = 25;
 const getUtf8Length = (value: string) => new TextEncoder().encode(String(value || '')).length;
-const normalizeUrlForVerification = (value: string) => String(value || '').trim();
 
 const trimToUtf8Length = (value: string, maxBytes: number) => {
     const input = String(value || '');
@@ -39,16 +35,6 @@ const trimToUtf8Length = (value: string, maxBytes: number) => {
     }
     return result;
 };
-
-const createCollectorDestinationState = () => ({
-    destination_type: 'webhook',
-    webhook_url: '',
-    verified: false,
-    verified_at: null as string | null,
-    destination_json: {} as Record<string, unknown>,
-    verification_token: null as string | null,
-    verification_expires_at: null as string | null
-});
 
 const buildHiddenAutomationTitle = (type: AutomationEditorProps['type'], mediaId?: string, override?: string) => {
     const overrideValue = String(override || '').trim();
@@ -183,7 +169,6 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     const [planInvalidFeatures, setPlanInvalidFeatures] = useState<string[]>([]);
     const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
     const [followersOnlyCollapsed, setFollowersOnlyCollapsed] = useState(false);
-    const [collectEmailCollapsed, setCollectEmailCollapsed] = useState(false);
     const [commentReplyCollapsed, setCommentReplyCollapsed] = useState(false);
 
     const [automation, setAutomation] = useState<any>({
@@ -202,13 +187,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         share_to_admin_enabled: false,
         once_per_user_24h: true,
         story_scope: 'shown',
-        collect_email_enabled: false,
-        collect_email_only_gmail: false,
         followers_only_primary_button_text: FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
         followers_only_secondary_button_text: FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
-        collect_email_prompt_message: COLLECT_EMAIL_PROMPT_DEFAULT,
-        collect_email_fail_retry_message: COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
-        collect_email_success_reply_message: COLLECT_EMAIL_SUCCESS_DEFAULT,
         seen_typing_enabled: false,
         media_id: mediaId || '',
         template_elements: [],
@@ -216,21 +196,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         replies: [],
         comment_reply_text: ''
     });
-    const [collectorDestination, setCollectorDestination] = useState(createCollectorDestinationState);
-    const [collectorDestinationLoading, setCollectorDestinationLoading] = useState(false);
-    const [collectorDestinationSaving, setCollectorDestinationSaving] = useState(false);
-    const [initialCollectorDestination, setInitialCollectorDestination] = useState<any>(null);
 
     const [suggestMoreSetup, setSuggestMoreSetup] = useState(false);
-
-    const isCollectorDestinationChanged = React.useMemo(() => {
-        const initialUrl = String(initialCollectorDestination?.webhook_url || '').trim();
-        const currentUrl = String(collectorDestination.webhook_url || '').trim();
-        return (
-            (initialCollectorDestination?.destination_type || 'webhook') !== (collectorDestination.destination_type || 'webhook') ||
-            normalizeUrlForVerification(initialUrl) !== normalizeUrlForVerification(currentUrl)
-        );
-    }, [initialCollectorDestination, collectorDestination]);
     const [keywordInput, setKeywordInput] = useState('');
     const [isEditingKeyword, setIsEditingKeyword] = useState(true);
 
@@ -327,13 +294,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             share_to_admin_enabled: Boolean(data?.share_to_admin_enabled),
             once_per_user_24h: Boolean(data?.once_per_user_24h),
             story_scope: String(data?.story_scope || 'shown'),
-            collect_email_enabled: Boolean(data?.collect_email_enabled),
-            collect_email_only_gmail: Boolean(data?.collect_email_only_gmail),
             followers_only_primary_button_text: String(data?.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT),
             followers_only_secondary_button_text: String(data?.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT),
-            collect_email_prompt_message: String(data?.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT),
-            collect_email_fail_retry_message: String(data?.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT),
-            collect_email_success_reply_message: String(data?.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT),
             seen_typing_enabled: Boolean(data?.seen_typing_enabled),
             keywords: keywordArray,
             keyword: type === 'global' ? primaryKeyword : '',
@@ -409,13 +371,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         share_to_admin_enabled: Boolean(value?.share_to_admin_enabled),
         once_per_user_24h: Boolean(value?.once_per_user_24h),
         story_scope: String(value?.story_scope || 'shown'),
-        collect_email_enabled: Boolean(value?.collect_email_enabled),
-        collect_email_only_gmail: Boolean(value?.collect_email_only_gmail),
         followers_only_primary_button_text: String(value?.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT),
         followers_only_secondary_button_text: String(value?.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT),
-        collect_email_prompt_message: String(value?.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT),
-        collect_email_fail_retry_message: String(value?.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT),
-        collect_email_success_reply_message: String(value?.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT),
         seen_typing_enabled: Boolean(value?.seen_typing_enabled),
         media_id: String(value?.media_id || ''),
         template_elements: Array.isArray(value?.template_elements) ? value.template_elements : [],
@@ -464,186 +421,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         };
     }, [activeAccountID, authenticatedFetch]);
 
-    useEffect(() => {
-        let alive = true;
-        const loadCollectorDestination = async () => {
-            if (!automation?.$id) {
-                const defaultDest = createCollectorDestinationState();
-                setCollectorDestination(defaultDest);
-                setInitialCollectorDestination(defaultDest);
-                setCollectorDestinationLoading(false);
-                return;
-            }
 
-            setCollectorDestinationLoading(true);
-            try {
-                const res = await authenticatedFetch(
-                    `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${automation.$id}/email-collector-destination`
-                );
-                const data = await res.json();
-                if (!alive) return;
-                if (res.ok && data?.destination) {
-                    const loadedDest = {
-                        destination_type: data.destination.destination_type || 'webhook',
-                        webhook_url: data.destination.webhook_url || '',
-                        verified: data.destination.verified === true,
-                        verified_at: data.destination.verified_at || null,
-                        destination_json: data.destination.destination_json || {},
-                        verification_token: data.destination.verification_token || data.destination.destination_json?.verification_token || null,
-                        verification_expires_at: data.destination.verification_expires_at || data.destination.destination_json?.verification_expires_at || null
-                    };
-                    setCollectorDestination(loadedDest);
-                    setInitialCollectorDestination(loadedDest);
-                } else {
-                    const defaultDest = createCollectorDestinationState();
-                    setCollectorDestination(defaultDest);
-                    setInitialCollectorDestination(defaultDest);
-                }
-            } catch (_) {
-                if (alive) {
-                    const defaultDest = createCollectorDestinationState();
-                    setCollectorDestination(defaultDest);
-                    setInitialCollectorDestination(defaultDest);
-                }
-            } finally {
-                if (alive) {
-                    setCollectorDestinationLoading(false);
-                }
-            }
-        };
-
-        loadCollectorDestination();
-        return () => {
-            alive = false;
-        };
-    }, [authenticatedFetch, automation?.$id]);
-
-    const verifyCollectorDestination = React.useCallback(async (automationRecordId: string) => {
-        if (!automationRecordId || automation.collect_email_enabled !== true) {
-            return false;
-        }
-
-        const urlValue = String(collectorDestination.webhook_url || '').trim();
-        if (!urlValue) {
-            setError('Enter a webhook URL for the email collector.');
-            return false;
-        }
-        if (!/^https:\/\//i.test(urlValue)) {
-            setError('Webhook URL must start with https://');
-            return false;
-        }
-
-        setCollectorDestinationSaving(true);
-        try {
-            const verifyRes = await authenticatedFetch(
-                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${automationRecordId}/email-collector-destination/verify`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        destination_type: 'webhook',
-                        webhook_url: urlValue
-                    })
-                }
-            );
-            const verifyData = await verifyRes.json();
-            if (!verifyRes.ok) {
-                setError(verifyData?.error || 'Failed to verify email collector destination.');
-                return false;
-            }
-            const nextDestination = verifyData?.destination || null;
-            if (nextDestination) {
-                setCollectorDestination({
-                    destination_type: nextDestination.destination_type || 'webhook',
-                    webhook_url: nextDestination.webhook_url || '',
-                    verified: nextDestination.verified === true,
-                    verified_at: nextDestination.verified_at || null,
-                    destination_json: nextDestination.destination_json || {},
-                    verification_token: nextDestination.verification_token || nextDestination.destination_json?.verification_token || null,
-                    verification_expires_at: nextDestination.verification_expires_at || nextDestination.destination_json?.verification_expires_at || null
-                });
-            }
-            return true;
-        } catch (_) {
-            setError('Failed to verify email collector destination.');
-            return false;
-        } finally {
-            setCollectorDestinationSaving(false);
-        }
-    }, [authenticatedFetch, automation.collect_email_enabled, collectorDestination.webhook_url]);
-
-    const persistCollectorDestination = React.useCallback(async (savedAutomationId: string) => {
-        if (!savedAutomationId || automation.collect_email_enabled !== true) {
-            return true;
-        }
-
-        const urlValue = String(collectorDestination.webhook_url || '').trim();
-
-        if (!urlValue) {
-            setError('Enter a webhook URL for the email collector.');
-            return false;
-        }
-        if (!/^https:\/\//i.test(urlValue)) {
-            setError('Webhook URL must start with https://');
-            return false;
-        }
-
-        if (!isCollectorDestinationChanged) {
-            return true;
-        }
-
-        if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
-            setError('Verify the webhook URL before saving the automation.');
-            return false;
-        }
-        if (normalizeUrlForVerification(urlValue) !== normalizeUrlForVerification(String(collectorDestination.webhook_url || ''))) {
-            setError('Webhook URL changed after verification. Please verify it again.');
-            return false;
-        }
-
-        setCollectorDestinationSaving(true);
-        try {
-            const saveRes = await authenticatedFetch(
-                `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${savedAutomationId}/email-collector-destination`,
-                {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        destination_type: 'webhook',
-                        webhook_url: urlValue,
-                        verification_token: collectorDestination.verification_token
-                    })
-                }
-            );
-            const saveData = await saveRes.json();
-            if (!saveRes.ok) {
-                setError(saveData?.error || 'Failed to save email collector destination.');
-                return false;
-            }
-
-            const nextDestination = saveData?.destination || null;
-            if (nextDestination) {
-                const updatedDest = {
-                    destination_type: nextDestination.destination_type || 'webhook',
-                    webhook_url: nextDestination.webhook_url || '',
-                    verified: nextDestination.verified === true,
-                    verified_at: nextDestination.verified_at || null,
-                    destination_json: nextDestination.destination_json || {},
-                    verification_token: nextDestination.verification_token || nextDestination.destination_json?.verification_token || null,
-                    verification_expires_at: nextDestination.verification_expires_at || nextDestination.destination_json?.verification_expires_at || null
-                };
-                setCollectorDestination(updatedDest);
-                setInitialCollectorDestination(updatedDest);
-            }
-
-            return true;
-        } catch (_) {
-            setError('Failed to save email collector destination.');
-            return false;
-        } finally {
-            setCollectorDestinationSaving(false);
-        }
-    }, [authenticatedFetch, automation.collect_email_enabled, collectorDestination, isCollectorDestinationChanged]);
 
     useEffect(() => {
         if (!activeAccountID || !authenticatedFetch) return;
@@ -726,13 +504,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 share_to_admin_enabled: false,
                 once_per_user_24h: true,
                 story_scope: 'shown',
-                collect_email_enabled: false,
-                collect_email_only_gmail: false,
                 followers_only_primary_button_text: FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
                 followers_only_secondary_button_text: FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
-                collect_email_prompt_message: COLLECT_EMAIL_PROMPT_DEFAULT,
-                collect_email_fail_retry_message: COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
-                collect_email_success_reply_message: COLLECT_EMAIL_SUCCESS_DEFAULT,
                 seen_typing_enabled: false,
                 media_id: mediaId || '',
                 template_elements: [],
@@ -957,35 +730,6 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 return false;
             }
 
-            if (automation.collect_email_enabled) {
-                const promptLength = getUtf8Length(automation.collect_email_prompt_message || '');
-                const retryLength = getUtf8Length(automation.collect_email_fail_retry_message || '');
-                const successLength = getUtf8Length(automation.collect_email_success_reply_message || '');
-                if (promptLength > 1000 || retryLength > 1000 || successLength > 1000) {
-                    setError('Each email collector message must stay within 1000 UTF-8 bytes.');
-                    setSaving(false);
-                    return false;
-                }
-                const destinationUrl = String(collectorDestination.webhook_url || '').trim();
-                if (!destinationUrl) {
-                    setError('Add a webhook URL for the email collector.');
-                    setSaving(false);
-                    return false;
-                }
-                if (!/^https:\/\//i.test(destinationUrl)) {
-                    setError('Webhook URL must start with https://');
-                    setSaving(false);
-                    return false;
-                }
-                if (isCollectorDestinationChanged) {
-                    if (collectorDestination.verified !== true || !collectorDestination.verification_token) {
-                        setError('Verify the webhook URL before saving the automation.');
-                        setSaving(false);
-                        return false;
-                    }
-                }
-            }
-
             const payload: any = {
                 ...automation,
                 title: currentTitle,
@@ -1000,13 +744,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 share_to_admin_enabled: automation.share_to_admin_enabled === true,
                 once_per_user_24h: automation.once_per_user_24h === true,
                 story_scope: automation.story_scope || 'shown',
-                collect_email_enabled: automation.collect_email_enabled === true,
-                collect_email_only_gmail: automation.collect_email_only_gmail === true,
                 followers_only_primary_button_text: automation.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
                 followers_only_secondary_button_text: automation.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
-                collect_email_prompt_message: automation.collect_email_prompt_message || COLLECT_EMAIL_PROMPT_DEFAULT,
-                collect_email_fail_retry_message: automation.collect_email_fail_retry_message || COLLECT_EMAIL_FAIL_RETRY_DEFAULT,
-                collect_email_success_reply_message: automation.collect_email_success_reply_message || COLLECT_EMAIL_SUCCESS_DEFAULT,
                 seen_typing_enabled: automation.seen_typing_enabled === true,
             };
             if (selectedTemplate) {
@@ -1027,13 +766,6 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             const data = await res.json();
 
             if (res.ok) {
-                const savedAutomationId = automation.$id || data?.automation_id || data?.$id;
-                if (automation.collect_email_enabled) {
-                    const collectorSaved = await persistCollectorDestination(savedAutomationId);
-                    if (!collectorSaved) {
-                        return false;
-                    }
-                }
                 // Reset baseline to current automation state so isDirty becomes false.
                 // We must use `automation` (not `payload`) because isDirty compares
                 // against serializeAutomationState(automation), and payload has fields
@@ -1053,7 +785,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         } finally {
             setSaving(false);
         }
-    }, [activeAccountID, authenticatedFetch, autoCloseOnSave, automation, collectorDestination, isStandalone, mediaId, onClose, onSave, persistCollectorDestination, selectedTemplate, titleOverride, type]);
+    }, [activeAccountID, authenticatedFetch, autoCloseOnSave, automation, isStandalone, mediaId, onClose, onSave, selectedTemplate, titleOverride, type]);
 
     useEffect(() => {
         registerSaveHandler?.(handleSave);
@@ -1358,120 +1090,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     />
                 )}
 
-                {supportsCollectEmail && (
-                    <div className="space-y-3">
-                        <LockedFeatureToggle
-                            icon={<Mail className={`w-5 h-5 ${automation.collect_email_enabled ? 'text-indigo-500' : 'text-gray-400'}`} />}
-                            title="Collect Email"
-                            description="Prompt users for their email address before completing the automation flow."
-                            checked={automation.collect_email_enabled === true}
-                            onToggle={() => {
-                                const nextVal = !(automation.collect_email_enabled === true);
-                                setAutomation({
-                                    ...automation,
-                                    collect_email_enabled: nextVal,
-                                    collect_email_only_gmail: nextVal ? automation.collect_email_only_gmail : false
-                                });
-                                if (nextVal) {
-                                    setCollectEmailCollapsed(false);
-                                }
-                            }}
-                            locked={collectEmailLocked}
-                            note={collectEmailGate.note}
-                            onUpgrade={() => setCurrentView('My Plan')}
-                            activeIconClassName="text-indigo-500"
-                            isCollapsed={collectEmailCollapsed}
-                            onCollapseToggle={() => setCollectEmailCollapsed(!collectEmailCollapsed)}
-                        />
-                        {automation.collect_email_enabled && !collectEmailLocked && !collectEmailCollapsed && (
-                            <div className="ml-2 rounded-xl border border-border bg-muted/20 p-4 space-y-3">
-                                <LockedFeatureToggle
-                                    icon={<Mail className={`w-5 h-5 ${automation.collect_email_only_gmail ? 'text-indigo-500' : 'text-gray-400'}`} />}
-                                    title="Allow Only Gmail"
-                                    description="Only accept @gmail.com email addresses."
-                                    checked={automation.collect_email_only_gmail === true}
-                                    onToggle={() => setAutomation({ ...automation, collect_email_only_gmail: !(automation.collect_email_only_gmail === true) })}
-                                    activeIconClassName="text-indigo-500"
-                                />
-                                <div className="rounded-xl border border-border bg-card p-3.5 space-y-1.5">
-                                    <div className="flex justify-between items-center">
-                                        <p className="text-xs font-medium text-foreground">Prompt Message</p>
-                                        <p className="text-xs text-muted-foreground">{getUtf8Length(automation.collect_email_prompt_message || '')}/1000 bytes</p>
-                                    </div>
-                                    <textarea
-                                        value={automation.collect_email_prompt_message || ''}
-                                        onChange={(e) => setAutomation({ ...automation, collect_email_prompt_message: e.target.value })}
-                                        className="w-full min-h-[80px] rounded-lg border border-border bg-background px-3 py-2 text-xs font-normal text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                                        placeholder={COLLECT_EMAIL_PROMPT_DEFAULT}
-                                    />
-                                </div>
-                                <div className="rounded-xl border border-border bg-card p-3.5 space-y-1.5">
-                                    <div className="flex justify-between items-center">
-                                        <p className="text-xs font-medium text-foreground">Retry Message</p>
-                                        <p className="text-xs text-muted-foreground">{getUtf8Length(automation.collect_email_fail_retry_message || '')}/1000 bytes</p>
-                                    </div>
-                                    <textarea
-                                        value={automation.collect_email_fail_retry_message || ''}
-                                        onChange={(e) => setAutomation({ ...automation, collect_email_fail_retry_message: e.target.value })}
-                                        className="w-full min-h-[80px] rounded-lg border border-border bg-background px-3 py-2 text-xs font-normal text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                                        placeholder={COLLECT_EMAIL_FAIL_RETRY_DEFAULT}
-                                    />
-                                </div>
-                                <div className="rounded-xl border border-border bg-card p-3.5 space-y-1.5">
-                                    <div className="flex justify-between items-center">
-                                        <p className="text-xs font-medium text-foreground">Success Message</p>
-                                        <p className="text-xs text-muted-foreground">{getUtf8Length(automation.collect_email_success_reply_message || '')}/1000 bytes</p>
-                                    </div>
-                                    <textarea
-                                        value={automation.collect_email_success_reply_message || ''}
-                                        onChange={(e) => setAutomation({ ...automation, collect_email_success_reply_message: e.target.value })}
-                                        className="w-full min-h-[80px] rounded-lg border border-border bg-background px-3 py-2 text-xs font-normal text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                                        placeholder={COLLECT_EMAIL_SUCCESS_DEFAULT}
-                                    />
-                                </div>
-                                <div className="rounded-xl border border-border bg-card p-3.5 space-y-2">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                                        <div>
-                                            <p className="text-xs font-medium text-foreground">Delivery Destination</p>
-                                            <p className="text-xs text-muted-foreground">Choose one verified destination for collected emails.</p>
-                                        </div>
-                                        {collectorDestinationLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <p className="text-xs text-muted-foreground">Paste your webhook URL. Verification will send sample lead data to this endpoint.</p>
-                                        <input
-                                            value={collectorDestination.webhook_url || ''}
-                                            onChange={(e) => setCollectorDestination((prev) => ({ ...prev, destination_type: 'webhook', webhook_url: e.target.value, verified: false, verified_at: null, verification_token: null, verification_expires_at: null }))}
-                                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-normal text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                                            placeholder="https://example.com/webhook"
-                                        />
-                                    </div>
-                                    {fieldErrors['collect_email_destination'] && <p className="text-xs font-medium text-destructive">{fieldErrors['collect_email_destination']}</p>}
-                                    <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                                        <button
-                                            type="button"
-                                            disabled={!automation.$id || collectorDestinationSaving}
-                                            onClick={async () => {
-                                                const ok = await verifyCollectorDestination(String(automation.$id || ''));
-                                                if (ok) {
-                                                    setSuccess('Email collector destination verified.');
-                                                }
-                                            }}
-                                            className="h-8 px-3 rounded-lg bg-foreground text-background hover:bg-foreground/90 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            {collectorDestinationSaving ? 'Verifying...' : 'Verify Destination'}
-                                        </button>
-                                        <span className={`text-xs ${collectorDestination.verified ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-muted-foreground'}`}>
-                                            {collectorDestination.verified
-                                                ? `Verified${collectorDestination.verified_at ? ` on ${new Date(collectorDestination.verified_at).toLocaleString()}` : ''}`
-                                                : automation.$id ? 'Not verified yet' : 'Save the automation once, then verify the destination'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
+
 
                 {supportsSeenTyping && (
                     <LockedFeatureToggle
@@ -1838,15 +1457,12 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     const supportsCommentReply = ['posts', 'reel', 'live', 'global'].includes(type);
     const supportsAdvancedToggles = ['dm', 'posts', 'reel', 'story', 'live', 'global'].includes(type);
     const supportsOncePerUser = supportsAdvancedToggles;
-    const supportsCollectEmail = supportsAdvancedToggles;
     const supportsSeenTyping = supportsAdvancedToggles;
     const supportsShareToAdmin = ['posts', 'reel'].includes(type);
     const suggestMoreLocked = !hasPlanFeature('suggest_more');
-    const collectEmailGate = getPlanGate('collect_email');
     const seenTypingGate = getPlanGate('seen_typing');
     const shareToAdminGate = getPlanGate(type === 'reel' ? 'share_reel_to_admin' : 'share_post_to_admin', 'Upgrade your plan to unlock Share To Admin.');
     const commentReplyGate = getPlanGate(type === 'reel' ? 'reel_comment_reply_automation' : 'post_comment_reply_automation', 'Upgrade your plan to unlock public comment replies.');
-    const collectEmailLocked = collectEmailGate.isLocked;
     const seenTypingLocked = seenTypingGate.isLocked;
     const shareToAdminLocked = shareToAdminGate.isLocked;
     const commentReplyLocked = commentReplyGate.isLocked;

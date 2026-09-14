@@ -83,7 +83,7 @@ const isLinkedAccountActive = (account = null) => {
 };
 
 const getAccountOrderValue = (account = null) => {
-    const raw = account?.$createdAt || account?.created_at || account?.createdAt || '';
+    const raw = account?.$createdAt || account?.created_at || account?.createdAt || account?.linked_at || '';
     const parsed = new Date(raw).getTime();
     return Number.isNaN(parsed) ? 0 : parsed;
 };

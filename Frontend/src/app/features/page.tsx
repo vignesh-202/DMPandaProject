@@ -27,12 +27,6 @@ const features = [
     image: '/images/follow_gated_dm.png',
   },
   {
-    name: 'Email Collection in DMs',
-    description: 'Ask users for their email within the DM conversation and automatically add it to your mailing list.',
-    useCase: 'Benefit: Seamlessly build your email list by turning your Instagram followers into valuable, long-term business leads.',
-    image: '/images/email_collector.png',
-  },
-  {
     name: 'Global Keyword Triggers',
     description: 'Set universal keywords that trigger a specific Auto DM from anywhere on your Instagram—be it a post, Reel, or Story.',
     useCase: 'Benefit: Create powerful, account-wide calls-to-action. A single keyword can now be your master key for lead generation.',

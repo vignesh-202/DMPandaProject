@@ -30,13 +30,24 @@ router.get('/sitemap.xml', async (req, res) => {
     try {
         const origin = getFrontendOrigin();
         
-        // Static routes
+        // Static routes & high-ranking blog articles
         const staticPaths = [
             { path: '', changefreq: 'daily', priority: '1.0' },
-            { path: '/features', changefreq: 'weekly', priority: '0.8' },
-            { path: '/pricing', changefreq: 'weekly', priority: '0.8' },
-            { path: '/about', changefreq: 'weekly', priority: '0.7' },
-            { path: '/contact', changefreq: 'weekly', priority: '0.7' },
+            { path: '/features', changefreq: 'weekly', priority: '0.9' },
+            { path: '/pricing', changefreq: 'weekly', priority: '0.9' },
+            { path: '/blog', changefreq: 'daily', priority: '0.9' },
+            { path: '/blog/how-to-auto-reply-to-instagram-comments', changefreq: 'weekly', priority: '0.8' },
+            { path: '/blog/instagram-dm-automation-guide', changefreq: 'weekly', priority: '0.8' },
+            { path: '/blog/instagram-story-mention-auto-reply', changefreq: 'weekly', priority: '0.8' },
+            { path: '/blog/instagram-auto-reply-message-templates', changefreq: 'weekly', priority: '0.8' },
+            { path: '/blog/instagram-comment-lead-generation', changefreq: 'weekly', priority: '0.8' },
+            { path: '/blog/instagram-comment-moderation-guide', changefreq: 'weekly', priority: '0.8' },
+            { path: '/blog/reel-comment-automation', changefreq: 'weekly', priority: '0.8' },
+            { path: '/blog/instagram-live-automation', changefreq: 'weekly', priority: '0.8' },
+            { path: '/blog/super-profile-link-in-bio', changefreq: 'weekly', priority: '0.8' },
+            { path: '/blog/instagram-giveaway-auto-dm', changefreq: 'weekly', priority: '0.8' },
+            { path: '/about', changefreq: 'monthly', priority: '0.7' },
+            { path: '/contact', changefreq: 'monthly', priority: '0.7' },
             { path: '/privacy', changefreq: 'monthly', priority: '0.5' },
             { path: '/terms', changefreq: 'monthly', priority: '0.5' },
             { path: '/disclaimer', changefreq: 'monthly', priority: '0.5' },

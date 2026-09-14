@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import Card from '../../components/ui/card';
 import Gauge, { getGaugeLevelStyle } from '../../components/ui/gauge';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
+import MetaRateLimitSuite from '../../components/dashboard/MetaRateLimitSuite';
 import { useDashboard } from '../../contexts/DashboardContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
@@ -290,142 +291,6 @@ const ActionLimitGaugeCard = ({
     );
 };
 
-const MetaRateLimitGaugeCard = ({
-    label,
-    description,
-    value,
-    limit,
-    unit,
-    windowLabel,
-    startedAt,
-    resetsAt,
-    remainingSeconds,
-    syncId
-}: {
-    label: string;
-    description?: string;
-    value: number;
-    limit: number;
-    unit: string;
-    windowLabel: string;
-    startedAt?: string;
-    resetsAt?: string | null;
-    remainingSeconds?: number;
-    syncId?: string;
-}) => {
-    const levelStyle = getGaugeLevelStyle(value, limit);
-    const percentUsed = Math.min(100, Math.round((Math.max(0, value) / Math.max(1, limit)) * 100));
-
-    return (
-        <Card
-            variant="elevated"
-            className="relative flex flex-col justify-between p-4 group ig-card min-h-[260px] border border-border/70 shadow-xs hover:shadow-md transition-all duration-300 rounded-2xl"
-        >
-            <div>
-                <div className="flex items-center justify-between w-full gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                        <div className="w-6 h-6 rounded-lg bg-linear-to-br from-pink-500/20 via-purple-500/20 to-amber-500/20 flex items-center justify-center border border-pink-500/30 shrink-0">
-                            <Instagram className="w-3.5 h-3.5 text-pink-500" />
-                        </div>
-                        <h3 className="text-xs font-bold text-foreground truncate">
-                            {label}
-                        </h3>
-                    </div>
-                    <span
-                        className={cn(
-                            "text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 transition-all",
-                            levelStyle.bgClass,
-                            levelStyle.textClass,
-                            levelStyle.borderClass
-                        )}
-                    >
-                        {levelStyle.level}
-                    </span>
-                </div>
-                {description && (
-                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">
-                        {description}
-                    </p>
-                )}
-            </div>
-
-            <div className="flex-1 flex items-center justify-center py-2">
-                <Gauge
-                    value={value}
-                    max={limit}
-                    size="lg"
-                    syncId={syncId || 'meta-rate-limits'}
-                    updatedText={`out of ${limit.toLocaleString()} ${unit}`}
-                />
-            </div>
-
-            <div className="space-y-2 border-t border-border/50 pt-2.5 text-xs">
-                <div className="grid grid-cols-2 gap-2 text-center">
-                    <div
-                        className={cn(
-                            "rounded-lg px-2 py-1.5 border transition-all",
-                            levelStyle.bgClass,
-                            levelStyle.borderClass
-                        )}
-                        style={{
-                            backgroundColor: `${levelStyle.color}14`,
-                            borderColor: `${levelStyle.color}35`
-                        }}
-                    >
-                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: levelStyle.color }}>
-                            Used
-                        </p>
-                        <p className="text-sm font-bold text-foreground">
-                            {value.toLocaleString()} <span className="text-2xs font-normal text-muted-foreground">({percentUsed}%)</span>
-                        </p>
-                    </div>
-
-                    <div className="rounded-lg bg-primary/10 px-2 py-1.5 border border-primary/20 flex flex-col justify-center">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
-                            Quota Recovery
-                        </p>
-                        <p className="text-xs font-bold text-foreground truncate">
-                            {unit === 'msgs/sec' || windowLabel.toLowerCase().includes('peak') ? (
-                                'Instant / No Lag'
-                            ) : value === 0 ? (
-                                <span className="text-emerald-500">Full Quota Ready</span>
-                            ) : resetsAt && remainingSeconds != null && remainingSeconds > 0 ? (
-                                `Regains in ${formatResetTime(remainingSeconds)}`
-                            ) : (
-                                'Regaining quota'
-                            )}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
-                    <span className="flex items-center gap-1 truncate" title="Meta trailing sliding window: each call expires dynamically after window duration">
-                        <Clock3 className="w-3 h-3 text-muted-foreground/70 shrink-0" />
-                        <span className="truncate">{windowLabel}</span>
-                    </span>
-                    {unit === 'msgs/sec' || windowLabel.toLowerCase().includes('peak') ? (
-                        <span className="shrink-0 text-emerald-500 font-medium">
-                            Real-time ceiling
-                        </span>
-                    ) : value === 0 ? (
-                        <span className="shrink-0 text-emerald-500 font-medium">
-                            Trailing Window Idle
-                        </span>
-                    ) : startedAt ? (
-                        <span className="shrink-0 text-muted-foreground/80">
-                            Window active since {new Date(startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                    ) : (
-                        <span className="shrink-0 text-muted-foreground/80">
-                            Trailing Sliding Window
-                        </span>
-                    )}
-                </div>
-            </div>
-        </Card>
-    );
-};
-
 interface DonutSegment {
     key: string;
     label: string;
@@ -694,70 +559,17 @@ const AnalyticsView: React.FC = () => {
         allocated_monthly_credits: 0,
         remained_monthly_credits: 0,
     });
-    const [metaRateLimits, setMetaRateLimits] = useState<{
-        hourly_window?: { started_at: string; resets_at: string; remaining_seconds: number };
-        daily_window?: { started_at: string; resets_at: string; remaining_seconds: number };
-        limits?: {
-            comment_to_dm?: {
-                label: string;
-                description?: string;
-                used: number;
-                limit: number;
-                unit: string;
-                window_type: 'hourly' | 'daily' | 'instantaneous';
-                window_label: string;
-                started_at?: string;
-                resets_at?: string | null;
-                remaining_seconds?: number;
-            };
-            comment_replies?: {
-                label: string;
-                description?: string;
-                used: number;
-                limit: number;
-                unit: string;
-                window_type: 'hourly' | 'daily' | 'instantaneous';
-                window_label: string;
-                started_at?: string;
-                resets_at?: string | null;
-                remaining_seconds?: number;
-            };
-            platform_api?: {
-                label: string;
-                description?: string;
-                used: number;
-                limit: number;
-                unit: string;
-                window_type: 'hourly' | 'daily' | 'instantaneous';
-                window_label: string;
-                started_at?: string;
-                resets_at?: string | null;
-                remaining_seconds?: number;
-            };
-            dm_burst_concurrency?: {
-                label: string;
-                description?: string;
-                used: number;
-                limit: number;
-                unit: string;
-                window_type: 'hourly' | 'daily' | 'instantaneous';
-                window_label: string;
-                started_at?: string;
-                resets_at?: string | null;
-                remaining_seconds?: number;
-            };
-        };
-    } | null>(null);
+    const [metaRateLimits, setMetaRateLimits] = useState<any>(null);
 
     // Live countdown timer for Meta rate limit reset windows
     useEffect(() => {
         if (!metaRateLimits) return;
         const interval = setInterval(() => {
-            setMetaRateLimits((prev) => {
+            setMetaRateLimits((prev: any) => {
                 if (!prev) return prev;
                 const now = Date.now();
 
-                const updateWindow = (win?: { started_at: string; resets_at: string; remaining_seconds: number }) => {
+                const updateWindow = (win?: { started_at?: string; resets_at?: string; remaining_seconds?: number }) => {
                     if (!win?.resets_at) return win;
                     const diffMs = new Date(win.resets_at).getTime() - now;
                     return {
@@ -767,7 +579,7 @@ const AnalyticsView: React.FC = () => {
                 };
 
                 const updateItem = (item?: any) => {
-                    if (!item?.resets_at) return item;
+                    if (!item || !item.resets_at) return item;
                     const diffMs = new Date(item.resets_at).getTime() - now;
                     return {
                         ...item,
@@ -775,17 +587,18 @@ const AnalyticsView: React.FC = () => {
                     };
                 };
 
+                const nextLimits: Record<string, any> = {};
+                if (prev.limits) {
+                    Object.keys(prev.limits).forEach((k) => {
+                        nextLimits[k] = updateItem(prev.limits[k]);
+                    });
+                }
+
                 return {
                     ...prev,
                     hourly_window: updateWindow(prev.hourly_window),
                     daily_window: updateWindow(prev.daily_window),
-                    limits: {
-                        ...prev.limits,
-                        comment_to_dm: updateItem(prev.limits?.comment_to_dm),
-                        comment_replies: updateItem(prev.limits?.comment_replies),
-                        platform_api: updateItem(prev.limits?.platform_api),
-                        dm_burst_concurrency: prev.limits?.dm_burst_concurrency
-                    }
+                    limits: nextLimits
                 };
             });
         }, 1000);
@@ -1382,75 +1195,15 @@ const AnalyticsView: React.FC = () => {
                 </Card>
             )}
 
-            {/* Meta Instagram Platform Rate Limits Section */}
-            <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-lg bg-linear-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center text-white shrink-0 shadow-xs">
-                                <Instagram className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <h2 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
-                                Meta Instagram API Rate Limits & Safety Ceilings
-                            </h2>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            Real-time sliding window constraints enforced by Meta Instagram Graph API. Quota recovers dynamically as calls age past 60 minutes (or 24 hours).
-                        </p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <MetaRateLimitGaugeCard
-                        label="Comment-to-DM Limit"
-                        description="Meta hourly rolling limit for automated DMs from comments"
-                        value={metaRateLimits?.limits?.comment_to_dm?.used ?? actionUsageMetrics.hourly_actions_used ?? 0}
-                        limit={metaRateLimits?.limits?.comment_to_dm?.limit ?? 750}
-                        unit="actions/hr"
-                        windowLabel="1-Hour Rolling Window"
-                        startedAt={metaRateLimits?.limits?.comment_to_dm?.started_at ?? metaRateLimits?.hourly_window?.started_at}
-                        resetsAt={metaRateLimits?.limits?.comment_to_dm?.resets_at ?? metaRateLimits?.hourly_window?.resets_at}
-                        remainingSeconds={metaRateLimits?.limits?.comment_to_dm?.remaining_seconds ?? metaRateLimits?.hourly_window?.remaining_seconds}
-                        syncId="meta-rate-limits-hourly"
-                    />
-                    <MetaRateLimitGaugeCard
-                        label="Comment Actions Limit"
-                        description="Meta 24-hour safety threshold for automated comments"
-                        value={metaRateLimits?.limits?.comment_replies?.used ?? actionUsageMetrics.daily_actions_used ?? 0}
-                        limit={metaRateLimits?.limits?.comment_replies?.limit ?? 4800}
-                        unit="comments/24h"
-                        windowLabel="24-Hour Rolling Window"
-                        startedAt={metaRateLimits?.limits?.comment_replies?.started_at ?? metaRateLimits?.daily_window?.started_at}
-                        resetsAt={metaRateLimits?.limits?.comment_replies?.resets_at ?? metaRateLimits?.daily_window?.resets_at}
-                        remainingSeconds={metaRateLimits?.limits?.comment_replies?.remaining_seconds ?? metaRateLimits?.daily_window?.remaining_seconds}
-                        syncId="meta-rate-limits-daily"
-                    />
-                    <MetaRateLimitGaugeCard
-                        label="Platform Graph API Limit"
-                        description="Meta platform hourly API call threshold"
-                        value={metaRateLimits?.limits?.platform_api?.used ?? Math.min(200, actionUsageMetrics.hourly_actions_used) ?? 0}
-                        limit={metaRateLimits?.limits?.platform_api?.limit ?? 200}
-                        unit="calls/hr"
-                        windowLabel="1-Hour Rolling Window"
-                        startedAt={metaRateLimits?.limits?.platform_api?.started_at ?? metaRateLimits?.hourly_window?.started_at}
-                        resetsAt={metaRateLimits?.limits?.platform_api?.resets_at ?? metaRateLimits?.hourly_window?.resets_at}
-                        remainingSeconds={metaRateLimits?.limits?.platform_api?.remaining_seconds ?? metaRateLimits?.hourly_window?.remaining_seconds}
-                        syncId="meta-rate-limits-platform"
-                    />
-                    <MetaRateLimitGaugeCard
-                        label="DM Concurrency Ceiling"
-                        description="Meta maximum peak burst direct messaging speed"
-                        value={metaRateLimits?.limits?.dm_burst_concurrency?.used ?? (actionUsageMetrics.hourly_actions_used > 0 ? 1 : 0)}
-                        limit={metaRateLimits?.limits?.dm_burst_concurrency?.limit ?? 100}
-                        unit="msgs/sec"
-                        windowLabel="Peak Concurrency"
-                        startedAt={metaRateLimits?.limits?.dm_burst_concurrency?.started_at}
-                        resetsAt={null}
-                        remainingSeconds={0}
-                        syncId="meta-rate-limits-burst"
-                    />
-                </div>
-            </div>
+            {/* Meta Instagram Platform Rate Limits Section - Visible only to PRO / ULTRA plan users */}
+            {isProAccount && (
+                <MetaRateLimitSuite
+                    metaRateLimits={metaRateLimits || undefined}
+                    hourlyUsed={actionUsageMetrics.hourly_actions_used}
+                    dailyUsed={actionUsageMetrics.daily_actions_used}
+                    logs={logs}
+                />
+            )}
 
             {/* Account Plan Action Limits */}
             <div className="space-y-3">

@@ -34,11 +34,6 @@ Behavior toggles:
 - `private_reply_enabled`
 - `share_to_admin_enabled`
 - `once_per_user_24h`
-- `collect_email_enabled`
-- `collect_email_only_gmail`
-- `collect_email_prompt_message`
-- `collect_email_fail_retry_message`
-- `collect_email_success_reply_message`
 - `seen_typing_enabled`
 
 Message payload fields:
