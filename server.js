@@ -204,6 +204,50 @@ if (fs.existsSync(FRONTEND_PUBLIC)) {
   }));
 }
 
+/* ─── Streamer Node Webhook Mounting ───────────────────────────────── */
+const streamerRouter = express.Router();
+let streamerHub = null;
+let streamerDispatcher = null;
+
+try {
+  const { registerWebhookRoutes } = require('./streamer-node/src/webhook-server');
+  const { splitWebhookPayload } = require('./streamer-node/src/meta-parser');
+  const JobStore = require('./streamer-node/src/job-store');
+  const Dispatcher = require('./streamer-node/src/dispatcher');
+
+  const streamerStore = new JobStore({
+    maxAttempts: Math.max(1, Number(process.env.STREAMER_MAX_JOB_ATTEMPTS || 5) || 5)
+  });
+
+  registerWebhookRoutes(streamerRouter, {
+    verifyToken: process.env.META_VERIFY_TOKEN || '',
+    onWebhook: async (payload) => {
+      const allJobs = splitWebhookPayload(payload);
+      const accepted = streamerStore.enqueueMany(allJobs);
+      if (accepted.length > 0 && streamerDispatcher) streamerDispatcher.trigger();
+      return { accepted: accepted.length, forwarded: 0 };
+    },
+    getStats: () => ({
+      role: 'unified-streamer',
+      ...streamerStore.getStats(),
+      ...(streamerHub ? streamerHub.getStats() : {})
+    })
+  });
+
+  // Handle requests for webhook.dmpanda.com or /webhook path
+  app.use((req, res, next) => {
+    const host = (req.headers.host || '').toLowerCase();
+    if (host.startsWith('webhook.') || req.path.startsWith('/webhook')) {
+      return streamerRouter(req, res, next);
+    }
+    next();
+  });
+
+  console.log('[Unified Gateway] Streamer Webhook mounted on /webhook');
+} catch (streamerErr) {
+  console.warn('[Unified Gateway] Streamer Webhook mount skipped:', streamerErr.message);
+}
+
 /* ─── SPA Fallback Routing ──────────────────────────────────────── */
 app.get('*', (req, res) => {
   // If request is for api subdomain and not handled by an API route
@@ -243,14 +287,75 @@ app.get('*', (req, res) => {
 
 const server = http.createServer(app);
 
+/* ─── WorkerHub WebSocket Mounting on HTTP Server ────────────────── */
+try {
+  const WorkerHub = require('./streamer-node/src/worker-hub');
+  const Dispatcher = require('./streamer-node/src/dispatcher');
+  const JobStore = require('./streamer-node/src/job-store');
+
+  const streamerStore = new JobStore({
+    maxAttempts: Math.max(1, Number(process.env.STREAMER_MAX_JOB_ATTEMPTS || 5) || 5)
+  });
+
+  streamerHub = new WorkerHub({
+    server,
+    path: '/workers',
+    sharedSecret: process.env.WORKER_SHARED_SECRET || '',
+    callbacks: {
+      onRegistered: () => streamerDispatcher?.trigger(),
+      onAccepted: ({ jobId }) => streamerStore.markAccepted(jobId),
+      onHeartbeat: ({ jobId }) => streamerStore.markHeartbeat(jobId),
+      onCompleted: ({ jobId }) => {
+        const job = streamerStore.getJob(jobId);
+        if (job?.assignedWorkerId) streamerHub.releaseJob(job.assignedWorkerId, jobId);
+        streamerStore.markCompleted(jobId);
+        streamerDispatcher?.trigger();
+      },
+      onFailed: ({ workerId, jobId, error }) => {
+        if (workerId) streamerHub.releaseJob(workerId, jobId);
+        streamerStore.requeue(jobId, error || 'job_failed');
+        streamerDispatcher?.trigger();
+      },
+      onDisconnected: ({ workerId }) => {
+        const results = streamerStore.releaseWorkerJobs(workerId, 'worker_disconnected');
+        for (const res of results) {
+          if (res.workerId) streamerHub.releaseJob(res.workerId, res.job?.jobId);
+        }
+        streamerDispatcher?.trigger();
+      }
+    }
+  });
+
+  streamerDispatcher = new Dispatcher({ store: streamerStore, hub: streamerHub });
+  console.log('[Unified Gateway] WorkerHub WebSocket server active at /workers');
+} catch (hubErr) {
+  console.warn('[Unified Gateway] WorkerHub mount skipped:', hubErr.message);
+}
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`============================================================`);
   console.log(`  DM Panda Unified Hostinger Cloud Server`);
   console.log(`  Listening on port ${PORT}`);
-  console.log(`  Frontend: http://localhost:${PORT}/`);
-  console.log(`  Admin:    http://localhost:${PORT}/admin`);
-  console.log(`  SEO:      http://localhost:${PORT}/sitemap.xml`);
+  console.log(`  Frontend: http://localhost:${PORT}/ (dmpanda.com)`);
+  console.log(`  Admin:    http://localhost:${PORT}/admin (admin.dmpanda.com)`);
+  console.log(`  API:      http://localhost:${PORT}/api (api.dmpanda.com)`);
+  console.log(`  Webhook:  http://localhost:${PORT}/webhook (webhook.dmpanda.com)`);
   console.log(`============================================================`);
+
+  // Start internal background worker if enabled
+  if (process.env.START_WORKER !== 'false') {
+    try {
+      const DMWorker = require('./worker-node/src/worker');
+      const StreamerClient = require('./worker-node/src/streamer-client');
+      const workerInstance = new DMWorker();
+      process.env.STREAMER_WS_URL = process.env.STREAMER_WS_URL || `ws://127.0.0.1:${PORT}/workers`;
+      const streamerClient = new StreamerClient({ worker: workerInstance });
+      streamerClient.start();
+      console.log(`[Unified Gateway] Background Worker connected to ${process.env.STREAMER_WS_URL}`);
+    } catch (workerErr) {
+      console.warn('[Unified Gateway] Background Worker start skipped:', workerErr.message);
+    }
+  }
 });
 
 server.on('error', (err) => {
