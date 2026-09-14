@@ -173,13 +173,20 @@ const FeatureSection = ({ feature, index }: { feature: (typeof features)[0], ind
         <div className="relative aspect-[4/3] md:aspect-square flex items-center justify-center rounded-2xl sm:rounded-3xl overflow-hidden bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.06] group-hover:border-blue-500/20 dark:group-hover:border-blue-400/20 transition-all duration-500 p-6 sm:p-8 md:p-12 shadow-lg group-hover:shadow-xl dark:shadow-black/20">
           <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/[0.03] via-transparent to-purple-500/[0.03] opacity-0 group-hover:opacity-100 transition-opacity duration-700 dark:from-blue-500/[0.05] dark:to-purple-500/[0.05]" />
           <div className="relative z-10 w-full h-full flex items-center justify-center">
-            <img
-              src={feature.image}
-              alt={feature.name}
-              loading="lazy"
-              decoding="async"
-              className="max-w-full max-h-full object-contain drop-shadow-lg group-hover:scale-[1.03] transition-transform duration-500 ease-out"
-            />
+            <picture className="max-w-full max-h-full flex items-center justify-center">
+              {feature.image.endsWith('.png') && (
+                <source srcSet={feature.image.replace(/\.png$/, '.webp')} type="image/webp" />
+              )}
+              <img
+                src={feature.image}
+                alt={feature.name}
+                loading="lazy"
+                decoding="async"
+                width={600}
+                height={600}
+                className="max-w-full max-h-full object-contain drop-shadow-lg group-hover:scale-[1.03] transition-transform duration-500 ease-out"
+              />
+            </picture>
           </div>
         </div>
       </div>
