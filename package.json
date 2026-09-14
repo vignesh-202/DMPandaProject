@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "install-all": "npm install",
-    "build": "npm run build-all",
+    "build": "node scripts/ensure-build.js",
     "build-all": "npm run build --workspace=Frontend && npm run build --workspace=admin-panel",
     "start": "node server.js",
     "start:concurrent": "concurrently --kill-others \"npm run start:backend\" \"npm run start:streamer\" \"npm run start:worker\" \"npm run start:frontend\" \"npm run start:admin\"",
