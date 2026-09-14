@@ -2,6 +2,7 @@
 // Serves Frontend, Admin Panel, and mounts Backend API seamlessly on a single port (process.env.PORT || 3000)
 // Supports both Subdomain-based routing (app.*, admin.*, api.*) and Path-based routing (/admin, /api, /)
 
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const path = require('path');
@@ -342,13 +343,15 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`  Webhook:  http://localhost:${PORT}/webhook (webhook.dmpanda.com)`);
   console.log(`============================================================`);
 
-  // Start internal background worker if enabled
-  if (process.env.START_WORKER !== 'false') {
+  // Start internal background worker only if explicitly enabled
+  if (process.env.START_WORKER === 'true') {
     try {
       const DMWorker = require('./worker-node/src/worker');
       const StreamerClient = require('./worker-node/src/streamer-client');
       const workerInstance = new DMWorker();
-      process.env.STREAMER_WS_URL = process.env.STREAMER_WS_URL || `ws://127.0.0.1:${PORT}/workers`;
+      const addr = server.address();
+      const listenPort = typeof addr === 'object' && addr ? addr.port : PORT;
+      process.env.STREAMER_WS_URL = process.env.STREAMER_WS_URL || `ws://127.0.0.1:${listenPort}/workers`;
       const streamerClient = new StreamerClient({ worker: workerInstance });
       streamerClient.start();
       console.log(`[Unified Gateway] Background Worker connected to ${process.env.STREAMER_WS_URL}`);

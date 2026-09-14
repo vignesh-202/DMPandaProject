@@ -33,6 +33,10 @@ const isDevOrigin = (origin) => {
     if (normalized.endsWith('.devtunnels.ms')) return true;
     // Allow any localhost origin
     if (normalized.startsWith('http://localhost:') || normalized.startsWith('http://127.0.0.1:')) return true;
+    // Allow dmpanda.com and any subdomain (*.dmpanda.com)
+    if (normalized === 'https://dmpanda.com' || normalized === 'http://dmpanda.com' || normalized.endsWith('.dmpanda.com')) return true;
+    // Allow Hostinger temporary / preview domains
+    if (normalized.endsWith('.hostingersite.com')) return true;
     return false;
 };
 
