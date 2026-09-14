@@ -2,7 +2,7 @@
 // Serves Frontend, Admin Panel, and mounts Backend API seamlessly on a single port (process.env.PORT || 3000)
 // Supports both Subdomain-based routing (app.*, admin.*, api.*) and Path-based routing (/admin, /api, /)
 
-require('dotenv').config();
+try { require('dotenv').config(); } catch (_) {}
 const express = require('express');
 const http = require('http');
 const path = require('path');
