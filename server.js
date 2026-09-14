@@ -9,6 +9,31 @@ const fs = require('fs');
 const zlib = require('zlib');
 const { pipeline } = require('stream/promises');
 
+// Support running any individual service directly via APP_MODE env var:
+// APP_MODE = 'backend' | 'streamer' | 'worker' | 'admin' | 'frontend' | 'all'
+const APP_MODE = String(process.env.APP_MODE || 'all').toLowerCase().trim();
+
+if (APP_MODE === 'backend') {
+  console.log('[Hostinger] Starting Standalone Backend API...');
+  return require('./Backend/app.js');
+}
+if (APP_MODE === 'streamer') {
+  console.log('[Hostinger] Starting Standalone Streamer Node...');
+  return require('./streamer-node/index.js');
+}
+if (APP_MODE === 'worker') {
+  console.log('[Hostinger] Starting Standalone Worker Node...');
+  return require('./worker-node/index.js');
+}
+if (APP_MODE === 'admin') {
+  console.log('[Hostinger] Starting Standalone Admin Panel...');
+  return require('./serve-admin.js');
+}
+if (APP_MODE === 'frontend') {
+  console.log('[Hostinger] Starting Standalone Frontend...');
+  return require('./serve-frontend.js');
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
