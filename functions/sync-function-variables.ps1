@@ -188,6 +188,23 @@ $functionVariables = @{
         $commonBase
         @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
     ) | ForEach-Object { $_ }
+    "database-orphan-sweeper" = @(
+        $commonBase
+        @{ key = "USERS_COLLECTION_ID"; value = (Get-EnvValue -Key "USERS_COLLECTION_ID" -Default "users"); secret = $false }
+        @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
+        @{ key = "AUTOMATIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "AUTOMATIONS_COLLECTION_ID" -Default "automations"); secret = $false }
+        @{ key = "KEYWORDS_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORDS_COLLECTION_ID" -Default "keywords"); secret = $false }
+        @{ key = "KEYWORD_INDEX_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORD_INDEX_COLLECTION_ID" -Default "keyword_index"); secret = $false }
+        @{ key = "SUPER_PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "SUPER_PROFILES_COLLECTION_ID" -Default "super_profiles"); secret = $false }
+        @{ key = "REPLY_TEMPLATES_COLLECTION_ID"; value = (Get-EnvValue -Key "REPLY_TEMPLATES_COLLECTION_ID" -Default "reply_templates"); secret = $false }
+        @{ key = "COMMENT_MODERATION_COLLECTION_ID"; value = (Get-EnvValue -Key "COMMENT_MODERATION_COLLECTION_ID" -Default "comment_moderation"); secret = $false }
+        @{ key = "CHAT_STATES_COLLECTION_ID"; value = (Get-EnvValue -Key "CHAT_STATES_COLLECTION_ID" -Default "chat_states"); secret = $false }
+        @{ key = "LOGS_COLLECTION_ID"; value = (Get-EnvValue -Key "LOGS_COLLECTION_ID" -Default "logs"); secret = $false }
+        @{ key = "COUPON_REDEMPTIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "COUPON_REDEMPTIONS_COLLECTION_ID" -Default "coupon_redemptions"); secret = $false }
+        @{ key = "PAYMENT_ATTEMPTS_COLLECTION_ID"; value = (Get-EnvValue -Key "PAYMENT_ATTEMPTS_COLLECTION_ID" -Default "payment_attempts"); secret = $false }
+        @{ key = "EMAIL_CHANGE_TOKENS_COLLECTION_ID"; value = (Get-EnvValue -Key "EMAIL_CHANGE_TOKENS_COLLECTION_ID" -Default "email_change_tokens"); secret = $false }
+        @{ key = "JOB_LOCKS_COLLECTION_ID"; value = (Get-EnvValue -Key "JOB_LOCKS_COLLECTION_ID" -Default "job_locks"); secret = $false }
+    ) | ForEach-Object { $_ }
 }
 
 $selectedFunctionIds = if ([string]::IsNullOrWhiteSpace($FunctionId)) {

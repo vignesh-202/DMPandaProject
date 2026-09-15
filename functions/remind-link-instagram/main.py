@@ -402,7 +402,7 @@ def main(context):
                 )
                 profile_doc = {
                     "plan_code": _obj_get(primary_account, "plan_code", "free") if primary_account else "free",
-                    "expiry_date": _obj_get(primary_account, "subscription_expires") or _obj_get(primary_account, "expiry_date") if primary_account else None
+                    "expiry_date": (_obj_get(primary_account, "expires_at") or _obj_get(primary_account, "subscription_expires") or _obj_get(primary_account, "expiry_date")) if primary_account else None
                 }
                 reminder_type = _resolve_reminder_type(
                     user_doc,

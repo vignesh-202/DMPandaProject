@@ -213,6 +213,10 @@ foreach ($item in $selected) {
         Invoke-AppwriteCommand -Args $updateArgs
     }
 
+    if ($WithVariables) {
+        Sync-FunctionVariables -TargetFunctionId $item.functionId
+    }
+
     $deployArgs = @(
         "functions", "create-deployment",
         "--function-id", $item.functionId,
@@ -225,10 +229,6 @@ foreach ($item in $selected) {
 
     Write-Host "Verifying function status for $($item.functionId)"
     Invoke-AppwriteCommand -Args @("functions", "get", "--function-id", $item.functionId)
-
-    if ($WithVariables) {
-        Sync-FunctionVariables -TargetFunctionId $item.functionId
-    }
 }
 
 if ($RemoveObsoleteFunctions) {

@@ -17,7 +17,8 @@ const {
     CHAT_STATES_COLLECTION_ID,
     LOGS_COLLECTION_ID,
     KEYWORDS_COLLECTION_ID,
-    KEYWORD_INDEX_COLLECTION_ID
+    KEYWORD_INDEX_COLLECTION_ID,
+    EMAIL_CHANGE_TOKENS_COLLECTION_ID
 } = require('./appwrite');
 
 const isMissingCollectionError = (error) =>
@@ -221,7 +222,8 @@ const cleanupUserOwnedData = async (databases, userId, options = {}) => {
         CHAT_STATES_COLLECTION_ID,
         LOGS_COLLECTION_ID,
         KEYWORDS_COLLECTION_ID,
-        KEYWORD_INDEX_COLLECTION_ID
+        KEYWORD_INDEX_COLLECTION_ID,
+        EMAIL_CHANGE_TOKENS_COLLECTION_ID
     ];
 
     for (const collectionId of userScopedCollections) {

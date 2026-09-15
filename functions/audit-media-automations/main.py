@@ -332,7 +332,7 @@ def _story_should_exist(
     return True
 
 
-def _send_report_email(messaging: Messaging, user_id: str, rows: list[dict], ts: str):
+def _send_report_email(client: Client, db_id: str, messaging: Messaging, user_id: str, rows: list[dict], ts: str):
     subject = f"Automation Cleanup Report: {len(rows)} invalid automations removed"
     frontend_origin = _resolve_frontend_origin(client, db_id)
     dashboard_url = f"{frontend_origin}/dashboard" if frontend_origin else ""
@@ -538,7 +538,7 @@ def main(context):
         for user_id, rows in deletions_by_user.items():
             try:
                 if not dry_run:
-                    _send_report_email(messaging, user_id, rows, timestamp_iso)
+                    _send_report_email(client, db_id, messaging, user_id, rows, timestamp_iso)
                     email_sent += 1
             except Exception as err:  # noqa: BLE001
                 context.error(f"Failed sending cleanup report email for user {user_id}: {err}")

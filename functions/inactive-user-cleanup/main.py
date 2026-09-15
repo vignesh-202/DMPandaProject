@@ -752,6 +752,7 @@ def _delete_user_data(client: Client, db_id: str, collections: dict, user_doc):
         collections["ig_accounts"]: {**account_field_values, **user_field_values},
         collections["payment_attempts"]: user_field_values,
         collections["coupon_redemptions"]: user_field_values,
+        collections["email_change_tokens"]: user_field_values,
     }
     for collection_id, field_map in purge_plan.items():
         deleted = _delete_by_any_field(client, db_id, collection_id, field_map)
@@ -835,6 +836,7 @@ def main(context):
             "payment_attempts": payment_attempts_collection,
             "coupon_redemptions": coupon_redemptions_collection,
             "transactions": transactions_collection,
+            "email_change_tokens": _env("EMAIL_CHANGE_TOKENS_COLLECTION_ID", "email_change_tokens"),
         }
 
         now = datetime.now(timezone.utc)

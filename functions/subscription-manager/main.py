@@ -526,10 +526,7 @@ def _downgrade_account_to_free(client, db_id, ig_accounts_collection, pricing_ma
         "plan_code": DEFAULT_FREE_PLAN,
         "plan_name": free_defaults.get("plan_name", "Free Plan"),
         "subscription_status": "inactive",
-        "subscription_expires": None,
-        "hourly_action_limit": free_defaults.get("hourly_action_limit", 30),
-        "daily_action_limit": free_defaults.get("daily_action_limit", 100),
-        "monthly_action_limit": free_defaults.get("monthly_action_limit", 1000),
+        "expires_at": None,
     }
     return _update_document(client, db_id, ig_accounts_collection, account_id, patch)
 
@@ -767,7 +764,7 @@ def main(context):
             current_plan = _normalize_plan_code(_obj_get(account, "plan_code"))
             if not current_plan or current_plan == DEFAULT_FREE_PLAN:
                 continue
-            expiry_date = _parse_datetime(_obj_get(account, "subscription_expires") or _obj_get(account, "expiry_date"))
+            expiry_date = _parse_datetime(_obj_get(account, "expires_at") or _obj_get(account, "subscription_expires") or _obj_get(account, "expiry_date"))
 
             try:
                 if expiry_date:

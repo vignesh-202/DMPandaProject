@@ -274,6 +274,8 @@ def main(context):
                 ('comment_moderation', 'account_id'),
                 ('logs', 'account_id'),
                 ('chat_states', 'account_id'),
+                ('keywords', 'account_id'),
+                ('keyword_index', 'account_id'),
             ]
             deleted_counts = {}
 

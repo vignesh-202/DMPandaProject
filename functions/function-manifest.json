@@ -136,5 +136,16 @@
     "timeout": 900,
     "schedule": "*/15 * * * *",
     "scopes": ["documents.read", "documents.write"]
+  },
+  {
+    "functionId": "database-orphan-sweeper",
+    "name": "database-orphan-sweeper",
+    "runtime": "python-3.9",
+    "path": "database-orphan-sweeper",
+    "entrypoint": "main.py",
+    "buildCommands": "pip install appwrite==14.1.0 python-dotenv requests",
+    "timeout": 900,
+    "schedule": "0 3 * * 0,3",
+    "scopes": ["documents.read", "documents.write"]
   }
 ]
