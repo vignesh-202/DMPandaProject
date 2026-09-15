@@ -57,12 +57,21 @@ const getAllowedOAuthOrigins = () => (
         .filter(Boolean)
 );
 
+const isAllowedAuthOrigin = (origin) => {
+    if (!origin) return false;
+    const normalized = normalizeOrigin(origin);
+    if (getAllowedOAuthOrigins().includes(normalized)) return true;
+    if (normalized.endsWith('.devtunnels.ms')) return true;
+    if (normalized.startsWith('http://localhost:') || normalized.startsWith('http://127.0.0.1:')) return true;
+    if (normalized.endsWith('.dmpanda.com') || normalized === 'https://dmpanda.com') return true;
+    return false;
+};
+
 const resolveOAuthOrigin = (req) => {
     const requestedOrigin = normalizeOrigin(req.query.redirect_origin);
     const target = String(req.query.target || '').trim().toLowerCase();
-    const allowedOrigins = getAllowedOAuthOrigins();
 
-    if (requestedOrigin && allowedOrigins.includes(requestedOrigin)) {
+    if (requestedOrigin && isAllowedAuthOrigin(requestedOrigin)) {
         return requestedOrigin;
     }
 
@@ -75,6 +84,10 @@ const resolveOAuthOrigin = (req) => {
 
 const resolveOAuthClientOrigin = (req) => {
     const requestedOrigin = normalizeOrigin(req.query.redirect_origin);
+    if (requestedOrigin && isAllowedAuthOrigin(requestedOrigin)) {
+        return requestedOrigin;
+    }
+
     const target = normalizeAppContext(req.query.target || getAppContextFromRequest(req));
     const configuredOrigin = target === 'admin'
         ? normalizeOrigin(process.env.ADMIN_PANEL_ORIGIN)
@@ -82,13 +95,6 @@ const resolveOAuthClientOrigin = (req) => {
 
     if (configuredOrigin) {
         return configuredOrigin;
-    }
-
-    if (requestedOrigin) {
-        const allowedOrigins = getAllowedOAuthOrigins();
-        if (allowedOrigins.includes(requestedOrigin)) {
-            return requestedOrigin;
-        }
     }
 
     return resolveOAuthOrigin(req);

@@ -242,7 +242,7 @@ const cleanupUserOwnedData = async (databases, userId, options = {}) => {
 
     const anonymizedTransactions = options.retainFinancialRecords === false
         ? (
-            await deleteByAnyField(databases, TRANSACTIONS_COLLECTION_ID, ['userId', 'user_id'], safeUserId)
+            await deleteByAnyField(databases, TRANSACTIONS_COLLECTION_ID, ['userId'], safeUserId)
         )
         : await anonymizeTransactionsForUser(databases, safeUserId);
 

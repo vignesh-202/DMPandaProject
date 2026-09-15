@@ -588,23 +588,11 @@ const calculateTransactionExpiry = (transaction, plan = null) => {
 const listUserTransactions = async (databases, userId, limit = 250) => {
     const safeUserId = String(userId || '').trim();
     if (!safeUserId) return [];
-    const [bySnakeCase, byCamelCase] = await Promise.all([
-        databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
-            Query.equal('user_id', safeUserId),
-            Query.limit(limit)
-        ]).catch(() => ({ documents: [] })),
-        databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
-            Query.equal('userId', safeUserId),
-            Query.limit(limit)
-        ]).catch(() => ({ documents: [] }))
-    ]);
-    const seen = new Set();
-    return [...(bySnakeCase.documents || []), ...(byCamelCase.documents || [])].filter((doc) => {
-        const key = String(doc?.$id || doc?.transactionId || '').trim();
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
+    const response = await databases.listDocuments(APPWRITE_DATABASE_ID, TRANSACTIONS_COLLECTION_ID, [
+        Query.equal('userId', safeUserId),
+        Query.limit(limit)
+    ]).catch(() => ({ documents: [] }));
+    return response.documents || [];
 };
 
 const parseAdminOverride = (profile = null) => {
