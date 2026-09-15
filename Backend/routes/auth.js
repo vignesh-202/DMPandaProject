@@ -60,11 +60,7 @@ const getAllowedOAuthOrigins = () => (
 const isAllowedAuthOrigin = (origin) => {
     if (!origin) return false;
     const normalized = normalizeOrigin(origin);
-    if (getAllowedOAuthOrigins().includes(normalized)) return true;
-    if (normalized.endsWith('.devtunnels.ms')) return true;
-    if (normalized.startsWith('http://localhost:') || normalized.startsWith('http://127.0.0.1:')) return true;
-    if (normalized.endsWith('.dmpanda.com') || normalized === 'https://dmpanda.com') return true;
-    return false;
+    return getAllowedOAuthOrigins().includes(normalized);
 };
 
 const resolveOAuthOrigin = (req) => {

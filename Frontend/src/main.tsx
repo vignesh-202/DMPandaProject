@@ -4,15 +4,6 @@ import App from './App.tsx';
 import './index.css';
 
 const resolveApiBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname.toLowerCase();
-    if (host === 'dmpanda.com' || host === 'admin.dmpanda.com' || host.endsWith('.dmpanda.com')) {
-      return 'https://api.dmpanda.com';
-    }
-    if (host.includes('-5173.') && host.endsWith('.devtunnels.ms')) {
-      return `${window.location.protocol}//${host.replace('-5173.', '-5000.')}`;
-    }
-  }
   const envBase = String(((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL) || '').trim().replace(/\/+$/, '');
   return envBase;
 };
