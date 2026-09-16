@@ -289,16 +289,24 @@ def main(context):
         ig_accounts = _list_all_documents(client, db_id, ig_accounts_col)
         valid_ig_account_ids = set()
         for acc in ig_accounts:
-            for field in ("$id", "account_id", "ig_user_id"):
-                val = str(_obj_get(acc, field, "") or "").strip()
-                if val:
-                    valid_ig_account_ids.add(val)
+            uid = str(_obj_get(acc, "user_id", "") or "").strip()
+            if uid and uid in valid_user_ids:
+                for field in ("$id", "account_id", "ig_user_id"):
+                    val = str(_obj_get(acc, field, "") or "").strip()
+                    if val:
+                        valid_ig_account_ids.add(val)
 
         automations = _list_all_documents(client, db_id, automations_col)
-        valid_automation_ids = {str(_obj_get(a, "$id", "") or "").strip() for a in automations}
-        valid_automation_ids.discard("")
+        valid_automation_ids = set()
+        for a in automations:
+            aid = str(_obj_get(a, "account_id", "") or "").strip()
+            uid = str(_obj_get(a, "user_id", "") or "").strip()
+            if aid in valid_ig_account_ids and (not uid or uid in valid_user_ids):
+                doc_id = str(_obj_get(a, "$id", "") or "").strip()
+                if doc_id:
+                    valid_automation_ids.add(doc_id)
 
-        context.log(f"Parent Index Loaded: {len(valid_user_ids)} users, {len(valid_ig_account_ids)} IG account refs, {len(valid_automation_ids)} automations.")
+        context.log(f"Parent Index Loaded: {len(valid_user_ids)} users, {len(valid_ig_account_ids)} valid IG account refs, {len(valid_automation_ids)} valid automations.")
 
         summary = {
             "dry_run": dry_run,
@@ -405,7 +413,7 @@ def main(context):
         # 4. Standard User/Account Scoped Collections
         scoped_collections = [
             ("super_profiles", "SUPER_PROFILES_COLLECTION_ID", ["user_id", "account_id"]),
-            ("reply_templates", "REPLY_TEMPLATES_COLLECTION_ID", ["user_id"]),
+            ("reply_templates", "REPLY_TEMPLATES_COLLECTION_ID", ["user_id", "account_id"]),
             ("comment_moderation", "COMMENT_MODERATION_COLLECTION_ID", ["account_id", "user_id"]),
             ("chat_states", "CHAT_STATES_COLLECTION_ID", ["account_id"]),
             ("logs", "LOGS_COLLECTION_ID", ["account_id"]),
@@ -460,6 +468,47 @@ def main(context):
                     del_count += 1
                     total_deletions += 1
             summary["deleted"][col_name] = del_count
+
+        # 5. transactions (Anonymize un-anonymized transactions whose user no longer exists)
+        tx_col_id = _env("TRANSACTIONS_COLLECTION_ID", "transactions")
+        try:
+            tx_docs = _list_all_documents(client, db_id, tx_col_id)
+            summary["scanned"]["transactions"] = len(tx_docs)
+            un_anonymized_orphans = []
+            for tx in tx_docs:
+                if not _is_older_than_grace(tx, cutoff_time):
+                    continue
+                tx_uid = str(_obj_get(tx, "userId", "") or _obj_get(tx, "user_id", "") or "").strip()
+                if tx_uid and not tx_uid.startswith("deleted:") and tx_uid not in valid_user_ids:
+                    un_anonymized_orphans.append(tx)
+
+            summary["orphans_found"]["transactions"] = len(un_anonymized_orphans)
+            anon_count = 0
+            for tx in un_anonymized_orphans:
+                if not _can_delete():
+                    break
+                tx_id = str(_obj_get(tx, "$id", "") or "").strip()
+                if not dry_run and tx_id:
+                    import hashlib
+                    raw_uid = str(_obj_get(tx, "userId", "") or _obj_get(tx, "user_id", "") or "").strip()
+                    hash_val = hashlib.sha256(f"deleted-user:{raw_uid}".encode("utf-8")).hexdigest()[:32]
+                    del_ref = f"deleted:{hash_val}"
+                    try:
+                        _call_appwrite(
+                            client,
+                            "patch",
+                            f"/databases/{db_id}/collections/{tx_col_id}/documents/{tx_id}",
+                            {"data": {"userId": del_ref, "notes": f"{str(_obj_get(tx, 'notes', '') or '').strip()} [anonymized by sweeper]".strip()}},
+                        )
+                        anon_count += 1
+                        total_deletions += 1
+                    except Exception as e:
+                        summary["errors"].append(f"Failed to anonymize transaction {tx_id}: {str(e)}")
+                else:
+                    anon_count += 1
+            summary["deleted"]["transactions"] = anon_count
+        except Exception as e:
+            summary["errors"].append(f"Failed to scan transactions: {str(e)}")
 
         summary["total_deleted"] = total_deletions
         summary["duration_seconds"] = round(time.time() - start_time, 2)
