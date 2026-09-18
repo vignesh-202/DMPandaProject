@@ -1,14 +1,58 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 class JobStore {
-    constructor({ maxAttempts = 5, eventKeyTtlMs = 10 * 60 * 1000 } = {}) {
+    constructor({ maxAttempts = 5, eventKeyTtlMs = 10 * 60 * 1000, maxQueueSize = 3000, walPath } = {}) {
         this.maxAttempts = Math.max(1, Number(maxAttempts) || 5);
         this.eventKeyTtlMs = Math.max(1000, Number(eventKeyTtlMs) || (10 * 60 * 1000));
+        this.maxQueueSize = Math.max(1, Number(process.env.STREAMER_MAX_QUEUE_SIZE || maxQueueSize) || 3000);
+        this.walPath = walPath || path.join(__dirname, '../data/eventkeys.wal');
         this.jobs = new Map();
         this.pendingQueue = [];
         this.conversationInFlight = new Map();
         this.eventKeyIndex = new Map();
         this.recentEventKeys = new Map();
+        this.shedJobsCount = 0;
+
+        this._initWal();
+    }
+
+    _initWal() {
+        try {
+            const dir = path.dirname(this.walPath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            if (fs.existsSync(this.walPath)) {
+                const now = Date.now();
+                const content = fs.readFileSync(this.walPath, 'utf8');
+                const lines = content.split('\n');
+                let validLines = [];
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed) continue;
+                    const [tsStr, key] = trimmed.split('\t');
+                    const ts = Number(tsStr);
+                    if (ts && key && (now - ts) < this.eventKeyTtlMs) {
+                        this.recentEventKeys.set(key, ts + this.eventKeyTtlMs);
+                        validLines.push(trimmed);
+                    }
+                }
+                // Compact WAL to only valid recent lines
+                fs.writeFileSync(this.walPath, validLines.join('\n') + (validLines.length ? '\n' : ''));
+            }
+        } catch (err) {
+            // Non-fatal, fallback to memory
+        }
+    }
+
+    _appendWal(eventKey) {
+        if (!eventKey) return;
+        try {
+            const line = `${Date.now()}\t${eventKey}\n`;
+            fs.appendFile(this.walPath, line, () => {});
+        } catch (_) {}
     }
 
     enqueueMany(jobInputs = []) {
@@ -19,6 +63,26 @@ class JobStore {
             if (eventKey && (this.eventKeyIndex.has(eventKey) || this.recentEventKeys.has(eventKey))) {
                 continue;
             }
+
+            if (eventKey) {
+                this._appendWal(eventKey);
+            }
+
+            // Server 2 RAM Guard: If pending queue hits max threshold, shed oldest unassigned job
+            if (this.pendingQueue.length >= this.maxQueueSize) {
+                while (this.pendingQueue.length >= this.maxQueueSize) {
+                    const dropJobId = this.pendingQueue.shift();
+                    const dropJob = this.jobs.get(dropJobId);
+                    if (dropJob && dropJob.state === 'pending') {
+                        this.jobs.delete(dropJobId);
+                        if (dropJob.eventKey) {
+                            this._deleteIndexedEventKey(dropJob.eventKey, dropJobId);
+                        }
+                        this.shedJobsCount += 1;
+                    }
+                }
+            }
+
             const jobId = crypto.randomUUID();
             const job = {
                 jobId,
@@ -64,9 +128,12 @@ class JobStore {
             assignedJobs: assigned,
             processingJobs: processing,
             conversationsInFlight: this.conversationInFlight.size,
-            recentEventKeys: this.recentEventKeys.size
+            recentEventKeys: this.recentEventKeys.size,
+            shedJobsCount: this.shedJobsCount,
+            maxQueueSize: this.maxQueueSize
         };
     }
+
 
     getJob(jobId) {
         return this.jobs.get(String(jobId || '').trim()) || null;

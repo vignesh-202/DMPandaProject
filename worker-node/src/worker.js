@@ -1623,13 +1623,13 @@ class DMWorker {
     async _processCommentEvent(webhookData, options = {}) {
         const commentEvent = this._extractCommentEvent(webhookData);
         if (!commentEvent?.recipientId || !commentEvent?.senderId || !commentEvent?.text) {
-            return false;
+            return { handled: false, retryable: false, automationType: 'invalid_comment_event' };
         }
 
         const igAccount = await this.appwrite.getIGAccount(commentEvent.recipientId);
         if (!igAccount) {
             console.error(`IG account ${commentEvent.recipientId} not found for comment event.`);
-            return false;
+            return { handled: false, retryable: false, automationType: 'account_not_found' };
         }
 
         const { accessState, profile, executionProfile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
@@ -1641,7 +1641,7 @@ class DMWorker {
                 reason: actionLimitGate.reason,
                 ban_mode: accessState?.ban_mode || 'none'
             });
-            return { handled: false, automationType: actionLimitGate.reason };
+            return { handled: false, retryable: false, automationType: actionLimitGate.reason };
         }
 
         const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || commentEvent.recipientId).trim();
@@ -1760,7 +1760,7 @@ class DMWorker {
                     reason: creditGate.reason,
                     ban_mode: accessState?.ban_mode || 'none'
                 });
-                return { handled: false, automationType: creditGate.reason };
+                return { handled: false, retryable: false, automationType: creditGate.reason };
             }
 
             if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
@@ -1778,16 +1778,16 @@ class DMWorker {
                 commentReplySent = await instagram.replyToComment(commentEvent.commentId, commentReplyText);
                 if (primaryAccountId) {
                     await this._recordAutomationLog({
+                        userId: igAccount.user_id,
                         accountId: primaryAccountId,
+                        automationId: matchedAutomation.$id,
+                        automationType: 'comment_public_reply',
+                        eventType: 'comment',
                         recipientId: commentEvent.senderId,
                         senderName: commentEvent.senderId,
-                        automationId: matchedAutomation?.$id || null,
-                        automationType: matchedAutomation?.automation_type || 'comment',
-                        eventType: 'comment',
-                        source: 'worker_node_comment_reply',
-                        message: commentReplySent ? 'Sent public comment reply' : 'Failed public comment reply',
-                        payload: { comment_id: commentEvent.commentId, text: commentReplyText },
-                        status: commentReplySent ? 'success' : 'failed'
+                        status: commentReplySent ? 'success' : 'failed',
+                        message: commentReplyText,
+                        source: 'worker_node'
                     });
                 }
             }
@@ -1800,29 +1800,34 @@ class DMWorker {
                     await this._sendFollowersOnlyPrompt(instagram, commentEvent.senderId, igAccount, matchedAutomation, commentEvent.commentId || null);
                     return {
                         handled: true,
-                        automationType
+                        automationType,
+                        retryable: false
                     };
                 }
             }
 
-            const success = await this._sendAutomationReply({
-                instagram,
-                senderId: commentEvent.senderId,
-                recipientId: commentEvent.recipientId,
-                messageText: commentEvent.text,
-                automation: matchedAutomation,
-                automationAccountIds,
-                watermarkPolicy,
-                chainState,
-                commentId: commentEvent.commentId || null,
-                ownerUserId: igAccount.user_id,
-                eventType: 'comment',
-                accountId: primaryAccountId,
-                commentReplySent: true
-            });
+            // Send private DM reply
+            const hasDmTemplate = Boolean(matchedAutomation.template || matchedAutomation.template_id);
+            if (hasDmTemplate) {
+                const dmSuccess = await this._sendAutomationReply({
+                    instagram,
+                    senderId: commentEvent.senderId,
+                    recipientId: commentEvent.recipientId,
+                    messageText: commentEvent.text,
+                    automation: matchedAutomation,
+                    automationAccountIds,
+                    watermarkPolicy,
+                    chainState,
+                    ownerUserId: igAccount.user_id,
+                    eventType: 'comment',
+                    accountId: primaryAccountId
+                });
+                if (dmSuccess) handled = true;
+            } else if (commentReplySent) {
+                handled = true;
+            }
 
-            handled = handled || success === true || commentReplySent === true;
-            if (success) {
+            if (handled) {
                 if (this._isShareToAdminAutomation(matchedAutomation)) {
                     nextConversationState.mediaShareSent = true;
                 }
@@ -1853,19 +1858,20 @@ class DMWorker {
 
         return {
             handled,
-            automationType: lastAutomationType
+            automationType: handled ? lastAutomationType : 'unmatched_comment',
+            retryable: false
         };
     }
 
     async _processMentionEvent(webhookData, options = {}) {
         const mentionEvent = this._extractMentionEvent(webhookData);
         if (!mentionEvent?.recipientId || !mentionEvent?.senderId) {
-            return false;
+            return { handled: false, retryable: false, automationType: 'invalid_mention_event' };
         }
 
         const igAccount = await this.appwrite.getIGAccount(mentionEvent.recipientId);
         if (!igAccount) {
-            return false;
+            return { handled: false, retryable: false, automationType: 'account_not_found' };
         }
 
         const { accessState, profile, executionProfile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
@@ -1877,7 +1883,7 @@ class DMWorker {
                 reason: actionLimitGate.reason,
                 ban_mode: accessState?.ban_mode || 'none'
             });
-            return { handled: false, automationType: actionLimitGate.reason };
+            return { handled: false, retryable: false, automationType: actionLimitGate.reason };
         }
 
         const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || mentionEvent.recipientId).trim();
@@ -1895,11 +1901,11 @@ class DMWorker {
         }
         if (!matchedAutomation) {
             if (this._hasRecentWelcomeReply(conversationKey, options)) {
-                return { handled: true, automationType: 'welcome_message' };
+                return { handled: true, automationType: 'welcome_message', retryable: false };
             }
             matchedAutomation = await this.appwrite.getActiveConfigAutomation(automationAccountIds, 'welcome_message');
             if (!matchedAutomation) {
-                return false;
+                return { handled: false, retryable: false, automationType: 'no_keyword_match' };
             }
         }
 
@@ -1914,7 +1920,7 @@ class DMWorker {
                 reason: planGate.invalidState ? 'invalid_due_to_plan' : 'plan_feature_blocked',
                 eventType: 'mention_feature_locked'
             });
-            return { handled: false, automationType: 'invalid_due_to_plan' };
+            return { handled: false, retryable: false, automationType: 'invalid_due_to_plan' };
         }
         const creditGate = this._getActionLimitGate(executionProfile);
         if (creditGate.blocked) {
@@ -1925,22 +1931,22 @@ class DMWorker {
                 reason: creditGate.reason,
                 ban_mode: accessState?.ban_mode || 'none'
             });
-            return { handled: false, automationType: creditGate.reason };
+            return { handled: false, retryable: false, automationType: creditGate.reason };
         }
         if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
-            return { handled: true, automationType };
+            return { handled: true, automationType, retryable: false };
         }
 
         if (this._isShareToAdminAutomation(matchedAutomation) && nextConversationState.mediaShareSent === true) {
             console.log(`Skipping media share for automation ${matchedAutomation.$id} because it was already sent.`);
-            return { handled: true, automationType };
+            return { handled: true, automationType, retryable: false };
         }
 
         if (matchedAutomation.followers_only === true) {
             const profile = await instagram.getUserProfile(mentionEvent.senderId);
             if (profile?.is_user_follow_business !== true) {
                 await this._sendFollowersOnlyPrompt(instagram, mentionEvent.senderId, igAccount, matchedAutomation);
-                return { handled: true, automationType };
+                return { handled: true, automationType, retryable: false };
             }
         }
 
@@ -1987,7 +1993,7 @@ class DMWorker {
             }
         }
 
-        return { handled: success, automationType };
+        return { handled: success, automationType, retryable: success === true ? true : false };
     }
 
     /**
@@ -2012,7 +2018,7 @@ class DMWorker {
                     return this._processCommentEvent(webhookData, options);
                 }
                 console.log('Not a messaging event, skipping.');
-                return false;
+                return { handled: false, retryable: false, automationType: 'not_messaging_event' };
             }
 
             const recipientId = entry.id; // The Page/IG Account receiving the message
@@ -2023,17 +2029,17 @@ class DMWorker {
 
             if (messaging.read) {
                 console.log('Ignoring Instagram read receipt event.');
-                return false;
+                return { handled: false, retryable: false, automationType: 'read_receipt' };
             }
 
             if (messaging.delivery) {
                 console.log('Ignoring Instagram delivery receipt event.');
-                return false;
+                return { handled: false, retryable: false, automationType: 'delivery_receipt' };
             }
 
             if (message?.is_echo === true) {
                 console.log('Ignoring echoed outbound Instagram message.');
-                return false;
+                return { handled: false, retryable: false, automationType: 'echo_message' };
             }
 
             // Extract share event info early
@@ -2062,7 +2068,7 @@ class DMWorker {
 
             if (recipientId && senderId && String(recipientId).trim() === String(senderId).trim() && !isShareEvent) {
                 console.log(`Ignoring self-authored business message event from ${senderId}.`);
-                return false;
+                return { handled: false, retryable: false, automationType: 'self_authored_event' };
             }
 
             const quickReplyPayload = message?.quick_reply?.payload;
@@ -2073,7 +2079,7 @@ class DMWorker {
 
             if (!inboundText && !isShareEvent) {
                 console.log('No message or postback text found, skipping.');
-                return false;
+                return { handled: false, retryable: false, automationType: 'empty_inbound_text' };
             }
 
             console.log(`Processing message from ${senderId}: "${inboundText || '[Share Event]'}"`);
@@ -2083,7 +2089,7 @@ class DMWorker {
             const igAccount = await this.appwrite.getIGAccount(recipientId);
             if (!igAccount) {
                 console.error(`IG account ${recipientId} not found in database.`);
-                return false;
+                return { handled: false, retryable: false, automationType: 'account_not_found' };
             }
             console.log(`IG account found: ${igAccount.username}`);
             const { accessState, profile, executionProfile, actionLimitGate } = await this._getFreshExecutionGateState(igAccount.user_id, igAccount);
@@ -2097,6 +2103,7 @@ class DMWorker {
                 });
                 return {
                     handled: false,
+                    retryable: false,
                     automationType: actionLimitGate.reason
                 };
             }
@@ -2108,7 +2115,7 @@ class DMWorker {
 
             if (businessIdentifiers.has(String(senderId || '').trim()) && !isShareEvent) {
                 console.log(`Ignoring self-authored business message event from ${senderId}.`);
-                return false;
+                return { handled: false, retryable: false, automationType: 'self_authored_event' };
             }
 
             if (!isShareEvent && typeof this.appwrite?.isManagedInstagramAccount === 'function') {
@@ -2117,7 +2124,7 @@ class DMWorker {
                     console.log(
                         `Ignoring DM from managed Instagram account ${senderId} to avoid cross-account automation loops.`
                     );
-                    return false;
+                    return { handled: false, retryable: false, automationType: 'managed_account_event' };
                 }
             }
 
@@ -2277,7 +2284,11 @@ class DMWorker {
 
                 if (!welcomeAutomation) {
                     console.log(`No active welcome message automation for account ${recipientId}.`);
-                    return false;
+                    return {
+                        handled: false,
+                        retryable: false,
+                        automationType: 'no_keyword_match'
+                    };
                 }
 
                 matchedAutomation = welcomeAutomation;
@@ -2298,6 +2309,7 @@ class DMWorker {
                 });
                 return {
                     handled: false,
+                    retryable: false,
                     automationType: 'invalid_due_to_plan'
                 };
             }
@@ -2312,6 +2324,7 @@ class DMWorker {
                 });
                 return {
                     handled: false,
+                    retryable: false,
                     automationType: creditGate.reason
                 };
             }
@@ -2435,14 +2448,19 @@ class DMWorker {
 
             return {
                 handled: success,
-                automationType
+                automationType,
+                retryable: success === true ? true : false
             };
         } catch (error) {
             console.error('Error in DMWorker.processMessage:', error);
             if (options?.throwOnError === true) {
                 throw error;
             }
-            return false;
+            return {
+                handled: false,
+                retryable: false,
+                automationType: 'processing_error'
+            };
         }
     }
 
@@ -2467,10 +2485,14 @@ class DMWorker {
             }).join(' ');
             bufferedLogs.push({ level, text: rendered });
         };
-        console.log = (...args) => pushBufferedLog('log', args);
-        console.info = (...args) => pushBufferedLog('info', args);
-        console.warn = (...args) => pushBufferedLog('warn', args);
-        console.error = (...args) => pushBufferedLog('error', args);
+        const isInterceptionActive = Boolean(console._isTracingActive);
+        if (!isInterceptionActive) {
+            console._isTracingActive = true;
+            console.log = (...args) => pushBufferedLog('log', args);
+            console.info = (...args) => pushBufferedLog('info', args);
+            console.warn = (...args) => pushBufferedLog('warn', args);
+            console.error = (...args) => pushBufferedLog('error', args);
+        }
 
         const flushBufferedLogs = (resultPayload) => {
             originalConsole.log(line);
@@ -2499,7 +2521,8 @@ class DMWorker {
             originalConsole.log(line);
         };
         const shouldClaim = Boolean(
-            meta?.eventKey
+            String(process.env.WORKER_CLAIM_PROCESSING_EVENTS || '').trim().toLowerCase() === 'true'
+            && meta?.eventKey
             && meta?.accountId
             && typeof this.appwrite?.claimProcessingEvent === 'function'
             && typeof this.appwrite?.finalizeProcessingEvent === 'function'
@@ -2507,7 +2530,7 @@ class DMWorker {
 
         try {
             if (this._wasProcessedRecently(meta)) {
-                const result = { handled: true, duplicate: true, automationType: 'duplicate_event' };
+                const result = { handled: true, duplicate: true, retryable: false, automationType: 'duplicate_event' };
                 flushBufferedLogs({
                     completed_at: new Date().toISOString(),
                     event_type: String(meta?.eventType || '').trim() || null,
@@ -2534,7 +2557,7 @@ class DMWorker {
                 });
                 if (!claim?.claimed) {
                     this._rememberProcessedEvent(meta, EVENT_DEDUPE_TTL_MS);
-                    const result = { handled: true, duplicate: true, automationType: 'duplicate_event' };
+                    const result = { handled: true, duplicate: true, retryable: false, automationType: 'duplicate_event' };
                     flushBufferedLogs({
                         completed_at: new Date().toISOString(),
                         event_type: String(meta?.eventType || '').trim() || null,
@@ -2628,10 +2651,13 @@ class DMWorker {
                 throw error;
             }
         } finally {
-            console.log = originalConsole.log;
-            console.info = originalConsole.info;
-            console.warn = originalConsole.warn;
-            console.error = originalConsole.error;
+            if (!isInterceptionActive) {
+                console.log = originalConsole.log;
+                console.info = originalConsole.info;
+                console.warn = originalConsole.warn;
+                console.error = originalConsole.error;
+                delete console._isTracingActive;
+            }
         }
     }
 }

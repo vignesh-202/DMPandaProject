@@ -78,7 +78,24 @@ function splitWebhookPayload(webhookData) {
     for (const entry of entries) {
         const messagingEvents = Array.isArray(entry?.messaging) ? entry.messaging : [];
         for (const messaging of messagingEvents) {
+            // Drop protocol noise immediately at parse time:
+            // 1. Read receipts (messaging.read)
+            // 2. Delivery receipts (messaging.delivery)
+            // 3. Outbound message echoes (message.is_echo)
+            if (messaging?.read || messaging?.delivery || messaging?.message?.is_echo === true) {
+                continue;
+            }
+
+            const businessAccountId = String(entry?.id || messaging?.recipient?.id || '').trim();
+            const senderId = String(messaging?.sender?.id || '').trim();
+            // Drop self-authored business loop messages (unless share event)
+            if (businessAccountId && senderId && businessAccountId === senderId && !messaging?.message?.attachments && !messaging?.message?.share) {
+                continue;
+            }
+
             const meta = extractMessagingMeta(entry, messaging);
+            if (!meta) continue;
+
             jobs.push({
                 ...meta,
                 payload: buildSingleEventPayload(webhookData, entry, { messaging })
@@ -102,3 +119,4 @@ function splitWebhookPayload(webhookData) {
 module.exports = {
     splitWebhookPayload
 };
+

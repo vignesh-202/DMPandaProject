@@ -54,7 +54,25 @@ const NON_RETRY_AUTOMATION_TYPES = new Set([
     'soft_ban',
     'hard_ban',
     'account_access_blocked',
-    'plan_locked'
+    'plan_locked',
+    'no_keyword_match',
+    'no_automation_match',
+    'unmatched_comment',
+    'unmatched_message',
+    'invalid_comment_event',
+    'invalid_mention_event',
+    'account_not_found',
+    'automation_inactive',
+    'self_authored_event',
+    'managed_account_event',
+    'skipped_noise',
+    'cooldown_active',
+    'duplicate_event',
+    'welcome_already_sent',
+    'rate_limited',
+    'read_receipt',
+    'delivery_receipt',
+    'echo_message'
 ]);
 
 let dispatcher = null;
@@ -70,16 +88,15 @@ const hub = new WorkerHub({
         onHeartbeat: ({ jobId }) => {
             store.markHeartbeat(jobId);
         },
-        onCompleted: ({ jobId, handled, automationType }) => {
+        onCompleted: ({ jobId, handled, automationType, retryable }) => {
             const job = store.getJob(jobId);
             if (job?.assignedWorkerId) {
                 hub.releaseJob(job.assignedWorkerId, jobId);
             }
             if (handled === false) {
                 const normalizedAutomationType = String(automationType || '').trim().toLowerCase();
-                if (NON_RETRY_AUTOMATION_TYPES.has(normalizedAutomationType)) {
+                if (retryable === false || NON_RETRY_AUTOMATION_TYPES.has(normalizedAutomationType)) {
                     store.markCompleted(jobId);
-                    console.warn(`Skipped non-retryable job ${jobId}: ${normalizedAutomationType}.`);
                     dispatcher?.trigger();
                     return;
                 }
@@ -107,6 +124,7 @@ const hub = new WorkerHub({
             dispatcher?.trigger();
         },
         onDisconnected: ({ workerId }) => {
+            dispatcher?.clearWorkerAffinity(workerId);
             const results = store.releaseWorkerJobs(workerId, 'worker_disconnected');
             for (const result of results) {
                 if (result.workerId) {
@@ -176,3 +194,8 @@ setInterval(() => {
 server.listen(port, () => {
     console.log(`Streamer node listening at http://localhost:${port}`);
 });
+
+module.exports = {
+    NON_RETRY_AUTOMATION_TYPES
+};
+

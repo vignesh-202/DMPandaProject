@@ -128,6 +128,30 @@
   - refreshes token metadata
 - `on-user-create`
   - seeds free-plan runtime documents
+- `database-orphan-sweeper`
+  - automated cleanup of orphaned database records
+  - **Financial Immutability Hardcoded**: `IMMUTABLE_COLLECTIONS = {"transactions", "payment_attempts", "pricing", "system_config", "users", "profiles"}`
+  - Under financial compliance regulations, transaction and payment records are **NEVER deleted**; orphaned user references are anonymized to `userId = deleted:<hash>` to maintain permanent financial audit integrity
+  - Deterministic pagination (`Query.order_asc("$id")`) prevents cursor skipping
+  - Automatically sweeps orphaned child records in `campaigns`, `email_campaigns`, `super_profiles`, `reply_templates`, `inbox_menus`, `convo_starters`, `subscription_slots`, `comment_moderation`, `chat_states`, `logs`, `coupon_redemptions`, `email_change_tokens`, and cleans stale `job_locks` (> 2h)
+
+## Streamer & Elastic Worker Fleet
+- `streamer-node`:
+  - Meta webhook endpoint at `https://webhook.dmpanda.com/webhook`
+  - Meta `x-hub-signature-256` HMAC-SHA256 signature verification with raw request body comparison
+  - SSD Write-Ahead Log (WAL) (`./data/eventkeys.wal`) for zero-loss, cross-reboot deduplication
+  - Zero-database event locking: events are deduplicated in RAM + WAL, saving Server 1 from thousands of MariaDB writes
+- `worker-node`:
+  - Elastic fleet scaling ($0 \le N \le \infty$): can run on any VPS or device with only `STREAMER_WS_URL` and `WORKER_SHARED_SECRET`
+  - Auto-tunes concurrency based on hardware cores (`cpus * 5`)
+  - Transmits hardware telemetry (hostname, platform, memory, CPUs) to streamer for live Admin Panel visualization
+  - Local Tiny-LRU caching for tokens and automations (<1ms execution)
+
+## Admin Panel Telemetry
+- **Cluster Telemetry Widget**: Live fleet matrix, worker health cards, queue depth gauge, and zero-workers warning
+- **Meta 750/hr Radar**: Platform safety gauge tracking velocity vs Instagram's 750 actions/hr account hard ceiling
+- **Automation Funnel Conversion Widget**: End-to-end event retention tracking (Ingested → Validated → Trigger Matched → DMs Sent → Converted)
+- **Mobile Card Transformation**: Dense user and automation tables convert to mobile-optimized cards on viewports < 768px
 
 ## Cleanup Completed
 - Removed live tables:
@@ -141,6 +165,7 @@
   - `users.referred_by`
   - `users.referral_code`
   - `profiles.no_watermark_enabled`
+  - Pruned 24 obsolete columns across `ig_accounts`, `automations`, `pricing`, `logs`, and `settings`
 - Kept live:
   - `payment_attempts`
   - `settings`
@@ -155,3 +180,6 @@
   - backfills `users` self-plan memory
   - canonicalizes `profiles` runtime entitlements
   - latest dry-run reports `0` pending updates
+- `ProductionSetup/prune_obsolete_database_columns.py`
+  - audits and drops obsolete schema columns across all Appwrite collections
+  - live database verified clean (0 pending drops)

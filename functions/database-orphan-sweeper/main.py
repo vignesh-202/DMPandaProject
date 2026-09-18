@@ -168,10 +168,23 @@ def _release_run_lock(client: Client, db_id: str, locks_collection: str, job_nam
         pass
 
 
+IMMUTABLE_COLLECTIONS = {
+    "transactions",
+    "payment_attempts",
+    "pricing",
+    "system_config",
+    "users",
+    "profiles",
+}
+
+
 def _list_all_documents(client: Client, db_id: str, collection_id: str, queries=None):
     rows = []
     cursor = None
     base_queries = list(queries or [])
+    has_order = any("order" in str(q).lower() for q in base_queries)
+    if not has_order:
+        base_queries.append(Query.order_asc("$id"))
 
     while True:
         page_queries = [Query.limit(PAGE_SIZE), *base_queries]
@@ -205,6 +218,9 @@ def _list_all_documents(client: Client, db_id: str, collection_id: str, queries=
 
 
 def _delete_document(client: Client, db_id: str, collection_id: str, document_id: str, dry_run: bool = False) -> bool:
+    if collection_id in IMMUTABLE_COLLECTIONS:
+        raise ValueError(f"CRITICAL SAFETY VIOLATION: Attempted deletion on immutable collection '{collection_id}'")
+
     if dry_run:
         return True
     try:
@@ -412,13 +428,17 @@ def main(context):
 
         # 4. Standard User/Account Scoped Collections
         scoped_collections = [
+            ("campaigns", "CAMPAIGNS_COLLECTION_ID", ["user_id", "account_id"]),
+            ("email_campaigns", "EMAIL_CAMPAIGNS_COLLECTION_ID", ["admin_id"]),
             ("super_profiles", "SUPER_PROFILES_COLLECTION_ID", ["user_id", "account_id"]),
             ("reply_templates", "REPLY_TEMPLATES_COLLECTION_ID", ["user_id", "account_id"]),
+            ("inbox_menus", "INBOX_MENUS_COLLECTION_ID", ["account_id"]),
+            ("convo_starters", "CONVO_STARTERS_COLLECTION_ID", ["account_id"]),
+            ("subscription_slots", "SUBSCRIPTION_SLOTS_COLLECTION_ID", ["user_id"]),
             ("comment_moderation", "COMMENT_MODERATION_COLLECTION_ID", ["account_id", "user_id"]),
             ("chat_states", "CHAT_STATES_COLLECTION_ID", ["account_id"]),
             ("logs", "LOGS_COLLECTION_ID", ["account_id"]),
             ("coupon_redemptions", "COUPON_REDEMPTIONS_COLLECTION_ID", ["user_id"]),
-            ("payment_attempts", "PAYMENT_ATTEMPTS_COLLECTION_ID", ["user_id"]),
             ("email_change_tokens", "EMAIL_CHANGE_TOKENS_COLLECTION_ID", ["user_id"]),
         ]
 
@@ -509,6 +529,70 @@ def main(context):
             summary["deleted"]["transactions"] = anon_count
         except Exception as e:
             summary["errors"].append(f"Failed to scan transactions: {str(e)}")
+
+        # 6. payment_attempts (Anonymize un-anonymized payment attempts whose user no longer exists, NEVER DELETE)
+        pa_col_id = _env("PAYMENT_ATTEMPTS_COLLECTION_ID", "payment_attempts")
+        try:
+            pa_docs = _list_all_documents(client, db_id, pa_col_id)
+            summary["scanned"]["payment_attempts"] = len(pa_docs)
+            un_anonymized_pa = []
+            for pa in pa_docs:
+                if not _is_older_than_grace(pa, cutoff_time):
+                    continue
+                pa_uid = str(_obj_get(pa, "userId", "") or _obj_get(pa, "user_id", "") or "").strip()
+                if pa_uid and not pa_uid.startswith("deleted:") and pa_uid not in valid_user_ids:
+                    un_anonymized_pa.append(pa)
+
+            summary["orphans_found"]["payment_attempts"] = len(un_anonymized_pa)
+            anon_pa_count = 0
+            for pa in un_anonymized_pa:
+                if not _can_delete():
+                    break
+                pa_id = str(_obj_get(pa, "$id", "") or "").strip()
+                if not dry_run and pa_id:
+                    import hashlib
+                    raw_uid = str(_obj_get(pa, "userId", "") or _obj_get(pa, "user_id", "") or "").strip()
+                    hash_val = hashlib.sha256(f"deleted-user:{raw_uid}".encode("utf-8")).hexdigest()[:32]
+                    del_ref = f"deleted:{hash_val}"
+                    try:
+                        _call_appwrite(
+                            client,
+                            "patch",
+                            f"/databases/{db_id}/collections/{pa_col_id}/documents/{pa_id}",
+                            {"data": {"userId": del_ref}},
+                        )
+                        anon_pa_count += 1
+                        total_deletions += 1
+                    except Exception as e:
+                        summary["errors"].append(f"Failed to anonymize payment attempt {pa_id}: {str(e)}")
+                else:
+                    anon_pa_count += 1
+            summary["deleted"]["payment_attempts"] = anon_pa_count
+        except Exception as e:
+            summary["errors"].append(f"Failed to scan payment_attempts: {str(e)}")
+
+        # 7. Stale job_locks cleanup (Locks expired > 2 hours ago)
+        try:
+            lock_docs = _list_all_documents(client, db_id, job_locks_col)
+            summary["scanned"]["job_locks"] = len(lock_docs)
+            stale_locks = []
+            stale_cutoff = now - timedelta(hours=2)
+            for lk in lock_docs:
+                exp_dt = _parse_iso_datetime(_obj_get(lk, "expires_at"))
+                if exp_dt and exp_dt < stale_cutoff:
+                    stale_locks.append(lk)
+            summary["orphans_found"]["job_locks"] = len(stale_locks)
+            del_locks = 0
+            for lk in stale_locks:
+                if not _can_delete():
+                    break
+                lk_id = str(_obj_get(lk, "$id", "") or "").strip()
+                if _delete_document(client, db_id, job_locks_col, lk_id, dry_run):
+                    del_locks += 1
+                    total_deletions += 1
+            summary["deleted"]["job_locks"] = del_locks
+        except Exception as e:
+            summary["errors"].append(f"Failed to clean job_locks: {str(e)}")
 
         summary["total_deleted"] = total_deletions
         summary["duration_seconds"] = round(time.time() - start_time, 2)

@@ -6,6 +6,7 @@ class Dispatcher {
         this.roundRobinCursor = 0;
         this.dispatching = false;
         this.needsRerun = false;
+        this.accountAffinity = new Map(); // accountId -> workerId
     }
 
     trigger() {
@@ -16,13 +17,47 @@ class Dispatcher {
         void this._dispatchLoop();
     }
 
-    _pickWorker() {
+    clearWorkerAffinity(workerId) {
+        const safeWorkerId = String(workerId || '').trim();
+        if (!safeWorkerId) return;
+        for (const [accountId, assignedWorkerId] of this.accountAffinity.entries()) {
+            if (assignedWorkerId === safeWorkerId) {
+                this.accountAffinity.delete(accountId);
+            }
+        }
+    }
+
+    _pickWorkerForJob(job) {
         const available = this.hub.getAvailableWorkers();
         if (!available.length) return null;
-        if (this.roundRobinCursor >= available.length) this.roundRobinCursor = 0;
-        const worker = available[this.roundRobinCursor];
-        this.roundRobinCursor = (this.roundRobinCursor + 1) % available.length;
-        return worker;
+
+        const accountId = String(job?.accountId || '').trim();
+        if (accountId && this.accountAffinity.has(accountId)) {
+            const preferredWorkerId = this.accountAffinity.get(accountId);
+            // Check if preferred worker is healthy and has capacity
+            const preferred = available.find((w) => w.workerId === preferredWorkerId && w.activeJobs.size < w.capacity);
+            if (preferred) {
+                return preferred;
+            }
+            // If preferred worker is disconnected, evict stale affinity
+            const stillConnected = this.hub.workers.has(preferredWorkerId);
+            if (!stillConnected) {
+                this.accountAffinity.delete(accountId);
+            }
+        }
+
+        // Pick least loaded worker to balance 5-10 workers dynamically
+        available.sort((a, b) => {
+            const loadA = a.activeJobs.size / Math.max(1, a.capacity);
+            const loadB = b.activeJobs.size / Math.max(1, b.capacity);
+            return loadA - loadB;
+        });
+
+        const selected = available[0] || null;
+        if (accountId && selected) {
+            this.accountAffinity.set(accountId, selected.workerId);
+        }
+        return selected;
     }
 
     async _dispatchLoop() {
@@ -31,7 +66,7 @@ class Dispatcher {
             while (true) {
                 const job = this.store.getDispatchablePendingJob();
                 if (!job) break;
-                const worker = this._pickWorker();
+                const worker = this._pickWorkerForJob(job);
                 if (!worker) break;
 
                 this.store.markAssigned(job.jobId, worker.workerId);

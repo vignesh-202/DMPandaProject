@@ -28,6 +28,7 @@ import {
 import { cn } from '../lib/utils';
 import AdminLoadingState from '../components/AdminLoadingState';
 import AdminGauge from '../components/ui/AdminGauge';
+import ClusterTelemetryWidget from '../components/ui/ClusterTelemetryWidget';
 import { loadCachedResource } from '../lib/resourceCache';
 
 const COLORS = ['#405DE6', '#833AB4', '#F56040', '#FCAF45', '#10B981', '#0EA5E9'];
@@ -197,6 +198,8 @@ export const Dashboard: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
+                    <ClusterTelemetryWidget className="mb-6" />
 
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <AdminGauge

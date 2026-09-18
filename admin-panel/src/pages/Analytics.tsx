@@ -27,6 +27,9 @@ import {
 } from 'recharts';
 import AdminLoadingState from '../components/AdminLoadingState';
 import AdminGauge from '../components/ui/AdminGauge';
+import ClusterTelemetryWidget from '../components/ui/ClusterTelemetryWidget';
+import MetaRadarWidget from '../components/ui/MetaRadarWidget';
+import AutomationFunnelWidget from '../components/ui/AutomationFunnelWidget';
 
 const CHART_COLORS = [
     'rgb(59 130 246)',
@@ -819,6 +822,8 @@ export const AnalyticsPage: React.FC = () => {
                 ))}
             </section>
 
+            <ClusterTelemetryWidget className="mb-2" />
+
             <section className="grid grid-cols-1 gap-5 md:grid-cols-3">
                 <AdminGauge
                     label="User Plan Hourly Pool"
@@ -858,6 +863,15 @@ export const AnalyticsPage: React.FC = () => {
                         'Monthly usage is stored on ig_accounts.',
                         'Monthly capacity is derived from owner profiles and counted per linked account.'
                     ]}
+                />
+            </section>
+
+            {/* Meta Rate-Limit Radar & Automation Conversion Funnel */}
+            <section className="grid grid-cols-1 gap-7 lg:grid-cols-2">
+                <MetaRadarWidget metaPool={displayData?.meta_pool} />
+                <AutomationFunnelWidget
+                    logStatusBreakdown={displayData?.log_status_breakdown}
+                    totalLogs={displayData?.totals?.logs_total}
                 />
             </section>
 
@@ -1015,16 +1029,6 @@ export const AnalyticsPage: React.FC = () => {
                                         activeDot={{ r: 5 }}
                                         filter="url(#adminTrafficGlow)"
                                     />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="rolling_average"
-                                        name="Rolling avg"
-                                        stroke={TRAFFIC_SERIES_COLORS.rollingAverage}
-                                        strokeWidth={2}
-                                        strokeDasharray="7 7"
-                                        dot={false}
-                                        activeDot={{ r: 4 }}
-                                    />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -1052,13 +1056,6 @@ export const AnalyticsPage: React.FC = () => {
                                             style={{ backgroundColor: TRAFFIC_SERIES_COLORS.failed }}
                                         />
                                         Failed
-                                    </span>
-                                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground">
-                                        <span
-                                            className="h-2 w-2 rounded-full border border-dashed"
-                                            style={{ borderColor: TRAFFIC_SERIES_COLORS.rollingAverage }}
-                                        />
-                                        Rolling average
                                     </span>
                                 </div>
                             </div>

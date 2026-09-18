@@ -10,6 +10,8 @@ This directory is the active documentation home for the recovered DM Panda stack
 
 ## Infrastructure docs
 
+- [HIGH_SCALE_WEBHOOK_ARCHITECTURE.md](/c:/Users/vigan/PycharmProjects/DMPandaProject/docs/HIGH_SCALE_WEBHOOK_ARCHITECTURE.md): high-scale webhook pipeline, 10-worker swarm, low-spec hardware optimization, and database protection architecture.
+- [HOSTINGER_CLOUD_STARTUP.md](/c:/Users/vigan/PycharmProjects/DMPandaProject/docs/HOSTINGER_CLOUD_STARTUP.md): Hostinger deployment guide.
 - [appwrite-selfhost-setup-root.md](/c:/Users/vigan/PycharmProjects/DMPandaProject/docs/appwrite-selfhost-setup-root.md): root-level Appwrite setup reference.
 
 ## Generated verification docs

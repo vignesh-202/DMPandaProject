@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const os = require('os');
 
 class StreamerClient {
     constructor({ worker, logger = console } = {}) {
@@ -6,12 +7,14 @@ class StreamerClient {
         this.logger = logger;
         this.url = String(process.env.STREAMER_WS_URL || '').trim();
         this.sharedSecret = String(process.env.WORKER_SHARED_SECRET || '').trim();
+        const detectedHostname = (os.hostname() || 'worker').replace(/[^a-zA-Z0-9_-]/g, '');
         this.workerId = String(
             process.env.WORKER_INSTANCE_ID
             || worker?.workerInstanceId
-            || `worker-${process.pid}`
+            || `worker-${detectedHostname}-${process.pid}`
         ).trim();
-        this.capacity = Math.max(1, Number(process.env.WORKER_MAX_CONCURRENCY || 30) || 30);
+        const detectedCores = os.cpus()?.length || 2;
+        this.capacity = Math.max(1, Number(process.env.WORKER_MAX_CONCURRENCY) || Math.min(30, detectedCores * 5));
         this.heartbeatIntervalMs = Math.max(1000, Number(process.env.WORKER_JOB_HEARTBEAT_INTERVAL_MS || 10000) || 10000);
         this.reconnectDelayMs = Math.max(1000, Number(process.env.WORKER_STREAM_RECONNECT_DELAY_MS || 2000) || 2000);
         this.ws = null;
@@ -19,6 +22,12 @@ class StreamerClient {
         this.connected = false;
         this.reconnectTimer = null;
         this.activeJobs = new Map();
+        this.deviceMetadata = {
+            hostname: os.hostname(),
+            platform: os.platform(),
+            cpus: detectedCores,
+            memoryMb: Math.round(os.totalmem() / (1024 * 1024))
+        };
     }
 
     isEnabled() {
@@ -68,6 +77,7 @@ class StreamerClient {
 
         ws.on('open', () => {
             this.connected = true;
+            this.reconnectAttempts = 0;
             this.logger.log(`Connected to streamer at ${this.url}`);
             this._send({
                 type: 'worker.register',
@@ -77,7 +87,8 @@ class StreamerClient {
                 activeJobs: this.activeJobs.size,
                 metadata: {
                     role: 'slave',
-                    pid: process.pid
+                    pid: process.pid,
+                    ...this.deviceMetadata
                 }
             });
         });
@@ -89,7 +100,6 @@ class StreamerClient {
         ws.on('close', () => {
             this.connected = false;
             this.logger.warn('Streamer connection closed.');
-            this.logger.log(`Waiting for streamer-node to become active. Retrying in ${this.reconnectDelayMs}ms...`);
             if (this.ws === ws) this.ws = null;
             this._scheduleReconnect();
         });
@@ -109,10 +119,17 @@ class StreamerClient {
 
     _scheduleReconnect() {
         if (this.closed || this.reconnectTimer) return;
+        this.reconnectAttempts = (this.reconnectAttempts || 0) + 1;
+        // Jittered exponential backoff to prevent reconnection storm against Server 2
+        const exponentialDelay = Math.min(30000, 1500 * Math.pow(1.4, Math.min(10, this.reconnectAttempts)));
+        const jitter = Math.floor(Math.random() * 2000);
+        const delay = Math.max(this.reconnectDelayMs, Math.round(exponentialDelay + jitter));
+        this.logger.log(`Waiting for streamer-node to become active. Retrying in ${delay}ms...`);
+
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
             this._connect();
-        }, this.reconnectDelayMs);
+        }, delay);
     }
 
     _send(payload) {
@@ -349,6 +366,7 @@ class StreamerClient {
                 workerId: this.workerId,
                 jobId,
                 handled: handled === true,
+                retryable: result?.retryable !== false,
                 automationType: typeof result === 'object' ? result.automationType : undefined
             });
         } catch (error) {

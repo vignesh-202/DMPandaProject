@@ -63,6 +63,7 @@ class WorkerHub {
                 workerId,
                 jobId: message.jobId,
                 handled: message.handled === true,
+                retryable: message.retryable !== false,
                 automationType: String(message.automationType || '').trim()
             });
             return;
@@ -168,7 +169,8 @@ class WorkerHub {
                 workerId: worker.workerId,
                 capacity: worker.capacity,
                 activeJobs: worker.activeJobs.size,
-                lastSeenAt: worker.lastSeenAt
+                lastSeenAt: worker.lastSeenAt,
+                metadata: worker.metadata || {}
             }))
         };
     }

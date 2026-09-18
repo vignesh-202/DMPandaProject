@@ -22,6 +22,100 @@ const benefitFieldsForKey = (key) => [
     ...(LEGACY_PLAN_BENEFIT_STORAGE_KEYS[key] || []).map((legacyKey) => `benefit_${legacyKey}`)
 ];
 
+class TinyCache {
+    constructor({ max = 150, ttlMs = 30000 } = {}) {
+        this.max = max;
+        this.ttlMs = ttlMs;
+        this.cache = new Map();
+    }
+    get(key) {
+        const item = this.cache.get(key);
+        if (!item) return undefined;
+        if (item.expiresAt <= Date.now()) {
+            this.cache.delete(key);
+            return undefined;
+        }
+        return item.value;
+    }
+    set(key, value, customTtlMs = null) {
+        if (this.cache.size >= this.max) {
+            const oldestKey = this.cache.keys().next().value;
+            this.cache.delete(oldestKey);
+        }
+        this.cache.set(key, {
+            value,
+            expiresAt: Date.now() + (customTtlMs || this.ttlMs)
+        });
+    }
+    delete(key) {
+        this.cache.delete(key);
+    }
+    clear() {
+        this.cache.clear();
+    }
+}
+
+class BatchLogWriter {
+    constructor(databases, databaseId, { maxBatch = 25, flushIntervalMs = 2500 } = {}) {
+        this.databases = databases;
+        this.databaseId = databaseId;
+        this.maxBatch = maxBatch;
+        this.flushIntervalMs = flushIntervalMs;
+        this.buffer = [];
+        this.timer = null;
+        this.flushing = false;
+        this.consecutiveFailures = 0;
+        this.backoffUntil = 0;
+    }
+
+    push(document) {
+        if (!document || typeof document !== 'object') return;
+        if (this.buffer.length >= 200) {
+            this.buffer.shift();
+        }
+        this.buffer.push(document);
+        if (this.buffer.length >= this.maxBatch) {
+            void this.flush();
+        } else if (!this.timer) {
+            this.timer = setTimeout(() => {
+                this.timer = null;
+                void this.flush();
+            }, this.flushIntervalMs);
+        }
+    }
+
+    async flush() {
+        if (this.flushing || this.buffer.length === 0) return;
+        if (Date.now() < this.backoffUntil) return;
+        this.flushing = true;
+        const batch = this.buffer.splice(0, this.maxBatch);
+        try {
+            await Promise.allSettled(
+                batch.map((document) =>
+                    this.databases.createDocument(
+                        this.databaseId,
+                        LOGS_COLLECTION_ID,
+                        ID.unique(),
+                        document
+                    ).catch(() => null)
+                )
+            );
+            this.consecutiveFailures = 0;
+        } catch (_) {
+            this.consecutiveFailures += 1;
+            this.backoffUntil = Date.now() + Math.min(30000, 2000 * Math.pow(1.5, this.consecutiveFailures));
+        } finally {
+            this.flushing = false;
+            if (this.buffer.length > 0 && !this.timer) {
+                this.timer = setTimeout(() => {
+                    this.timer = null;
+                    void this.flush();
+                }, this.flushIntervalMs);
+            }
+        }
+    }
+}
+
 class AppwriteClient {
     constructor() {
         this.client = new Client();
@@ -31,6 +125,15 @@ class AppwriteClient {
             .setKey(process.env.APPWRITE_API_KEY);
         this.databases = new Databases(this.client);
         this.databaseId = process.env.APPWRITE_DATABASE_ID;
+
+        // Bounded Tiny-LRU Caches (<5 MB RAM total for 1GB-4GB VPS safety)
+        this._accountCache = new TinyCache({ max: 150, ttlMs: 60000 });
+        this._negativeAccountCache = new TinyCache({ max: 300, ttlMs: 30000 });
+        this._automationsCache = new TinyCache({ max: 150, ttlMs: 30000 });
+        this._moderationRulesCache = new TinyCache({ max: 100, ttlMs: 60000 });
+        this._executionStateCache = new TinyCache({ max: 150, ttlMs: 10000 });
+        this.batchLogWriter = new BatchLogWriter(this.databases, this.databaseId, { maxBatch: 25, flushIntervalMs: 2500 });
+
         this._automationDefaultsCache = null;
         this._automationDefaultsExpiresAt = 0;
         this._chatStatesSchemaCache = null;
@@ -359,38 +462,53 @@ class AppwriteClient {
     }
 
     async getIGAccount(accountId) {
+        const safeAccountId = String(accountId || '').trim();
+        if (!safeAccountId) return null;
+
+        // 1. Check positive cache (60s TTL)
+        const cached = this._accountCache.get(safeAccountId);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        // 2. Check negative cache (30s TTL) - stops 3 failing queries per follower comment
+        if (this._negativeAccountCache.get(safeAccountId) === true) {
+            return null;
+        }
+
         try {
             let response = await withAppwriteRetry(() => this.databases.listDocuments(
                 this.databaseId,
                 process.env.IG_ACCOUNTS_COLLECTION_ID,
-                [Query.equal('ig_user_id', accountId)]
+                [Query.equal('ig_user_id', safeAccountId), Query.limit(1)]
             ), {
                 operationName: 'get_ig_account_by_ig_user_id',
-                context: { account_id: accountId }
+                context: { account_id: safeAccountId }
             });
             if (response.documents.length === 0) {
                 response = await withAppwriteRetry(() => this.databases.listDocuments(
                     this.databaseId,
                     process.env.IG_ACCOUNTS_COLLECTION_ID,
-                    [Query.equal('account_id', accountId)]
+                    [Query.equal('account_id', safeAccountId), Query.limit(1)]
                 ), {
                     operationName: 'get_ig_account_by_account_id',
-                    context: { account_id: accountId }
+                    context: { account_id: safeAccountId }
                 });
             }
-            if (response.documents.length === 0) {
-                response = await withAppwriteRetry(() => this.databases.listDocuments(
-                    this.databaseId,
-                    process.env.IG_ACCOUNTS_COLLECTION_ID,
-                    [Query.equal('ig_user_id', accountId)]
-                ), {
-                    operationName: 'retry_get_ig_account_by_ig_user_id',
-                    context: { account_id: accountId }
-                });
+
+            if (response.documents.length > 0) {
+                const normalized = this._normalizeAccountAccess(response.documents[0]);
+                this._accountCache.set(safeAccountId, normalized);
+                if (normalized.ig_user_id) this._accountCache.set(normalized.ig_user_id, normalized);
+                if (normalized.account_id) this._accountCache.set(normalized.account_id, normalized);
+                return normalized;
             }
-            return response.documents.length > 0 ? this._normalizeAccountAccess(response.documents[0]) : null;
+
+            // Negative cache: remember this is an ordinary follower, not an account, for 30s
+            this._negativeAccountCache.set(safeAccountId, true);
+            return null;
         } catch (error) {
-            console.error(`Error fetching IG account ${accountId}:`, error);
+            console.error(`Error fetching IG account ${safeAccountId}:`, error);
             return null;
         }
     }
@@ -409,6 +527,12 @@ class AppwriteClient {
             return [];
         }
 
+        const cacheKey = `${safeUserId}:${[...normalizedAccountIds].sort().join(',')}`;
+        const cached = this._moderationRulesCache?.get(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
         for (const accountId of normalizedAccountIds) {
             try {
                 const keywordResponse = await withAppwriteRetry(() => this.databases.listDocuments(
@@ -425,6 +549,7 @@ class AppwriteClient {
                 });
                 const keywordRules = this._buildCommentModerationRulesFromKeywordDocuments(keywordResponse?.documents || []);
                 if (keywordRules.length > 0) {
+                    this._moderationRulesCache?.set(cacheKey, keywordRules);
                     return keywordRules;
                 }
 
@@ -447,6 +572,7 @@ class AppwriteClient {
                 const parsedRules = this._parseJson(doc?.rules, []);
                 const normalizedRules = this._normalizeModerationRules(parsedRules);
                 if (normalizedRules.length > 0 && this._toBoolean(doc?.is_active, true)) {
+                    this._moderationRulesCache?.set(cacheKey, normalizedRules);
                     return normalizedRules;
                 }
             } catch (error) {
@@ -454,6 +580,7 @@ class AppwriteClient {
             }
         }
 
+        this._moderationRulesCache?.set(cacheKey, []);
         return [];
     }
 
@@ -480,6 +607,12 @@ class AppwriteClient {
             const normalizedTypes = this.normalizeAccountIds(automationTypes);
             if (normalizedAccountIds.length === 0) return [];
             if (normalizedTypes.length === 0) return [];
+
+            const cacheKey = `${[...normalizedAccountIds].sort().join(',')}|${[...normalizedTypes].sort().join(',')}`;
+            const cached = this._automationsCache?.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
 
             let response = await withAppwriteRetry(() => this.databases.listDocuments(
                 this.databaseId,
@@ -524,6 +657,7 @@ class AppwriteClient {
                 }
             }
 
+            this._automationsCache?.set(cacheKey, normalizedAutomations);
             return normalizedAutomations;
         } catch (error) {
             console.error(`Error fetching automations for ${JSON.stringify(accountIds)}:`, error);
@@ -1133,13 +1267,23 @@ class AppwriteClient {
     }
 
     async getConversationState(accountId, conversationKey) {
+        const safeAccountId = String(accountId || '').trim();
+        const safeConversationKey = String(conversationKey || '').trim();
+        if (!safeAccountId || !safeConversationKey) return null;
+
+        const cacheKey = `${safeAccountId}:${safeConversationKey}`;
+        const cached = this._executionStateCache?.get(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+
         try {
             const schema = await this._getChatStatesSchema();
-            const { senderId, recipientId } = this._splitConversationKey(conversationKey);
-            const queries = [Query.equal('account_id', String(accountId || '').trim())];
+            const { senderId, recipientId } = this._splitConversationKey(safeConversationKey);
+            const queries = [Query.equal('account_id', safeAccountId)];
 
             if (schema.attributeKeys.has('conversation_key')) {
-                queries.push(Query.equal('conversation_key', String(conversationKey || '').trim()));
+                queries.push(Query.equal('conversation_key', safeConversationKey));
             } else {
                 if (schema.attributeKeys.has('sender_id') && senderId) {
                     queries.push(Query.equal('sender_id', senderId));
@@ -1157,15 +1301,20 @@ class AppwriteClient {
             );
 
             const document = response.documents?.[0] || null;
-            if (!document) return null;
+            if (!document) {
+                this._executionStateCache?.set(cacheKey, null);
+                return null;
+            }
 
-            return {
+            const parsed = {
                 ...document,
                 state_json: this._parseJson(document.state_json, {})
             };
+            this._executionStateCache?.set(cacheKey, parsed);
+            return parsed;
         } catch (error) {
             console.warn(
-                `Conversation state lookup failed for ${String(accountId || '').trim()}:${String(conversationKey || '').trim()}:`,
+                `Conversation state lookup failed for ${safeAccountId}:${safeConversationKey}:`,
                 error?.message || error
             );
             return null;
@@ -1205,14 +1354,16 @@ class AppwriteClient {
 
         try {
             const existing = await this.getConversationState(safeAccountId, safeConversationKey);
-            const document = existing
+            const document = existing?.$id
                 ? await this.databases.updateDocument(this.databaseId, CHAT_STATES_COLLECTION_ID, existing.$id, payload)
                 : await this.databases.createDocument(this.databaseId, CHAT_STATES_COLLECTION_ID, ID.unique(), payload);
 
-            return {
+            const parsed = {
                 ...document,
                 state_json: this._parseJson(document.state_json, {})
             };
+            this._executionStateCache?.set(`${safeAccountId}:${safeConversationKey}`, parsed);
+            return parsed;
         } catch (error) {
             console.warn(
                 `Conversation state upsert failed for ${safeAccountId}:${safeConversationKey}:`,
@@ -1223,14 +1374,17 @@ class AppwriteClient {
     }
 
     async clearConversationState(accountId, conversationKey) {
+        const safeAccountId = String(accountId || '').trim();
+        const safeConversationKey = String(conversationKey || '').trim();
+        this._executionStateCache?.delete(`${safeAccountId}:${safeConversationKey}`);
         try {
-            const existing = await this.getConversationState(accountId, conversationKey);
+            const existing = await this.getConversationState(safeAccountId, safeConversationKey);
             if (!existing?.$id) return true;
             await this.databases.deleteDocument(this.databaseId, CHAT_STATES_COLLECTION_ID, existing.$id);
             return true;
         } catch (error) {
             console.warn(
-                `Conversation state delete failed for ${String(accountId || '').trim()}:${String(conversationKey || '').trim()}:`,
+                `Conversation state delete failed for ${safeAccountId}:${safeConversationKey}:`,
                 error?.message || error
             );
             return false;
@@ -1251,230 +1405,22 @@ class AppwriteClient {
             return { claimed: true, bypassed: true, reason: 'missing_event_identity' };
         }
 
-        const schema = await this._getChatStatesSchema();
-        const now = Date.now();
-        const nowIso = new Date(now).toISOString();
-        const processingTtlMs = Math.max(30_000, Number(options.processingTtlMs || 5 * 60 * 1000) || (5 * 60 * 1000));
-        const dedupeTtlMs = Math.max(processingTtlMs, Number(options.dedupeTtlMs || 60 * 60 * 1000) || (60 * 60 * 1000));
-        const eventConversationKey = `event:${String(eventType || 'message').trim()}:${safeEventKey}`;
-        const lockRecipientId = `evt_${this._hashToken(`${String(eventType || 'message').trim()}:${safeEventKey}`, 24)}`;
-        const documentId = this._buildEventLockDocumentId({
-            eventType,
+        // High-scale architecture: Event deduping is managed in-memory via Worker LRU & Streamer affinity.
+        // Bypassing DB write avoids MariaDB lock contention and write starvation on Server 1.
+        return {
+            claimed: true,
+            bypassed: true,
+            eventType: String(eventType || 'message').trim() || 'message',
+            eventKey: safeEventKey,
             accountId: safeAccountId,
-            eventKey: safeEventKey
-        });
-        const expiresAtIso = new Date(now + processingTtlMs).toISOString();
-        const stateJson = JSON.stringify({
-            type: 'event_lock',
-            status: 'processing',
-            event_type: String(eventType || 'message').trim() || 'message',
-            event_key: safeEventKey,
-            owner: this.workerInstanceId,
-            updated_at: nowIso
-        });
-
-        const payload = {};
-        if (schema.attributeKeys.has('user_id') && options.userId) payload.user_id = String(options.userId || '').trim();
-        if (schema.attributeKeys.has('account_id')) payload.account_id = safeAccountId;
-        if (schema.attributeKeys.has('conversation_key')) payload.conversation_key = eventConversationKey;
-        if (schema.attributeKeys.has('sender_id')) payload.sender_id = String(senderId || '').trim();
-        if (schema.attributeKeys.has('recipient_id')) payload.recipient_id = lockRecipientId;
-        if (schema.attributeKeys.has('state_json')) payload.state_json = stateJson;
-        if (schema.attributeKeys.has('updated_at')) payload.updated_at = nowIso;
-        if (schema.attributeKeys.has('expires_at')) payload.expires_at = expiresAtIso;
-        if (schema.attributeKeys.has('last_seen_at')) payload.last_seen_at = nowIso;
-        if (schema.requiredKeys.has('last_seen_at') && !payload.last_seen_at) payload.last_seen_at = nowIso;
-
-        try {
-            await withAppwriteRetry(() => this.databases.createDocument(
-                this.databaseId,
-                CHAT_STATES_COLLECTION_ID,
-                documentId,
-                payload
-            ), {
-                operationName: 'claim_processing_event',
-                context: {
-                    event_type: eventType,
-                    account_id: safeAccountId
-                }
-            });
-            return {
-                claimed: true,
-                eventType,
-                eventKey: safeEventKey,
-                accountId: safeAccountId,
-                documentId,
-                conversationKey: eventConversationKey,
-                dedupeUntil: new Date(now + dedupeTtlMs).toISOString()
-            };
-        } catch (error) {
-            const code = Number(error?.code || error?.response?.code || 0);
-            if (code !== 409) {
-                throw error;
-            }
-        }
-
-        const resolveExistingLock = async () => {
-            const queries = [Query.equal('account_id', safeAccountId), Query.limit(1)];
-            if (schema.attributeKeys.has('conversation_key')) {
-                queries.push(Query.equal('conversation_key', eventConversationKey));
-            } else if (schema.attributeKeys.has('recipient_id')) {
-                queries.push(Query.equal('recipient_id', lockRecipientId));
-            }
-            const response = await withAppwriteRetry(() => this.databases.listDocuments(
-                this.databaseId,
-                CHAT_STATES_COLLECTION_ID,
-                queries
-            ), {
-                operationName: 'find_processing_event_lock',
-                context: { event_type: eventType, account_id: safeAccountId }
-            });
-            return response.documents?.[0] || null;
+            documentId: `mem_${safeEventKey}`,
+            conversationKey: `event:${String(eventType || 'message').trim()}:${safeEventKey}`
         };
-
-        let existing = null;
-        try {
-            existing = await resolveExistingLock();
-        } catch (error) {
-            console.warn('Failed to locate existing processing lock after conflict:', error?.message || error);
-            return {
-                claimed: false,
-                duplicate: true,
-                reason: 'conflict_without_lock_lookup',
-                eventType,
-                eventKey: safeEventKey,
-                accountId: safeAccountId
-            };
-        }
-
-        if (!existing) {
-            return {
-                claimed: false,
-                duplicate: true,
-                reason: 'conflict_without_existing_doc',
-                eventType,
-                eventKey: safeEventKey,
-                accountId: safeAccountId
-            };
-        }
-
-        const existingState = this._parseJson(existing?.state_json, {});
-        const existingExpiresAt = Date.parse(String(existing?.expires_at || ''));
-        const isLockLive = Number.isFinite(existingExpiresAt) && existingExpiresAt > now;
-        const completed = String(existingState?.status || '').trim().toLowerCase() === 'completed';
-
-        if (completed || isLockLive) {
-            return {
-                claimed: false,
-                duplicate: true,
-                reason: completed ? 'already_completed' : 'processing_in_progress',
-                eventType,
-                eventKey: safeEventKey,
-                accountId: safeAccountId,
-                documentId: String(existing?.$id || '').trim() || documentId
-            };
-        }
-
-        const existingDocumentId = String(existing?.$id || '').trim() || documentId;
-        const takeoverStateJson = JSON.stringify({
-            type: 'event_lock',
-            status: 'processing',
-            event_type: String(eventType || 'message').trim() || 'message',
-            event_key: safeEventKey,
-            owner: this.workerInstanceId,
-            taken_over: true,
-            updated_at: nowIso
-        });
-        const takeoverPatch = {};
-        if (schema.attributeKeys.has('state_json')) takeoverPatch.state_json = takeoverStateJson;
-        if (schema.attributeKeys.has('updated_at')) takeoverPatch.updated_at = nowIso;
-        if (schema.attributeKeys.has('expires_at')) takeoverPatch.expires_at = expiresAtIso;
-        if (schema.attributeKeys.has('last_seen_at')) takeoverPatch.last_seen_at = nowIso;
-        if (schema.attributeKeys.has('sender_id') && senderId) takeoverPatch.sender_id = String(senderId || '').trim();
-        if (schema.attributeKeys.has('recipient_id')) takeoverPatch.recipient_id = lockRecipientId;
-
-        try {
-            await withAppwriteRetry(() => this.databases.updateDocument(
-                this.databaseId,
-                CHAT_STATES_COLLECTION_ID,
-                existingDocumentId,
-                takeoverPatch
-            ), {
-                operationName: 'takeover_processing_event_lock',
-                context: {
-                    event_type: eventType,
-                    account_id: safeAccountId
-                }
-            });
-            return {
-                claimed: true,
-                takenOver: true,
-                eventType,
-                eventKey: safeEventKey,
-                accountId: safeAccountId,
-                documentId: existingDocumentId,
-                conversationKey: eventConversationKey,
-                dedupeUntil: new Date(now + dedupeTtlMs).toISOString()
-            };
-        } catch (error) {
-            return {
-                claimed: false,
-                duplicate: true,
-                reason: 'takeover_failed',
-                eventType,
-                eventKey: safeEventKey,
-                accountId: safeAccountId
-            };
-        }
     }
 
     async finalizeProcessingEvent(claim = {}, { status = 'completed', error = null, dedupeTtlMs = 60 * 60 * 1000 } = {}) {
-        const documentId = String(claim?.documentId || '').trim();
-        if (!documentId) return false;
-
-        const schema = await this._getChatStatesSchema();
-        const now = Date.now();
-        const nowIso = new Date(now).toISOString();
-        const normalizedStatus = status === 'failed' ? 'failed' : 'completed';
-        const patch = {};
-        if (schema.attributeKeys.has('state_json')) {
-            patch.state_json = JSON.stringify({
-                type: 'event_lock',
-                status: normalizedStatus,
-                event_type: String(claim?.eventType || 'message').trim() || 'message',
-                event_key: String(claim?.eventKey || '').trim(),
-                owner: this.workerInstanceId,
-                error: error ? String(error).slice(0, 500) : null,
-                updated_at: nowIso
-            });
-        }
-        if (schema.attributeKeys.has('updated_at')) patch.updated_at = nowIso;
-        if (schema.attributeKeys.has('last_seen_at')) patch.last_seen_at = nowIso;
-        if (schema.attributeKeys.has('expires_at')) {
-            const ttl = normalizedStatus === 'completed'
-                ? Math.max(60_000, Number(dedupeTtlMs || 60 * 60 * 1000) || (60 * 60 * 1000))
-                : 1000;
-            patch.expires_at = new Date(now + ttl).toISOString();
-        }
-
-        try {
-            await withAppwriteRetry(() => this.databases.updateDocument(
-                this.databaseId,
-                CHAT_STATES_COLLECTION_ID,
-                documentId,
-                patch
-            ), {
-                operationName: 'finalize_processing_event',
-                context: {
-                    event_type: claim?.eventType || 'message',
-                    account_id: claim?.accountId || ''
-                }
-            });
-            return true;
-        } catch (error) {
-            console.warn('Failed to finalize processing event lock:', error?.message || error);
-            return false;
-        }
+        // High-scale architecture: Zero Appwrite DB write for ephemeral event locks
+        return true;
     }
 
     async createAutomationLog({
@@ -1533,6 +1479,11 @@ class AppwriteClient {
         }
         if (automationType) {
             document.automation_type = String(automationType).trim().slice(0, 50);
+        }
+
+        if (this.batchLogWriter && typeof this.batchLogWriter.push === 'function') {
+            this.batchLogWriter.push(document);
+            return { $id: 'buffered', ...document };
         }
 
         return withAppwriteRetry(() => this.databases.createDocument(

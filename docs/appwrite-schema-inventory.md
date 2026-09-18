@@ -104,20 +104,23 @@ Generated from live Appwrite verification on `2026-04-22`.
   - `payouts`
   - `notification_throttles`
   - `worker_locks`
-- Removed columns:
-  - `users.referred_by`
-  - `users.referral_code`
-  - `profiles.no_watermark_enabled`
-  - `profiles.subscription_plan_id`
-  - `profiles.subscription_status`
-  - `profiles.subscription_expires`
-  - `profiles.subscription_billing_cycle`
-  - `profiles.plan_status`
-  - `profiles.billing_cycle`
-  - `profiles.expires_at`
-  - `pricing.price_monthly_usd`
-  - `pricing.price_yearly_usd`
-  - `pricing.price_yearly_monthly_usd`
+- Removed columns (audited & pruned):
+  - `ig_accounts`: `account_id`, `admin_status`, `daily_actions_used`, `daily_window_started_at`, `hourly_actions_used`, `hourly_window_started_at`, `ig_scoped_id`, `monthly_actions_used`, `monthly_window_started_at`, `status`, `api_token`, `api_enabled`, `webhook_url`, `webhook_secret`, `api_created_at`, `api_last_used_at`
+  - `automations`: `action_type`, `action_config_json`, `execution_count`
+  - `pricing`: `price_monthly_usd`, `price_yearly_usd`, `price_yearly_monthly_usd`, `stripe_product_id`, `stripe_price_id_monthly`, `stripe_price_id_yearly`
+  - `logs`: `recipient_id`, `source`, `response_status_code`
+  - `settings`: `notification_email`, `smtp_host`, `smtp_port`
+  - `users`: `referred_by`, `referral_code`
+  - `profiles`: `no_watermark_enabled`, `subscription_plan_id`, `subscription_status`, `subscription_expires`, `subscription_billing_cycle`, `plan_status`, `billing_cycle`, `expires_at`
+
+## Database Orphan Sweeper Immutability Rules
+- Implemented in `functions/database-orphan-sweeper/main.py`
+- Hardcoded Immutable Collections: `{"transactions", "payment_attempts", "pricing", "system_config", "users", "profiles"}`
+- Transactions and payment attempts are **never deleted**; orphaned user references are anonymized to `userId = deleted:<hash>`
+- Deterministic pagination (`Query.order_asc("$id")`) guarantees zero cursor-skipping
+- Sweeper automatically removes orphaned records across:
+  `campaigns`, `email_campaigns`, `super_profiles`, `reply_templates`, `inbox_menus`, `convo_starters`, `subscription_slots`, `comment_moderation`, `chat_states`, `logs`, `coupon_redemptions`, `email_change_tokens`
+- Stale `job_locks` (> 2 hours old) are pruned automatically
 
 ## Verification Notes
 - Verified with Appwrite CLI:

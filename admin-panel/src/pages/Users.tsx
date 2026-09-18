@@ -671,8 +671,9 @@ export const UsersPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto overscroll-x-contain">
-                    <table className="min-w-[42rem] w-full text-left sm:min-w-full">
+                {/* Desktop & Tablet Table View */}
+                <div className="hidden md:block overflow-x-auto overscroll-x-contain">
+                    <table className="min-w-full w-full text-left">
                         <thead>
                             <tr className="border-b border-border/70 bg-background/40">
                                 <th className="px-6 py-3.5 text-xs font-semibold text-muted-foreground">User</th>
@@ -738,6 +739,59 @@ export const UsersPage: React.FC = () => {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Responsive Cards View */}
+                <div className="block md:hidden divide-y divide-border/60">
+                    {loading ? (
+                        <div className="p-8 text-center">
+                            <Loader2 className="mx-auto h-7 w-7 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : users.length === 0 ? (
+                        <div className="p-8 text-center text-sm text-muted-foreground">
+                            No users match the current search or filters.
+                        </div>
+                    ) : (
+                        users.map((user) => (
+                            <div key={user.$id} className="p-4 space-y-3 transition-colors hover:bg-background/40">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-black text-foreground">
+                                        {user.name?.charAt(0) || 'U'}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-bold text-foreground truncate">{user.name}</p>
+                                        <p className="break-all text-[11px] text-muted-foreground truncate">{user.email}</p>
+                                    </div>
+                                    <Link to={`/users/${user.$id}`} className="btn-secondary inline-flex h-9 items-center justify-center px-3 text-xs shrink-0">
+                                        <Settings2 className="h-3.5 w-3.5 mr-1" />
+                                        Manage
+                                    </Link>
+                                </div>
+                                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40 text-xs">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground text-[11px]">Plan:</span>
+                                        <span className="font-bold text-foreground capitalize">{user.profile?.plan_code || 'free'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground text-[11px]">IG:</span>
+                                        <span className="font-bold text-foreground">{user.linked_instagram_accounts ?? 0} linked</span>
+                                    </div>
+                                    <div>
+                                        <span className={cn(
+                                            'status-pill text-[10px] py-0.5 px-2',
+                                            user.ban_mode === 'hard'
+                                                ? 'status-pill-danger'
+                                                : user.ban_mode === 'soft'
+                                                    ? 'status-pill-warning'
+                                                    : 'status-pill-success'
+                                        )}>
+                                            {user.ban_mode || 'none'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
 
                 <div className="flex flex-col gap-4 border-t border-border/70 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">

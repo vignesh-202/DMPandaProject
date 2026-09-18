@@ -100,6 +100,28 @@ const calculateDashboardOverview = async (userId) => {
     };
 };
 
+const dashboardOverviewCache = new Map();
+const DASHBOARD_OVERVIEW_TTL_MS = 5000;
+
+const getCachedDashboardOverview = async (userId) => {
+    const safeUserId = String(userId || '').trim();
+    if (!safeUserId) return calculateDashboardOverview(userId);
+
+    const now = Date.now();
+    const cached = dashboardOverviewCache.get(safeUserId);
+    if (cached && cached.expiresAt > now) {
+        return cached.data;
+    }
+
+    const data = await calculateDashboardOverview(safeUserId);
+    if (dashboardOverviewCache.size >= 300) {
+        const oldestKey = dashboardOverviewCache.keys().next().value;
+        dashboardOverviewCache.delete(oldestKey);
+    }
+    dashboardOverviewCache.set(safeUserId, { data, expiresAt: now + DASHBOARD_OVERVIEW_TTL_MS });
+    return data;
+};
+
 // Get Dashboard Data
 router.get('/dashboard', loginRequired, async (req, res) => {
     try {
@@ -124,7 +146,7 @@ router.get('/dashboard', loginRequired, async (req, res) => {
         const userSettings = getDefaultUserSettings();
 
         const activeCampaignsCount = campaignsData.filter(c => c.status === 'active').length;
-        const overview = await calculateDashboardOverview(userId);
+        const overview = await getCachedDashboardOverview(userId);
         const serverDatabases = new Databases(getAppwriteClient({ useApiKey: true }));
         const [planContext, accessContext] = await Promise.all([
             resolveUserPlanContext(serverDatabases, userId, req.user),
