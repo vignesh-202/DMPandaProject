@@ -3219,6 +3219,7 @@ router.get('/cluster/status', loginRequired, adminRequired, async (req, res) => 
         cluster: {
             status: 'offline',
             connectedWorkers: 0,
+            workers: [],
             queueLength: 0,
             error: lastError?.message || 'Failed to reach streamer-node'
         },
@@ -3274,6 +3275,7 @@ router.get('/cluster/stream', loginRequired, adminRequired, async (req, res) => 
     res.write(`data: ${JSON.stringify({
         status: 'offline',
         connectedWorkers: 0,
+        workers: [],
         queueLength: 0,
         error: 'Streamer node unavailable'
     })}\n\n`);

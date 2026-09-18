@@ -291,8 +291,8 @@ export const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="mt-4 sm:mt-6 h-[200px] sm:h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="mt-4 sm:mt-6 h-[200px] sm:h-[300px] w-full min-w-0">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
                             <AreaChart data={revenueTrend}>
                                 <defs>
                                     <linearGradient id="dashboardRevenueFill" x1="0" y1="0" x2="0" y2="1">
@@ -361,8 +361,8 @@ export const Dashboard: React.FC = () => {
                             Signup trend
                         </div>
                     </div>
-                    <div className="h-[200px] sm:h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-[200px] sm:h-[300px] w-full min-w-0">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
                             <AreaChart data={growthData}>
                                 <defs>
                                     <linearGradient id="dashboardGrowthFill" x1="0" y1="0" x2="0" y2="1">
@@ -386,8 +386,8 @@ export const Dashboard: React.FC = () => {
                         <p className="mt-1 text-xs text-muted-foreground">All user profiles</p>
                     </div>
                     <div className="grid gap-5 xl:grid-cols-1">
-                        <div className="mx-auto flex h-[200px] w-full max-w-[240px] items-center justify-center sm:h-[220px] sm:max-w-[260px]">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="mx-auto flex h-[200px] w-full max-w-[240px] min-w-0 items-center justify-center sm:h-[220px] sm:max-w-[260px]">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
                                 <PieChart>
                                     <Pie
                                         data={planDistribution}

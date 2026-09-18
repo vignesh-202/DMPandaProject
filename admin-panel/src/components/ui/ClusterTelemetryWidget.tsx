@@ -71,7 +71,11 @@ export const ClusterTelemetryWidget: React.FC<{ className?: string }> = ({ class
             const res = await httpClient.get('/api/admin/cluster/status');
             const data = res.data?.cluster || res.data;
             if (data && typeof data === 'object') {
-                setCluster(data);
+                const isOfflinePayload = data.status === 'offline';
+                setCluster({
+                    ...data,
+                    workers: isOfflinePayload ? [] : (Array.isArray(data.workers) ? data.workers : [])
+                });
                 setLastUpdated(new Date());
             }
         } catch (err) {
@@ -129,10 +133,20 @@ export const ClusterTelemetryWidget: React.FC<{ className?: string }> = ({ class
                     try {
                         const payload = JSON.parse(event.data);
                         if (payload && typeof payload === 'object') {
-                            setCluster((prev) => ({
-                                ...(prev || {}),
-                                ...payload
-                            }));
+                            setCluster((prev) => {
+                                const nextStatus = payload.status || (payload.role === 'master' ? 'online' : prev?.status);
+                                const isOfflinePayload = nextStatus === 'offline';
+                                const nextWorkers = isOfflinePayload
+                                    ? []
+                                    : (Array.isArray(payload.workers) ? payload.workers : (payload.connectedWorkers === 0 ? [] : (prev?.workers || [])));
+
+                                return {
+                                    ...(prev || {}),
+                                    ...payload,
+                                    status: nextStatus,
+                                    workers: nextWorkers
+                                };
+                            });
                             setLastUpdated(new Date());
                             setLoading(false);
                         }
@@ -197,11 +211,14 @@ export const ClusterTelemetryWidget: React.FC<{ className?: string }> = ({ class
         };
     }, [fetchClusterStatus]);
 
-    const workers = cluster?.workers || [];
-    const connectedCount = cluster?.connectedWorkers ?? workers.length;
+    const rawWorkers = cluster?.workers || [];
+    const isOffline = cluster?.status === 'offline';
+    const workers = isOffline ? [] : rawWorkers;
+    const connectedCount = isOffline
+        ? 0
+        : (workers.length > 0 ? workers.length : (cluster?.connectedWorkers ?? 0));
     const queueDepth = cluster?.pendingQueueLength ?? cluster?.pendingJobs ?? cluster?.queueLength ?? 0;
     const activeJobs = cluster?.activeJobsCount ?? cluster?.processingJobs ?? 0;
-    const isOffline = cluster?.status === 'offline';
 
     return (
         <div className={cn(
@@ -251,7 +268,7 @@ export const ClusterTelemetryWidget: React.FC<{ className?: string }> = ({ class
             </div>
 
             {/* Zero-Workers Warning Alert Banner */}
-            {connectedCount === 0 && !loading && (
+            {connectedCount === 0 && workers.length === 0 && !loading && (
                 <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
                     <div className="text-xs leading-relaxed">
