@@ -61,8 +61,22 @@ export const ClusterTelemetryWidget: React.FC<{ className?: string }> = ({ class
 
     useEffect(() => {
         fetchClusterStatus();
-        const interval = setInterval(fetchClusterStatus, 6000);
-        return () => clearInterval(interval);
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchClusterStatus();
+            }
+        };
+        const interval = setInterval(() => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+                return;
+            }
+            fetchClusterStatus();
+        }, 6000);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     const workers = cluster?.workers || [];
