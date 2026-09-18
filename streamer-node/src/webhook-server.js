@@ -22,7 +22,8 @@ function registerWebhookRoutes(app, {
     verifyToken = '',
     appSecret = process.env.INSTAGRAM_APP_SECRET || process.env.META_APP_SECRET || '',
     onWebhook = async () => ({ accepted: 0 }),
-    getStats = () => ({})
+    getStats = () => ({}),
+    hub = null
 } = {}) {
     app.use(express.json({
         verify: (req, _res, buf) => {
@@ -40,6 +41,45 @@ function registerWebhookRoutes(app, {
 
     app.get('/metrics', (_req, res) => {
         res.json(getStats());
+    });
+
+    app.get('/cluster/stream', (req, res) => {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+        res.flushHeaders?.();
+
+        const sendSnapshot = (extra = {}) => {
+            try {
+                const stats = { ...getStats(), ...extra };
+                res.write(`data: ${JSON.stringify(stats)}\n\n`);
+            } catch (_) {}
+        };
+
+        sendSnapshot();
+
+        let onChange = null;
+        if (hub && typeof hub.on === 'function') {
+            onChange = (data) => {
+                sendSnapshot({ lastEvent: data });
+            };
+            hub.on('cluster_change', onChange);
+        }
+
+        const keepAliveTimer = setInterval(() => {
+            try {
+                res.write(': keep-alive\n\n');
+            } catch (_) {}
+        }, 15000);
+
+        req.on('close', () => {
+            clearInterval(keepAliveTimer);
+            if (hub && onChange && typeof hub.off === 'function') {
+                hub.off('cluster_change', onChange);
+            }
+            res.end();
+        });
     });
 
     app.get('/webhook', (req, res) => {

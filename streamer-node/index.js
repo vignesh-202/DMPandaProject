@@ -135,6 +135,11 @@ const hub = new WorkerHub({
                 }
             }
             dispatcher?.trigger();
+        },
+        onCapacityUpdated: ({ newCapacity, oldCapacity }) => {
+            if (newCapacity > oldCapacity) {
+                dispatcher?.trigger();
+            }
         }
     }
 });
@@ -145,6 +150,7 @@ app.use(morgan(':date[iso] :method :url :status :response-time ms - :res[content
 
 registerWebhookRoutes(app, {
     verifyToken: process.env.META_VERIFY_TOKEN || '',
+    hub,
     onWebhook: async (payload) => {
         pruneRecentWelcomeReplies();
         const allJobs = splitWebhookPayload(payload);

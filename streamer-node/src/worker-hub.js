@@ -1,7 +1,9 @@
 const { WebSocketServer } = require('ws');
+const EventEmitter = require('events');
 
-class WorkerHub {
+class WorkerHub extends EventEmitter {
     constructor({ server, path = '/workers', sharedSecret = '', logger = console, callbacks = {} } = {}) {
+        super();
         this.logger = logger;
         this.sharedSecret = String(sharedSecret || '').trim();
         this.callbacks = callbacks;
@@ -48,6 +50,34 @@ class WorkerHub {
         const worker = this.workers.get(workerId);
         if (!worker) return;
         worker.lastSeenAt = Date.now();
+
+        if (message.type === 'worker.capacity_update') {
+            const newCapacity = Math.max(1, Number(message.capacity || 1) || 1);
+            const oldCapacity = worker.capacity;
+            worker.capacity = newCapacity;
+            if (message.metrics && typeof message.metrics === 'object') {
+                worker.metadata = {
+                    ...worker.metadata,
+                    metrics: message.metrics,
+                    lastThrottledReason: message.reason || ''
+                };
+            }
+            this.callbacks.onCapacityUpdated?.({
+                workerId,
+                oldCapacity,
+                newCapacity,
+                reason: message.reason || '',
+                metrics: message.metrics || {}
+            });
+            this.emit('cluster_change', {
+                event: 'worker.capacity_update',
+                workerId,
+                capacity: newCapacity,
+                metrics: message.metrics || {},
+                stats: this.getStats()
+            });
+            return;
+        }
 
         if (message.type === 'job.accepted') {
             this.callbacks.onAccepted?.({ workerId, jobId: message.jobId });
@@ -105,6 +135,11 @@ class WorkerHub {
         this.socketToWorkerId.set(ws, workerId);
         this._send(ws, { type: 'worker.registered', workerId });
         this.callbacks.onRegistered?.({ workerId });
+        this.emit('cluster_change', {
+            event: 'worker.registered',
+            workerId,
+            stats: this.getStats()
+        });
     }
 
     _handleClose(ws) {
@@ -117,6 +152,11 @@ class WorkerHub {
             this.callbacks.onDisconnected?.({
                 workerId,
                 activeJobIds: Array.from(worker.activeJobs)
+            });
+            this.emit('cluster_change', {
+                event: 'worker.disconnected',
+                workerId,
+                stats: this.getStats()
             });
         }
     }

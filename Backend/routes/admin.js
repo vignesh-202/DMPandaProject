@@ -3226,5 +3226,59 @@ router.get('/cluster/status', loginRequired, adminRequired, async (req, res) => 
     });
 });
 
+router.get('/cluster/stream', loginRequired, adminRequired, async (req, res) => {
+    const candidates = [
+        process.env.STREAMER_URL,
+        'http://localhost:3000',
+        'http://localhost:3010'
+    ].filter(Boolean);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    const abortController = new AbortController();
+    req.on('close', () => {
+        abortController.abort();
+        try { res.end(); } catch (_) {}
+    });
+
+    for (const url of candidates) {
+        try {
+            const response = await fetch(`${url}/cluster/stream`, {
+                headers: {
+                    'x-streamer-key': process.env.STREAMER_API_KEY || '',
+                    'Accept': 'text/event-stream'
+                },
+                signal: abortController.signal
+            });
+
+            if (response.ok && response.body) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                while (!abortController.signal.aborted) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    res.write(chunk);
+                }
+                return res.end();
+            }
+        } catch (err) {
+            if (abortController.signal.aborted) return;
+        }
+    }
+
+    res.write(`data: ${JSON.stringify({
+        status: 'offline',
+        connectedWorkers: 0,
+        queueLength: 0,
+        error: 'Streamer node unavailable'
+    })}\n\n`);
+    res.end();
+});
+
 module.exports = router;
 

@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
 const os = require('os');
+const HardwareProfiler = require('./hardware-profiler');
 
 class StreamerClient {
     constructor({ worker, logger = console } = {}) {
@@ -13,8 +14,14 @@ class StreamerClient {
             || worker?.workerInstanceId
             || `worker-${detectedHostname}-${process.pid}`
         ).trim();
-        const detectedCores = os.cpus()?.length || 2;
-        this.capacity = Math.max(1, Number(process.env.WORKER_MAX_CONCURRENCY) || Math.min(30, detectedCores * 5));
+
+        this.profiler = new HardwareProfiler({ logger: this.logger });
+        this.capacity = this.profiler.currentCapacity;
+        this.profiler.on('capacity_change', ({ capacity, reason, metrics }) => {
+            this.capacity = capacity;
+            this._sendCapacityUpdate(reason, metrics);
+        });
+
         this.heartbeatIntervalMs = Math.max(1000, Number(process.env.WORKER_JOB_HEARTBEAT_INTERVAL_MS || 10000) || 10000);
         this.reconnectDelayMs = Math.max(1000, Number(process.env.WORKER_STREAM_RECONNECT_DELAY_MS || 2000) || 2000);
         this.ws = null;
@@ -25,8 +32,8 @@ class StreamerClient {
         this.deviceMetadata = {
             hostname: os.hostname(),
             platform: os.platform(),
-            cpus: detectedCores,
-            memoryMb: Math.round(os.totalmem() / (1024 * 1024))
+            cpus: this.profiler.hardwareSpecs.cpus,
+            memoryMb: this.profiler.hardwareSpecs.totalRamMb
         };
     }
 
@@ -40,12 +47,16 @@ class StreamerClient {
             return;
         }
         this.closed = false;
+        this.profiler.start();
         this._connect();
     }
 
     stop() {
         this.closed = true;
         this.connected = false;
+        if (this.profiler) {
+            this.profiler.stop();
+        }
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
@@ -60,6 +71,18 @@ class StreamerClient {
             if (job.heartbeatTimer) clearInterval(job.heartbeatTimer);
         }
         this.activeJobs.clear();
+    }
+
+    _sendCapacityUpdate(reason = '', metrics = null) {
+        if (!this.connected) return;
+        const currentMetrics = metrics || (this.profiler ? this.profiler.getMetrics() : {});
+        this._send({
+            type: 'worker.capacity_update',
+            workerId: this.workerId,
+            capacity: this.capacity,
+            reason: String(reason || '').trim(),
+            metrics: currentMetrics
+        });
     }
 
     isConnected() {
@@ -88,7 +111,9 @@ class StreamerClient {
                 metadata: {
                     role: 'slave',
                     pid: process.pid,
-                    ...this.deviceMetadata
+                    ...this.deviceMetadata,
+                    specs: this.profiler ? this.profiler.hardwareSpecs : {},
+                    metrics: this.profiler ? this.profiler.getMetrics() : {}
                 }
             });
         });
