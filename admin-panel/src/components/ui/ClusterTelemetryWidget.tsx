@@ -66,9 +66,9 @@ export const ClusterTelemetryWidget: React.FC<{ className?: string }> = ({ class
     }, []);
 
     const workers = cluster?.workers || [];
-    const connectedCount = cluster?.connectedWorkers || workers.length;
-    const queueDepth = cluster?.pendingQueueLength ?? 0;
-    const activeJobs = cluster?.activeJobsCount ?? 0;
+    const connectedCount = cluster?.connectedWorkers ?? workers.length;
+    const queueDepth = cluster?.pendingQueueLength ?? cluster?.pendingJobs ?? cluster?.queueLength ?? 0;
+    const activeJobs = cluster?.activeJobsCount ?? cluster?.processingJobs ?? 0;
     const isOffline = cluster?.status === 'offline';
 
     return (

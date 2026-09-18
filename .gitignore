@@ -25,6 +25,8 @@ deploy-*.tar.gz
 # Logs & Temporary Files
 *.log
 *.tmp
+*.wal
+streamer-node/data/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

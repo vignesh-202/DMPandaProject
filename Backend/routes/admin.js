@@ -3186,36 +3186,44 @@ router.get('/impersonation-login', async (req, res) => {
 });
 
 router.get('/cluster/status', loginRequired, adminRequired, async (req, res) => {
-    try {
-        const streamerUrl = process.env.STREAMER_URL || 'http://localhost:3010';
-        const response = await fetch(`${streamerUrl}/metrics`, {
-            headers: {
-                'x-streamer-key': process.env.STREAMER_API_KEY || ''
-            },
-            signal: AbortSignal.timeout(3000)
-        });
+    const candidates = [
+        process.env.STREAMER_URL,
+        'http://localhost:3000',
+        'http://localhost:3010'
+    ].filter(Boolean);
 
-        if (!response.ok) {
-            return fail(res, response.status, `Streamer node returned HTTP ${response.status}`);
+    let lastError = null;
+    for (const url of candidates) {
+        try {
+            const response = await fetch(`${url}/metrics`, {
+                headers: {
+                    'x-streamer-key': process.env.STREAMER_API_KEY || ''
+                },
+                signal: AbortSignal.timeout(2500)
+            });
+
+            if (response.ok) {
+                const metrics = await response.json();
+                return ok(res, {
+                    cluster: metrics,
+                    checked_at: new Date().toISOString()
+                });
+            }
+        } catch (err) {
+            lastError = err;
         }
-
-        const metrics = await response.json();
-        return ok(res, {
-            cluster: metrics,
-            checked_at: new Date().toISOString()
-        });
-    } catch (error) {
-        console.warn('Failed to fetch streamer cluster metrics:', error?.message || error);
-        return ok(res, {
-            cluster: {
-                status: 'offline',
-                connectedWorkers: 0,
-                queueLength: 0,
-                error: error?.message || 'Failed to reach streamer-node'
-            },
-            checked_at: new Date().toISOString()
-        });
     }
+
+    console.warn('Failed to fetch streamer cluster metrics:', lastError?.message || lastError);
+    return ok(res, {
+        cluster: {
+            status: 'offline',
+            connectedWorkers: 0,
+            queueLength: 0,
+            error: lastError?.message || 'Failed to reach streamer-node'
+        },
+        checked_at: new Date().toISOString()
+    });
 });
 
 module.exports = router;
