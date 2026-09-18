@@ -875,9 +875,10 @@ class AppwriteClient {
 
     buildAutomationTemplate(automation = {}) {
         const type = String(automation.template_type || automation.type || 'template_text').trim() || 'template_text';
-        const buttons = this._parseJson(automation.buttons, []);
-        const replies = this._parseJson(automation.replies, []);
-        const elements = this._parseJson(automation.template_elements, []);
+        let elements = this._parseJson(automation.template_elements, []);
+        if ((!elements || elements.length === 0) && automation.template_content) {
+            elements = this._parseJson(automation.template_content, []);
+        }
         const textContent = String(automation.template_content || automation.text || automation.title || '').trim();
         const menuItemType = String(automation.menu_item_type || '').trim().toLowerCase();
 

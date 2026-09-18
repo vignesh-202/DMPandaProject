@@ -168,16 +168,17 @@ class InstagramAPI {
                         template_type: 'button',
                         text: sanitizeText(payload.text),
                         buttons: (payload.buttons || []).map((btn) => {
-                            const buttonType = btn.type || 'web_url';
+                            const buttonType = btn.type === 'postback' ? 'postback' : 'web_url';
+                            const title = sanitizeText(btn.title);
                             const baseButton = {
                                 type: buttonType,
-                                title: sanitizeText(btn.title)
+                                title
                             };
 
                             if (buttonType === 'postback') {
                                 return {
                                     ...baseButton,
-                                    payload: String(btn.payload || '').trim()
+                                    payload: String(btn.payload || '').trim() || title || 'postback'
                                 };
                             }
 
@@ -197,16 +198,46 @@ class InstagramAPI {
                     type: 'template',
                     payload: {
                         template_type: 'generic',
-                        elements: (payload.elements || []).map(elem => ({
-                            title: sanitizeText(elem.title),
-                            subtitle: sanitizeText(elem.subtitle),
-                            image_url: elem.image_url || '',
-                            buttons: (elem.buttons || []).map(btn => ({
-                                type: btn.type || 'web_url',
-                                title: sanitizeText(btn.title),
-                                url: btn.url || ''
-                            }))
-                        }))
+                        elements: (payload.elements || []).map(elem => {
+                            const elementObj = {
+                                title: sanitizeText(elem.title)
+                            };
+                            const sub = sanitizeText(elem.subtitle);
+                            if (sub) {
+                                elementObj.subtitle = sub;
+                            }
+                            if (elem.image_url) {
+                                elementObj.image_url = elem.image_url;
+                            }
+
+                            const validButtons = (elem.buttons || []).map(btn => {
+                                const btnTitle = sanitizeText(btn.title);
+                                if (!btnTitle) return null;
+                                const buttonType = btn.type === 'postback' ? 'postback' : 'web_url';
+                                if (buttonType === 'postback') {
+                                    return {
+                                        type: 'postback',
+                                        title: btnTitle,
+                                        payload: String(btn.payload || '').trim() || btnTitle || 'postback'
+                                    };
+                                }
+                                return {
+                                    type: 'web_url',
+                                    title: btnTitle,
+                                    url: btn.url || ''
+                                };
+                            }).filter(Boolean);
+
+                            // Meta Generic Template rules:
+                            // Meta allows 1-3 buttons per element.
+                            // If buttons array is empty [], Meta API returns an error:
+                            // "(#100) Param elements[0][buttons] must have at least 1 elements".
+                            if (validButtons.length > 0) {
+                                elementObj.buttons = validButtons.slice(0, 3);
+                            }
+
+                            return elementObj;
+                        })
                     }
                 }
             };

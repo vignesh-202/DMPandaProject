@@ -15,6 +15,7 @@ interface AutomationActionBarProps {
     centerContent?: React.ReactNode;
     cancelLabel?: string;
     showCancel?: boolean;
+    showSave?: boolean;
     saveLabel?: string;
 }
 
@@ -32,6 +33,7 @@ const AutomationActionBar: React.FC<AutomationActionBarProps> = ({
     centerContent,
     cancelLabel = 'Cancel',
     showCancel = true,
+    showSave = true,
     saveLabel
 }) => {
     return (
@@ -64,14 +66,16 @@ const AutomationActionBar: React.FC<AutomationActionBarProps> = ({
                         {cancelLabel}
                     </button>
                 )}
-                <button
-                    onClick={() => { void onSave(); }}
-                    disabled={saveDisabled || isSaving}
-                    className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
-                >
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {isSaving ? 'Saving...' : (saveLabel || (hasExisting ? 'Save Changes' : 'Save'))}
-                </button>
+                {showSave && (
+                    <button
+                        onClick={() => { void onSave(); }}
+                        disabled={saveDisabled || isSaving}
+                        className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {isSaving ? 'Saving...' : (saveLabel || (hasExisting ? 'Save Changes' : 'Save'))}
+                    </button>
+                )}
             </div>
         </div>
     );

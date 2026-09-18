@@ -3,12 +3,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, useDeferredValue } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutTemplate, Plus, Pencil, Trash2, Loader2, X, AlertCircle,
+  LayoutTemplate, Plus, Pencil, Trash2, Loader2, X, AlertCircle, AlertTriangle, ExternalLink, ChevronRight,
   FileText, Smartphone, Image as ImageIcon, Reply, MousePointerClick, Share2, ArrowLeft,
   Grid3x3, List as ListIcon, RefreshCw, Search
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useDashboard } from '../../contexts/DashboardContext';
+import { useDashboard, VIEW_PATHS, ViewType } from '../../contexts/DashboardContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import SharedTemplateEditor, { TemplateType, TemplateData } from '../../components/dashboard/SharedTemplateEditor';
 import SharedMobilePreview from '../../components/dashboard/SharedMobilePreview';
@@ -41,7 +41,7 @@ import {
   CAROUSEL_BUTTON_TITLE_MAX,
   MEDIA_URL_MAX
 } from '../../lib/templateLimits';
-import { takeTransientState, writeTransientState } from '../../lib/transientState';
+import { takeTransientState, writeTransientState, removeTransientState } from '../../lib/transientState';
 
 const TEMPLATE_TYPE_OPTIONS: { id: TemplateType; label: string; icon: React.ElementType }[] = [
   { id: 'template_text', label: 'Text', icon: FileText },
@@ -52,18 +52,68 @@ const TEMPLATE_TYPE_OPTIONS: { id: TemplateType; label: string; icon: React.Elem
   { id: 'template_share_post', label: 'Share Post', icon: Share2 },
 ];
 
+function sanitizeButtonForSave(btn: any) {
+  const type = btn?.type || 'web_url';
+  if (type === 'postback') {
+    return {
+      title: String(btn?.title || '').trim(),
+      type: 'postback' as const,
+      payload: String(btn?.payload || '').trim(),
+    };
+  }
+  return {
+    title: String(btn?.title || '').trim(),
+    type: 'web_url' as const,
+    url: String(btn?.url || '').trim(),
+  };
+}
+
+function isTemplateCompletelyEmpty(name: string, type: TemplateType, data: TemplateData): boolean {
+  if ((name || '').trim()) return false;
+  if (!data) return true;
+  switch (type) {
+    case 'template_text':
+      return !(data.text || '').trim();
+    case 'template_buttons':
+      if ((data.text || '').trim()) return false;
+      return !(data.buttons || []).some((b: any) => (b.title || '').trim() || (b.url || '').trim() || (b.payload || '').trim());
+    case 'template_carousel':
+      return !(data.elements || []).some((el: any) =>
+        (el.title || '').trim() ||
+        (el.subtitle || '').trim() ||
+        (el.image_url || '').trim() ||
+        (el.buttons || []).some((b: any) => (b.title || '').trim() || (b.url || '').trim() || (b.payload || '').trim())
+      );
+    case 'template_quick_replies':
+      if ((data.text || '').trim()) return false;
+      return !(data.replies || []).some((r: any) => (r.title || '').trim() || (r.payload || '').trim());
+    case 'template_media':
+      if ((data.media_url || '').trim()) return false;
+      return !(data.buttons || []).some((b: any) => (b.title || '').trim());
+    case 'template_share_post':
+      return !(data.media_id || '').trim() && !(data.media_url || '').trim() && !(data.caption || '').trim();
+    default:
+      return !(data.text || '').trim();
+  }
+}
+
 function templateDataToPayload(type: TemplateType, d: TemplateData): Record<string, unknown> {
   switch (type) {
     case 'template_text':
       return { text: d.text || '' };
     case 'template_buttons':
-      return { text: d.text || '', buttons: d.buttons || [] };
+      return { text: d.text || '', buttons: (d.buttons || []).map(sanitizeButtonForSave) };
     case 'template_carousel':
-      return { elements: d.elements || [] };
+      return {
+        elements: (d.elements || []).map((el: any) => ({
+          ...el,
+          buttons: (el.buttons || []).map(sanitizeButtonForSave),
+        })),
+      };
     case 'template_quick_replies':
       return { text: d.text || '', replies: d.replies || [] };
     case 'template_media':
-      return { media_url: d.media_url || '', buttons: d.buttons || [] };
+      return { media_url: d.media_url || '', buttons: (d.buttons || []).map(sanitizeButtonForSave) };
     case 'template_share_post':
       return {
         media_id: d.media_id || '',
@@ -186,7 +236,13 @@ export default function ReplyTemplatesView() {
   const [name, setName] = useState('');
   const [templateType, setTemplateType] = useState<TemplateType>('template_text');
   const [templateData, setTemplateData] = useState<TemplateData>({ text: '' });
+  const templateDataByTypeRef = useRef<Partial<Record<TemplateType, TemplateData>>>({});
   const [templateValidationErrors, setTemplateValidationErrors] = useState<Record<string, string>>({});
+
+  const handleTemplateDataUpdate = useCallback((newData: TemplateData) => {
+    setTemplateData(newData);
+    templateDataByTypeRef.current[templateType] = newData;
+  }, [templateType]);
 
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -331,10 +387,6 @@ export default function ReplyTemplatesView() {
     if (!view) return;
 
     const automationId = item.automation_id || item.id || '';
-    if (automationId) {
-      writeTransientState('openAutomationId', automationId);
-      writeTransientState('openAutomationType', automationType.toLowerCase());
-    }
     if (linkedTemplateId) {
       writeTransientState('openLinkedTemplateId', linkedTemplateId);
     }
@@ -343,8 +395,21 @@ export default function ReplyTemplatesView() {
     setDeleteModal({ open: false, id: '', name: '' });
     setDeleteLinked([]);
     setDeleteError(null);
-    setCurrentView(view);
-  }, [resolveAutomationView, setCurrentView]);
+
+    const routeSlug = VIEW_PATHS[view as ViewType];
+    const editableSections = ['dm-automation', 'post-automation', 'reel-automation', 'story-automation', 'live-automation', 'global-triggers'];
+    if (automationId && routeSlug && editableSections.includes(routeSlug)) {
+      removeTransientState('openAutomationId');
+      removeTransientState('openAutomationType');
+      navigate(`/dashboard/${routeSlug}/edit/${automationId}`);
+    } else {
+      if (automationId) {
+        writeTransientState('openAutomationId', automationId);
+        writeTransientState('openAutomationType', automationType.toLowerCase());
+      }
+      setCurrentView(view);
+    }
+  }, [resolveAutomationView, setCurrentView, navigate]);
 
   const openLinkedAutomations = useCallback(async (t: (typeof templates)[0]) => {
     const count = getAutomationCount(t);
@@ -386,13 +451,17 @@ export default function ReplyTemplatesView() {
     setName('');
     setTemplateType('template_text');
     // Use same default values as SuggestMoreView
-    setTemplateData(getDefaultTemplateData('template_text'));
+    const initialData = getDefaultTemplateData('template_text');
+    setTemplateData(initialData);
+    templateDataByTypeRef.current = {
+      template_text: initialData
+    };
     setTemplateValidationErrors({});
     setEditorError(null);
     initialValuesRef.current = {
       name: '',
       type: 'template_text',
-      data: getDefaultTemplateData('template_text')
+      data: initialData
     };
     setHasUnsavedChanges(false);
   }, [setHasUnsavedChanges]);
@@ -412,6 +481,7 @@ export default function ReplyTemplatesView() {
     setEditorLoading(true);
     setName(''); // Clear name until data is loaded
     setTemplateData({ text: '' }); // Clear data until loaded
+    templateDataByTypeRef.current = {};
     setTemplateValidationErrors({});
     setEditorFieldErrors({});
     setEditorError(null);
@@ -433,6 +503,9 @@ export default function ReplyTemplatesView() {
         const payloadData = payloadToTemplateData(templateType, fullTemplate.template_data || {});
         const finalData = Object.keys(payloadData).length > 0 ? payloadData : getDefaultTemplateData(templateType);
         setTemplateData(finalData);
+        templateDataByTypeRef.current = {
+          [templateType]: finalData
+        };
 
         initialValuesRef.current = {
           name: fullTemplate.name,
@@ -443,13 +516,21 @@ export default function ReplyTemplatesView() {
       } else {
         // Fallback to defaults if loading fails
         setName(t.name); // At least show the name from list
-        setTemplateData(getDefaultTemplateData(templateType));
+        const fallback = getDefaultTemplateData(templateType);
+        setTemplateData(fallback);
+        templateDataByTypeRef.current = {
+          [templateType]: fallback
+        };
         setEditorError('Failed to load template data');
       }
     } catch (err) {
       // Fallback to defaults if loading fails
       setName(t.name); // At least show the name from list
-      setTemplateData(getDefaultTemplateData(templateType));
+      const fallback = getDefaultTemplateData(templateType);
+      setTemplateData(fallback);
+      templateDataByTypeRef.current = {
+        [templateType]: fallback
+      };
       setEditorError('Failed to load template data');
     } finally {
       setEditorLoading(false);
@@ -626,11 +707,26 @@ export default function ReplyTemplatesView() {
                   errors[`element_${idx}_btn_${bidx}_title`] = `Button title must be at most ${CAROUSEL_BUTTON_TITLE_MAX} UTF-8 bytes.`;
                 }
               }
-              const url = (btn.url || '').trim();
-              if (!url) {
-                errors[`element_${idx}_btn_${bidx}_url`] = 'Button URL is required. This field is important.';
-              } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                errors[`element_${idx}_btn_${bidx}_url`] = 'Button URL must start with http:// or https://';
+              const buttonType = String(btn.type || 'web_url').trim();
+              if (buttonType === 'postback') {
+                const payload = (btn.payload || '').trim();
+                if (!payload) {
+                  errors[`element_${idx}_btn_${bidx}_payload`] = 'Reply text is required. This field is important.';
+                } else {
+                  const bl = getByteLength(payload);
+                  if (bl < QUICK_REPLY_PAYLOAD_MIN) {
+                    errors[`element_${idx}_btn_${bidx}_payload`] = 'Reply text must be at least 2 characters.';
+                  } else if (bl > QUICK_REPLY_PAYLOAD_MAX) {
+                    errors[`element_${idx}_btn_${bidx}_payload`] = `Reply text too long (max ${QUICK_REPLY_PAYLOAD_MAX} UTF-8 bytes).`;
+                  }
+                }
+              } else {
+                const url = (btn.url || '').trim();
+                if (!url) {
+                  errors[`element_${idx}_btn_${bidx}_url`] = 'Button URL is required. This field is important.';
+                } else if (!isValidHttpUrl(url)) {
+                  errors[`element_${idx}_btn_${bidx}_url`] = 'Button URL must start with http:// or https://';
+                }
               }
             });
           }
@@ -779,11 +875,12 @@ export default function ReplyTemplatesView() {
     setEditorFieldErrors({});
     const isEdit = editorMode !== null && editorMode !== 'create';
     try {
+      const currentData = templateDataByTypeRef.current[templateType] || templateData;
       const payload = {
         name: name.trim(),
         template_type: templateType,
         account_id: activeAccountID,
-        template_data: templateDataToPayload(templateType, templateData),
+        template_data: templateDataToPayload(templateType, currentData),
       };
       const url = editId
         ? `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/reply-templates/${editId}?account_id=${activeAccountID}`
@@ -845,12 +942,15 @@ export default function ReplyTemplatesView() {
 
   // Register unsaved-changes handlers when in editor; clear when in list
   useEffect(() => {
-    if (editorMode !== null && initialValuesRef.current) {
+    if (editorMode !== null && initialValuesRef.current && !editorLoading && !loading) {
+      const isNew = editorMode === 'create';
+      const isCompletelyEmpty = isTemplateCompletelyEmpty(name, templateType, templateData);
+
       const isNameChanged = name.trim() !== initialValuesRef.current.name.trim();
       const isTypeChanged = templateType !== initialValuesRef.current.type;
       const isDataChanged = JSON.stringify(templateData) !== JSON.stringify(initialValuesRef.current.data);
 
-      const hasChanges = isNameChanged || isTypeChanged || isDataChanged;
+      const hasChanges = (isNameChanged || isTypeChanged || isDataChanged) && !(isNew && isCompletelyEmpty);
 
       setHasUnsavedChanges(hasChanges);
       setSaveUnsavedChanges(() => async () => {
@@ -864,10 +964,17 @@ export default function ReplyTemplatesView() {
       setSaveUnsavedChanges(() => async () => true);
       setDiscardUnsavedChanges(() => () => { });
     }
-  }, [editorMode, name, templateType, templateData, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges]);
+  }, [editorMode, editorLoading, loading, name, templateType, templateData, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges]);
 
   const requestBack = () => {
     if (editorMode !== null) {
+      const isNew = editorMode === 'create';
+      const isCompletelyEmpty = isTemplateCompletelyEmpty(name, templateType, templateData);
+      if (isNew && isCompletelyEmpty) {
+        goBack();
+        return;
+      }
+
       const isNameChanged = name.trim() !== (initialValuesRef.current?.name?.trim() || '');
       const isTypeChanged = templateType !== initialValuesRef.current?.type;
       const isDataChanged = JSON.stringify(templateData) !== JSON.stringify(initialValuesRef.current?.data);
@@ -954,30 +1061,43 @@ export default function ReplyTemplatesView() {
     if (deleteLinked.length === 0) {
       return (
         <div className="space-y-3">
-          <p>{`Delete "${deleteModal.name}"? This cannot be undone.`}</p>
+          <p className="text-sm text-foreground">{`Delete "${deleteModal.name}"? This action cannot be undone.`}</p>
           {deleteError && (
-            <p className="text-destructive font-bold">{deleteError}</p>
+            <p className="text-xs text-destructive font-semibold">{deleteError}</p>
           )}
         </div>
       );
     }
 
     return (
-      <div className="space-y-3">
-        <p>This template is used by the following automations. Open one to edit/unlink.</p>
-        <div className="flex flex-col gap-2">
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div className="text-xs">
+            <span className="font-bold">Template in active use: </span>
+            This reply template is currently used by {deleteLinked.length} automation{deleteLinked.length > 1 ? 's' : ''}. Unlink or select another template before deleting.
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground font-medium">Click an automation below to open it and unlink this template:</p>
+        <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
           {deleteLinked.map((a) => (
             <button
               key={`${a.automation_type}-${a.id}`}
               type="button"
               onClick={() => openAutomation({ id: a.id, title: a.title, automation_type: a.automation_type }, deleteModal.id)}
-              className="w-full text-left px-3 py-2 rounded-lg border border-border bg-card hover:bg-muted/60 transition-colors"
+              className="group flex items-center justify-between p-3 rounded-xl border border-border/80 bg-card hover:border-primary/50 hover:bg-muted/40 transition-all text-left shadow-2xs"
             >
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                {automationTypeLabel(a.automation_type)}
-              </span>
-              <div className="text-sm font-bold text-foreground truncate">
-                {a.title || 'Untitled'}
+              <div className="min-w-0 pr-3">
+                <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-primary mb-0.5">
+                  {automationTypeLabel(a.automation_type)}
+                </span>
+                <div className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                  {a.title || 'Untitled Automation'}
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors">
+                <span>Edit to Unlink</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </div>
             </button>
           ))}
@@ -985,6 +1105,14 @@ export default function ReplyTemplatesView() {
       </div>
     );
   }, [deleteError, deleteLinked, deleteModal.name, openAutomation]);
+
+  const isEditorNew = editorMode === 'create';
+  const isEditorCompletelyEmpty = isTemplateCompletelyEmpty(name, templateType, templateData);
+  const isNameChanged = name.trim() !== (initialValuesRef.current?.name?.trim() || '');
+  const isTypeChanged = templateType !== initialValuesRef.current?.type;
+  const isDataChanged = JSON.stringify(templateData) !== JSON.stringify(initialValuesRef.current?.data);
+  const hasChanges = (isNameChanged || isTypeChanged || isDataChanged) && !(isEditorNew && isEditorCompletelyEmpty);
+  const shouldShowSave = isEditorNew ? (!isEditorCompletelyEmpty && hasChanges) : hasChanges;
 
   // Editor page (new page in section instead of popup)
   if (editorMode !== null) {
@@ -1033,15 +1161,17 @@ export default function ReplyTemplatesView() {
                     <span>Delete</span>
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={async () => { const ok = await handleSave(); if (ok) goBack(); }}
-                  disabled={saving || editorLoading}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-5 py-2 text-xs font-semibold text-white shadow-xs transition-all hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  <span>{editorMode === 'create' ? 'Create Template' : 'Save Changes'}</span>
-                </button>
+                {shouldShowSave && (
+                  <button
+                    type="button"
+                    onClick={async () => { const ok = await handleSave(); if (ok) goBack(); }}
+                    disabled={saving || editorLoading}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-5 py-2 text-xs font-semibold text-white shadow-xs transition-all hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    <span>{editorMode === 'create' ? 'Create Template' : 'Save Changes'}</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1063,6 +1193,7 @@ export default function ReplyTemplatesView() {
                 </span>
               </div>
               <input
+                id="field_name"
                 type="text"
                 value={name}
                 onChange={(e) => {
@@ -1097,8 +1228,28 @@ export default function ReplyTemplatesView() {
                       key={opt.id}
                       type="button"
                       onClick={() => {
+                        if (opt.id === templateType) return;
+                        // 1. Keep current template's data alive in memory
+                        templateDataByTypeRef.current[templateType] = templateData;
+
+                        // 2. Retrieve previously entered alive data for target type, or initialize if first time
+                        let targetData = templateDataByTypeRef.current[opt.id];
+                        if (!targetData) {
+                          targetData = getDefaultTemplateData(opt.id);
+                          // Smart carry-over of text if switching to another text-supporting template for the first time
+                          if (
+                            (opt.id === 'template_text' || opt.id === 'template_buttons' || opt.id === 'template_quick_replies') &&
+                            templateData.text &&
+                            !targetData.text
+                          ) {
+                            targetData = { ...targetData, text: templateData.text };
+                          }
+                          templateDataByTypeRef.current[opt.id] = targetData;
+                        }
+
+                        // 3. Switch active template type and display its alive data
                         setTemplateType(opt.id);
-                        setTemplateData(getDefaultTemplateData(opt.id));
+                        setTemplateData(targetData);
                         setTemplateValidationErrors({});
                       }}
                       className={`flex min-h-[82px] flex-col items-center justify-center gap-2 rounded-xl border p-3 text-center transition-all ${isSelected
@@ -1127,7 +1278,7 @@ export default function ReplyTemplatesView() {
                 validationErrors={templateValidationErrors}
                 activeAccountID={activeAccountID || undefined}
                 authenticatedFetch={authenticatedFetch}
-                onUpdate={setTemplateData}
+                onUpdate={handleTemplateDataUpdate}
                 onValidationErrorChange={setTemplateValidationErrors}
               />
             </div>
@@ -1154,8 +1305,18 @@ export default function ReplyTemplatesView() {
         <ModernConfirmModal
           isOpen={showBackModal}
           onClose={() => setShowBackModal(false)}
-          onConfirm={async () => { const ok = await handleSave(); if (ok) goBack(); }}
-          onSecondary={() => goBack()}
+          onConfirm={async () => {
+            const ok = await handleSave();
+            if (ok) {
+              goBack();
+            } else {
+              setShowBackModal(false);
+            }
+          }}
+          onSecondary={() => {
+            setShowBackModal(false);
+            goBack();
+          }}
           title="Unsaved changes"
           description="Do you want to save before leaving?"
           confirmLabel="Save"
@@ -1453,21 +1614,27 @@ export default function ReplyTemplatesView() {
           ) : linkedModal.error ? (
             <div className="text-destructive text-center">{linkedModal.error}</div>
           ) : (
-            <div className="space-y-3">
-              <p>Click an automation to open it.</p>
-              <div className="flex flex-col gap-2">
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground font-medium">Click an automation below to open and edit its configuration:</p>
+              <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
                 {linkedModal.automations.map((a) => (
                   <button
                     key={`${a.automation_type}-${a.automation_id}`}
                     type="button"
                     onClick={() => openAutomation(a, linkedModal.templateId)}
-                    className="w-full text-left px-3 py-2 rounded-lg border border-border bg-card hover:bg-muted/60 transition-colors"
+                    className="group flex items-center justify-between p-3 rounded-xl border border-border/80 bg-card hover:border-primary/50 hover:bg-muted/40 transition-all text-left shadow-2xs"
                   >
-                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                      {automationTypeLabel(a.automation_type)}
-                    </span>
-                    <div className="text-sm font-bold text-foreground truncate">
-                      {a.title || 'Untitled'}
+                    <div className="min-w-0 pr-3">
+                      <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-primary mb-0.5">
+                        {automationTypeLabel(a.automation_type)}
+                      </span>
+                      <div className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                        {a.title || 'Untitled Automation'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors">
+                      <span>Open</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </div>
                   </button>
                 ))}

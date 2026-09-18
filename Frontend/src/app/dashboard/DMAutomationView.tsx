@@ -37,6 +37,7 @@ import {
     toBrowserPreviewUrl
 } from '../../lib/templatePreview';
 import { normalizeAutomationKeywords } from '../../lib/automationKeywords';
+import { takeTransientState, removeTransientState } from '../../lib/transientState';
 
 interface Automation {
     $id?: string;
@@ -492,7 +493,16 @@ const DMAutomationView: React.FC = () => {
     useEffect(() => {
         if (!activeAccountID) return;
         const match = location.pathname.match(/\/dashboard\/dm-automation\/edit\/([^/]+)/);
-        const targetId = match ? match[1] : null;
+        let targetId = match ? match[1] : null;
+        if (targetId) {
+            removeTransientState('openAutomationId');
+            removeTransientState('openAutomationType');
+        } else {
+            const transientId = takeTransientState<string>('openAutomationId');
+            if (transientId) {
+                targetId = transientId;
+            }
+        }
 
         if (!targetId) {
             if (editingAutomation || preparing) {
@@ -692,7 +702,12 @@ const DMAutomationView: React.FC = () => {
                 else {
                     editingAutomation.buttons.forEach((btn: any, idx: number) => {
                         if (!btn.title?.trim()) { errors[`btn_${idx}_title`] = "Required"; hasError = true; }
-                        if (!btn.url?.trim()) { errors[`btn_${idx}_url`] = "Required"; hasError = true; }
+                        const bType = btn.type || 'web_url';
+                        if (bType === 'postback') {
+                            if (!btn.payload?.trim()) { errors[`btn_${idx}_payload`] = "Required"; hasError = true; }
+                        } else {
+                            if (!btn.url?.trim()) { errors[`btn_${idx}_url`] = "Required"; hasError = true; }
+                        }
                     });
                 }
             } else if (editingAutomation.template_type === 'template_carousel') {
@@ -704,7 +719,12 @@ const DMAutomationView: React.FC = () => {
                         (el.buttons || []).forEach((btn: any, b: number) => {
                             if (!btn.title?.trim()) { errors[`element_${i}_btn_${b}_title`] = "Required"; hasError = true; }
                             else if (getByteLength(btn.title) > BUTTON_TITLE_MAX) { errors[`element_${i}_btn_${b}_title`] = `Max ${BUTTON_TITLE_MAX} bytes`; hasError = true; }
-                            if (!btn.url?.trim()) { errors[`element_${i}_btn_${b}_url`] = "Required"; hasError = true; }
+                            const bType = btn.type || 'web_url';
+                            if (bType === 'postback') {
+                                if (!btn.payload?.trim()) { errors[`element_${i}_btn_${b}_payload`] = "Required"; hasError = true; }
+                            } else {
+                                if (!btn.url?.trim()) { errors[`element_${i}_btn_${b}_url`] = "Required"; hasError = true; }
+                            }
                         });
                     });
                 }
@@ -803,8 +823,32 @@ const DMAutomationView: React.FC = () => {
             if (selectedTemplateId) {
                 payload.template_id = selectedTemplateId;
             }
+            const sanitizeBtn = (btn: any) => {
+                const bType = btn?.type || 'web_url';
+                if (bType === 'postback') {
+                    return {
+                        title: String(btn?.title || '').trim(),
+                        type: 'postback',
+                        payload: String(btn?.payload || '').trim()
+                    };
+                }
+                return {
+                    title: String(btn?.title || '').trim(),
+                    type: 'web_url',
+                    url: String(btn?.url || '').trim()
+                };
+            };
+
+            if (payload.template_type === 'template_buttons' && Array.isArray(payload.buttons)) {
+                payload.buttons = payload.buttons.map(sanitizeBtn);
+            }
+
             if (payload.template_type === 'template_carousel') {
-                payload.template_content = JSON.stringify(payload.template_elements);
+                const cleanedElements = (payload.template_elements || []).map((el: any) => ({
+                    ...el,
+                    buttons: Array.isArray(el?.buttons) ? el.buttons.map(sanitizeBtn) : []
+                }));
+                payload.template_content = JSON.stringify(cleanedElements);
             }
             delete payload.template_elements;
 
@@ -893,6 +937,11 @@ const DMAutomationView: React.FC = () => {
     };
 
     const resetEditorState = useCallback(() => {
+        removeTransientState('openAutomationId');
+        removeTransientState('openAutomationType');
+        setEditingAutomation(null);
+        setOriginalAutomation(null);
+        setPreparing(false);
         navigate('/dashboard/dm-automation');
     }, [navigate]);
 
@@ -913,6 +962,8 @@ const DMAutomationView: React.FC = () => {
                         if (ok) {
                             closeModal();
                             resetEditorState();
+                        } else {
+                            closeModal();
                         }
                     } finally {
                         setIsSavingLeave(false);
@@ -930,12 +981,16 @@ const DMAutomationView: React.FC = () => {
 
     // Check if there are unsaved changes
     const hasDirtyChanges = useCallback(() => {
-        if (!editingAutomation) return false;
+        if (!editingAutomation || preparing || loading) return false;
         if (originalAutomation) {
             return JSON.stringify(editingAutomation) !== JSON.stringify(originalAutomation);
         }
-        return editingAutomation.title !== 'New Automation' || (editingAutomation.keywords || []).length > 0;
-    }, [editingAutomation, originalAutomation]);
+        const isDefaultTitle = !editingAutomation.title || editingAutomation.title.trim() === '' || editingAutomation.title.trim() === 'New Automation';
+        const hasKeywords = Array.isArray(editingAutomation.keywords) && editingAutomation.keywords.length > 0;
+        const hasCustomTemplate = Boolean(editingAutomation.template_id || (editingAutomation.template_content && editingAutomation.template_content.trim() !== '') || (Array.isArray(editingAutomation.template_elements) && editingAutomation.template_elements.length > 0));
+
+        return !isDefaultTitle || hasKeywords || hasCustomTemplate;
+    }, [editingAutomation, originalAutomation, preparing, loading]);
 
     const handleSaveRef = useRef(handleSave);
     useEffect(() => {
@@ -976,6 +1031,9 @@ const DMAutomationView: React.FC = () => {
                             if (ok) {
                                 closeModal();
                                 resolve(true);
+                            } else {
+                                closeModal();
+                                resolve(false);
                             }
                         } finally {
                             setIsSavingLeave(false);
@@ -1407,11 +1465,12 @@ const DMAutomationView: React.FC = () => {
                                     hasExisting={Boolean(editingAutomation.$id)}
                                     isSaving={saving}
                                     isDeleting={Boolean(editingAutomation?.$id && deletingIds.has(editingAutomation.$id))}
-                                    saveDisabled={isPublishDisabled}
+                                    saveDisabled={saving}
                                     deleteDisabled={Boolean(editingAutomation?.$id && deletingIds.has(editingAutomation.$id))}
                                     onSave={handleSave}
                                     onDelete={editingAutomation.$id ? () => handleDelete(editingAutomation.$id) : undefined}
                                     onCancel={handleBack}
+                                    showSave={hasDirtyChanges()}
                                     leftContent={
                                         <button
                                             type="button"
@@ -2062,23 +2121,107 @@ const DMAutomationView: React.FC = () => {
                                                                                     </p>
                                                                                 )}
                                                                             </div>
-                                                                            <div className="md:col-span-7 space-y-1.5">
-                                                                                <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest mb-1 block">Button Action (Link)</label>
-                                                                                <input
-                                                                                    id={`field_element_${activeElementIdx}_btn_${bidx}_url`}
-                                                                                    value={btn.url}
-                                                                                    onChange={e => {
-                                                                                        const newBtns = [...editingAutomation.template_elements[activeElementIdx].buttons];
-                                                                                        newBtns[bidx].url = e.target.value;
-                                                                                        updateElement(activeElementIdx, 'buttons', newBtns);
-                                                                                    }}
-                                                                                    className={`w-full bg-muted/40  border-2 ${fieldErrors[`element_${activeElementIdx}_btn_${bidx}_url`] ? 'border-destructive' : 'border-border'} focus:border-primary focus:border-primary rounded-xl p-3 text-[11px] font-bold text-foreground shadow-inner`}
-                                                                                    placeholder="https://..."
-                                                                                />
-                                                                                {fieldErrors[`element_${activeElementIdx}_btn_${bidx}_url`] && (
-                                                                                    <p className="text-[9px] font-bold text-destructive px-2 flex items-center gap-1">
-                                                                                        <AlertCircle className="w-3 h-3" /> {fieldErrors[`element_${activeElementIdx}_btn_${bidx}_url`]}
-                                                                                    </p>
+                                                                            <div className="md:col-span-7 space-y-3">
+                                                                                <div className="space-y-1.5">
+                                                                                    <div className="flex items-center justify-between">
+                                                                                        <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Button Action</label>
+                                                                                        <span className="text-[9px] font-medium text-muted-foreground">
+                                                                                            {(btn.type || 'web_url') === 'postback' ? 'Sends text reply to customer' : 'Opens website URL'}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="grid grid-cols-2 gap-1 p-1 bg-muted/40 rounded-xl border border-border">
+                                                                                        {[
+                                                                                            { id: 'web_url', label: 'Open URL', icon: Globe },
+                                                                                            { id: 'postback', label: 'Text Reply', icon: MessageSquare }
+                                                                                        ].map((option) => {
+                                                                                            const Icon = option.icon;
+                                                                                            const isSelected = (btn.type || 'web_url') === option.id;
+                                                                                            return (
+                                                                                                <button
+                                                                                                    key={option.id}
+                                                                                                    type="button"
+                                                                                                    onClick={() => {
+                                                                                                        const newBtns = [...editingAutomation.template_elements[activeElementIdx].buttons];
+                                                                                                        const nextType = option.id as 'web_url' | 'postback';
+                                                                                                        newBtns[bidx] = {
+                                                                                                            ...newBtns[bidx],
+                                                                                                            type: nextType,
+                                                                                                            url: newBtns[bidx].url !== undefined && newBtns[bidx].url !== ''
+                                                                                                                ? newBtns[bidx].url
+                                                                                                                : (nextType === 'web_url' ? 'https://' : ''),
+                                                                                                            payload: newBtns[bidx].payload !== undefined && newBtns[bidx].payload !== ''
+                                                                                                                ? newBtns[bidx].payload
+                                                                                                                : (nextType === 'postback' ? 'Reply with more details' : '')
+                                                                                                        };
+                                                                                                        updateElement(activeElementIdx, 'buttons', newBtns);
+                                                                                                    }}
+                                                                                                    className={`h-9 rounded-lg px-3 py-1.5 text-[11px] font-bold tracking-wide flex items-center justify-center gap-2 transition-all ${
+                                                                                                        isSelected
+                                                                                                            ? 'bg-card text-foreground shadow-xs border border-border'
+                                                                                                            : 'text-muted-foreground hover:text-foreground'
+                                                                                                    }`}
+                                                                                                >
+                                                                                                    <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                                                                    <span>{option.label}</span>
+                                                                                                </button>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                </div>
+                                                                                {(btn.type || 'web_url') === 'postback' ? (
+                                                                                    <div className="space-y-1.5">
+                                                                                        <div className="flex justify-between items-center">
+                                                                                            <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Reply Text (Sent to Customer)</label>
+                                                                                            <span className={`text-[8px] font-bold ${getByteLength(btn.payload || '') > QUICK_REPLY_PAYLOAD_MAX ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                                                                                {getByteLength(btn.payload || '')}/{QUICK_REPLY_PAYLOAD_MAX} bytes
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div className="relative">
+                                                                                            <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                                                                            <input
+                                                                                                id={`field_element_${activeElementIdx}_btn_${bidx}_payload`}
+                                                                                                value={btn.payload || ''}
+                                                                                                onChange={e => {
+                                                                                                    const newBtns = [...editingAutomation.template_elements[activeElementIdx].buttons];
+                                                                                                    newBtns[bidx].payload = e.target.value;
+                                                                                                    updateElement(activeElementIdx, 'buttons', newBtns);
+                                                                                                }}
+                                                                                                className={`w-full bg-muted/40 border-2 ${fieldErrors[`element_${activeElementIdx}_btn_${bidx}_payload`] ? 'border-destructive' : 'border-border'} focus:border-primary rounded-xl pl-9 pr-3 py-2.5 text-[11px] font-bold text-foreground shadow-inner`}
+                                                                                                placeholder="Reply with more details"
+                                                                                            />
+                                                                                        </div>
+                                                                                        {fieldErrors[`element_${activeElementIdx}_btn_${bidx}_payload`] && (
+                                                                                            <p className="text-[9px] font-bold text-destructive px-2 flex items-center gap-1">
+                                                                                                <AlertCircle className="w-3 h-3" /> {fieldErrors[`element_${activeElementIdx}_btn_${bidx}_payload`]}
+                                                                                            </p>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <div className="space-y-1.5">
+                                                                                        <div className="flex justify-between items-center">
+                                                                                            <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Button Link</label>
+                                                                                            <span className="text-[8px] text-muted-foreground font-medium">Must start with https://</span>
+                                                                                        </div>
+                                                                                        <div className="relative">
+                                                                                            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                                                                            <input
+                                                                                                id={`field_element_${activeElementIdx}_btn_${bidx}_url`}
+                                                                                                value={btn.url || ''}
+                                                                                                onChange={e => {
+                                                                                                    const newBtns = [...editingAutomation.template_elements[activeElementIdx].buttons];
+                                                                                                    newBtns[bidx].url = e.target.value;
+                                                                                                    updateElement(activeElementIdx, 'buttons', newBtns);
+                                                                                                }}
+                                                                                                className={`w-full bg-muted/40 border-2 ${fieldErrors[`element_${activeElementIdx}_btn_${bidx}_url`] ? 'border-destructive' : 'border-border'} focus:border-primary rounded-xl pl-9 pr-3 py-2.5 text-[11px] font-bold text-foreground shadow-inner`}
+                                                                                                placeholder="https://..."
+                                                                                            />
+                                                                                        </div>
+                                                                                        {fieldErrors[`element_${activeElementIdx}_btn_${bidx}_url`] && (
+                                                                                            <p className="text-[9px] font-bold text-destructive px-2 flex items-center gap-1">
+                                                                                                <AlertCircle className="w-3 h-3" /> {fieldErrors[`element_${activeElementIdx}_btn_${bidx}_url`]}
+                                                                                            </p>
+                                                                                        )}
+                                                                                    </div>
                                                                                 )}
                                                                             </div>
                                                                             <div className="md:col-span-1 pb-1">
@@ -2166,19 +2309,108 @@ const DMAutomationView: React.FC = () => {
                                                                             placeholder="Button Text"
                                                                         />
                                                                     </div>
-                                                                    <div className="md:col-span-7 space-y-1.5">
-                                                                        <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Button Link</label>
-                                                                        <input
-                                                                            id={`field_btn_${idx}_url`}
-                                                                            value={btn.url}
-                                                                            onChange={e => {
-                                                                                const next = [...editingAutomation.buttons];
-                                                                                next[idx].url = e.target.value;
-                                                                                setEditingAutomation({ ...editingAutomation, buttons: next });
-                                                                            }}
-                                                                            className={`w-full bg-muted/40  border-2 ${fieldErrors[`btn_${idx}_url`] ? 'border-destructive' : 'border-transparent'} rounded-xl p-3 text-[11px] font-bold text-foreground shadow-inner`}
-                                                                            placeholder="https://..."
-                                                                        />
+                                                                    <div className="md:col-span-7 space-y-3">
+                                                                        <div className="space-y-1.5">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Button Action</label>
+                                                                                <span className="text-[9px] font-medium text-muted-foreground">
+                                                                                    {(btn.type || 'web_url') === 'postback' ? 'Sends text reply to customer' : 'Opens website URL'}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="grid grid-cols-2 gap-1 p-1 bg-muted/40 rounded-xl border border-border">
+                                                                                {[
+                                                                                    { id: 'web_url', label: 'Open URL', icon: Globe },
+                                                                                    { id: 'postback', label: 'Text Reply', icon: MessageSquare }
+                                                                                ].map((option) => {
+                                                                                    const Icon = option.icon;
+                                                                                    const isSelected = (btn.type || 'web_url') === option.id;
+                                                                                    return (
+                                                                                        <button
+                                                                                            key={option.id}
+                                                                                            type="button"
+                                                                                            onClick={() => {
+                                                                                                const next = [...editingAutomation.buttons];
+                                                                                                const nextType = option.id as 'web_url' | 'postback';
+                                                                                                next[idx] = {
+                                                                                                    ...next[idx],
+                                                                                                    type: nextType,
+                                                                                                    url: next[idx].url !== undefined && next[idx].url !== ''
+                                                                                                        ? next[idx].url
+                                                                                                        : (nextType === 'web_url' ? 'https://' : ''),
+                                                                                                    payload: next[idx].payload !== undefined && next[idx].payload !== ''
+                                                                                                        ? next[idx].payload
+                                                                                                        : (nextType === 'postback' ? 'Reply with more details' : '')
+                                                                                                };
+                                                                                                setEditingAutomation({ ...editingAutomation, buttons: next });
+                                                                                            }}
+                                                                                            className={`h-9 rounded-lg px-3 py-1.5 text-[11px] font-bold tracking-wide flex items-center justify-center gap-2 transition-all ${
+                                                                                                isSelected
+                                                                                                    ? 'bg-card text-foreground shadow-xs border border-border'
+                                                                                                    : 'text-muted-foreground hover:text-foreground'
+                                                                                            }`}
+                                                                                        >
+                                                                                            <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                                                            <span>{option.label}</span>
+                                                                                        </button>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                        {(btn.type || 'web_url') === 'postback' ? (
+                                                                            <div className="space-y-1.5">
+                                                                                <div className="flex justify-between items-center">
+                                                                                    <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Reply Text (Sent to Customer)</label>
+                                                                                    <span className={`text-[8px] font-bold ${getByteLength(btn.payload || '') > QUICK_REPLY_PAYLOAD_MAX ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                                                                        {getByteLength(btn.payload || '')}/{QUICK_REPLY_PAYLOAD_MAX} bytes
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div className="relative">
+                                                                                    <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                                                                    <input
+                                                                                        id={`field_btn_${idx}_payload`}
+                                                                                        value={btn.payload || ''}
+                                                                                        onChange={e => {
+                                                                                            const next = [...editingAutomation.buttons];
+                                                                                            next[idx].payload = e.target.value;
+                                                                                            setEditingAutomation({ ...editingAutomation, buttons: next });
+                                                                                        }}
+                                                                                        className={`w-full bg-muted/40 border-2 ${fieldErrors[`btn_${idx}_payload`] ? 'border-destructive' : 'border-border'} focus:border-primary rounded-xl pl-9 pr-3 py-2.5 text-[11px] font-bold text-foreground shadow-inner`}
+                                                                                        placeholder="Reply with more details"
+                                                                                    />
+                                                                                </div>
+                                                                                {fieldErrors[`btn_${idx}_payload`] && (
+                                                                                    <p className="text-[9px] font-bold text-destructive px-2 flex items-center gap-1">
+                                                                                        <AlertCircle className="w-3 h-3" /> {fieldErrors[`btn_${idx}_payload`]}
+                                                                                    </p>
+                                                                                )}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="space-y-1.5">
+                                                                                <div className="flex justify-between items-center">
+                                                                                    <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Button Link</label>
+                                                                                    <span className="text-[8px] text-muted-foreground font-medium">Must start with https://</span>
+                                                                                </div>
+                                                                                <div className="relative">
+                                                                                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                                                                    <input
+                                                                                        id={`field_btn_${idx}_url`}
+                                                                                        value={btn.url || ''}
+                                                                                        onChange={e => {
+                                                                                            const next = [...editingAutomation.buttons];
+                                                                                            next[idx].url = e.target.value;
+                                                                                            setEditingAutomation({ ...editingAutomation, buttons: next });
+                                                                                        }}
+                                                                                        className={`w-full bg-muted/40 border-2 ${fieldErrors[`btn_${idx}_url`] ? 'border-destructive' : 'border-border'} focus:border-primary rounded-xl pl-9 pr-3 py-2.5 text-[11px] font-bold text-foreground shadow-inner`}
+                                                                                        placeholder="https://..."
+                                                                                    />
+                                                                                </div>
+                                                                                {fieldErrors[`btn_${idx}_url`] && (
+                                                                                    <p className="text-[9px] font-bold text-destructive px-2 flex items-center gap-1">
+                                                                                        <AlertCircle className="w-3 h-3" /> {fieldErrors[`btn_${idx}_url`]}
+                                                                                    </p>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                     <div className="md:col-span-1 pb-1">
                                                                         {(editingAutomation.buttons.length > 1 || idx > 0) && (

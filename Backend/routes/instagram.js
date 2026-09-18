@@ -1597,7 +1597,12 @@ const validateAutomationPayload = (automation) => {
                 const t = String(btn?.title || '');
                 const tl = byteLen(t);
                 if (tl < BUTTON_TITLE_MIN || tl > BUTTON_TITLE_MAX) errors.push(`buttons[${i}].title must be ${BUTTON_TITLE_MIN}-${BUTTON_TITLE_MAX} UTF-8 bytes`);
-                if (!btn?.url || byteLen(btn.url) > MEDIA_URL_MAX) errors.push(`buttons[${i}].url is required and must be <= ${MEDIA_URL_MAX} UTF-8 bytes`);
+                const bType = btn?.type || 'web_url';
+                if (bType === 'postback') {
+                    if (!btn?.payload || byteLen(btn.payload) > QUICK_REPLY_PAYLOAD_MAX) errors.push(`buttons[${i}].payload is required and must be <= ${QUICK_REPLY_PAYLOAD_MAX} UTF-8 bytes`);
+                } else {
+                    if (!btn?.url || byteLen(btn.url) > MEDIA_URL_MAX) errors.push(`buttons[${i}].url is required and must be <= ${MEDIA_URL_MAX} UTF-8 bytes`);
+                }
             });
         }
     }
@@ -1619,7 +1624,12 @@ const validateAutomationPayload = (automation) => {
                         const bt = String(b?.title || '');
                         const btl = byteLen(bt);
                         if (btl < CAROUSEL_BUTTON_TITLE_MIN || btl > CAROUSEL_BUTTON_TITLE_MAX) errors.push(`template_elements[${i}].buttons[${bi}].title must be ${CAROUSEL_BUTTON_TITLE_MIN}-${CAROUSEL_BUTTON_TITLE_MAX} UTF-8 bytes`);
-                        if (!b?.url || byteLen(b.url) > MEDIA_URL_MAX) errors.push(`template_elements[${i}].buttons[${bi}].url is required and must be <= ${MEDIA_URL_MAX} UTF-8 bytes`);
+                        const bType = b?.type || 'web_url';
+                        if (bType === 'postback') {
+                            if (!b?.payload || byteLen(b.payload) > QUICK_REPLY_PAYLOAD_MAX) errors.push(`template_elements[${i}].buttons[${bi}].payload is required and must be <= ${QUICK_REPLY_PAYLOAD_MAX} UTF-8 bytes`);
+                        } else {
+                            if (!b?.url || byteLen(b.url) > MEDIA_URL_MAX) errors.push(`template_elements[${i}].buttons[${bi}].url is required and must be <= ${MEDIA_URL_MAX} UTF-8 bytes`);
+                        }
                     });
                 }
             });

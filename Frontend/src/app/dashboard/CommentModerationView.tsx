@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -60,8 +60,9 @@ const moderationRulesFromLists = (lists: Record<ModerationAction, string[]>): Mo
 
 const CommentModerationView: React.FC = () => {
     const { authenticatedFetch } = useAuth();
-    const { activeAccountID, activeAccount } = useDashboard();
+    const { activeAccountID, activeAccount, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges } = useDashboard();
     const [keywordLists, setKeywordLists] = useState<Record<ModerationAction, string[]>>({ hide: [], delete: [] });
+    const [initialKeywordLists, setInitialKeywordLists] = useState<Record<ModerationAction, string[]>>({ hide: [], delete: [] });
     const [keywordInputs, setKeywordInputs] = useState<Record<ModerationAction, string>>({ hide: '', delete: '' });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -76,7 +77,9 @@ const CommentModerationView: React.FC = () => {
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                setKeywordLists(normalizeRulesToLists(data.rules || []));
+                const lists = normalizeRulesToLists(data.rules || []);
+                setKeywordLists(lists);
+                setInitialKeywordLists(lists);
             } else {
                 showError(data.error || 'Failed to load rules');
             }
@@ -89,7 +92,7 @@ const CommentModerationView: React.FC = () => {
                 setLoading(false);
             }
         }
-    }, [activeAccountID, authenticatedFetch]);
+    }, [activeAccountID, authenticatedFetch, showError]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -106,6 +109,49 @@ const CommentModerationView: React.FC = () => {
             controller.abort();
         };
     }, [activeAccountID, fetchRules]);
+
+    const isDirty = useMemo(() => {
+        if (loading || saving) return false;
+        return JSON.stringify(keywordLists) !== JSON.stringify(initialKeywordLists);
+    }, [loading, saving, keywordLists, initialKeywordLists]);
+
+    const handleSave = useCallback(async (): Promise<boolean> => {
+        if (!activeAccountID) return false;
+        setSaving(true);
+
+        try {
+            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/comment-moderation?account_id=${activeAccountID}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rules: moderationRulesFromLists(keywordLists) })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                showSuccess('Comment moderation rules saved successfully.');
+                setInitialKeywordLists(keywordLists);
+                setHasUnsavedChanges(false);
+                return true;
+            } else {
+                showError(data.error || 'Failed to save rules');
+                return false;
+            }
+        } catch (err) {
+            console.error('Error saving comment moderation rules:', err);
+            showError('Network error saving rules');
+            return false;
+        } finally {
+            setSaving(false);
+        }
+    }, [activeAccountID, authenticatedFetch, keywordLists, setHasUnsavedChanges, showError, showSuccess]);
+
+    useEffect(() => {
+        setHasUnsavedChanges(isDirty);
+        setSaveUnsavedChanges(() => handleSave);
+        setDiscardUnsavedChanges(() => () => {
+            setKeywordLists(initialKeywordLists);
+            setHasUnsavedChanges(false);
+        });
+    }, [isDirty, initialKeywordLists, handleSave, setHasUnsavedChanges, setSaveUnsavedChanges, setDiscardUnsavedChanges]);
 
     const addKeyword = (action: ModerationAction) => {
         const normalized = String(keywordInputs[action] || '').trim().toLowerCase();
@@ -132,30 +178,6 @@ const CommentModerationView: React.FC = () => {
             ...prev,
             [action]: prev[action].filter((item) => item !== keyword)
         }));
-    };
-
-    const handleSave = async () => {
-        if (!activeAccountID) return;
-        setSaving(true);
-
-        try {
-            const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/comment-moderation?account_id=${activeAccountID}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rules: moderationRulesFromLists(keywordLists) })
-            });
-            const data = await res.json().catch(() => ({}));
-            if (res.ok) {
-                showSuccess('Comment moderation rules saved successfully.');
-            } else {
-                showError(data.error || 'Failed to save rules');
-            }
-        } catch (err) {
-            console.error('Error saving comment moderation rules:', err);
-            showError('Network error saving rules');
-        } finally {
-            setSaving(false);
-        }
     };
 
     if (loading) {
@@ -208,25 +230,27 @@ const CommentModerationView: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 self-start sm:self-auto">
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-6 py-2.5 text-xs font-semibold text-white shadow-xs shadow-[#833AB4]/25 transition hover:opacity-95 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-                    >
-                        {saving ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                <span>Saving...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Save className="w-4 h-4" />
-                                <span>Save Rules</span>
-                            </>
-                        )}
-                    </button>
-                </div>
+                {isDirty && (
+                    <div className="flex items-center gap-3 self-start sm:self-auto">
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-6 py-2.5 text-xs font-semibold text-white shadow-xs shadow-[#833AB4]/25 transition hover:opacity-95 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                        >
+                            {saving ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>Saving...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-4 h-4" />
+                                    <span>Save Rules</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Keyword Exclusivity Info */}

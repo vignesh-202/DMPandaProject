@@ -124,7 +124,7 @@ const WelcomeMessageView: React.FC = () => {
         suggest_more_enabled: suggestMoreEnabled
     }), [followersOnly, followersOnlyMessage, followersOnlyPrimaryButtonText, followersOnlySecondaryButtonText, isActive, selectedTemplate?.id, suggestMoreEnabled]);
 
-    const isDirty = !!initialState && initialState !== currentState;
+    const isDirty = !isLoading && !isSaving && !!initialState && initialState !== currentState;
 
     useEffect(() => {
         setHasUnsavedChanges(isDirty);
@@ -138,6 +138,12 @@ const WelcomeMessageView: React.FC = () => {
         if (!activeAccountID) return false;
         if (!selectedTemplate) {
             showError('Please select a reply template for the welcome message.');
+            setTimeout(() => {
+                const el = document.getElementById('field_template') || document.querySelector('.border-dashed, [class*="border-dashed"]');
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
             return false;
         }
 
@@ -250,6 +256,7 @@ const WelcomeMessageView: React.FC = () => {
                             isSaving={isSaving}
                             onSave={handleSave}
                             onDelete={automationId ? handleDelete : undefined}
+                            showSave={isDirty}
                             leftContent={
                                 <button
                                     type="button"
@@ -365,7 +372,7 @@ const WelcomeMessageView: React.FC = () => {
                         )}
                     </div>
 
-                    <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
+                    <div id="field_template" className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
                         <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
                             <label className="block text-xs font-medium text-foreground">
                                 Select Reply Action

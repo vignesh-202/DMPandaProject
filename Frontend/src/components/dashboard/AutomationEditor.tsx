@@ -61,14 +61,36 @@ const buildHiddenAutomationTitle = (type: AutomationEditorProps['type'], mediaId
     return trimToUtf8Length(candidate, AUTOMATION_TITLE_MAX);
 };
 
+function _sanitizeButtonForSave(btn: any) {
+    const type = btn?.type || 'web_url';
+    if (type === 'postback') {
+        return {
+            title: String(btn?.title || '').trim(),
+            type: 'postback' as const,
+            payload: String(btn?.payload || '').trim(),
+        };
+    }
+    return {
+        title: String(btn?.title || '').trim(),
+        type: 'web_url' as const,
+        url: String(btn?.url || '').trim(),
+    };
+}
+
 function _mergeReplyTemplate(templateType: string, templateData: Record<string, unknown>): Record<string, unknown> {
     const d = templateData || {};
     switch (templateType) {
         case 'template_text': return { template_type: 'template_text', template_content: String(d.text || '') };
-        case 'template_buttons': return { template_type: 'template_buttons', template_content: String(d.text || ''), buttons: Array.isArray(d.buttons) ? d.buttons : [] };
-        case 'template_carousel': return { template_type: 'template_carousel', template_elements: Array.isArray(d.elements) ? d.elements : [] };
+        case 'template_buttons': return { template_type: 'template_buttons', template_content: String(d.text || ''), buttons: Array.isArray(d.buttons) ? d.buttons.map(_sanitizeButtonForSave) : [] };
+        case 'template_carousel': return {
+            template_type: 'template_carousel',
+            template_elements: Array.isArray(d.elements) ? d.elements.map((el: any) => ({
+                ...el,
+                buttons: Array.isArray(el?.buttons) ? el.buttons.map(_sanitizeButtonForSave) : []
+            })) : []
+        };
         case 'template_quick_replies': return { template_type: 'template_quick_replies', template_content: String(d.text || ''), replies: Array.isArray(d.replies) ? d.replies : [] };
-        case 'template_media': return { template_type: 'template_media', template_content: String(d.media_url || ''), buttons: Array.isArray(d.buttons) ? d.buttons : [] };
+        case 'template_media': return { template_type: 'template_media', template_content: String(d.media_url || ''), buttons: Array.isArray(d.buttons) ? d.buttons.map(_sanitizeButtonForSave) : [] };
         case 'template_share_post': return {
             template_type: 'template_share_post',
             media_id: String(d.media_id || ''),
@@ -95,12 +117,15 @@ function _buildPersistedTemplateFields(templateType: string, templateData: Recor
             return {
                 template_type: 'template_buttons',
                 template_content: String(d.text || ''),
-                buttons: Array.isArray(d.buttons) ? d.buttons : []
+                buttons: Array.isArray(d.buttons) ? d.buttons.map(_sanitizeButtonForSave) : []
             };
         case 'template_carousel':
             return {
                 template_type: 'template_carousel',
-                template_elements: Array.isArray(d.elements) ? d.elements : []
+                template_elements: Array.isArray(d.elements) ? d.elements.map((el: any) => ({
+                    ...el,
+                    buttons: Array.isArray(el?.buttons) ? el.buttons.map(_sanitizeButtonForSave) : []
+                })) : []
             };
         case 'template_quick_replies':
             return {
@@ -112,7 +137,7 @@ function _buildPersistedTemplateFields(templateType: string, templateData: Recor
             return {
                 template_type: 'template_media',
                 template_content: String(d.media_url || ''),
-                buttons: Array.isArray(d.buttons) ? d.buttons : []
+                buttons: Array.isArray(d.buttons) ? d.buttons.map(_sanitizeButtonForSave) : []
             };
         case 'template_share_post':
             return {
@@ -381,17 +406,17 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         comment_reply_text: String(value?.comment_reply_text || value?.comment_reply || '')
     });
 
-    const isDirty = !isInitialLoad && !!baselineSnapshot && baselineSnapshot !== serializeAutomationState(automation);
+    const isDirty = !isInitialLoad && !isAutomationLoading && !!baselineSnapshot && baselineSnapshot !== serializeAutomationState(automation);
 
     useEffect(() => {
         setBaselineSnapshot('');
     }, [automationId, mediaId, type]);
 
     useEffect(() => {
-        if (!isInitialLoad && !baselineSnapshot) {
+        if (!isInitialLoad && !isAutomationLoading && !baselineSnapshot) {
             setBaselineSnapshot(serializeAutomationState(automation));
         }
-    }, [automation, baselineSnapshot, isInitialLoad]);
+    }, [automation, baselineSnapshot, isInitialLoad, isAutomationLoading]);
 
     useEffect(() => {
         emitDirtyChange(isDirty);
@@ -668,14 +693,19 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             setFieldErrors(errors);
             setError("Please fill in all required fields.");
             setTimeout(() => {
-                const firstError = document.querySelector('[className*="border-red-500"]');
-                if (firstError) {
-                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    if (firstError instanceof HTMLInputElement || firstError instanceof HTMLTextAreaElement) {
-                        firstError.focus();
+                const firstErrorKey = Object.keys(errors)[0];
+                const target = document.getElementById(`field_${firstErrorKey}`) ||
+                    document.getElementById('field_title') ||
+                    document.getElementById('field_keywords') ||
+                    document.getElementById('field_template') ||
+                    document.querySelector('.border-destructive, [class*="border-destructive"], .border-red-500, [class*="border-red-500"]');
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+                        target.focus();
                     }
                 }
-            }, 150);
+            }, 100);
             return false;
         }
 
@@ -849,6 +879,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                     </div>
                                     <div className="relative flex items-center gap-2">
                                         <input
+                                            id="field_keywords"
                                             value={isEditingKeyword ? keywordInput : (automation.keyword || '')}
                                             disabled={!isEditingKeyword}
                                             onChange={e => {
@@ -1145,6 +1176,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                             <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
                                 <div className="relative group">
                                     <input
+                                        id="field_keywords"
                                         value={keywordInput}
                                         onChange={e => setKeywordInput(e.target.value.toUpperCase())}
                                         onKeyDown={handleKeywordKeyDown}
@@ -1180,6 +1212,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                         <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
                             <div className="relative flex items-center gap-2">
                                 <input
+                                    id="field_keywords"
                                     value={isEditingKeyword ? keywordInput : (automation.keyword || '')}
                                     disabled={!isEditingKeyword}
                                     onChange={e => {
@@ -1494,22 +1527,36 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         });
     };
 
-    const renderActionBar = () => (
-        <div className="sticky top-0 z-[60] -mx-4 -mt-4 mb-6 bg-card/95 backdrop-blur px-4 py-3 border-b border-border shadow-sm sm:-mx-6 sm:-mt-6 sm:px-6 md:-mx-8 md:-mt-8 md:px-8">
-            <AutomationActionBar
-                hasExisting={Boolean(automation.$id)}
-                isSaving={saving}
-                saveDisabled={false}
-                deleteDisabled={false}
-                onSave={handleSave}
-                onDelete={automation.$id && onDelete ? handleDeleteClick : undefined}
-                onCancel={onClose}
-                showCancel={showActionCancel}
-                saveLabel={saveButtonLabel}
-                leftContent={actionBarLeft}
-            />
-        </div>
-    );
+    const renderActionBar = () => {
+        const isNew = !automation.$id && !automationId;
+        const isCompletelyEmpty = (
+            (!automation.title || !automation.title.trim()) &&
+            (!automation.keywords || automation.keywords.length === 0) &&
+            (!automation.keyword || !automation.keyword.trim()) &&
+            (!automation.template_content || !automation.template_content.trim()) &&
+            (!automation.comment_reply_text || !automation.comment_reply_text.trim()) &&
+            (!selectedTemplate)
+        );
+        const shouldShowSave = isNew ? (!isCompletelyEmpty && isDirty) : isDirty;
+
+        return (
+            <div className="sticky top-0 z-[60] -mx-4 -mt-4 mb-6 bg-card/95 backdrop-blur px-4 py-3 border-b border-border shadow-sm sm:-mx-6 sm:-mt-6 sm:px-6 md:-mx-8 md:-mt-8 md:px-8">
+                <AutomationActionBar
+                    hasExisting={Boolean(automation.$id)}
+                    isSaving={saving}
+                    saveDisabled={false}
+                    deleteDisabled={false}
+                    onSave={handleSave}
+                    onDelete={automation.$id && onDelete ? handleDeleteClick : undefined}
+                    onCancel={onClose}
+                    showCancel={showActionCancel}
+                    showSave={shouldShowSave}
+                    saveLabel={saveButtonLabel}
+                    leftContent={actionBarLeft}
+                />
+            </div>
+        );
+    };
 
     const effectiveVariant = isStandalone ? 'card' : (useParentLayout && type === 'global' ? 'embedded' : variant);
 

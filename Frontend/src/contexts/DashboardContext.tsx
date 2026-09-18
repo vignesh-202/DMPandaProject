@@ -137,7 +137,7 @@ const DashboardContext = createContext<DashboardContextProps | undefined>(undefi
 
 const DASHBOARD_BASE_PATH = '/dashboard';
 
-const VIEW_PATHS: Record<ViewType, string> = {
+export const VIEW_PATHS: Record<ViewType, string> = {
     'Overview': '',
     'Analytics': 'analytics',
     'Insights': 'insights',
@@ -381,7 +381,13 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         const canonicalPath = getPathForView(routeView);
         const normalizedPath = normalizeDashboardPathname(location.pathname);
 
-        setCurrentViewState((prev) => (prev === routeView ? prev : routeView));
+        setCurrentViewState((prev) => {
+            if (prev !== routeView) {
+                setHasUnsavedChanges(false);
+                return routeView;
+            }
+            return prev;
+        });
 
         if (normalizedPath.startsWith(DASHBOARD_BASE_PATH)) {
             const isSubpath = canonicalPath !== DASHBOARD_BASE_PATH && normalizedPath.startsWith(`${canonicalPath}/`);

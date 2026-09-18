@@ -120,7 +120,7 @@ const SuggestMoreView: React.FC = () => {
         is_active: isActive
     }), [isActive, selectedTemplate?.id]);
 
-    const isDirty = !!initialState && initialState !== currentState;
+    const isDirty = !isLoading && !isSaving && !!initialState && initialState !== currentState;
 
     useEffect(() => {
         setInitialState(JSON.stringify({
@@ -138,6 +138,12 @@ const SuggestMoreView: React.FC = () => {
 
         if (!selectedTemplate) {
             showError('Please select a reply template');
+            setTimeout(() => {
+                const el = document.getElementById('field_template') || document.querySelector('.border-dashed, [class*="border-dashed"]');
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
             return false;
         }
 
@@ -235,6 +241,7 @@ const SuggestMoreView: React.FC = () => {
                             isSaving={isSaving}
                             onSave={handleSave}
                             onDelete={config.is_setup ? handleDelete : undefined}
+                            showSave={isDirty}
                             leftContent={
                                 <button
                                     type="button"
@@ -267,7 +274,7 @@ const SuggestMoreView: React.FC = () => {
                     />
 
                     {/* Template Selector */}
-                    <div className="bg-card border border-border/80 rounded-2xl p-5 sm:p-6 space-y-4">
+                    <div id="field_template" className="bg-card border border-border/80 rounded-2xl p-5 sm:p-6 space-y-4">
                         <div className="flex items-center justify-between pb-3 border-b border-border/60">
                             <div>
                                 <h3 className="text-sm font-semibold text-foreground">Linked Reply Template</h3>

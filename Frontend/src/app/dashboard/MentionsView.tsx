@@ -153,7 +153,7 @@ const MentionsView: React.FC = () => {
         seen_typing_enabled: seenTypingEnabled
     }), [followersOnly, followersOnlyMessage, followersOnlyPrimaryButtonText, followersOnlySecondaryButtonText, isActive, oncePerUser, seenTypingEnabled, selectedTemplate?.id, suggestMoreEnabled]);
 
-    const isDirty = !!initialState && initialState !== currentState;
+    const isDirty = !isLoading && !isSaving && !!initialState && initialState !== currentState;
 
     useEffect(() => {
         setInitialState(JSON.stringify({
@@ -174,6 +174,12 @@ const MentionsView: React.FC = () => {
 
         if (!selectedTemplate) {
             showError('Please select a reply template');
+            setTimeout(() => {
+                const el = document.getElementById('field_template') || document.querySelector('.border-dashed, [class*="border-dashed"]');
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
             return false;
         }
 
@@ -295,6 +301,7 @@ const MentionsView: React.FC = () => {
                             isSaving={isSaving}
                             onSave={handleSave}
                             onDelete={config.is_setup ? handleDelete : undefined}
+                            showSave={isDirty}
                             leftContent={
                                 <button
                                     type="button"
@@ -436,7 +443,7 @@ const MentionsView: React.FC = () => {
                     />
 
                     {/* Template Selector */}
-                    <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
+                    <div id="field_template" className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <label className="block text-xs font-medium text-foreground">
                                 Select Reply Action

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     FileText, Smartphone, Image as ImageIcon, Reply, MousePointerClick, Share2,
-    Plus, Trash2, AlertCircle, Calendar, ChevronDown, Check, RefreshCw, Film, Globe, Loader2, X, CheckCircle2, Info
+    Plus, Trash2, AlertCircle, Calendar, ChevronDown, Check, RefreshCw, Film, Globe, Loader2, X, CheckCircle2, Info,
+    MessageSquare, ExternalLink
 } from 'lucide-react';
 import ModernCalendar from '../ui/ModernCalendar';
 import {
@@ -97,6 +98,23 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
     const [localActiveCarouselElementIdx, setLocalActiveCarouselElementIdx] = useState(0);
     const activeCarouselElementIdx = externalActiveCarouselElementIdx !== undefined ? externalActiveCarouselElementIdx : localActiveCarouselElementIdx;
     const setActiveCarouselElementIdx = onActiveCarouselElementChange || setLocalActiveCarouselElementIdx;
+
+    // Automatically switch active carousel element tab when a validation error targets an element
+    useEffect(() => {
+        if (templateType === 'template_carousel' && validationErrors) {
+            const errorKeys = Object.keys(validationErrors);
+            for (const key of errorKeys) {
+                const match = key.match(/^element_(\d+)_/);
+                if (match) {
+                    const errorIdx = parseInt(match[1], 10);
+                    if (!isNaN(errorIdx) && errorIdx !== activeCarouselElementIdx) {
+                        setActiveCarouselElementIdx(errorIdx);
+                    }
+                    break;
+                }
+            }
+        }
+    }, [templateType, validationErrors, activeCarouselElementIdx, setActiveCarouselElementIdx]);
 
     const [localSharePostContentType, setLocalSharePostContentType] = useState<'all' | 'posts' | 'reels'>('all');
     const sharePostContentType = externalSharePostContentType !== undefined ? externalSharePostContentType : localSharePostContentType;
@@ -518,28 +536,126 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                                                     placeholder="Buy Now"
                                                 />
                                             </div>
-                                            <div className="md:col-span-7 space-y-1.5">
-                                                <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Action (Link)</label>
-                                                <input
-                                                    id={`field_element_${activeCarouselElementIdx}_btn_${bidx}_url`}
-                                                    value={btn.url || ''}
-                                                    onChange={e => {
-                                                        const elements = [...(templateData.elements || [])];
-                                                        if (elements[activeCarouselElementIdx].buttons) {
-                                                            elements[activeCarouselElementIdx].buttons![bidx].url = e.target.value;
-                                                            onUpdate({ ...templateData, elements });
-                                                        }
-                                                        if (validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_url`]) {
-                                                            const newErr = { ...validationErrors };
-                                                            delete newErr[`element_${activeCarouselElementIdx}_btn_${bidx}_url`];
-                                                            if (onValidationErrorChange) onValidationErrorChange(newErr);
-                                                        }
-                                                    }}
-                                                    className={`w-full bg-gray-50 dark:bg-gray-800 border-2 ${validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_url`] ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl p-3 text-[11px] font-bold text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500 dark:focus:border-blue-400 transition-all`}
-                                                    placeholder="https://..."
-                                                />
-                                                {validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_url`] && (
-                                                    <p className="text-[8px] font-bold text-red-500 px-1">{validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_url`]}</p>
+                                            <div className="md:col-span-7 space-y-3">
+                                                <div className="space-y-1.5">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Action</label>
+                                                        <span className="text-[9px] font-medium text-gray-400">
+                                                            {(btn.type || 'web_url') === 'postback' ? 'Sends text reply to customer' : 'Opens website URL'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100/90 dark:bg-black/40 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                                                        {[
+                                                            { id: 'web_url', label: 'Open URL', icon: Globe },
+                                                            { id: 'postback', label: 'Text Reply', icon: MessageSquare }
+                                                        ].map((option) => {
+                                                            const Icon = option.icon;
+                                                            const isSelected = (btn.type || 'web_url') === option.id;
+                                                            return (
+                                                                <button
+                                                                    key={option.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const elements = [...(templateData.elements || [])];
+                                                                        const currentBtns = elements[activeCarouselElementIdx].buttons || [];
+                                                                        const nextType = option.id as 'web_url' | 'postback';
+                                                                        const current = currentBtns[bidx] || buildDefaultButton(nextType);
+                                                                        currentBtns[bidx] = {
+                                                                            ...current,
+                                                                            type: nextType,
+                                                                            url: current.url !== undefined && current.url !== ''
+                                                                                ? current.url
+                                                                                : (nextType === 'web_url' ? 'https://' : ''),
+                                                                            payload: current.payload !== undefined && current.payload !== ''
+                                                                                ? current.payload
+                                                                                : (nextType === 'postback' ? 'Reply with more details' : '')
+                                                                        };
+                                                                        elements[activeCarouselElementIdx].buttons = currentBtns;
+                                                                        onUpdate({ ...templateData, elements });
+                                                                        if (onValidationErrorChange) {
+                                                                            const newErr = { ...validationErrors };
+                                                                            delete newErr[`element_${activeCarouselElementIdx}_btn_${bidx}_url`];
+                                                                            delete newErr[`element_${activeCarouselElementIdx}_btn_${bidx}_payload`];
+                                                                            onValidationErrorChange(newErr);
+                                                                        }
+                                                                    }}
+                                                                    className={`h-9 rounded-lg px-3 py-1.5 text-[11px] font-bold tracking-wide flex items-center justify-center gap-2 transition-all ${
+                                                                        isSelected
+                                                                            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs border border-black/[0.04] dark:border-white/[0.06]'
+                                                                            : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                                                    }`}
+                                                                >
+                                                                    <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
+                                                                    <span>{option.label}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                                {(btn.type || 'web_url') === 'postback' ? (
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex justify-between items-center">
+                                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Reply Text (Sent to Customer)</label>
+                                                            <span className={`text-[8px] font-bold ${getByteLength(btn.payload || '') > QUICK_REPLY_PAYLOAD_MAX ? 'text-red-500' : 'text-gray-300'}`}>
+                                                                {getByteLength(btn.payload || '')}/{QUICK_REPLY_PAYLOAD_MAX} bytes
+                                                            </span>
+                                                        </div>
+                                                        <div className="relative">
+                                                            <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                                                            <input
+                                                                id={`field_element_${activeCarouselElementIdx}_btn_${bidx}_payload`}
+                                                                value={btn.payload || ''}
+                                                                onChange={e => {
+                                                                    const elements = [...(templateData.elements || [])];
+                                                                    if (elements[activeCarouselElementIdx].buttons) {
+                                                                        elements[activeCarouselElementIdx].buttons![bidx].payload = e.target.value;
+                                                                        onUpdate({ ...templateData, elements });
+                                                                    }
+                                                                    if (validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_payload`]) {
+                                                                        const newErr = { ...validationErrors };
+                                                                        delete newErr[`element_${activeCarouselElementIdx}_btn_${bidx}_payload`];
+                                                                        if (onValidationErrorChange) onValidationErrorChange(newErr);
+                                                                    }
+                                                                }}
+                                                                className={`w-full bg-gray-50 dark:bg-black/30 border-2 ${validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_payload`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl pl-9 pr-3 py-2.5 text-[11px] font-bold text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500/50 transition-all`}
+                                                                placeholder="Reply with more details"
+                                                            />
+                                                        </div>
+                                                        {validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_payload`] && (
+                                                            <p className="text-[8px] font-bold text-red-500 px-1">{validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_payload`]}</p>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex justify-between items-center">
+                                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Link</label>
+                                                            <span className="text-[8px] text-gray-400 font-medium">Must start with https://</span>
+                                                        </div>
+                                                        <div className="relative">
+                                                            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                                                            <input
+                                                                id={`field_element_${activeCarouselElementIdx}_btn_${bidx}_url`}
+                                                                value={btn.url || ''}
+                                                                onChange={e => {
+                                                                    const elements = [...(templateData.elements || [])];
+                                                                    if (elements[activeCarouselElementIdx].buttons) {
+                                                                        elements[activeCarouselElementIdx].buttons![bidx].url = e.target.value;
+                                                                        onUpdate({ ...templateData, elements });
+                                                                    }
+                                                                    if (validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_url`]) {
+                                                                        const newErr = { ...validationErrors };
+                                                                        delete newErr[`element_${activeCarouselElementIdx}_btn_${bidx}_url`];
+                                                                        if (onValidationErrorChange) onValidationErrorChange(newErr);
+                                                                    }
+                                                                }}
+                                                                className={`w-full bg-gray-50 dark:bg-black/30 border-2 ${validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_url`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl pl-9 pr-3 py-2.5 text-[11px] font-bold text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500/50 transition-all`}
+                                                                placeholder="https://..."
+                                                            />
+                                                        </div>
+                                                        {validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_url`] && (
+                                                            <p className="text-[8px] font-bold text-red-500 px-1">{validationErrors[`element_${activeCarouselElementIdx}_btn_${bidx}_url`]}</p>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                             <div className="md:col-span-1 pb-1">
@@ -640,83 +756,102 @@ const SharedTemplateEditor: React.FC<SharedTemplateEditorProps> = ({
                             </div>
                             <div className="md:col-span-7 space-y-3">
                                 <div className="space-y-1.5">
-                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Action</label>
-                                    <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-gray-50 p-1.5 dark:border-slate-800 dark:bg-black/30">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Action</label>
+                                        <span className="text-[9px] font-medium text-gray-400">
+                                            {(btn.type || 'web_url') === 'postback' ? 'Sends text reply to customer' : 'Opens website URL'}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100/90 dark:bg-black/40 rounded-xl border border-slate-200/80 dark:border-slate-800">
                                         {[
-                                            { id: 'web_url', label: 'Open URL' },
-                                            { id: 'postback', label: 'Text Reply' }
-                                        ].map((option) => (
-                                            <button
-                                                key={option.id}
-                                                type="button"
-                                                onClick={() => {
-                                                    const buttons = [...(templateData.buttons || [])];
-                                                    const nextType = option.id as 'web_url' | 'postback';
-                                                    const current = buttons[idx] || buildDefaultButton(nextType);
-                                                    buttons[idx] = {
-                                                        ...current,
-                                                        type: nextType,
-                                                        url: nextType === 'web_url'
-                                                            ? (current.url && current.url.trim() ? current.url : 'https://')
-                                                            : '',
-                                                        payload: nextType === 'postback'
-                                                            ? (current.payload && current.payload.trim() ? current.payload : 'Reply with more details')
-                                                            : ''
-                                                    };
-                                                    onUpdate({ ...templateData, buttons });
-                                                    clearValidationError(`btn_${idx}_url`);
-                                                    clearValidationError(`btn_${idx}_payload`);
-                                                }}
-                                                className={`min-h-[3.25rem] rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
-                                                    (btn.type || 'web_url') === option.id
-                                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                                                        : 'text-gray-500 hover:text-blue-600'
-                                                }`}
-                                            >
-                                                {option.label}
-                                            </button>
-                                        ))}
+                                            { id: 'web_url', label: 'Open URL', icon: Globe },
+                                            { id: 'postback', label: 'Text Reply', icon: MessageSquare }
+                                        ].map((option) => {
+                                            const Icon = option.icon;
+                                            const isSelected = (btn.type || 'web_url') === option.id;
+                                            return (
+                                                <button
+                                                    key={option.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const buttons = [...(templateData.buttons || [])];
+                                                        const nextType = option.id as 'web_url' | 'postback';
+                                                        const current = buttons[idx] || buildDefaultButton(nextType);
+                                                        buttons[idx] = {
+                                                            ...current,
+                                                            type: nextType,
+                                                            url: current.url !== undefined && current.url !== ''
+                                                                ? current.url
+                                                                : (nextType === 'web_url' ? 'https://' : ''),
+                                                            payload: current.payload !== undefined && current.payload !== ''
+                                                                ? current.payload
+                                                                : (nextType === 'postback' ? 'Reply with more details' : '')
+                                                        };
+                                                        onUpdate({ ...templateData, buttons });
+                                                        clearValidationError(`btn_${idx}_url`);
+                                                        clearValidationError(`btn_${idx}_payload`);
+                                                    }}
+                                                    className={`h-9 rounded-lg px-3 py-1.5 text-[11px] font-bold tracking-wide flex items-center justify-center gap-2 transition-all ${
+                                                        isSelected
+                                                            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs border border-black/[0.04] dark:border-white/[0.06]'
+                                                            : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                                    }`}
+                                                >
+                                                    <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
+                                                    <span>{option.label}</span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                                 {(btn.type || 'web_url') === 'postback' ? (
                                     <div className="space-y-1.5">
                                         <div className="flex justify-between items-center">
-                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Reply Text</label>
-                                            <span className={`text-[8px] font-bold ${getByteLength(btn.payload || '') > QUICK_REPLY_PAYLOAD_MAX ? 'text-red-500' : 'text-gray-300'}`}>
+                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Reply Text (Sent to Customer)</label>
+                                            <span className={`text-[8px] font-bold ${getByteLength(btn.payload || '') > QUICK_REPLY_PAYLOAD_MAX ? 'text-red-500' : 'text-gray-400'}`}>
                                                 {getByteLength(btn.payload || '')}/{QUICK_REPLY_PAYLOAD_MAX} bytes
                                             </span>
                                         </div>
-                                        <input
-                                            id={`field_btn_${idx}_payload`}
-                                            value={btn.payload || ''}
-                                            onChange={e => {
-                                                const buttons = [...(templateData.buttons || [])];
-                                                buttons[idx].payload = e.target.value;
-                                                onUpdate({ ...templateData, buttons });
-                                                clearValidationError(`btn_${idx}_payload`);
-                                            }}
-                                            className={`w-full bg-gray-50 dark:bg-black/30 border-2 ${validationErrors[`btn_${idx}_payload`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-3 text-[11px] font-bold text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500/50 transition-all`}
-                                            placeholder="Reply with more details"
-                                        />
+                                        <div className="relative">
+                                            <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                                            <input
+                                                id={`field_btn_${idx}_payload`}
+                                                value={btn.payload || ''}
+                                                onChange={e => {
+                                                    const buttons = [...(templateData.buttons || [])];
+                                                    buttons[idx].payload = e.target.value;
+                                                    onUpdate({ ...templateData, buttons });
+                                                    clearValidationError(`btn_${idx}_payload`);
+                                                }}
+                                                className={`w-full bg-gray-50 dark:bg-black/30 border-2 ${validationErrors[`btn_${idx}_payload`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl pl-9 pr-3 py-2.5 text-[11px] font-bold text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500/50 transition-all`}
+                                                placeholder="Reply with more details"
+                                            />
+                                        </div>
                                         {validationErrors[`btn_${idx}_payload`] && (
                                             <p className="text-[8px] font-bold text-red-500 px-1">{validationErrors[`btn_${idx}_payload`]}</p>
                                         )}
                                     </div>
                                 ) : (
                                     <div className="space-y-1.5">
-                                        <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Link</label>
-                                        <input
-                                            id={`field_btn_${idx}_url`}
-                                            value={btn.url || ''}
-                                            onChange={e => {
-                                                const buttons = [...(templateData.buttons || [])];
-                                                buttons[idx].url = e.target.value;
-                                                onUpdate({ ...templateData, buttons });
-                                                clearValidationError(`btn_${idx}_url`);
-                                            }}
-                                            className={`w-full bg-gray-50 dark:bg-black/30 border-2 ${validationErrors[`btn_${idx}_url`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-3 text-[11px] font-bold text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500/50 transition-all`}
-                                            placeholder="https://example.com"
-                                        />
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Button Link</label>
+                                            <span className="text-[8px] text-gray-400 font-medium">Must start with https://</span>
+                                        </div>
+                                        <div className="relative">
+                                            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                                            <input
+                                                id={`field_btn_${idx}_url`}
+                                                value={btn.url || ''}
+                                                onChange={e => {
+                                                    const buttons = [...(templateData.buttons || [])];
+                                                    buttons[idx].url = e.target.value;
+                                                    onUpdate({ ...templateData, buttons });
+                                                    clearValidationError(`btn_${idx}_url`);
+                                                }}
+                                                className={`w-full bg-gray-50 dark:bg-black/30 border-2 ${validationErrors[`btn_${idx}_url`] ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl pl-9 pr-3 py-2.5 text-[11px] font-bold text-gray-900 dark:text-gray-100 shadow-inner focus:border-blue-500/50 transition-all`}
+                                                placeholder="https://example.com"
+                                            />
+                                        </div>
                                         {validationErrors[`btn_${idx}_url`] && (
                                             <p className="text-[8px] font-bold text-red-500 px-1">{validationErrors[`btn_${idx}_url`]}</p>
                                         )}

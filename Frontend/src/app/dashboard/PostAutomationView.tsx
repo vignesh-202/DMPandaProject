@@ -334,6 +334,8 @@ const PostAutomationView: React.FC = () => {
               if (ok) {
                 setShowLeaveModal(false);
                 closeEditor();
+              } else {
+                setShowLeaveModal(false);
               }
             } finally {
               setIsSavingLeave(false);

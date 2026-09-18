@@ -139,14 +139,19 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
         cancelLabel: 'Cancel',
         onConfirm: async () => {
           setIsSavingAndLeaving(true);
-          const success = await saveUnsavedChanges();
-          if (success) {
-            setHasUnsavedChanges(false);
-            closeModal();
-            setCurrentView(viewName);
-            onItemClick?.();
+          try {
+            const success = await saveUnsavedChanges();
+            if (success) {
+              setHasUnsavedChanges(false);
+              closeModal();
+              setCurrentView(viewName);
+              onItemClick?.();
+            } else {
+              closeModal();
+            }
+          } finally {
+            setIsSavingAndLeaving(false);
           }
-          setIsSavingAndLeaving(false);
         },
         onSecondary: () => {
           discardUnsavedChanges();

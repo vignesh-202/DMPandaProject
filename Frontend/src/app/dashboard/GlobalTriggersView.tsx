@@ -675,6 +675,8 @@ const GlobalTriggersView: React.FC = () => {
                         if (ok) {
                             setShowLeaveModal(false);
                             handleClose();
+                        } else {
+                            setShowLeaveModal(false);
                         }
                     } finally {
                         setIsSavingLeave(false);

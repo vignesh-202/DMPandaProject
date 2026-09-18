@@ -218,6 +218,7 @@ const ConvoStarterView: React.FC = () => {
         isOpen: false, title: '', description: '', type: 'info', onConfirm: () => { }, oneButton: true
     });
     const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
 
     // Navigation Protection Handlers
     const handleCancelEditing = useCallback(() => {
@@ -329,12 +330,19 @@ const ConvoStarterView: React.FC = () => {
     }, [convoStarterData, activeAccountID, setConvoStarters]);
 
     // Unsaved changes tracking
-    const hasChanges = useMemo(() => JSON.stringify(convoStarters) !== JSON.stringify(initialStarters), [convoStarters, initialStarters]);
+    const hasChanges = useMemo(() => {
+        if (convoStarterLoading || isHydratingInitialData) return false;
+        return JSON.stringify(convoStarters) !== JSON.stringify(initialStarters);
+    }, [convoStarterLoading, isHydratingInitialData, convoStarters, initialStarters]);
     const itemHasChanges = useMemo(() => {
         if (!isCreatingItem) return false;
+        if (editingIndex === null) {
+            const isBlank = !newItem?.question?.trim() && !newItem?.template_id && !selectedTemplate;
+            if (isBlank) return false;
+        }
         const baseline = itemBeforeEdit || createBlankStarter();
         return JSON.stringify(newItem || createBlankStarter()) !== JSON.stringify(baseline);
-    }, [isCreatingItem, itemBeforeEdit, newItem]);
+    }, [isCreatingItem, editingIndex, itemBeforeEdit, newItem, selectedTemplate]);
 
     useEffect(() => {
         setHasUnsavedChanges(hasChanges || itemHasChanges);
@@ -343,7 +351,10 @@ const ConvoStarterView: React.FC = () => {
     // Global Save/Discard Handlers (Protection)
     useEffect(() => {
         const saveHandler = async (): Promise<boolean> => {
-            if (isCreatingItem && itemHasChanges) await handleSaveItem();
+            if (isCreatingItem && itemHasChanges) {
+                const ok = await handleSaveItem();
+                if (!ok) return false;
+            }
             return await handleSaveConvoStarters();
         };
         const discardHandler = () => {
@@ -445,13 +456,26 @@ const ConvoStarterView: React.FC = () => {
     }, [isCreatingItem]);
 
     // Handlers
-    const handleSaveItem = async () => {
-        if (!newItem) return;
+    const handleSaveItem = async (): Promise<boolean> => {
+        if (!newItem) return false;
         const errors = validateConvoStarter(newItem, selectedTemplate);
         if (Object.keys(errors).length > 0) {
             setValidationErrors(errors);
             showError('Please fix the validation errors');
-            return;
+            setTimeout(() => {
+                const firstKey = Object.keys(errors)[0];
+                const el = document.getElementById(`field_${firstKey}`) ||
+                    document.getElementById('field_question') ||
+                    document.getElementById('field_template') ||
+                    document.querySelector('.border-destructive, [class*="border-destructive"], .border-red-500, [class*="border-red-500"]');
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+                        el.focus();
+                    }
+                }
+            }, 100);
+            return false;
         }
 
         const normalizedQuestion = normalizeQuestion(newItem.question || '');
@@ -470,7 +494,7 @@ const ConvoStarterView: React.FC = () => {
                 }
                 setValidationErrors({ question: `Question already exists. Suggested: ${suggested}` });
                 showError(`Please use a unique question title. Suggested: ${suggested}`);
-                return;
+                return false;
             }
         }
 
@@ -486,6 +510,7 @@ const ConvoStarterView: React.FC = () => {
         setEditingIndex(null);
         setSelectedTemplate(null);
         setValidationErrors({});
+        return true;
     };
 
     const handleSave = async () => {
@@ -499,6 +524,21 @@ const ConvoStarterView: React.FC = () => {
         setNewItem(null);
         setValidationErrors({});
         setItemBeforeEdit(null);
+    };
+
+    const requestCloseEditor = () => {
+        const isNew = editingIndex === null;
+        const isBlank = !newItem?.question?.trim() && !newItem?.template_id && !selectedTemplate;
+        if (isNew && isBlank) {
+            handleCloseEditor();
+            return;
+        }
+
+        if (itemHasChanges) {
+            setShowLeaveModal(true);
+        } else {
+            handleCloseEditor();
+        }
     };
 
     const handleEditStarter = useCallback(async (starter: ConvoStarter, index: number) => {
@@ -881,7 +921,7 @@ const ConvoStarterView: React.FC = () => {
                                 <div className="flex flex-col gap-4 border-b border-border pb-5 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-3">
                                         <button
-                                            onClick={handleCloseEditor}
+                                            onClick={requestCloseEditor}
                                             className="p-2 rounded-xl border border-border hover:bg-muted text-foreground transition-all"
                                             title="Back"
                                         >
@@ -900,12 +940,14 @@ const ConvoStarterView: React.FC = () => {
                                         onSave={handleSave}
                                         onDelete={handleDeleteCurrentStarter}
                                         saveDisabled={!selectedTemplate}
+                                        showSave={itemHasChanges}
                                     />
                                 </div>
 
                                 <div className="space-y-2">
                                     <label className="text-xs font-medium text-foreground">Question</label>
                                     <input
+                                        id="field_question"
                                         value={newItem.question}
                                         onChange={(e) => setNewItem({ ...newItem, question: e.target.value })}
                                         className={`w-full bg-background border ${validationErrors.question ? 'border-destructive' : 'border-border'} focus:border-primary focus:ring-1 focus:ring-primary outline-none rounded-xl px-3.5 py-2.5 text-sm font-normal transition-all`}
@@ -1035,7 +1077,7 @@ const ConvoStarterView: React.FC = () => {
                                     />
                                 </div>
 
-                                <div className={`space-y-4 pt-6 border-t ${validationErrors.template ? 'border-destructive' : 'border-border'}`}>
+                                <div id="field_template" className={`space-y-4 pt-6 border-t ${validationErrors.template ? 'border-destructive' : 'border-border'}`}>
                                     <div className="flex items-center justify-between">
                                         <label className="text-xs font-medium text-foreground">Select Reply Action</label>
                                         {selectedTemplate && <button onClick={() => setSelectedTemplate(null)} className="text-xs font-medium text-primary hover:underline">Change Template</button>}
@@ -1261,6 +1303,29 @@ const ConvoStarterView: React.FC = () => {
                     onClose={closeModal}
                 />
             )}
+
+            <ModernConfirmModal
+                isOpen={showLeaveModal}
+                onClose={() => setShowLeaveModal(false)}
+                onConfirm={async () => {
+                    const ok = await handleSaveItem();
+                    if (ok) {
+                        setShowLeaveModal(false);
+                    } else {
+                        setShowLeaveModal(false);
+                    }
+                }}
+                onSecondary={() => {
+                    setShowLeaveModal(false);
+                    handleCloseEditor();
+                }}
+                title="Unsaved changes"
+                description="Do you want to save before leaving?"
+                confirmLabel="Save"
+                secondaryLabel="Leave without saving"
+                cancelLabel="Cancel"
+                type="warning"
+            />
         </div>
     );
 };

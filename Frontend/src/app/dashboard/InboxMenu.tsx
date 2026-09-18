@@ -298,9 +298,9 @@ const InboxMenu: React.FC = () => {
         setDiscardUnsavedChanges
     } = useDashboard();
 
-    // Check for changes (item or menu)
-    const hasAnyLocalChanges = useMemo(() => {
-        const defaultNewItem = {
+    const itemHasChanges = useMemo(() => {
+        if (!isCreatingItem) return false;
+        const defaultNewItem: Partial<MenuItem> = {
             title: '',
             type: 'postback',
             followers_only: false,
@@ -310,14 +310,17 @@ const InboxMenu: React.FC = () => {
             template_type: 'template_text',
             template_data: {}
         };
-        const itemHasChanges = isCreatingItem && (editingItemIndex !== null
+        return editingItemIndex !== null
             ? JSON.stringify(newItem) !== JSON.stringify(itemBeforeEdit || editingMenu[editingItemIndex])
-            : JSON.stringify(newItem) !== JSON.stringify(defaultNewItem));
+            : JSON.stringify(newItem) !== JSON.stringify(defaultNewItem);
+    }, [isCreatingItem, editingItemIndex, newItem, itemBeforeEdit, editingMenu]);
 
+    // Local changes detection
+    const hasAnyLocalChanges = useMemo(() => {
+        if (inboxMenuLoading || isActionLoading) return false;
         const menuHasChanges = JSON.stringify(editingMenu) !== JSON.stringify(initialMenu);
-
         return itemHasChanges || menuHasChanges;
-    }, [isCreatingItem, editingItemIndex, newItem, itemBeforeEdit, editingMenu, initialMenu]);
+    }, [inboxMenuLoading, isActionLoading, itemHasChanges, editingMenu, initialMenu]);
 
     // Navigation Protection Sync
     useEffect(() => {
@@ -1288,6 +1291,7 @@ const InboxMenu: React.FC = () => {
                                                 isSaving={isActionLoading}
                                                 onSave={handleSaveMenuItem}
                                                 onDelete={handleDeleteEditingItem}
+                                                showSave={itemHasChanges}
                                             />
                                         </div>
 

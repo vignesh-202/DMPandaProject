@@ -287,11 +287,11 @@ const SuperProfileView: React.FC = () => {
     };
 
     const hasAnyChanges = useMemo(() => {
-        if (!initialProfileRef.current) return false;
+        if (loading || saving || !initialProfileRef.current) return false;
         const currentSnapshot = buildSnapshot(buttons, isActive);
         const initialSnapshot = buildSnapshot(initialProfileRef.current.buttons, initialProfileRef.current.isActive);
         return currentSnapshot !== initialSnapshot;
-    }, [buttons, isActive, buildSnapshot]);
+    }, [loading, saving, buttons, isActive, buildSnapshot]);
 
     const isFormValid = useMemo(() => {
         if (!slug.trim() || buttons.length === 0) return false;
@@ -365,6 +365,7 @@ const SuperProfileView: React.FC = () => {
                             onSave={handleSave}
                             saveDisabled={!isFormValid}
                             showCancel={false}
+                            showSave={hasAnyChanges}
                             saveLabel="Save"
                             centerContent={(
                                 <div className="min-w-0">
