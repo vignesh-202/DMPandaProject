@@ -1,3 +1,4 @@
+const express = require('express');
 const crypto = require('crypto');
 
 function verifyMetaSignature(rawBody, signatureHeader, appSecret) {
