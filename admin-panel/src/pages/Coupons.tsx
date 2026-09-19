@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, CheckCircle2, Copy, Layers, Loader2, PencilLine, Plus, RefreshCcw, Search, SlidersHorizontal, Sparkles, Tag, TicketPercent } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, CheckCircle2, Copy, CreditCard, Layers, Loader2, PencilLine, Plus, Receipt, RefreshCcw, Search, SlidersHorizontal, Sparkles, Tag, TicketPercent, TrendingUp, XCircle } from 'lucide-react';
 import httpClient from '../lib/httpClient';
 import AdminLoadingState from '../components/AdminLoadingState';
 import { cn } from '../lib/utils';
@@ -231,6 +231,10 @@ export const CouponsPage: React.FC = () => {
     const [expiryFilter, setExpiryFilter] = useState<CouponFilterExpiry>('all');
     const [sortBy, setSortBy] = useState<CouponSort>('recent');
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
+    const [couponsTab, setCouponsTab] = useState<'coupons' | 'redemptions'>('coupons');
+    const [redemptionSearch, setRedemptionSearch] = useState('');
+    const [redemptionPlanFilter, setRedemptionPlanFilter] = useState('all');
+    const [redemptionStatusFilter, setRedemptionStatusFilter] = useState('all');
 
     const loadCoupons = async () => {
         try {
@@ -269,6 +273,26 @@ export const CouponsPage: React.FC = () => {
         () => `Rs ${Number(data?.stats?.revenue_total || 0).toLocaleString('en-IN')}`,
         [data]
     );
+
+    const filteredRedemptions = useMemo(() => {
+        const query = redemptionSearch.trim().toLowerCase();
+        return redemptions.filter((item) => {
+            if (redemptionPlanFilter !== 'all' && (item.plan_id || '').toLowerCase() !== redemptionPlanFilter.toLowerCase()) {
+                return false;
+            }
+            if (redemptionStatusFilter !== 'all' && (item.status || 'success').toLowerCase() !== redemptionStatusFilter.toLowerCase()) {
+                return false;
+            }
+            if (!query) return true;
+            return (
+                (item.coupon_code || '').toLowerCase().includes(query) ||
+                (item.plan_id || '').toLowerCase().includes(query) ||
+                (item.currency || '').toLowerCase().includes(query) ||
+                (item.status || '').toLowerCase().includes(query) ||
+                (item.id || '').toLowerCase().includes(query)
+            );
+        });
+    }, [redemptions, redemptionSearch, redemptionPlanFilter, redemptionStatusFilter]);
 
     const filteredCoupons = useMemo(() => {
         const normalizedSearch = searchQuery.trim();
@@ -870,8 +894,69 @@ export const CouponsPage: React.FC = () => {
                     </div>
                 </div>
             ) : (
-            <div className="grid grid-cols-1 gap-6">
+            {!editorMode && (
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/70 pb-2">
+                    <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/70 dark:bg-zinc-900/90 border border-border/80 shadow-xs">
+                        <button
+                            type="button"
+                            onClick={() => setCouponsTab('coupons')}
+                            className={cn(
+                                'flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all',
+                                couponsTab === 'coupons'
+                                    ? 'bg-background dark:bg-zinc-800 text-foreground shadow-xs border border-border/60'
+                                    : 'text-muted-foreground hover:text-foreground'
+                            )}
+                        >
+                            <Tag className="h-4 w-4 text-primary" />
+                            Coupons Inventory
+                            <span className={cn(
+                                'ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold',
+                                couponsTab === 'coupons'
+                                    ? 'bg-primary/15 text-primary'
+                                    : 'bg-muted text-muted-foreground'
+                            )}>
+                                {coupons.length}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setCouponsTab('redemptions')}
+                            className={cn(
+                                'flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all',
+                                couponsTab === 'redemptions'
+                                    ? 'bg-background dark:bg-zinc-800 text-foreground shadow-xs border border-border/60'
+                                    : 'text-muted-foreground hover:text-foreground'
+                            )}
+                        >
+                            <Layers className="h-4 w-4 text-primary" />
+                            Redemption History
+                            <span className={cn(
+                                'ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold',
+                                couponsTab === 'redemptions'
+                                    ? 'bg-primary/15 text-primary'
+                                    : 'bg-muted text-muted-foreground'
+                            )}>
+                                {redemptions.length}
+                            </span>
+                        </button>
+                    </div>
 
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={loadCoupons}
+                            className="btn-secondary px-3.5 py-2 text-xs font-semibold"
+                            title="Refresh Data"
+                        >
+                            <RefreshCcw className="h-3.5 w-3.5 mr-1.5" />
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-6">
+                {couponsTab === 'coupons' ? (
                 <div className="space-y-6">
                     <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
                         <div className="flex items-center justify-between gap-4">
@@ -929,8 +1014,8 @@ export const CouponsPage: React.FC = () => {
                                         <option value="all">Any Expiration Date</option>
                                         <option value="expired">Expired Codes</option>
                                         <option value="expiring">Expiring Soon (14d)</option>
-                                        <option value="scheduled">Scheduled (Future)</option>
-                                        <option value="no_expiry">No Expiration Date</option>
+                                        <option value="scheduled">Scheduled / Future</option>
+                                        <option value="no_expiry">No Expiry Date</option>
                                     </SelectField>
 
                                     <SelectField
@@ -938,63 +1023,80 @@ export const CouponsPage: React.FC = () => {
                                         value={sortBy}
                                         onChange={(value) => setSortBy(value as CouponSort)}
                                     >
-                                        <option value="recent">Recently Created/Updated</option>
+                                        <option value="recent">Recently Created</option>
                                         <option value="expiry">Expiration Date</option>
                                         <option value="value">Highest Discount Value</option>
                                         <option value="usage">Most Redemptions</option>
-                                        <option value="code">Alphabetical (Code)</option>
+                                        <option value="code">Alphabetical Code</option>
                                     </SelectField>
                                 </div>
                             </div>
 
-                            <div className="max-h-[42rem] space-y-3 overflow-y-auto pr-1">
+                            <div className="space-y-4">
                             {filteredCoupons.length === 0 && (
-                                <div className="rounded-[24px] border border-dashed border-border px-5 py-8 text-center text-sm text-muted-foreground">
-                                    No coupons match the current filters.
+                                <div className="rounded-[24px] border border-dashed border-border px-5 py-12 text-center text-sm text-muted-foreground">
+                                    No coupons match the current filter and search criteria.
                                 </div>
                             )}
-                            {filteredCoupons.map((coupon) => {
+
+                            {filteredCoupons.map(({ coupon }) => {
                                 const usagePercent = coupon.usage_limit > 0
                                     ? Math.min(100, Math.round(((coupon.redemption_count || 0) / coupon.usage_limit) * 100))
                                     : null;
+                                const isCopied = copiedCode === coupon.code;
+
                                 return (
-                                <div key={coupon.id} className="group relative overflow-hidden rounded-[24px] border border-border/70 bg-card p-5 shadow-xs transition-all hover:border-primary/30 hover:shadow-sm">
-                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                                        <div className="flex-1 space-y-3">
-                                            <div className="flex flex-wrap items-center gap-3">
-                                                <span className="font-mono text-xl font-black tracking-wider text-foreground">
-                                                    {coupon.code}
-                                                </span>
-                                                <span className={cn(
-                                                    'inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold',
-                                                    coupon.active
-                                                        ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                                        : 'border border-border bg-muted text-muted-foreground'
-                                                )}>
-                                                    {coupon.active ? 'Active' : 'Inactive'}
-                                                </span>
-                                                <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[11px] font-extrabold text-primary">
+                                <div
+                                    key={coupon.id}
+                                    className={cn(
+                                        'group relative overflow-hidden rounded-2xl border transition-all duration-300',
+                                        coupon.active
+                                            ? 'border-border/80 bg-card hover:border-primary/40 hover:shadow-md'
+                                            : 'border-border/40 bg-muted/20 opacity-75 hover:opacity-100'
+                                    )}
+                                >
+                                    {/* Perforated ticket stub divider */}
+                                    <div className="pointer-events-none absolute -left-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-background border-r border-border/80" />
+                                    <div className="pointer-events-none absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-background border-l border-border/80" />
+
+                                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 sm:p-6 pl-7 pr-7">
+                                        <div className="space-y-3 flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2.5">
+                                                <div className="inline-flex items-center gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-1.5 font-mono text-base font-black tracking-wider text-foreground">
+                                                    <span>{coupon.code}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => copyCouponCode(coupon.code)}
+                                                        className={cn(
+                                                            'ml-1 rounded-md p-1 transition-colors',
+                                                            isCopied
+                                                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                                                : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
+                                                        )}
+                                                        title="Copy coupon code"
+                                                    >
+                                                        {isCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                                                    </button>
+                                                </div>
+
+                                                <span className="rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
                                                     {formatCouponValue(coupon)}
                                                 </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => copyCouponCode(coupon.code)}
-                                                    className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px]"
-                                                >
-                                                    {copiedCode === coupon.code ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                                                    {copiedCode === coupon.code ? 'Copied' : 'Copy Code'}
-                                                </button>
+
+                                                <span className={cn(
+                                                    'status-pill text-[10px] font-bold py-0.5 px-2.5',
+                                                    coupon.active ? 'status-pill-success' : 'status-pill-danger'
+                                                )}>
+                                                    {coupon.active ? 'Active' : 'Disabled'}
+                                                </span>
                                             </div>
 
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                                                    {coupon.type === 'percent' ? 'Percentage' : 'Fixed amount'}
-                                                </span>
-                                                <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
                                                     {coupon.one_time_use ? 'Single use per user' : 'Reusable'}
                                                 </span>
                                                 <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                                                    Cycles: {(coupon.billing_cycle_targets || ['monthly', 'yearly']).join(' + ')}
+                                                    Billing: {(coupon.billing_cycle_targets || []).join(' + ') || 'All cycles'}
                                                 </span>
                                                 <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
                                                     Plans: {coupon.plan_ids.length > 0 ? `${coupon.plan_ids.length} selected` : 'All plans'}
@@ -1057,39 +1159,166 @@ export const CouponsPage: React.FC = () => {
                             </div>
                         </div>
                     </div>
-
-                    <div className="glass-card rounded-[32px] p-6">
+                </div>
+                ) : (
+                /* REDEMPTION HISTORY TAB */
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                            <h2 className="text-2xl font-extrabold text-foreground">Recent Redemptions</h2>
-                            <p className="mt-1 text-sm text-muted-foreground">Latest successful coupon usage from live billing activity.</p>
+                            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Redemption History & Audit</h2>
+                            <p className="mt-1 text-xs text-muted-foreground">Comprehensive transaction ledger of discount coupons applied during subscriber checkout.</p>
                         </div>
-                        <div className="mt-5 space-y-3">
-                            {redemptions.length === 0 && (
-                                <div className="rounded-[24px] border border-dashed border-border px-5 py-8 text-center text-sm text-muted-foreground">
-                                    No coupon redemptions recorded yet.
-                                </div>
-                            )}
-                            {redemptions.map((item) => (
-                                <div key={item.id} className="rounded-[24px] border border-border/80 bg-background/40 px-4 py-4">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div>
-                                            <p className="text-sm font-bold text-foreground">{item.coupon_code || 'No coupon code'}</p>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {item.plan_id || 'Plan not set'} | {item.currency || 'INR'} | {item.status || 'success'}
-                                            </p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-extrabold text-foreground">{item.final_amount}</p>
-                                            <p className="mt-1 text-[10px] font-black text-muted-foreground">
-                                                {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Unknown'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                        <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
+                            {filteredRedemptions.length} records found
+                        </span>
+                    </div>
+
+                    {/* Search & Filters for Redemptions */}
+                    <div className="rounded-xl border border-border/80 bg-background/50 p-4">
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="relative">
+                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <input
+                                    value={redemptionSearch}
+                                    onChange={(event) => setRedemptionSearch(event.target.value)}
+                                    placeholder="Search coupon, plan, currency..."
+                                    className="input-base pl-10"
+                                />
+                            </div>
+                            <SelectField
+                                label="Target Plan"
+                                value={redemptionPlanFilter}
+                                onChange={(val) => setRedemptionPlanFilter(val)}
+                            >
+                                <option value="all">All Plans</option>
+                                {availablePlans.map((p) => (
+                                    <option key={p.id} value={p.plan_code || p.id}>
+                                        {p.name || p.plan_code}
+                                    </option>
+                                ))}
+                            </SelectField>
+                            <SelectField
+                                label="Redemption Status"
+                                value={redemptionStatusFilter}
+                                onChange={(val) => setRedemptionStatusFilter(val)}
+                            >
+                                <option value="all">All Statuses</option>
+                                <option value="success">Success</option>
+                                <option value="completed">Completed</option>
+                                <option value="pending">Pending</option>
+                                <option value="failed">Failed</option>
+                            </SelectField>
                         </div>
                     </div>
+
+                    {/* Table for Desktop */}
+                    <div className="hidden md:block overflow-hidden rounded-xl border border-border/80 bg-background/30">
+                        <table className="w-full border-collapse text-left text-sm">
+                            <thead>
+                                <tr className="border-b border-border/80 bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                    <th className="px-5 py-3.5">Coupon Code</th>
+                                    <th className="px-5 py-3.5">Target Plan</th>
+                                    <th className="px-5 py-3.5">Final Amount</th>
+                                    <th className="px-5 py-3.5">Status</th>
+                                    <th className="px-5 py-3.5">Redeemed At</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/60">
+                                {filteredRedemptions.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                                            <Receipt className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
+                                            No redemptions match your query.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredRedemptions.map((item) => (
+                                        <tr key={item.id} className="transition-colors hover:bg-muted/30">
+                                            <td className="px-5 py-3.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-mono text-xs font-bold text-foreground bg-primary/10 border border-primary/20 rounded-md px-2 py-1">
+                                                        {item.coupon_code || 'N/A'}
+                                                    </span>
+                                                    {item.coupon_code && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => copyCouponCode(item.coupon_code)}
+                                                            className="text-muted-foreground hover:text-foreground transition p-1"
+                                                            title="Copy code"
+                                                        >
+                                                            <Copy className="h-3 w-3" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-xs font-semibold text-foreground capitalize">
+                                                    {item.plan_id || 'Global'}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <span className="font-mono text-xs font-bold text-foreground">
+                                                    {item.currency || 'INR'} {Number(item.final_amount || 0).toLocaleString('en-IN')}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <span className={cn(
+                                                    'status-pill text-[10px] font-bold py-0.5 px-2.5',
+                                                    item.status === 'failed' ? 'status-pill-danger' : 'status-pill-success'
+                                                )}>
+                                                    {item.status || 'Success'}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3.5 text-xs text-muted-foreground font-medium">
+                                                {item.created_at ? (
+                                                    <span>
+                                                        {new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                ) : 'Unknown'}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Cards for Mobile */}
+                    <div className="block md:hidden divide-y divide-border/60">
+                        {filteredRedemptions.length === 0 ? (
+                            <div className="py-10 text-center text-sm text-muted-foreground">
+                                <Receipt className="mx-auto h-7 w-7 text-muted-foreground/50 mb-2" />
+                                No redemptions found.
+                            </div>
+                        ) : (
+                            filteredRedemptions.map((item) => (
+                                <div key={item.id} className="py-4 space-y-2.5">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="font-mono text-xs font-bold text-foreground bg-primary/10 border border-primary/20 rounded-md px-2 py-0.5">
+                                            {item.coupon_code || 'N/A'}
+                                        </span>
+                                        <span className={cn(
+                                            'status-pill text-[10px] font-bold py-0.5 px-2',
+                                            item.status === 'failed' ? 'status-pill-danger' : 'status-pill-success'
+                                        )}>
+                                            {item.status || 'Success'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>Plan: <strong className="text-foreground font-semibold">{item.plan_id || 'Global'}</strong></span>
+                                        <span className="font-mono font-bold text-foreground">
+                                            {item.currency || 'INR'} {item.final_amount}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        {item.created_at ? new Date(item.created_at).toLocaleString() : 'Unknown'}
+                                    </p>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
+                )}
             </div>
             )}
         </div>

@@ -637,46 +637,6 @@ const AccountSettingsView = () => {
     );
   };
 
-  const InstagramFloatingNotification = () => {
-    const msg = sectionMessages.instagram;
-    if (!msg) return null;
-    const isSuccess = msg.type === 'success';
-
-    return (
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[170] pointer-events-auto max-w-md w-[calc(100vw-2rem)] animate-in fade-in zoom-in-95 slide-in-from-top-6 duration-300">
-        <div className={cn(
-          "flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl backdrop-blur-xl border transition-all",
-          isSuccess
-            ? "bg-background/90 dark:bg-card/95 border-emerald-500/30 text-foreground shadow-[0_10px_30px_rgba(16,185,129,0.12)]"
-            : "bg-background/90 dark:bg-card/95 border-destructive/30 text-foreground shadow-[0_10px_30px_rgba(239,68,68,0.12)]"
-        )}>
-          <div className={cn(
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ring-2",
-            isSuccess ? "bg-emerald-500/15 text-emerald-500 ring-emerald-500/20" : "bg-destructive/15 text-destructive ring-destructive/20"
-          )}>
-            {isSuccess ? <Check className="h-4 w-4 stroke-[2.5]" /> : <X className="h-4 w-4 stroke-[2.5]" />}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold tracking-tight text-foreground truncate sm:whitespace-normal">
-              {isSuccess ? 'Instagram Settings Updated' : 'Action Failed'}
-            </p>
-            <p className="text-[11px] text-muted-foreground line-clamp-2">
-              {msg.text}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSectionMessages(prev => ({ ...prev, instagram: null }))}
-            className="p-1 rounded-lg text-muted-foreground hover:text-foreground transition hover:bg-muted/60"
-            aria-label="Dismiss"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   if (!user || (isLoadingAccounts && igAccounts.length === 0)) {
     return (
       <LoadingOverlay
@@ -697,7 +657,6 @@ const AccountSettingsView = () => {
 
   return (
     <div className="p-3.5 sm:p-6 lg:p-8 space-y-6 lg:space-y-8 max-w-7xl mx-auto select-text animate-fadeIn">
-      <InstagramFloatingNotification />
       {/* Header Panel */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
         <div className="space-y-1.5">
@@ -1536,7 +1495,7 @@ const AccountSettingsView = () => {
           role="status"
           aria-live="polite"
           className={cn(
-            "fixed top-6 right-6 z-[200] max-w-sm flex items-start gap-3 rounded-2xl border p-4 shadow-2xl backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-top-3",
+            "fixed top-20 right-4 sm:right-6 z-[150] w-full max-w-[calc(100vw-2rem)] sm:max-w-sm flex items-start gap-3 rounded-2xl border p-4 shadow-2xl backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-top-3",
             sectionMessages.instagram.type === 'success'
               ? "border-emerald-500/30 bg-background/95 text-foreground shadow-emerald-500/10"
               : "border-rose-500/30 bg-background/95 text-foreground shadow-rose-500/10"

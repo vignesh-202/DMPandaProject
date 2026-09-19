@@ -8,6 +8,7 @@ import {
     ChevronRight,
     ChevronUp,
     ExternalLink,
+    Instagram,
     Loader2,
     Search,
     Settings2,

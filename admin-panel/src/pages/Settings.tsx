@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, CheckCircle2, Copy, Instagram, Loader2, MessageSquare, RefreshCw, Save, Sparkles } from 'lucide-react';
+import { Camera, Check, CheckCircle2, ChevronLeft, Copy, Heart, Image as ImageIcon, Instagram, Loader2, MessageSquare, Mic, Phone, RefreshCw, Save, Sparkles, Video } from 'lucide-react';
 import httpClient from '../lib/httpClient';
 import AdminLoadingState from '../components/AdminLoadingState';
 import { cn } from '../lib/utils';
@@ -236,63 +236,133 @@ export const SettingsPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Right: Live Instagram DM Preview */}
+                {/* Right: Live Instagram DM Preview Matching Frontend Automation Preview */}
                 <div className="space-y-6">
                     <div className="relative overflow-hidden rounded-[28px] border border-border bg-card p-6 shadow-xs">
                         <div className="flex items-center justify-between pb-4 border-b border-border/60">
                             <div className="flex items-center gap-2 text-xs font-bold text-foreground">
                                 <Instagram className="h-4 w-4 text-primary" />
-                                Live DM Preview
+                                Live DM Automation Preview
                             </div>
-                            <span className="rounded-full bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 text-[10px] font-bold">
+                            <span className="rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-[10px] font-bold">
                                 {policy.enabled ? 'Watermarked' : 'Plain'}
                             </span>
                         </div>
 
-                        {/* Simulated Instagram Chat Window */}
-                        <div className="mt-4 rounded-2xl border border-border/70 bg-background/70 p-4 space-y-3 font-sans">
-                            {/* Inbound Customer Message */}
-                            <div className="flex justify-start">
-                                <div className="max-w-[75%] rounded-2xl rounded-tl-sm bg-muted/80 px-3.5 py-2 text-xs text-foreground">
-                                    Hey! Can I get the discount code for the sale?
-                                </div>
-                            </div>
-
-                            {/* Outbound Automated Reply */}
-                            {policy.position === 'inline_when_possible' ? (
-                                <div className="flex justify-end">
-                                    <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-3.5 py-2.5 text-xs text-white shadow-sm leading-relaxed">
-                                        <p>Here is your exclusive discount code: <strong>VIP20</strong>!</p>
-                                        {policy.enabled && (
-                                            <p className="mt-2 text-[10px] opacity-80 border-t border-white/20 pt-1 font-medium">
-                                                {watermarkText}
-                                            </p>
-                                        )}
+                        {/* Phone Mockup Frame (Matching Frontend SharedMobilePreview) */}
+                        <div className="mt-5 relative mx-auto w-full max-w-[320px] sm:max-w-[340px] rounded-[48px] border-[10px] border-slate-900 bg-slate-900 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] ring-1 ring-slate-800/60 transition-all">
+                            {/* Screen Canvas */}
+                            <div className="overflow-hidden rounded-[38px] bg-white dark:bg-black flex flex-col h-[520px] select-none">
+                                {/* Dynamic Island / Notch */}
+                                <div className="pt-2 pb-1 bg-white dark:bg-black flex items-center justify-center shrink-0">
+                                    <div className="h-4 w-24 rounded-full bg-black dark:bg-zinc-800 flex items-center justify-end pr-2.5">
+                                        <div className="h-2 w-2 rounded-full bg-zinc-950 border border-zinc-800" />
                                     </div>
                                 </div>
-                            ) : (
-                                <>
-                                    {/* Primary Reply */}
-                                    <div className="flex justify-end">
-                                        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-3.5 py-2 text-xs text-white shadow-sm">
-                                            Here is your exclusive discount code: <strong>VIP20</strong>!
-                                        </div>
-                                    </div>
 
-                                    {/* Secondary Watermark Bubble */}
-                                    {policy.enabled && (
-                                        <div className="flex justify-end animate-in fade-in slide-in-from-bottom-1 duration-300">
-                                            <div className="max-w-[75%] rounded-2xl bg-gradient-to-r from-[#405DE6]/80 to-[#833AB4]/80 px-3 py-1.5 text-[10px] text-white/90 shadow-2xs font-medium">
-                                                {watermarkText}
+                                {/* Instagram Chat Header */}
+                                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-zinc-900 flex items-center justify-between bg-white dark:bg-black shrink-0">
+                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                        <ChevronLeft className="w-5 h-5 shrink-0 text-slate-900 dark:text-white" />
+                                        <div className="w-8 h-8 min-w-[32px] rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-[1.5px] shrink-0">
+                                            <div className="w-full h-full rounded-full bg-white dark:bg-black p-[1px] flex items-center justify-center overflow-hidden">
+                                                <img
+                                                    src="/images/loading_panda.webp"
+                                                    alt="DM Panda"
+                                                    className="w-full h-full rounded-full object-cover"
+                                                    onError={(e) => {
+                                                        (e.currentTarget as HTMLImageElement).src = '/images/loading_panda.gif';
+                                                    }}
+                                                />
                                             </div>
                                         </div>
-                                    )}
-                                </>
-                            )}
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-xs font-bold text-slate-900 dark:text-white truncate">@dmpanda_demo</div>
+                                            <div className="text-[10px] text-muted-foreground leading-none">Active now • Instagram</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-slate-900 dark:text-white shrink-0">
+                                        <Phone className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
+                                        <Video className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
+                                    </div>
+                                </div>
+
+                                {/* Chat Area with Scroll */}
+                                <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-white dark:bg-black text-[13px]">
+                                    <div className="text-center">
+                                        <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
+                                            Today 2:45 PM
+                                        </span>
+                                    </div>
+
+                                    {/* User (Customer) Message on Right */}
+                                    <div className="flex justify-end">
+                                        <div className="max-w-[80%] px-3.5 py-2.5 bg-[#3797f0] text-white rounded-[18px] rounded-br-[4px] text-xs font-normal shadow-xs leading-relaxed">
+                                            Hey! Can you send me the discount link for the sale?
+                                        </div>
+                                    </div>
+
+                                    {/* Bot (Automation) Reply on Left */}
+                                    <div className="flex justify-start items-end gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-muted shrink-0 overflow-hidden mb-0.5 border border-border/50">
+                                            <img
+                                                src="/images/loading_panda.webp"
+                                                alt="DM Panda"
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    (e.currentTarget as HTMLImageElement).src = '/images/loading_panda.gif';
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="max-w-[85%] space-y-1.5">
+                                            {/* Main message bubble */}
+                                            <div className="rounded-[18px] rounded-bl-[4px] bg-[#EFEFEF] dark:bg-[#262626] text-[#262626] dark:text-white px-3.5 py-2.5 text-xs leading-relaxed shadow-xs">
+                                                <p>
+                                                    Hey there! 👋 Here is your exclusive 20% off coupon: <strong className="font-bold text-foreground">VIP20</strong>. Tap below to claim your access:
+                                                </p>
+                                                <p className="mt-1 text-primary dark:text-[#3897f0] font-semibold underline">
+                                                    https://dmpanda.com/sale
+                                                </p>
+
+                                                {/* Below Message Watermark Position */}
+                                                {policy.enabled && policy.position === 'inline_when_possible' && (
+                                                    <div className="mt-2.5 pt-2 border-t border-black/10 dark:border-white/10 text-[10px] text-muted-foreground font-medium flex items-center gap-1.5 animate-in fade-in">
+                                                        <span className="text-primary font-bold">⚡</span>
+                                                        <span>{watermarkText}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Separate Message Watermark Position */}
+                                            {policy.enabled && policy.position === 'secondary_message' && (
+                                                <div className="flex items-center gap-1.5 w-fit rounded-[16px] rounded-bl-[4px] bg-[#EFEFEF] dark:bg-[#262626] text-muted-foreground px-3 py-1.5 text-[10px] font-medium shadow-2xs animate-in fade-in slide-in-from-bottom-1">
+                                                    <span className="text-primary font-bold">⚡</span>
+                                                    <span>{watermarkText}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Bottom Chat Input Bar */}
+                                <div className="p-3 border-t border-slate-100 dark:border-zinc-900 bg-white dark:bg-black flex items-center gap-2 shrink-0">
+                                    <div className="w-7 h-7 rounded-full bg-[#0095F6] flex items-center justify-center text-white shrink-0 shadow-xs">
+                                        <Camera className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1 flex items-center justify-between rounded-full border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 px-3 py-1.5 text-xs text-muted-foreground">
+                                        <span>Message...</span>
+                                        <div className="flex items-center gap-2 text-slate-500 dark:text-zinc-400">
+                                            <Mic className="w-3.5 h-3.5" />
+                                            <ImageIcon className="w-3.5 h-3.5" />
+                                            <Heart className="w-3.5 h-3.5" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <p className="mt-4 text-center text-[11px] text-muted-foreground">
-                            Simulated Instagram Direct Message delivery behavior based on current policy.
+                            Live simulated Instagram Direct Message delivery matching frontend automation preview.
                         </p>
                     </div>
                 </div>
