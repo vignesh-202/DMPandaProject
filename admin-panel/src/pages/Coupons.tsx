@@ -894,9 +894,9 @@ export const CouponsPage: React.FC = () => {
                     </div>
                 </div>
             ) : (
-            {!editorMode && (
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/70 pb-2">
-                    <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/70 dark:bg-zinc-900/90 border border-border/80 shadow-xs">
+                <div className="space-y-6">
+                    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/70 pb-2">
+                        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/70 dark:bg-zinc-900/90 border border-border/80 shadow-xs">
                         <button
                             type="button"
                             onClick={() => setCouponsTab('coupons')}
@@ -953,7 +953,6 @@ export const CouponsPage: React.FC = () => {
                         </button>
                     </div>
                 </div>
-            )}
 
             <div className="grid grid-cols-1 gap-6">
                 {couponsTab === 'coupons' ? (
@@ -1319,6 +1318,7 @@ export const CouponsPage: React.FC = () => {
                     </div>
                 </div>
                 )}
+            </div>
             </div>
             )}
         </div>

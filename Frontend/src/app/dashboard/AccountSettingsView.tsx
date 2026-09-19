@@ -1065,7 +1065,7 @@ const AccountSettingsView = () => {
                                     </Button>
                                   )}
 
-                                  {!isActive && (
+                                  {(!isActive || isAdminDisabled) && (
                                     <Button
                                       variant="destructive"
                                       size="sm"

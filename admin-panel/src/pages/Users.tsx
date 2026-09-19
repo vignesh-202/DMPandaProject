@@ -14,7 +14,15 @@ import {
     Settings2,
     Shield,
     Trash2,
-    X
+    X,
+    Copy,
+    Check,
+    Users as UsersIcon,
+    CreditCard,
+    Sparkles,
+    CheckCircle2,
+    AlertTriangle,
+    RotateCcw
 } from 'lucide-react';
 import httpClient from '../lib/httpClient';
 import { cn } from '../lib/utils';
@@ -22,6 +30,7 @@ import AdminLoadingState from '../components/AdminLoadingState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { loadCachedResource } from '../lib/resourceCache';
 import { useAuth } from '../context/AuthContext';
+import { SelectField } from '../components/ui/SelectField';
 
 interface UserRow {
     $id: string;
@@ -68,8 +77,8 @@ const getInstagramTokenValidity = (value?: string | null) => {
     if (!value) {
         return {
             tone: 'neutral' as const,
-            label: 'Unknown validity',
-            detail: 'Token expiry is not available.'
+            label: 'Unknown',
+            detail: 'Token expiry not set'
         };
     }
 
@@ -78,8 +87,8 @@ const getInstagramTokenValidity = (value?: string | null) => {
     if (Number.isNaN(expiresMs)) {
         return {
             tone: 'neutral' as const,
-            label: 'Unknown validity',
-            detail: 'Token expiry could not be parsed.'
+            label: 'Unknown',
+            detail: 'Invalid expiry format'
         };
     }
 
@@ -90,22 +99,22 @@ const getInstagramTokenValidity = (value?: string | null) => {
         return {
             tone: 'danger' as const,
             label: 'Expired',
-            detail: `Expired on ${formatExpiryLabel(value)}`
+            detail: `Expired ${formatExpiryLabel(value)}`
         };
     }
 
     if (diffDays <= 7) {
         return {
             tone: 'warning' as const,
-            label: 'Expiring soon',
-            detail: `${diffDays} day${diffDays === 1 ? '' : 's'} left`
+            label: `${diffDays}d left`,
+            detail: `Expires in ${diffDays} day${diffDays === 1 ? '' : 's'}`
         };
     }
 
     return {
         tone: 'success' as const,
-        label: 'Valid',
-        detail: `${diffDays} days left`
+        label: 'Healthy',
+        detail: `${diffDays} days remaining`
     };
 };
 
@@ -147,18 +156,11 @@ const deriveSubscriptionSummary = (payload: any, previous: any = null) => {
 
 type PopupSectionKey = 'instagram' | 'ban' | 'danger';
 
-const surfaceClass = 'rounded-2xl border border-border bg-card shadow-xs';
-const popupSectionClass = 'rounded-2xl border border-border bg-card p-5 shadow-sm';
-const popupInsetClass = 'rounded-xl border border-border bg-background/70 px-4 py-4 shadow-xs';
-const popupHeaderBandClass = 'rounded-xl border border-border bg-muted/20 p-5 shadow-xs';
 const DEFAULT_POPUP_SECTION_STATE: Record<PopupSectionKey, boolean> = {
     instagram: true,
     ban: false,
     danger: false
 };
-
-// SelectField imported from shared UI component
-import { SelectField } from '../components/ui/SelectField';
 
 export const UsersPage: React.FC = () => {
     const navigate = useNavigate();
@@ -204,6 +206,7 @@ export const UsersPage: React.FC = () => {
     const [notice, setNotice] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [popupSections, setPopupSections] = useState<Record<PopupSectionKey, boolean>>(DEFAULT_POPUP_SECTION_STATE);
+    const [copiedEmail, setCopiedEmail] = useState(false);
 
     useEffect(() => {
         if (!notice) return;
@@ -320,6 +323,7 @@ export const UsersPage: React.FC = () => {
             [section]: !prev[section]
         }));
     };
+
     const mergeDetailData = (payload: any) => {
         setDetailData((prev: any) => {
             if (!prev) return prev;
@@ -461,11 +465,12 @@ export const UsersPage: React.FC = () => {
     };
 
     const deleteUser = async () => {
-        if (!selectedUser) return;
+        if (!selectedUser || isTargetSelfOrAdmin) return;
         if (deleteConfirmText.trim() !== 'DELETE') {
             setErrorMessage('Type DELETE to confirm user deletion.');
             return;
         }
+
         setIsDeletingUser(true);
         setErrorMessage(null);
         setNotice(null);
@@ -485,206 +490,291 @@ export const UsersPage: React.FC = () => {
         }
     };
 
+    const copyEmailToClipboard = (email: string) => {
+        if (!email) return;
+        navigator.clipboard?.writeText(email);
+        setCopiedEmail(true);
+        setTimeout(() => setCopiedEmail(false), 2000);
+    };
+
+    const hasActiveFilters = Boolean(
+        filters.plan ||
+        filters.subscription_status ||
+        filters.ban_mode ||
+        filters.linked_ig_min ||
+        filters.linked_ig_max ||
+        searchInput
+    );
+
+    const resetFilters = () => {
+        setFilters({
+            plan: '',
+            subscription_status: '',
+            ban_mode: '',
+            linked_ig_min: '',
+            linked_ig_max: ''
+        });
+        setSearchInput('');
+    };
+
+    // Quick summary metrics from current dataset
+    const metrics = useMemo(() => {
+        const total = pagination.total || users.length;
+        const paidCount = users.filter((u) => String(u.profile?.plan_code || 'free').toLowerCase() !== 'free').length;
+        const totalIg = users.reduce((acc, u) => acc + (u.linked_instagram_accounts || 0), 0);
+        const bannedCount = users.filter((u) => u.ban_mode && u.ban_mode !== 'none').length;
+        return { total, paidCount, totalIg, bannedCount };
+    }, [users, pagination.total]);
+
     if (!hasLoadedUsersOnce && loading) {
-        return <AdminLoadingState title="Loading users" description="Preparing user records, subscription details, and moderation controls." />;
+        return <AdminLoadingState title="Loading users" description="Preparing directory and subscriber data." />;
     }
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-500">
+            {/* Header with Search */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <p className="text-xs font-semibold text-primary">Users</p>
-                    <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-foreground">User Management</h1>
-                    <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                        Search, filter, and manage individual users with audited plan controls and direct dashboard access.
-                    </p>
+                    <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">User Directory</h1>
+                    <p className="mt-1 text-xs text-muted-foreground">Manage platform accounts, subscriptions, quotas, and security.</p>
                 </div>
-                <div className="relative w-full xl:w-96">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="relative w-full sm:w-80">
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <input
                         type="text"
-                        placeholder="Search users by name or email"
+                        placeholder="Search name or email..."
                         value={searchInput}
                         onChange={(event) => setSearchInput(event.target.value)}
-                        className="input-base pl-11"
+                        className="input-base pl-10 pr-8"
                     />
+                    {searchInput && (
+                        <button
+                            type="button"
+                            onClick={() => setSearchInput('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </button>
+                    )}
                 </div>
             </div>
 
+            {/* Quick Metrics Cards */}
+            <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+                {[
+                    { label: 'Total Accounts', value: metrics.total, icon: UsersIcon, tone: 'text-primary' },
+                    { label: 'Paid Subscribers', value: metrics.paidCount, icon: Sparkles, tone: 'text-violet-500' },
+                    { label: 'Linked IG Accounts', value: metrics.totalIg, icon: Instagram, tone: 'text-pink-500' },
+                    { label: 'Moderated', value: metrics.bannedCount, icon: Shield, tone: 'text-amber-500' }
+                ].map(({ label, value, icon: Icon, tone }) => (
+                    <div key={label} className="group rounded-2xl border border-border/70 bg-card p-4 shadow-xs transition-all hover:border-primary/30">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                            <div className={cn('rounded-xl bg-muted/60 p-2 transition-colors group-hover:bg-primary/10', tone)}>
+                                <Icon className="h-4 w-4" />
+                            </div>
+                        </div>
+                        <p className="mt-2 text-xl font-black tracking-tight text-foreground">{value.toLocaleString()}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Flash Messages */}
             {!userId && (notice || errorMessage) && (
                 <div className={cn(
-                    'rounded-xl border px-4 py-3 text-sm font-medium shadow-xs',
+                    'rounded-2xl border px-4 py-3 text-xs font-semibold shadow-xs animate-in fade-in duration-200',
                     errorMessage
-                        ? 'border-destructive/20 bg-destructive/5 text-destructive'
-                        : 'border-success/20 bg-success/5 text-success'
+                        ? 'border-destructive/25 bg-destructive/10 text-destructive'
+                        : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                 )}>
-                    {errorMessage || notice}
+                    <div className="flex items-center gap-2">
+                        {errorMessage ? <AlertTriangle className="h-4 w-4 shrink-0" /> : <CheckCircle2 className="h-4 w-4 shrink-0" />}
+                        <span>{errorMessage || notice}</span>
+                    </div>
                 </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-                <SelectField
-                    label="Plan"
-                    hint="Filter users by their assigned plan."
-                    value={filters.plan}
-                    onChange={(value) => setFilters((prev) => ({ ...prev, plan: value }))}
-                >
-                    <option value="">All plans</option>
-                    <option value="free">Free Plan</option>
-                    {pricingPlans
-                        .filter((plan) => String(plan.plan_code || plan.id).trim().toLowerCase() !== 'free')
-                        .map((plan) => (
-                            <option key={plan.id} value={plan.plan_code || plan.id}>{plan.name}</option>
-                        ))}
-                </SelectField>
-                <SelectField
-                    label="Subscription"
-                    hint="Focus on active, inactive, or expired subscriptions."
-                    value={filters.subscription_status}
-                    onChange={(value) => setFilters((prev) => ({ ...prev, subscription_status: value }))}
-                >
-                    <option value="">Any status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="expired">Expired</option>
-                </SelectField>
-                <SelectField
-                    label="Ban mode"
-                    hint="Review users by moderation state."
-                    value={filters.ban_mode}
-                    onChange={(value) => setFilters((prev) => ({ ...prev, ban_mode: value }))}
-                >
-                    <option value="">Any moderation state</option>
-                    <option value="none">Clear</option>
-                    <option value="soft">Soft ban</option>
-                    <option value="hard">Hard ban</option>
-                </SelectField>
-                <div className={`${surfaceClass} p-4`}>
-                    <label className="text-xs font-semibold text-muted-foreground">Min IG Accounts</label>
-                    <input
-                        value={filters.linked_ig_min}
-                        onChange={(event) => setFilters((prev) => ({ ...prev, linked_ig_min: event.target.value }))}
-                        placeholder="0"
-                        className="input-base mt-2"
-                    />
-                </div>
-                <div className={`${surfaceClass} p-4`}>
-                    <label className="text-xs font-semibold text-muted-foreground">Max IG Accounts</label>
-                    <input
-                        value={filters.linked_ig_max}
-                        onChange={(event) => setFilters((prev) => ({ ...prev, linked_ig_max: event.target.value }))}
-                        placeholder="10"
-                        className="input-base mt-2"
-                    />
+            {/* Streamlined Filter Bar */}
+            <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-xs">
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="min-w-[140px] flex-1 sm:flex-initial">
+                        <SelectField
+                            label="Plan"
+                            value={filters.plan}
+                            onChange={(value) => setFilters((prev) => ({ ...prev, plan: value }))}
+                        >
+                            <option value="">All Plans</option>
+                            <option value="free">Free</option>
+                            {pricingPlans
+                                .filter((plan) => String(plan.plan_code || plan.id).trim().toLowerCase() !== 'free')
+                                .map((plan) => (
+                                    <option key={plan.id} value={plan.plan_code || plan.id}>{plan.name}</option>
+                                ))}
+                        </SelectField>
+                    </div>
+
+                    <div className="min-w-[140px] flex-1 sm:flex-initial">
+                        <SelectField
+                            label="Subscription"
+                            value={filters.subscription_status}
+                            onChange={(value) => setFilters((prev) => ({ ...prev, subscription_status: value }))}
+                        >
+                            <option value="">All Statuses</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="expired">Expired</option>
+                        </SelectField>
+                    </div>
+
+                    <div className="min-w-[140px] flex-1 sm:flex-initial">
+                        <SelectField
+                            label="Moderation"
+                            value={filters.ban_mode}
+                            onChange={(value) => setFilters((prev) => ({ ...prev, ban_mode: value }))}
+                        >
+                            <option value="">All States</option>
+                            <option value="none">Clear</option>
+                            <option value="soft">Soft Ban</option>
+                            <option value="hard">Hard Ban</option>
+                        </SelectField>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <div className="w-24">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Min IG</label>
+                            <input
+                                value={filters.linked_ig_min}
+                                onChange={(event) => setFilters((prev) => ({ ...prev, linked_ig_min: event.target.value }))}
+                                placeholder="0"
+                                className="input-base mt-1.5 h-9 text-xs"
+                            />
+                        </div>
+                        <div className="w-24">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Max IG</label>
+                            <input
+                                value={filters.linked_ig_max}
+                                onChange={(event) => setFilters((prev) => ({ ...prev, linked_ig_max: event.target.value }))}
+                                placeholder="10"
+                                className="input-base mt-1.5 h-9 text-xs"
+                            />
+                        </div>
+                    </div>
+
+                    {hasActiveFilters && (
+                        <button
+                            type="button"
+                            onClick={resetFilters}
+                            className="btn-secondary ml-auto mt-auto inline-flex h-9 items-center gap-1.5 px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                            title="Reset all filters"
+                        >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Reset
+                        </button>
+                    )}
                 </div>
             </div>
 
-            <section className={surfaceClass}>
-                <div className="flex flex-col gap-4 border-b border-border/70 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                        <h2 className="text-lg font-bold text-foreground">All Users</h2>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                            Paginated results with debounced search and server-side filtering.
-                        </p>
-                    </div>
-                    <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/70 px-3 py-1 text-xs font-medium text-foreground">
-                        {pagination.total} matching users
-                    </div>
+            {/* Users Directory Table */}
+            <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-xs">
+                <div className="flex items-center justify-between border-b border-border/70 px-5 py-3.5 bg-muted/20">
+                    <span className="text-xs font-bold text-foreground">
+                        {pagination.total} Account{pagination.total === 1 ? '' : 's'}
+                    </span>
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                        Page {pagination.page} of {pagination.total_pages}
+                    </span>
                 </div>
 
-                {/* Desktop & Tablet Table View */}
-                <div className="hidden md:block overflow-x-auto overscroll-x-contain">
-                    <table className="min-w-full w-full text-left">
+                {/* Desktop View */}
+                <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left">
                         <thead>
-                            <tr className="border-b border-border/70 bg-background/40">
-                                <th className="px-6 py-3.5 text-xs font-semibold text-muted-foreground">User</th>
-                                <th className="px-6 py-3.5 text-xs font-semibold text-muted-foreground">Plan</th>
-                                <th className="px-6 py-3.5 text-xs font-semibold text-muted-foreground">IG Accounts</th>
-                                <th className="px-6 py-3.5 text-xs font-semibold text-muted-foreground">Ban</th>
-                                <th className="px-6 py-3.5 text-right text-xs font-semibold text-muted-foreground">Action</th>
+                            <tr className="border-b border-border/70 bg-muted/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                <th className="px-5 py-3">Subscriber</th>
+                                <th className="px-5 py-3">Plan</th>
+                                <th className="px-5 py-3">Connected IG</th>
+                                <th className="px-5 py-3">Moderation</th>
+                                <th className="px-5 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-border/60">
+                        <tbody className="divide-y divide-border/60 text-sm">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-16 text-center">
+                                    <td colSpan={5} className="py-16 text-center">
                                         <Loader2 className="mx-auto h-7 w-7 animate-spin text-muted-foreground" />
                                     </td>
                                 </tr>
                             ) : users.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-16 text-center text-sm text-muted-foreground">
-                                        No users match the current search or filters.
+                                    <td colSpan={5} className="py-16 text-center text-xs text-muted-foreground">
+                                        No subscribers match your query or filters.
                                     </td>
                                 </tr>
                             ) : (
                                 users.map((user) => {
                                     const planCode = String(user.profile?.plan_code || 'free').toLowerCase();
-                                    const isPaidPlan = planCode !== 'free';
-                                    const charCode = (user.name || 'User').charCodeAt(0) % 5;
-                                    const avatarGradients = [
-                                        'from-blue-600 to-indigo-600 text-white',
-                                        'from-purple-600 to-pink-600 text-white',
-                                        'from-emerald-600 to-teal-600 text-white',
-                                        'from-amber-500 to-orange-600 text-white',
-                                        'from-rose-600 to-red-600 text-white'
+                                    const isPaid = planCode !== 'free';
+                                    const initials = user.name?.charAt(0).toUpperCase() || 'U';
+                                    const colorMap = [
+                                        'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20',
+                                        'bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/20',
+                                        'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+                                        'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20',
+                                        'bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/20'
                                     ];
-                                    const avatarGrad = avatarGradients[charCode];
+                                    const avatarTheme = colorMap[(user.name || 'User').charCodeAt(0) % colorMap.length];
 
                                     return (
-                                    <tr key={user.$id} className="transition-colors hover:bg-background/60">
-                                        <td className="min-w-[220px] px-4 py-4 sm:px-6">
-                                            <div className="flex items-center gap-3.5">
-                                                <div className={cn(
-                                                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-black shadow-xs',
-                                                    avatarGrad
+                                        <tr key={user.$id} className="transition-colors hover:bg-muted/30">
+                                            <td className="px-5 py-3.5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-xs font-black shadow-xs', avatarTheme)}>
+                                                        {initials}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="font-bold text-foreground truncate">{user.name || 'Anonymous User'}</p>
+                                                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <span className={cn(
+                                                    'inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider',
+                                                    isPaid
+                                                        ? 'border border-primary/25 bg-primary/10 text-primary'
+                                                        : 'border border-border/80 bg-muted/40 text-muted-foreground'
                                                 )}>
-                                                    {user.name?.charAt(0).toUpperCase() || 'U'}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-bold text-foreground leading-tight">{user.name}</p>
-                                                    <p className="break-all text-xs text-muted-foreground mt-0.5">{user.email}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4 sm:px-6">
-                                            <span className={cn(
-                                                'inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-bold uppercase tracking-wider',
-                                                isPaidPlan
-                                                    ? 'border border-primary/25 bg-primary/10 text-primary'
-                                                    : 'border border-border/80 bg-muted/40 text-muted-foreground'
-                                            )}>
-                                                {planCode}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-4 sm:px-6">
-                                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/50 px-2.5 py-1 text-xs font-semibold text-foreground">
-                                                <Instagram className="h-3.5 w-3.5 text-muted-foreground" />
-                                                {user.linked_instagram_accounts ?? 0}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-4 sm:px-6">
-                                            <span className={cn(
-                                                'status-pill text-[10px] font-bold py-0.5 px-2.5',
-                                                user.ban_mode === 'hard'
-                                                    ? 'status-pill-danger'
-                                                    : user.ban_mode === 'soft'
-                                                        ? 'status-pill-warning'
-                                                        : 'status-pill-success'
-                                            )}>
-                                                {user.ban_mode === 'hard' ? 'Hard Ban' : user.ban_mode === 'soft' ? 'Soft Ban' : 'Clear'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-4 text-right sm:px-6">
-                                            <Link
-                                                to={`/users/${user.$id}`}
-                                                className="btn-secondary inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold hover:border-primary/40"
-                                            >
-                                                <Settings2 className="h-3.5 w-3.5" />
-                                                Manage
-                                            </Link>
-                                        </td>
-                                    </tr>
+                                                    {planCode}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-background/50 px-2.5 py-1 text-xs font-semibold text-foreground">
+                                                    <Instagram className="h-3.5 w-3.5 text-muted-foreground" />
+                                                    {user.linked_instagram_accounts ?? 0}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <span className={cn(
+                                                    'status-pill text-[10px] font-bold py-0.5 px-2.5',
+                                                    user.ban_mode === 'hard'
+                                                        ? 'status-pill-danger'
+                                                        : user.ban_mode === 'soft'
+                                                            ? 'status-pill-warning'
+                                                            : 'status-pill-success'
+                                                )}>
+                                                    {user.ban_mode === 'hard' ? 'Hard Ban' : user.ban_mode === 'soft' ? 'Soft Ban' : 'Clear'}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3.5 text-right">
+                                                <Link
+                                                    to={`/users/${user.$id}`}
+                                                    className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold hover:border-primary/40"
+                                                >
+                                                    <Settings2 className="h-3.5 w-3.5" />
+                                                    Manage
+                                                </Link>
+                                            </td>
+                                        </tr>
                                     );
                                 })
                             )}
@@ -692,63 +782,43 @@ export const UsersPage: React.FC = () => {
                     </table>
                 </div>
 
-                {/* Mobile Responsive Cards View */}
+                {/* Mobile Cards View */}
                 <div className="block md:hidden divide-y divide-border/60">
                     {loading ? (
                         <div className="p-8 text-center">
                             <Loader2 className="mx-auto h-7 w-7 animate-spin text-muted-foreground" />
                         </div>
                     ) : users.length === 0 ? (
-                        <div className="p-8 text-center text-sm text-muted-foreground">
-                            No users match the current search or filters.
+                        <div className="p-8 text-center text-xs text-muted-foreground">
+                            No subscribers match your query or filters.
                         </div>
                     ) : (
                         users.map((user) => {
                             const planCode = String(user.profile?.plan_code || 'free').toLowerCase();
-                            const isPaidPlan = planCode !== 'free';
-                            const charCode = (user.name || 'User').charCodeAt(0) % 5;
-                            const avatarGradients = [
-                                'from-blue-600 to-indigo-600 text-white',
-                                'from-purple-600 to-pink-600 text-white',
-                                'from-emerald-600 to-teal-600 text-white',
-                                'from-amber-500 to-orange-600 text-white',
-                                'from-rose-600 to-red-600 text-white'
-                            ];
-                            const avatarGrad = avatarGradients[charCode];
-
+                            const isPaid = planCode !== 'free';
                             return (
-                            <div key={user.$id} className="p-4 space-y-3 transition-colors hover:bg-background/40">
-                                <div className="flex items-center gap-3">
-                                    <div className={cn(
-                                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-black shadow-xs',
-                                        avatarGrad
-                                    )}>
-                                        {user.name?.charAt(0).toUpperCase() || 'U'}
+                                <div key={user.$id} className="p-4 space-y-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-bold text-foreground text-sm truncate">{user.name || 'Anonymous User'}</p>
+                                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                                        </div>
+                                        <Link to={`/users/${user.$id}`} className="btn-secondary inline-flex h-8 items-center px-3 text-xs font-semibold shrink-0">
+                                            <Settings2 className="h-3.5 w-3.5 mr-1" />
+                                            Manage
+                                        </Link>
                                     </div>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-bold text-foreground truncate">{user.name}</p>
-                                        <p className="break-all text-xs text-muted-foreground truncate">{user.email}</p>
-                                    </div>
-                                    <Link to={`/users/${user.$id}`} className="btn-secondary inline-flex h-8 items-center justify-center px-3 text-xs shrink-0">
-                                        <Settings2 className="h-3.5 w-3.5 mr-1" />
-                                        Manage
-                                    </Link>
-                                </div>
-                                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-muted-foreground text-[11px]">Plan:</span>
+                                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs">
                                         <span className={cn(
-                                            'font-bold text-[11px] uppercase rounded-md px-2 py-0.5',
-                                            isPaidPlan ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                                            'font-bold text-[10px] uppercase rounded-md px-2 py-0.5',
+                                            isPaid ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-muted text-muted-foreground'
                                         )}>
                                             {planCode}
                                         </span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <Instagram className="h-3 w-3 text-muted-foreground" />
-                                        <span className="font-semibold text-foreground text-xs">{user.linked_instagram_accounts ?? 0} linked</span>
-                                    </div>
-                                    <div>
+                                        <span className="flex items-center gap-1 text-muted-foreground font-medium text-xs">
+                                            <Instagram className="h-3 w-3" />
+                                            {user.linked_instagram_accounts ?? 0} linked
+                                        </span>
                                         <span className={cn(
                                             'status-pill text-[10px] py-0.5 px-2 font-bold',
                                             user.ban_mode === 'hard'
@@ -761,395 +831,426 @@ export const UsersPage: React.FC = () => {
                                         </span>
                                     </div>
                                 </div>
-                            </div>
                             );
                         })
                     )}
                 </div>
 
-                <div className="flex flex-col gap-4 border-t border-border/70 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                    <p className="text-xs text-muted-foreground">
-                        Page {pagination.page} of {pagination.total_pages}
-                    </p>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <button
-                            type="button"
-                            onClick={() => void fetchUsers(Math.max(1, pagination.page - 1))}
-                            disabled={!pagination.has_previous || loading}
-                            className="btn-secondary inline-flex min-h-10 items-center justify-center px-4 py-2 text-[10px] disabled:opacity-60"
-                        >
-                            <ChevronLeft className="h-4 w-4" />
-                            Previous
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => void fetchUsers(pagination.page + 1)}
-                            disabled={!pagination.has_next || loading}
-                            className="btn-secondary inline-flex min-h-10 items-center justify-center px-4 py-2 text-[10px] disabled:opacity-60"
-                        >
-                            Next
-                            <ChevronRight className="h-4 w-4" />
-                        </button>
-                    </div>
+                {/* Pagination Controls */}
+                <div className="flex items-center justify-between border-t border-border/70 px-5 py-3.5 bg-muted/10">
+                    <button
+                        type="button"
+                        onClick={() => void fetchUsers(Math.max(1, pagination.page - 1))}
+                        disabled={!pagination.has_previous || loading}
+                        className="btn-secondary inline-flex h-8 items-center gap-1 px-3 text-xs font-semibold disabled:opacity-50"
+                    >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                        Previous
+                    </button>
+                    <span className="text-xs font-medium text-muted-foreground">
+                        Page {pagination.page} / {pagination.total_pages || 1}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => void fetchUsers(pagination.page + 1)}
+                        disabled={!pagination.has_next || loading}
+                        className="btn-secondary inline-flex h-8 items-center gap-1 px-3 text-xs font-semibold disabled:opacity-50"
+                    >
+                        Next
+                        <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
                 </div>
-            </section>
+            </div>
 
+            {/* User Profile Detail Modal */}
             {userId && (
-                <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/45 p-2 backdrop-blur-sm sm:items-center sm:p-4">
-                    <button type="button" className="absolute inset-0" aria-label="Close user manager" onClick={closeModal} />
-                    <div className="relative z-10 w-full max-w-6xl">
-                        {(notice || errorMessage) && (
-                            <div
-                                className={cn(
-                                    'pointer-events-none absolute right-3 top-3 z-30 max-w-[calc(100%-1.5rem)] rounded-xl border px-4 py-3 text-xs font-semibold shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-top-2 sm:right-4 sm:top-4 sm:max-w-md sm:text-sm',
-                                    errorMessage
-                                        ? 'border-destructive/25 bg-destructive text-destructive-foreground'
-                                        : 'border-success/25 bg-success text-success-foreground'
-                                )}
+                <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/55 p-2 backdrop-blur-md sm:items-center sm:p-4">
+                    <button type="button" className="absolute inset-0 cursor-default" aria-label="Close" onClick={closeModal} />
+                    <div className="relative z-10 w-full max-w-4xl max-h-[92dvh] overflow-hidden rounded-[28px] border border-border bg-card shadow-2xl flex flex-col">
+                        {/* Modal Top Bar */}
+                        <div className="flex items-center justify-between border-b border-border/70 px-6 py-4 bg-muted/20">
+                            <button
+                                type="button"
+                                onClick={closeModal}
+                                className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition hover:text-foreground"
                             >
-                                {errorMessage || notice}
+                                <ArrowLeft className="h-4 w-4" />
+                                Back to Users
+                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={openDashboard}
+                                    disabled={openingDashboard}
+                                    className="btn-primary inline-flex h-9 items-center gap-1.5 px-3.5 text-xs font-bold shadow-xs disabled:opacity-60"
+                                >
+                                    {openingDashboard ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                                    Access Dashboard
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={closeModal}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 bg-background text-muted-foreground hover:text-foreground"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
                             </div>
-                        )}
-                        <section className={`${surfaceClass} custom-scrollbar relative max-h-[calc(100dvh-0.5rem)] overflow-y-auto rounded-t-[1.75rem] p-3 sm:max-h-[calc(100dvh-2rem)] sm:rounded-[32px] sm:p-6`}>
-                        {detailLoading ? (
-                            <AdminLoadingState title="Loading user details" description="Fetching profile overrides, account links, and moderation state." className="min-h-[320px]" />
-                        ) : (
-                            <div className="space-y-6">
-                                <div className={popupHeaderBandClass}>
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                        <div>
-                                            <button
-                                                type="button"
-                                                onClick={closeModal}
-                                                className="inline-flex items-center gap-2 text-xs font-black text-muted-foreground transition hover:text-foreground"
-                                            >
-                                                <ArrowLeft className="h-4 w-4" />
-                                                Back to users
-                                            </button>
-                                            <h2 className="mt-3 text-2xl font-extrabold text-foreground">{detailData?.user?.name || selectedUser?.name}</h2>
-                                            <p className="break-all text-sm text-muted-foreground">{detailData?.user?.email || selectedUser?.email}</p>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="custom-scrollbar overflow-y-auto p-6 space-y-6">
+                            {detailLoading ? (
+                                <AdminLoadingState title="Loading user profile" description="Fetching telemetry, linked assets, and permissions." className="min-h-[260px]" />
+                            ) : (
+                                <>
+                                    {/* User Overview Strip */}
+                                    <div className="rounded-2xl border border-border/70 bg-muted/15 p-5">
+                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                            <div className="flex items-center gap-3.5">
+                                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/20 text-primary text-base font-black shadow-xs">
+                                                    {(detailData?.user?.name || selectedUser?.name || 'U').charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h2 className="text-lg font-black text-foreground truncate">
+                                                        {detailData?.user?.name || selectedUser?.name || 'Anonymous User'}
+                                                    </h2>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <span className="text-xs text-muted-foreground truncate">
+                                                            {detailData?.user?.email || selectedUser?.email}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => copyEmailToClipboard(detailData?.user?.email || selectedUser?.email)}
+                                                            className="text-muted-foreground hover:text-foreground p-0.5 rounded transition"
+                                                            title="Copy email"
+                                                        >
+                                                            {copiedEmail ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="inline-flex items-center rounded-lg border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-bold text-primary uppercase">
+                                                    {String(detailData?.profile?.plan_code || selectedUser?.profile?.plan_code || 'free')}
+                                                </span>
+                                                <span className={cn(
+                                                    'status-pill text-[10px] font-bold py-1 px-3',
+                                                    (detailData?.user?.ban_mode || selectedUser?.ban_mode) === 'hard'
+                                                        ? 'status-pill-danger'
+                                                        : (detailData?.user?.ban_mode || selectedUser?.ban_mode) === 'soft'
+                                                            ? 'status-pill-warning'
+                                                            : 'status-pill-success'
+                                                )}>
+                                                    {(detailData?.user?.ban_mode || selectedUser?.ban_mode) === 'hard' ? 'Hard Ban' : (detailData?.user?.ban_mode || selectedUser?.ban_mode) === 'soft' ? 'Soft Ban' : 'Clear'}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                                            <button
-                                                type="button"
-                                                onClick={openDashboard}
-                                                disabled={openingDashboard}
-                                                className="btn-primary inline-flex min-h-11 w-full items-center justify-center px-4 py-3 text-[10px] disabled:opacity-60 sm:w-auto"
-                                            >
-                                                {openingDashboard ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-                                                Access Dashboard
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={closeModal}
-                                                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background/70 text-muted-foreground transition hover:text-foreground"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </button>
+
+                                        {/* Telemetry Summary */}
+                                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 pt-4 border-t border-border/60">
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Linked Accounts</p>
+                                                <p className="mt-1 text-lg font-black text-foreground">{detailData?.total_linked_accounts ?? 0}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Transactions</p>
+                                                <p className="mt-1 text-lg font-black text-foreground">{detailData?.total_transactions ?? 0}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Plan Expiry</p>
+                                                <p className="mt-1 text-xs font-bold text-foreground truncate">{formatExpiryLabel(detailData?.profile?.expiry_date)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Plan Source</p>
+                                                <p className="mt-1 text-xs font-bold text-foreground capitalize">{detailData?.profile?.plan_source || 'System'}</p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                    {[
-                                        ['Linked Accounts', detailData?.total_linked_accounts ?? 0],
-                                        ['Transactions', detailData?.total_transactions ?? 0]
-                                    ].map(([label, value]) => (
-                                        <div key={String(label)} className={popupInsetClass}>
-                                            <p className="text-[10px] font-black text-muted-foreground">{label}</p>
-                                            <p className="mt-3 text-2xl font-extrabold text-foreground">{String(value)}</p>
-                                        </div>
-                                    ))}
-                                </div>
+                                    {/* SECTION 1: Linked Instagram Accounts */}
+                                    <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-xs">
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePopupSection('instagram')}
+                                            className="flex w-full items-center justify-between text-left"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <Instagram className="h-4 w-4 text-pink-500" />
+                                                <h3 className="text-sm font-bold text-foreground">Linked Instagram Accounts</h3>
+                                                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                                                    {(detailData?.instagram_accounts || []).length}
+                                                </span>
+                                            </div>
+                                            {popupSections.instagram ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                                        </button>
 
-                                <div className={popupSectionClass}>
-                                    <button
-                                        type="button"
-                                        onClick={() => togglePopupSection('instagram')}
-                                        className="flex w-full items-start justify-between gap-3 text-left"
-                                    >
-                                        <div>
-                                            <h3 className="text-sm font-bold text-foreground">Instagram accounts</h3>
-                                            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
-                                                Linked accounts only. Toggle active state while respecting backend locking rules.
-                                            </p>
-                                        </div>
-                                        {popupSections.instagram ? <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" /> : <ChevronDown className="mt-0.5 h-4 w-4 text-muted-foreground" />}
-                                    </button>
-                                    {popupSections.instagram ? <div className="mt-4 space-y-3">
-                                        {(detailData?.instagram_accounts || []).map((acc: any) => {
-                                            const isAdminActive = String(acc.admin_status || 'active').trim().toLowerCase() === 'active';
-                                            const isUserActive = String(acc.status || 'active').trim().toLowerCase() === 'active';
-                                            const accessLabel = !isAdminActive
-                                                ? 'Admin inactive'
-                                                : !isUserActive
-                                                    ? 'User inactive'
-                                                    : acc.plan_locked === true
-                                                        ? 'Locked by plan limit'
-                                                        : 'Active';
-                                            const tokenValidity = getInstagramTokenValidity(acc.token_expires_at);
-                                            return (
-                                                <div key={acc.$id} className="flex flex-col gap-3 rounded-[22px] border border-border/70 bg-background/72 p-4 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.45)] sm:flex-row sm:items-center sm:justify-between">
-                                                    <div className="min-w-0 flex-1">
-                                                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                                            <div className="min-w-0">
-                                                                <p className="truncate text-sm font-bold text-foreground">{acc.username || acc.ig_user_id || acc.account_id}</p>
-                                                                <p className="mt-1 text-xs text-muted-foreground">
-                                                                    {accessLabel}
-                                                                    {acc.plan_locked === true && isAdminActive && isUserActive ? ' - over plan active-account limit' : ''}
-                                                                </p>
-                                                            </div>
-                                                            <div className="grid min-w-0 gap-2 rounded-[18px] border border-border/70 bg-card/80 px-3 py-2 text-xs sm:min-w-[240px]">
-                                                                <div className="flex items-center justify-between gap-3">
-                                                                    <span className="font-semibold text-muted-foreground">Token status</span>
-                                                                    <span
-                                                                        className={cn(
-                                                                            'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold',
-                                                                            tokenValidity.tone === 'success' && 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300',
-                                                                            tokenValidity.tone === 'warning' && 'bg-amber-500/12 text-amber-700 dark:text-amber-300',
-                                                                            tokenValidity.tone === 'danger' && 'bg-destructive/12 text-destructive',
+                                        {popupSections.instagram && (
+                                            <div className="mt-4 space-y-3">
+                                                {(detailData?.instagram_accounts || []).map((acc: any) => {
+                                                    const isAdminActive = String(acc.admin_status || 'active').trim().toLowerCase() === 'active';
+                                                    const isUserActive = String(acc.status || 'active').trim().toLowerCase() === 'active';
+                                                    const tokenValidity = getInstagramTokenValidity(acc.token_expires_at);
+
+                                                    // Hourly Credit Unlimited Determination (Task 2)
+                                                    const hourlyLimitVal = Number(acc.allocated_hourly_credits ?? acc.hourly_action_limit ?? 100);
+                                                    const isHourlyUnlimited =
+                                                        hourlyLimitVal <= 0 ||
+                                                        String(acc.allocated_hourly_credits || acc.hourly_action_limit || '').toLowerCase() === 'unlimited' ||
+                                                        String(detailData?.effective_limits?.actions_per_hour_limit || '').toLowerCase() === 'unlimited' ||
+                                                        (detailData?.effective_limits?.actions_per_hour_limit !== undefined && Number(detailData.effective_limits.actions_per_hour_limit) <= 0);
+
+                                                    // Daily Credit Unlimited Determination
+                                                    const dailyLimitVal = Number(acc.allocated_daily_credits ?? acc.daily_action_limit ?? 1000);
+                                                    const isDailyUnlimited =
+                                                        dailyLimitVal <= 0 ||
+                                                        String(acc.allocated_daily_credits || acc.daily_action_limit || '').toLowerCase() === 'unlimited' ||
+                                                        String(detailData?.effective_limits?.actions_per_day_limit || '').toLowerCase() === 'unlimited' ||
+                                                        (detailData?.effective_limits?.actions_per_day_limit !== undefined && Number(detailData.effective_limits.actions_per_day_limit) <= 0);
+
+                                                    // Monthly Credit Unlimited Determination
+                                                    const monthlyLimitVal = Number(acc.allocated_monthly_credits ?? acc.monthly_action_limit ?? 25000);
+                                                    const isMonthlyUnlimited =
+                                                        monthlyLimitVal <= 0 ||
+                                                        String(acc.allocated_monthly_credits || acc.monthly_action_limit || '').toLowerCase() === 'unlimited' ||
+                                                        String(detailData?.effective_limits?.actions_per_month_limit || '').toLowerCase() === 'unlimited' ||
+                                                        (detailData?.effective_limits?.actions_per_month_limit !== undefined && Number(detailData.effective_limits.actions_per_month_limit) <= 0);
+
+                                                    return (
+                                                        <div key={acc.$id} className="rounded-xl border border-border/70 bg-background/60 p-4 shadow-xs">
+                                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                                <div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <p className="font-bold text-foreground text-sm truncate">@{acc.username || acc.ig_user_id || acc.account_id}</p>
+                                                                        <span className={cn(
+                                                                            'inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold',
+                                                                            tokenValidity.tone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
+                                                                            tokenValidity.tone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20',
+                                                                            tokenValidity.tone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20',
                                                                             tokenValidity.tone === 'neutral' && 'bg-muted text-muted-foreground'
+                                                                        )}>
+                                                                            Token: {tokenValidity.label}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="mt-0.5 text-xs text-muted-foreground">
+                                                                        {!isAdminActive ? 'Admin Inactive' : !isUserActive ? 'User Inactive' : 'Active and syncing'}
+                                                                    </p>
+                                                                </div>
+
+                                                                {/* Account Controls */}
+                                                                <div className="flex items-center gap-2 self-end sm:self-auto">
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={accountToggleLoadingId === acc.$id}
+                                                                        onClick={() => void toggleInstagramAccountAccess(acc)}
+                                                                        className={cn(
+                                                                            'inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all',
+                                                                            isAdminActive
+                                                                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
+                                                                                : 'bg-muted text-muted-foreground border border-border hover:text-foreground'
                                                                         )}
                                                                     >
-                                                                        {tokenValidity.label}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="flex items-center justify-between gap-3">
-                                                                    <span className="font-semibold text-muted-foreground">Valid until</span>
-                                                                    <span className="text-right font-medium text-foreground">{formatExpiryLabel(acc.token_expires_at)}</span>
-                                                                </div>
-                                                                <div className="flex items-center justify-between gap-3">
-                                                                    <span className="font-semibold text-muted-foreground">Validity</span>
-                                                                    <span className="text-right font-medium text-foreground">{tokenValidity.detail}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                                            <div className="rounded-[16px] border border-border/70 bg-card/70 px-3 py-2 text-xs">
-                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Hourly Credits</span>
-                                                                <div className="mt-1 flex items-baseline justify-between gap-1">
-                                                                    <span className="font-semibold text-foreground">
-                                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, Number(acc.allocated_hourly_credits ?? acc.hourly_action_limit ?? 100) - Number(acc.hourly_actions_used ?? 0)).toLocaleString()}</span>
-                                                                        <span className="text-muted-foreground font-normal text-[11px]"> / {Number(acc.allocated_hourly_credits ?? acc.hourly_action_limit ?? 100).toLocaleString()}</span>
-                                                                    </span>
-                                                                    <span className="text-[10px] text-muted-foreground font-medium">Used: {Number(acc.hourly_actions_used ?? 0).toLocaleString()}</span>
+                                                                        {accountToggleLoadingId === acc.$id ? (
+                                                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                                                        ) : (
+                                                                            <Shield className="h-3 w-3" />
+                                                                        )}
+                                                                        {isAdminActive ? 'Admin: Active' : 'Admin: Inactive'}
+                                                                    </button>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setPendingDeleteInstagramAccount(acc);
+                                                                            setDeleteInstagramConfirmText('');
+                                                                            setShowDeleteInstagramDialog(true);
+                                                                        }}
+                                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20 transition"
+                                                                        title="Delete Instagram Account"
+                                                                    >
+                                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                                    </button>
                                                                 </div>
                                                             </div>
-                                                            <div className="rounded-[16px] border border-border/70 bg-card/70 px-3 py-2 text-xs">
-                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Daily Credits</span>
-                                                                <div className="mt-1 flex items-baseline justify-between gap-1">
-                                                                    <span className="font-semibold text-foreground">
-                                                                        {Number(acc.allocated_daily_credits ?? acc.daily_action_limit ?? 1000) <= 0 ? (
+
+                                                            {/* Quota Strip (Hourly / Daily / Monthly) */}
+                                                            <div className="mt-3 grid grid-cols-3 gap-2 pt-3 border-t border-border/50 text-xs">
+                                                                {/* Hourly Quota */}
+                                                                <div className="rounded-lg bg-card p-2 border border-border/60">
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Hourly</span>
+                                                                    <p className="mt-0.5 text-xs font-bold text-foreground">
+                                                                        {isHourlyUnlimited ? (
                                                                             <span className="text-emerald-600 dark:text-emerald-400 font-bold">Unlimited</span>
                                                                         ) : (
                                                                             <>
-                                                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, Number(acc.allocated_daily_credits ?? acc.daily_action_limit ?? 1000) - Number(acc.daily_actions_used ?? 0)).toLocaleString()}</span>
-                                                                                <span className="text-muted-foreground font-normal text-[11px]"> / {Number(acc.allocated_daily_credits ?? acc.daily_action_limit ?? 1000).toLocaleString()}</span>
+                                                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, hourlyLimitVal - Number(acc.hourly_actions_used ?? 0)).toLocaleString()}</span>
+                                                                                <span className="text-muted-foreground font-normal text-[10px]"> / {hourlyLimitVal.toLocaleString()}</span>
                                                                             </>
                                                                         )}
-                                                                    </span>
-                                                                    <span className="text-[10px] text-muted-foreground font-medium">Used: {Number(acc.daily_actions_used ?? 0).toLocaleString()}</span>
+                                                                    </p>
+                                                                    <p className="text-[10px] text-muted-foreground">Used: {Number(acc.hourly_actions_used ?? 0).toLocaleString()}</p>
                                                                 </div>
-                                                            </div>
-                                                            <div className="rounded-[16px] border border-border/70 bg-card/70 px-3 py-2 text-xs">
-                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Monthly Credits</span>
-                                                                <div className="mt-1 flex items-baseline justify-between gap-1">
-                                                                    <span className="font-semibold text-foreground">
-                                                                        {Number(acc.allocated_monthly_credits ?? acc.monthly_action_limit ?? 25000) <= 0 ? (
+
+                                                                {/* Daily Quota */}
+                                                                <div className="rounded-lg bg-card p-2 border border-border/60">
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Daily</span>
+                                                                    <p className="mt-0.5 text-xs font-bold text-foreground">
+                                                                        {isDailyUnlimited ? (
                                                                             <span className="text-emerald-600 dark:text-emerald-400 font-bold">Unlimited</span>
                                                                         ) : (
                                                                             <>
-                                                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, Number(acc.allocated_monthly_credits ?? acc.monthly_action_limit ?? 25000) - Number(acc.monthly_actions_used ?? 0)).toLocaleString()}</span>
-                                                                                <span className="text-muted-foreground font-normal text-[11px]"> / {Number(acc.allocated_monthly_credits ?? acc.monthly_action_limit ?? 25000).toLocaleString()}</span>
+                                                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, dailyLimitVal - Number(acc.daily_actions_used ?? 0)).toLocaleString()}</span>
+                                                                                <span className="text-muted-foreground font-normal text-[10px]"> / {dailyLimitVal.toLocaleString()}</span>
                                                                             </>
                                                                         )}
-                                                                    </span>
-                                                                    <span className="text-[10px] text-muted-foreground font-medium">Used: {Number(acc.monthly_actions_used ?? 0).toLocaleString()}</span>
+                                                                    </p>
+                                                                    <p className="text-[10px] text-muted-foreground">Used: {Number(acc.daily_actions_used ?? 0).toLocaleString()}</p>
+                                                                </div>
+
+                                                                {/* Monthly Quota */}
+                                                                <div className="rounded-lg bg-card p-2 border border-border/60">
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Monthly</span>
+                                                                    <p className="mt-0.5 text-xs font-bold text-foreground">
+                                                                        {isMonthlyUnlimited ? (
+                                                                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">Unlimited</span>
+                                                                        ) : (
+                                                                            <>
+                                                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{Math.max(0, monthlyLimitVal - Number(acc.monthly_actions_used ?? 0)).toLocaleString()}</span>
+                                                                                <span className="text-muted-foreground font-normal text-[10px]"> / {monthlyLimitVal.toLocaleString()}</span>
+                                                                            </>
+                                                                        )}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-muted-foreground">Used: {Number(acc.monthly_actions_used ?? 0).toLocaleString()}</p>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                    <div className="flex flex-wrap items-center justify-end gap-2.5 sm:self-stretch">
-                                                        <button
-                                                            type="button"
-                                                            role="switch"
-                                                            aria-checked={isAdminActive}
-                                                            disabled={accountToggleLoadingId === acc.$id}
-                                                            onClick={() => void toggleInstagramAccountAccess(acc)}
-                                                            className="inline-flex items-center gap-3 disabled:opacity-60"
-                                                        >
-                                                            {accountToggleLoadingId === acc.$id ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <Shield className="h-4 w-4 text-muted-foreground" />}
-                                                            <span
-                                                                className={cn(
-                                                                    'relative h-7 w-12 rounded-full transition-colors',
-                                                                    isAdminActive ? 'bg-success/70' : 'bg-muted'
-                                                                )}
-                                                            >
-                                                                <span
-                                                                    className={cn(
-                                                                        'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform',
-                                                                        isAdminActive ? 'left-6' : 'left-1'
-                                                                    )}
-                                                                />
-                                                            </span>
-                                                            <span className="text-xs font-semibold text-foreground">
-                                                                {isAdminActive ? 'Active' : 'Inactive'}
-                                                            </span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setPendingDeleteInstagramAccount(acc);
-                                                                setDeleteInstagramConfirmText('');
-                                                                setShowDeleteInstagramDialog(true);
-                                                            }}
-                                                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10 text-destructive transition hover:bg-destructive/15"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                        {(!detailData?.instagram_accounts || detailData.instagram_accounts.length === 0) && (
-                                            <p className="text-xs text-muted-foreground">No linked accounts</p>
+                                                    );
+                                                })}
+                                                {(!detailData?.instagram_accounts || detailData.instagram_accounts.length === 0) && (
+                                                    <p className="py-6 text-center text-xs text-muted-foreground">No linked Instagram accounts found.</p>
+                                                )}
+                                            </div>
                                         )}
-                                    </div> : null}
-                                </div>
+                                    </div>
 
-                                <div className={popupSectionClass}>
-                                    <button
-                                        type="button"
-                                        onClick={() => togglePopupSection('ban')}
-                                        className="flex w-full items-start justify-between gap-3 text-left"
-                                    >
-                                        <div>
-                                            <h3 className="text-sm font-bold text-foreground">Ban</h3>
-                                            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
-                                                Banning can disable access and stop automation processing depending on selected mode.
-                                            </p>
-                                        </div>
-                                        {popupSections.ban ? <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" /> : <ChevronDown className="mt-0.5 h-4 w-4 text-muted-foreground" />}
-                                    </button>
-                                    {popupSections.ban ? <div className="mt-4 space-y-3">
-                                        <div className="flex flex-wrap gap-3">
-                                            {(['none', 'soft', 'hard'] as const).map((mode) => (
-                                                <button
-                                                    key={mode}
-                                                    onClick={() => setBanMode(mode)}
-                                                    className={cn('segmented-option', banMode === mode ? 'is-active' : '')}
-                                                    type="button"
-                                                >
-                                                    {mode}
-                                                </button>
-                                            ))}
-                                        </div>
-
-                                        {/* Soft Ban vs Hard Ban Clear System Explanation */}
-                                        <div className="rounded-2xl border border-border/80 bg-muted/30 p-4 space-y-3 text-xs">
-                                            <div className="flex items-center gap-2 font-bold text-foreground">
-                                                <Shield className="h-4 w-4 text-primary" />
-                                                <span>Ban Modes & System Effects</span>
+                                    {/* SECTION 2: Account Moderation */}
+                                    <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-xs">
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePopupSection('ban')}
+                                            className="flex w-full items-center justify-between text-left"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <Ban className="h-4 w-4 text-amber-500" />
+                                                <h3 className="text-sm font-bold text-foreground">Account Moderation</h3>
                                             </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                                <div className={cn("p-3 rounded-xl border transition-all", banMode === 'none' ? "border-emerald-500/50 bg-emerald-500/10 shadow-xs" : "border-border/60 bg-card/60")}>
-                                                    <div className="flex items-center gap-1.5 font-bold text-foreground">
-                                                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                                                        <span>None (Active)</span>
-                                                    </div>
-                                                    <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
-                                                        Full regular access. User can log in, edit automations, and all background automation workers trigger normally.
-                                                    </p>
-                                                </div>
-                                                <div className={cn("p-3 rounded-xl border transition-all", banMode === 'soft' ? "border-amber-500/50 bg-amber-500/10 shadow-xs" : "border-border/60 bg-card/60")}>
-                                                    <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400">
-                                                        <span className="h-2 w-2 rounded-full bg-amber-500" />
-                                                        <span>Soft Ban</span>
-                                                    </div>
-                                                    <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
-                                                        <strong>Dashboard Accessible:</strong> User can still log in, review account settings, and inspect analytics.
-                                                    </p>
-                                                    <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
-                                                        <strong>Automations Locked:</strong> Automation editing is restricted with a warning modal, and background workers immediately stop executing triggers.
-                                                    </p>
-                                                </div>
-                                                <div className={cn("p-3 rounded-xl border transition-all", banMode === 'hard' ? "border-destructive/50 bg-destructive/10 shadow-xs" : "border-border/60 bg-card/60")}>
-                                                    <div className="flex items-center gap-1.5 font-bold text-destructive">
-                                                        <span className="h-2 w-2 rounded-full bg-destructive" />
-                                                        <span>Hard Ban</span>
-                                                    </div>
-                                                    <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
-                                                        <strong>Immediate Revocation:</strong> Active session cookies and tokens are revoked instantly.
-                                                    </p>
-                                                    <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
-                                                        <strong>Access Blocked:</strong> Login attempts are rejected with HTTP 403. All worker jobs and automated actions are completely blocked.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <input
-                                            className="input-base"
-                                            placeholder="Ban reason"
-                                            value={banReason}
-                                            onChange={(event) => setBanReason(event.target.value)}
-                                        />
-                                        <button onClick={() => { setBanConfirmText(''); setShowBanConfirmDialog(true); }} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-destructive px-4 py-3 text-[10px] font-black text-white transition hover:bg-destructive/90 disabled:opacity-60" disabled={saving || isDeletingUser}>
-                                            <Ban className="h-4 w-4" />
-                                            Ban User
+                                            {popupSections.ban ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                                         </button>
-                                    </div> : null}
-                                </div>
 
-                                <div className={popupSectionClass}>
-                                    <button
-                                        type="button"
-                                        onClick={() => togglePopupSection('danger')}
-                                        className="flex w-full items-center justify-between gap-3 text-left"
-                                    >
-                                        <h3 className="text-sm font-bold text-foreground">Delete user</h3>
-                                        {popupSections.danger ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                                    </button>
-                                    {popupSections.danger ? (
-                                        <div className="mt-4 border-t border-border/70 pt-4 space-y-3">
-                                            {isTargetSelfOrAdmin ? (
-                                                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs font-semibold text-amber-700 dark:text-amber-300">
-                                                    Administrative accounts cannot be deleted through the admin panel.
+                                        {popupSections.ban && (
+                                            <div className="mt-4 space-y-4">
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {[
+                                                        { mode: 'none', label: 'Clear', desc: 'Full active access' },
+                                                        { mode: 'soft', label: 'Soft Ban', desc: 'Read-only dashboard' },
+                                                        { mode: 'hard', label: 'Hard Ban', desc: 'Login blocked' }
+                                                    ].map(({ mode, label, desc }) => (
+                                                        <button
+                                                            key={mode}
+                                                            type="button"
+                                                            onClick={() => setBanMode(mode as any)}
+                                                            className={cn(
+                                                                'rounded-xl border p-3 text-left transition-all',
+                                                                banMode === mode
+                                                                    ? 'border-primary bg-primary/10 shadow-xs'
+                                                                    : 'border-border/70 bg-background/50 hover:bg-muted/40'
+                                                            )}
+                                                        >
+                                                            <p className={cn('text-xs font-bold', banMode === mode ? 'text-primary' : 'text-foreground')}>{label}</p>
+                                                            <p className="text-[10px] text-muted-foreground mt-0.5">{desc}</p>
+                                                        </button>
+                                                    ))}
                                                 </div>
-                                            ) : (
+
+                                                <input
+                                                    className="input-base text-xs"
+                                                    placeholder="Reason for moderation action (optional)"
+                                                    value={banReason}
+                                                    onChange={(event) => setBanReason(event.target.value)}
+                                                />
+
                                                 <button
-                                                    onClick={() => {
-                                                        setDeleteConfirmText('');
-                                                        setShowDeleteUserDialog(true);
-                                                    }}
-                                                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-[10px] font-black text-destructive disabled:opacity-60"
-                                                    disabled={saving || isDeletingUser || isTargetSelfOrAdmin}
+                                                    type="button"
+                                                    onClick={() => { setBanConfirmText(''); setShowBanConfirmDialog(true); }}
+                                                    disabled={saving || isDeletingUser}
+                                                    className="btn-primary inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold disabled:opacity-60"
                                                 >
-                                                    {isDeletingUser ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                                    Delete User
+                                                    <Shield className="h-3.5 w-3.5" />
+                                                    Apply Moderation Status
                                                 </button>
-                                            )}
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </div>
-                        )}
-                    </section>
-                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* SECTION 3: Danger Zone */}
+                                    <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5 shadow-xs">
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePopupSection('danger')}
+                                            className="flex w-full items-center justify-between text-left"
+                                        >
+                                            <div className="flex items-center gap-2 text-destructive">
+                                                <Trash2 className="h-4 w-4" />
+                                                <h3 className="text-sm font-bold">Danger Zone</h3>
+                                            </div>
+                                            {popupSections.danger ? <ChevronUp className="h-4 w-4 text-destructive/70" /> : <ChevronDown className="h-4 w-4 text-destructive/70" />}
+                                        </button>
+
+                                        {popupSections.danger && (
+                                            <div className="mt-4 pt-3 border-t border-destructive/20 space-y-3">
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    Permanently delete this user record, revoke all active sessions, and purge linked automations.
+                                                </p>
+                                                {isTargetSelfOrAdmin ? (
+                                                    <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                                                        Administrative accounts cannot be deleted here.
+                                                    </p>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setDeleteConfirmText('');
+                                                            setShowDeleteUserDialog(true);
+                                                        }}
+                                                        disabled={saving || isDeletingUser || isTargetSelfOrAdmin}
+                                                        className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-destructive px-4 text-xs font-bold text-white transition hover:bg-destructive/90 disabled:opacity-50"
+                                                    >
+                                                        {isDeletingUser ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                                        Permanently Delete User
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
 
+            {/* Confirm Dialog: Ban User */}
             <ConfirmDialog
                 open={showBanConfirmDialog}
-                title="Confirm ban action?"
+                title="Confirm Moderation Mode"
                 description={(
-                    <div className="space-y-2">
-                        <p>This will apply the selected ban mode immediately.</p>
-                        <p className="font-semibold text-foreground">Mode: {banMode}</p>
-                        {banReason ? <p>Reason: {banReason}</p> : null}
+                    <div className="space-y-2.5 text-xs">
+                        <p>Apply mode: <strong className="text-foreground uppercase">{banMode}</strong></p>
+                        {banReason ? <p>Reason: <span className="text-muted-foreground">{banReason}</span></p> : null}
                         <div>
-                            <label className="text-xs font-semibold text-muted-foreground">Type BAN to confirm</label>
+                            <label className="text-[11px] font-bold text-muted-foreground">Type BAN to confirm</label>
                             <input
-                                className="input-base mt-2"
+                                className="input-base mt-1.5 h-9 text-xs"
                                 value={banConfirmText}
                                 onChange={(event) => setBanConfirmText(event.target.value)}
                                 placeholder="BAN"
@@ -1158,7 +1259,7 @@ export const UsersPage: React.FC = () => {
                         </div>
                     </div>
                 )}
-                confirmLabel="Confirm Ban User"
+                confirmLabel="Confirm Ban"
                 cancelLabel="Cancel"
                 tone="danger"
                 loading={saving}
@@ -1174,20 +1275,21 @@ export const UsersPage: React.FC = () => {
                 }}
             />
 
+            {/* Confirm Dialog: Delete Instagram Account */}
             <ConfirmDialog
                 open={showDeleteInstagramDialog}
-                title="Delete linked Instagram account?"
+                title="Delete Linked Instagram Account?"
                 description={(
-                    <div className="space-y-3">
+                    <div className="space-y-2.5 text-xs">
                         <p>
                             {pendingDeleteInstagramAccount
-                                ? `This will permanently remove @${pendingDeleteInstagramAccount.username || pendingDeleteInstagramAccount.ig_user_id || pendingDeleteInstagramAccount.account_id} and delete its related automation data.`
-                                : 'This will permanently remove the linked Instagram account and related data.'}
+                                ? `Permanently remove @${pendingDeleteInstagramAccount.username || pendingDeleteInstagramAccount.ig_user_id || pendingDeleteInstagramAccount.account_id} and wipe its automation history.`
+                                : 'Permanently remove this Instagram account.'}
                         </p>
                         <div>
-                            <label className="text-xs font-semibold text-muted-foreground">Type REMOVE to confirm</label>
+                            <label className="text-[11px] font-bold text-muted-foreground">Type REMOVE to confirm</label>
                             <input
-                                className="input-base mt-2"
+                                className="input-base mt-1.5 h-9 text-xs"
                                 value={deleteInstagramConfirmText}
                                 onChange={(event) => setDeleteInstagramConfirmText(event.target.value)}
                                 placeholder="REMOVE"
@@ -1196,7 +1298,7 @@ export const UsersPage: React.FC = () => {
                         </div>
                     </div>
                 )}
-                confirmLabel="Delete Instagram Account"
+                confirmLabel="Delete Account"
                 cancelLabel="Keep Account"
                 tone="danger"
                 loading={accountToggleLoadingId === pendingDeleteInstagramAccount?.$id}
@@ -1213,16 +1315,17 @@ export const UsersPage: React.FC = () => {
                 }}
             />
 
+            {/* Confirm Dialog: Delete User */}
             <ConfirmDialog
                 open={showDeleteUserDialog}
-                title="Delete user permanently?"
+                title="Permanently Delete User?"
                 description={(
-                    <div className="space-y-3">
-                        <p>{selectedUser ? `This will permanently delete ${selectedUser.email || selectedUser.name || 'this user'} and remove their dashboard access. This action cannot be undone.` : ''}</p>
+                    <div className="space-y-2.5 text-xs">
+                        <p>All data and access for {selectedUser?.email || 'this user'} will be irreversibly deleted.</p>
                         <div>
-                            <label className="text-xs font-semibold text-muted-foreground">Type DELETE to confirm</label>
+                            <label className="text-[11px] font-bold text-muted-foreground">Type DELETE to confirm</label>
                             <input
-                                className="input-base mt-2"
+                                className="input-base mt-1.5 h-9 text-xs"
                                 value={deleteConfirmText}
                                 onChange={(event) => setDeleteConfirmText(event.target.value)}
                                 placeholder="DELETE"
@@ -1232,7 +1335,7 @@ export const UsersPage: React.FC = () => {
                     </div>
                 )}
                 confirmLabel="Delete User"
-                cancelLabel="Keep User"
+                cancelLabel="Cancel"
                 tone="danger"
                 loading={isDeletingUser}
                 confirmDisabled={deleteConfirmText.trim() !== 'DELETE'}
