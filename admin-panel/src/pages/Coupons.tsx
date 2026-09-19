@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Calendar, Check, CheckCircle2, Copy, CreditCard, Layers, Loader2, PencilLine, Plus, Receipt, RefreshCcw, Search, SlidersHorizontal, Sparkles, Tag, TicketPercent, TrendingUp, XCircle } from 'lucide-react';
+import { ArrowLeft, Check, CheckCircle2, Copy, Layers, Loader2, PencilLine, Plus, Receipt, RefreshCcw, Search, SlidersHorizontal, Sparkles, Tag, TicketPercent } from 'lucide-react';
 import httpClient from '../lib/httpClient';
 import AdminLoadingState from '../components/AdminLoadingState';
 import { cn } from '../lib/utils';
@@ -1038,7 +1038,7 @@ export const CouponsPage: React.FC = () => {
                                 </div>
                             )}
 
-                            {filteredCoupons.map(({ coupon }) => {
+                            {filteredCoupons.map((coupon) => {
                                 const usagePercent = coupon.usage_limit > 0
                                     ? Math.min(100, Math.round(((coupon.redemption_count || 0) / coupon.usage_limit) * 100))
                                     : null;
@@ -1098,11 +1098,11 @@ export const CouponsPage: React.FC = () => {
                                                     Billing: {(coupon.billing_cycle_targets || []).join(' + ') || 'All cycles'}
                                                 </span>
                                                 <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                                                    Plans: {coupon.plan_ids.length > 0 ? `${coupon.plan_ids.length} selected` : 'All plans'}
+                                                    Plans: {(coupon.plan_ids || []).length > 0 ? `${(coupon.plan_ids || []).length} selected` : 'All plans'}
                                                 </span>
-                                                {coupon.user_ids.length > 0 && (
+                                                {(coupon.user_ids || []).length > 0 && (
                                                     <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                                                        Users: {coupon.user_ids.length} targeted
+                                                        Users: {(coupon.user_ids || []).length} targeted
                                                     </span>
                                                 )}
                                             </div>

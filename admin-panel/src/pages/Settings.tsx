@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Camera, Check, CheckCircle2, ChevronLeft, Copy, Heart, Image as ImageIcon, Instagram, Loader2, MessageSquare, Mic, Phone, RefreshCw, Save, Sparkles, Video } from 'lucide-react';
+import { Camera, CheckCircle2, ChevronLeft, Heart, Image as ImageIcon, Instagram, Loader2, Mic, Phone, Save, Video } from 'lucide-react';
 import httpClient from '../lib/httpClient';
 import AdminLoadingState from '../components/AdminLoadingState';
 import { cn } from '../lib/utils';
