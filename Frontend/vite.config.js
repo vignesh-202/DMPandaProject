@@ -3,10 +3,13 @@ import react from '@vitejs/plugin-react'
 import path from 'node:path'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
   ],
+  esbuild: mode === 'production' ? {
+    drop: ['console', 'debugger'],
+  } : {},
   build: {
     // Enable CSS code splitting so each route only loads what it needs
     cssCodeSplit: true,
@@ -71,4 +74,4 @@ export default defineConfig({
       allow: [path.resolve(__dirname, '..')],
     },
   },
-})
+}))
