@@ -9,11 +9,9 @@ import {
     ChevronUp,
     ExternalLink,
     Loader2,
-    RotateCcw,
     Search,
     Settings2,
     Shield,
-    Sliders,
     Trash2,
     X
 } from 'lucide-react';
@@ -189,7 +187,6 @@ export const UsersPage: React.FC = () => {
     const { user: currentAdminUser } = useAuth();
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailData, setDetailData] = useState<any>(null);
-    const [killSwitchEnabled, setKillSwitchEnabled] = useState(true);
     const [banMode, setBanMode] = useState<'none' | 'soft' | 'hard'>('none');
     const [banReason, setBanReason] = useState('');
     const [saving, setSaving] = useState(false);
@@ -203,16 +200,6 @@ export const UsersPage: React.FC = () => {
     const [showDeleteInstagramDialog, setShowDeleteInstagramDialog] = useState(false);
     const [deleteInstagramConfirmText, setDeleteInstagramConfirmText] = useState('');
     const [pendingDeleteInstagramAccount, setPendingDeleteInstagramAccount] = useState<any | null>(null);
-    const [changingPlanAccount, setChangingPlanAccount] = useState<any | null>(null);
-    const [changingPlanForm, setChangingPlanForm] = useState<{
-        plan_code: string;
-        duration_days: number;
-    }>({
-        plan_code: 'free',
-        duration_days: 30,
-    });
-    const [savingPlan, setSavingPlan] = useState(false);
-    const [resettingPlanAccountId, setResettingPlanAccountId] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [popupSections, setPopupSections] = useState<Record<PopupSectionKey, boolean>>(DEFAULT_POPUP_SECTION_STATE);
@@ -280,7 +267,6 @@ export const UsersPage: React.FC = () => {
         try {
             const response = await httpClient.get(`/api/admin/users/${targetUserId}`);
             setDetailData(response.data);
-            setKillSwitchEnabled(response.data?.user?.kill_switch_enabled !== false);
             setBanMode(String(response.data?.user?.ban_mode || 'none') as 'none' | 'soft' | 'hard');
             setBanReason(response.data?.user?.ban_reason || '');
         } catch (error) {
@@ -361,8 +347,7 @@ export const UsersPage: React.FC = () => {
         try {
             const response = await httpClient.post(`/api/admin/users/${selectedUser.$id}/ban`, {
                 mode: banMode,
-                reason: banReason,
-                kill_switch_enabled: killSwitchEnabled
+                reason: banReason
             });
             const result = response.data?.data || {};
             mergeDetailData({ user: result.user || detailData?.user });
@@ -449,71 +434,6 @@ export const UsersPage: React.FC = () => {
             setErrorMessage(error?.response?.data?.error || 'Failed to delete Instagram account.');
         } finally {
             setAccountToggleLoadingId(null);
-        }
-    };
-
-    const openChangePlanModal = (account: any) => {
-        setChangingPlanAccount(account);
-        const currentCode = String(account.plan_code || 'free').trim().toLowerCase();
-        setChangingPlanForm({
-            plan_code: currentCode,
-            duration_days: 30
-        });
-    };
-
-    const saveAccountPlan = async () => {
-        if (!selectedUser || !changingPlanAccount?.$id) return;
-        setSavingPlan(true);
-        setErrorMessage(null);
-        try {
-            const response = await httpClient.patch(`/api/admin/users/${selectedUser.$id}/instagram-accounts/${changingPlanAccount.$id}/plan`, {
-                plan_code: changingPlanForm.plan_code,
-                duration_days: changingPlanForm.duration_days
-            });
-            const updatedAccount = response.data?.account || response.data?.data?.account || response.data?.data;
-            if (updatedAccount) {
-                setDetailData((prev: any) => {
-                    if (!prev) return prev;
-                    const accounts = Array.isArray(prev.instagram_accounts) ? prev.instagram_accounts : [];
-                    return {
-                        ...prev,
-                        instagram_accounts: accounts.map((acc: any) => acc.$id === updatedAccount.$id ? { ...acc, ...updatedAccount } : acc)
-                    };
-                });
-            }
-            setNotice(response.data?.message || 'Account plan updated successfully.');
-            setChangingPlanAccount(null);
-        } catch (error: any) {
-            console.error('Failed to change plan:', error);
-            setErrorMessage(error?.response?.data?.error || 'Failed to update account plan.');
-        } finally {
-            setSavingPlan(false);
-        }
-    };
-
-    const resetAccountPlan = async (account: any) => {
-        if (!selectedUser || !account?.$id) return;
-        setResettingPlanAccountId(account.$id);
-        setErrorMessage(null);
-        try {
-            const response = await httpClient.post(`/api/admin/users/${selectedUser.$id}/instagram-accounts/${account.$id}/reset-plan`);
-            const updatedAccount = response.data?.account || response.data?.data?.account || response.data?.data;
-            if (updatedAccount) {
-                setDetailData((prev: any) => {
-                    if (!prev) return prev;
-                    const accounts = Array.isArray(prev.instagram_accounts) ? prev.instagram_accounts : [];
-                    return {
-                        ...prev,
-                        instagram_accounts: accounts.map((acc: any) => acc.$id === updatedAccount.$id ? { ...acc, ...updatedAccount } : acc)
-                    };
-                });
-            }
-            setNotice(response.data?.message || 'Account plan reset to subscribed plan defaults.');
-        } catch (error: any) {
-            console.error('Failed to reset plan:', error);
-            setErrorMessage(error?.response?.data?.error || 'Failed to reset plan.');
-        } finally {
-            setResettingPlanAccountId(null);
         }
     };
 
@@ -999,25 +919,6 @@ export const UsersPage: React.FC = () => {
                                                     <div className="flex flex-wrap items-center justify-end gap-2.5 sm:self-stretch">
                                                         <button
                                                             type="button"
-                                                            onClick={() => openChangePlanModal(acc)}
-                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/20 transition"
-                                                            title="Change Account Plan & Auto-Sync Default Limits"
-                                                        >
-                                                            <Sliders className="h-3.5 w-3.5" />
-                                                            <span>Change Plan</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            disabled={resettingPlanAccountId === acc.$id}
-                                                            onClick={() => void resetAccountPlan(acc)}
-                                                            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted transition disabled:opacity-50"
-                                                            title="Restore Subscribed Plan & Limits"
-                                                        >
-                                                            {resettingPlanAccountId === acc.$id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
-                                                            <span>Reset Plan</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
                                                             role="switch"
                                                             aria-checked={isAdminActive}
                                                             disabled={accountToggleLoadingId === acc.$id}
@@ -1139,33 +1040,6 @@ export const UsersPage: React.FC = () => {
                                             value={banReason}
                                             onChange={(event) => setBanReason(event.target.value)}
                                         />
-                                        <div className={popupInsetClass}>
-                                            <p className="text-xs font-semibold text-muted-foreground">Kill switch</p>
-                                            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                <button
-                                                    type="button"
-                                                    className={cn('segmented-option min-h-[84px] flex-col items-start rounded-[20px] p-4 text-left', killSwitchEnabled ? 'is-active' : '')}
-                                                    onClick={() => setKillSwitchEnabled(true)}
-                                                >
-                                                    <span className="segmented-dot" />
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-foreground">Enabled</p>
-                                                        <p className="mt-1 text-xs font-medium text-muted-foreground">Worker processing can continue for linked accounts.</p>
-                                                    </div>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={cn('segmented-option min-h-[84px] flex-col items-start rounded-[20px] p-4 text-left', !killSwitchEnabled ? 'is-active' : '')}
-                                                    onClick={() => setKillSwitchEnabled(false)}
-                                                >
-                                                    <span className="segmented-dot" />
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-foreground">Disabled</p>
-                                                        <p className="mt-1 text-xs font-medium text-muted-foreground">Worker processing stops before any automation checks.</p>
-                                                    </div>
-                                                </button>
-                                            </div>
-                                        </div>
                                         <button onClick={() => { setBanConfirmText(''); setShowBanConfirmDialog(true); }} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-destructive px-4 py-3 text-[10px] font-black text-white transition hover:bg-destructive/90 disabled:opacity-60" disabled={saving || isDeletingUser}>
                                             <Ban className="h-4 w-4" />
                                             Ban User
@@ -1216,8 +1090,8 @@ export const UsersPage: React.FC = () => {
                 title="Confirm ban action?"
                 description={(
                     <div className="space-y-2">
-                        <p>This will apply the selected ban mode and kill-switch state immediately.</p>
-                        <p className="font-semibold text-foreground">Mode: {banMode} | Kill switch: {killSwitchEnabled ? 'Enabled' : 'Disabled'}</p>
+                        <p>This will apply the selected ban mode immediately.</p>
+                        <p className="font-semibold text-foreground">Mode: {banMode}</p>
                         {banReason ? <p>Reason: {banReason}</p> : null}
                         <div>
                             <label className="text-xs font-semibold text-muted-foreground">Type BAN to confirm</label>
@@ -1319,177 +1193,6 @@ export const UsersPage: React.FC = () => {
                     void deleteUser();
                 }}
             />
-            {/* Change Account Plan Modal */}
-            {changingPlanAccount && (
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
-                    onClick={() => {
-                        if (!savingPlan) setChangingPlanAccount(null);
-                    }}
-                >
-                    <div
-                        className="w-full max-w-lg rounded-[28px] border border-border/80 bg-card p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="text-lg font-black text-foreground">
-                                    Change Account Plan
-                                </h3>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    @{changingPlanAccount.username || changingPlanAccount.ig_user_id || changingPlanAccount.account_id}
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setChangingPlanAccount(null)}
-                                disabled={savingPlan}
-                                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3.5 text-xs text-foreground">
-                            <p className="font-semibold text-primary">Standardized Plan Management:</p>
-                            <p className="mt-0.5 opacity-90 leading-relaxed text-muted-foreground">
-                                Selecting a plan automatically applies its verified action limits (hourly, daily, monthly) and features to this Instagram account. Direct credit manipulation is disabled to ensure tier consistency.
-                            </p>
-                        </div>
-
-                        <div className="space-y-4">
-                            {/* Plan Selection */}
-                            <div>
-                                <label className="text-xs font-bold text-foreground block mb-2">Select Plan</label>
-                                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                                    {(pricingPlans.length > 0 ? pricingPlans : [
-                                        { id: 'free', plan_code: 'free', name: 'Free', actions_per_hour_limit: 100, actions_per_day_limit: 100, actions_per_month_limit: 1000 },
-                                        { id: 'starter', plan_code: 'starter', name: 'Starter', actions_per_hour_limit: 200, actions_per_day_limit: 2000, actions_per_month_limit: 50000 },
-                                        { id: 'pro', plan_code: 'pro', name: 'Pro', actions_per_hour_limit: 500, actions_per_day_limit: 0, actions_per_month_limit: 0 },
-                                        { id: 'ultra', plan_code: 'ultra', name: 'Ultra', actions_per_hour_limit: 1000, actions_per_day_limit: 0, actions_per_month_limit: 0 },
-                                    ]).map((plan) => {
-                                        const code = String(plan.plan_code || plan.id).toLowerCase();
-                                        const isSelected = changingPlanForm.plan_code.toLowerCase() === code;
-                                        return (
-                                            <button
-                                                key={code}
-                                                type="button"
-                                                onClick={() => setChangingPlanForm(prev => ({ ...prev, plan_code: code }))}
-                                                className={cn(
-                                                    "p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center min-h-[72px]",
-                                                    isSelected
-                                                        ? "border-primary bg-primary/10 ring-2 ring-primary/20 font-bold text-foreground"
-                                                        : "border-border/70 bg-background/50 hover:bg-muted text-muted-foreground"
-                                                )}
-                                            >
-                                                <span className="text-sm capitalize font-bold text-foreground">{plan.name || code}</span>
-                                                <span className="text-[10px] text-muted-foreground mt-0.5">
-                                                    {plan.actions_per_hour_limit ? `${plan.actions_per_hour_limit}/hr` : 'Custom'}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Plan Limits Preview */}
-                            {(() => {
-                                const plansList = pricingPlans.length > 0 ? pricingPlans : [
-                                    { id: 'free', plan_code: 'free', name: 'Free', actions_per_hour_limit: 100, actions_per_day_limit: 100, actions_per_month_limit: 1000 },
-                                    { id: 'starter', plan_code: 'starter', name: 'Starter', actions_per_hour_limit: 200, actions_per_day_limit: 2000, actions_per_month_limit: 50000 },
-                                    { id: 'pro', plan_code: 'pro', name: 'Pro', actions_per_hour_limit: 500, actions_per_day_limit: 0, actions_per_month_limit: 0 },
-                                    { id: 'ultra', plan_code: 'ultra', name: 'Ultra', actions_per_hour_limit: 1000, actions_per_day_limit: 0, actions_per_month_limit: 0 },
-                                ];
-                                const activePlanObj = plansList.find(p => String(p.plan_code || p.id).toLowerCase() === changingPlanForm.plan_code.toLowerCase()) || plansList[0];
-                                const hourly = activePlanObj?.actions_per_hour_limit ?? 100;
-                                const daily = (activePlanObj?.actions_per_day_limit == null || activePlanObj?.actions_per_day_limit <= 0 || changingPlanForm.plan_code === 'pro' || changingPlanForm.plan_code === 'ultra') ? 'Unlimited' : `${activePlanObj.actions_per_day_limit.toLocaleString()}/day`;
-                                const monthly = (activePlanObj?.actions_per_month_limit == null || activePlanObj?.actions_per_month_limit <= 0 || changingPlanForm.plan_code === 'pro' || changingPlanForm.plan_code === 'ultra') ? 'Unlimited' : `${activePlanObj.actions_per_month_limit.toLocaleString()}/mo`;
-
-                                return (
-                                    <div className="rounded-2xl border border-border/70 bg-background/60 p-3.5 space-y-2">
-                                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
-                                            Applied Action Limits Preview
-                                        </span>
-                                        <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                                            <div className="p-2 rounded-xl bg-card border border-border/60">
-                                                <span className="text-[10px] text-muted-foreground block font-medium">Hourly</span>
-                                                <span className="font-bold text-foreground mt-0.5 block">{hourly.toLocaleString()}/hr</span>
-                                            </div>
-                                            <div className="p-2 rounded-xl bg-card border border-border/60">
-                                                <span className="text-[10px] text-muted-foreground block font-medium">Daily</span>
-                                                <span className="font-bold text-foreground mt-0.5 block">{daily}</span>
-                                            </div>
-                                            <div className="p-2 rounded-xl bg-card border border-border/60">
-                                                <span className="text-[10px] text-muted-foreground block font-medium">Monthly</span>
-                                                <span className="font-bold text-foreground mt-0.5 block">{monthly}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Duration Selection (only for paid plans) */}
-                            {changingPlanForm.plan_code.toLowerCase() !== 'free' && (
-                                <div>
-                                    <label className="text-xs font-bold text-foreground block mb-2">Duration (Days)</label>
-                                    <div className="grid grid-cols-4 gap-2">
-                                        {[
-                                            { label: '30 Days', days: 30 },
-                                            { label: '90 Days', days: 90 },
-                                            { label: '180 Days', days: 180 },
-                                            { label: '365 Days', days: 365 },
-                                        ].map((d) => (
-                                            <button
-                                                key={d.days}
-                                                type="button"
-                                                onClick={() => setChangingPlanForm(prev => ({ ...prev, duration_days: d.days }))}
-                                                className={cn(
-                                                    "py-2 px-3 rounded-xl border text-xs font-semibold transition",
-                                                    changingPlanForm.duration_days === d.days
-                                                        ? "border-primary bg-primary/10 text-primary"
-                                                        : "border-border/70 bg-card hover:bg-muted text-muted-foreground"
-                                                )}
-                                            >
-                                                {d.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="mt-2 flex items-center gap-2">
-                                        <span className="text-xs text-muted-foreground font-medium">Custom days:</span>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            className="input-base !py-1 !px-2 text-xs w-28"
-                                            value={changingPlanForm.duration_days}
-                                            onChange={(e) => setChangingPlanForm(prev => ({ ...prev, duration_days: Math.max(1, parseInt(e.target.value) || 1) }))}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex items-center justify-end gap-3 pt-2">
-                            <button
-                                type="button"
-                                onClick={() => setChangingPlanAccount(null)}
-                                className="button-secondary"
-                                disabled={savingPlan}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => void saveAccountPlan()}
-                                disabled={savingPlan}
-                                className="button-primary"
-                            >
-                                {savingPlan ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                                Save Plan
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

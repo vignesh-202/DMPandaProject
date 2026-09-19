@@ -72,29 +72,6 @@ def _benefit_fields(key):
     return fields
 
 
-ADMIN_OVERRIDE_LIMIT_KEY_MAP = {
-    "i": "instagram_connections_limit",
-    "h": "hourly_action_limit",
-    "d": "daily_action_limit",
-    "m": "monthly_action_limit",
-}
-
-def _to_base36(value: int) -> str:
-    digits = "0123456789abcdefghijklmnopqrstuvwxyz"
-    number = max(0, value)
-    if number == 0:
-        return "0"
-    chars = []
-    while number:
-        number, remainder = divmod(number, 36)
-        chars.append(digits[remainder])
-    return "".join(reversed(chars))
-
-
-ADMIN_OVERRIDE_FEATURE_KEY_MAP = {
-    _to_base36(index): key
-    for index, key in enumerate(BENEFIT_KEYS)
-}
 
 VALID_SELF_TRANSACTION_STATUSES = {"success", "paid", "captured", "completed", "active"}
 NEGATIVE_SELF_TRANSACTION_STATUSES = {"refunded", "partially_refunded", "chargeback", "disputed", "void", "reversed", "cancelled", "canceled"}
@@ -450,73 +427,6 @@ def _self_subscription_from_transactions(transactions, pricing_map, now):
     return {"plan_id": plan_code, "expiry_date": _to_iso(expiry_date), "billing_cycle": _transaction_billing_cycle(transaction)}
 
 
-def _parse_admin_override(profile):
-    parsed = _parse_json_object(_obj_get(profile, "admin_override_json"), None)
-    if not parsed:
-        return None
-    plan_id = _normalize_plan_code(_obj_get(parsed, "p") or _obj_get(parsed, "plan_id") or _obj_get(parsed, "plan_code"))
-    expires_at = _parse_datetime(_obj_get(parsed, "e") or _obj_get(parsed, "expires_at") or _obj_get(parsed, "expiry_date"))
-    billing_cycle = str(_obj_get(parsed, "b") or _obj_get(parsed, "billing_cycle") or "").strip().lower()
-    if billing_cycle not in {"monthly", "yearly"}:
-        billing_cycle = None
-    raw_limit_overrides = _parse_json_object(_obj_get(parsed, "l") or _obj_get(parsed, "limit_overrides"), {})
-    raw_feature_overrides = _parse_json_object(_obj_get(parsed, "f") or _obj_get(parsed, "feature_overrides"), {})
-    limit_overrides = {}
-    for key, value in raw_limit_overrides.items():
-        expanded_key = ADMIN_OVERRIDE_LIMIT_KEY_MAP.get(str(key or "").strip(), str(key or "").strip())
-        if expanded_key:
-            limit_overrides[expanded_key] = value
-    feature_overrides = {}
-    for key, value in raw_feature_overrides.items():
-        expanded_key = ADMIN_OVERRIDE_FEATURE_KEY_MAP.get(str(key or "").strip(), str(key or "").strip())
-        normalized_key = expanded_key.strip().lower()
-        if normalized_key:
-            feature_overrides[normalized_key] = value
-    return {
-        "plan_id": plan_id,
-        "plan_name": str(_obj_get(parsed, "n") or _obj_get(parsed, "plan_name") or _obj_get(profile, "plan_name") or plan_id.title()).strip() or "Plan",
-        "expires_at": expires_at,
-        "billing_cycle": billing_cycle,
-        "limit_overrides": limit_overrides,
-        "feature_overrides": feature_overrides,
-    }
-
-
-def _build_profile_patch_for_plan(profile, plan_defaults, *, plan_code, plan_name, plan_source, billing_cycle, expiry_date, status, preserve_expired_snapshot=False):
-    defaults = plan_defaults or {}
-    monthly_limit = _safe_int(defaults.get("monthly_action_limit"), 0)
-    limits_payload = {
-        "instagram_connections_limit": max(0, _safe_int(defaults.get("instagram_connections_limit"), 0)),
-        "active_account_limit": max(0, _safe_int(defaults.get("instagram_connections_limit"), 0)),
-        "hourly_action_limit": max(0, _safe_int(defaults.get("hourly_action_limit"), 0)),
-        "daily_action_limit": max(0, _safe_int(defaults.get("daily_action_limit"), 0)),
-        "monthly_action_limit": monthly_limit if monthly_limit > 0 else 0,
-    }
-    _ = preserve_expired_snapshot
-    _ = billing_cycle
-    _ = status
-    patch = {
-        "plan_code": plan_code,
-        "plan_source": _normalize_plan_source(plan_source, "system" if plan_code == DEFAULT_FREE_PLAN else "payment"),
-        "plan_name": plan_name,
-        "expiry_date": expiry_date,
-        "billing_cycle": billing_cycle,
-        "instagram_connections_limit": limits_payload["instagram_connections_limit"],
-        "hourly_action_limit": limits_payload["hourly_action_limit"],
-        "daily_action_limit": limits_payload["daily_action_limit"],
-        "monthly_action_limit": limits_payload["monthly_action_limit"],
-    }
-    entitlements = {
-        key: False
-        for key in BENEFIT_KEYS
-    }
-    entitlements.update(plan_defaults.get("entitlements") or {})
-    for key, enabled in entitlements.items():
-        for field in _benefit_fields(key):
-            patch[field] = enabled is True
-    return patch
-
-
 def _downgrade_account_to_free(client, db_id, ig_accounts_collection, pricing_map, account):
     account_id = str(_obj_get(account, "$id", "") or "").strip()
     if not account_id:
@@ -527,16 +437,14 @@ def _downgrade_account_to_free(client, db_id, ig_accounts_collection, pricing_ma
         "plan_name": free_defaults.get("plan_name", "Free Plan"),
         "subscription_status": "inactive",
         "expires_at": None,
+        "allocated_hourly_credits": _safe_int(free_defaults.get("hourly_action_limit"), 0),
+        "allocated_daily_credits": _safe_int(free_defaults.get("daily_action_limit"), 0),
+        "allocated_monthly_credits": _safe_int(free_defaults.get("monthly_action_limit"), 0),
+        "hourly_action_limit": _safe_int(free_defaults.get("hourly_action_limit"), 0),
+        "daily_action_limit": _safe_int(free_defaults.get("daily_action_limit"), 0),
+        "monthly_action_limit": _safe_int(free_defaults.get("monthly_action_limit"), 0),
     }
     return _update_document(client, db_id, ig_accounts_collection, account_id, patch)
-
-
-def _downgrade_profile_to_free(client, db_id, profiles_collection, pricing_map, profile, *, preserve_expired_snapshot=True):
-    return _downgrade_account_to_free(client, db_id, profiles_collection, pricing_map, profile)
-
-
-def _update_user_memory(client, db_id, users_collection, user_id, plan_id, expiry_date):
-    return None
 
 
 def _get_linked_ig_names(client: Client, db_id: str, user_id: str, ig_accounts_collection: str = "ig_accounts") -> str:

@@ -1433,7 +1433,6 @@ const buildPlanProfilePayload = ({
 
     const payload = {
         user_id: String(currentProfile?.user_id || '').trim() || undefined,
-        kill_switch_enabled: currentProfile?.kill_switch_enabled !== false,
         admin_override_json: adminOverrideJson
     };
 

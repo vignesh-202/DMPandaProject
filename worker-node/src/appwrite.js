@@ -1118,21 +1118,14 @@ class AppwriteClient {
             this.getProfile(userId),
             this.getUser(userId)
         ]);
-        const killSwitchEnabled = this._toBoolean(
-            user?.kill_switch_enabled ?? profile?.kill_switch_enabled,
-            true
-        );
         const banMode = String(user?.ban_mode || 'none').trim().toLowerCase();
         const normalizedBanMode = ['soft', 'hard'].includes(banMode) ? banMode : 'none';
         const automationLockReason = normalizedBanMode === 'hard'
             ? 'hard_ban'
-            : (normalizedBanMode === 'soft'
-                ? 'soft_ban'
-                : (killSwitchEnabled ? null : 'kill_switch_disabled'));
+            : (normalizedBanMode === 'soft' ? 'soft_ban' : null);
         return {
             ban_mode: normalizedBanMode,
             ban_message: String(user?.ban_reason || '').trim() || null,
-            kill_switch_enabled: killSwitchEnabled,
             automation_lock_reason: automationLockReason,
             automation_locked: Boolean(automationLockReason)
         };
@@ -1143,21 +1136,14 @@ class AppwriteClient {
             this.getProfile(userId, accountId),
             this.getUser(userId)
         ]);
-        const killSwitchEnabled = this._toBoolean(
-            user?.kill_switch_enabled ?? profile?.kill_switch_enabled,
-            true
-        );
         const banMode = String(user?.ban_mode || 'none').trim().toLowerCase();
         const normalizedBanMode = ['soft', 'hard'].includes(banMode) ? banMode : 'none';
         const automationLockReason = normalizedBanMode === 'hard'
             ? 'hard_ban'
-            : (normalizedBanMode === 'soft'
-                ? 'soft_ban'
-                : (killSwitchEnabled ? null : 'kill_switch_disabled'));
+            : (normalizedBanMode === 'soft' ? 'soft_ban' : null);
         const accessState = {
             ban_mode: normalizedBanMode,
             ban_message: String(user?.ban_reason || '').trim() || null,
-            kill_switch_enabled: killSwitchEnabled,
             automation_lock_reason: automationLockReason,
             automation_locked: Boolean(automationLockReason)
         };

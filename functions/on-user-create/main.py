@@ -180,7 +180,6 @@ def _load_free_plan_snapshot(client, db_id, pricing_collection_id):
         "plan_source": "system",
         "plan_name": str(_obj_get(free_plan, "name") or "Free Plan").strip() or "Free Plan",
         "expiry_date": None,
-        "kill_switch_enabled": True,
         "instagram_connections_limit": limits_snapshot["instagram_connections_limit"],
         "hourly_action_limit": limits_snapshot["hourly_action_limit"],
         "daily_action_limit": limits_snapshot["daily_action_limit"],
@@ -250,7 +249,6 @@ def main(context):
                     "first_login": now,
                     "last_login": now,
                     "status": "active",
-                    "kill_switch_enabled": True,
                 },
                 [
                     Permission.read(Role.user(user_id)),

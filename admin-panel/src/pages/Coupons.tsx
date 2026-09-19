@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, CheckCircle2, Copy, Loader2, PencilLine, Plus, RefreshCcw, Search, SlidersHorizontal, TicketPercent } from 'lucide-react';
+import { ArrowLeft, Check, CheckCircle2, Copy, Layers, Loader2, PencilLine, Plus, RefreshCcw, Search, SlidersHorizontal, Sparkles, Tag, TicketPercent } from 'lucide-react';
 import httpClient from '../lib/httpClient';
 import AdminLoadingState from '../components/AdminLoadingState';
 import { cn } from '../lib/utils';
@@ -754,24 +754,87 @@ export const CouponsPage: React.FC = () => {
             {!editorMode && (
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 {[
-                    ['Coupons', data?.stats?.coupons_total || 0],
-                    ['Active', data?.stats?.active_coupons || 0],
-                    ['Redemptions', data?.stats?.redemptions_total || 0],
-                    ['Revenue', revenueLabel]
-                ].map(([label, value]) => (
-                    <div key={String(label)} className="rounded-2xl border border-border bg-card p-5 shadow-xs">
-                        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-                        <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{value}</p>
+                    { label: 'Total Coupons', value: data?.stats?.coupons_total || 0, icon: TicketPercent, tone: 'text-primary' },
+                    { label: 'Active Codes', value: data?.stats?.active_coupons || 0, icon: CheckCircle2, tone: 'text-emerald-500' },
+                    { label: 'Redemptions', value: data?.stats?.redemptions_total || 0, icon: Layers, tone: 'text-amber-500' },
+                    { label: 'Gross Revenue', value: revenueLabel, icon: Sparkles, tone: 'text-violet-500' }
+                ].map(({ label, value, icon: Icon, tone }) => (
+                    <div key={label} className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card p-5 shadow-xs transition-all hover:border-primary/30 hover:shadow-sm">
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                            <div className={cn('rounded-xl bg-muted/60 p-2.5 transition-colors group-hover:bg-primary/10', tone)}>
+                                <Icon className="h-4 w-4" />
+                            </div>
+                        </div>
+                        <p className="mt-3 text-2xl font-black tracking-tight text-foreground">{value}</p>
                     </div>
                 ))}
             </div>
             )}
 
             {editorMode ? (
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_360px]">
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_380px]">
                     {editorForm}
 
                     <div className="space-y-6">
+                        {/* Live Voucher Ticket Preview */}
+                        <div className="relative overflow-hidden rounded-[28px] border border-primary/25 bg-gradient-to-br from-card via-card to-primary/5 p-6 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-primary">
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                    Live Voucher Preview
+                                </span>
+                                <span className={cn(
+                                    'inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold',
+                                    form.active
+                                        ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                        : 'border border-border bg-muted text-muted-foreground'
+                                )}>
+                                    {form.active ? 'Active' : 'Inactive'}
+                                </span>
+                            </div>
+
+                            {/* Ticket Stub */}
+                            <div className="relative mt-4 overflow-hidden rounded-2xl border border-dashed border-primary/30 bg-background/90 p-5 shadow-xs backdrop-blur-xs">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p className="font-mono text-xl font-black tracking-wider text-foreground">
+                                            {form.code || (editingId ? 'COUPON' : Number(form.bulk_count || 1) > 1 ? 'PREFIX-XXXX' : 'CODE')}
+                                        </p>
+                                        <p className="mt-1 text-sm font-bold text-primary">
+                                            {form.type === 'percent'
+                                                ? `${form.value || '0'}% OFF`
+                                                : `Rs ${Number(form.value || 0).toLocaleString('en-IN')} OFF`}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+                                        <Tag className="h-5 w-5" />
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 flex flex-wrap gap-1.5 border-t border-dashed border-border/70 pt-3 text-[10px] font-medium text-muted-foreground">
+                                    <span className="rounded-md bg-muted px-2 py-0.5">
+                                        {form.one_time_use ? 'Single use per user' : 'Reusable'}
+                                    </span>
+                                    <span className="rounded-md bg-muted px-2 py-0.5">
+                                        Cycles: {form.billing_cycle_targets.join(' + ')}
+                                    </span>
+                                    {form.plan_ids.length > 0 && (
+                                        <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 font-semibold text-primary">
+                                            {form.plan_ids.length} selected plan{form.plan_ids.length === 1 ? '' : 's'}
+                                        </span>
+                                    )}
+                                    {form.expires_at ? (
+                                        <span className="rounded-md bg-muted px-2 py-0.5">
+                                            Exp: {new Date(form.expires_at).toLocaleDateString()}
+                                        </span>
+                                    ) : (
+                                        <span className="rounded-md bg-muted px-2 py-0.5">No expiration</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
                             <p className="text-xs font-semibold text-primary">Workflow</p>
                             <h2 className="mt-2 text-xl font-bold text-foreground">Coupon publishing guide</h2>
@@ -945,79 +1008,107 @@ export const CouponsPage: React.FC = () => {
                                     No coupons match the current filters.
                                 </div>
                             )}
-                            {filteredCoupons.map((coupon) => (
-                                <div key={coupon.id} className="rounded-[24px] border border-border/80 bg-background/40 p-4">
-                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                        <div>
+                            {filteredCoupons.map((coupon) => {
+                                const usagePercent = coupon.usage_limit > 0
+                                    ? Math.min(100, Math.round(((coupon.redemption_count || 0) / coupon.usage_limit) * 100))
+                                    : null;
+                                return (
+                                <div key={coupon.id} className="group relative overflow-hidden rounded-[24px] border border-border/70 bg-card p-5 shadow-xs transition-all hover:border-primary/30 hover:shadow-sm">
+                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                        <div className="flex-1 space-y-3">
                                             <div className="flex flex-wrap items-center gap-3">
-                                                <p className="text-lg font-extrabold text-foreground">{coupon.code}</p>
-                                                <span className={coupon.active ? 'status-pill status-pill-success' : 'status-pill status-pill-danger'}>
+                                                <span className="font-mono text-xl font-black tracking-wider text-foreground">
+                                                    {coupon.code}
+                                                </span>
+                                                <span className={cn(
+                                                    'inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold',
+                                                    coupon.active
+                                                        ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                                        : 'border border-border bg-muted text-muted-foreground'
+                                                )}>
                                                     {coupon.active ? 'Active' : 'Inactive'}
+                                                </span>
+                                                <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[11px] font-extrabold text-primary">
+                                                    {formatCouponValue(coupon)}
                                                 </span>
                                                 <button
                                                     type="button"
                                                     onClick={() => copyCouponCode(coupon.code)}
-                                                    className="btn-secondary px-3 py-2 text-[10px]"
+                                                    className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px]"
                                                 >
-                                                    {copiedCode === coupon.code ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                                                    {copiedCode === coupon.code ? 'Copied' : 'Copy'}
+                                                    {copiedCode === coupon.code ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                                                    {copiedCode === coupon.code ? 'Copied' : 'Copy Code'}
                                                 </button>
                                             </div>
-                                            <p className="mt-2 text-sm text-muted-foreground">
-                                                {formatCouponValue(coupon)}
-                                            </p>
-                                            <div className="mt-3 flex flex-wrap gap-2">
-                                                <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold text-muted-foreground">
+
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
                                                     {coupon.type === 'percent' ? 'Percentage' : 'Fixed amount'}
                                                 </span>
-                                                <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold text-muted-foreground">
-                                                    {coupon.one_time_use ? 'Single use' : 'Reusable'}
+                                                <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                                                    {coupon.one_time_use ? 'Single use per user' : 'Reusable'}
                                                 </span>
-                                                <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold text-muted-foreground">
-                                                    Billing: {(coupon.billing_cycle_targets || ['monthly', 'yearly']).join(' + ')}
+                                                <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                                                    Cycles: {(coupon.billing_cycle_targets || ['monthly', 'yearly']).join(' + ')}
                                                 </span>
-                                                <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold text-muted-foreground">
-                                                    Plans: {coupon.plan_ids.length > 0 ? coupon.plan_ids.length : 'All'}
+                                                <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                                                    Plans: {coupon.plan_ids.length > 0 ? `${coupon.plan_ids.length} selected` : 'All plans'}
                                                 </span>
-                                                <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold text-muted-foreground">
-                                                    Users: {coupon.user_ids.length > 0 ? coupon.user_ids.length : 'Any'}
-                                                </span>
+                                                {coupon.user_ids.length > 0 && (
+                                                    <span className="rounded-lg border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                                                        Users: {coupon.user_ids.length} targeted
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                                                <p>
-                                                    Expires: {coupon.expires_at ? new Date(coupon.expires_at).toLocaleString() : 'No expiration'} ({coupon.timing_status || 'no_expiry'})
-                                                </p>
-                                                <p>
-                                                    Uses: {coupon.redemption_count || 0} / {coupon.usage_limit > 0 ? coupon.usage_limit : 'Unlimited'}
-                                                </p>
-                                                <p>
-                                                    Updated: {coupon.updated_at ? new Date(coupon.updated_at).toLocaleDateString() : 'Unknown'}
-                                                </p>
-                                                <p>
-                                                    Created: {coupon.created_at ? new Date(coupon.created_at).toLocaleDateString() : 'Unknown'}
-                                                </p>
+
+                                            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted-foreground">
+                                                <span>
+                                                    Expires: {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString() : 'Never'}
+                                                </span>
+                                                <span>
+                                                    Redemptions: <strong className="font-semibold text-foreground">{coupon.redemption_count || 0}</strong>
+                                                    {coupon.usage_limit > 0 ? ` / ${coupon.usage_limit}` : ' (Unlimited)'}
+                                                </span>
+                                                {usagePercent !== null && (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+                                                            <div
+                                                                className="h-full rounded-full bg-primary transition-all"
+                                                                style={{ width: `${usagePercent}%` }}
+                                                            />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold">{usagePercent}%</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                        <div className="flex gap-2">
+
+                                        <div className="flex shrink-0 items-center gap-2 pt-2 lg:pt-0">
                                             <button
                                                 type="button"
                                                 onClick={() => startEditing(coupon)}
-                                                className="btn-secondary px-4 py-2 text-[10px]"
+                                                className="btn-secondary inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold"
                                             >
-                                                <PencilLine className="h-4 w-4" />
+                                                <PencilLine className="h-3.5 w-3.5" />
                                                 Edit
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => toggleCouponStatus(coupon)}
-                                                className="btn-primary px-4 py-2 text-[10px]"
+                                                className={cn(
+                                                    'inline-flex items-center justify-center rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
+                                                    coupon.active
+                                                        ? 'border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20'
+                                                        : 'btn-primary'
+                                                )}
                                             >
                                                 {coupon.active ? 'Disable' : 'Activate'}
                                             </button>
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
                             </div>
                         </div>
                     </div>

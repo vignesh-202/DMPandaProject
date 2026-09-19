@@ -118,7 +118,6 @@ interface DashboardContextProps {
         ban_message?: string | null;
         automation_locked?: boolean;
         automation_lock_reason?: string | null;
-        kill_switch_enabled?: boolean;
         dashboard_allowed?: boolean;
         is_soft_banned?: boolean;
     } | null;

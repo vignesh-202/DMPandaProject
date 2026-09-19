@@ -637,6 +637,46 @@ const AccountSettingsView = () => {
     );
   };
 
+  const InstagramFloatingNotification = () => {
+    const msg = sectionMessages.instagram;
+    if (!msg) return null;
+    const isSuccess = msg.type === 'success';
+
+    return (
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[170] pointer-events-auto max-w-md w-[calc(100vw-2rem)] animate-in fade-in zoom-in-95 slide-in-from-top-6 duration-300">
+        <div className={cn(
+          "flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl backdrop-blur-xl border transition-all",
+          isSuccess
+            ? "bg-background/90 dark:bg-card/95 border-emerald-500/30 text-foreground shadow-[0_10px_30px_rgba(16,185,129,0.12)]"
+            : "bg-background/90 dark:bg-card/95 border-destructive/30 text-foreground shadow-[0_10px_30px_rgba(239,68,68,0.12)]"
+        )}>
+          <div className={cn(
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ring-2",
+            isSuccess ? "bg-emerald-500/15 text-emerald-500 ring-emerald-500/20" : "bg-destructive/15 text-destructive ring-destructive/20"
+          )}>
+            {isSuccess ? <Check className="h-4 w-4 stroke-[2.5]" /> : <X className="h-4 w-4 stroke-[2.5]" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold tracking-tight text-foreground truncate sm:whitespace-normal">
+              {isSuccess ? 'Instagram Settings Updated' : 'Action Failed'}
+            </p>
+            <p className="text-[11px] text-muted-foreground line-clamp-2">
+              {msg.text}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSectionMessages(prev => ({ ...prev, instagram: null }))}
+            className="p-1 rounded-lg text-muted-foreground hover:text-foreground transition hover:bg-muted/60"
+            aria-label="Dismiss"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   if (!user || (isLoadingAccounts && igAccounts.length === 0)) {
     return (
       <LoadingOverlay
@@ -657,6 +697,7 @@ const AccountSettingsView = () => {
 
   return (
     <div className="p-3.5 sm:p-6 lg:p-8 space-y-6 lg:space-y-8 max-w-7xl mx-auto select-text animate-fadeIn">
+      <InstagramFloatingNotification />
       {/* Header Panel */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
         <div className="space-y-1.5">
@@ -872,7 +913,7 @@ const AccountSettingsView = () => {
                         const isActive = account.status === 'active';
                         const statusLabel = isActive
                           ? (account.plan_locked === true ? 'Active • plan locked' : 'Active')
-                          : (isAdminDisabled ? 'Inactive by admin' : 'Inactive by you');
+                          : (isAdminDisabled ? 'Disabled by Security Team • Contact Support' : 'Inactive by you');
                         const displayStatusLabel = isReconnectRequired ? 'Reconnect required' : statusLabel;
 
                         return (
@@ -949,13 +990,14 @@ const AccountSettingsView = () => {
                                           onMouseEnter={() => setInactiveInfoCardId(account.id)}
                                           onMouseLeave={() => setInactiveInfoCardId((current) => current === account.id ? null : current)}
                                           className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:text-foreground"
-                                          aria-label="Admin disabled support info"
+                                          aria-label="Security Team review info"
                                         >
                                           <Info className="h-2.5 w-2.5" />
                                         </button>
                                         {inactiveInfoCardId === account.id && (
-                                          <div className="absolute left-0 top-[calc(100%+0.5rem)] z-40 w-64 max-w-[calc(100vw-4rem)] rounded-xl border border-border bg-card p-3 text-xs font-medium leading-relaxed text-muted-foreground shadow-xl">
-                                            Contact support to solve this issue if you need this Instagram account reactivated.
+                                          <div className="absolute left-0 top-[calc(100%+0.5rem)] z-40 w-72 max-w-[calc(100vw-4rem)] rounded-xl border border-border bg-card p-3.5 text-xs font-medium leading-relaxed text-muted-foreground shadow-xl">
+                                            <p className="font-semibold text-foreground mb-1">Security Team Review</p>
+                                            This Instagram account has been paused by the Security Team of DM Panda. Please contact support to review and reactivate your account.
                                           </div>
                                         )}
                                       </div>
@@ -1020,7 +1062,7 @@ const AccountSettingsView = () => {
                                         "relative inline-flex !h-5 !w-9 !min-h-[20px] !max-h-[20px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed p-0 m-0",
                                         isActive ? "bg-emerald-500" : "bg-muted-foreground/30"
                                       )}
-                                      title={isAdminDisabled ? 'Disabled by administrator.' : undefined}
+                                      title={isAdminDisabled ? 'Disabled by the Security Team of DM Panda. Please contact support.' : undefined}
                                     >
                                       <span className={cn(
                                         "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-150 ease-in-out",
@@ -1074,7 +1116,6 @@ const AccountSettingsView = () => {
 
                   <div className="pt-5 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="space-y-0.5">
-                      <InlineMessage section="instagram" />
                       <p className="text-xs font-medium text-muted-foreground">
                         {igAccounts.length} Instagram account{igAccounts.length === 1 ? '' : 's'} linked. Unlimited account links allowed.
                       </p>

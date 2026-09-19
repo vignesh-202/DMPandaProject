@@ -384,7 +384,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
 
                     let accountSubtitle = 'Connected';
                     if (isReconnectRequired) accountSubtitle = 'Reconnect Required';
-                    else if (isAdminDisabled) accountSubtitle = 'Admin Disabled';
+                    else if (isAdminDisabled) accountSubtitle = 'Disabled by Security Team';
                     else if (isUserInactive) accountSubtitle = 'Inactive';
                     else if (account.status !== 'active') accountSubtitle = 'Inactive';
                     else if (isPlanLocked) accountSubtitle = 'Plan Locked';
@@ -555,7 +555,7 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                   <p className="text-[10px] font-medium text-muted-foreground mt-0.5 truncate">
                     {activeAccount
                       ? ((activeAccount.admin_status === 'inactive' || activeAccount.disabled_by_admin === true)
-                        ? 'Admin Disabled'
+                        ? 'Disabled by Security Team'
                         : activeAccount.status !== 'active'
                           ? 'Inactive'
                         : activeAccount.plan_locked === true

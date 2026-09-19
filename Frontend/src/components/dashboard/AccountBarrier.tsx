@@ -30,7 +30,7 @@ const AccountBarrier: React.FC = () => {
     ? `@${activeAccount.username} needs to be linked again before DM Panda can continue automations. Open account settings to reconnect this account, or run 'Check Connection' to verify if the token is still valid.`
     : isInactive
     ? (isAdminDisabled
-      ? `@${activeAccount.username} is still linked, but an admin has disabled this account. Automation is paused until support or an admin reactivates it. You can still review the account in settings and analytics.`
+      ? `@${activeAccount.username} is still linked, but this account has been paused by the Security Team of DM Panda. Automation is suspended for security review. Please contact support to reactivate your account.`
       : isUserInactive
         ? `@${activeAccount.username} is still linked, but you have turned it inactive. Automation is paused until you turn the account active again. You can still review the account in settings and analytics.`
         : `@${activeAccount.username} is still linked, but this account is inactive. Automation is paused until it becomes active again. You can still review the account in settings and analytics.`)

@@ -630,7 +630,6 @@ class DMWorker {
         if (!profile) {
             return {
                 accessState: {
-                    kill_switch_enabled: false,
                     automation_lock_reason: 'execution_state_uncertain',
                     automation_locked: true
                 },
@@ -695,17 +694,6 @@ class DMWorker {
                     blocked: true,
                     reason: 'inactive',
                     stage: 'account_user'
-                }
-            };
-        }
-        if (accessState?.kill_switch_enabled === false) {
-            return {
-                accessState,
-                profile,
-                actionLimitGate: {
-                    blocked: true,
-                    reason: 'kill_switch_disabled',
-                    stage: 'automation_active'
                 }
             };
         }

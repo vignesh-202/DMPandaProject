@@ -50,7 +50,6 @@ const NON_RETRY_AUTOMATION_TYPES = new Set([
     'hourly_action_limit_reached',
     'daily_action_limit_reached',
     'monthly_action_limit_reached',
-    'kill_switch_disabled',
     'soft_ban',
     'hard_ban',
     'account_access_blocked',

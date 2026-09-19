@@ -102,12 +102,8 @@ const DashboardContent: React.FC = () => {
   ];
 
   if (accessState?.automation_locked && automationLockedViews.includes(currentView)) {
-    const lockTitle = accessState?.automation_lock_reason === 'kill_switch_disabled'
-      ? 'Automation Processing Disabled'
-      : 'Automation Access Locked';
-    const lockMessage = accessState?.automation_lock_reason === 'kill_switch_disabled'
-      ? 'An admin has disabled the account kill switch, so automation processing is paused for this account.'
-      : (accessState?.ban_message || 'Automation access is currently restricted for this account.');
+    const lockTitle = 'Automation Access Suspended';
+    const lockMessage = accessState?.ban_message || 'Automation access has been suspended by the Security Team of DM Panda. Please contact support to review your account status.';
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-4xl items-center justify-center p-6">
         <div className="w-full rounded-3xl border border-border bg-card p-8 text-center shadow-sm">
@@ -276,7 +272,7 @@ const DashboardPage = () => {
               </button>
             </div>
             <p className="mt-4 break-words whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-              {accessState?.ban_message || 'An admin has placed this account under a soft ban. You can still open the dashboard, but automation actions are paused until the soft ban is removed.'}
+              {accessState?.ban_message || 'The Security Team of DM Panda has placed this account under review. You can still open the dashboard, but automation actions are paused until the security review is completed. Please contact support if you need assistance.'}
             </p>
           </div>
         </div>

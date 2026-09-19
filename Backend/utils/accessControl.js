@@ -11,33 +11,19 @@ const normalizeBanMode = (value) => {
     return 'none';
 };
 
-const normalizeKillSwitch = (value, fallback = true) => {
-    if (value === null || value === undefined || value === '') return Boolean(fallback);
-    if (typeof value === 'boolean') return value;
-    if (typeof value === 'number') return value !== 0;
-    const normalized = String(value).trim().toLowerCase();
-    if (['false', '0', 'off', 'disabled', 'no'].includes(normalized)) return false;
-    if (['true', '1', 'on', 'enabled', 'yes'].includes(normalized)) return true;
-    return Boolean(fallback);
-};
-
 const buildAccessState = (userDocument = null) => {
     const banMode = normalizeBanMode(userDocument?.ban_mode);
     const banMessage = String(
         userDocument?.ban_reason
         || ''
     ).trim() || null;
-    const killSwitchEnabled = normalizeKillSwitch(userDocument?.kill_switch_enabled, true);
     const automationLockReason = banMode === 'hard'
         ? 'hard_ban'
-        : (banMode === 'soft'
-            ? 'soft_ban'
-            : (killSwitchEnabled ? null : 'kill_switch_disabled'));
+        : (banMode === 'soft' ? 'soft_ban' : null);
 
     return {
         ban_mode: banMode,
         ban_message: banMessage,
-        kill_switch_enabled: killSwitchEnabled,
         is_soft_banned: banMode === 'soft',
         is_hard_banned: banMode === 'hard',
         automation_locked: Boolean(automationLockReason),
@@ -88,7 +74,6 @@ const createServerDatabases = () => {
 
 module.exports = {
     normalizeBanMode,
-    normalizeKillSwitch,
     buildAccessState,
     getFrontendUserDocument,
     loadUserAccessState,
