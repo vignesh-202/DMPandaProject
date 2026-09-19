@@ -2057,6 +2057,7 @@ router.put('/settings/watermark', loginRequired, adminRequired, async (req, res)
             enabled: req.body?.enabled !== false,
             type: String(req.body?.type || DEFAULT_WATERMARK_POLICY.type),
             position: String(req.body?.position || DEFAULT_WATERMARK_POLICY.position),
+            default_text: req.body?.default_text !== undefined ? String(req.body.default_text).trim() : DEFAULT_WATERMARK_POLICY.default_text,
             opacity: req.body?.opacity,
             updated_by: req.user.$id,
             updated_at: new Date().toISOString()
@@ -2066,6 +2067,7 @@ router.put('/settings/watermark', loginRequired, adminRequired, async (req, res)
                 enabled: nextPolicy.enabled !== false,
                 type: String(nextPolicy.type || DEFAULT_WATERMARK_POLICY.type),
                 position: String(nextPolicy.position || DEFAULT_WATERMARK_POLICY.position),
+                default_text: String(nextPolicy.default_text || DEFAULT_WATERMARK_POLICY.default_text),
                 opacity: Number(nextPolicy.opacity ?? DEFAULT_WATERMARK_POLICY.opacity),
                 updated_by: nextPolicy.updated_by || req.user.$id,
                 updated_at: nextPolicy.updated_at || new Date().toISOString()

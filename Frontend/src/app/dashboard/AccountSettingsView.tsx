@@ -921,10 +921,12 @@ const AccountSettingsView = () => {
                             key={account.id}
                             className={cn(
                               "rounded-xl border p-4 transition-all duration-150 bg-card shadow-xs",
-                              isSelected
-                                ? "border-primary/40 bg-primary/[0.02]"
-                                : "border-border hover:border-primary/20",
-                              !isActive && "opacity-80 border-dashed",
+                              isAdminDisabled
+                                ? "border-rose-500/50 bg-rose-500/[0.03] shadow-rose-500/5"
+                                : isSelected
+                                  ? "border-primary/40 bg-primary/[0.02]"
+                                  : "border-border hover:border-primary/20",
+                              !isActive && !isAdminDisabled && "opacity-80 border-dashed",
                               isReconnectRequired && "border-destructive/30 bg-destructive/[0.02]"
                             )}
                           >
@@ -940,7 +942,7 @@ const AccountSettingsView = () => {
                                   <span
                                     className={cn(
                                       "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card",
-                                      isReconnectRequired ? "bg-destructive" : (isActive ? "bg-emerald-500" : (isAdminDisabled ? "bg-destructive" : "bg-amber-400"))
+                                      isReconnectRequired ? "bg-destructive" : (isActive ? "bg-emerald-500" : (isAdminDisabled ? "bg-rose-500" : "bg-amber-400"))
                                     )}
                                   />
                                 </div>
@@ -948,7 +950,13 @@ const AccountSettingsView = () => {
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <h4 className="truncate text-sm font-semibold text-foreground">@{account.username}</h4>
-                                    {isSelected && (
+                                    {isAdminDisabled && (
+                                      <span className="inline-flex items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                                        Suspended by Security Team
+                                      </span>
+                                    )}
+                                    {isSelected && !isAdminDisabled && (
                                       <span className="rounded-md border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                                         Current
                                       </span>
@@ -989,20 +997,32 @@ const AccountSettingsView = () => {
                                           onClick={() => setInactiveInfoCardId((current) => current === account.id ? null : account.id)}
                                           onMouseEnter={() => setInactiveInfoCardId(account.id)}
                                           onMouseLeave={() => setInactiveInfoCardId((current) => current === account.id ? null : current)}
-                                          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:text-foreground"
+                                          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-500 transition hover:bg-rose-500/20"
                                           aria-label="Security Team review info"
                                         >
                                           <Info className="h-2.5 w-2.5" />
                                         </button>
                                         {inactiveInfoCardId === account.id && (
-                                          <div className="absolute left-0 top-[calc(100%+0.5rem)] z-40 w-72 max-w-[calc(100vw-4rem)] rounded-xl border border-border bg-card p-3.5 text-xs font-medium leading-relaxed text-muted-foreground shadow-xl">
-                                            <p className="font-semibold text-foreground mb-1">Security Team Review</p>
+                                          <div className="absolute left-0 top-[calc(100%+0.5rem)] z-40 w-72 max-w-[calc(100vw-4rem)] rounded-xl border border-rose-500/30 bg-card p-3.5 text-xs font-medium leading-relaxed text-muted-foreground shadow-xl">
+                                            <p className="font-semibold text-rose-500 mb-1">Security Team Review</p>
                                             This Instagram account has been paused by the Security Team of DM Panda. Please contact support to review and reactivate your account.
                                           </div>
                                         )}
                                       </div>
                                     )}
                                   </div>
+
+                                  {isAdminDisabled && (
+                                    <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300">
+                                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-rose-500" />
+                                      <div className="space-y-0.5">
+                                        <p className="font-bold">Action Required: Account Paused</p>
+                                        <p className="text-[11px] leading-relaxed opacity-90">
+                                          This Instagram account was paused by the Security Team of DM Panda. Automation is suspended for security review. Please contact support to reactivate your account.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
@@ -1509,6 +1529,50 @@ const AccountSettingsView = () => {
         onClose={() => setShowOffMetaModal(false)}
         onRetry={() => handleInstagramLink(activeAccountID || 'new')}
       />
+
+      {/* Top-Right Scroll-Fixed Notification for IG Account Status Updates */}
+      {typeof document !== 'undefined' && sectionMessages.instagram && createPortal(
+        <div
+          role="status"
+          aria-live="polite"
+          className={cn(
+            "fixed top-6 right-6 z-[200] max-w-sm flex items-start gap-3 rounded-2xl border p-4 shadow-2xl backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-top-3",
+            sectionMessages.instagram.type === 'success'
+              ? "border-emerald-500/30 bg-background/95 text-foreground shadow-emerald-500/10"
+              : "border-rose-500/30 bg-background/95 text-foreground shadow-rose-500/10"
+          )}
+        >
+          <div className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+            sectionMessages.instagram.type === 'success'
+              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+              : "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+          )}>
+            {sectionMessages.instagram.type === 'success' ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <AlertTriangle className="h-4 w-4" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0 pr-1">
+            <p className="text-xs font-bold text-foreground">
+              {sectionMessages.instagram.type === 'success' ? 'Instagram Status Updated' : 'Action Failed'}
+            </p>
+            <p className="text-[11px] font-medium text-muted-foreground mt-0.5 leading-snug">
+              {sectionMessages.instagram.text}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSectionMessages((prev) => ({ ...prev, instagram: null }))}
+            className="p-1 text-muted-foreground hover:text-foreground rounded-lg transition"
+            aria-label="Dismiss notification"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

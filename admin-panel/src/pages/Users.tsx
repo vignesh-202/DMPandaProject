@@ -617,45 +617,75 @@ export const UsersPage: React.FC = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                users.map((user) => (
-                                    <tr key={user.$id} className="transition-colors hover:bg-background/40">
-                                        <td className="min-w-[220px] px-4 py-5 sm:px-6">
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-sm font-black text-foreground">
-                                                    {user.name?.charAt(0) || 'U'}
+                                users.map((user) => {
+                                    const planCode = String(user.profile?.plan_code || 'free').toLowerCase();
+                                    const isPaidPlan = planCode !== 'free';
+                                    const charCode = (user.name || 'User').charCodeAt(0) % 5;
+                                    const avatarGradients = [
+                                        'from-blue-600 to-indigo-600 text-white',
+                                        'from-purple-600 to-pink-600 text-white',
+                                        'from-emerald-600 to-teal-600 text-white',
+                                        'from-amber-500 to-orange-600 text-white',
+                                        'from-rose-600 to-red-600 text-white'
+                                    ];
+                                    const avatarGrad = avatarGradients[charCode];
+
+                                    return (
+                                    <tr key={user.$id} className="transition-colors hover:bg-background/60">
+                                        <td className="min-w-[220px] px-4 py-4 sm:px-6">
+                                            <div className="flex items-center gap-3.5">
+                                                <div className={cn(
+                                                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-black shadow-xs',
+                                                    avatarGrad
+                                                )}>
+                                                    {user.name?.charAt(0).toUpperCase() || 'U'}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="text-sm font-bold text-foreground">{user.name}</p>
-                                                    <p className="break-all text-[11px] text-muted-foreground">{user.email}</p>
+                                                    <p className="text-sm font-bold text-foreground leading-tight">{user.name}</p>
+                                                    <p className="break-all text-xs text-muted-foreground mt-0.5">{user.email}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-5 text-xs font-bold text-foreground sm:px-6">
-                                            {user.profile?.plan_code || 'free'}
-                                        </td>
-                                        <td className="px-4 py-5 text-xs font-bold text-foreground sm:px-6">
-                                            {user.linked_instagram_accounts ?? 0}
-                                        </td>
-                                        <td className="px-4 py-5 sm:px-6">
+                                        <td className="px-4 py-4 sm:px-6">
                                             <span className={cn(
-                                                'status-pill',
+                                                'inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-bold uppercase tracking-wider',
+                                                isPaidPlan
+                                                    ? 'border border-primary/25 bg-primary/10 text-primary'
+                                                    : 'border border-border/80 bg-muted/40 text-muted-foreground'
+                                            )}>
+                                                {planCode}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-4 sm:px-6">
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/50 px-2.5 py-1 text-xs font-semibold text-foreground">
+                                                <Instagram className="h-3.5 w-3.5 text-muted-foreground" />
+                                                {user.linked_instagram_accounts ?? 0}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-4 sm:px-6">
+                                            <span className={cn(
+                                                'status-pill text-[10px] font-bold py-0.5 px-2.5',
                                                 user.ban_mode === 'hard'
                                                     ? 'status-pill-danger'
                                                     : user.ban_mode === 'soft'
                                                         ? 'status-pill-warning'
                                                         : 'status-pill-success'
                                             )}>
-                                                {user.ban_mode || 'none'}
+                                                {user.ban_mode === 'hard' ? 'Hard Ban' : user.ban_mode === 'soft' ? 'Soft Ban' : 'Clear'}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-5 text-right sm:px-6">
-                                            <Link to={`/users/${user.$id}`} className="btn-secondary inline-flex min-h-10 items-center justify-center px-3 py-2 text-[10px] sm:px-4">
-                                                <Settings2 className="h-4 w-4" />
+                                        <td className="px-4 py-4 text-right sm:px-6">
+                                            <Link
+                                                to={`/users/${user.$id}`}
+                                                className="btn-secondary inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold hover:border-primary/40"
+                                            >
+                                                <Settings2 className="h-3.5 w-3.5" />
                                                 Manage
                                             </Link>
                                         </td>
                                     </tr>
-                                ))
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
@@ -672,45 +702,67 @@ export const UsersPage: React.FC = () => {
                             No users match the current search or filters.
                         </div>
                     ) : (
-                        users.map((user) => (
+                        users.map((user) => {
+                            const planCode = String(user.profile?.plan_code || 'free').toLowerCase();
+                            const isPaidPlan = planCode !== 'free';
+                            const charCode = (user.name || 'User').charCodeAt(0) % 5;
+                            const avatarGradients = [
+                                'from-blue-600 to-indigo-600 text-white',
+                                'from-purple-600 to-pink-600 text-white',
+                                'from-emerald-600 to-teal-600 text-white',
+                                'from-amber-500 to-orange-600 text-white',
+                                'from-rose-600 to-red-600 text-white'
+                            ];
+                            const avatarGrad = avatarGradients[charCode];
+
+                            return (
                             <div key={user.$id} className="p-4 space-y-3 transition-colors hover:bg-background/40">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-black text-foreground">
-                                        {user.name?.charAt(0) || 'U'}
+                                    <div className={cn(
+                                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-black shadow-xs',
+                                        avatarGrad
+                                    )}>
+                                        {user.name?.charAt(0).toUpperCase() || 'U'}
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-bold text-foreground truncate">{user.name}</p>
-                                        <p className="break-all text-[11px] text-muted-foreground truncate">{user.email}</p>
+                                        <p className="break-all text-xs text-muted-foreground truncate">{user.email}</p>
                                     </div>
-                                    <Link to={`/users/${user.$id}`} className="btn-secondary inline-flex h-9 items-center justify-center px-3 text-xs shrink-0">
+                                    <Link to={`/users/${user.$id}`} className="btn-secondary inline-flex h-8 items-center justify-center px-3 text-xs shrink-0">
                                         <Settings2 className="h-3.5 w-3.5 mr-1" />
                                         Manage
                                     </Link>
                                 </div>
-                                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40 text-xs">
+                                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs">
                                     <div className="flex items-center gap-2">
                                         <span className="text-muted-foreground text-[11px]">Plan:</span>
-                                        <span className="font-bold text-foreground capitalize">{user.profile?.plan_code || 'free'}</span>
+                                        <span className={cn(
+                                            'font-bold text-[11px] uppercase rounded-md px-2 py-0.5',
+                                            isPaidPlan ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                                        )}>
+                                            {planCode}
+                                        </span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-muted-foreground text-[11px]">IG:</span>
-                                        <span className="font-bold text-foreground">{user.linked_instagram_accounts ?? 0} linked</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <Instagram className="h-3 w-3 text-muted-foreground" />
+                                        <span className="font-semibold text-foreground text-xs">{user.linked_instagram_accounts ?? 0} linked</span>
                                     </div>
                                     <div>
                                         <span className={cn(
-                                            'status-pill text-[10px] py-0.5 px-2',
+                                            'status-pill text-[10px] py-0.5 px-2 font-bold',
                                             user.ban_mode === 'hard'
                                                 ? 'status-pill-danger'
                                                 : user.ban_mode === 'soft'
                                                     ? 'status-pill-warning'
                                                     : 'status-pill-success'
                                         )}>
-                                            {user.ban_mode || 'none'}
+                                            {user.ban_mode === 'hard' ? 'Hard Ban' : user.ban_mode === 'soft' ? 'Soft Ban' : 'Clear'}
                                         </span>
                                     </div>
                                 </div>
                             </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
 

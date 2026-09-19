@@ -24,6 +24,7 @@ const DEFAULT_WATERMARK_POLICY = Object.freeze({
     position: VALID_WATERMARK_POSITIONS.has(String(process.env.DEFAULT_WATERMARK_POSITION || '').trim().toLowerCase())
         ? String(process.env.DEFAULT_WATERMARK_POSITION).trim().toLowerCase()
         : 'secondary_message',
+    default_text: String(process.env.DEFAULT_WATERMARK_TEXT || 'Automation made by DMPanda').trim() || 'Automation made by DMPanda',
     opacity: clampOpacity(process.env.DEFAULT_WATERMARK_OPACITY, 1),
     updated_by: null,
     updated_at: null
@@ -34,10 +35,12 @@ const sanitizeWatermarkPolicy = (value = {}, fallback = DEFAULT_WATERMARK_POLICY
     const fallbackPolicy = fallback && typeof fallback === 'object' ? fallback : DEFAULT_WATERMARK_POLICY;
     const type = String(source.type || fallbackPolicy.type || DEFAULT_WATERMARK_POLICY.type).trim().toLowerCase();
     const position = String(source.position || fallbackPolicy.position || DEFAULT_WATERMARK_POLICY.position).trim().toLowerCase();
+    const default_text = String(source.default_text || fallbackPolicy.default_text || DEFAULT_WATERMARK_POLICY.default_text).trim();
     return {
         enabled: source.enabled !== undefined ? source.enabled !== false : fallbackPolicy.enabled !== false,
         type: VALID_WATERMARK_TYPES.has(type) ? type : DEFAULT_WATERMARK_POLICY.type,
         position: VALID_WATERMARK_POSITIONS.has(position) ? position : DEFAULT_WATERMARK_POLICY.position,
+        default_text: default_text || DEFAULT_WATERMARK_POLICY.default_text,
         opacity: clampOpacity(source.opacity, fallbackPolicy.opacity ?? DEFAULT_WATERMARK_POLICY.opacity),
         updated_by: source.updated_by || fallbackPolicy.updated_by || null,
         updated_at: source.updated_at || fallbackPolicy.updated_at || null
@@ -75,6 +78,7 @@ const readWatermarkPolicy = async (databases) => {
             enabled: document.enabled,
             type: document.type,
             position: document.position,
+            default_text: document.default_text,
             opacity: document.opacity,
             updated_by: document.updated_by,
             updated_at: document.updated_at
@@ -184,6 +188,7 @@ const saveWatermarkPolicy = async (databases, policy) => {
         enabled: nextPolicy.enabled,
         type: nextPolicy.type,
         position: nextPolicy.position,
+        default_text: nextPolicy.default_text,
         opacity: nextPolicy.opacity,
         updated_by: nextPolicy.updated_by,
         updated_at: nextPolicy.updated_at

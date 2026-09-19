@@ -4,6 +4,7 @@ import { ArrowLeft, Check, CheckCircle2, Copy, Layers, Loader2, PencilLine, Plus
 import httpClient from '../lib/httpClient';
 import AdminLoadingState from '../components/AdminLoadingState';
 import { cn } from '../lib/utils';
+import SelectField from '../components/ui/SelectField';
 
 type CouponRecord = {
     id: string;
@@ -898,107 +899,51 @@ export const CouponsPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="mt-4 grid gap-4 xl:grid-cols-2">
-                                    <div>
-                                        <p className="text-[10px] font-black text-muted-foreground">Status</p>
-                                        <div className="segmented-control-panel mt-2">
-                                            {[
-                                                { value: 'all', label: 'All' },
-                                                { value: 'active', label: 'Active' },
-                                                { value: 'inactive', label: 'Inactive' },
-                                                { value: 'unused', label: 'Unused' }
-                                            ].map((option) => {
-                                                const active = statusFilter === option.value;
-                                                return (
-                                                    <button
-                                                        key={option.value}
-                                                        type="button"
-                                                        onClick={() => setStatusFilter(option.value as CouponFilterStatus)}
-                                                        className={`segmented-option ${active ? 'is-active' : ''}`}
-                                                    >
-                                                        <span className="segmented-dot" />
-                                                        {option.label}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                    <SelectField
+                                        label="Status"
+                                        value={statusFilter}
+                                        onChange={(value) => setStatusFilter(value as CouponFilterStatus)}
+                                    >
+                                        <option value="all">All Statuses</option>
+                                        <option value="active">Active Only</option>
+                                        <option value="inactive">Inactive Only</option>
+                                        <option value="unused">Unused Codes</option>
+                                    </SelectField>
 
-                                    <div>
-                                        <p className="text-[10px] font-black text-muted-foreground">Discount</p>
-                                        <div className="segmented-control-panel mt-2">
-                                            {[
-                                                { value: 'all', label: 'All' },
-                                                { value: 'percent', label: 'Percentage' },
-                                                { value: 'fixed', label: 'Fixed' }
-                                            ].map((option) => {
-                                                const active = typeFilter === option.value;
-                                                return (
-                                                    <button
-                                                        key={option.value}
-                                                        type="button"
-                                                        onClick={() => setTypeFilter(option.value as CouponFilterType)}
-                                                        className={`segmented-option ${active ? 'is-active' : ''}`}
-                                                    >
-                                                        <span className="segmented-dot" />
-                                                        {option.label}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                    <SelectField
+                                        label="Discount Type"
+                                        value={typeFilter}
+                                        onChange={(value) => setTypeFilter(value as CouponFilterType)}
+                                    >
+                                        <option value="all">All Discount Types</option>
+                                        <option value="percent">Percentage (%)</option>
+                                        <option value="fixed">Fixed Amount (Rs)</option>
+                                    </SelectField>
 
-                                    <div>
-                                        <p className="text-[10px] font-black text-muted-foreground">Timing</p>
-                                        <div className="segmented-control-panel mt-2">
-                                            {[
-                                                { value: 'all', label: 'Any Date' },
-                                                { value: 'expired', label: 'Expired' },
-                                                { value: 'expiring', label: 'Expiring Soon' },
-                                                { value: 'scheduled', label: 'Scheduled' },
-                                                { value: 'no_expiry', label: 'No Expiry' }
-                                            ].map((option) => {
-                                                const active = expiryFilter === option.value;
-                                                return (
-                                                    <button
-                                                        key={option.value}
-                                                        type="button"
-                                                        onClick={() => setExpiryFilter(option.value as CouponFilterExpiry)}
-                                                        className={`segmented-option ${active ? 'is-active' : ''}`}
-                                                    >
-                                                        <span className="segmented-dot" />
-                                                        {option.label}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                    <SelectField
+                                        label="Timing & Expiry"
+                                        value={expiryFilter}
+                                        onChange={(value) => setExpiryFilter(value as CouponFilterExpiry)}
+                                    >
+                                        <option value="all">Any Expiration Date</option>
+                                        <option value="expired">Expired Codes</option>
+                                        <option value="expiring">Expiring Soon (14d)</option>
+                                        <option value="scheduled">Scheduled (Future)</option>
+                                        <option value="no_expiry">No Expiration Date</option>
+                                    </SelectField>
 
-                                    <div>
-                                        <p className="text-[10px] font-black text-muted-foreground">Sort</p>
-                                        <div className="segmented-control-panel mt-2">
-                                            {[
-                                                { value: 'recent', label: 'Recent' },
-                                                { value: 'expiry', label: 'Expiry' },
-                                                { value: 'value', label: 'Value' },
-                                                { value: 'usage', label: 'Usage' },
-                                                { value: 'code', label: 'Code' }
-                                            ].map((option) => {
-                                                const active = sortBy === option.value;
-                                                return (
-                                                    <button
-                                                        key={option.value}
-                                                        type="button"
-                                                        onClick={() => setSortBy(option.value as CouponSort)}
-                                                        className={`segmented-option ${active ? 'is-active' : ''}`}
-                                                    >
-                                                        <span className="segmented-dot" />
-                                                        {option.label}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                    <SelectField
+                                        label="Sort By"
+                                        value={sortBy}
+                                        onChange={(value) => setSortBy(value as CouponSort)}
+                                    >
+                                        <option value="recent">Recently Created/Updated</option>
+                                        <option value="expiry">Expiration Date</option>
+                                        <option value="value">Highest Discount Value</option>
+                                        <option value="usage">Most Redemptions</option>
+                                        <option value="code">Alphabetical (Code)</option>
+                                    </SelectField>
                                 </div>
                             </div>
 
