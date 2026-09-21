@@ -9,6 +9,7 @@ import {
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
+    Clock,
     Copy,
     ExternalLink,
     Instagram,
@@ -133,8 +134,8 @@ const InstagramAccountAvatar: React.FC<{
         setImgFailed(false);
     }, [avatarUrl]);
 
-    const dimClasses = size === 'lg' ? 'h-13 w-13 text-base' : size === 'sm' ? 'h-8 w-8 text-xs' : 'h-11 w-11 text-sm';
-    const badgeDim = size === 'lg' ? 'h-4 w-4' : size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5';
+    const dimClasses = size === 'lg' ? 'h-14 w-14 text-base' : size === 'sm' ? 'h-9 w-9 text-xs' : 'h-12 w-12 text-sm';
+    const badgeDim = size === 'lg' ? 'h-4 w-4' : size === 'sm' ? 'h-3.5 w-3.5' : 'h-3.5 w-3.5';
     const iconDim = size === 'lg' ? 'h-2.5 w-2.5' : size === 'sm' ? 'h-2 w-2' : 'h-2 w-2';
 
     const rawUrl = avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim().length > 5 ? avatarUrl.trim() : null;
@@ -158,7 +159,7 @@ const InstagramAccountAvatar: React.FC<{
     return (
         <div className="relative shrink-0 select-none">
             <div className={cn(
-                "relative overflow-hidden rounded-2xl border border-border/80 shadow-2xs bg-muted flex items-center justify-center font-bold transition-transform duration-200 group-hover:scale-105",
+                "relative overflow-hidden rounded-full ring-2 ring-border/80 shadow-2xs bg-muted flex items-center justify-center font-bold transition-all duration-200 group-hover:scale-105 group-hover:ring-primary/40",
                 dimClasses
             )}>
                 {currentSrc && !imgFailed ? (
@@ -168,16 +169,16 @@ const InstagramAccountAvatar: React.FC<{
                         alt={username}
                         referrerPolicy="no-referrer"
                         onError={handleImageError}
-                        className="h-full w-full object-cover rounded-2xl"
+                        className="h-full w-full object-cover rounded-full"
                     />
                 ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-tr from-[#FFDC80] via-[#FD1D1D] to-[#833AB4] text-white font-black shadow-inner">
+                    <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-tr from-[#FFDC80] via-[#FD1D1D] to-[#833AB4] text-white font-black shadow-inner">
                         {initial}
                     </div>
                 )}
             </div>
             <div className={cn(
-                "absolute -bottom-1 -right-1 flex items-center justify-center rounded-full bg-gradient-to-tr from-[#FD1D1D] to-[#833AB4] text-white shadow-xs ring-2 ring-card",
+                "absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-gradient-to-tr from-[#FD1D1D] to-[#833AB4] text-white shadow-xs ring-2 ring-card",
                 badgeDim
             )}>
                 <Instagram className={iconDim} />
@@ -209,6 +210,27 @@ const getAccountPlanDetails = (acc: any, detailData: any, pricingPlans: PricingP
     const parsedExpiry = rawExpiry ? new Date(rawExpiry) : null;
     const isValidDate = Boolean(parsedExpiry && !Number.isNaN(parsedExpiry.getTime()));
 
+    // Extract plan quota limits (from matchedPlan, or detailData effective limits, or standard catalog fallbacks)
+    const rawHourly = matchedPlan?.actions_per_hour_limit ?? detailData?.effective_limits?.hourly_action_limit ?? (rawPlanCode === 'basic' ? 200 : rawPlanCode === 'pro' ? 'unlimited' : 100);
+    const rawDaily = matchedPlan?.actions_per_day_limit ?? detailData?.effective_limits?.daily_action_limit ?? (rawPlanCode === 'basic' ? 2500 : rawPlanCode === 'pro' ? 'unlimited' : 100);
+    const rawMonthly = matchedPlan?.actions_per_month_limit ?? detailData?.effective_limits?.monthly_action_limit ?? (rawPlanCode === 'basic' ? 40000 : rawPlanCode === 'pro' ? 'unlimited' : 1000);
+
+    const isHourlyUnlimited = rawHourly === null || rawHourly === -1 || rawHourly === 0 || String(rawHourly).toLowerCase().includes('unlimited') || String(rawHourly).toLowerCase().includes('meta');
+    const isDailyUnlimited = rawDaily === null || rawDaily === -1 || rawDaily === 0 || String(rawDaily).toLowerCase().includes('unlimited');
+    const isMonthlyUnlimited = rawMonthly === null || rawMonthly === -1 || rawMonthly === 0 || String(rawMonthly).toLowerCase().includes('unlimited');
+
+    const limits = {
+        rawHourly,
+        rawDaily,
+        rawMonthly,
+        isHourlyUnlimited,
+        isDailyUnlimited,
+        isMonthlyUnlimited,
+        hourlyLimitNum: isHourlyUnlimited ? null : Number(rawHourly),
+        dailyLimitNum: isDailyUnlimited ? null : Number(rawDaily),
+        monthlyLimitNum: isMonthlyUnlimited ? null : Number(rawMonthly)
+    };
+
     if (!isPaid) {
         return {
             planCode: rawPlanCode,
@@ -217,7 +239,8 @@ const getAccountPlanDetails = (acc: any, detailData: any, pricingPlans: PricingP
             expiresAt: null,
             isExpired: false,
             expiryLabel: 'Lifetime / Free Tier',
-            expiryTone: 'neutral' as const
+            expiryTone: 'neutral' as const,
+            limits
         };
     }
 
@@ -229,7 +252,8 @@ const getAccountPlanDetails = (acc: any, detailData: any, pricingPlans: PricingP
             expiresAt: null,
             isExpired: false,
             expiryLabel: 'No Expiry Set',
-            expiryTone: 'neutral' as const
+            expiryTone: 'neutral' as const,
+            limits
         };
     }
 
@@ -249,7 +273,8 @@ const getAccountPlanDetails = (acc: any, detailData: any, pricingPlans: PricingP
             expiresAt: parsedExpiry.toISOString(),
             isExpired: true,
             expiryLabel: `Expired ${formattedDate}`,
-            expiryTone: 'danger' as const
+            expiryTone: 'danger' as const,
+            limits
         };
     }
 
@@ -261,7 +286,8 @@ const getAccountPlanDetails = (acc: any, detailData: any, pricingPlans: PricingP
             expiresAt: parsedExpiry.toISOString(),
             isExpired: false,
             expiryLabel: `Expires in ${diffDays}d (${formattedDate})`,
-            expiryTone: 'warning' as const
+            expiryTone: 'warning' as const,
+            limits
         };
     }
 
@@ -272,7 +298,8 @@ const getAccountPlanDetails = (acc: any, detailData: any, pricingPlans: PricingP
         expiresAt: parsedExpiry.toISOString(),
         isExpired: false,
         expiryLabel: `Expires ${formattedDate}`,
-        expiryTone: 'success' as const
+        expiryTone: 'success' as const,
+        limits
     };
 };
 
@@ -1546,141 +1573,252 @@ export const UsersPage: React.FC = () => {
                                                         const planDetails = getAccountPlanDetails(acc, detailData, pricingPlans);
                                                         const dpUrl = acc.profile_picture_url || acc.avatar_url || acc.profile_pic || acc.profile_picture || acc.profile_picture_url_hd;
 
+                                                        const hourlyUsed = Math.max(0, Number(acc.hourly_actions_used || 0));
+                                                        const dailyUsed = Math.max(0, Number(acc.daily_actions_used || 0));
+                                                        const monthlyUsed = Math.max(0, Number(acc.monthly_actions_used || 0));
+
+                                                        const hourlyLimit = planDetails.limits.hourlyLimitNum;
+                                                        const dailyLimit = planDetails.limits.dailyLimitNum;
+                                                        const monthlyLimit = planDetails.limits.monthlyLimitNum;
+
+                                                        const hourlyRatio = !planDetails.limits.isHourlyUnlimited && hourlyLimit && hourlyLimit > 0 ? (hourlyUsed / hourlyLimit) : 0;
+                                                        const dailyRatio = !planDetails.limits.isDailyUnlimited && dailyLimit && dailyLimit > 0 ? (dailyUsed / dailyLimit) : 0;
+                                                        const monthlyRatio = !planDetails.limits.isMonthlyUnlimited && monthlyLimit && monthlyLimit > 0 ? (monthlyUsed / monthlyLimit) : 0;
+
                                                         return (
                                                             <div
                                                                 key={acc.$id}
-                                                                className="group relative flex flex-col md:flex-row md:items-center justify-between gap-3.5 rounded-2xl border border-border/70 bg-card/60 hover:bg-muted/15 p-4 shadow-2xs hover:border-border transition-all duration-150"
+                                                                className="group relative flex flex-col gap-3 rounded-2xl border border-border/80 bg-card/70 hover:bg-card p-4 shadow-2xs hover:border-border transition-all duration-150"
                                                             >
-                                                                {/* Left: Instagram DP avatar, username, plan badge, expiry */}
-                                                                <div className="flex items-center gap-3.5 min-w-0">
-                                                                    <InstagramAccountAvatar
-                                                                        username={acc.username || acc.ig_user_id || acc.account_id}
-                                                                        avatarUrl={dpUrl}
-                                                                        size="md"
-                                                                    />
+                                                                {/* Top Row: Identity, Badges, and Account Controls */}
+                                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                                                    {/* Left: Round DP avatar, username, read-only plan, expiry */}
+                                                                    <div className="flex items-center gap-3.5 min-w-0">
+                                                                        <InstagramAccountAvatar
+                                                                            username={acc.username || acc.ig_user_id || acc.account_id}
+                                                                            avatarUrl={dpUrl}
+                                                                            size="md"
+                                                                        />
 
-                                                                    <div className="min-w-0 flex-1">
-                                                                        <div className="flex flex-wrap items-center gap-2">
-                                                                            <p className="font-extrabold text-foreground text-sm truncate tracking-tight">
-                                                                                @{acc.username || acc.ig_user_id || acc.account_id}
-                                                                            </p>
+                                                                        <div className="min-w-0 flex-1">
+                                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                                <p className="font-extrabold text-foreground text-sm truncate tracking-tight">
+                                                                                    @{acc.username || acc.ig_user_id || acc.account_id}
+                                                                                </p>
 
-                                                                            {/* Plan badge directly beside IG account */}
+                                                                                {/* Strictly Read-Only Plan Badge (Admin cannot change IG account plan) */}
+                                                                                <span className={cn(
+                                                                                    'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide select-none',
+                                                                                    planDetails.isPaid && !planDetails.isExpired
+                                                                                        ? 'border border-primary/30 bg-primary/10 text-primary shadow-2xs'
+                                                                                        : planDetails.isExpired
+                                                                                        ? 'border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                                                                        : 'border border-border/80 bg-muted/70 text-muted-foreground'
+                                                                                )}>
+                                                                                    <Sparkles className="h-2.5 w-2.5 shrink-0" />
+                                                                                    {planDetails.planName}
+                                                                                </span>
+
+                                                                                {/* Plan expiry date badge */}
+                                                                                <span className={cn(
+                                                                                    'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold',
+                                                                                    planDetails.expiryTone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25',
+                                                                                    planDetails.expiryTone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25',
+                                                                                    planDetails.expiryTone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25',
+                                                                                    planDetails.expiryTone === 'neutral' && 'bg-muted/60 text-muted-foreground border border-border/60'
+                                                                                )}>
+                                                                                    <Calendar className="h-2.5 w-2.5 shrink-0" />
+                                                                                    {planDetails.expiryLabel}
+                                                                                </span>
+
+                                                                                {/* Token health status */}
+                                                                                <span className={cn(
+                                                                                    'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold',
+                                                                                    tokenValidity.tone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
+                                                                                    tokenValidity.tone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20',
+                                                                                    tokenValidity.tone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20',
+                                                                                    tokenValidity.tone === 'neutral' && 'bg-muted text-muted-foreground'
+                                                                                )}>
+                                                                                    Token: {tokenValidity.label}
+                                                                                </span>
+                                                                            </div>
+
+                                                                            <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                                                                <span className={cn(
+                                                                                    'inline-block h-2 w-2 rounded-full',
+                                                                                    isAdminActive ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-rose-500 ring-4 ring-rose-500/20'
+                                                                                )} />
+                                                                                <span className="font-medium text-[11px]">
+                                                                                    {!isAdminActive ? 'Admin Inactive' : !isUserActive ? 'User Inactive' : 'Active & Syncing'}
+                                                                                </span>
+                                                                                {acc.billing_cycle ? (
+                                                                                    <>
+                                                                                        <span className="text-border">•</span>
+                                                                                        <span className="capitalize text-[11px]">{acc.billing_cycle}</span>
+                                                                                    </>
+                                                                                ) : null}
+                                                                                {acc.plan_price !== undefined && acc.plan_price !== null && (
+                                                                                    <>
+                                                                                        <span className="text-border">•</span>
+                                                                                        <span className="text-[11px]">₹{Number(acc.plan_price).toLocaleString()}</span>
+                                                                                    </>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Right Controls: Active Switch Toggle + Delete Button (NO PLAN DROPDOWN) */}
+                                                                    <div className="flex items-center gap-2.5 self-end md:self-auto shrink-0">
+                                                                        {/* Interactive Active / Inactive Toggle Switch */}
+                                                                        <div className="flex items-center gap-1.5 bg-muted/40 rounded-xl px-2.5 py-1 border border-border/50">
                                                                             <span className={cn(
-                                                                                'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold tracking-tight',
-                                                                                planDetails.isPaid && !planDetails.isExpired
-                                                                                    ? 'border border-primary/30 bg-primary/10 text-primary shadow-2xs'
-                                                                                    : planDetails.isExpired
-                                                                                    ? 'border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                                                                    : 'border border-border/80 bg-muted/70 text-muted-foreground'
+                                                                                "text-[11px] font-semibold select-none",
+                                                                                isAdminActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
                                                                             )}>
-                                                                                <Sparkles className="h-3 w-3 shrink-0" />
-                                                                                {planDetails.planName}
+                                                                                {isAdminActive ? "Active" : "Inactive"}
                                                                             </span>
-
-                                                                            {/* Plan expiry date badge */}
-                                                                            <span className={cn(
-                                                                                'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold',
-                                                                                planDetails.expiryTone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25',
-                                                                                planDetails.expiryTone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25',
-                                                                                planDetails.expiryTone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25',
-                                                                                planDetails.expiryTone === 'neutral' && 'bg-muted/60 text-muted-foreground border border-border/60'
-                                                                            )}>
-                                                                                <Calendar className="h-3 w-3 shrink-0" />
-                                                                                {planDetails.expiryLabel}
-                                                                            </span>
-
-                                                                            {/* Token health status */}
-                                                                            <span className={cn(
-                                                                                'inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold',
-                                                                                tokenValidity.tone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
-                                                                                tokenValidity.tone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20',
-                                                                                tokenValidity.tone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20',
-                                                                                tokenValidity.tone === 'neutral' && 'bg-muted text-muted-foreground'
-                                                                            )}>
-                                                                                Token: {tokenValidity.label}
-                                                                            </span>
+                                                                            <button
+                                                                                type="button"
+                                                                                role="switch"
+                                                                                aria-checked={isAdminActive}
+                                                                                disabled={accountToggleLoadingId === acc.$id}
+                                                                                onClick={() => void toggleInstagramAccountAccess(acc)}
+                                                                                className={cn(
+                                                                                    "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+                                                                                    isAdminActive ? "bg-emerald-500" : "bg-muted-foreground/30"
+                                                                                )}
+                                                                                title={isAdminActive ? "Click to deactivate Instagram account" : "Click to activate Instagram account"}
+                                                                            >
+                                                                                <span
+                                                                                    className={cn(
+                                                                                        "pointer-events-none flex h-4 w-4 items-center justify-center rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out",
+                                                                                        isAdminActive ? "translate-x-4" : "translate-x-0"
+                                                                                    )}
+                                                                                >
+                                                                                    {accountToggleLoadingId === acc.$id ? (
+                                                                                        <Loader2 className="h-2.5 w-2.5 animate-spin text-zinc-600" />
+                                                                                    ) : null}
+                                                                                </span>
+                                                                            </button>
                                                                         </div>
 
-                                                                        <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                                                                            <span className={cn(
-                                                                                'inline-block h-2 w-2 rounded-full',
-                                                                                isAdminActive ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-rose-500 ring-4 ring-rose-500/20'
-                                                                            )} />
-                                                                            <span className="font-medium">
-                                                                                {!isAdminActive ? 'Admin Inactive' : !isUserActive ? 'User Inactive' : 'Active and syncing'}
-                                                                            </span>
-                                                                            {acc.allocated_monthly_credits ? (
-                                                                                <>
-                                                                                    <span className="text-border">•</span>
-                                                                                    <span>{Number(acc.allocated_monthly_credits).toLocaleString()} actions/mo</span>
-                                                                                </>
-                                                                            ) : null}
-                                                                            {acc.billing_cycle ? (
-                                                                                <>
-                                                                                    <span className="text-border">•</span>
-                                                                                    <span className="capitalize">{acc.billing_cycle}</span>
-                                                                                </>
-                                                                            ) : null}
-                                                                            {acc.plan_price !== undefined && acc.plan_price !== null && (
-                                                                                <>
-                                                                                    <span className="text-border">•</span>
-                                                                                    <span>₹{Number(acc.plan_price).toLocaleString()}</span>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
+                                                                        {/* Delete IG Account Action */}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setPendingDeleteInstagramAccount(acc);
+                                                                                setDeleteInstagramConfirmText('');
+                                                                                setShowDeleteInstagramDialog(true);
+                                                                            }}
+                                                                            disabled={accountToggleLoadingId === acc.$id}
+                                                                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-destructive/25 bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition disabled:opacity-50"
+                                                                            title="Permanently remove Instagram account"
+                                                                        >
+                                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                                        </button>
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Right Controls: Active Switch Toggle + Delete Button (NO PLAN DROPDOWN) */}
-                                                                <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
-                                                                    {/* Interactive Active / Inactive Toggle Switch */}
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className={cn(
-                                                                            "text-xs font-semibold select-none",
-                                                                            isAdminActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
-                                                                        )}>
-                                                                            {isAdminActive ? "Active" : "Inactive"}
-                                                                        </span>
-                                                                        <button
-                                                                            type="button"
-                                                                            role="switch"
-                                                                            aria-checked={isAdminActive}
-                                                                            disabled={accountToggleLoadingId === acc.$id}
-                                                                            onClick={() => void toggleInstagramAccountAccess(acc)}
-                                                                            className={cn(
-                                                                                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50",
-                                                                                isAdminActive ? "bg-emerald-500" : "bg-muted-foreground/30"
-                                                                            )}
-                                                                            title={isAdminActive ? "Click to deactivate Instagram account" : "Click to activate Instagram account"}
-                                                                        >
-                                                                            <span
-                                                                                className={cn(
-                                                                                    "pointer-events-none flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out",
-                                                                                    isAdminActive ? "translate-x-5" : "translate-x-0"
-                                                                                )}
-                                                                            >
-                                                                                {accountToggleLoadingId === acc.$id ? (
-                                                                                    <Loader2 className="h-3 w-3 animate-spin text-zinc-600" />
-                                                                                ) : null}
+                                                                {/* Bottom Row: 3-Column Token Telemetry (Hourly, Daily, Monthly Consumed vs Total Credits) */}
+                                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2.5 border-t border-border/50">
+                                                                    {/* Hourly Tokens Consumed */}
+                                                                    <div className="rounded-xl bg-background/60 border border-border/50 p-2.5 space-y-1.5">
+                                                                        <div className="flex items-center justify-between text-[11px]">
+                                                                            <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
+                                                                                <Clock className="h-3 w-3 text-primary" /> Hourly Token
                                                                             </span>
-                                                                        </button>
+                                                                            <span className="font-mono text-xs font-bold text-foreground">
+                                                                                {planDetails.limits.isHourlyUnlimited ? (
+                                                                                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px]">
+                                                                                        <Zap className="h-3 w-3" /> Unlimited
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <span>{hourlyUsed.toLocaleString()}</span>
+                                                                                        <span className="text-muted-foreground/60 font-normal"> / </span>
+                                                                                        <span>{hourlyLimit?.toLocaleString()}</span>
+                                                                                    </>
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                        {!planDetails.limits.isHourlyUnlimited && (
+                                                                            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                                                                                <div
+                                                                                    className={cn(
+                                                                                        "h-full rounded-full transition-all duration-300",
+                                                                                        hourlyRatio >= 0.95 ? "bg-rose-500" : hourlyRatio >= 0.75 ? "bg-amber-500" : "bg-emerald-500"
+                                                                                    )}
+                                                                                    style={{ width: `${Math.min(100, Math.max(0, hourlyRatio * 100))}%` }}
+                                                                                />
+                                                                            </div>
+                                                                        )}
                                                                     </div>
 
-                                                                    {/* Delete IG Account Action */}
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            setPendingDeleteInstagramAccount(acc);
-                                                                            setDeleteInstagramConfirmText('');
-                                                                            setShowDeleteInstagramDialog(true);
-                                                                        }}
-                                                                        disabled={accountToggleLoadingId === acc.$id}
-                                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20 transition disabled:opacity-50"
-                                                                        title="Permanently remove Instagram account"
-                                                                    >
-                                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                                    </button>
+                                                                    {/* Daily Tokens Consumed */}
+                                                                    <div className="rounded-xl bg-background/60 border border-border/50 p-2.5 space-y-1.5">
+                                                                        <div className="flex items-center justify-between text-[11px]">
+                                                                            <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
+                                                                                <Calendar className="h-3 w-3 text-primary" /> Daily Token
+                                                                            </span>
+                                                                            <span className="font-mono text-xs font-bold text-foreground">
+                                                                                {planDetails.limits.isDailyUnlimited ? (
+                                                                                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px]">
+                                                                                        <Zap className="h-3 w-3" /> Unlimited
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <span>{dailyUsed.toLocaleString()}</span>
+                                                                                        <span className="text-muted-foreground/60 font-normal"> / </span>
+                                                                                        <span>{dailyLimit?.toLocaleString()}</span>
+                                                                                    </>
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                        {!planDetails.limits.isDailyUnlimited && (
+                                                                            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                                                                                <div
+                                                                                    className={cn(
+                                                                                        "h-full rounded-full transition-all duration-300",
+                                                                                        dailyRatio >= 0.95 ? "bg-rose-500" : dailyRatio >= 0.75 ? "bg-amber-500" : "bg-emerald-500"
+                                                                                    )}
+                                                                                    style={{ width: `${Math.min(100, Math.max(0, dailyRatio * 100))}%` }}
+                                                                                />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {/* Monthly Tokens Consumed */}
+                                                                    <div className="rounded-xl bg-background/60 border border-border/50 p-2.5 space-y-1.5">
+                                                                        <div className="flex items-center justify-between text-[11px]">
+                                                                            <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
+                                                                                <Sparkles className="h-3 w-3 text-primary" /> Monthly Token
+                                                                            </span>
+                                                                            <span className="font-mono text-xs font-bold text-foreground">
+                                                                                {planDetails.limits.isMonthlyUnlimited ? (
+                                                                                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px]">
+                                                                                        <Zap className="h-3 w-3" /> Unlimited
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <span>{monthlyUsed.toLocaleString()}</span>
+                                                                                        <span className="text-muted-foreground/60 font-normal"> / </span>
+                                                                                        <span>{monthlyLimit?.toLocaleString()}</span>
+                                                                                    </>
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                        {!planDetails.limits.isMonthlyUnlimited && (
+                                                                            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                                                                                <div
+                                                                                    className={cn(
+                                                                                        "h-full rounded-full transition-all duration-300",
+                                                                                        monthlyRatio >= 0.95 ? "bg-rose-500" : monthlyRatio >= 0.75 ? "bg-amber-500" : "bg-emerald-500"
+                                                                                    )}
+                                                                                    style={{ width: `${Math.min(100, Math.max(0, monthlyRatio * 100))}%` }}
+                                                                                />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         );

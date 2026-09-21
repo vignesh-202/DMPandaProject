@@ -89,6 +89,11 @@ def _is_transient_error(error: Exception) -> bool:
     })
 
 
+def _is_duplicate_conflict(error: Exception) -> bool:
+    message = str(error or "").strip().lower()
+    return "already exists" in message or "document with the requested id already exists" in message or "409" in message
+
+
 def _env(key: str, default: str = "") -> str:
     runtime_key = {
         "APPWRITE_ENDPOINT": "APPWRITE_FUNCTION_API_ENDPOINT",
@@ -290,12 +295,16 @@ def _create_document(client: Client, db_id: str, collection_id: str, document_id
 
 
 def _send_email(client: Client, user_id: str, subject: str, html: str):
+    _send_email_with_id(client, ID.unique(), user_id, subject, html)
+
+
+def _send_email_with_id(client: Client, message_id: str, user_id: str, subject: str, html: str):
     _call_appwrite(
         client,
         "post",
         "/messaging/messages/email",
         {
-            "messageId": ID.unique(),
+            "messageId": message_id,
             "subject": subject,
             "content": html,
             "users": [user_id],
@@ -437,12 +446,6 @@ def _downgrade_account_to_free(client, db_id, ig_accounts_collection, pricing_ma
         "plan_name": free_defaults.get("plan_name", "Free Plan"),
         "subscription_status": "inactive",
         "expires_at": None,
-        "allocated_hourly_credits": _safe_int(free_defaults.get("hourly_action_limit"), 0),
-        "allocated_daily_credits": _safe_int(free_defaults.get("daily_action_limit"), 0),
-        "allocated_monthly_credits": _safe_int(free_defaults.get("monthly_action_limit"), 0),
-        "hourly_action_limit": _safe_int(free_defaults.get("hourly_action_limit"), 0),
-        "daily_action_limit": _safe_int(free_defaults.get("daily_action_limit"), 0),
-        "monthly_action_limit": _safe_int(free_defaults.get("monthly_action_limit"), 0),
     }
     return _update_document(client, db_id, ig_accounts_collection, account_id, patch)
 
@@ -588,33 +591,24 @@ def _maybe_send_reminder(client, db_id, ig_accounts_collection, account, stage, 
     user_id = str(_obj_get(account, "user_id", "") or "").strip()
     if not account_id or not user_id or not anchor_expiry:
         return
-    field_map = {
-        "3d": "expiry_reminder_3d_sent_at",
-        "day0": "expiry_reminder_day0_sent_at",
-        "day1": "expiry_reminder_day1_sent_at",
-        "repeat": "expiry_reminder_day1_sent_at",
-    }
-    reminder_field = field_map[stage]
-    last_sent_value = _obj_get(account, reminder_field)
-    if last_sent_value:
-        if stage != "repeat":
-            summary["skipped_duplicate_reminders"] += 1
-            return
-        last_sent = _parse_datetime(last_sent_value)
-        if last_sent and (datetime.now(timezone.utc) - last_sent).days < 7:
-            summary["skipped_duplicate_reminders"] += 1
-            return
 
     expiry_text = anchor_expiry.date().isoformat()
     plan_name = str(_obj_get(account, "plan_name") or "DM Panda Plan").strip()
     ig_username = str(_obj_get(account, "username") or _obj_get(account, "account_name") or "").strip()
     linked_ig_names = f"@{ig_username}" if ig_username else _get_linked_ig_names(client, db_id, user_id, ig_accounts_collection)
     subject, html = _build_email_content(stage, plan_name, expiry_text, _resolve_frontend_origin(client, db_id), linked_ig_names)
-    _send_email(client, user_id, subject, html)
-    _update_document(client, db_id, ig_accounts_collection, account_id, {
-        reminder_field: _to_iso(datetime.now(timezone.utc))
-    })
-    summary["emails_sent"] += 1
+    
+    # Deterministic message ID prevents duplicate reminders without needing extra attributes on ig_accounts
+    message_seed = f"sub-reminder:{account_id}:{stage}:{expiry_text}"
+    message_id = hashlib.sha1(message_seed.encode("utf-8")).hexdigest()[:32]
+    try:
+        _send_email_with_id(client, message_id, user_id, subject, html)
+        summary["emails_sent"] += 1
+    except Exception as error:
+        if _is_duplicate_conflict(error):
+            summary["skipped_duplicate_reminders"] += 1
+            return
+        raise
 
 
 def main(context):
