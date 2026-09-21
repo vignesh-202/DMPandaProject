@@ -39,7 +39,8 @@ const {
     parseAdminOverride,
     buildAdminOverridePayload,
     clearAdminOverridePayload,
-    syncUserIgAccountLimitSnapshots
+    syncUserIgAccountLimitSnapshots,
+    buildAccountPlanSnapshot
 } = require('../utils/planConfig');
 const {
     normalizeAccountAccess,
@@ -2545,14 +2546,32 @@ router.patch('/users/:userId/instagram-accounts/:accountId', loginRequired, admi
             return fail(res, 404, 'Instagram account not found.');
         }
 
-        const nextStatus = String(req.body?.status || '').trim().toLowerCase();
-        if (!['active', 'inactive'].includes(nextStatus)) {
-            return fail(res, 400, 'A valid Instagram account status is required.');
+        const patch = {};
+        if (req.body?.status) {
+            const nextStatus = String(req.body.status).trim().toLowerCase();
+            if (['active', 'inactive'].includes(nextStatus)) {
+                patch.admin_status = nextStatus;
+            }
+        }
+        if (req.body?.plan_code !== undefined) {
+            const rawPlanCode = String(req.body.plan_code || 'free').trim().toLowerCase();
+            patch.plan_code = rawPlanCode;
+            const pricingPlans = await listPricingPlans(databases);
+            const matchedPlan = pricingPlans.find((p) => (p.plan_code || p.id).toLowerCase() === rawPlanCode);
+            patch.plan_name = matchedPlan ? matchedPlan.name : (rawPlanCode.toUpperCase() + ' Plan');
+            if (matchedPlan) {
+                const snapshot = buildAccountPlanSnapshot(matchedPlan, account);
+                patch.allocated_hourly_credits = snapshot.allocated_hourly_credits;
+                patch.allocated_daily_credits = snapshot.allocated_daily_credits;
+                patch.allocated_monthly_credits = snapshot.allocated_monthly_credits;
+            }
         }
 
-        await databases.updateDocument(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, accountId, {
-            admin_status: nextStatus
-        });
+        if (Object.keys(patch).length === 0) {
+            return fail(res, 400, 'A valid Instagram account status or plan_code is required.');
+        }
+
+        await databases.updateDocument(APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, accountId, patch);
         const profile = await getProfileForUser(databases, userId);
         const accountAccessState = await recomputeAccountAccessStateForUser(databases, userId, profile);
         const instagram_accounts = accountAccessState.accounts;
@@ -2563,7 +2582,7 @@ router.patch('/users/:userId/instagram-accounts/:accountId', loginRequired, admi
             targetUserId: userId,
             payload: {
                 account_id: accountId,
-                admin_status: nextStatus
+                ...patch
             }
         });
 

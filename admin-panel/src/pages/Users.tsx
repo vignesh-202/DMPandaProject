@@ -307,10 +307,10 @@ export const UsersPage: React.FC = () => {
     useEffect(() => {
         if (!userId) {
             setDetailData(null);
-            setActiveTab('plan');
+            setActiveTab('instagram');
             return;
         }
-        setActiveTab('plan');
+        setActiveTab('instagram');
         void loadUserDetail(userId);
     }, [userId]);
 
@@ -460,6 +460,45 @@ export const UsersPage: React.FC = () => {
         } catch (error: any) {
             console.error('Failed to update Instagram account access:', error);
             setErrorMessage(error?.response?.data?.error || 'Failed to update Instagram account access.');
+        } finally {
+            setAccountToggleLoadingId(null);
+        }
+    };
+
+    // Update individual Instagram account plan
+    const handleUpdateAccountPlan = async (account: any, nextPlanCode: string) => {
+        if (!selectedUser || !account?.$id) return;
+        setAccountToggleLoadingId(account.$id);
+        setErrorMessage(null);
+        try {
+            const response = await httpClient.patch(`/api/admin/users/${selectedUser.$id}/instagram-accounts/${account.$id}`, {
+                plan_code: nextPlanCode
+            });
+            const result = response.data?.data || {};
+            if (Array.isArray(result?.instagram_accounts)) {
+                mergeDetailData(result);
+            } else {
+                setDetailData((prev: any) => {
+                    if (!prev) return prev;
+                    const currentAccounts = Array.isArray(prev.instagram_accounts) ? prev.instagram_accounts : [];
+                    return {
+                        ...prev,
+                        instagram_accounts: currentAccounts.map((entry: any) => (
+                            entry?.$id === account.$id
+                                ? {
+                                    ...entry,
+                                    plan_code: nextPlanCode,
+                                    plan_name: (pricingPlans.find((p) => (p.plan_code || p.id).toLowerCase() === nextPlanCode.toLowerCase())?.name) || nextPlanCode.toUpperCase()
+                                }
+                                : entry
+                        ))
+                    };
+                });
+            }
+            setNotice(`Plan for @${account.username || 'account'} updated to ${nextPlanCode.toUpperCase()}.`);
+        } catch (error: any) {
+            console.error('Failed to update account plan:', error);
+            setErrorMessage(error?.response?.data?.error || 'Failed to update account plan.');
         } finally {
             setAccountToggleLoadingId(null);
         }
@@ -1029,8 +1068,8 @@ export const UsersPage: React.FC = () => {
                                     {/* Navigation Tabs for Popup */}
                                     <div className="flex items-center gap-1 border-b border-border/60 pb-1">
                                         {[
-                                            { id: 'plan', label: 'User Plan & Quotas', icon: Sparkles },
                                             { id: 'instagram', label: `IG Accounts (${(detailData?.instagram_accounts || []).length})`, icon: Instagram },
+                                            { id: 'plan', label: 'User Plan & Quotas', icon: Sparkles },
                                             { id: 'moderation', label: 'Moderation', icon: Shield },
                                             { id: 'danger', label: 'Danger Zone', icon: Trash2 }
                                         ].map(({ id, label, icon: Icon }) => (
@@ -1113,6 +1152,92 @@ export const UsersPage: React.FC = () => {
                                                 </div>
                                             </div>
 
+                                            {/* Linked Instagram Accounts & Their Plans Overview */}
+                                            <div className="rounded-2xl border border-border/80 bg-background/60 p-4 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-foreground">Instagram Accounts & Assigned Plans</h4>
+                                                        <p className="text-[11px] text-muted-foreground">Plan assigned per Instagram account</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveTab('instagram')}
+                                                        className="text-xs text-primary font-semibold hover:underline"
+                                                    >
+                                                        Manage in IG Accounts →
+                                                    </button>
+                                                </div>
+
+                                                {(!detailData?.instagram_accounts || detailData.instagram_accounts.length === 0) ? (
+                                                    <p className="text-xs text-muted-foreground py-2 italic">No Instagram accounts linked to this user yet.</p>
+                                                ) : (
+                                                    <div className="space-y-2">
+                                                        {detailData.instagram_accounts.map((acc: any) => {
+                                                            const accPlanCode = String(
+                                                                acc.plan_code || 
+                                                                acc.plan_name || 
+                                                                detailData?.profile?.plan_code || 
+                                                                detailData?.effective_plan?.plan_code || 
+                                                                'free'
+                                                            ).trim().toLowerCase();
+                                                            const matchedPlan = pricingPlans.find(
+                                                                (p) => (p.plan_code || p.id || '').toLowerCase() === accPlanCode
+                                                            );
+                                                            const accPlanName = matchedPlan?.name || (accPlanCode ? accPlanCode.charAt(0).toUpperCase() + accPlanCode.slice(1) : 'Free');
+                                                            const isPaid = accPlanCode !== 'free';
+                                                            const isAdminActive = String(acc.admin_status || 'active').trim().toLowerCase() === 'active';
+
+                                                            return (
+                                                                <div
+                                                                    key={acc.$id}
+                                                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-border/60 bg-card/60 p-3 text-xs"
+                                                                >
+                                                                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                                                        <Instagram className="h-4 w-4 text-pink-500 shrink-0" />
+                                                                        <span className="font-bold text-foreground truncate">
+                                                                            @{acc.username || acc.ig_user_id || acc.account_id}
+                                                                        </span>
+                                                                        {/* Plan badge beside IG account */}
+                                                                        <span className={cn(
+                                                                            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold capitalize',
+                                                                            isPaid
+                                                                                ? 'border border-primary/30 bg-primary/10 text-primary'
+                                                                                : 'border border-border/80 bg-muted text-muted-foreground'
+                                                                        )}>
+                                                                            <Sparkles className="h-2.5 w-2.5" />
+                                                                            {accPlanName} Plan
+                                                                        </span>
+                                                                    </div>
+
+                                                                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                                                                        <select
+                                                                            value={accPlanCode}
+                                                                            disabled={accountToggleLoadingId === acc.$id}
+                                                                            onChange={(e) => void handleUpdateAccountPlan(acc, e.target.value)}
+                                                                            className="input-base h-7 text-[11px] font-semibold py-0 px-2 cursor-pointer rounded-lg bg-background border-border/80"
+                                                                            title="Change account plan"
+                                                                        >
+                                                                            <option value="free">Free Plan</option>
+                                                                            {pricingPlans
+                                                                                .filter((p) => String(p.plan_code || p.id).trim().toLowerCase() !== 'free')
+                                                                                .map((p) => (
+                                                                                    <option key={p.id} value={p.plan_code || p.id}>{p.name}</option>
+                                                                                ))}
+                                                                        </select>
+                                                                        <span className={cn(
+                                                                            'status-pill text-[10px] py-0.5 px-2 font-bold',
+                                                                            isAdminActive ? 'status-pill-success' : 'status-pill-danger'
+                                                                        )}>
+                                                                            {isAdminActive ? 'Active' : 'Inactive'}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+
                                             {/* Assign / Change User Plan Form */}
                                             <div className="rounded-2xl border border-border/80 bg-background/60 p-4 space-y-4">
                                                 <div className="flex items-center justify-between">
@@ -1154,7 +1279,7 @@ export const UsersPage: React.FC = () => {
 
                                                 {durationMode === 'custom' && selectedPlanCode !== 'free' && (
                                                     <div>
-                                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Custom Expiration Date</label>
+                                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Custom Expiry Date</label>
                                                         <input
                                                             type="datetime-local"
                                                             value={customExpiryDate}
@@ -1164,13 +1289,17 @@ export const UsersPage: React.FC = () => {
                                                     </div>
                                                 )}
 
-                                                {/* Live Quota Preview for the Plan */}
-                                                <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
-                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                                                        Plan Limits & Action Quotas
-                                                    </p>
-                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                                                        {/* Hourly Quota (Shows Unlimited if unlimited) */}
+                                                {/* Plan Capability Preview */}
+                                                <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2">
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="font-semibold text-foreground">Plan Limits Preview</span>
+                                                        <span className="font-mono text-[11px] text-muted-foreground">
+                                                            {selectedPlanPreview?.name || (selectedPlanCode === 'free' ? 'Free Plan' : selectedPlanCode)}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                                                        {/* Hourly Quota */}
                                                         <div className="rounded-lg bg-card p-2 border border-border/50">
                                                             <span className="text-[10px] text-muted-foreground block">Hourly Limit</span>
                                                             <p className="mt-0.5 text-xs font-bold text-foreground">
@@ -1180,7 +1309,7 @@ export const UsersPage: React.FC = () => {
                                                                         Unlimited
                                                                     </span>
                                                                 ) : (
-                                                                    `${Number(selectedPlanPreview?.actions_per_hour_limit ?? 100).toLocaleString()} / hr`
+                                                                    `${selectedPlanPreview?.actions_per_hour_limit ?? 25} / hr`
                                                                 )}
                                                             </p>
                                                         </div>
@@ -1195,7 +1324,7 @@ export const UsersPage: React.FC = () => {
                                                                         Unlimited
                                                                     </span>
                                                                 ) : (
-                                                                    `${Number(selectedPlanPreview?.actions_per_day_limit ?? 1000).toLocaleString()} / day`
+                                                                    `${selectedPlanPreview?.actions_per_day_limit ?? 100} / day`
                                                                 )}
                                                             </p>
                                                         </div>
@@ -1243,7 +1372,7 @@ export const UsersPage: React.FC = () => {
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-xs text-muted-foreground">
-                                                    Toggle account access on or off, check token health, or unlink an account.
+                                                    Manage plan assignment, active/inactive access, and token validity per Instagram account.
                                                 </p>
                                                 <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-bold text-muted-foreground">
                                                     {(detailData?.instagram_accounts || []).length} linked
@@ -1259,21 +1388,47 @@ export const UsersPage: React.FC = () => {
                                                     const isAdminActive = String(acc.admin_status || 'active').trim().toLowerCase() === 'active';
                                                     const isUserActive = String(acc.status || 'active').trim().toLowerCase() === 'active';
                                                     const tokenValidity = getInstagramTokenValidity(acc.token_expires_at);
+                                                    const accPlanCode = String(
+                                                        acc.plan_code || 
+                                                        acc.plan_name || 
+                                                        detailData?.profile?.plan_code || 
+                                                        detailData?.effective_plan?.plan_code || 
+                                                        'free'
+                                                    ).trim().toLowerCase();
+                                                    const matchedPlan = pricingPlans.find(
+                                                        (p) => (p.plan_code || p.id || '').toLowerCase() === accPlanCode
+                                                    );
+                                                    const accPlanName = matchedPlan?.name || (accPlanCode ? accPlanCode.charAt(0).toUpperCase() + accPlanCode.slice(1) : 'Free');
+                                                    const isPaidAccount = accPlanCode !== 'free';
 
                                                     return (
                                                         <div
                                                             key={acc.$id}
-                                                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-border/80 bg-background/60 p-4 shadow-xs"
+                                                            className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 rounded-2xl border border-border/80 bg-background/60 p-4 shadow-xs hover:border-border transition"
                                                         >
+                                                            {/* Left: Instagram account identity and plan badge */}
                                                             <div className="flex items-center gap-3 min-w-0">
                                                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-pink-500/20 bg-pink-500/10 text-pink-500">
                                                                     <Instagram className="h-5 w-5" />
                                                                 </div>
                                                                 <div className="min-w-0">
-                                                                    <div className="flex items-center gap-2">
+                                                                    <div className="flex flex-wrap items-center gap-2">
                                                                         <p className="font-bold text-foreground text-sm truncate">
                                                                             @{acc.username || acc.ig_user_id || acc.account_id}
                                                                         </p>
+
+                                                                        {/* Plan badge directly beside IG account */}
+                                                                        <span className={cn(
+                                                                            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold tracking-tight',
+                                                                            isPaidAccount
+                                                                                ? 'border border-primary/30 bg-primary/10 text-primary shadow-xs'
+                                                                                : 'border border-border/80 bg-muted/70 text-muted-foreground'
+                                                                        )}>
+                                                                            <Sparkles className="h-3 w-3 shrink-0" />
+                                                                            {accPlanName} Plan
+                                                                        </span>
+
+                                                                        {/* Token health status */}
                                                                         <span className={cn(
                                                                             'inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold',
                                                                             tokenValidity.tone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
@@ -1284,16 +1439,49 @@ export const UsersPage: React.FC = () => {
                                                                             Token: {tokenValidity.label}
                                                                         </span>
                                                                     </div>
-                                                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                                                        {!isAdminActive ? 'Admin Inactive' : !isUserActive ? 'User Inactive' : 'Active and syncing'}
-                                                                    </p>
+                                                                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                                                        <span className={cn(
+                                                                            'inline-block h-1.5 w-1.5 rounded-full',
+                                                                            isAdminActive ? 'bg-emerald-500' : 'bg-rose-500'
+                                                                        )} />
+                                                                        <span>
+                                                                            {!isAdminActive ? 'Admin Inactive' : !isUserActive ? 'User Inactive' : 'Active and syncing'}
+                                                                        </span>
+                                                                        {acc.allocated_monthly_credits ? (
+                                                                            <>
+                                                                                <span className="text-border">•</span>
+                                                                                <span>{Number(acc.allocated_monthly_credits).toLocaleString()} actions/mo</span>
+                                                                            </>
+                                                                        ) : null}
+                                                                    </div>
                                                                 </div>
                                                             </div>
 
-                                                            {/* Controls: Authentic Toggle Switch + Delete Button */}
-                                                            <div className="flex items-center gap-3 self-end sm:self-auto">
-                                                                {/* Interactive Toggle Switch */}
-                                                                <div className="flex items-center gap-2">
+                                                            {/* Right Controls: Plan Selector + Active Switch Toggle + Delete Button */}
+                                                            <div className="flex flex-wrap items-center gap-3 self-end md:self-auto shrink-0">
+                                                                {/* Plan Selector Dropdown */}
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-[11px] font-semibold text-muted-foreground hidden sm:inline">Plan:</span>
+                                                                    <select
+                                                                        value={accPlanCode}
+                                                                        disabled={accountToggleLoadingId === acc.$id}
+                                                                        onChange={(e) => void handleUpdateAccountPlan(acc, e.target.value)}
+                                                                        className="input-base h-8 text-xs font-semibold py-0 px-2 cursor-pointer rounded-xl bg-card border-border/80 hover:border-primary/40 focus:border-primary transition"
+                                                                        title={`Change assigned plan for @${acc.username || 'this account'}`}
+                                                                    >
+                                                                        <option value="free">Free Plan</option>
+                                                                        {pricingPlans
+                                                                            .filter((p) => String(p.plan_code || p.id).trim().toLowerCase() !== 'free')
+                                                                            .map((p) => (
+                                                                                <option key={p.id} value={p.plan_code || p.id}>
+                                                                                    {p.name}
+                                                                                </option>
+                                                                            ))}
+                                                                    </select>
+                                                                </div>
+
+                                                                {/* Interactive Active / Inactive Toggle Switch */}
+                                                                <div className="flex items-center gap-2 border-l border-border/60 pl-3">
                                                                     <span className={cn(
                                                                         "text-xs font-semibold select-none",
                                                                         isAdminActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
