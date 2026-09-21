@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
     AlertTriangle,
@@ -116,6 +117,59 @@ const getInstagramTokenValidity = (value?: string | null) => {
         label: 'Healthy',
         detail: `${diffDays} days remaining`
     };
+};
+
+const InstagramAccountAvatar: React.FC<{
+    username?: string;
+    avatarUrl?: string | null;
+    size?: 'sm' | 'md' | 'lg';
+}> = ({ username = '', avatarUrl, size = 'md' }) => {
+    const [imgError, setImgError] = useState(false);
+    const initial = (username.replace(/^@/, '').trim().charAt(0) || 'I').toUpperCase();
+
+    const dimClasses = size === 'lg' ? 'h-13 w-13 text-base' : size === 'sm' ? 'h-8 w-8 text-xs' : 'h-11 w-11 text-sm';
+    const badgeDim = size === 'lg' ? 'h-4 w-4' : size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5';
+    const iconDim = size === 'lg' ? 'h-2.5 w-2.5' : size === 'sm' ? 'h-2 w-2' : 'h-2 w-2';
+
+    const rawUrl = avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim().length > 5 ? avatarUrl.trim() : null;
+    const apiBase = String(((globalThis as any).__DM_PANDA_ADMIN_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL) || '').trim().replace(/\/+$/, '');
+    const cleanUrl = useMemo(() => {
+        if (!rawUrl) return null;
+        if (/(?:cdninstagram\.com|fbcdn\.net)/i.test(rawUrl) && apiBase) {
+            return `${apiBase}/api/instagram/media-proxy?url=${encodeURIComponent(rawUrl)}`;
+        }
+        return rawUrl;
+    }, [rawUrl, apiBase]);
+
+    return (
+        <div className="relative shrink-0 select-none">
+            <div className={cn(
+                "relative overflow-hidden rounded-2xl border border-border/80 shadow-2xs bg-muted flex items-center justify-center font-bold transition-transform duration-200 group-hover:scale-105",
+                dimClasses
+            )}>
+                {cleanUrl && !imgError ? (
+                    <img
+                        src={cleanUrl}
+                        alt={username}
+                        referrerPolicy="no-referrer"
+                        crossOrigin="anonymous"
+                        onError={() => setImgError(true)}
+                        className="h-full w-full object-cover rounded-2xl"
+                    />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-tr from-[#FFDC80] via-[#FD1D1D] to-[#833AB4] text-white font-black shadow-inner">
+                        {initial}
+                    </div>
+                )}
+            </div>
+            <div className={cn(
+                "absolute -bottom-1 -right-1 flex items-center justify-center rounded-full bg-gradient-to-tr from-[#FD1D1D] to-[#833AB4] text-white shadow-xs ring-2 ring-card",
+                badgeDim
+            )}>
+                <Instagram className={iconDim} />
+            </div>
+        </div>
+    );
 };
 
 const getAccountPlanDetails = (acc: any, detailData: any, pricingPlans: PricingPlanOption[]) => {
@@ -423,6 +477,22 @@ export const UsersPage: React.FC = () => {
     }, [selectedUser, currentAdminUser, detailData]);
 
     const closeModal = () => navigate('/users');
+
+    useEffect(() => {
+        if (!userId) return undefined;
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !showBanConfirmDialog && !showDeleteInstagramDialog && !showDeleteUserDialog) {
+                closeModal();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = prevOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [userId, showBanConfirmDialog, showDeleteInstagramDialog, showDeleteUserDialog]);
 
     const mergeDetailData = (payload: any) => {
         setDetailData((prev: any) => {
@@ -1032,16 +1102,26 @@ export const UsersPage: React.FC = () => {
             </div>
 
             {/* User Profile Detail Popup / Modal */}
-            {userId && (
-                <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 p-2 backdrop-blur-md sm:items-center sm:p-4">
-                    <button type="button" className="absolute inset-0 cursor-default" aria-label="Close" onClick={closeModal} />
-                    <div className="relative z-10 w-full max-w-3xl max-h-[92dvh] overflow-hidden rounded-[24px] border border-border/80 bg-card shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            {userId && typeof document !== 'undefined' && createPortal(
+                <div
+                    className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="user-profile-modal-title"
+                >
+                    <button
+                        type="button"
+                        className="absolute inset-0 h-full w-full cursor-default bg-transparent focus:outline-none"
+                        aria-label="Close modal backdrop"
+                        onClick={closeModal}
+                    />
+                    <div className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-[28px] border border-border/80 bg-card text-card-foreground shadow-[0_25px_70px_rgba(0,0,0,0.65)] flex flex-col animate-in zoom-in-95 duration-200">
                         {/* Modal Top Bar */}
-                        <div className="flex items-center justify-between border-b border-border/70 px-6 py-3.5 bg-muted/20">
+                        <div className="flex items-center justify-between border-b border-border/70 px-6 py-3.5 bg-muted/25 backdrop-blur-sm">
                             <button
                                 type="button"
                                 onClick={closeModal}
-                                className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground px-2.5 py-1.5 rounded-xl hover:bg-muted/60"
                             >
                                 <ArrowLeft className="h-3.5 w-3.5" />
                                 Back to Users
@@ -1051,7 +1131,8 @@ export const UsersPage: React.FC = () => {
                                     type="button"
                                     onClick={openDashboard}
                                     disabled={openingDashboard}
-                                    className="btn-primary inline-flex h-8 items-center gap-1.5 px-3 text-xs font-semibold shadow-xs disabled:opacity-60"
+                                    className="btn-primary inline-flex h-8 items-center gap-1.5 px-3.5 text-xs font-bold shadow-xs disabled:opacity-60"
+                                    title="Open user dashboard view"
                                 >
                                     {openingDashboard ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
                                     Dashboard
@@ -1059,9 +1140,10 @@ export const UsersPage: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={closeModal}
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border/70 bg-background text-muted-foreground hover:text-foreground"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border/70 bg-background/80 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+                                    aria-label="Close modal"
                                 >
-                                    <X className="h-3.5 w-3.5" />
+                                    <X className="h-4 w-4" />
                                 </button>
                             </div>
                         </div>
@@ -1072,35 +1154,46 @@ export const UsersPage: React.FC = () => {
                                 <AdminLoadingState title="Loading user profile" description="Fetching telemetry, plan details, and permissions." className="min-h-[260px]" />
                             ) : (
                                 <>
-                                    {/* User Overview Header Strip */}
-                                    <div className="rounded-2xl border border-border/70 bg-muted/15 p-4">
-                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary text-base font-bold shadow-xs">
-                                                    {(detailData?.user?.name || selectedUser?.name || 'U').charAt(0).toUpperCase()}
+                                    {/* User Overview Hero Header */}
+                                    <div className="rounded-2xl border border-border/70 bg-gradient-to-b from-muted/40 via-muted/15 to-transparent p-4 sm:p-5">
+                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                            <div className="flex items-center gap-3.5 min-w-0">
+                                                <div className="relative shrink-0">
+                                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#833AB4] via-[#FD1D1D] to-[#F56040] p-[2px] shadow-sm">
+                                                        <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-card text-foreground font-black text-lg">
+                                                            {(detailData?.user?.name || selectedUser?.name || 'U').charAt(0).toUpperCase()}
+                                                        </div>
+                                                    </div>
                                                 </div>
+
                                                 <div className="min-w-0">
-                                                    <h2 className="text-base font-bold text-foreground truncate">
+                                                    <h2 id="user-profile-modal-title" className="text-base sm:text-lg font-black text-foreground truncate tracking-tight">
                                                         {detailData?.user?.name || selectedUser?.name || 'Anonymous User'}
                                                     </h2>
-                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
                                                         <span className="text-xs text-muted-foreground truncate font-mono">
                                                             {detailData?.user?.email || selectedUser?.email}
                                                         </span>
                                                         <button
                                                             type="button"
                                                             onClick={() => copyEmailToClipboard(detailData?.user?.email || selectedUser?.email)}
-                                                            className="text-muted-foreground hover:text-foreground p-0.5 rounded transition"
-                                                            title="Copy email"
+                                                            className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted/80 transition"
+                                                            title={copiedEmail ? "Copied to clipboard!" : "Copy email address"}
                                                         >
                                                             {copiedEmail ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
                                                         </button>
+                                                        {copiedEmail && (
+                                                            <span className="text-[10px] font-semibold text-emerald-500 animate-in fade-in duration-150">
+                                                                Copied!
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className="inline-flex items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary uppercase tracking-wide">
+                                            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+                                                <span className="inline-flex items-center gap-1 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-primary shadow-2xs">
+                                                    <Sparkles className="h-3 w-3" />
                                                     {String(detailData?.profile?.plan_code || selectedUser?.profile?.plan_code || 'free')}
                                                 </span>
                                                 <span className={cn(
@@ -1118,7 +1211,7 @@ export const UsersPage: React.FC = () => {
                                     </div>
 
                                     {/* Navigation Tabs for Popup */}
-                                    <div className="flex items-center gap-1 border-b border-border/60 pb-1">
+                                    <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border/60 pb-2">
                                         {[
                                             { id: 'instagram', label: `IG Accounts (${(detailData?.instagram_accounts || []).length})`, icon: Instagram },
                                             { id: 'plan', label: 'User Plan & Quotas', icon: Sparkles },
@@ -1130,10 +1223,10 @@ export const UsersPage: React.FC = () => {
                                                 type="button"
                                                 onClick={() => setActiveTab(id as ModalTab)}
                                                 className={cn(
-                                                    'inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition-all',
+                                                    'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all whitespace-nowrap',
                                                     activeTab === id
-                                                        ? 'bg-primary/10 text-primary border border-primary/20 shadow-xs'
-                                                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                                                        ? 'bg-primary/15 text-primary border border-primary/25 shadow-2xs'
+                                                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                                                 )}
                                             >
                                                 <Icon className="h-3.5 w-3.5" />
@@ -1233,8 +1326,12 @@ export const UsersPage: React.FC = () => {
                                                                     key={acc.$id}
                                                                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-border/60 bg-card/60 p-3 text-xs"
                                                                 >
-                                                                    <div className="flex flex-wrap items-center gap-2 min-w-0">
-                                                                        <Instagram className="h-4 w-4 text-pink-500 shrink-0" />
+                                                                    <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+                                                                        <InstagramAccountAvatar
+                                                                            username={acc.username || acc.ig_user_id || acc.account_id}
+                                                                            avatarUrl={acc.profile_picture_url || acc.avatar_url || acc.profile_pic}
+                                                                            size="sm"
+                                                                        />
                                                                         <span className="font-bold text-foreground truncate">
                                                                             @{acc.username || acc.ig_user_id || acc.account_id}
                                                                         </span>
@@ -1303,23 +1400,23 @@ export const UsersPage: React.FC = () => {
                                                     </div>
 
                                                     <div>
-                                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Duration</label>
+                                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Plan Duration</label>
                                                         <select
                                                             value={durationMode}
                                                             onChange={(e) => setDurationMode(e.target.value as any)}
                                                             className="input-base h-9 text-xs font-medium cursor-pointer"
-                                                            disabled={selectedPlanCode === 'free'}
                                                         >
                                                             <option value="monthly">Monthly (30 Days)</option>
                                                             <option value="yearly">Yearly (365 Days)</option>
+                                                            <option value="lifetime">Lifetime (No Expiry)</option>
                                                             <option value="custom">Custom Date</option>
                                                         </select>
                                                     </div>
                                                 </div>
 
-                                                {durationMode === 'custom' && selectedPlanCode !== 'free' && (
+                                                {durationMode === 'custom' && (
                                                     <div>
-                                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Custom Expiry Date</label>
+                                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Custom Expiry Date & Time</label>
                                                         <input
                                                             type="datetime-local"
                                                             value={customExpiryDate}
@@ -1329,13 +1426,11 @@ export const UsersPage: React.FC = () => {
                                                     </div>
                                                 )}
 
-                                                {/* Plan Capability Preview */}
+                                                {/* Plan Quotas & Entitlements Preview */}
                                                 <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2">
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="font-semibold text-foreground">Plan Limits Preview</span>
-                                                        <span className="font-mono text-[11px] text-muted-foreground">
-                                                            {selectedPlanPreview?.name || (selectedPlanCode === 'free' ? 'Free Plan' : selectedPlanCode)}
-                                                        </span>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">New Plan Entitlements</span>
+                                                        <span className="text-xs font-bold text-primary capitalize">{selectedPlanPreview?.name || selectedPlanCode}</span>
                                                     </div>
 
                                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
@@ -1409,161 +1504,174 @@ export const UsersPage: React.FC = () => {
 
                                     {/* TAB 2: LINKED INSTAGRAM ACCOUNTS */}
                                     {activeTab === 'instagram' && (
-                                        <div className="space-y-3">
+                                        <div className="space-y-3.5">
                                             <div className="flex items-center justify-between">
-                                                <p className="text-xs text-muted-foreground">
-                                                    Instagram accounts linked to this user, showing their plan, subscription expiry, and active status.
-                                                </p>
-                                                <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-bold text-muted-foreground">
+                                                <div>
+                                                    <h3 className="text-xs font-bold text-foreground">Connected Instagram Accounts</h3>
+                                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                                        View linked profiles, active plans, token validity, and subscription expiry.
+                                                    </p>
+                                                </div>
+                                                <span className="rounded-full bg-muted/80 border border-border/60 px-2.5 py-0.5 text-[11px] font-bold text-muted-foreground">
                                                     {(detailData?.instagram_accounts || []).length} linked
                                                 </span>
                                             </div>
 
                                             {(!detailData?.instagram_accounts || detailData.instagram_accounts.length === 0) ? (
                                                 <div className="rounded-2xl border border-dashed border-border/80 p-8 text-center text-xs text-muted-foreground">
-                                                    No Instagram accounts linked to this user yet.
+                                                    <Instagram className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                                                    <p className="font-semibold text-foreground">No Instagram Accounts</p>
+                                                    <p className="mt-1 text-muted-foreground">This user has not linked any Instagram accounts yet.</p>
                                                 </div>
                                             ) : (
-                                                detailData.instagram_accounts.map((acc: any) => {
-                                                    const isAdminActive = String(acc.admin_status || 'active').trim().toLowerCase() === 'active';
-                                                    const isUserActive = String(acc.status || 'active').trim().toLowerCase() === 'active';
-                                                    const tokenValidity = getInstagramTokenValidity(acc.token_expires_at);
-                                                    const planDetails = getAccountPlanDetails(acc, detailData, pricingPlans);
+                                                <div className="space-y-3">
+                                                    {detailData.instagram_accounts.map((acc: any) => {
+                                                        const isAdminActive = String(acc.admin_status || 'active').trim().toLowerCase() === 'active';
+                                                        const isUserActive = String(acc.status || 'active').trim().toLowerCase() === 'active';
+                                                        const tokenValidity = getInstagramTokenValidity(acc.token_expires_at);
+                                                        const planDetails = getAccountPlanDetails(acc, detailData, pricingPlans);
+                                                        const dpUrl = acc.profile_picture_url || acc.avatar_url || acc.profile_pic;
 
-                                                    return (
-                                                        <div
-                                                            key={acc.$id}
-                                                            className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 rounded-2xl border border-border/80 bg-background/60 p-4 shadow-xs hover:border-border transition"
-                                                        >
-                                                            {/* Left: Instagram account identity, plan badge, and plan expiry */}
-                                                            <div className="flex items-center gap-3 min-w-0">
-                                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-pink-500/20 bg-pink-500/10 text-pink-500 shadow-xs">
-                                                                    <Instagram className="h-5 w-5" />
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <div className="flex flex-wrap items-center gap-2">
-                                                                        <p className="font-bold text-foreground text-sm truncate">
-                                                                            @{acc.username || acc.ig_user_id || acc.account_id}
-                                                                        </p>
+                                                        return (
+                                                            <div
+                                                                key={acc.$id}
+                                                                className="group relative flex flex-col md:flex-row md:items-center justify-between gap-3.5 rounded-2xl border border-border/70 bg-card/60 hover:bg-muted/15 p-4 shadow-2xs hover:border-border transition-all duration-150"
+                                                            >
+                                                                {/* Left: Instagram DP avatar, username, plan badge, expiry */}
+                                                                <div className="flex items-center gap-3.5 min-w-0">
+                                                                    <InstagramAccountAvatar
+                                                                        username={acc.username || acc.ig_user_id || acc.account_id}
+                                                                        avatarUrl={dpUrl}
+                                                                        size="md"
+                                                                    />
 
-                                                                        {/* Plan badge directly beside IG account */}
-                                                                        <span className={cn(
-                                                                            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold tracking-tight',
-                                                                            planDetails.isPaid && !planDetails.isExpired
-                                                                                ? 'border border-primary/30 bg-primary/10 text-primary shadow-xs'
-                                                                                : planDetails.isExpired
-                                                                                ? 'border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                                                                : 'border border-border/80 bg-muted/70 text-muted-foreground'
-                                                                        )}>
-                                                                            <Sparkles className="h-3 w-3 shrink-0" />
-                                                                            {planDetails.planName}
-                                                                        </span>
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                            <p className="font-extrabold text-foreground text-sm truncate tracking-tight">
+                                                                                @{acc.username || acc.ig_user_id || acc.account_id}
+                                                                            </p>
 
-                                                                        {/* Plan expiry date badge */}
-                                                                        <span className={cn(
-                                                                            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold',
-                                                                            planDetails.expiryTone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25',
-                                                                            planDetails.expiryTone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25',
-                                                                            planDetails.expiryTone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25',
-                                                                            planDetails.expiryTone === 'neutral' && 'bg-muted/60 text-muted-foreground border border-border/60'
-                                                                        )}>
-                                                                            <Calendar className="h-3 w-3 shrink-0" />
-                                                                            {planDetails.expiryLabel}
-                                                                        </span>
+                                                                            {/* Plan badge directly beside IG account */}
+                                                                            <span className={cn(
+                                                                                'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold tracking-tight',
+                                                                                planDetails.isPaid && !planDetails.isExpired
+                                                                                    ? 'border border-primary/30 bg-primary/10 text-primary shadow-2xs'
+                                                                                    : planDetails.isExpired
+                                                                                    ? 'border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                                                                    : 'border border-border/80 bg-muted/70 text-muted-foreground'
+                                                                            )}>
+                                                                                <Sparkles className="h-3 w-3 shrink-0" />
+                                                                                {planDetails.planName}
+                                                                            </span>
 
-                                                                        {/* Token health status */}
-                                                                        <span className={cn(
-                                                                            'inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold',
-                                                                            tokenValidity.tone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
-                                                                            tokenValidity.tone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20',
-                                                                            tokenValidity.tone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20',
-                                                                            tokenValidity.tone === 'neutral' && 'bg-muted text-muted-foreground'
-                                                                        )}>
-                                                                            Token: {tokenValidity.label}
-                                                                        </span>
+                                                                            {/* Plan expiry date badge */}
+                                                                            <span className={cn(
+                                                                                'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold',
+                                                                                planDetails.expiryTone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25',
+                                                                                planDetails.expiryTone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25',
+                                                                                planDetails.expiryTone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25',
+                                                                                planDetails.expiryTone === 'neutral' && 'bg-muted/60 text-muted-foreground border border-border/60'
+                                                                            )}>
+                                                                                <Calendar className="h-3 w-3 shrink-0" />
+                                                                                {planDetails.expiryLabel}
+                                                                            </span>
+
+                                                                            {/* Token health status */}
+                                                                            <span className={cn(
+                                                                                'inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold',
+                                                                                tokenValidity.tone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
+                                                                                tokenValidity.tone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20',
+                                                                                tokenValidity.tone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20',
+                                                                                tokenValidity.tone === 'neutral' && 'bg-muted text-muted-foreground'
+                                                                            )}>
+                                                                                Token: {tokenValidity.label}
+                                                                            </span>
+                                                                        </div>
+
+                                                                        <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                                                                            <span className={cn(
+                                                                                'inline-block h-2 w-2 rounded-full',
+                                                                                isAdminActive ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-rose-500 ring-4 ring-rose-500/20'
+                                                                            )} />
+                                                                            <span className="font-medium">
+                                                                                {!isAdminActive ? 'Admin Inactive' : !isUserActive ? 'User Inactive' : 'Active and syncing'}
+                                                                            </span>
+                                                                            {acc.allocated_monthly_credits ? (
+                                                                                <>
+                                                                                    <span className="text-border">•</span>
+                                                                                    <span>{Number(acc.allocated_monthly_credits).toLocaleString()} actions/mo</span>
+                                                                                </>
+                                                                            ) : null}
+                                                                            {acc.billing_cycle ? (
+                                                                                <>
+                                                                                    <span className="text-border">•</span>
+                                                                                    <span className="capitalize">{acc.billing_cycle}</span>
+                                                                                </>
+                                                                            ) : null}
+                                                                            {acc.plan_price !== undefined && acc.plan_price !== null && (
+                                                                                <>
+                                                                                    <span className="text-border">•</span>
+                                                                                    <span>₹{Number(acc.plan_price).toLocaleString()}</span>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
-                                                                    <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
-                                                                        <span className={cn(
-                                                                            'inline-block h-1.5 w-1.5 rounded-full',
-                                                                            isAdminActive ? 'bg-emerald-500' : 'bg-rose-500'
-                                                                        )} />
-                                                                        <span>
-                                                                            {!isAdminActive ? 'Admin Inactive' : !isUserActive ? 'User Inactive' : 'Active and syncing'}
-                                                                        </span>
-                                                                        {acc.allocated_monthly_credits ? (
-                                                                            <>
-                                                                                <span className="text-border">•</span>
-                                                                                <span>{Number(acc.allocated_monthly_credits).toLocaleString()} actions/mo</span>
-                                                                            </>
-                                                                        ) : null}
-                                                                        {acc.billing_cycle ? (
-                                                                            <>
-                                                                                <span className="text-border">•</span>
-                                                                                <span className="capitalize">{acc.billing_cycle}</span>
-                                                                            </>
-                                                                        ) : null}
-                                                                        {acc.plan_price !== undefined && acc.plan_price !== null && (
-                                                                            <>
-                                                                                <span className="text-border">•</span>
-                                                                                <span>₹{Number(acc.plan_price).toLocaleString()}</span>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
                                                                 </div>
-                                                            </div>
 
-                                                            {/* Right Controls: Active Switch Toggle + Delete Button (NO PLAN DROPDOWN!) */}
-                                                            <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
-                                                                {/* Interactive Active / Inactive Toggle Switch */}
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className={cn(
-                                                                        "text-xs font-semibold select-none",
-                                                                        isAdminActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
-                                                                    )}>
-                                                                        {isAdminActive ? "Active" : "Inactive"}
-                                                                    </span>
+                                                                {/* Right Controls: Active Switch Toggle + Delete Button (NO PLAN DROPDOWN) */}
+                                                                <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
+                                                                    {/* Interactive Active / Inactive Toggle Switch */}
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={cn(
+                                                                            "text-xs font-semibold select-none",
+                                                                            isAdminActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+                                                                        )}>
+                                                                            {isAdminActive ? "Active" : "Inactive"}
+                                                                        </span>
+                                                                        <button
+                                                                            type="button"
+                                                                            role="switch"
+                                                                            aria-checked={isAdminActive}
+                                                                            disabled={accountToggleLoadingId === acc.$id}
+                                                                            onClick={() => void toggleInstagramAccountAccess(acc)}
+                                                                            className={cn(
+                                                                                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50",
+                                                                                isAdminActive ? "bg-emerald-500" : "bg-muted-foreground/30"
+                                                                            )}
+                                                                            title={isAdminActive ? "Click to deactivate Instagram account" : "Click to activate Instagram account"}
+                                                                        >
+                                                                            <span
+                                                                                className={cn(
+                                                                                    "pointer-events-none flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out",
+                                                                                    isAdminActive ? "translate-x-5" : "translate-x-0"
+                                                                                )}
+                                                                            >
+                                                                                {accountToggleLoadingId === acc.$id ? (
+                                                                                    <Loader2 className="h-3 w-3 animate-spin text-zinc-600" />
+                                                                                ) : null}
+                                                                            </span>
+                                                                        </button>
+                                                                    </div>
+
+                                                                    {/* Delete IG Account Action */}
                                                                     <button
                                                                         type="button"
-                                                                        role="switch"
-                                                                        aria-checked={isAdminActive}
+                                                                        onClick={() => {
+                                                                            setPendingDeleteInstagramAccount(acc);
+                                                                            setDeleteInstagramConfirmText('');
+                                                                            setShowDeleteInstagramDialog(true);
+                                                                        }}
                                                                         disabled={accountToggleLoadingId === acc.$id}
-                                                                        onClick={() => void toggleInstagramAccountAccess(acc)}
-                                                                        className={cn(
-                                                                            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50",
-                                                                            isAdminActive ? "bg-emerald-500" : "bg-muted-foreground/30"
-                                                                        )}
-                                                                        title={isAdminActive ? "Click to deactivate Instagram account" : "Click to activate Instagram account"}
+                                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20 transition disabled:opacity-50"
+                                                                        title="Permanently remove Instagram account"
                                                                     >
-                                                                        <span
-                                                                            className={cn(
-                                                                                "pointer-events-none flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out",
-                                                                                isAdminActive ? "translate-x-5" : "translate-x-0"
-                                                                            )}
-                                                                        >
-                                                                            {accountToggleLoadingId === acc.$id ? (
-                                                                                <Loader2 className="h-3 w-3 animate-spin text-zinc-600" />
-                                                                            ) : null}
-                                                                        </span>
+                                                                        <Trash2 className="h-3.5 w-3.5" />
                                                                     </button>
                                                                 </div>
-
-                                                                {/* Delete Account */}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setPendingDeleteInstagramAccount(acc);
-                                                                        setDeleteInstagramConfirmText('');
-                                                                        setShowDeleteInstagramDialog(true);
-                                                                    }}
-                                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20 transition"
-                                                                    title="Delete Instagram Account"
-                                                                >
-                                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                                </button>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })
+                                                        );
+                                                    })}
+                                                </div>
                                             )}
                                         </div>
                                     )}
@@ -1651,7 +1759,8 @@ export const UsersPage: React.FC = () => {
                             )}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Confirm Dialog: Ban User */}

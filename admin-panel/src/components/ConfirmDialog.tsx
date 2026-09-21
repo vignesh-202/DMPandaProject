@@ -59,28 +59,19 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
     if (!open) return null;
 
-    const overlayRoot = typeof document !== 'undefined'
-        ? document.querySelector('[data-admin-section-overlay-root]') as HTMLElement | null
-        : null;
-    const useSectionOverlay = Boolean(overlayRoot);
-
     const toneConfig = toneStyles[tone];
     const Icon = toneConfig.icon;
 
     const modal = (
-        <div className={cn(
-            useSectionOverlay
-                ? 'pointer-events-auto absolute inset-0 z-[220] flex items-center justify-center p-4'
-                : 'pointer-events-auto fixed inset-0 z-[220] flex items-center justify-center p-4'
-        )}>
+        <div className="pointer-events-auto fixed inset-0 z-[10000] flex items-center justify-center p-4">
             <button
                 type="button"
                 aria-label="Close confirmation dialog"
                 disabled={loading}
-                className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/80 backdrop-blur-md"
                 onClick={onCancel}
             />
-            <div className="ig-topline relative z-[221] w-full max-w-lg overflow-hidden rounded-[30px] border border-border/70 bg-card/95 shadow-[0_32px_80px_-28px_rgba(15,23,42,0.55)] backdrop-blur-xl">
+            <div className="ig-topline relative z-[10001] w-full max-w-lg overflow-hidden rounded-[30px] border border-border/70 bg-card/95 shadow-[0_32px_80px_-28px_rgba(15,23,42,0.55)] backdrop-blur-xl">
                 <button
                     type="button"
                     onClick={onCancel}
@@ -128,7 +119,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </div>
     );
 
-    return createPortal(modal, overlayRoot || document.body);
+    return createPortal(modal, document.body);
 };
 
 export default ConfirmDialog;
