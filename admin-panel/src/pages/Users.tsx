@@ -124,8 +124,14 @@ const InstagramAccountAvatar: React.FC<{
     avatarUrl?: string | null;
     size?: 'sm' | 'md' | 'lg';
 }> = ({ username = '', avatarUrl, size = 'md' }) => {
-    const [imgError, setImgError] = useState(false);
+    const [useProxy, setUseProxy] = useState(false);
+    const [imgFailed, setImgFailed] = useState(false);
     const initial = (username.replace(/^@/, '').trim().charAt(0) || 'I').toUpperCase();
+
+    useEffect(() => {
+        setUseProxy(false);
+        setImgFailed(false);
+    }, [avatarUrl]);
 
     const dimClasses = size === 'lg' ? 'h-13 w-13 text-base' : size === 'sm' ? 'h-8 w-8 text-xs' : 'h-11 w-11 text-sm';
     const badgeDim = size === 'lg' ? 'h-4 w-4' : size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5';
@@ -133,13 +139,21 @@ const InstagramAccountAvatar: React.FC<{
 
     const rawUrl = avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim().length > 5 ? avatarUrl.trim() : null;
     const apiBase = String(((globalThis as any).__DM_PANDA_ADMIN_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL) || '').trim().replace(/\/+$/, '');
-    const cleanUrl = useMemo(() => {
-        if (!rawUrl) return null;
-        if (/(?:cdninstagram\.com|fbcdn\.net)/i.test(rawUrl) && apiBase) {
-            return `${apiBase}/api/instagram/media-proxy?url=${encodeURIComponent(rawUrl)}`;
+
+    // 1. Direct CDN URL first with referrerPolicy="no-referrer"
+    // 2. If direct CDN fails (e.g. CORS/referrer/token block), fallback to admin media proxy
+    // 3. If proxy also fails, mark imgFailed = true to show the stylized gradient initial
+    const currentSrc = useProxy && rawUrl && apiBase
+        ? `${apiBase}/api/admin/media-proxy?url=${encodeURIComponent(rawUrl)}`
+        : rawUrl;
+
+    const handleImageError = () => {
+        if (!useProxy && rawUrl && apiBase) {
+            setUseProxy(true);
+        } else {
+            setImgFailed(true);
         }
-        return rawUrl;
-    }, [rawUrl, apiBase]);
+    };
 
     return (
         <div className="relative shrink-0 select-none">
@@ -147,13 +161,13 @@ const InstagramAccountAvatar: React.FC<{
                 "relative overflow-hidden rounded-2xl border border-border/80 shadow-2xs bg-muted flex items-center justify-center font-bold transition-transform duration-200 group-hover:scale-105",
                 dimClasses
             )}>
-                {cleanUrl && !imgError ? (
+                {currentSrc && !imgFailed ? (
                     <img
-                        src={cleanUrl}
+                        key={currentSrc}
+                        src={currentSrc}
                         alt={username}
                         referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
-                        onError={() => setImgError(true)}
+                        onError={handleImageError}
                         className="h-full w-full object-cover rounded-2xl"
                     />
                 ) : (
@@ -1329,7 +1343,7 @@ export const UsersPage: React.FC = () => {
                                                                     <div className="flex flex-wrap items-center gap-2.5 min-w-0">
                                                                         <InstagramAccountAvatar
                                                                             username={acc.username || acc.ig_user_id || acc.account_id}
-                                                                            avatarUrl={acc.profile_picture_url || acc.avatar_url || acc.profile_pic}
+                                                                            avatarUrl={acc.profile_picture_url || acc.avatar_url || acc.profile_pic || acc.profile_picture || acc.profile_picture_url_hd}
                                                                             size="sm"
                                                                         />
                                                                         <span className="font-bold text-foreground truncate">
@@ -1530,7 +1544,7 @@ export const UsersPage: React.FC = () => {
                                                         const isUserActive = String(acc.status || 'active').trim().toLowerCase() === 'active';
                                                         const tokenValidity = getInstagramTokenValidity(acc.token_expires_at);
                                                         const planDetails = getAccountPlanDetails(acc, detailData, pricingPlans);
-                                                        const dpUrl = acc.profile_picture_url || acc.avatar_url || acc.profile_pic;
+                                                        const dpUrl = acc.profile_picture_url || acc.avatar_url || acc.profile_pic || acc.profile_picture || acc.profile_picture_url_hd;
 
                                                         return (
                                                             <div

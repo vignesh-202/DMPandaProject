@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const axios = require('axios');
 const express = require('express');
 const { Databases, Query, Users, ID } = require('node-appwrite');
 const { loginRequired } = require('../middleware/auth');
@@ -2919,6 +2920,53 @@ router.get('/cluster/stream', loginRequired, adminRequired, async (req, res) => 
         error: 'Streamer node unavailable'
     })}\n\n`);
     res.end();
+});
+
+router.get('/media-proxy', async (req, res) => {
+    const mediaUrl = String(req.query.url || '').trim();
+    if (!mediaUrl) {
+        return res.status(400).json({ error: 'url is required' });
+    }
+
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(mediaUrl);
+    } catch (_) {
+        return res.status(400).json({ error: 'Invalid media URL.' });
+    }
+
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const isAllowedHost =
+        hostname === 'lookaside.fbsbx.com' ||
+        hostname.endsWith('.lookaside.fbsbx.com') ||
+        hostname === 'scontent.cdninstagram.com' ||
+        hostname.endsWith('.cdninstagram.com') ||
+        hostname === 'fbcdn.net' ||
+        hostname.endsWith('.fbcdn.net') ||
+        hostname === 'instagram.com' ||
+        hostname.endsWith('.instagram.com');
+
+    if (!isAllowedHost) {
+        return res.status(400).json({ error: 'Unsupported media host.' });
+    }
+
+    try {
+        const response = await axios.get(mediaUrl, {
+            responseType: 'arraybuffer',
+            timeout: 15000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+            }
+        });
+
+        res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.status(200).send(Buffer.from(response.data));
+    } catch (err) {
+        const status = Number(err?.response?.status || 502);
+        return res.status(status).json({ error: 'Failed to proxy media.' });
+    }
 });
 
 module.exports = router;
