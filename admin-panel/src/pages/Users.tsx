@@ -339,7 +339,7 @@ const deriveSubscriptionSummary = (payload: any, previous: any = null) => {
     };
 };
 
-type ModalTab = 'plan' | 'instagram' | 'moderation' | 'danger';
+type ModalTab = 'instagram' | 'moderation' | 'danger';
 
 export const UsersPage: React.FC = () => {
     const navigate = useNavigate();
@@ -370,19 +370,13 @@ export const UsersPage: React.FC = () => {
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailData, setDetailData] = useState<any>(null);
 
-    // Plan assignment state for the user popup
-    const [selectedPlanCode, setSelectedPlanCode] = useState<string>('free');
-    const [durationMode, setDurationMode] = useState<'monthly' | 'yearly' | 'custom'>('monthly');
-    const [customExpiryDate, setCustomExpiryDate] = useState<string>('');
-    const [savingPlan, setSavingPlan] = useState(false);
-
     // Moderation state
     const [banMode, setBanMode] = useState<'none' | 'soft' | 'hard'>('none');
     const [banReason, setBanReason] = useState('');
     const [savingBan, setSavingBan] = useState(false);
 
     // Modal UI states
-    const [activeTab, setActiveTab] = useState<ModalTab>('plan');
+    const [activeTab, setActiveTab] = useState<ModalTab>('instagram');
     const [accountToggleLoadingId, setAccountToggleLoadingId] = useState<string | null>(null);
     const [openingDashboard, setOpeningDashboard] = useState(false);
     const [isDeletingUser, setIsDeletingUser] = useState(false);
@@ -464,16 +458,6 @@ export const UsersPage: React.FC = () => {
             setBanMode(String(data?.user?.ban_mode || 'none') as 'none' | 'soft' | 'hard');
             setBanReason(data?.user?.ban_reason || '');
 
-            // Initialize plan state
-            const currentPlan = String(data?.profile?.plan_code || data?.effective_plan?.plan_code || 'free').trim().toLowerCase();
-            setSelectedPlanCode(currentPlan);
-            setDurationMode('monthly');
-            if (data?.profile?.expiry_date) {
-                const d = new Date(data.profile.expiry_date);
-                if (!Number.isNaN(d.getTime())) {
-                    setCustomExpiryDate(d.toISOString().slice(0, 16));
-                }
-            }
         } catch (error) {
             console.error('Error loading user detail:', error);
             setErrorMessage('Failed to load user details.');
@@ -556,45 +540,6 @@ export const UsersPage: React.FC = () => {
         });
     };
 
-    // Update Plan of the User
-    const handleUpdateUserPlan = async () => {
-        if (!selectedUser) return;
-        setSavingPlan(true);
-        setErrorMessage(null);
-        try {
-            const response = await httpClient.patch(`/api/admin/users/${selectedUser.$id}/profile`, {
-                action: 'change_assigned_plan',
-                plan_code: selectedPlanCode,
-                duration_mode: durationMode,
-                custom_expiry_date: durationMode === 'custom' && customExpiryDate ? new Date(customExpiryDate).toISOString() : null
-            });
-
-            const result = response.data?.data || response.data || {};
-            mergeDetailData(result);
-
-            // Update user row in table state
-            setUsers((prev) => prev.map((entry) => {
-                if (entry.$id === selectedUser.$id) {
-                    return {
-                        ...entry,
-                        profile: {
-                            ...(entry.profile || {}),
-                            plan_code: selectedPlanCode,
-                            expiry_date: result?.profile?.expiry_date || result?.expiry_date || entry.profile?.expiry_date
-                        }
-                    };
-                }
-                return entry;
-            }));
-
-            setNotice(`User plan updated to ${selectedPlanCode.toUpperCase()}.`);
-        } catch (error: any) {
-            console.error('Failed to update user plan:', error);
-            setErrorMessage(error?.response?.data?.error || 'Failed to update user plan.');
-        } finally {
-            setSavingPlan(false);
-        }
-    };
 
     // Moderation
     const saveBan = async () => {
@@ -769,42 +714,6 @@ export const UsersPage: React.FC = () => {
         setSearchInput('');
     };
 
-    // Compute preview limits for the selected plan
-    const selectedPlanPreview = useMemo(() => {
-        const found = pricingPlans.find(
-            (p) => String(p.plan_code || p.id).trim().toLowerCase() === selectedPlanCode.toLowerCase()
-        );
-        if (found) return found;
-        if (selectedPlanCode === 'free') {
-            return {
-                id: 'free',
-                name: 'Free Plan',
-                plan_code: 'free',
-                actions_per_hour_limit: 100,
-                actions_per_day_limit: 1000,
-                actions_per_month_limit: 25000,
-                instagram_connections_limit: 1
-            };
-        }
-        return detailData?.effective_plan || null;
-    }, [pricingPlans, selectedPlanCode, detailData?.effective_plan]);
-
-    const isHourlyUnlimited = useMemo(() => {
-        const val = selectedPlanPreview?.actions_per_hour_limit ?? detailData?.effective_limits?.actions_per_hour_limit ?? 100;
-        return Number(val) <= 0 || String(val).toLowerCase() === 'unlimited';
-    }, [selectedPlanPreview, detailData?.effective_limits]);
-
-    const isDailyUnlimited = useMemo(() => {
-        const val = selectedPlanPreview?.actions_per_day_limit ?? detailData?.effective_limits?.actions_per_day_limit ?? 1000;
-        return Number(val) <= 0 || String(val).toLowerCase() === 'unlimited';
-    }, [selectedPlanPreview, detailData?.effective_limits]);
-
-    const isMonthlyUnlimited = useMemo(() => {
-        const val = selectedPlanPreview?.actions_per_month_limit ?? detailData?.effective_limits?.actions_per_month_limit ?? 25000;
-        return Number(val) <= 0 || String(val).toLowerCase() === 'unlimited';
-    }, [selectedPlanPreview, detailData?.effective_limits]);
-
-    const allowedAccountsCount = selectedPlanPreview?.instagram_connections_limit ?? detailData?.effective_limits?.active_account_limit ?? 1;
 
     // Metrics
     const metrics = useMemo(() => {
@@ -1145,7 +1054,7 @@ export const UsersPage: React.FC = () => {
             {/* User Profile Detail Popup / Modal */}
             {userId && typeof document !== 'undefined' && createPortal(
                 <div
-                    className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+                    className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md overflow-hidden animate-in fade-in duration-200"
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="user-profile-modal-title"
@@ -1156,16 +1065,17 @@ export const UsersPage: React.FC = () => {
                         aria-label="Close modal backdrop"
                         onClick={closeModal}
                     />
-                    <div className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-[28px] border border-border/80 bg-card text-card-foreground shadow-[0_25px_70px_rgba(0,0,0,0.65)] flex flex-col animate-in zoom-in-95 duration-200">
+                    <div className="relative z-10 w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl lg:max-w-3xl max-h-[92vh] sm:max-h-[88vh] overflow-hidden rounded-2xl sm:rounded-[28px] border border-border/80 bg-card text-card-foreground shadow-[0_25px_70px_rgba(0,0,0,0.65)] flex flex-col animate-in zoom-in-95 duration-200">
                         {/* Modal Top Bar */}
-                        <div className="flex items-center justify-between border-b border-border/70 px-6 py-3.5 bg-muted/25 backdrop-blur-sm">
+                        <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 sm:px-6 sm:py-3.5 bg-muted/25 backdrop-blur-sm gap-2 shrink-0">
                             <button
                                 type="button"
                                 onClick={closeModal}
                                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground px-2.5 py-1.5 rounded-xl hover:bg-muted/60"
                             >
                                 <ArrowLeft className="h-3.5 w-3.5" />
-                                Back to Users
+                                <span className="hidden sm:inline">Back to Users</span>
+                                <span className="sm:hidden">Back</span>
                             </button>
                             <div className="flex items-center gap-2">
                                 <button
@@ -1190,14 +1100,14 @@ export const UsersPage: React.FC = () => {
                         </div>
 
                         {/* Modal Body */}
-                        <div className="custom-scrollbar overflow-y-auto p-6 space-y-5">
+                        <div className="custom-scrollbar overflow-y-auto p-3.5 sm:p-5 md:p-6 space-y-4 sm:space-y-5 flex-1">
                             {detailLoading ? (
-                                <AdminLoadingState title="Loading user profile" description="Fetching telemetry, plan details, and permissions." className="min-h-[260px]" />
+                                <AdminLoadingState title="Loading user profile" description="Fetching telemetry and permissions." className="min-h-[260px]" />
                             ) : (
                                 <>
                                     {/* User Overview Hero Header */}
-                                    <div className="rounded-2xl border border-border/70 bg-gradient-to-b from-muted/40 via-muted/15 to-transparent p-4 sm:p-5">
-                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="rounded-2xl border border-border/70 bg-gradient-to-b from-muted/40 via-muted/15 to-transparent p-3.5 sm:p-5">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                             <div className="flex items-center gap-3.5 min-w-0">
                                                 <div className="relative shrink-0">
                                                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#833AB4] via-[#FD1D1D] to-[#F56040] p-[2px] shadow-sm">
@@ -1233,10 +1143,6 @@ export const UsersPage: React.FC = () => {
                                             </div>
 
                                             <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
-                                                <span className="inline-flex items-center gap-1 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-primary shadow-2xs">
-                                                    <Sparkles className="h-3 w-3" />
-                                                    {String(detailData?.profile?.plan_code || selectedUser?.profile?.plan_code || 'free')}
-                                                </span>
                                                 <span className={cn(
                                                     'status-pill text-[10px] font-bold py-1 px-2.5',
                                                     (detailData?.user?.ban_mode || selectedUser?.ban_mode) === 'hard'
@@ -1252,10 +1158,9 @@ export const UsersPage: React.FC = () => {
                                     </div>
 
                                     {/* Navigation Tabs for Popup */}
-                                    <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border/60 pb-2">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar scroll-smooth border-b border-border/60 pb-2 shrink-0">
                                         {[
                                             { id: 'instagram', label: `IG Accounts (${(detailData?.instagram_accounts || []).length})`, icon: Instagram },
-                                            { id: 'plan', label: 'User Plan & Quotas', icon: Sparkles },
                                             { id: 'moderation', label: 'Moderation', icon: Shield },
                                             { id: 'danger', label: 'Danger Zone', icon: Trash2 }
                                         ].map(({ id, label, icon: Icon }) => (
@@ -1264,7 +1169,7 @@ export const UsersPage: React.FC = () => {
                                                 type="button"
                                                 onClick={() => setActiveTab(id as ModalTab)}
                                                 className={cn(
-                                                    'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all whitespace-nowrap',
+                                                    'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all whitespace-nowrap min-h-[36px] touch-manipulation',
                                                     activeTab === id
                                                         ? 'bg-primary/15 text-primary border border-primary/25 shadow-2xs'
                                                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -1287,258 +1192,6 @@ export const UsersPage: React.FC = () => {
                                             <div className="flex items-center gap-2">
                                                 {errorMessage ? <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> : <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
                                                 <span>{errorMessage || notice}</span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* TAB 1: USER PLAN & QUOTAS */}
-                                    {activeTab === 'plan' && (
-                                        <div className="space-y-4">
-                                            {/* Current Plan Overview Card */}
-                                            <div className="rounded-2xl border border-border/80 bg-background/60 p-4 space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Current Active Plan</span>
-                                                        <h3 className="text-base font-black text-foreground capitalize mt-0.5">
-                                                            {detailData?.profile?.plan_code || 'free'} Plan
-                                                        </h3>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Expiry Date</span>
-                                                        <p className="text-xs font-bold text-foreground mt-0.5">
-                                                            {formatExpiryLabel(detailData?.profile?.expiry_date)}
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-border/50 text-xs">
-                                                    <div>
-                                                        <span className="text-[10px] text-muted-foreground">Plan Source</span>
-                                                        <p className="font-semibold text-foreground capitalize">{detailData?.profile?.plan_source || 'System'}</p>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-[10px] text-muted-foreground">Status</span>
-                                                        <p className={cn(
-                                                            "font-semibold capitalize",
-                                                            detailData?.subscription_summary?.derived_status === 'active'
-                                                                ? "text-emerald-600 dark:text-emerald-400"
-                                                                : "text-muted-foreground"
-                                                        )}>
-                                                            {detailData?.subscription_summary?.derived_status || 'Active'}
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-[10px] text-muted-foreground">Linked IG Limit</span>
-                                                        <p className="font-semibold text-foreground">{allowedAccountsCount} Account(s)</p>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-[10px] text-muted-foreground">Total Transactions</span>
-                                                        <p className="font-semibold text-foreground">{detailData?.total_transactions ?? 0}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Linked Instagram Accounts & Their Plans Overview */}
-                                            <div className="rounded-2xl border border-border/80 bg-background/60 p-4 space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <h4 className="text-xs font-bold text-foreground">Instagram Accounts & Assigned Plans</h4>
-                                                        <p className="text-[11px] text-muted-foreground">Plan assigned per Instagram account</p>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setActiveTab('instagram')}
-                                                        className="text-xs text-primary font-semibold hover:underline"
-                                                    >
-                                                        Manage in IG Accounts →
-                                                    </button>
-                                                </div>
-
-                                                {(!detailData?.instagram_accounts || detailData.instagram_accounts.length === 0) ? (
-                                                    <p className="text-xs text-muted-foreground py-2 italic">No Instagram accounts linked to this user yet.</p>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        {detailData.instagram_accounts.map((acc: any) => {
-                                                            const planDetails = getAccountPlanDetails(acc, detailData, pricingPlans);
-                                                            const isAdminActive = String(acc.admin_status || 'active').trim().toLowerCase() === 'active';
-
-                                                            return (
-                                                                <div
-                                                                    key={acc.$id}
-                                                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-border/60 bg-card/60 p-3 text-xs"
-                                                                >
-                                                                    <div className="flex flex-wrap items-center gap-2.5 min-w-0">
-                                                                        <InstagramAccountAvatar
-                                                                            username={acc.username || acc.ig_user_id || acc.account_id}
-                                                                            avatarUrl={acc.profile_picture_url || acc.avatar_url || acc.profile_pic || acc.profile_picture || acc.profile_picture_url_hd}
-                                                                            size="sm"
-                                                                        />
-                                                                        <span className="font-bold text-foreground truncate">
-                                                                            @{acc.username || acc.ig_user_id || acc.account_id}
-                                                                        </span>
-                                                                        {/* Plan badge beside IG account */}
-                                                                        <span className={cn(
-                                                                            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold capitalize',
-                                                                            planDetails.isPaid && !planDetails.isExpired
-                                                                                ? 'border border-primary/30 bg-primary/10 text-primary'
-                                                                                : planDetails.isExpired
-                                                                                ? 'border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                                                                : 'border border-border/80 bg-muted text-muted-foreground'
-                                                                        )}>
-                                                                            <Sparkles className="h-2.5 w-2.5" />
-                                                                            {planDetails.planName}
-                                                                        </span>
-                                                                        {/* Expiry badge beside IG account */}
-                                                                        <span className={cn(
-                                                                            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium',
-                                                                            planDetails.expiryTone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25',
-                                                                            planDetails.expiryTone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25',
-                                                                            planDetails.expiryTone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25',
-                                                                            planDetails.expiryTone === 'neutral' && 'bg-muted/60 text-muted-foreground border border-border/60'
-                                                                        )}>
-                                                                            <Calendar className="h-2.5 w-2.5" />
-                                                                            {planDetails.expiryLabel}
-                                                                        </span>
-                                                                    </div>
-
-                                                                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                                                                        <span className={cn(
-                                                                            'status-pill text-[10px] py-0.5 px-2 font-bold',
-                                                                            isAdminActive ? 'status-pill-success' : 'status-pill-danger'
-                                                                        )}>
-                                                                            {isAdminActive ? 'Active' : 'Inactive'}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Assign / Change User Plan Form */}
-                                            <div className="rounded-2xl border border-border/80 bg-background/60 p-4 space-y-4">
-                                                <div className="flex items-center justify-between">
-                                                    <h4 className="text-xs font-bold text-foreground">Change User Plan</h4>
-                                                    <span className="text-[10px] text-muted-foreground">Admin overrides take effect immediately</span>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                    <div>
-                                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Select Plan</label>
-                                                        <select
-                                                            value={selectedPlanCode}
-                                                            onChange={(e) => setSelectedPlanCode(e.target.value)}
-                                                            className="input-base h-9 text-xs font-medium cursor-pointer"
-                                                        >
-                                                            <option value="free">Free Plan</option>
-                                                            {pricingPlans
-                                                                .filter((p) => String(p.plan_code || p.id).trim().toLowerCase() !== 'free')
-                                                                .map((p) => (
-                                                                    <option key={p.id} value={p.plan_code || p.id}>{p.name}</option>
-                                                                ))}
-                                                        </select>
-                                                    </div>
-
-                                                    <div>
-                                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Plan Duration</label>
-                                                        <select
-                                                            value={durationMode}
-                                                            onChange={(e) => setDurationMode(e.target.value as any)}
-                                                            className="input-base h-9 text-xs font-medium cursor-pointer"
-                                                        >
-                                                            <option value="monthly">Monthly (30 Days)</option>
-                                                            <option value="yearly">Yearly (365 Days)</option>
-                                                            <option value="lifetime">Lifetime (No Expiry)</option>
-                                                            <option value="custom">Custom Date</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-
-                                                {durationMode === 'custom' && (
-                                                    <div>
-                                                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Custom Expiry Date & Time</label>
-                                                        <input
-                                                            type="datetime-local"
-                                                            value={customExpiryDate}
-                                                            onChange={(e) => setCustomExpiryDate(e.target.value)}
-                                                            className="input-base h-9 text-xs"
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                {/* Plan Quotas & Entitlements Preview */}
-                                                <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">New Plan Entitlements</span>
-                                                        <span className="text-xs font-bold text-primary capitalize">{selectedPlanPreview?.name || selectedPlanCode}</span>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                                                        {/* Hourly Quota */}
-                                                        <div className="rounded-lg bg-card p-2 border border-border/50">
-                                                            <span className="text-[10px] text-muted-foreground block">Hourly Limit</span>
-                                                            <p className="mt-0.5 text-xs font-bold text-foreground">
-                                                                {isHourlyUnlimited ? (
-                                                                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                                                        <Zap className="h-3 w-3" />
-                                                                        Unlimited
-                                                                    </span>
-                                                                ) : (
-                                                                    `${selectedPlanPreview?.actions_per_hour_limit ?? 25} / hr`
-                                                                )}
-                                                            </p>
-                                                        </div>
-
-                                                        {/* Daily Quota */}
-                                                        <div className="rounded-lg bg-card p-2 border border-border/50">
-                                                            <span className="text-[10px] text-muted-foreground block">Daily Limit</span>
-                                                            <p className="mt-0.5 text-xs font-bold text-foreground">
-                                                                {isDailyUnlimited ? (
-                                                                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                                                        <Zap className="h-3 w-3" />
-                                                                        Unlimited
-                                                                    </span>
-                                                                ) : (
-                                                                    `${selectedPlanPreview?.actions_per_day_limit ?? 100} / day`
-                                                                )}
-                                                            </p>
-                                                        </div>
-
-                                                        {/* Monthly Quota */}
-                                                        <div className="rounded-lg bg-card p-2 border border-border/50">
-                                                            <span className="text-[10px] text-muted-foreground block">Monthly Limit</span>
-                                                            <p className="mt-0.5 text-xs font-bold text-foreground">
-                                                                {isMonthlyUnlimited ? (
-                                                                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                                                        <Zap className="h-3 w-3" />
-                                                                        Unlimited
-                                                                    </span>
-                                                                ) : (
-                                                                    `${Number(selectedPlanPreview?.actions_per_month_limit ?? 25000).toLocaleString()} / mo`
-                                                                )}
-                                                            </p>
-                                                        </div>
-
-                                                        {/* Max Connected Accounts */}
-                                                        <div className="rounded-lg bg-card p-2 border border-border/50">
-                                                            <span className="text-[10px] text-muted-foreground block">Max IG Links</span>
-                                                            <p className="mt-0.5 text-xs font-bold text-foreground">
-                                                                {allowedAccountsCount} Account{allowedAccountsCount === 1 ? '' : 's'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={handleUpdateUserPlan}
-                                                    disabled={savingPlan}
-                                                    className="btn-primary inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold shadow-xs disabled:opacity-60"
-                                                >
-                                                    {savingPlan ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                                                    Update User Plan
-                                                </button>
                                             </div>
                                         </div>
                                     )}
@@ -1835,7 +1488,7 @@ export const UsersPage: React.FC = () => {
                                                 Enforce security constraints or suspend user access for compliance review.
                                             </p>
 
-                                            <div className="grid grid-cols-3 gap-2">
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
                                                 {[
                                                     { mode: 'none', label: 'Clear', desc: 'Full active platform access' },
                                                     { mode: 'soft', label: 'Soft Ban', desc: 'Read-only dashboard access' },
