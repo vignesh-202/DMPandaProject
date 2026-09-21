@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
     AlertTriangle,
     ArrowLeft,
+    Calendar,
     Check,
     CheckCircle2,
     ChevronLeft,
@@ -114,6 +115,96 @@ const getInstagramTokenValidity = (value?: string | null) => {
         tone: 'success' as const,
         label: 'Healthy',
         detail: `${diffDays} days remaining`
+    };
+};
+
+const getAccountPlanDetails = (acc: any, detailData: any, pricingPlans: PricingPlanOption[]) => {
+    const rawPlanCode = String(
+        acc?.plan_code ||
+        acc?.plan_name ||
+        detailData?.profile?.plan_code ||
+        detailData?.effective_plan?.plan_code ||
+        'free'
+    ).trim().toLowerCase();
+
+    const matchedPlan = pricingPlans.find(
+        (p) => (p.plan_code || p.id || '').toLowerCase() === rawPlanCode
+    );
+
+    const isPaid = rawPlanCode !== 'free';
+    const planName = matchedPlan?.name || (rawPlanCode && rawPlanCode !== 'free'
+        ? rawPlanCode.charAt(0).toUpperCase() + rawPlanCode.slice(1) + ' Plan'
+        : 'Free Plan');
+
+    // Resolve expiry date: account-specific expires_at, or user profile expiry if inherited
+    const rawExpiry = acc?.expires_at || (isPaid ? (detailData?.profile?.expiry_date || detailData?.subscription_summary?.expiry_date) : null);
+    const parsedExpiry = rawExpiry ? new Date(rawExpiry) : null;
+    const isValidDate = Boolean(parsedExpiry && !Number.isNaN(parsedExpiry.getTime()));
+
+    if (!isPaid) {
+        return {
+            planCode: rawPlanCode,
+            planName: 'Free Plan',
+            isPaid: false,
+            expiresAt: null,
+            isExpired: false,
+            expiryLabel: 'Lifetime / Free Tier',
+            expiryTone: 'neutral' as const
+        };
+    }
+
+    if (!isValidDate || !parsedExpiry) {
+        return {
+            planCode: rawPlanCode,
+            planName,
+            isPaid: true,
+            expiresAt: null,
+            isExpired: false,
+            expiryLabel: 'No Expiry Set',
+            expiryTone: 'neutral' as const
+        };
+    }
+
+    const diffMs = parsedExpiry.getTime() - Date.now();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const formattedDate = parsedExpiry.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+
+    if (diffMs <= 0) {
+        return {
+            planCode: rawPlanCode,
+            planName,
+            isPaid: true,
+            expiresAt: parsedExpiry.toISOString(),
+            isExpired: true,
+            expiryLabel: `Expired ${formattedDate}`,
+            expiryTone: 'danger' as const
+        };
+    }
+
+    if (diffDays <= 7) {
+        return {
+            planCode: rawPlanCode,
+            planName,
+            isPaid: true,
+            expiresAt: parsedExpiry.toISOString(),
+            isExpired: false,
+            expiryLabel: `Expires in ${diffDays}d (${formattedDate})`,
+            expiryTone: 'warning' as const
+        };
+    }
+
+    return {
+        planCode: rawPlanCode,
+        planName,
+        isPaid: true,
+        expiresAt: parsedExpiry.toISOString(),
+        isExpired: false,
+        expiryLabel: `Expires ${formattedDate}`,
+        expiryTone: 'success' as const
     };
 };
 
@@ -460,45 +551,6 @@ export const UsersPage: React.FC = () => {
         } catch (error: any) {
             console.error('Failed to update Instagram account access:', error);
             setErrorMessage(error?.response?.data?.error || 'Failed to update Instagram account access.');
-        } finally {
-            setAccountToggleLoadingId(null);
-        }
-    };
-
-    // Update individual Instagram account plan
-    const handleUpdateAccountPlan = async (account: any, nextPlanCode: string) => {
-        if (!selectedUser || !account?.$id) return;
-        setAccountToggleLoadingId(account.$id);
-        setErrorMessage(null);
-        try {
-            const response = await httpClient.patch(`/api/admin/users/${selectedUser.$id}/instagram-accounts/${account.$id}`, {
-                plan_code: nextPlanCode
-            });
-            const result = response.data?.data || {};
-            if (Array.isArray(result?.instagram_accounts)) {
-                mergeDetailData(result);
-            } else {
-                setDetailData((prev: any) => {
-                    if (!prev) return prev;
-                    const currentAccounts = Array.isArray(prev.instagram_accounts) ? prev.instagram_accounts : [];
-                    return {
-                        ...prev,
-                        instagram_accounts: currentAccounts.map((entry: any) => (
-                            entry?.$id === account.$id
-                                ? {
-                                    ...entry,
-                                    plan_code: nextPlanCode,
-                                    plan_name: (pricingPlans.find((p) => (p.plan_code || p.id).toLowerCase() === nextPlanCode.toLowerCase())?.name) || nextPlanCode.toUpperCase()
-                                }
-                                : entry
-                        ))
-                    };
-                });
-            }
-            setNotice(`Plan for @${account.username || 'account'} updated to ${nextPlanCode.toUpperCase()}.`);
-        } catch (error: any) {
-            console.error('Failed to update account plan:', error);
-            setErrorMessage(error?.response?.data?.error || 'Failed to update account plan.');
         } finally {
             setAccountToggleLoadingId(null);
         }
@@ -1173,18 +1225,7 @@ export const UsersPage: React.FC = () => {
                                                 ) : (
                                                     <div className="space-y-2">
                                                         {detailData.instagram_accounts.map((acc: any) => {
-                                                            const accPlanCode = String(
-                                                                acc.plan_code || 
-                                                                acc.plan_name || 
-                                                                detailData?.profile?.plan_code || 
-                                                                detailData?.effective_plan?.plan_code || 
-                                                                'free'
-                                                            ).trim().toLowerCase();
-                                                            const matchedPlan = pricingPlans.find(
-                                                                (p) => (p.plan_code || p.id || '').toLowerCase() === accPlanCode
-                                                            );
-                                                            const accPlanName = matchedPlan?.name || (accPlanCode ? accPlanCode.charAt(0).toUpperCase() + accPlanCode.slice(1) : 'Free');
-                                                            const isPaid = accPlanCode !== 'free';
+                                                            const planDetails = getAccountPlanDetails(acc, detailData, pricingPlans);
                                                             const isAdminActive = String(acc.admin_status || 'active').trim().toLowerCase() === 'active';
 
                                                             return (
@@ -1200,30 +1241,29 @@ export const UsersPage: React.FC = () => {
                                                                         {/* Plan badge beside IG account */}
                                                                         <span className={cn(
                                                                             'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold capitalize',
-                                                                            isPaid
+                                                                            planDetails.isPaid && !planDetails.isExpired
                                                                                 ? 'border border-primary/30 bg-primary/10 text-primary'
+                                                                                : planDetails.isExpired
+                                                                                ? 'border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
                                                                                 : 'border border-border/80 bg-muted text-muted-foreground'
                                                                         )}>
                                                                             <Sparkles className="h-2.5 w-2.5" />
-                                                                            {accPlanName} Plan
+                                                                            {planDetails.planName}
+                                                                        </span>
+                                                                        {/* Expiry badge beside IG account */}
+                                                                        <span className={cn(
+                                                                            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium',
+                                                                            planDetails.expiryTone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25',
+                                                                            planDetails.expiryTone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25',
+                                                                            planDetails.expiryTone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25',
+                                                                            planDetails.expiryTone === 'neutral' && 'bg-muted/60 text-muted-foreground border border-border/60'
+                                                                        )}>
+                                                                            <Calendar className="h-2.5 w-2.5" />
+                                                                            {planDetails.expiryLabel}
                                                                         </span>
                                                                     </div>
 
                                                                     <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                                                                        <select
-                                                                            value={accPlanCode}
-                                                                            disabled={accountToggleLoadingId === acc.$id}
-                                                                            onChange={(e) => void handleUpdateAccountPlan(acc, e.target.value)}
-                                                                            className="input-base h-7 text-[11px] font-semibold py-0 px-2 cursor-pointer rounded-lg bg-background border-border/80"
-                                                                            title="Change account plan"
-                                                                        >
-                                                                            <option value="free">Free Plan</option>
-                                                                            {pricingPlans
-                                                                                .filter((p) => String(p.plan_code || p.id).trim().toLowerCase() !== 'free')
-                                                                                .map((p) => (
-                                                                                    <option key={p.id} value={p.plan_code || p.id}>{p.name}</option>
-                                                                                ))}
-                                                                        </select>
                                                                         <span className={cn(
                                                                             'status-pill text-[10px] py-0.5 px-2 font-bold',
                                                                             isAdminActive ? 'status-pill-success' : 'status-pill-danger'
@@ -1372,7 +1412,7 @@ export const UsersPage: React.FC = () => {
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-xs text-muted-foreground">
-                                                    Manage plan assignment, active/inactive access, and token validity per Instagram account.
+                                                    Instagram accounts linked to this user, showing their plan, subscription expiry, and active status.
                                                 </p>
                                                 <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-bold text-muted-foreground">
                                                     {(detailData?.instagram_accounts || []).length} linked
@@ -1388,27 +1428,16 @@ export const UsersPage: React.FC = () => {
                                                     const isAdminActive = String(acc.admin_status || 'active').trim().toLowerCase() === 'active';
                                                     const isUserActive = String(acc.status || 'active').trim().toLowerCase() === 'active';
                                                     const tokenValidity = getInstagramTokenValidity(acc.token_expires_at);
-                                                    const accPlanCode = String(
-                                                        acc.plan_code || 
-                                                        acc.plan_name || 
-                                                        detailData?.profile?.plan_code || 
-                                                        detailData?.effective_plan?.plan_code || 
-                                                        'free'
-                                                    ).trim().toLowerCase();
-                                                    const matchedPlan = pricingPlans.find(
-                                                        (p) => (p.plan_code || p.id || '').toLowerCase() === accPlanCode
-                                                    );
-                                                    const accPlanName = matchedPlan?.name || (accPlanCode ? accPlanCode.charAt(0).toUpperCase() + accPlanCode.slice(1) : 'Free');
-                                                    const isPaidAccount = accPlanCode !== 'free';
+                                                    const planDetails = getAccountPlanDetails(acc, detailData, pricingPlans);
 
                                                     return (
                                                         <div
                                                             key={acc.$id}
                                                             className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 rounded-2xl border border-border/80 bg-background/60 p-4 shadow-xs hover:border-border transition"
                                                         >
-                                                            {/* Left: Instagram account identity and plan badge */}
+                                                            {/* Left: Instagram account identity, plan badge, and plan expiry */}
                                                             <div className="flex items-center gap-3 min-w-0">
-                                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-pink-500/20 bg-pink-500/10 text-pink-500">
+                                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-pink-500/20 bg-pink-500/10 text-pink-500 shadow-xs">
                                                                     <Instagram className="h-5 w-5" />
                                                                 </div>
                                                                 <div className="min-w-0">
@@ -1420,12 +1449,26 @@ export const UsersPage: React.FC = () => {
                                                                         {/* Plan badge directly beside IG account */}
                                                                         <span className={cn(
                                                                             'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold tracking-tight',
-                                                                            isPaidAccount
+                                                                            planDetails.isPaid && !planDetails.isExpired
                                                                                 ? 'border border-primary/30 bg-primary/10 text-primary shadow-xs'
+                                                                                : planDetails.isExpired
+                                                                                ? 'border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
                                                                                 : 'border border-border/80 bg-muted/70 text-muted-foreground'
                                                                         )}>
                                                                             <Sparkles className="h-3 w-3 shrink-0" />
-                                                                            {accPlanName} Plan
+                                                                            {planDetails.planName}
+                                                                        </span>
+
+                                                                        {/* Plan expiry date badge */}
+                                                                        <span className={cn(
+                                                                            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold',
+                                                                            planDetails.expiryTone === 'danger' && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25',
+                                                                            planDetails.expiryTone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25',
+                                                                            planDetails.expiryTone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25',
+                                                                            planDetails.expiryTone === 'neutral' && 'bg-muted/60 text-muted-foreground border border-border/60'
+                                                                        )}>
+                                                                            <Calendar className="h-3 w-3 shrink-0" />
+                                                                            {planDetails.expiryLabel}
                                                                         </span>
 
                                                                         {/* Token health status */}
@@ -1439,7 +1482,7 @@ export const UsersPage: React.FC = () => {
                                                                             Token: {tokenValidity.label}
                                                                         </span>
                                                                     </div>
-                                                                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                                                    <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                                                                         <span className={cn(
                                                                             'inline-block h-1.5 w-1.5 rounded-full',
                                                                             isAdminActive ? 'bg-emerald-500' : 'bg-rose-500'
@@ -1453,35 +1496,26 @@ export const UsersPage: React.FC = () => {
                                                                                 <span>{Number(acc.allocated_monthly_credits).toLocaleString()} actions/mo</span>
                                                                             </>
                                                                         ) : null}
+                                                                        {acc.billing_cycle ? (
+                                                                            <>
+                                                                                <span className="text-border">•</span>
+                                                                                <span className="capitalize">{acc.billing_cycle}</span>
+                                                                            </>
+                                                                        ) : null}
+                                                                        {acc.plan_price !== undefined && acc.plan_price !== null && (
+                                                                            <>
+                                                                                <span className="text-border">•</span>
+                                                                                <span>₹{Number(acc.plan_price).toLocaleString()}</span>
+                                                                            </>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </div>
 
-                                                            {/* Right Controls: Plan Selector + Active Switch Toggle + Delete Button */}
-                                                            <div className="flex flex-wrap items-center gap-3 self-end md:self-auto shrink-0">
-                                                                {/* Plan Selector Dropdown */}
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="text-[11px] font-semibold text-muted-foreground hidden sm:inline">Plan:</span>
-                                                                    <select
-                                                                        value={accPlanCode}
-                                                                        disabled={accountToggleLoadingId === acc.$id}
-                                                                        onChange={(e) => void handleUpdateAccountPlan(acc, e.target.value)}
-                                                                        className="input-base h-8 text-xs font-semibold py-0 px-2 cursor-pointer rounded-xl bg-card border-border/80 hover:border-primary/40 focus:border-primary transition"
-                                                                        title={`Change assigned plan for @${acc.username || 'this account'}`}
-                                                                    >
-                                                                        <option value="free">Free Plan</option>
-                                                                        {pricingPlans
-                                                                            .filter((p) => String(p.plan_code || p.id).trim().toLowerCase() !== 'free')
-                                                                            .map((p) => (
-                                                                                <option key={p.id} value={p.plan_code || p.id}>
-                                                                                    {p.name}
-                                                                                </option>
-                                                                            ))}
-                                                                    </select>
-                                                                </div>
-
+                                                            {/* Right Controls: Active Switch Toggle + Delete Button (NO PLAN DROPDOWN!) */}
+                                                            <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
                                                                 {/* Interactive Active / Inactive Toggle Switch */}
-                                                                <div className="flex items-center gap-2 border-l border-border/60 pl-3">
+                                                                <div className="flex items-center gap-2">
                                                                     <span className={cn(
                                                                         "text-xs font-semibold select-none",
                                                                         isAdminActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
