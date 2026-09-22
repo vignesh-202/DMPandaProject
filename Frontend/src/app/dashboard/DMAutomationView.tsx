@@ -586,6 +586,7 @@ const DMAutomationView: React.FC = () => {
 
     const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
     const [duplicateErrorKeywords, setDuplicateErrorKeywords] = useState<Set<string>>(new Set());
+    const [backendKeywordConflicts, setBackendKeywordConflicts] = useState<{ keyword: string; reason: string; automation_title?: string | null; automation_type?: string }[]>([]);
 
     const handleSave = async (): Promise<boolean> => {
         setSaving(true);
@@ -870,8 +871,16 @@ const DMAutomationView: React.FC = () => {
                 if (data.fields) {
                     setFieldErrors(data.fields);
 
+                    if (data.conflicts && Array.isArray(data.conflicts)) {
+                        setBackendKeywordConflicts(data.conflicts);
+                    } else if (data.duplicate_keywords && Array.isArray(data.duplicate_keywords)) {
+                        setBackendKeywordConflicts(data.duplicate_keywords.map((kw: string) => ({
+                            keyword: kw,
+                            reason: data.error || `Keyword "${kw}" is already in use by another automation.`
+                        })));
+                    }
                     if (data.duplicate_keywords && Array.isArray(data.duplicate_keywords)) {
-                        setDuplicateErrorKeywords(new Set(data.duplicate_keywords));
+                        setDuplicateErrorKeywords(new Set(data.duplicate_keywords.map((k: string) => String(k || '').trim().toUpperCase())));
                     }
 
                     // Scroll to first error
@@ -897,8 +906,16 @@ const DMAutomationView: React.FC = () => {
                 }
                 // Handle Single Field Error (Legacy/Fallback)
                 else if (data.field) {
+                    if (data.conflicts && Array.isArray(data.conflicts)) {
+                        setBackendKeywordConflicts(data.conflicts);
+                    } else if (data.duplicate_keywords && Array.isArray(data.duplicate_keywords)) {
+                        setBackendKeywordConflicts(data.duplicate_keywords.map((kw: string) => ({
+                            keyword: kw,
+                            reason: data.error || `Keyword "${kw}" is already in use by another automation.`
+                        })));
+                    }
                     if (data.duplicate_keywords && Array.isArray(data.duplicate_keywords)) {
-                        setDuplicateErrorKeywords(new Set(data.duplicate_keywords));
+                        setDuplicateErrorKeywords(new Set(data.duplicate_keywords.map((k: string) => String(k || '').trim().toUpperCase())));
                     }
                     const fieldError = { [data.field]: data.error || "Validation failed" };
                     setFieldErrors(fieldError);
@@ -1285,6 +1302,7 @@ const DMAutomationView: React.FC = () => {
         setEditingAutomation({ ...editingAutomation, keywords: nextKeywords });
         setKeywordInput("");
         setDuplicateErrorKeywords(new Set()); // Clear backend errors on edit
+        setBackendKeywordConflicts([]);
 
         const kwError = validateKeywordsList(nextKeywords);
         if (kwError) {
@@ -1306,8 +1324,16 @@ const DMAutomationView: React.FC = () => {
     };
 
     const removeKeywordTag = (idx: number) => {
+        const removedKw = String((editingAutomation.keywords || [])[idx] || '').trim().toUpperCase();
         const next = (editingAutomation.keywords || []).filter((_: any, i: number) => i !== idx);
         setEditingAutomation({ ...editingAutomation, keywords: next });
+
+        setDuplicateErrorKeywords((prev) => {
+            const copy = new Set(prev);
+            copy.delete(removedKw);
+            return copy;
+        });
+        setBackendKeywordConflicts((prev) => prev.filter(c => String(c.keyword).trim().toUpperCase() !== removedKw));
 
         const kwError = validateKeywordsList(next);
         if (kwError) {
@@ -1589,7 +1615,23 @@ const DMAutomationView: React.FC = () => {
                                                 })}
                                             </div>
 
-                                            {fieldErrors['keywords'] && (
+                                            {backendKeywordConflicts.length > 0 && (
+                                                <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
+                                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                                                        <AlertCircle className="w-4 h-4 shrink-0 text-destructive" />
+                                                        <span>Cannot Save: Keyword Conflict Detected</span>
+                                                    </div>
+                                                    <div className="space-y-1 pl-5">
+                                                        {backendKeywordConflicts.map((c, idx) => (
+                                                            <p key={idx} className="text-xs text-destructive/90 leading-relaxed font-medium">
+                                                                • {c.reason}
+                                                            </p>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {fieldErrors['keywords'] && backendKeywordConflicts.length === 0 && (
                                                 <p className="text-xs font-medium text-destructive flex items-center gap-1">
                                                     <AlertCircle className="w-3.5 h-3.5" /> {fieldErrors['keywords']}
                                                 </p>

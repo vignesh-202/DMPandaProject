@@ -1163,12 +1163,33 @@ const ensureKeywordConstraints = async (databases, { accountId, automationId, au
     return null;
 };
 
-const findKeywordConflicts = async (databases, { accountId, automationId, keywords }) => {
-    const conflicts = [];
-    const normalizedAccountId = String(accountId || '').trim();
-    if (!normalizedAccountId) return conflicts;
+const formatAutomationTypeLabel = (type) => {
+    const t = String(type || '').trim().toLowerCase();
+    if (t === 'global') return 'Global Trigger';
+    if (t === 'dm') return 'DM Automation';
+    if (t === 'post') return 'Post Automation';
+    if (t === 'reel') return 'Reel Automation';
+    if (t === 'story') return 'Story Automation';
+    if (t === 'live') return 'Live Automation';
+    if (t === 'comment_moderation_hide') return 'Comment Moderation (Hide)';
+    if (t === 'comment_moderation_delete') return 'Comment Moderation (Delete)';
+    return 'Automation';
+};
 
-    for (const keywordNormalized of (Array.isArray(keywords) ? keywords : []).map((value) => normalizeKeywordToken(value)).filter(Boolean)) {
+const findKeywordConflicts = async (databases, { accountId, automationId, keywords }) => {
+    const duplicateKeywords = [];
+    const conflictDetails = [];
+    const normalizedAccountId = String(accountId || '').trim();
+    if (!normalizedAccountId) return { duplicate_keywords: [], conflicts: [] };
+
+    const seenKeywords = new Set();
+    const normalizedTokens = (Array.isArray(keywords) ? keywords : [])
+        .map((value) => normalizeKeywordToken(value))
+        .filter(Boolean);
+
+    for (const keywordNormalized of normalizedTokens) {
+        if (seenKeywords.has(keywordNormalized)) continue;
+
         const matches = await databases.listDocuments(
             process.env.APPWRITE_DATABASE_ID,
             KEYWORDS_COLLECTION_ID,
@@ -1185,11 +1206,44 @@ const findKeywordConflicts = async (databases, { accountId, automationId, keywor
             return String(doc?.automation_id || '').trim() !== String(automationId || '').trim();
         });
 
-        if (conflict) conflicts.push(keywordNormalized);
+        if (conflict) {
+            seenKeywords.add(keywordNormalized);
+            duplicateKeywords.push(keywordNormalized);
+
+            let conflictingTitle = '';
+            if (conflict.automation_id) {
+                try {
+                    const autoDoc = await databases.getDocument(
+                        process.env.APPWRITE_DATABASE_ID,
+                        AUTOMATIONS_COLLECTION_ID,
+                        conflict.automation_id
+                    );
+                    conflictingTitle = String(autoDoc?.title || '').trim();
+                } catch {
+                    // Ignore lookup error if doc was deleted or inaccessible
+                }
+            }
+
+            const typeLabel = formatAutomationTypeLabel(conflict.automation_type);
+            const titleSuffix = conflictingTitle ? ` "${conflictingTitle}"` : '';
+            const reason = `Keyword "${keywordNormalized}" is already used in ${typeLabel}${titleSuffix}.`;
+
+            conflictDetails.push({
+                keyword: keywordNormalized,
+                automation_id: conflict.automation_id || null,
+                automation_type: conflict.automation_type || 'automation',
+                automation_title: conflictingTitle || null,
+                reason
+            });
+        }
     }
 
-    return Array.from(new Set(conflicts));
+    return {
+        duplicate_keywords: duplicateKeywords,
+        conflicts: conflictDetails
+    };
 };
+
 
 const extractModerationKeywordsFromRules = (rules) => {
     const keywords = new Set();
@@ -1279,9 +1333,13 @@ const findModerationKeywordConflicts = async (databases, { userId, accountIds, k
 };
 
 const findAutomationKeywordConflictsForModeration = async (databases, { accountId, keywords }) => {
-    const conflicts = [];
+    const duplicateKeywords = [];
+    const conflictDetails = [];
+    const seenKeywords = new Set();
 
     for (const keyword of (keywords || []).map((value) => normalizeKeywordToken(value)).filter(Boolean)) {
+        if (seenKeywords.has(keyword)) continue;
+
         const result = await databases.listDocuments(
             process.env.APPWRITE_DATABASE_ID,
             KEYWORDS_COLLECTION_ID,
@@ -1293,10 +1351,43 @@ const findAutomationKeywordConflictsForModeration = async (databases, { accountI
         );
         const conflict = (result.documents || []).find((doc) => !Object.values(COMMENT_MODERATION_AUTOMATION_TYPES)
             .includes(String(doc?.automation_type || '').trim().toLowerCase()));
-        if (conflict) conflicts.push(keyword);
+
+        if (conflict) {
+            seenKeywords.add(keyword);
+            duplicateKeywords.push(keyword);
+
+            let conflictingTitle = '';
+            if (conflict.automation_id) {
+                try {
+                    const autoDoc = await databases.getDocument(
+                        process.env.APPWRITE_DATABASE_ID,
+                        AUTOMATIONS_COLLECTION_ID,
+                        conflict.automation_id
+                    );
+                    conflictingTitle = String(autoDoc?.title || '').trim();
+                } catch {
+                    // Ignore lookup error
+                }
+            }
+
+            const typeLabel = formatAutomationTypeLabel(conflict.automation_type);
+            const titleSuffix = conflictingTitle ? ` "${conflictingTitle}"` : '';
+            const reason = `Moderation keyword "${keyword}" is already in use by ${typeLabel}${titleSuffix}.`;
+
+            conflictDetails.push({
+                keyword,
+                automation_id: conflict.automation_id || null,
+                automation_type: conflict.automation_type || 'automation',
+                automation_title: conflictingTitle || null,
+                reason
+            });
+        }
     }
 
-    return Array.from(new Set(conflicts));
+    return {
+        duplicate_keywords: duplicateKeywords,
+        conflicts: conflictDetails
+    };
 };
 
 const syncCommentModerationKeywordRecords = async (databases, { accountId, rules }) => {
@@ -3722,14 +3813,18 @@ router.post('/instagram/keywords/availability', loginRequired, async (req, res) 
         if (!account) return res.status(404).json({ error: 'Account not found' });
         const targetAccountId = getIgProfessionalAccountId(account);
 
-        const conflicts = await findKeywordConflicts(databases, {
+        const conflictResult = await findKeywordConflicts(databases, {
             accountId: targetAccountId,
             automationId,
             automationType,
             keywords: keywordArray
         });
 
-        res.json({ available: conflicts.length === 0, conflicts });
+        res.json({
+            available: conflictResult.duplicate_keywords.length === 0,
+            conflicts: conflictResult.duplicate_keywords,
+            conflict_details: conflictResult.conflicts
+        });
     } catch (err) {
         console.error(`Keyword Availability Error: ${err.message}`);
         res.status(500).json({ error: 'Failed to validate keywords' });
@@ -3952,17 +4047,19 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
             }
         }
         if (KEYWORD_TYPES.has(automationType) && keywordArray.length > 0) {
-            const conflicts = await findKeywordConflicts(databases, {
+            const conflictResult = await findKeywordConflicts(databases, {
                 accountId: targetAccountId,
                 automationId: null,
                 automationType,
                 keywords: keywordArray
             });
-            if (conflicts.length > 0) {
+            if (conflictResult.duplicate_keywords.length > 0) {
+                const reasons = conflictResult.conflicts.map((c) => c.reason).filter(Boolean);
                 return res.status(400).json({
-                    error: 'Duplicate keywords',
+                    error: reasons.length > 0 ? reasons.join(' ') : 'Duplicate keywords detected',
                     field: 'keywords',
-                    duplicate_keywords: conflicts
+                    duplicate_keywords: conflictResult.duplicate_keywords,
+                    conflicts: conflictResult.conflicts
                 });
             }
             const moderationConflicts = await findModerationKeywordConflicts(databases, {
@@ -3971,10 +4068,18 @@ router.post('/instagram/automations', loginRequired, async (req, res) => {
                 keywords: keywordArray
             });
             if (moderationConflicts.length > 0) {
+                const reasons = moderationConflicts.map((kw) => `Keyword "${kw}" is already reserved for Comment Moderation.`);
                 return res.status(400).json({
-                    error: `Moderation keywords cannot be reused in automations: ${moderationConflicts.join(', ')}`,
+                    error: reasons.join(' '),
                     field: 'keywords',
-                    duplicate_keywords: moderationConflicts
+                    duplicate_keywords: moderationConflicts,
+                    conflicts: moderationConflicts.map((kw) => ({
+                        keyword: kw,
+                        automation_id: null,
+                        automation_type: 'comment_moderation',
+                        automation_title: 'Comment Moderation',
+                        reason: `Keyword "${kw}" is reserved for Comment Moderation.`
+                    }))
                 });
             }
         }
@@ -4112,17 +4217,19 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
         }
 
         if (keywordUpdateProvided && KEYWORD_TYPES.has(nextAutomationType)) {
-            const conflicts = await findKeywordConflicts(databases, {
+            const conflictResult = await findKeywordConflicts(databases, {
                 accountId: existing.account_id,
                 automationId: existing.$id,
                 automationType: nextAutomationType,
                 keywords: nextKeywords || []
             });
-            if (conflicts.length > 0) {
+            if (conflictResult.duplicate_keywords.length > 0) {
+                const reasons = conflictResult.conflicts.map((c) => c.reason).filter(Boolean);
                 return res.status(400).json({
-                    error: 'Duplicate keywords',
+                    error: reasons.length > 0 ? reasons.join(' ') : 'Duplicate keywords detected',
                     field: 'keywords',
-                    duplicate_keywords: conflicts
+                    duplicate_keywords: conflictResult.duplicate_keywords,
+                    conflicts: conflictResult.conflicts
                 });
             }
             const moderationConflicts = await findModerationKeywordConflicts(databases, {
@@ -4131,10 +4238,18 @@ router.patch('/instagram/automations/:id', loginRequired, async (req, res) => {
                 keywords: nextKeywords || []
             });
             if (moderationConflicts.length > 0) {
+                const reasons = moderationConflicts.map((kw) => `Keyword "${kw}" is already reserved for Comment Moderation.`);
                 return res.status(400).json({
-                    error: `Moderation keywords cannot be reused in automations: ${moderationConflicts.join(', ')}`,
+                    error: reasons.join(' '),
                     field: 'keywords',
-                    duplicate_keywords: moderationConflicts
+                    duplicate_keywords: moderationConflicts,
+                    conflicts: moderationConflicts.map((kw) => ({
+                        keyword: kw,
+                        automation_id: null,
+                        automation_type: 'comment_moderation',
+                        automation_title: 'Comment Moderation',
+                        reason: `Keyword "${kw}" is reserved for Comment Moderation.`
+                    }))
                 });
             }
         }
@@ -6102,11 +6217,15 @@ router.post('/instagram/comment-moderation', loginRequired, async (req, res) => 
             accountId: normalizedAccountId,
             keywords: moderationKeywords
         });
-        if (automationConflicts.length > 0) {
+        if (automationConflicts.duplicate_keywords.length > 0) {
+            const reasons = automationConflicts.conflicts.map((c) => c.reason).filter(Boolean);
             return res.status(400).json({
-                error: `These moderation keywords are already used in automations or global triggers: ${automationConflicts.join(', ')}`,
+                error: reasons.length > 0
+                    ? reasons.join(' ')
+                    : `These moderation keywords are already used in automations or global triggers: ${automationConflicts.duplicate_keywords.join(', ')}`,
                 field: 'keywords',
-                duplicate_keywords: automationConflicts
+                duplicate_keywords: automationConflicts.duplicate_keywords,
+                conflicts: automationConflicts.conflicts
             });
         }
 

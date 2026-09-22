@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
 import { useNotification } from '../../contexts/NotificationContext';
-import { Shield, Trash2, Eye, X, Save, Loader2, AlertCircle, CheckCircle2, Plus } from 'lucide-react';
+import { Shield, Trash2, Eye, X, Save, Loader2, AlertCircle, AlertTriangle, CheckCircle2, Plus } from 'lucide-react';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 
 type ModerationAction = 'hide' | 'delete';
@@ -21,31 +21,30 @@ const ACTION_META: Record<ModerationAction, {
 }> = {
     hide: {
         title: 'Hide Comments',
-        description: 'Comments with these keywords stay hidden from public view automatically.',
+        description: 'Comments with these keywords stay hidden from public view but remain visible to the commenter.',
         icon: Eye,
-        badgeClasses: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20',
-        chipClasses: 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/15'
+        badgeClasses: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+        chipClasses: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
     },
     delete: {
         title: 'Delete Comments',
-        description: 'Comments with these keywords are permanently deleted from your posts.',
+        description: 'Comments with these keywords are permanently deleted from your Instagram post immediately.',
         icon: Trash2,
-        badgeClasses: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20',
-        chipClasses: 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/15'
+        badgeClasses: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+        chipClasses: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30'
     }
 };
 
-const normalizeRulesToLists = (rules: ModerationRule[]) => {
+const normalizeRulesToLists = (rules: any[]): Record<ModerationAction, string[]> => {
     const lists: Record<ModerationAction, string[]> = { hide: [], delete: [] };
-
     (Array.isArray(rules) ? rules : []).forEach((rule) => {
-        const action = rule?.action === 'delete' ? 'delete' : 'hide';
+        const action = rule?.action === 'delete' ? 'delete' : rule?.action === 'hide' ? 'hide' : null;
+        if (!action) return;
         const keywords = Array.isArray(rule?.keywords)
-            ? rule.keywords.map((keyword) => String(keyword || '').trim().toLowerCase()).filter(Boolean)
+            ? rule.keywords.map((keyword: any) => String(keyword || '').trim().toLowerCase()).filter(Boolean)
             : [];
         lists[action] = Array.from(new Set([...(lists[action] || []), ...keywords]));
     });
-
     return lists;
 };
 
@@ -64,6 +63,8 @@ const CommentModerationView: React.FC = () => {
     const [keywordLists, setKeywordLists] = useState<Record<ModerationAction, string[]>>({ hide: [], delete: [] });
     const [initialKeywordLists, setInitialKeywordLists] = useState<Record<ModerationAction, string[]>>({ hide: [], delete: [] });
     const [keywordInputs, setKeywordInputs] = useState<Record<ModerationAction, string>>({ hide: '', delete: '' });
+    const [moderationConflicts, setModerationConflicts] = useState<{ keyword: string; reason: string; automation_title?: string | null; automation_type?: string }[]>([]);
+    const [conflictKeywords, setConflictKeywords] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const { showSuccess, showError } = useNotification();
@@ -130,8 +131,23 @@ const CommentModerationView: React.FC = () => {
                 showSuccess('Comment moderation rules saved successfully.');
                 setInitialKeywordLists(keywordLists);
                 setHasUnsavedChanges(false);
+                setModerationConflicts([]);
+                setConflictKeywords(new Set());
                 return true;
             } else {
+                if (data.conflicts && Array.isArray(data.conflicts)) {
+                    setModerationConflicts(data.conflicts);
+                } else if (data.duplicate_keywords && Array.isArray(data.duplicate_keywords)) {
+                    setModerationConflicts(data.duplicate_keywords.map((kw: string) => ({
+                        keyword: kw,
+                        reason: data.error || `Keyword "${kw}" is already used in an automation or global trigger.`
+                    })));
+                }
+
+                if (data.duplicate_keywords && Array.isArray(data.duplicate_keywords)) {
+                    setConflictKeywords(new Set(data.duplicate_keywords.map((k: string) => String(k || '').trim().toLowerCase())));
+                }
+
                 showError(data.error || 'Failed to save rules');
                 return false;
             }
@@ -166,6 +182,13 @@ const CommentModerationView: React.FC = () => {
             return;
         }
 
+        setConflictKeywords((prev) => {
+            const next = new Set(prev);
+            next.delete(normalized);
+            return next;
+        });
+        setModerationConflicts((prev) => prev.filter(c => String(c.keyword).trim().toLowerCase() !== normalized));
+
         setKeywordLists((prev) => ({
             ...prev,
             [action]: prev[action].includes(normalized) ? prev[action] : [...prev[action], normalized]
@@ -174,6 +197,14 @@ const CommentModerationView: React.FC = () => {
     };
 
     const removeKeyword = (action: ModerationAction, keyword: string) => {
+        const normalized = String(keyword || '').trim().toLowerCase();
+        setConflictKeywords((prev) => {
+            const next = new Set(prev);
+            next.delete(normalized);
+            return next;
+        });
+        setModerationConflicts((prev) => prev.filter(c => String(c.keyword).trim().toLowerCase() !== normalized));
+
         setKeywordLists((prev) => ({
             ...prev,
             [action]: prev[action].filter((item) => item !== keyword)
@@ -266,6 +297,26 @@ const CommentModerationView: React.FC = () => {
                 </div>
             </div>
 
+            {/* Keyword Conflicts Alert */}
+            {moderationConflicts.length > 0 && (
+                <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+                        <span>Cannot Save: Keyword Conflicts Detected</span>
+                    </div>
+                    <div className="space-y-1 pl-6">
+                        {moderationConflicts.map((c, idx) => (
+                            <p key={idx} className="text-xs text-destructive/90 leading-relaxed font-medium">
+                                • {c.reason}
+                            </p>
+                        ))}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground pl-6 pt-1 border-t border-destructive/20">
+                        Moderation keywords cannot overlap with existing post, reel, story, live, or global triggers. Please remove conflicting keywords below.
+                    </p>
+                </div>
+            )}
+
             {/* Moderation Action Cards */}
             <div className="grid gap-6 lg:grid-cols-2">
                 {(['hide', 'delete'] as ModerationAction[]).map((action) => {
@@ -343,22 +394,29 @@ const CommentModerationView: React.FC = () => {
                                         </div>
                                     ) : (
                                         <div className="flex-1 min-h-[220px] max-h-[320px] overflow-y-auto custom-scrollbar p-3.5 rounded-xl border border-border/60 bg-muted/10 flex flex-wrap content-start gap-2">
-                                            {keywords.map((keyword) => (
-                                                <div
-                                                    key={`${action}-${keyword}`}
-                                                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${meta.chipClasses}`}
-                                                >
-                                                    <span>{keyword}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeKeyword(action, keyword)}
-                                                        className="rounded p-0.5 transition-colors hover:bg-foreground/10"
-                                                        aria-label={`Remove keyword ${keyword}`}
+                                            {keywords.map((keyword) => {
+                                                const isConflict = conflictKeywords.has(keyword.toLowerCase());
+                                                return (
+                                                    <div
+                                                        key={`${action}-${keyword}`}
+                                                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                                                            isConflict
+                                                                ? 'border-destructive bg-destructive/15 text-destructive font-semibold shadow-2xs'
+                                                                : meta.chipClasses
+                                                        }`}
                                                     >
-                                                        <X className="w-3 h-3" />
-                                                    </button>
-                                                </div>
-                                            ))}
+                                                        <span>{keyword}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeKeyword(action, keyword)}
+                                                            className="rounded p-0.5 transition-colors hover:bg-foreground/10"
+                                                            aria-label={`Remove keyword ${keyword}`}
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>

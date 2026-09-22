@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     FileText, Image as ImageIcon, Reply, Save, Loader2, X, Instagram,
-    MessageSquare, AlertCircle, CheckCircle2, Trash2, HelpCircle, Power, Globe,
+    MessageSquare, AlertCircle, AlertTriangle, CheckCircle2, Trash2, HelpCircle, Power, Globe,
     MousePointerClick, Share2, Film, Radio, BookText, Plus, ChevronRight, Share2 as ShareIcon,
     Calendar, ChevronDown, Check, Info, Lightbulb, LayoutTemplate
 } from 'lucide-react';
@@ -225,6 +225,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     const [suggestMoreSetup, setSuggestMoreSetup] = useState(false);
     const [keywordInput, setKeywordInput] = useState('');
     const [isEditingKeyword, setIsEditingKeyword] = useState(true);
+    const [keywordConflicts, setKeywordConflicts] = useState<{ keyword: string; reason: string; automation_title?: string | null; automation_type?: string }[]>([]);
+    const [duplicateKeywords, setDuplicateKeywords] = useState<Set<string>>(new Set());
 
     // Media Sharing states
     const [mediaItems, setMediaItems] = useState<any[]>([]);
@@ -638,6 +640,19 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     };
 
     const removeKeyword = (kw: string) => {
+        const upper = String(kw || '').trim().toUpperCase();
+        setDuplicateKeywords((prev) => {
+            const next = new Set(prev);
+            next.delete(upper);
+            return next;
+        });
+        setKeywordConflicts((prev) => prev.filter((c) => String(c.keyword).trim().toUpperCase() !== upper));
+        setFieldErrors((prev: any) => {
+            const next = { ...prev };
+            delete next['keywords'];
+            return next;
+        });
+
         if (type === 'global') {
             setAutomation((prev: any) => ({
                 ...prev,
@@ -806,6 +821,34 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 onSave(data);
                 return true;
             } else {
+                if (data.conflicts && Array.isArray(data.conflicts) && data.conflicts.length > 0) {
+                    setKeywordConflicts(data.conflicts);
+                } else if (data.duplicate_keywords && Array.isArray(data.duplicate_keywords) && data.duplicate_keywords.length > 0) {
+                    setKeywordConflicts(data.duplicate_keywords.map((kw: string) => ({
+                        keyword: kw,
+                        reason: data.error || `Keyword "${kw}" is already used in another automation or global trigger.`
+                    })));
+                }
+
+                if (data.duplicate_keywords && Array.isArray(data.duplicate_keywords)) {
+                    setDuplicateKeywords(new Set(data.duplicate_keywords.map((kw: string) => String(kw).trim().toUpperCase())));
+                }
+
+                if (data.field === 'keywords' || data.fields?.keywords || (data.duplicate_keywords && data.duplicate_keywords.length > 0)) {
+                    setFieldErrors((prev: any) => ({
+                        ...prev,
+                        keywords: data.error || "Duplicate keywords detected"
+                    }));
+
+                    setTimeout(() => {
+                        const kwEl = document.getElementById('field_keywords');
+                        if (kwEl) {
+                            kwEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            kwEl.focus();
+                        }
+                    }, 100);
+                }
+
                 showError(data.error || "Failed to save automation.");
                 return false;
             }
@@ -885,10 +928,15 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                             onChange={e => {
                                                 const val = e.target.value.toUpperCase();
                                                 setKeywordInput(val);
+                                                if (keywordConflicts.length > 0) {
+                                                    setKeywordConflicts([]);
+                                                    setDuplicateKeywords(new Set());
+                                                    setFieldErrors((prev: any) => { const n = { ...prev }; delete n['keywords']; return n; });
+                                                }
                                             }}
                                             onKeyDown={handleKeywordKeyDown}
                                             className={`w-full bg-background border ${
-                                                fieldErrors['keywords'] ? 'border-destructive' : 'border-border'
+                                                fieldErrors['keywords'] || keywordConflicts.length > 0 ? 'border-destructive ring-1 ring-destructive/20' : 'border-border'
                                             } focus:border-primary focus:ring-1 focus:ring-primary outline-none rounded-xl py-2.5 px-3.5 pr-20 text-sm font-medium text-foreground transition-all ${
                                                 !isEditingKeyword ? 'opacity-70 cursor-not-allowed bg-muted/40' : ''
                                             }`}
@@ -908,6 +956,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                                                 keywords: [val]
                                                             }));
                                                             setIsEditingKeyword(false);
+                                                            setKeywordConflicts([]);
+                                                            setDuplicateKeywords(new Set());
                                                             setFieldErrors((prev: any) => { const n = { ...prev }; delete n['keywords']; return n; });
                                                         }
                                                     }}
@@ -927,7 +977,26 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                         </div>
                                     </div>
                                     <p className="text-[9px] text-gray-400 font-medium px-2">Required: Set a single keyword that triggers this reply.</p>
-                                    {fieldErrors['keywords'] && <p className="text-[9px] font-bold text-red-500 px-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {fieldErrors['keywords']}</p>}
+                                    {keywordConflicts.length > 0 && (
+                                        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
+                                            <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                                                <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+                                                <span>Cannot Save: Keyword Conflict</span>
+                                            </div>
+                                            <div className="space-y-1 pl-5">
+                                                {keywordConflicts.map((c, idx) => (
+                                                    <p key={idx} className="text-xs text-destructive/90 leading-relaxed font-medium">
+                                                        • {c.reason}
+                                                    </p>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {fieldErrors['keywords'] && keywordConflicts.length === 0 && (
+                                        <p className="text-[9px] font-bold text-red-500 px-2 flex items-center gap-1">
+                                            <AlertCircle className="w-3 h-3 shrink-0" /> {fieldErrors['keywords']}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                             <div className="mt-6 flex items-start gap-3 bg-muted/40 p-4 rounded-xl border border-border">
@@ -1178,9 +1247,16 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                     <input
                                         id="field_keywords"
                                         value={keywordInput}
-                                        onChange={e => setKeywordInput(e.target.value.toUpperCase())}
+                                        onChange={e => {
+                                            setKeywordInput(e.target.value.toUpperCase());
+                                            if (keywordConflicts.length > 0) {
+                                                setKeywordConflicts([]);
+                                                setDuplicateKeywords(new Set());
+                                                setFieldErrors((prev: any) => { const n = { ...prev }; delete n['keywords']; return n; });
+                                            }
+                                        }}
                                         onKeyDown={handleKeywordKeyDown}
-                                        className={`w-full bg-background border ${fieldErrors['keywords'] ? 'border-destructive' : 'border-border'} focus:border-primary focus:ring-1 focus:ring-primary outline-none rounded-xl py-2.5 px-3.5 pr-20 text-sm font-normal text-foreground transition-all`}
+                                        className={`w-full bg-background border ${fieldErrors['keywords'] || keywordConflicts.length > 0 ? 'border-destructive ring-1 ring-destructive/20' : 'border-border'} focus:border-primary focus:ring-1 focus:ring-primary outline-none rounded-xl py-2.5 px-3.5 pr-20 text-sm font-normal text-foreground transition-all`}
                                         placeholder="Type keyword and press Enter..."
                                         maxLength={15}
                                         disabled={(automation.keywords || []).length >= 5}
@@ -1192,14 +1268,44 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                 <p className="text-xs text-muted-foreground px-1">Required: Set at least one keyword that customers should type to trigger this reply.</p>
 
                                 <div className="flex flex-wrap gap-1.5 px-0.5">
-                                    {(automation.keywords || []).map((kw: string) => (
-                                        <div key={kw} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-muted border border-border text-foreground rounded-lg text-xs font-medium animate-in zoom-in-95">
-                                            <span>{kw}</span>
-                                            <X className="w-3.5 h-3.5 cursor-pointer hover:text-destructive transition-colors" onClick={() => removeKeyword(kw)} />
-                                        </div>
-                                    ))}
+                                    {(automation.keywords || []).map((kw: string) => {
+                                        const isConflict = duplicateKeywords.has(String(kw || '').trim().toUpperCase());
+                                        return (
+                                            <div
+                                                key={kw}
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium animate-in zoom-in-95 transition-all ${
+                                                    isConflict
+                                                        ? 'bg-destructive/15 border border-destructive text-destructive font-semibold shadow-2xs'
+                                                        : 'bg-muted border border-border text-foreground'
+                                                }`}
+                                            >
+                                                <span>{kw}</span>
+                                                <X className="w-3.5 h-3.5 cursor-pointer hover:text-destructive transition-colors" onClick={() => removeKeyword(kw)} />
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                                {fieldErrors['keywords'] && <p className="text-xs text-destructive font-medium px-1">{fieldErrors['keywords']}</p>}
+
+                                {keywordConflicts.length > 0 && (
+                                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                                            <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+                                            <span>Cannot Save: Keyword Conflict Detected</span>
+                                        </div>
+                                        <div className="space-y-1 pl-5">
+                                            {keywordConflicts.map((c, idx) => (
+                                                <p key={idx} className="text-xs text-destructive/90 leading-relaxed font-medium">
+                                                    • {c.reason}
+                                                </p>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {fieldErrors['keywords'] && keywordConflicts.length === 0 && (
+                                    <p className="text-xs text-destructive font-medium px-1 flex items-center gap-1">
+                                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {fieldErrors['keywords']}
+                                    </p>
+                                )}
                             </div>
                         )}
                     </div>
@@ -1218,10 +1324,15 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                     onChange={e => {
                                         const val = e.target.value.toUpperCase();
                                         setKeywordInput(val);
+                                        if (keywordConflicts.length > 0) {
+                                            setKeywordConflicts([]);
+                                            setDuplicateKeywords(new Set());
+                                            setFieldErrors((prev: any) => { const n = { ...prev }; delete n['keywords']; return n; });
+                                        }
                                     }}
                                     onKeyDown={handleKeywordKeyDown}
                                     className={`w-full bg-background border ${
-                                        fieldErrors['keywords'] ? 'border-destructive' : 'border-border'
+                                        fieldErrors['keywords'] || keywordConflicts.length > 0 ? 'border-destructive ring-1 ring-destructive/20' : 'border-border'
                                     } focus:border-primary focus:ring-1 focus:ring-primary outline-none rounded-xl py-2.5 px-3.5 pr-20 text-sm font-normal text-foreground transition-all ${
                                         !isEditingKeyword ? 'opacity-70 cursor-not-allowed bg-muted/40' : ''
                                     }`}
@@ -1241,6 +1352,8 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                                         keywords: [val]
                                                     }));
                                                     setIsEditingKeyword(false);
+                                                    setKeywordConflicts([]);
+                                                    setDuplicateKeywords(new Set());
                                                     setFieldErrors((prev: any) => { const n = { ...prev }; delete n['keywords']; return n; });
                                                 }
                                             }}
@@ -1260,7 +1373,26 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                                 </div>
                             </div>
                             <p className="text-xs text-muted-foreground px-1">Required: Enter a single keyword that will trigger this automation across all posts, reels, stories, and live.</p>
-                            {fieldErrors['keywords'] && <p className="text-xs text-destructive font-medium px-1">{fieldErrors['keywords']}</p>}
+                            {keywordConflicts.length > 0 && (
+                                <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                                        <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+                                        <span>Cannot Save: Keyword Conflict Detected</span>
+                                    </div>
+                                    <div className="space-y-1 pl-5">
+                                        {keywordConflicts.map((c, idx) => (
+                                            <p key={idx} className="text-xs text-destructive/90 leading-relaxed font-medium">
+                                                • {c.reason}
+                                            </p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {fieldErrors['keywords'] && keywordConflicts.length === 0 && (
+                                <p className="text-xs text-destructive font-medium px-1 flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {fieldErrors['keywords']}
+                                </p>
+                            )}
                         </div>
                     </div>
                 )}
