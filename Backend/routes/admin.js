@@ -2178,10 +2178,12 @@ router.get('/users', loginRequired, adminRequired, async (req, res) => {
                         expiry_date: subState.expiry_date,
                         subscription_status: subState.derived_status
                     };
-                    const primaryAccount = userAccounts.find(
-                        (a) => a.profile_picture_url || a.avatar_url || a.profile_pic
-                    ) || userAccounts[0] || null;
-                    const resolvedProfilePic = user.profile_picture_url || user.avatar_url || primaryAccount?.profile_picture_url || primaryAccount?.avatar_url || primaryAccount?.profile_pic || null;
+                    const resolvedProfilePic = user.profile_picture_url
+                        || user.avatar_url
+                        || user.avatar
+                        || user.prefs?.avatar_url
+                        || user.prefs?.avatar
+                        || null;
 
                     return {
                         ...user,
@@ -2249,10 +2251,13 @@ router.get('/users', loginRequired, adminRequired, async (req, res) => {
 
 router.get('/users/:userId', loginRequired, adminRequired, async (req, res) => {
     try {
-        const { databases } = getServices();
+        const { databases, users } = getServices();
         const userId = String(req.params.userId || '').trim();
-        const user = await databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId);
-        const profile = await getProfileForUser(databases, userId);
+        const [user, profile, appwriteUser] = await Promise.all([
+            databases.getDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId),
+            getProfileForUser(databases, userId),
+            users.get(userId).catch(() => null)
+        ]);
         const [accountAccessState, effectivePlanResponse, transactionsResponse] = await Promise.all([
             recomputeAccountAccessStateForUser(databases, userId, profile),
             buildEffectivePlanResponse(databases, userId, user, profile),
@@ -2263,10 +2268,14 @@ router.get('/users/:userId', loginRequired, adminRequired, async (req, res) => {
             ]).catch(() => ({ documents: [] }))
         ]);
         const instagramAccounts = accountAccessState.accounts || [];
-        const primaryAccount = instagramAccounts.find(
-            (a) => a.profile_picture_url || a.avatar_url || a.profile_pic
-        ) || instagramAccounts[0] || null;
-        const resolvedProfilePic = user.profile_picture_url || user.avatar_url || profile?.profile_picture_url || profile?.avatar_url || primaryAccount?.profile_picture_url || primaryAccount?.avatar_url || primaryAccount?.profile_pic || null;
+        const resolvedProfilePic = user.profile_picture_url
+            || user.avatar_url
+            || user.avatar
+            || appwriteUser?.prefs?.avatar_url
+            || appwriteUser?.prefs?.avatar
+            || profile?.profile_picture_url
+            || profile?.avatar_url
+            || null;
 
         const transactions = Array.isArray(transactionsResponse?.documents) ? transactionsResponse.documents : [];
         const successfulTransactions = transactions.filter(isSuccessfulTransaction);

@@ -214,15 +214,15 @@ const UserAccountAvatar: React.FC<{
     const rawUrl = avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim().length > 5 ? avatarUrl.trim() : null;
     const apiBase = String(((globalThis as any).__DM_PANDA_ADMIN_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL) || '').trim().replace(/\/+$/, '');
 
-    // 1. Direct CDN URL first with referrerPolicy="no-referrer"
-    // 2. If direct CDN fails (e.g. CORS/referrer/token block), fallback to admin media proxy
-    // 3. If proxy also fails, mark imgFailed = true to show the stylized gradient initial
-    const currentSrc = useProxy && rawUrl && apiBase
+    // 1. Direct URL (Appwrite Avatars or uploaded user picture)
+    // 2. If it's a cross-origin image that fails, fallback to admin proxy
+    // 3. If that also fails, show the DM Panda themed gradient initial avatar
+    const currentSrc = useProxy && rawUrl && apiBase && !rawUrl.includes('avatars/initials')
         ? `${apiBase}/api/admin/media-proxy?url=${encodeURIComponent(rawUrl)}`
         : rawUrl;
 
     const handleImageError = () => {
-        if (!useProxy && rawUrl && apiBase) {
+        if (!useProxy && rawUrl && apiBase && !rawUrl.includes('avatars/initials')) {
             setUseProxy(true);
         } else {
             setImgFailed(true);
@@ -987,7 +987,7 @@ export const UsersPage: React.FC = () => {
                                                 <div className="flex items-center gap-3">
                                                     <UserAccountAvatar
                                                         name={user.name}
-                                                        avatarUrl={user.profile_picture_url || user.profile?.profile_picture_url}
+                                                        avatarUrl={user.profile_picture_url || user.profile?.profile_picture_url || (user.name ? `https://cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(user.name)}&width=96&height=96` : null)}
                                                         size="sm"
                                                     />
                                                     <div className="min-w-0">
@@ -1175,15 +1175,18 @@ export const UsersPage: React.FC = () => {
                                 <>
                                     {/* User Overview Hero Header */}
                                     {(() => {
+                                        const userName = detailData?.user?.name || selectedUser?.name || 'Anonymous User';
                                         const heroProfilePic = detailData?.user?.profile_picture_url
+                                            || detailData?.user?.avatar_url
+                                            || detailData?.user?.avatar
+                                            || detailData?.user?.prefs?.avatar_url
+                                            || detailData?.user?.prefs?.avatar
                                             || detailData?.profile_picture_url
                                             || detailData?.profile?.profile_picture_url
-                                            || detailData?.instagram_accounts?.find((a: any) => a.profile_picture_url || a.avatar_url || a.profile_pic)?.profile_picture_url
-                                            || detailData?.instagram_accounts?.[0]?.profile_picture_url
+                                            || detailData?.profile?.avatar_url
                                             || selectedUser?.profile_picture_url
                                             || selectedUser?.profile?.profile_picture_url
-                                            || null;
-                                        const userName = detailData?.user?.name || selectedUser?.name || 'Anonymous User';
+                                            || (userName ? `https://cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(userName)}&width=160&height=160` : null);
 
                                         return (
                                             <div className="rounded-2xl border border-border/70 bg-gradient-to-b from-muted/40 via-muted/15 to-transparent p-3.5 sm:p-5">
