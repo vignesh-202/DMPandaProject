@@ -2178,10 +2178,16 @@ router.get('/users', loginRequired, adminRequired, async (req, res) => {
                         expiry_date: subState.expiry_date,
                         subscription_status: subState.derived_status
                     };
+                    const primaryAccount = userAccounts.find(
+                        (a) => a.profile_picture_url || a.avatar_url || a.profile_pic
+                    ) || userAccounts[0] || null;
+                    const resolvedProfilePic = user.profile_picture_url || user.avatar_url || primaryAccount?.profile_picture_url || primaryAccount?.avatar_url || primaryAccount?.profile_pic || null;
+
                     return {
                         ...user,
                         admin_override_json: user.admin_override_json || null,
                         profile: synthesizedProfile,
+                        profile_picture_url: resolvedProfilePic,
                         linked_instagram_accounts: userAccounts.length
                     };
                 })
@@ -2257,6 +2263,11 @@ router.get('/users/:userId', loginRequired, adminRequired, async (req, res) => {
             ]).catch(() => ({ documents: [] }))
         ]);
         const instagramAccounts = accountAccessState.accounts || [];
+        const primaryAccount = instagramAccounts.find(
+            (a) => a.profile_picture_url || a.avatar_url || a.profile_pic
+        ) || instagramAccounts[0] || null;
+        const resolvedProfilePic = user.profile_picture_url || user.avatar_url || profile?.profile_picture_url || profile?.avatar_url || primaryAccount?.profile_picture_url || primaryAccount?.avatar_url || primaryAccount?.profile_pic || null;
+
         const transactions = Array.isArray(transactionsResponse?.documents) ? transactionsResponse.documents : [];
         const successfulTransactions = transactions.filter(isSuccessfulTransaction);
         const subscriptionState = deriveSubscriptionState(profile?.plan_code, profile?.expiry_date);
@@ -2268,8 +2279,12 @@ router.get('/users/:userId', loginRequired, adminRequired, async (req, res) => {
             }
             : null;
         return ok(res, {
-            user,
+            user: {
+                ...user,
+                profile_picture_url: resolvedProfilePic
+            },
             profile,
+            profile_picture_url: resolvedProfilePic,
             access_state: buildAccessState(user),
             linked_instagram_accounts: Number(accountAccessState.summary?.total_linked_accounts || 0),
             instagram_accounts: instagramAccounts,

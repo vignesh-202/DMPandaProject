@@ -39,6 +39,7 @@ interface UserRow {
     $createdAt: string;
     profile?: any;
     linked_instagram_accounts?: number;
+    profile_picture_url?: string | null;
 }
 
 interface UsersResponse {
@@ -182,6 +183,72 @@ const InstagramAccountAvatar: React.FC<{
                 badgeDim
             )}>
                 <Instagram className={iconDim} />
+            </div>
+        </div>
+    );
+};
+
+const UserAccountAvatar: React.FC<{
+    name?: string;
+    avatarUrl?: string | null;
+    size?: 'sm' | 'md' | 'lg' | 'hero';
+    className?: string;
+}> = ({ name = '', avatarUrl, size = 'md', className }) => {
+    const [useProxy, setUseProxy] = useState(false);
+    const [imgFailed, setImgFailed] = useState(false);
+    const initial = (name.trim().charAt(0) || 'U').toUpperCase();
+
+    useEffect(() => {
+        setUseProxy(false);
+        setImgFailed(false);
+    }, [avatarUrl]);
+
+    const dimClasses = size === 'hero'
+        ? 'h-12 w-12 sm:h-14 sm:w-14 text-base sm:text-lg'
+        : size === 'lg'
+            ? 'h-12 w-12 text-base'
+            : size === 'sm'
+                ? 'h-8 w-8 text-xs'
+                : 'h-10 w-10 text-sm';
+
+    const rawUrl = avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim().length > 5 ? avatarUrl.trim() : null;
+    const apiBase = String(((globalThis as any).__DM_PANDA_ADMIN_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL) || '').trim().replace(/\/+$/, '');
+
+    // 1. Direct CDN URL first with referrerPolicy="no-referrer"
+    // 2. If direct CDN fails (e.g. CORS/referrer/token block), fallback to admin media proxy
+    // 3. If proxy also fails, mark imgFailed = true to show the stylized gradient initial
+    const currentSrc = useProxy && rawUrl && apiBase
+        ? `${apiBase}/api/admin/media-proxy?url=${encodeURIComponent(rawUrl)}`
+        : rawUrl;
+
+    const handleImageError = () => {
+        if (!useProxy && rawUrl && apiBase) {
+            setUseProxy(true);
+        } else {
+            setImgFailed(true);
+        }
+    };
+
+    return (
+        <div className={cn("relative shrink-0 select-none", className)}>
+            <div className={cn(
+                "relative overflow-hidden rounded-full ring-2 ring-border/80 shadow-2xs bg-muted flex items-center justify-center font-bold transition-all duration-200",
+                dimClasses
+            )}>
+                {currentSrc && !imgFailed ? (
+                    <img
+                        key={currentSrc}
+                        src={currentSrc}
+                        alt={name || 'User'}
+                        referrerPolicy="no-referrer"
+                        onError={handleImageError}
+                        className="h-full w-full object-cover rounded-full"
+                    />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-tr from-[#833AB4] via-[#FD1D1D] to-[#F56040] text-white font-black shadow-inner">
+                        {initial}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -913,15 +980,16 @@ export const UsersPage: React.FC = () => {
                                 users.map((user) => {
                                     const planCode = String(user.profile?.plan_code || 'free').toLowerCase();
                                     const isPaid = planCode !== 'free';
-                                    const initials = user.name?.charAt(0).toUpperCase() || 'U';
 
                                     return (
                                         <tr key={user.$id} className="transition-colors hover:bg-muted/30">
                                             <td className="px-6 py-3.5">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary text-xs font-bold shadow-xs">
-                                                        {initials}
-                                                    </div>
+                                                    <UserAccountAvatar
+                                                        name={user.name}
+                                                        avatarUrl={user.profile_picture_url || user.profile?.profile_picture_url}
+                                                        size="sm"
+                                                    />
                                                     <div className="min-w-0">
                                                         <p className="font-semibold text-foreground truncate text-xs">{user.name || 'Anonymous User'}</p>
                                                         <p className="text-[11px] text-muted-foreground truncate font-mono mt-0.5">{user.email}</p>
@@ -1106,21 +1174,31 @@ export const UsersPage: React.FC = () => {
                             ) : (
                                 <>
                                     {/* User Overview Hero Header */}
-                                    <div className="rounded-2xl border border-border/70 bg-gradient-to-b from-muted/40 via-muted/15 to-transparent p-3.5 sm:p-5">
-                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                            <div className="flex items-center gap-3.5 min-w-0">
-                                                <div className="relative shrink-0">
-                                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#833AB4] via-[#FD1D1D] to-[#F56040] p-[2px] shadow-sm">
-                                                        <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-card text-foreground font-black text-lg">
-                                                            {(detailData?.user?.name || selectedUser?.name || 'U').charAt(0).toUpperCase()}
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                    {(() => {
+                                        const heroProfilePic = detailData?.user?.profile_picture_url
+                                            || detailData?.profile_picture_url
+                                            || detailData?.profile?.profile_picture_url
+                                            || detailData?.instagram_accounts?.find((a: any) => a.profile_picture_url || a.avatar_url || a.profile_pic)?.profile_picture_url
+                                            || detailData?.instagram_accounts?.[0]?.profile_picture_url
+                                            || selectedUser?.profile_picture_url
+                                            || selectedUser?.profile?.profile_picture_url
+                                            || null;
+                                        const userName = detailData?.user?.name || selectedUser?.name || 'Anonymous User';
 
-                                                <div className="min-w-0">
-                                                    <h2 id="user-profile-modal-title" className="text-base sm:text-lg font-black text-foreground truncate tracking-tight">
-                                                        {detailData?.user?.name || selectedUser?.name || 'Anonymous User'}
-                                                    </h2>
+                                        return (
+                                            <div className="rounded-2xl border border-border/70 bg-gradient-to-b from-muted/40 via-muted/15 to-transparent p-3.5 sm:p-5">
+                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                    <div className="flex items-center gap-3.5 min-w-0">
+                                                        <UserAccountAvatar
+                                                            name={userName}
+                                                            avatarUrl={heroProfilePic}
+                                                            size="hero"
+                                                        />
+
+                                                        <div className="min-w-0">
+                                                            <h2 id="user-profile-modal-title" className="text-base sm:text-lg font-black text-foreground truncate tracking-tight">
+                                                                {userName}
+                                                            </h2>
                                                     <div className="flex flex-wrap items-center gap-2 mt-0.5">
                                                         <span className="text-xs text-muted-foreground truncate font-mono">
                                                             {detailData?.user?.email || selectedUser?.email}
@@ -1156,6 +1234,8 @@ export const UsersPage: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    );
+                                })()}
 
                                     {/* Navigation Tabs for Popup */}
                                     <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar scroll-smooth border-b border-border/60 pb-2 shrink-0">
