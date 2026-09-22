@@ -140,8 +140,7 @@ def _delete_automation_artifacts(client, db_id, automation_id, dry_run=False):
     if not safe_automation_id:
         return {}
 
-    deleted_counts = {}
-    for coll in ('keywords', 'keyword_index'):
+    for coll in ('keywords',):
         try:
             deleted_counts[coll] = _delete_by_queries(
                 client,
@@ -251,7 +250,6 @@ def main(context):
                 [
                     'automations',
                     'keywords',
-                    'keyword_index',
                     'logs',
                     'chat_states',
                     'reply_templates',
@@ -275,7 +273,6 @@ def main(context):
                 ('logs', 'account_id'),
                 ('chat_states', 'account_id'),
                 ('keywords', 'account_id'),
-                ('keyword_index', 'account_id'),
             ]
             deleted_counts = {}
 

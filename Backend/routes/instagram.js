@@ -9,12 +9,9 @@ const {
     IG_ACCOUNTS_COLLECTION_ID,
     AUTOMATIONS_COLLECTION_ID,
     REPLY_TEMPLATES_COLLECTION_ID,
-    INBOX_MENUS_COLLECTION_ID,
-    CONVO_STARTERS_COLLECTION_ID,
     SUPER_PROFILES_COLLECTION_ID,
     COMMENT_MODERATION_COLLECTION_ID,
     KEYWORDS_COLLECTION_ID,
-    KEYWORD_INDEX_COLLECTION_ID,
     LOGS_COLLECTION_ID,
     CHAT_STATES_COLLECTION_ID,
     FUNCTION_REMOVE_INSTAGRAM
@@ -1326,12 +1323,10 @@ const syncCommentModerationKeywordRecords = async (databases, { accountId, rules
     };
 
     await deleteExisting(KEYWORDS_COLLECTION_ID);
-    await deleteExisting(KEYWORD_INDEX_COLLECTION_ID);
 
     if (normalizedRules.length === 0) return;
 
     const keywordCollectionInfo = await getCollectionAttributeInfo(databases, KEYWORDS_COLLECTION_ID);
-    const keywordIndexCollectionInfo = await getCollectionAttributeInfo(databases, KEYWORD_INDEX_COLLECTION_ID);
 
     for (const rule of normalizedRules) {
         const automationType = COMMENT_MODERATION_AUTOMATION_TYPES[rule.action];
@@ -1362,28 +1357,6 @@ const syncCommentModerationKeywordRecords = async (databases, { accountId, rules
                 ID.unique(),
                 sanitizePayloadForCollection(keywordPayload, keywordCollectionInfo)
             );
-
-            const keywordIndexPayload = {
-                account_id: String(accountId),
-                automation_id: automationId,
-                automation_type: automationType,
-                keyword_hash: keywordHash,
-                keyword: keywordSafe,
-                keyword_normalized: keywordSafe,
-                type: automationType,
-                match_type: 'exact',
-                is_active: true
-            };
-            if (keywordIndexCollectionInfo.required.has('keywords')) {
-                keywordIndexPayload.keywords = JSON.stringify([keywordSafe]);
-            }
-
-            await databases.createDocument(
-                process.env.APPWRITE_DATABASE_ID,
-                KEYWORD_INDEX_COLLECTION_ID,
-                ID.unique(),
-                sanitizePayloadForCollection(keywordIndexPayload, keywordIndexCollectionInfo)
-            );
         }
     }
 };
@@ -1409,12 +1382,10 @@ const syncKeywordRecords = async (databases, { accountId, automationId, automati
         };
 
         await deleteExisting(KEYWORDS_COLLECTION_ID);
-        await deleteExisting(KEYWORD_INDEX_COLLECTION_ID);
 
         if (!normalizedKeywords || normalizedKeywords.length === 0) return;
 
         const keywordCollectionInfo = await getCollectionAttributeInfo(databases, KEYWORDS_COLLECTION_ID);
-        const keywordIndexCollectionInfo = await getCollectionAttributeInfo(databases, KEYWORD_INDEX_COLLECTION_ID);
 
         for (const keywordNormalized of normalizedKeywords) {
             const keywordValue = String(keywordNormalized || '').trim();
@@ -1448,35 +1419,6 @@ const syncKeywordRecords = async (databases, { accountId, automationId, automati
             } catch (err) {
                 if (isDuplicateDocError(err)) {
                     throw new Error(`Keyword "${keywordSafe}" is already used in another automation.`);
-                }
-                throw err;
-            }
-
-            const keywordIndexPayload = {
-                account_id: accountId,
-                keyword_hash: keywordHash,
-                automation_id: automationId,
-                automation_type: automationType,
-                // Backward compatibility in case keyword_index carries legacy keyword fields.
-                keyword: keywordSafe,
-                keyword_normalized: keywordSafe,
-                type: automationType,
-                match_type: matchType || 'exact',
-                is_active: true,
-            };
-            if (keywordIndexCollectionInfo.required.has('keywords')) {
-                keywordIndexPayload.keywords = JSON.stringify([keywordSafe]);
-            }
-            try {
-                await databases.createDocument(
-                    process.env.APPWRITE_DATABASE_ID,
-                    KEYWORD_INDEX_COLLECTION_ID,
-                    ID.unique(),
-                    sanitizePayloadForCollection(keywordIndexPayload, keywordIndexCollectionInfo)
-                );
-            } catch (err) {
-                if (isDuplicateDocError(err)) {
-                    throw new Error(`Keyword "${keywordSafe}" is already indexed for another automation.`);
                 }
                 throw err;
             }
@@ -4837,23 +4779,6 @@ router.get('/instagram/inbox-menu', loginRequired, async (req, res) => {
             dbMenu = [];
         }
 
-        // Fallback for older environments that still store inbox menu in a separate collection.
-        if (dbMenu.length === 0) {
-            try {
-                const menuDocs = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, INBOX_MENUS_COLLECTION_ID,
-                    [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
-                if (menuDocs.total > 0) {
-                    const rawMenu = typeof menuDocs.documents[0].menu_items === 'string'
-                        ? JSON.parse(menuDocs.documents[0].menu_items)
-                        : (menuDocs.documents[0].menu_items || []);
-                    dbMenu = (Array.isArray(rawMenu) ? rawMenu : [])
-                        .map((item) => hydrateInboxMenuItem(item, templateMap))
-                        .filter(Boolean);
-                }
-            } catch (e) {
-                dbMenu = [];
-            }
-        }
 
         // Try fetching IG menu from Instagram API
         let igMenu = [];
@@ -4932,26 +4857,6 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
                 dbMenu = [];
             }
 
-            if (dbMenu.length === 0) {
-                try {
-                    const menuDocs = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, INBOX_MENUS_COLLECTION_ID,
-                        [Query.equal('user_id', req.user.$id), Query.equal('account_id', accountId), Query.limit(1)]);
-                    if (menuDocs.total > 0) {
-                        const rawMenu = typeof menuDocs.documents[0].menu_items === 'string'
-                            ? JSON.parse(menuDocs.documents[0].menu_items)
-                            : (menuDocs.documents[0].menu_items || []);
-                        const templateMap = await buildReplyTemplateMap(databases, {
-                            userId: req.user.$id,
-                            accountIds: [normalizedAccountId, accountId]
-                        });
-                        dbMenu = (Array.isArray(rawMenu) ? rawMenu : [])
-                            .map((item) => hydrateInboxMenuItem(item, templateMap))
-                            .filter(Boolean);
-                    }
-                } catch (e) {
-                    dbMenu = [];
-                }
-            }
 
             if (dbMenu.length > 0 && igAccount) {
                 try {
@@ -5225,24 +5130,6 @@ router.get('/instagram/convo-starters', loginRequired, async (req, res) => {
             dbStarters = [];
         }
 
-        if (dbStarters.length === 0) {
-            try {
-                const starterDocs = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID,
-                    [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
-                if (starterDocs.total > 0) {
-                    try {
-                        savedStarterOrder = typeof starterDocs.documents[0].starters === 'string'
-                            ? JSON.parse(starterDocs.documents[0].starters)
-                            : (starterDocs.documents[0].starters || []);
-                        if (dbStarters.length === 0) {
-                            dbStarters = savedStarterOrder;
-                        }
-                    } catch (e) {
-                        savedStarterOrder = [];
-                    }
-                }
-            } catch (e) { }
-        }
 
         if (dbStarters.length > 0 && savedStarterOrder.length > 0) {
             dbStarters = mergeConvoStarterOrder(savedStarterOrder, dbStarters);
@@ -5329,20 +5216,6 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
                 dbStarters = [];
             }
 
-            if (dbStarters.length === 0) {
-                try {
-                    const starterDocs = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID,
-                        [Query.equal('user_id', req.user.$id), Query.equal('account_id', accountId), Query.limit(1)]);
-                    if (starterDocs.total > 0) {
-                        savedStarterOrder = typeof starterDocs.documents[0].starters === 'string'
-                            ? JSON.parse(starterDocs.documents[0].starters)
-                            : (starterDocs.documents[0].starters || []);
-                        if (dbStarters.length === 0) {
-                            dbStarters = savedStarterOrder;
-                        }
-                    }
-                } catch (e) { }
-            }
 
             if (dbStarters.length > 0 && igAccount) {
                 try {
@@ -5493,22 +5366,6 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
             await deleteAutomationWithArtifacts(databases, doc);
         }
 
-        try {
-            const queries = [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)];
-            const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, queries);
-            const docData = {
-                user_id: req.user.$id,
-                account_id,
-                starters: JSON.stringify(persistedStarters)
-            };
-
-            if (existing.total > 0) {
-                await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, existing.documents[0].$id, docData);
-            } else {
-                await databases.createDocument(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, ID.unique(), docData,
-                    [Permission.read(Role.user(req.user.$id))]);
-            }
-        } catch (_) { }
 
         // Optionally publish to Instagram
         if (publish) {
@@ -5571,14 +5428,6 @@ router.delete('/instagram/convo-starters', loginRequired, async (req, res) => {
             await deleteAutomationWithArtifacts(databases, doc);
         }
 
-        try {
-            const existing = await databases.listDocuments(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID,
-                [Query.equal('user_id', req.user.$id), Query.equal('account_id', account_id), Query.limit(1)]);
-
-            if (existing.total > 0) {
-                await databases.deleteDocument(process.env.APPWRITE_DATABASE_ID, CONVO_STARTERS_COLLECTION_ID, existing.documents[0].$id);
-            }
-        } catch (_) { }
 
         res.json({ message: 'Convo starters deleted' });
     } catch (err) {

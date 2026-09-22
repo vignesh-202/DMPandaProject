@@ -145,7 +145,6 @@ $functionVariables = @{
         $commonBase
         @{ key = "AUTOMATIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "AUTOMATIONS_COLLECTION_ID" -Default "automations"); secret = $false }
         @{ key = "KEYWORDS_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORDS_COLLECTION_ID" -Default "keywords"); secret = $false }
-        @{ key = "KEYWORD_INDEX_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORD_INDEX_COLLECTION_ID" -Default "keyword_index"); secret = $false }
         @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
     ) | ForEach-Object { $_ }
@@ -174,13 +173,10 @@ $functionVariables = @{
         @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
         @{ key = "AUTOMATIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "AUTOMATIONS_COLLECTION_ID" -Default "automations"); secret = $false }
         @{ key = "KEYWORDS_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORDS_COLLECTION_ID" -Default "keywords"); secret = $false }
-        @{ key = "KEYWORD_INDEX_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORD_INDEX_COLLECTION_ID" -Default "keyword_index"); secret = $false }
         @{ key = "LOGS_COLLECTION_ID"; value = (Get-EnvValue -Key "LOGS_COLLECTION_ID" -Default "logs"); secret = $false }
         @{ key = "CHAT_STATES_COLLECTION_ID"; value = (Get-EnvValue -Key "CHAT_STATES_COLLECTION_ID" -Default "chat_states"); secret = $false }
         @{ key = "SUPER_PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "SUPER_PROFILES_COLLECTION_ID" -Default "super_profiles"); secret = $false }
         @{ key = "REPLY_TEMPLATES_COLLECTION_ID"; value = (Get-EnvValue -Key "REPLY_TEMPLATES_COLLECTION_ID" -Default "reply_templates"); secret = $false }
-        @{ key = "INBOX_MENUS_COLLECTION_ID"; value = (Get-EnvValue -Key "INBOX_MENUS_COLLECTION_ID" -Default "inbox_menus"); secret = $false }
-        @{ key = "CONVO_STARTERS_COLLECTION_ID"; value = (Get-EnvValue -Key "CONVO_STARTERS_COLLECTION_ID" -Default "convo_starters"); secret = $false }
         @{ key = "COMMENT_MODERATION_COLLECTION_ID"; value = (Get-EnvValue -Key "COMMENT_MODERATION_COLLECTION_ID" -Default "comment_moderation"); secret = $false }
         @{ key = "FRONTEND_ORIGIN"; value = (Get-EnvValue -Key "FRONTEND_ORIGIN"); secret = $false }
     ) | ForEach-Object { $_ }
@@ -194,7 +190,6 @@ $functionVariables = @{
         @{ key = "IG_ACCOUNTS_COLLECTION_ID"; value = (Get-EnvValue -Key "IG_ACCOUNTS_COLLECTION_ID" -Default "ig_accounts"); secret = $false }
         @{ key = "AUTOMATIONS_COLLECTION_ID"; value = (Get-EnvValue -Key "AUTOMATIONS_COLLECTION_ID" -Default "automations"); secret = $false }
         @{ key = "KEYWORDS_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORDS_COLLECTION_ID" -Default "keywords"); secret = $false }
-        @{ key = "KEYWORD_INDEX_COLLECTION_ID"; value = (Get-EnvValue -Key "KEYWORD_INDEX_COLLECTION_ID" -Default "keyword_index"); secret = $false }
         @{ key = "SUPER_PROFILES_COLLECTION_ID"; value = (Get-EnvValue -Key "SUPER_PROFILES_COLLECTION_ID" -Default "super_profiles"); secret = $false }
         @{ key = "REPLY_TEMPLATES_COLLECTION_ID"; value = (Get-EnvValue -Key "REPLY_TEMPLATES_COLLECTION_ID" -Default "reply_templates"); secret = $false }
         @{ key = "COMMENT_MODERATION_COLLECTION_ID"; value = (Get-EnvValue -Key "COMMENT_MODERATION_COLLECTION_ID" -Default "comment_moderation"); secret = $false }

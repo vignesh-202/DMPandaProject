@@ -734,8 +734,6 @@ def _delete_user_data(client: Client, db_id: str, collections: dict, user_doc):
     purge_plan = {
         collections["automations"]: {**account_field_values, **user_field_values},
         collections["reply_templates"]: {**account_field_values, **user_field_values},
-        collections["inbox_menus"]: {**account_field_values, **user_field_values},
-        collections["convo_starters"]: {**account_field_values, **user_field_values},
         collections["super_profiles"]: {**account_field_values, **user_field_values},
         collections["comment_moderation"]: {**account_field_values, **user_field_values},
         collections["chat_states"]: {
@@ -746,8 +744,6 @@ def _delete_user_data(client: Client, db_id: str, collections: dict, user_doc):
         },
         collections["logs"]: {**account_field_values, **user_field_values},
         collections["keywords"]: {**account_field_values, **user_field_values},
-        collections["keyword_index"]: {**account_field_values, **user_field_values},
-        collections["campaigns"]: user_field_values,
         collections["email_campaigns"]: user_field_values,
         collections["ig_accounts"]: {**account_field_values, **user_field_values},
         collections["payment_attempts"]: user_field_values,
@@ -820,18 +816,14 @@ def main(context):
         protected_domains = _parse_csv_set(_env("INACTIVE_CLEANUP_PROTECTED_EMAIL_DOMAINS"))
 
         collections = {
-            "campaigns": _env("CAMPAIGNS_COLLECTION_ID", "campaigns"),
             "email_campaigns": _env("EMAIL_CAMPAIGNS_COLLECTION_ID", "email_campaigns"),
             "automations": _env("AUTOMATIONS_COLLECTION_ID", "automations"),
             "reply_templates": _env("REPLY_TEMPLATES_COLLECTION_ID", "reply_templates"),
-            "inbox_menus": _env("INBOX_MENUS_COLLECTION_ID", "inbox_menus"),
-            "convo_starters": _env("CONVO_STARTERS_COLLECTION_ID", "convo_starters"),
             "super_profiles": _env("SUPER_PROFILES_COLLECTION_ID", "super_profiles"),
             "comment_moderation": _env("COMMENT_MODERATION_COLLECTION_ID", "comment_moderation"),
             "chat_states": _env("CHAT_STATES_COLLECTION_ID", "chat_states"),
             "logs": _env("LOGS_COLLECTION_ID", "logs"),
             "keywords": _env("KEYWORDS_COLLECTION_ID", "keywords"),
-            "keyword_index": _env("KEYWORD_INDEX_COLLECTION_ID", "keyword_index"),
             "ig_accounts": _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts"),
             "payment_attempts": payment_attempts_collection,
             "coupon_redemptions": coupon_redemptions_collection,

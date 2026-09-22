@@ -2,7 +2,6 @@ const { ID } = require('node-appwrite');
 const {
     AUTOMATIONS_COLLECTION_ID,
     KEYWORDS_COLLECTION_ID,
-    KEYWORD_INDEX_COLLECTION_ID,
     LOGS_COLLECTION_ID,
     CHAT_STATES_COLLECTION_ID
 } = require('./appwrite');
@@ -184,7 +183,6 @@ const inspectAutomationDependencies = async ({
     const relatedCollections = [
         AUTOMATIONS_COLLECTION_ID,
         KEYWORDS_COLLECTION_ID,
-        KEYWORD_INDEX_COLLECTION_ID,
         LOGS_COLLECTION_ID,
         CHAT_STATES_COLLECTION_ID
     ];

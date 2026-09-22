@@ -7,6 +7,7 @@ import {
     Calendar,
     Check,
     CheckCircle2,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
     Clock,
@@ -860,13 +861,13 @@ export const UsersPage: React.FC = () => {
             )}
 
             {/* Modern Streamlined Filter Bar */}
-            <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border/80 bg-card p-3.5 shadow-xs">
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
                 {/* Plan filter */}
-                <div className="flex items-center gap-1.5 min-w-[130px] flex-1 sm:flex-initial">
+                <div className="relative flex items-center min-w-[140px] flex-1 sm:flex-initial">
                     <select
                         value={filters.plan}
                         onChange={(e) => setFilters((prev) => ({ ...prev, plan: e.target.value }))}
-                        className="input-base h-9 text-xs font-medium bg-background cursor-pointer"
+                        className="h-10 w-full appearance-none rounded-xl border border-border/80 bg-background pl-3.5 pr-8 text-xs font-medium text-foreground cursor-pointer focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     >
                         <option value="">All Plans</option>
                         <option value="free">Free Plan</option>
@@ -876,54 +877,57 @@ export const UsersPage: React.FC = () => {
                                 <option key={plan.id} value={plan.plan_code || plan.id}>{plan.name}</option>
                             ))}
                     </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 </div>
 
                 {/* Subscription status filter */}
-                <div className="flex items-center gap-1.5 min-w-[130px] flex-1 sm:flex-initial">
+                <div className="relative flex items-center min-w-[140px] flex-1 sm:flex-initial">
                     <select
                         value={filters.subscription_status}
                         onChange={(e) => setFilters((prev) => ({ ...prev, subscription_status: e.target.value }))}
-                        className="input-base h-9 text-xs font-medium bg-background cursor-pointer"
+                        className="h-10 w-full appearance-none rounded-xl border border-border/80 bg-background pl-3.5 pr-8 text-xs font-medium text-foreground cursor-pointer focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     >
                         <option value="">All Statuses</option>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                         <option value="expired">Expired</option>
                     </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 </div>
 
                 {/* Moderation state filter */}
-                <div className="flex items-center gap-1.5 min-w-[130px] flex-1 sm:flex-initial">
+                <div className="relative flex items-center min-w-[140px] flex-1 sm:flex-initial">
                     <select
                         value={filters.ban_mode}
                         onChange={(e) => setFilters((prev) => ({ ...prev, ban_mode: e.target.value }))}
-                        className="input-base h-9 text-xs font-medium bg-background cursor-pointer"
+                        className="h-10 w-full appearance-none rounded-xl border border-border/80 bg-background pl-3.5 pr-8 text-xs font-medium text-foreground cursor-pointer focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     >
                         <option value="">All Moderation</option>
                         <option value="none">Clear</option>
                         <option value="soft">Soft Ban</option>
                         <option value="hard">Hard Ban</option>
                     </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 </div>
 
                 {/* Linked IG count range */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                     <input
                         value={filters.linked_ig_min}
                         onChange={(event) => setFilters((prev) => ({ ...prev, linked_ig_min: event.target.value }))}
                         placeholder="Min IG"
                         type="number"
                         min="0"
-                        className="input-base h-9 w-20 text-xs text-center"
+                        className="h-10 w-24 rounded-xl border border-border/80 bg-background px-3 text-center text-xs font-medium text-foreground outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <span className="text-muted-foreground text-xs">–</span>
+                    <span className="text-muted-foreground text-xs font-semibold">–</span>
                     <input
                         value={filters.linked_ig_max}
                         onChange={(event) => setFilters((prev) => ({ ...prev, linked_ig_max: event.target.value }))}
                         placeholder="Max IG"
                         type="number"
                         min="0"
-                        className="input-base h-9 w-20 text-xs text-center"
+                        className="h-10 w-24 rounded-xl border border-border/80 bg-background px-3 text-center text-xs font-medium text-foreground outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                 </div>
 
@@ -931,7 +935,7 @@ export const UsersPage: React.FC = () => {
                     <button
                         type="button"
                         onClick={resetFilters}
-                        className="btn-secondary ml-auto inline-flex h-9 items-center gap-1.5 px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+                        className="btn-secondary ml-auto inline-flex h-10 items-center gap-1.5 px-3.5 text-xs font-medium text-muted-foreground hover:text-foreground rounded-xl"
                         title="Reset all filters"
                     >
                         <RotateCcw className="h-3 w-3" />

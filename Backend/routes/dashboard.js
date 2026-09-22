@@ -4,7 +4,6 @@ const { loginRequired } = require('../middleware/auth');
 const {
     getAppwriteClient,
     USERS_COLLECTION_ID,
-    CAMPAIGNS_COLLECTION_ID,
     LOGS_COLLECTION_ID,
     IG_ACCOUNTS_COLLECTION_ID
 } = require('../utils/appwrite');
@@ -127,25 +126,9 @@ router.get('/dashboard', loginRequired, async (req, res) => {
     try {
         const userId = req.user.$id;
 
-        // Use user's client for campaigns (RLS should handle this)
-        const databases = new Databases(req.appwriteClient);
-
-        let campaignsData = [];
-        try {
-            const campaignsResponse = await databases.listDocuments(
-                process.env.APPWRITE_DATABASE_ID,
-                CAMPAIGNS_COLLECTION_ID,
-                [Query.equal('user_id', userId)]
-            );
-            campaignsData = campaignsResponse.documents;
-        } catch (e) {
-            console.error(`Error fetching campaigns: ${e.message}`);
-            // If collection doesn't exist or permissions fail, return empty list
-        }
-
+        const campaignsData = [];
+        const activeCampaignsCount = 0;
         const userSettings = getDefaultUserSettings();
-
-        const activeCampaignsCount = campaignsData.filter(c => c.status === 'active').length;
         const overview = await getCachedDashboardOverview(userId);
         const serverDatabases = new Databases(getAppwriteClient({ useApiKey: true }));
         const [planContext, accessContext] = await Promise.all([

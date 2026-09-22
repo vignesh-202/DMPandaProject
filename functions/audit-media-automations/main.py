@@ -172,13 +172,9 @@ def _delete_automation_artifacts(
     automation_id: str,
     *,
     keywords_collection: str,
-    keyword_index_collection: str,
 ):
-    deleted_index, failed_index = _delete_related(client, db_id, keyword_index_collection, automation_id)
     deleted_keywords, failed_keywords = _delete_related(client, db_id, keywords_collection, automation_id)
     return {
-        "deleted_keyword_index": deleted_index,
-        "failed_keyword_index": failed_index,
         "deleted_keywords": deleted_keywords,
         "failed_keywords": failed_keywords,
     }
@@ -404,7 +400,6 @@ def main(context):
 
         automations_collection = _env("AUTOMATIONS_COLLECTION_ID", "automations")
         keywords_collection = _env("KEYWORDS_COLLECTION_ID", "keywords")
-        keyword_index_collection = _env("KEYWORD_INDEX_COLLECTION_ID", "keyword_index")
         ig_accounts_collection = _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts")
         now = datetime.now(timezone.utc)
         checked_collections = _ensure_collections_exist(
@@ -413,7 +408,6 @@ def main(context):
             [
                 automations_collection,
                 keywords_collection,
-                keyword_index_collection,
                 ig_accounts_collection,
                 _env("LOGS_COLLECTION_ID", "logs"),
                 _env("CHAT_STATES_COLLECTION_ID", "chat_states"),
@@ -424,10 +418,8 @@ def main(context):
         totals = {
             "deleted_automations": 0,
             "deleted_keywords": 0,
-            "deleted_keyword_index": 0,
             "failed_automations": 0,
             "failed_keywords": 0,
-            "failed_keyword_index": 0,
         }
 
         automations = _list_all(
@@ -484,8 +476,6 @@ def main(context):
             reason = "Linked Instagram media is missing or inaccessible"
             if dry_run:
                 artifact_totals = {
-                    "deleted_keyword_index": 0,
-                    "failed_keyword_index": 0,
                     "deleted_keywords": 0,
                     "failed_keywords": 0,
                 }
@@ -495,10 +485,7 @@ def main(context):
                     db_id,
                     automation_id,
                     keywords_collection=keywords_collection,
-                    keyword_index_collection=keyword_index_collection,
                 )
-            totals["deleted_keyword_index"] += artifact_totals["deleted_keyword_index"]
-            totals["failed_keyword_index"] += artifact_totals["failed_keyword_index"]
             totals["deleted_keywords"] += artifact_totals["deleted_keywords"]
             totals["failed_keywords"] += artifact_totals["failed_keywords"]
 
@@ -525,7 +512,6 @@ def main(context):
                             "account_id": account_id,
                             "media_id": media_id,
                             "deleted_keywords": artifact_totals["deleted_keywords"],
-                            "deleted_keyword_index": artifact_totals["deleted_keyword_index"],
                             "reason": reason,
                         }
                     )

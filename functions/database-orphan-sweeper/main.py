@@ -387,8 +387,8 @@ def main(context):
                 total_deletions += 1
         summary["deleted"]["automations"] = del_auto
 
-        # 3. keywords & keyword_index
-        for col_name in ("keywords", "keyword_index"):
+        # 3. keywords
+        for col_name in ("keywords",):
             col_id = _env(f"{col_name.upper()}_COLLECTION_ID", col_name)
             docs = _list_all_documents(client, db_id, col_id)
             summary["scanned"][col_name] = len(docs)
@@ -428,13 +428,9 @@ def main(context):
 
         # 4. Standard User/Account Scoped Collections
         scoped_collections = [
-            ("campaigns", "CAMPAIGNS_COLLECTION_ID", ["user_id", "account_id"]),
             ("email_campaigns", "EMAIL_CAMPAIGNS_COLLECTION_ID", ["admin_id"]),
             ("super_profiles", "SUPER_PROFILES_COLLECTION_ID", ["user_id", "account_id"]),
             ("reply_templates", "REPLY_TEMPLATES_COLLECTION_ID", ["user_id", "account_id"]),
-            ("inbox_menus", "INBOX_MENUS_COLLECTION_ID", ["account_id"]),
-            ("convo_starters", "CONVO_STARTERS_COLLECTION_ID", ["account_id"]),
-            ("subscription_slots", "SUBSCRIPTION_SLOTS_COLLECTION_ID", ["user_id"]),
             ("comment_moderation", "COMMENT_MODERATION_COLLECTION_ID", ["account_id", "user_id"]),
             ("chat_states", "CHAT_STATES_COLLECTION_ID", ["account_id"]),
             ("logs", "LOGS_COLLECTION_ID", ["account_id"]),
