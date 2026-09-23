@@ -520,6 +520,8 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
     // Ref to track the last account ID for which stats were fetched to prevent duplicates
     const lastFetchedStatsAccountID = React.useRef<string | null>(null);
+    const statsCacheRef = React.useRef<Record<string, { data: any; timestamp: number }>>({});
+    const PROFILE_REFRESH_THROTTLE_MS = 6 * 60 * 60 * 1000; // 6 hours
 
     const bulkProfileRefreshKeys = React.useRef<Set<string>>(new Set());
 
@@ -547,8 +549,8 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [authenticatedFetch]);
 
-    // Fetch account stats
-    const fetchStats = useCallback(async (accountId: string, accountsOverride?: any[]) => {
+    // Fetch account stats with client-side caching & instant transition
+    const fetchStats = useCallback(async (accountId: string, accountsOverride?: any[], force = false) => {
         const sourceAccounts = accountsOverride || igAccountsRef.current;
         const account = sourceAccounts.find(a => matchesAccountId(a, accountId));
         if (!account) {
@@ -556,23 +558,35 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        // Avoid re-fetching if we just fetched for this account (optional, but good for avoiding rapid duplicate calls from different sources)
-        // But we must allow force refreshes if needed. For now, we rely on the useEffect check.
+        const now = Date.now();
+        const cached = statsCacheRef.current[accountId];
+        if (!force && cached && (now - cached.timestamp < 60_000)) {
+            setActiveAccountStats(cached.data);
+            setIsLoadingStats(false);
+            return;
+        }
+
+        if (cached && !force) {
+            // Instant render: preserve existing stats while revalidating
+            setActiveAccountStats(cached.data);
+        }
 
         lastFetchedStatsAccountID.current = accountId;
         setIsLoadingStats(true);
-        setActiveAccountStats(null); // Clear old stats immediately to prevent lag/flash of old data
         try {
-            const response = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/stats?account_id=${accountId}`);
+            const url = `${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/stats?account_id=${accountId}${force ? '&force=1' : ''}`;
+            const response = await authenticatedFetch(url);
             if (response.ok) {
                 const data = await response.json();
-                setActiveAccountStats({ ...data, _accountId: accountId });
+                const payload = { ...data, _accountId: accountId };
+                statsCacheRef.current[accountId] = { data: payload, timestamp: Date.now() };
+                setActiveAccountStats(payload);
             } else {
-                setActiveAccountStats(null);
+                if (!cached) setActiveAccountStats(null);
             }
         } catch (error) {
             console.error('Error fetching account stats:', error);
-            setActiveAccountStats(null);
+            if (!cached) setActiveAccountStats(null);
         } finally {
             setIsLoadingStats(false);
         }
@@ -597,7 +611,13 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
                 const accounts = data.ig_accounts || [];
                 setIgAccounts(accounts);
                 if (accounts.length > 0) {
-                    void refreshLinkedProfiles(accounts);
+                    const lastSyncKey = `dm_panda_last_profile_sync_${user?.$id || 'current'}`;
+                    const lastSync = Number(typeof localStorage !== 'undefined' ? localStorage.getItem(lastSyncKey) : 0);
+                    const now = Date.now();
+                    if (!lastSync || now - lastSync > PROFILE_REFRESH_THROTTLE_MS) {
+                        if (typeof localStorage !== 'undefined') localStorage.setItem(lastSyncKey, String(now));
+                        void refreshLinkedProfiles(accounts);
+                    }
                 }
 
                 if (accounts.length > 0) {
@@ -641,7 +661,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
             setIsGlobalLoading(false);
             isFetchingAccounts.current = false;
         }
-    }, [authenticatedFetch, fetchStats, refreshLinkedProfiles]);
+    }, [authenticatedFetch, fetchStats, refreshLinkedProfiles, user]);
 
     // Initial load
     useEffect(() => {
@@ -855,7 +875,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
         isLoadingStats,
         refreshStats: () => {
             if (activeAccountID) {
-                fetchStats(activeAccountID);
+                fetchStats(activeAccountID, undefined, true);
             }
         },
         analyticsCache,

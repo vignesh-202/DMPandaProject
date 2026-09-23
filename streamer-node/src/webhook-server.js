@@ -97,10 +97,9 @@ function registerWebhookRoutes(app, {
         const signature = req.headers['x-hub-signature-256'] || '';
         const secret = appSecret || process.env.INSTAGRAM_APP_SECRET || process.env.META_APP_SECRET || '';
 
-        if (secret && signature) {
-            const isValid = verifyMetaSignature(req.rawBody, signature, secret);
-            if (!isValid) {
-                return res.status(401).json({ error: 'Invalid webhook signature' });
+        if (secret) {
+            if (!signature || !verifyMetaSignature(req.rawBody, signature, secret)) {
+                return res.status(401).json({ error: 'Invalid or missing webhook signature' });
             }
         }
 

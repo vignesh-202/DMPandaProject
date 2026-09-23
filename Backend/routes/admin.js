@@ -2905,7 +2905,7 @@ router.get('/cluster/stream', loginRequired, adminRequired, async (req, res) => 
     res.end();
 });
 
-router.get('/media-proxy', async (req, res) => {
+router.get('/media-proxy', loginRequired, adminRequired, async (req, res) => {
     const mediaUrl = String(req.query.url || '').trim();
     if (!mediaUrl) {
         return res.status(400).json({ error: 'url is required' });
@@ -2916,6 +2916,10 @@ router.get('/media-proxy', async (req, res) => {
         parsedUrl = new URL(mediaUrl);
     } catch (_) {
         return res.status(400).json({ error: 'Invalid media URL.' });
+    }
+
+    if (parsedUrl.protocol !== 'https:') {
+        return res.status(400).json({ error: 'Only HTTPS URLs are supported.' });
     }
 
     const hostname = parsedUrl.hostname.toLowerCase();
@@ -2937,6 +2941,7 @@ router.get('/media-proxy', async (req, res) => {
         const response = await axios.get(mediaUrl, {
             responseType: 'arraybuffer',
             timeout: 15000,
+            maxRedirects: 0,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                 'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'

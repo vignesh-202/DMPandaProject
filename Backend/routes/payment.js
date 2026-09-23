@@ -1603,7 +1603,10 @@ router.post('/verify-payment', loginRequired, async (req, res) => {
             .update(`${razorpay_order_id}|${razorpay_payment_id}`)
             .digest('hex');
 
-        if (generatedSignature !== razorpay_signature) {
+        const genBuf = Buffer.from(generatedSignature, 'utf8');
+        const sigBuf = Buffer.from(String(razorpay_signature || ''), 'utf8');
+
+        if (genBuf.length !== sigBuf.length || !crypto.timingSafeEqual(genBuf, sigBuf)) {
             return res.status(400).json({ error: 'Payment verification failed' });
         }
 

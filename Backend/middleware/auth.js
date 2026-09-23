@@ -54,10 +54,6 @@ const loginRequired = async (req, res, next) => {
         }
     }
 
-    if (!sessionToken && req.query?.token) {
-        sessionToken = String(req.query.token).trim();
-    }
-
     if (!sessionToken) {
         return sendAuthError(req, res, 401, 'Not authorized');
     }

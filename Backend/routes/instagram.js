@@ -2602,6 +2602,13 @@ router.post('/account/ig-accounts/relink/:accountId', loginRequired, async (req,
     }
 });
 
+// In-Memory Caches for Rate Limiting & High-Speed Dashboards
+const instagramStatsCache = new Map();
+const INSTAGRAM_STATS_TTL_MS = 60_000; // 60s cache to stay well within Meta's 200 calls/user/hr limit
+
+const dashboardCountsCache = new Map();
+const DASHBOARD_COUNTS_TTL_MS = 20_000; // 20s cache to avoid rapid duplicate DB aggregations
+
 // Get Stats
 router.get('/instagram/stats', loginRequired, async (req, res) => {
     let account = null;
@@ -2625,6 +2632,16 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
             ? recomputedAccounts.find((doc) => matchesIgAccountIdentifier(doc, account_id))
             : recomputedAccounts[0];
         if (!account) return res.status(404).json({ error: 'Instagram account not found.' });
+
+        const cacheKey = String(account.ig_user_id || account.$id || account_id);
+        const now = Date.now();
+        if (req.query.force !== '1') {
+            const cached = instagramStatsCache.get(cacheKey);
+            if (cached && cached.expiresAt > now) {
+                return res.json(cached.data);
+            }
+        }
+
         const accessToken = account.access_token;
 
         // Fetch profile info, stories, live status, and media (for reel count) in parallel
@@ -2651,7 +2668,7 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
                 let reelsCount = 0;
                 let nextUrl = null;
                 let pagesFetched = 0;
-                const MAX_PAGES = 20; // Safety limit to avoid excessive API calls
+                const MAX_PAGES = 1; // Safety limit: 1 page (100 recent items) to prevent excessive Graph API calls
 
                 // First page
                 const firstPage = await axios.get('https://graph.instagram.com/v24.0/me/media', {
@@ -2709,7 +2726,7 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
             console.log('Reels count fetch skipped:', reelsCountResult.reason?.message);
         }
 
-        res.json({
+        const statsPayload = {
             followers: data.followers_count || 0,
             following: data.follows_count || 0,
             media_count: data.media_count || 0,
@@ -2722,7 +2739,15 @@ router.get('/instagram/stats', loginRequired, async (req, res) => {
             website: data.website || '',
             is_live: isLive,
             is_verified: false
-        });
+        };
+
+        if (instagramStatsCache.size >= 500) {
+            const oldestKey = instagramStatsCache.keys().next().value;
+            instagramStatsCache.delete(oldestKey);
+        }
+        instagramStatsCache.set(cacheKey, { data: statsPayload, expiresAt: now + INSTAGRAM_STATS_TTL_MS });
+
+        res.json(statsPayload);
 
     } catch (err) {
         console.error(`IG Stats Error: ${err.message}`);
@@ -3036,6 +3061,15 @@ router.get('/auth/instagram/url', loginRequired, async (req, res) => {
 router.get('/dashboard/counts', loginRequired, async (req, res) => {
     try {
         const { account_id } = req.query;
+        const countsCacheKey = `${req.user.$id}:${account_id || 'all'}`;
+        const now = Date.now();
+        if (req.query.force !== '1') {
+            const cached = dashboardCountsCache.get(countsCacheKey);
+            if (cached && cached.expiresAt > now) {
+                return res.json(cached.data);
+            }
+        }
+
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
         const [profileContext, pricingPlans] = await Promise.all([
@@ -3482,7 +3516,7 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
             }
         };
 
-        res.json({
+        const countsPayload = {
             reply_templates: templatesResult.status === 'fulfilled' ? templatesResult.value.total : 0,
             mention: mentionsResult.status === 'fulfilled' ? mentionsResult.value.total : 0,
             welcome_message: welcomeMessageResult.status === 'fulfilled' ? welcomeMessageResult.value.total : 0,
@@ -3542,7 +3576,15 @@ router.get('/dashboard/counts', loginRequired, async (req, res) => {
                 max_allowed_accounts: Number(accountAccessState.summary?.max_allowed_accounts || instagramLimit || 0),
                 active_account_limit: Number(effectiveLimits.active_account_limit || effectiveLimits.instagram_connections_limit || 0)
             }
-        });
+        };
+
+        if (dashboardCountsCache.size >= 500) {
+            const oldestKey = dashboardCountsCache.keys().next().value;
+            dashboardCountsCache.delete(oldestKey);
+        }
+        dashboardCountsCache.set(countsCacheKey, { data: countsPayload, expiresAt: now + DASHBOARD_COUNTS_TTL_MS });
+
+        res.json(countsPayload);
     } catch (err) {
         console.error(`Dashboard Counts Error: ${err.message}`);
         res.json({
@@ -3677,6 +3719,10 @@ router.get('/instagram/media-proxy', loginRequired, async (req, res) => {
         return res.status(400).json({ error: 'Invalid media URL.' });
     }
 
+    if (parsedUrl.protocol !== 'https:') {
+        return res.status(400).json({ error: 'Only HTTPS URLs are supported.' });
+    }
+
     const hostname = parsedUrl.hostname.toLowerCase();
     const isAllowedHost =
         hostname === 'lookaside.fbsbx.com' ||
@@ -3694,6 +3740,7 @@ router.get('/instagram/media-proxy', loginRequired, async (req, res) => {
         const response = await axios.get(mediaUrl, {
             responseType: 'arraybuffer',
             timeout: 15000,
+            maxRedirects: 0,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                 'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'

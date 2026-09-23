@@ -29,14 +29,10 @@ const allowedOrigins = new Set([
 const isDevOrigin = (origin) => {
     if (!origin) return false;
     const normalized = normalizeOrigin(origin).toLowerCase();
-    // Allow any devtunnels.ms origin
-    if (normalized.endsWith('.devtunnels.ms')) return true;
     // Allow any localhost origin
     if (normalized.startsWith('http://localhost:') || normalized.startsWith('http://127.0.0.1:')) return true;
-    // Allow dmpanda.com and any subdomain (*.dmpanda.com)
+    // Allow dmpanda.com and any official subdomain (*.dmpanda.com)
     if (normalized === 'https://dmpanda.com' || normalized === 'http://dmpanda.com' || normalized.endsWith('.dmpanda.com')) return true;
-    // Allow Hostinger temporary / preview domains
-    if (normalized.endsWith('.hostingersite.com')) return true;
     return false;
 };
 
@@ -52,17 +48,6 @@ app.use(cors({
     },
     credentials: true
 }));
-
-app.use((req, _res, next) => {
-    const requestOrigin = normalizeRuntimeOrigin(req.get('origin') || req.get('referer') || '');
-    if (requestOrigin && (allowedOrigins.has(requestOrigin) || isDevOrigin(requestOrigin))) {
-        const databases = new Databases(getAppwriteClient({ useApiKey: true }));
-        saveRuntimeFrontendOrigin(databases, requestOrigin).catch((error) => {
-            console.warn(`Failed to capture runtime frontend origin: ${error?.message || String(error)}`);
-        });
-    }
-    next();
-});
 
 // Routes
 

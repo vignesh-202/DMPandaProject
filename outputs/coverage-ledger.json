@@ -1,0 +1,339 @@
+[
+  {
+    "canonical_refs": {
+      "surface": "Backend/app.js#cors",
+      "boundary": "Backend/app.js#isDevOrigin",
+      "subsystem": "Backend",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Backend/app.js#cors",
+    "boundary": "Backend/app.js#isDevOrigin",
+    "subsystem": "Backend",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "Backend/app.js"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+      "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+      "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "hunter-web-auth",
+    "reviewed_paths": [
+      "Backend/app.js",
+      "Backend/utils/sessionContext.js"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-web-auth",
+        "reviewed_paths": [
+          "Backend/app.js",
+          "Backend/utils/sessionContext.js"
+        ],
+        "invariant": "CORS allowed origins must not permit arbitrary public multi-tenant wildcard origins with credentials",
+        "method": "source",
+        "result": "Found isDevOrigin allows any .devtunnels.ms and .hostingersite.com domain with credentials: true",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "DMP-SEC-002-PERMISSIVE-CORS-DEVTUNNEL"
+    ],
+    "unresolved": [],
+    "coverage_id": "Backend%2Fapp.js%23cors::Backend%2Fapp.js%23isDevOrigin::Backend::ATTACK-CLASSES.md%23Access%20control"
+  },
+  {
+    "canonical_refs": {
+      "surface": "Backend/app.js#origin-middleware",
+      "boundary": "Backend/utils/systemConfig.js#saveRuntimeFrontendOrigin",
+      "subsystem": "Backend",
+      "attack_class": "ATTACK-CLASSES.md#Resource exhaustion and availability"
+    },
+    "surface": "Backend/app.js#origin-middleware",
+    "boundary": "Backend/utils/systemConfig.js#saveRuntimeFrontendOrigin",
+    "subsystem": "Backend",
+    "attack_class": "Resource exhaustion and availability",
+    "starting_paths": [
+      "Backend/app.js"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Resource exhaustion and availability",
+    "selected_companion_blocks": [
+      "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+      "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Universal moves",
+      "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Validation rules"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "hunter-availability",
+    "reviewed_paths": [
+      "Backend/app.js",
+      "Backend/utils/systemConfig.js"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-availability",
+        "reviewed_paths": [
+          "Backend/app.js",
+          "Backend/utils/systemConfig.js"
+        ],
+        "invariant": "Inbound HTTP request processing must not perform unthrottled database writes on arbitrary origin headers",
+        "method": "source",
+        "result": "Found saveRuntimeFrontendOrigin is triggered on every request matching dev origins without rate limiting",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "DMP-SEC-007-UNTHROTTLED-ORIGIN-DB-WRITE"
+    ],
+    "unresolved": [],
+    "coverage_id": "Backend%2Fapp.js%23origin-middleware::Backend%2Futils%2FsystemConfig.js%23saveRuntimeFrontendOrigin::Backend::ATTACK-CLASSES.md%23Resource%20exhaustion%20and%20availability"
+  },
+  {
+    "canonical_refs": {
+      "surface": "Backend/middleware/auth.js#loginRequired",
+      "boundary": "Backend/middleware/auth.js#queryTokenFallback",
+      "subsystem": "Backend",
+      "attack_class": "ATTACK-CLASSES.md#Authentication and session management"
+    },
+    "surface": "Backend/middleware/auth.js#loginRequired",
+    "boundary": "Backend/middleware/auth.js#queryTokenFallback",
+    "subsystem": "Backend",
+    "attack_class": "Authentication and session management",
+    "starting_paths": [
+      "Backend/middleware/auth.js"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Authentication and session management",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+      "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+      "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "hunter-auth",
+    "reviewed_paths": [
+      "Backend/middleware/auth.js"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-auth",
+        "reviewed_paths": [
+          "Backend/middleware/auth.js"
+        ],
+        "invariant": "Session authentication tokens must not be accepted in GET query parameters to prevent leakage in logs and referrers",
+        "method": "source",
+        "result": "Found req.query.token fallback enables passing credentials in URLs",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "DMP-SEC-004-QUERY-TOKEN-SESSION-LEAK"
+    ],
+    "unresolved": [],
+    "coverage_id": "Backend%2Fmiddleware%2Fauth.js%23loginRequired::Backend%2Fmiddleware%2Fauth.js%23queryTokenFallback::Backend::ATTACK-CLASSES.md%23Authentication%20and%20session%20management"
+  },
+  {
+    "canonical_refs": {
+      "surface": "Backend/routes/admin.js#GET /media-proxy",
+      "boundary": "Backend/routes/admin.js#hostnameValidation",
+      "subsystem": "Backend",
+      "attack_class": "ATTACK-CLASSES.md#Server-side request forgery (SSRF)"
+    },
+    "surface": "Backend/routes/admin.js#GET /media-proxy",
+    "boundary": "Backend/routes/admin.js#hostnameValidation",
+    "subsystem": "Backend",
+    "attack_class": "Server-side request forgery (SSRF)",
+    "starting_paths": [
+      "Backend/routes/admin.js"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Server-side request forgery (SSRF)",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+      "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+      "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "hunter-ssrf",
+    "reviewed_paths": [
+      "Backend/routes/admin.js"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-ssrf",
+        "reviewed_paths": [
+          "Backend/routes/admin.js"
+        ],
+        "invariant": "Media proxy endpoints must require authentication, enforce HTTPS, and disable redirect following",
+        "method": "source",
+        "result": "Found unauthenticated GET /media-proxy with unvalidated protocol and default redirect following in axios",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "DMP-SEC-003-ADMIN-MEDIA-PROXY-SSRF"
+    ],
+    "unresolved": [],
+    "coverage_id": "Backend%2Froutes%2Fadmin.js%23GET%20%2Fmedia-proxy::Backend%2Froutes%2Fadmin.js%23hostnameValidation::Backend::ATTACK-CLASSES.md%23Server-side%20request%20forgery%20%28SSRF%29"
+  },
+  {
+    "canonical_refs": {
+      "surface": "Backend/routes/auth.js#POST /api/login",
+      "boundary": "Backend/routes/auth.js#rateLimit",
+      "subsystem": "Backend",
+      "attack_class": "ATTACK-CLASSES.md#Authentication and session management"
+    },
+    "surface": "Backend/routes/auth.js#POST /api/login",
+    "boundary": "Backend/routes/auth.js#rateLimit",
+    "subsystem": "Backend",
+    "attack_class": "Authentication and session management",
+    "starting_paths": [
+      "Backend/routes/auth.js"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Authentication and session management",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+      "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+      "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "hunter-auth",
+    "reviewed_paths": [
+      "Backend/package.json",
+      "Backend/routes/auth.js"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-auth",
+        "reviewed_paths": [
+          "Backend/package.json",
+          "Backend/routes/auth.js"
+        ],
+        "invariant": "Public authentication endpoints must enforce rate limiting against brute-force attacks",
+        "method": "source",
+        "result": "Found express-rate-limit is declared in package.json but not mounted on auth routes",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "DMP-SEC-005-AUTH-NO-RATE-LIMITING"
+    ],
+    "unresolved": [],
+    "coverage_id": "Backend%2Froutes%2Fauth.js%23POST%20%2Fapi%2Flogin::Backend%2Froutes%2Fauth.js%23rateLimit::Backend::ATTACK-CLASSES.md%23Authentication%20and%20session%20management"
+  },
+  {
+    "canonical_refs": {
+      "surface": "Backend/routes/payment.js#POST /razorpay/verify",
+      "boundary": "Backend/routes/payment.js#verifySignature",
+      "subsystem": "Backend",
+      "attack_class": "ATTACK-CLASSES.md#Cryptographic weaknesses"
+    },
+    "surface": "Backend/routes/payment.js#POST /razorpay/verify",
+    "boundary": "Backend/routes/payment.js#verifySignature",
+    "subsystem": "Backend",
+    "attack_class": "Cryptographic weaknesses",
+    "starting_paths": [
+      "Backend/routes/payment.js"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Cryptographic weaknesses",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+      "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+      "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "hunter-crypto",
+    "reviewed_paths": [
+      "Backend/routes/payment.js"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-crypto",
+        "reviewed_paths": [
+          "Backend/routes/payment.js"
+        ],
+        "invariant": "Cryptographic payment signature comparison must use constant-time verification",
+        "method": "source",
+        "result": "Found generatedSignature !== razorpay_signature comparison in verify endpoint line 1606",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "DMP-SEC-006-RAZORPAY-HMAC-TIMING-ATTACK"
+    ],
+    "unresolved": [],
+    "coverage_id": "Backend%2Froutes%2Fpayment.js%23POST%20%2Frazorpay%2Fverify::Backend%2Froutes%2Fpayment.js%23verifySignature::Backend::ATTACK-CLASSES.md%23Cryptographic%20weaknesses"
+  },
+  {
+    "canonical_refs": {
+      "surface": "streamer-node/src/webhook-server.js#POST /webhook",
+      "boundary": "streamer-node/src/webhook-server.js#verifyMetaSignature",
+      "subsystem": "streamer-node",
+      "attack_class": "ATTACK-CLASSES.md#Authentication and session management"
+    },
+    "surface": "streamer-node/src/webhook-server.js#POST /webhook",
+    "boundary": "streamer-node/src/webhook-server.js#verifyMetaSignature",
+    "subsystem": "streamer-node",
+    "attack_class": "Authentication and session management",
+    "starting_paths": [
+      "streamer-node/src/webhook-server.js"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Authentication and session management",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+      "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+      "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "none",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "hunter-webhook",
+    "reviewed_paths": [
+      "streamer-node/index.js",
+      "streamer-node/src/webhook-server.js"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-webhook",
+        "reviewed_paths": [
+          "streamer-node/index.js",
+          "streamer-node/src/webhook-server.js"
+        ],
+        "invariant": "Inbound webhook notifications must strictly verify HMAC-SHA256 signature when secret is configured",
+        "method": "source",
+        "result": "Found conditional if (secret && signature) skips verification when signature header is omitted",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [
+      "DMP-SEC-001-META-WEBHOOK-AUTH-BYPASS"
+    ],
+    "unresolved": [],
+    "coverage_id": "streamer-node%2Fsrc%2Fwebhook-server.js%23POST%20%2Fwebhook::streamer-node%2Fsrc%2Fwebhook-server.js%23verifyMetaSignature::streamer-node::ATTACK-CLASSES.md%23Authentication%20and%20session%20management"
+  }
+]

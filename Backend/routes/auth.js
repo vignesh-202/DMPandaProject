@@ -19,6 +19,23 @@ const {
 const { ensureUserActivityDocument } = require('../utils/userActivity');
 const { resolveUserPlanContext } = require('../utils/planConfig');
 const { recomputeAccountAccessStateForUser } = require('../utils/accountAccess');
+const rateLimit = require('express-rate-limit');
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 15,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many authentication attempts. Please try again after 15 minutes.' }
+});
+
+const passwordResetLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many password reset attempts. Please try again after 1 hour.' }
+});
 
 const processedOAuthSecrets = new Map(); // Cache for duplicate prevention
 const OAUTH_CACHE_TTL_MS = 60_000; // 60 seconds
@@ -235,7 +252,7 @@ const findUsersByNormalizedEmail = async (users, email, options = {}) => {
 // REGISTER
 // Matches Python: @app.route('/api/register', methods=['POST'])
 // ==============================================================================
-router.post('/api/register', async (req, res) => {
+router.post('/api/register', authLimiter, async (req, res) => {
     const { email, password, name } = req.body;
 
     if (!isValidEmail(email)) return res.status(400).json({ error: 'Invalid email format.' });
@@ -293,7 +310,7 @@ router.post('/api/register', async (req, res) => {
 // LOGIN
 // Matches Python: @app.route('/api/login', methods=['POST'])
 // ==============================================================================
-router.post('/api/login', async (req, res) => {
+router.post('/api/login', authLimiter, async (req, res) => {
     const { email, password } = req.body;
     const appContext = getAppContextFromRequest(req);
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
@@ -798,7 +815,7 @@ router.post('/api/auth/verify-callback', async (req, res) => {
 // FORGOT PASSWORD
 // Matches Python: @app.route('/api/forgot-password', methods=['POST'])
 // ==============================================================================
-router.post('/api/forgot-password', async (req, res) => {
+router.post('/api/forgot-password', passwordResetLimiter, async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required.' });
 

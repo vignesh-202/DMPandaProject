@@ -100,7 +100,7 @@ const calculateDashboardOverview = async (userId) => {
 };
 
 const dashboardOverviewCache = new Map();
-const DASHBOARD_OVERVIEW_TTL_MS = 5000;
+const DASHBOARD_OVERVIEW_TTL_MS = 30000;
 
 const getCachedDashboardOverview = async (userId) => {
     const safeUserId = String(userId || '').trim();

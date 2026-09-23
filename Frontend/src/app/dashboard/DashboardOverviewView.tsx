@@ -88,16 +88,40 @@ const GaugeCard = ({
   );
 };
 
+interface CachedOverviewData {
+  counts: Record<CountsKey, number>;
+  gaugeMetrics: {
+    hourly_actions_used: number;
+    hourly_action_limit: number;
+    daily_actions_used: number;
+    daily_action_limit: number;
+    monthly_actions_used: number;
+    monthly_action_limit: number;
+    allocated_hourly_credits: number;
+    remained_hourly_credits: number;
+    allocated_daily_credits: number;
+    remained_daily_credits: number;
+    allocated_monthly_credits: number;
+    remained_monthly_credits: number;
+  };
+  timestamp: number;
+}
+
+const overviewCache: Record<string, CachedOverviewData> = {};
+
 const DashboardOverviewView: React.FC = () => {
   const { authenticatedFetch } = useAuth();
   const { activeAccountID, setCurrentView } = useDashboard();
-  const [counts, setCounts] = useState<Record<CountsKey, number>>({
+  const cacheKey = activeAccountID || 'all';
+  const initialCache = overviewCache[cacheKey];
+
+  const [counts, setCounts] = useState<Record<CountsKey, number>>(() => initialCache?.counts || {
     reply_templates: 0,
     mention: 0,
     welcome_message: 0,
     suggest_more: 0,
   });
-  const [gaugeMetrics, setGaugeMetrics] = useState({
+  const [gaugeMetrics, setGaugeMetrics] = useState(() => initialCache?.gaugeMetrics || {
     hourly_actions_used: 0,
     hourly_action_limit: 0,
     daily_actions_used: 0,
@@ -114,6 +138,14 @@ const DashboardOverviewView: React.FC = () => {
   const countsInFlight = useRef(false);
 
   useEffect(() => {
+    const cached = overviewCache[cacheKey];
+    const now = Date.now();
+    if (cached && now - cached.timestamp < 20_000) {
+      setCounts(cached.counts);
+      setGaugeMetrics(cached.gaugeMetrics);
+      return;
+    }
+
     if (countsInFlight.current) return;
 
     countsInFlight.current = true;
@@ -131,13 +163,13 @@ const DashboardOverviewView: React.FC = () => {
         const dailyUsed = actionWindowMetrics.daily_actions_used ?? 0;
         const monthlyUsed = actionWindowMetrics.monthly_actions_used ?? 0;
 
-        setCounts({
+        const nextCounts: Record<CountsKey, number> = {
           reply_templates: payload.reply_templates ?? 0,
           mention: payload.mention ?? 0,
           welcome_message: payload.welcome_message ?? 0,
           suggest_more: payload.suggest_more ?? 0,
-        });
-        setGaugeMetrics({
+        };
+        const nextGauges = {
           hourly_actions_used: hourlyUsed,
           hourly_action_limit: hourlyLimit,
           daily_actions_used: dailyUsed,
@@ -150,13 +182,22 @@ const DashboardOverviewView: React.FC = () => {
           remained_daily_credits: Math.max(0, dailyLimit - dailyUsed),
           allocated_monthly_credits: monthlyLimit,
           remained_monthly_credits: Math.max(0, monthlyLimit - monthlyUsed),
-        });
+        };
+
+        overviewCache[cacheKey] = {
+          counts: nextCounts,
+          gaugeMetrics: nextGauges,
+          timestamp: Date.now(),
+        };
+
+        setCounts(nextCounts);
+        setGaugeMetrics(nextGauges);
       })
       .catch(() => {})
       .finally(() => {
         countsInFlight.current = false;
       });
-  }, [activeAccountID, authenticatedFetch]);
+  }, [activeAccountID, authenticatedFetch, cacheKey]);
 
   const gaugeData = [
     {
