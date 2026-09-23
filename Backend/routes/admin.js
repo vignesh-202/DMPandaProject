@@ -37,9 +37,6 @@ const {
     normalizePlanSource,
     buildPlanProfilePayload,
     getLatestValidTransaction,
-    parseAdminOverride,
-    buildAdminOverridePayload,
-    clearAdminOverridePayload,
     syncUserIgAccountLimitSnapshots
 } = require('../utils/planConfig');
 const {
@@ -695,12 +692,7 @@ const getProfileForUser = async (databases, userId) => {
     }
 };
 
-const buildProfileRollbackPayload = (user = null) => {
-    if (!user) return null;
-    return {
-        admin_override_json: user.admin_override_json || null
-    };
-};
+const buildProfileRollbackPayload = () => ({});
 
 const restoreProfileDocument = async (databases, userId, rollbackPayload) => {
     if (!userId || !rollbackPayload) return null;
@@ -901,22 +893,6 @@ const buildEffectivePlanResponse = async (databases, userId, userFallback = null
     const effectivePlanSource = normalizePlanSource(context.profile?.plan_source || context.planSource || 'system', 'system');
     const effectiveExpiryDate = parseSubscriptionExpiryDate(context.profile?.expiry_date || null);
     const subscriptionState = deriveSubscriptionState(effectivePlanCode, effectiveExpiryDate);
-    let adminOverride = null;
-    try {
-        const parsed = context.profile?.admin_override_json ? JSON.parse(context.profile.admin_override_json) : null;
-        if (parsed) {
-            const expiry = parseSubscriptionExpiryDate(parsed.e || parsed.expires_at || null);
-            adminOverride = {
-                plan_id: normalizePlanCode(parsed.p || parsed.plan_id || 'free'),
-                plan_name: String(parsed.n || parsed.plan_name || '').trim() || null,
-                billing_cycle: parsed.b ? normalizeBillingCycle(parsed.b) : null,
-                expires_at: expiry,
-                is_active: Boolean(expiry && new Date(expiry).getTime() > Date.now())
-            };
-        }
-    } catch (_) {
-        adminOverride = null;
-    }
     return {
         profile: context.profile,
         effective_plan: {
@@ -938,7 +914,6 @@ const buildEffectivePlanResponse = async (databases, userId, userFallback = null
             is_active: subscriptionState.is_active,
             is_expired: subscriptionState.is_expired
         },
-        admin_override: adminOverride,
         self_plan: {
             id: String(context.selfPlanId || 'free'),
             expiry_date: context.selfExpiryDate || null
@@ -1329,7 +1304,7 @@ const getTransactionPlanId = (transaction) =>
 const META_PLATFORM_HOURLY_LIMIT_PER_LINKED_ACCOUNT = 200;
 
 const buildDashboardMetrics = async (databases) => {
-    const [users, accounts, transactions, automations, logs, coupons, couponRedemptions] = await Promise.all([
+    const [users, accounts, transactions, automations, logs, coupons, couponRedemptions, pricingPlans] = await Promise.all([
         listAllDocuments(databases, USERS_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, IG_ACCOUNTS_COLLECTION_ID).catch(() => []),
         listAllDocuments(databases, TRANSACTIONS_COLLECTION_ID).catch(() => []),
@@ -1338,7 +1313,8 @@ const buildDashboardMetrics = async (databases) => {
             Query.greaterThanEqual('sent_at', startOfDayIso(29))
         ]).catch(() => []),
         listAllDocuments(databases, COUPONS_COLLECTION_ID).catch(() => []),
-        listAllDocuments(databases, COUPON_REDEMPTIONS_COLLECTION_ID).catch(() => [])
+        listAllDocuments(databases, COUPON_REDEMPTIONS_COLLECTION_ID).catch(() => []),
+        listPricingPlans(databases).catch(() => [])
     ]);
 
     const statusLogs = logs.filter((entry) => String(entry.status || '').trim());
@@ -1414,11 +1390,33 @@ const buildDashboardMetrics = async (databases) => {
         }
     });
 
-    const poolCapacity = accounts.reduce((sum, account) => sum + Number(account.hourly_action_limit || 0), 0);
+    const planMap = new Map(pricingPlans.map((p) => [String(p.plan_code || p.id || '').toLowerCase(), p]));
+    const userMap = new Map(users.map((u) => [String(u.$id || u.id || '').trim(), u]));
+
+    const resolveAccountLimit = (account, field) => {
+        const direct = Number(account[field] || 0);
+        if (direct > 0) return direct;
+        const owner = userMap.get(String(account.user_id || '').trim());
+        if (owner && Number(owner[field] || 0) > 0) {
+            return Number(owner[field] || 0);
+        }
+        const planCode = String(account.plan_code || owner?.plan_code || 'free').toLowerCase();
+        const planDoc = planMap.get(planCode);
+        if (planDoc) {
+            try {
+                const limits = resolvePlanLimits(planDoc, owner);
+                const val = Number(limits[field] || 0);
+                if (val > 0) return val;
+            } catch (_) {}
+        }
+        return 0;
+    };
+
+    const poolCapacity = accounts.reduce((sum, account) => sum + resolveAccountLimit(account, 'hourly_action_limit'), 0);
     const poolUsage = accounts.reduce((sum, account) => sum + Number(account.hourly_actions_used || 0), 0);
-    const dailyPoolCapacity = accounts.reduce((sum, account) => sum + Number(account.daily_action_limit || 0), 0);
+    const dailyPoolCapacity = accounts.reduce((sum, account) => sum + resolveAccountLimit(account, 'daily_action_limit'), 0);
     const dailyPoolUsage = accounts.reduce((sum, account) => sum + Number(account.daily_actions_used || 0), 0);
-    const monthlyPoolCapacity = accounts.reduce((sum, account) => sum + Number(account.monthly_action_limit || 0), 0);
+    const monthlyPoolCapacity = accounts.reduce((sum, account) => sum + resolveAccountLimit(account, 'monthly_action_limit'), 0);
     const monthlyPoolUsage = accounts.reduce((sum, account) => sum + Number(account.monthly_actions_used || 0), 0);
     const metaPoolCapacity = Number(accounts.length || 0) * META_PLATFORM_HOURLY_LIMIT_PER_LINKED_ACCOUNT;
     const hourlyPoolBalanceMax = Math.max(metaPoolCapacity, 1);
@@ -2172,7 +2170,6 @@ router.get('/users', loginRequired, adminRequired, async (req, res) => {
                     const synthesizedProfile = {
                         $id: user.$id,
                         user_id: user.$id,
-                        admin_override_json: user.admin_override_json || null,
                         plan_code: subState.plan_code,
                         plan_name: activePaidAccount?.plan_name || subState.plan_code,
                         expiry_date: subState.expiry_date,
@@ -2187,7 +2184,6 @@ router.get('/users', loginRequired, adminRequired, async (req, res) => {
 
                     return {
                         ...user,
-                        admin_override_json: user.admin_override_json || null,
                         profile: synthesizedProfile,
                         profile_picture_url: resolvedProfilePic,
                         linked_instagram_accounts: userAccounts.length
@@ -2411,36 +2407,9 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             return fail(res, 400, 'Unsupported profile action.');
         }
 
-        const existingAdminOverride = parseAdminOverride(existingProfile);
         const nextFeatureOverrides = req.body?.no_watermark !== undefined
             ? { ...featureOverrides, no_watermark: req.body.no_watermark === true }
             : featureOverrides;
-        const shouldPersistAdminOverride = (
-            action === 'change_assigned_plan'
-            || (
-                ['edit_custom_limits', 'edit_benefits', 'reset_to_assigned_defaults'].includes(action)
-                && (
-                    existingAdminOverride
-                    || normalizePlanSource(existingProfile?.plan_source, 'system') === 'admin'
-                )
-            )
-        );
-        const adminOverrideJson = shouldPersistAdminOverride
-            ? buildAdminOverridePayload({
-                planId: nextPlanId,
-                planName: nextPlan?.name || nextPlan?.plan_name || existingAdminOverride?.plan_name || nextPlanId,
-                billingCycle: req.body?.duration_mode === 'yearly'
-                    ? 'yearly'
-                    : (existingAdminOverride?.billing_cycle || 'monthly'),
-                expiresAt: nextExpiryDate || existingAdminOverride?.expires_at,
-                limitOverrides,
-                featureOverrides: nextFeatureOverrides
-            })
-            : (
-                action === 'reset_to_paid_snapshot_or_free'
-                    ? clearAdminOverridePayload()
-                    : existingProfile?.admin_override_json
-            );
 
         const payload = buildPlanProfilePayload({
             currentProfile: existingProfile,
@@ -2453,8 +2422,7 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             limitOverrides,
             noWatermarkEnabled: req.body?.no_watermark,
             resetReminderState: action === 'change_assigned_plan' || action === 'reset_to_paid_snapshot_or_free',
-            credits: existingProfile ? undefined : 0,
-            adminOverrideJson
+            credits: existingProfile ? undefined : 0
         });
 
         const previousProfileSnapshot = buildProfileRollbackPayload(existingProfile);
@@ -2467,9 +2435,6 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
         if (req.body?.cleanup_protected !== undefined) {
             userUpdate.cleanup_protected = req.body.cleanup_protected === true;
         }
-        if (payload.admin_override_json !== undefined) {
-            userUpdate.admin_override_json = payload.admin_override_json;
-        }
 
         try {
             user = Object.keys(userUpdate).length > 0
@@ -2481,15 +2446,10 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
             instagram_accounts = accountAccessState.accounts;
             await updateAutomationPlanValidationForUser(databases, userId).catch(() => null);
         } catch (error) {
-            if (Object.prototype.hasOwnProperty.call(userUpdate, 'cleanup_protected')
-                || Object.prototype.hasOwnProperty.call(userUpdate, 'admin_override_json')) {
-                const rollbackPatch = {};
-                if (Object.prototype.hasOwnProperty.call(userUpdate, 'cleanup_protected')) {
-                    rollbackPatch.cleanup_protected = previousCleanupProtected;
-                }
-                if (Object.prototype.hasOwnProperty.call(userUpdate, 'admin_override_json')) {
-                    rollbackPatch.admin_override_json = previousProfileSnapshot?.admin_override_json || null;
-                }
+            if (Object.prototype.hasOwnProperty.call(userUpdate, 'cleanup_protected')) {
+                const rollbackPatch = {
+                    cleanup_protected: previousCleanupProtected
+                };
                 await databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, userId, rollbackPatch).catch(() => null);
             }
             throw error;
@@ -2504,7 +2464,6 @@ router.patch('/users/:userId/profile', loginRequired, adminRequired, async (req,
                 plan_code: payload.plan_code,
                 expiry_date: payload.expiry_date,
                 plan_source: payload.plan_source,
-                admin_override_json: payload.admin_override_json,
                 cleanup_protected: userUpdate.cleanup_protected
             }
         });

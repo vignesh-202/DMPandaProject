@@ -204,7 +204,7 @@ const DashboardOverviewView: React.FC = () => {
       </section>
 
       <section>
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
           {COUNT_CARDS.map(({ key, label, view, icon: Icon }) => {
             const count = counts[key];
             const isReplyTemplateCard = key === 'reply_templates';

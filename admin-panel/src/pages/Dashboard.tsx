@@ -126,15 +126,21 @@ export const Dashboard: React.FC = () => {
     const topPlan = planDistribution[0];
     const planHourlyUsage = Number(metrics?.plan_pools?.hourly?.usage || metrics?.pool?.usage_last_hour || 0);
     const planHourlyCapacity = Number(metrics?.plan_pools?.hourly?.capacity || metrics?.pool?.capacity_per_hour || 0);
-    const planHourlyUsagePercent = Number(metrics?.plan_pools?.hourly?.usage_percent || 0);
+    const planHourlyUsagePercent = planHourlyCapacity > 0
+        ? Math.round((planHourlyUsage / planHourlyCapacity) * 100)
+        : Number(metrics?.plan_pools?.hourly?.usage_percent || 0);
 
     const planDailyUsage = Number(metrics?.plan_pools?.daily?.usage || 0);
     const planDailyCapacity = Number(metrics?.plan_pools?.daily?.capacity || 0);
-    const planDailyUsagePercent = Number(metrics?.plan_pools?.daily?.usage_percent || 0);
+    const planDailyUsagePercent = planDailyCapacity > 0
+        ? Math.round((planDailyUsage / planDailyCapacity) * 100)
+        : Number(metrics?.plan_pools?.daily?.usage_percent || 0);
 
     const planMonthlyUsage = Number(metrics?.plan_pools?.monthly?.usage || 0);
     const planMonthlyCapacity = Number(metrics?.plan_pools?.monthly?.capacity || 0);
-    const planMonthlyUsagePercent = Number(metrics?.plan_pools?.monthly?.usage_percent || 0);
+    const planMonthlyUsagePercent = planMonthlyCapacity > 0
+        ? Math.round((planMonthlyUsage / planMonthlyCapacity) * 100)
+        : Number(metrics?.plan_pools?.monthly?.usage_percent || 0);
     const revenueLast30Days = Number(metrics?.revenue_last_30_days || 0);
     const revenueLast7Days = Number(metrics?.revenue_last_7_days || 0);
     const paidUsersCount = Number(metrics?.totals?.paid_users || 0);

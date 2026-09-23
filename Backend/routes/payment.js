@@ -37,7 +37,6 @@ const {
     buildPlanProfilePayload,
     buildPaidPlanSnapshot,
     buildAccountPlanSnapshot,
-    clearAdminOverridePayload,
     syncUserIgAccountLimitSnapshots,
     parseJsonObject
 } = require('../utils/planConfig');
@@ -789,18 +788,6 @@ const ensureUserProfileDocument = async (
     // Profiles table has been migrated to users and ig_accounts.
     // Subscriptions are tracked per-account in ig_accounts.
     return null;
-};
-
-const clearAdminOverrideForUserProfile = async (databases, userId) => {
-    try {
-        const safeUserId = String(userId || '').trim();
-        if (!safeUserId) return null;
-        return retryAppwriteOperation(() => databases.updateDocument(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, safeUserId, {
-            admin_override_json: clearAdminOverridePayload()
-        })).catch(() => null);
-    } catch (_) {
-        return null;
-    }
 };
 
 const sendSubscriptionSuccessEmail = async (userId, plan, pricing, appliedCoupon, subscriptionExpires, selectedAccountIds = []) => {
@@ -1969,6 +1956,4 @@ router.get('/pricing', async (req, res) => {
 
 module.exports = router;
 module.exports.clearPricingPayloadCache = clearPricingPayloadCache;
-module.exports._test = {
-    clearAdminOverrideForUserProfile
-};
+

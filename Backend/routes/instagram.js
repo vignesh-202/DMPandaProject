@@ -1114,51 +1114,9 @@ const resolveReplyTemplateAccount = async (databases, userId, templateDoc, reque
 };
 
 const ensureKeywordConstraints = async (databases, { accountId, automationId, automationType, keywords }) => {
-    for (const keywordNormalized of keywords) {
-        if (automationType === 'global') {
-            const matches = await databases.listDocuments(
-                process.env.APPWRITE_DATABASE_ID,
-                KEYWORDS_COLLECTION_ID,
-                [
-                    Query.equal('account_id', accountId),
-                    Query.equal('keyword_normalized', keywordNormalized),
-                    Query.limit(5)
-                ]
-            );
-            const conflict = matches.documents.find(doc => doc.automation_id !== automationId);
-            if (conflict) {
-                return `Keyword "${keywordNormalized}" is already used in another automation.`;
-            }
-        } else {
-            const [typeMatches, globalMatches] = await Promise.all([
-                databases.listDocuments(
-                    process.env.APPWRITE_DATABASE_ID,
-                    KEYWORDS_COLLECTION_ID,
-                    [
-                        Query.equal('account_id', accountId),
-                        Query.equal('automation_type', automationType),
-                        Query.equal('keyword_normalized', keywordNormalized),
-                        Query.limit(5)
-                    ]
-                ),
-                databases.listDocuments(
-                    process.env.APPWRITE_DATABASE_ID,
-                    KEYWORDS_COLLECTION_ID,
-                    [
-                        Query.equal('account_id', accountId),
-                        Query.equal('automation_type', 'global'),
-                        Query.equal('keyword_normalized', keywordNormalized),
-                        Query.limit(5)
-                    ]
-                )
-            ]);
-
-            const combined = [...typeMatches.documents, ...globalMatches.documents];
-            const conflict = combined.find(doc => doc.automation_id !== automationId);
-            if (conflict) {
-                return `Keyword "${keywordNormalized}" is already used in another automation.`;
-            }
-        }
+    const result = await findKeywordConflicts(databases, { accountId, automationId, automationType, keywords });
+    if (result.conflicts && result.conflicts.length > 0) {
+        return result.conflicts[0].reason || `Keyword "${result.conflicts[0].keyword}" is already used in another automation.`;
     }
     return null;
 };
@@ -1176,20 +1134,39 @@ const formatAutomationTypeLabel = (type) => {
     return 'Automation';
 };
 
-const findKeywordConflicts = async (databases, { accountId, automationId, keywords }) => {
+const findKeywordConflicts = async (databases, { accountId, automationId, automationType, keywords }) => {
     const duplicateKeywords = [];
     const conflictDetails = [];
     const normalizedAccountId = String(accountId || '').trim();
     if (!normalizedAccountId) return { duplicate_keywords: [], conflicts: [] };
 
+    let targetType = normalizeAutomationType(automationType || 'dm');
+    if (targetType === 'comment' || targetType === 'posts') targetType = 'post';
+    if (targetType === 'reels') targetType = 'reel';
+    if (targetType === 'stories') targetType = 'story';
+
+    // 1. Check for duplicates within the current submitted keywords (intra-automation duplicates)
     const seenKeywords = new Set();
     const normalizedTokens = (Array.isArray(keywords) ? keywords : [])
         .map((value) => normalizeKeywordToken(value))
         .filter(Boolean);
 
-    for (const keywordNormalized of normalizedTokens) {
-        if (seenKeywords.has(keywordNormalized)) continue;
+    for (const token of normalizedTokens) {
+        if (seenKeywords.has(token)) {
+            if (!duplicateKeywords.includes(token)) {
+                duplicateKeywords.push(token);
+                conflictDetails.push({
+                    keyword: token,
+                    reason: `Keyword "${token}" cannot be duplicated within the same automation.`
+                });
+            }
+        } else {
+            seenKeywords.add(token);
+        }
+    }
 
+    // 2. Inter-automation checks against other existing automations in Appwrite
+    for (const keywordNormalized of Array.from(seenKeywords)) {
         const matches = await databases.listDocuments(
             process.env.APPWRITE_DATABASE_ID,
             KEYWORDS_COLLECTION_ID,
@@ -1200,23 +1177,64 @@ const findKeywordConflicts = async (databases, { accountId, automationId, keywor
             ]
         );
 
-        const conflict = (matches.documents || []).find((doc) => {
-            const docAutomationType = String(doc?.automation_type || '').trim().toLowerCase();
-            if (!KEYWORD_TYPES.has(docAutomationType)) return false;
-            return String(doc?.automation_id || '').trim() !== String(automationId || '').trim();
+        const conflictingDoc = (matches.documents || []).find((doc) => {
+            const docAutomationId = String(doc?.automation_id || '').trim();
+            // Ignore if it belongs to the same automation being updated
+            if (automationId && docAutomationId === String(automationId).trim()) {
+                return false;
+            }
+
+            let docType = normalizeAutomationType(doc?.automation_type);
+            if (docType === 'comment' || docType === 'posts') docType = 'post';
+            if (docType === 'reels') docType = 'reel';
+            if (docType === 'stories') docType = 'story';
+            if (!KEYWORD_TYPES.has(docType)) return false;
+
+            // Conflict Matrix:
+            // 1) Global Trigger:
+            // "Global trigger automation keyword should not match with other keyword from different global automation or any automation keyword."
+            if (targetType === 'global') {
+                return true; // Any keyword in any automation on the account conflicts with Global Trigger!
+            }
+
+            // 2) If the existing document is a Global Trigger:
+            // No automation of any type can use a keyword that belongs to a Global Trigger!
+            if (docType === 'global') {
+                return true;
+            }
+
+            // 3) DM Automation:
+            // "dm automation keyword should not match with other keyword of same dm automation or other keyword from different dm automation or global trigger automation keyword."
+            if (targetType === 'dm') {
+                return docType === 'dm';
+            }
+
+            // 4) Live Automation:
+            // "Live automation keyword should not match with other keyword of same Live automation or other keyword from different Live automation or global trigger automation keyword."
+            if (targetType === 'live') {
+                return docType === 'live';
+            }
+
+            // 5) Post, Reel, Story Automations:
+            // "Post automation keyword should not match with other keyword of same post automation or global trigger automation keyword."
+            // "Reel automation keyword should not match with other keyword of same reel automation or global trigger automation keyword."
+            // "Story automation keyword should not match with other keyword of same story automation or global trigger automation keyword."
+            // These do not conflict with each other or with other post/reel/story automations (only with global triggers, checked above).
+            return false;
         });
 
-        if (conflict) {
-            seenKeywords.add(keywordNormalized);
-            duplicateKeywords.push(keywordNormalized);
+        if (conflictingDoc) {
+            if (!duplicateKeywords.includes(keywordNormalized)) {
+                duplicateKeywords.push(keywordNormalized);
+            }
 
             let conflictingTitle = '';
-            if (conflict.automation_id) {
+            if (conflictingDoc.automation_id) {
                 try {
                     const autoDoc = await databases.getDocument(
                         process.env.APPWRITE_DATABASE_ID,
                         AUTOMATIONS_COLLECTION_ID,
-                        conflict.automation_id
+                        conflictingDoc.automation_id
                     );
                     conflictingTitle = String(autoDoc?.title || '').trim();
                 } catch {
@@ -1224,14 +1242,31 @@ const findKeywordConflicts = async (databases, { accountId, automationId, keywor
                 }
             }
 
-            const typeLabel = formatAutomationTypeLabel(conflict.automation_type);
+            let docType = normalizeAutomationType(conflictingDoc.automation_type);
+            if (docType === 'comment' || docType === 'posts') docType = 'post';
+            if (docType === 'reels') docType = 'reel';
+            if (docType === 'stories') docType = 'story';
+
+            const typeLabel = formatAutomationTypeLabel(conflictingDoc.automation_type);
             const titleSuffix = conflictingTitle ? ` "${conflictingTitle}"` : '';
-            const reason = `Keyword "${keywordNormalized}" is already used in ${typeLabel}${titleSuffix}.`;
+            let reason = '';
+
+            if (targetType === 'global') {
+                reason = `Keyword "${keywordNormalized}" is already used in ${typeLabel}${titleSuffix}. Global Trigger keywords must be unique across all automations.`;
+            } else if (docType === 'global') {
+                reason = `Keyword "${keywordNormalized}" is already reserved by Global Trigger${titleSuffix}.`;
+            } else if (targetType === 'dm' && docType === 'dm') {
+                reason = `Keyword "${keywordNormalized}" is already used in another DM Automation${titleSuffix}.`;
+            } else if (targetType === 'live' && docType === 'live') {
+                reason = `Keyword "${keywordNormalized}" is already used in another Live Automation${titleSuffix}.`;
+            } else {
+                reason = `Keyword "${keywordNormalized}" is already used in ${typeLabel}${titleSuffix}.`;
+            }
 
             conflictDetails.push({
                 keyword: keywordNormalized,
-                automation_id: conflict.automation_id || null,
-                automation_type: conflict.automation_type || 'automation',
+                automation_id: conflictingDoc.automation_id || null,
+                automation_type: conflictingDoc.automation_type || 'automation',
                 automation_title: conflictingTitle || null,
                 reason
             });
@@ -1533,21 +1568,19 @@ const deleteAutomationWithArtifacts = async (databases, automationDoc) => {
                 loadCollectionInfo: (collectionId) => getCollectionAttributeInfo(databases, collectionId)
             });
         },
-        cleanupKeywords: KEYWORD_TYPES.has(automationDoc.automation_type)
-            ? async () => {
-                try {
-                    await syncKeywordRecords(databases, {
-                        accountId: automationDoc.account_id,
-                        automationId: automationDoc.$id,
-                        automationType: automationDoc.automation_type || 'dm',
-                        keywords: [],
-                        matchType: automationDoc.keyword_match_type || 'exact'
-                    });
-                } catch (error) {
-                    console.error(`Keyword cleanup failed: ${error.message}`);
-                }
+        cleanupKeywords: async () => {
+            try {
+                await syncKeywordRecords(databases, {
+                    accountId: automationDoc.account_id,
+                    automationId: automationDoc.$id,
+                    automationType: automationDoc.automation_type || 'dm',
+                    keywords: [],
+                    matchType: automationDoc.keyword_match_type || 'exact'
+                });
+            } catch (error) {
+                console.error(`Keyword cleanup failed: ${error.message}`);
             }
-            : null
+        }
     });
 };
 

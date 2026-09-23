@@ -914,7 +914,7 @@ const ConvoStarterView: React.FC = () => {
             {canShowMainWorkspace && (
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                     {/* Left: Form */}
-                    <div className="order-2 space-y-6 xl:order-1 xl:col-span-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
+                    <div className="order-2 space-y-6 xl:order-1 xl:col-span-8 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
                         {isCreatingItem && newItem ? (
                             /* Edit Form */
                             <div className="space-y-8 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-xs">

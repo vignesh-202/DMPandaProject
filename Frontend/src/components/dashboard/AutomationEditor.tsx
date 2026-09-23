@@ -1652,9 +1652,10 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
             confirmLabel: 'Delete Now',
             onConfirm: async () => {
                 closeModal();
-                await onDelete(automation.$id);
-                onSave();
-                if (!isStandalone && type !== 'global') onClose();
+                if (automation.$id && onDelete) {
+                    await onDelete(automation.$id);
+                }
+                onClose();
             }
         });
     };
@@ -1705,7 +1706,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     </button>
                 </div>
                 <div className="grid grid-cols-1 gap-0 lg:grid-cols-2 lg:max-h-[calc(100vh-160px)] lg:min-h-0 lg:overflow-hidden">
-                    <div className="p-4 pb-24 sm:p-6 sm:pb-28 md:p-6 md:pb-6 lg:min-h-0 lg:overflow-y-auto">
+                    <div className="p-4 pb-28 sm:p-6 sm:pb-32 md:p-6 md:pb-32 lg:pb-6 lg:min-h-0 lg:overflow-y-auto">
                         {renderActionBar()}
                         {renderForm()}
                     </div>
@@ -1735,7 +1736,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
     if (effectiveVariant === 'embedded') {
         return (
             <div className="w-full relative">
-                <div className="pb-24 sm:pb-28 lg:pb-0">
+                <div className="pb-28 sm:pb-32 lg:pb-0">
                     {renderActionBar()}
                     {renderForm()}
                 </div>
@@ -1767,7 +1768,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                     </button>
                 </div>
                 <div className="grid grid-cols-1 gap-0 lg:grid-cols-2 lg:max-h-[78vh] lg:min-h-0 lg:overflow-hidden">
-                    <div className="p-4 pb-24 sm:p-6 sm:pb-28 lg:min-h-0 lg:overflow-y-auto lg:pb-6">
+                    <div className="p-4 pb-28 sm:p-6 sm:pb-32 lg:min-h-0 lg:overflow-y-auto lg:pb-6">
                         {renderActionBar()}
                         {renderForm()}
                     </div>

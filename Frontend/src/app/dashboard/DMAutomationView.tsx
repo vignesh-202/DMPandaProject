@@ -1403,7 +1403,10 @@ const DMAutomationView: React.FC = () => {
                 try {
                     const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}?account_id=${activeAccountID}`, { method: 'DELETE' });
                     if (res.ok) {
-                        if (editingAutomation?.$id === id) setEditingAutomation(null);
+                        if (editingAutomation?.$id === id) {
+                            setEditingAutomation(null);
+                            setHasUnsavedChanges(false);
+                        }
                         fetchAutomations(true, true);
                         showSuccess('The automation rule has been successfully removed.');
                     } else {
@@ -1484,7 +1487,7 @@ const DMAutomationView: React.FC = () => {
         return (
             <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-                    <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
+                    <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
                         <section className="bg-card rounded-2xl border border-border/70 shadow-xs">
                             <div className="rounded-t-2xl border-b border-border/60 bg-card/95 px-6 py-4">
                                 <AutomationActionBar

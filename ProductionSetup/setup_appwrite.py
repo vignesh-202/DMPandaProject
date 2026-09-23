@@ -118,7 +118,6 @@ EMAIL_CAMPAIGNS_COLLECTION = {
         {"key": "idx_campaign_created_at", "type": "key", "attributes": ["created_at"], "orders": []},
         {"key": "idx_campaign_status_created", "type": "key", "attributes": ["status", "created_at"], "orders": []},
         {"key": "idx_campaign_admin_created", "type": "key", "attributes": ["admin_id", "created_at"], "orders": []},
-        {"key": "idx_campaign_message_id", "type": "key", "attributes": ["appwrite_message_id"], "orders": []},
     ],
 }
 
@@ -292,7 +291,6 @@ ADDITIONAL_ATTRIBUTES = {
         {"key": "last_active_at", "type": "datetime", "required": False, "array": False, "default": None},
         {"key": "cleanup_protected", "type": "boolean", "required": False, "array": False, "default": False},
         {"key": "cleanup_state_json", "type": "string", "required": False, "array": False, "default": None, "size": 4000},
-        {"key": "admin_override_json", "type": "string", "required": False, "array": False, "default": None, "size": 2000},
     ],
     "transactions": [
         {"key": "user_id", "type": "string", "required": False, "array": False, "default": None, "size": 255},
@@ -520,6 +518,9 @@ DEPRECATED_ATTRIBUTES = {
         "webhook_secret",
         "api_created_at",
         "api_last_used_at",
+        "expiry_reminder_3d_sent_at",
+        "expiry_reminder_day0_sent_at",
+        "expiry_reminder_day1_sent_at",
     },
     "pricing": {
         "price_monthly_usd",

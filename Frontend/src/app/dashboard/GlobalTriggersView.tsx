@@ -418,7 +418,7 @@ const GlobalTriggersView: React.FC = () => {
             {editingTrigger ? (
                 <>
                     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-                        <div className="w-full min-w-0 space-y-6 xl:col-span-8 xl:space-y-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
+                        <div className="w-full min-w-0 space-y-6 xl:col-span-8 xl:space-y-8 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
                             <section className="space-y-6 rounded-[28px] border border-content bg-card p-4 shadow-sm sm:space-y-8 sm:rounded-[34px] sm:p-6 lg:rounded-[40px] lg:p-8 xl:min-h-0">
                                     <AutomationEditor
                                         type="global"
@@ -437,9 +437,21 @@ const GlobalTriggersView: React.FC = () => {
                                             saveHandlerRef.current = handler;
                                         }}
                                         onDelete={editingTrigger.$id ? async (id) => {
-                                        await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}`, { method: 'DELETE' });
-                                        handleSave();
-                                    } : undefined}
+                                            try {
+                                                const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}`, { method: 'DELETE' });
+                                                if (res.ok) {
+                                                    setGlobalTriggers((prev: any) => (prev || []).filter((x: any) => x.$id !== id));
+                                                    showSuccess('Global trigger deleted successfully.');
+                                                    setEditorDirty(false);
+                                                    setHasUnsavedChanges(false);
+                                                    handleClose();
+                                                } else {
+                                                    showError('Failed to delete global trigger.');
+                                                }
+                                            } catch {
+                                                showError('Failed to delete global trigger.');
+                                            }
+                                        } : undefined}
                                     onChange={handleEditorChange}
                                     onTemplateSelect={(templateId) => {
                                         setSelectedTemplateId(templateId || '');

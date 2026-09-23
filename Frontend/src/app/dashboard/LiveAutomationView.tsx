@@ -23,7 +23,7 @@ const LiveAutomationView: React.FC = () => {
     const [isSavingLeave, setIsSavingLeave] = useState(false);
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
     const [replyTemplatesList, setReplyTemplatesList] = useState<ReplyTemplate[]>([]);
-    const { showError } = useNotification();
+    const { showError, showSuccess } = useNotification();
     const [isPreparingEditor, setIsPreparingEditor] = useState(false);
     const [editorLoadingMessage, setEditorLoadingMessage] = useState('Preparing live automation editor');
     const [prefetchedAutomation, setPrefetchedAutomation] = useState<any>(null);
@@ -264,7 +264,7 @@ const LiveAutomationView: React.FC = () => {
         return (
             <div className="mx-auto max-w-7xl min-h-screen space-y-6 px-3 sm:space-y-8 sm:px-4 md:px-6">
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-                    <div className="w-full min-w-0 space-y-6 xl:col-span-8 xl:space-y-8 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
+                    <div className="w-full min-w-0 space-y-6 xl:col-span-8 xl:space-y-8 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
                         <section className="space-y-6 rounded-[28px] border border-content bg-card p-4 shadow-sm sm:space-y-8 sm:rounded-[34px] sm:p-6 lg:rounded-[40px] lg:p-8 xl:min-h-0">
                             <AutomationEditor
                                 type="live"
@@ -281,10 +281,22 @@ const LiveAutomationView: React.FC = () => {
                                     saveHandlerRef.current = handler;
                                 }}
                                 onDelete={selectedMedia?.automation_id ? async (id) => {
-                                    await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}?account_id=${activeAccountID}&type=live`, {
-                                        method: 'DELETE'
-                                    });
-                                    handleSave();
+                                    try {
+                                        const res = await authenticatedFetch(`${((globalThis as any).__DM_PANDA_API_BASE_URL__ || import.meta.env.VITE_API_BASE_URL)}/api/instagram/automations/${id}?account_id=${activeAccountID}&type=live`, {
+                                            method: 'DELETE'
+                                        });
+                                        if (res.ok) {
+                                            showSuccess('Live automation deleted successfully.');
+                                            setEditorDirty(false);
+                                            setHasUnsavedChanges(false);
+                                            setMediaRefreshKey((k) => k + 1);
+                                            closeEditor();
+                                        } else {
+                                            showError('Failed to delete automation.');
+                                        }
+                                    } catch {
+                                        showError('Failed to delete automation.');
+                                    }
                                 } : undefined}
                                 onChange={handleEditorChange}
                                 onTemplateSelect={(templateId) => setSelectedTemplateId(templateId || '')}

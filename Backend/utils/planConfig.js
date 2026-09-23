@@ -595,118 +595,7 @@ const listUserTransactions = async (databases, userId, limit = 250) => {
     return response.documents || [];
 };
 
-const parseAdminOverride = (profile = null) => {
-    const parsed = parseJsonObject(profile?.admin_override_json, null);
-    if (!parsed || typeof parsed !== 'object') return null;
-    const planId = normalizePlanCode(parsed.p || parsed.plan_id || parsed.plan_code || 'free') || 'free';
-    const expiresAt = toIsoDateTime(parsed.e || parsed.expires_at || parsed.expiry_date || null);
-    const billingCycle = (parsed.b || parsed.billing_cycle) ? normalizeBillingCycle(parsed.b || parsed.billing_cycle) : null;
-    return {
-        plan_id: planId,
-        plan_name: String(parsed.n || parsed.plan_name || parsed.name || profile?.plan_name || planId || '').trim() || null,
-        billing_cycle: billingCycle,
-        expires_at: expiresAt,
-        created_at: toIsoDateTime(parsed.c || parsed.created_at || null),
-        limit_overrides: expandAdminOverrideLimitOverrides(parsed.l || parsed.limit_overrides),
-        feature_overrides: expandAdminOverrideFeatureOverrides(parsed.f || parsed.feature_overrides)
-    };
-};
 
-const hasActiveAdminOverride = (override = null, now = Date.now()) => {
-    if (!override?.expires_at) return false;
-    const parsed = new Date(override.expires_at);
-    if (Number.isNaN(parsed.getTime())) return false;
-    const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
-    return parsed.getTime() > nowMs;
-};
-
-const buildAdminOverridePayload = ({
-    planId = 'free',
-    billingCycle = null,
-    expiresAt = null,
-    planName = null,
-    createdAt = null,
-    limitOverrides = {},
-    featureOverrides = {}
-} = {}) => {
-    const normalizedPlanId = normalizePlanCode(planId || 'free') || 'free';
-    const normalizedExpiresAt = toIsoDateTime(expiresAt);
-    if (!normalizedExpiresAt) return null;
-    const compactedLimits = compactAdminOverrideLimitOverrides(limitOverrides);
-    const compactedFeatures = compactAdminOverrideFeatureOverrides(featureOverrides);
-    const payload = {
-        p: normalizedPlanId,
-        b: billingCycle ? normalizeBillingCycle(billingCycle) : null,
-        e: normalizedExpiresAt
-    };
-    if (Object.keys(compactedLimits).length > 0) {
-        payload.l = compactedLimits;
-    }
-    if (Object.keys(compactedFeatures).length > 0) {
-        payload.f = compactedFeatures;
-    }
-    return JSON.stringify(payload);
-};
-
-const clearAdminOverridePayload = () => null;
-
-const ADMIN_OVERRIDE_LIMIT_KEY_MAP = Object.freeze({
-    instagram_connections_limit: 'i',
-    hourly_action_limit: 'h',
-    daily_action_limit: 'd',
-    monthly_action_limit: 'm'
-});
-
-const ADMIN_OVERRIDE_LIMIT_KEY_MAP_REVERSE = Object.freeze(
-    Object.entries(ADMIN_OVERRIDE_LIMIT_KEY_MAP).reduce((acc, [key, shortKey]) => {
-        acc[shortKey] = key;
-        return acc;
-    }, {})
-);
-
-const ADMIN_OVERRIDE_FEATURE_KEY_MAP = Object.freeze(
-    BENEFIT_KEYS.reduce((acc, key, index) => {
-        acc[key] = index.toString(36);
-        return acc;
-    }, {})
-);
-
-const ADMIN_OVERRIDE_FEATURE_KEY_MAP_REVERSE = Object.freeze(
-    Object.entries(ADMIN_OVERRIDE_FEATURE_KEY_MAP).reduce((acc, [key, shortKey]) => {
-        acc[shortKey] = key;
-        return acc;
-    }, {})
-);
-
-const compactAdminOverrideLimitOverrides = (overrides = {}) => Object.entries(parseJsonObject(overrides, {})).reduce((acc, [key, value]) => {
-    const normalizedKey = String(key || '').trim();
-    if (!normalizedKey || value === undefined) return acc;
-    acc[ADMIN_OVERRIDE_LIMIT_KEY_MAP[normalizedKey] || normalizedKey] = value;
-    return acc;
-}, {});
-
-const expandAdminOverrideLimitOverrides = (overrides = {}) => Object.entries(parseJsonObject(overrides, {})).reduce((acc, [key, value]) => {
-    const normalizedKey = String(key || '').trim();
-    if (!normalizedKey || value === undefined) return acc;
-    acc[ADMIN_OVERRIDE_LIMIT_KEY_MAP_REVERSE[normalizedKey] || normalizedKey] = value;
-    return acc;
-}, {});
-
-const compactAdminOverrideFeatureOverrides = (overrides = {}) => Object.entries(parseJsonObject(overrides, {})).reduce((acc, [key, value]) => {
-    const normalizedKey = normalizeBenefitKey(key);
-    if (!normalizedKey || value === undefined) return acc;
-    acc[ADMIN_OVERRIDE_FEATURE_KEY_MAP[normalizedKey] || normalizedKey] = value;
-    return acc;
-}, {});
-
-const expandAdminOverrideFeatureOverrides = (overrides = {}) => Object.entries(parseJsonObject(overrides, {})).reduce((acc, [key, value]) => {
-    const normalizedKey = String(key || '').trim();
-    if (!normalizedKey || value === undefined) return acc;
-    const expandedKey = normalizeBenefitKey(ADMIN_OVERRIDE_FEATURE_KEY_MAP_REVERSE[normalizedKey] || normalizedKey);
-    if (!expandedKey) return acc;
-    acc[expandedKey] = value;
-    return acc;
-}, {});
 
 const selectLatestTransactionFromDocuments = (transactions = [], pricingPlans = [], now = Date.now()) => {
     const plans = Array.isArray(pricingPlans) ? pricingPlans : [];
@@ -770,32 +659,8 @@ const resolveEntitlementReplacementDecision = ({
         planId: latestTransactionPlanId,
         planSource: 'payment',
         billingCycle: latestValidTransaction.billingCycle || null,
-        expiryDate: latestValidTransaction.expiryDate || null,
-        clearAdminOverride: false
+        expiryDate: latestValidTransaction.expiryDate || null
     } : null;
-    const override = parseAdminOverride(profile);
-    if (override && hasActiveAdminOverride(override, now)) {
-        return {
-            plan: findPlanByIdentifier(plans, override.plan_id) || freePlan,
-            planId: override.plan_id,
-            planSource: 'admin',
-            billingCycle: override.billing_cycle,
-            expiryDate: override.expires_at,
-            clearAdminOverride: false,
-            reason: 'active_admin_override'
-        };
-    }
-    if (override) {
-        return {
-            plan: freePlan,
-            planId: 'free',
-            planSource: 'system',
-            billingCycle: null,
-            expiryDate: null,
-            clearAdminOverride: true,
-            reason: 'expired_admin_override'
-        };
-    }
     if (!profile && latestTransactionDecision) {
         return {
             ...latestTransactionDecision,
@@ -809,7 +674,6 @@ const resolveEntitlementReplacementDecision = ({
             planSource: 'system',
             billingCycle: null,
             expiryDate: null,
-            clearAdminOverride: false,
             reason: 'missing_profile'
         };
     }
@@ -833,7 +697,6 @@ const resolveEntitlementReplacementDecision = ({
         if (runtimePlanMissing || runtimeIsFree || runtimeExpired || paymentRuntimeMismatch || paymentRuntimeOlderExpiry) {
             return {
                 ...latestTransactionDecision,
-                clearAdminOverride: false,
                 reason: runtimeExpired
                     ? 'latest_valid_transaction_restored_after_runtime_expiry'
                     : 'latest_valid_transaction_restored'
@@ -848,7 +711,6 @@ const resolveEntitlementReplacementDecision = ({
             planSource: 'system',
             billingCycle: null,
             expiryDate: null,
-            clearAdminOverride: false,
             reason: 'expired_runtime_plan'
         };
     }
@@ -858,7 +720,6 @@ const resolveEntitlementReplacementDecision = ({
         planSource: runtimeSource,
         billingCycle: runtimeIdentity.billing_cycle,
         expiryDate: runtimeIdentity.expiry_date,
-        clearAdminOverride: false,
         reason: latestValidTransaction ? 'current_runtime_plan_with_latest_transaction_available' : 'current_runtime_plan'
     };
 };
@@ -928,16 +789,10 @@ const isExpiredSubscription = (planId, expiresAt, now = Date.now()) => {
 };
 
 const parseProfileConfig = (profile = null) => {
-    const override = parseAdminOverride(profile);
-    const shouldUseRuntimeOverrides = Boolean(override) || normalizePlanSource(profile?.plan_source, 'system') === 'admin';
     return {
-        raw: override || {},
-        feature_overrides: shouldUseRuntimeOverrides
-            ? parseRuntimeFeatureFlags(profile)
-            : parseJsonObject(override?.feature_overrides, {}),
-        limit_overrides: shouldUseRuntimeOverrides
-            ? parseRuntimeLimitOverrides(profile)
-            : parseJsonObject(override?.limit_overrides, {})
+        raw: {},
+        feature_overrides: parseRuntimeFeatureFlags(profile),
+        limit_overrides: parseRuntimeLimitOverrides(profile)
     };
 };
 
@@ -1229,26 +1084,6 @@ const compactRuntimeFeatureSnapshot = (features = {}) => Object.entries(features
     return acc;
 }, {});
 
-const buildAdminOverrideSummary = ({
-    featureOverrides = {},
-    limitOverrides = {}
-} = {}) => {
-    const limitKeys = Object.keys(parseJsonObject(limitOverrides, {}))
-        .map((key) => String(key || '').trim())
-        .filter(Boolean);
-    const featureKeys = Object.keys(parseJsonObject(featureOverrides, {}))
-        .map((key) => normalizeBenefitKey(key))
-        .filter((key) => Boolean(key) && key !== 'watermark_text');
-
-    if (limitKeys.length === 0 && featureKeys.length === 0) {
-        return null;
-    }
-
-    return {
-        l: limitKeys,
-        f: featureKeys
-    };
-};
 
 const buildProfileConfigPayload = ({
     currentProfile = null,
@@ -1367,8 +1202,7 @@ const buildPlanProfilePayload = ({
     credits = undefined,
     preserveUsage = true,
     resetReminderState = undefined,
-    expiredPlanSnapshot = undefined,
-    adminOverrideJson = undefined
+    expiredPlanSnapshot = undefined
 } = {}) => {
     const normalizedPlanId = String(planId || plan?.plan_code || plan?.id || 'free').trim() || 'free';
     const isFreePlan = normalizePlanCode(normalizedPlanId) === 'free';
@@ -1432,8 +1266,7 @@ const buildPlanProfilePayload = ({
     });
 
     const payload = {
-        user_id: String(currentProfile?.user_id || '').trim() || undefined,
-        admin_override_json: adminOverrideJson
+        user_id: String(currentProfile?.user_id || '').trim() || undefined
     };
 
     void preserveUsage;
@@ -1480,8 +1313,7 @@ const upsertEffectiveProfile = async (databases, userId, currentProfile, plan, o
         paidPlanSnapshot: options.paidPlanSnapshot,
         preserveUsage: options.preserveUsage !== false,
         resetReminderState: options.resetReminderState,
-        expiredPlanSnapshot: options.expiredPlanSnapshot,
-        adminOverrideJson: options.adminOverrideJson
+        expiredPlanSnapshot: options.expiredPlanSnapshot
     });
     try {
         const targetDocId = currentProfile?.$id || safeUserId;
@@ -1520,8 +1352,7 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null, pr
             planSource: 'system',
             billingCycle: null,
             subscriptionStatus: 'inactive',
-            subscriptionExpires: null,
-            adminOverrideJson: clearAdminOverridePayload()
+            subscriptionExpires: null
         });
     } else if (decision.reason !== 'current_runtime_plan' && decision.reason !== 'current_runtime_plan_with_latest_transaction_available') {
         profile = await upsertEffectiveProfile(databases, safeUserId, existingProfile, plan, {
@@ -1529,8 +1360,7 @@ const resolveUserPlanContext = async (databases, userId, userFallback = null, pr
             planSource,
             billingCycle,
             subscriptionStatus: subscriptionPlanId === 'free' ? 'inactive' : 'active',
-            subscriptionExpires: decision.expiryDate,
-            adminOverrideJson: decision.clearAdminOverride ? clearAdminOverridePayload() : existingProfile?.admin_override_json
+            subscriptionExpires: decision.expiryDate
         });
     }
 
@@ -1613,7 +1443,6 @@ module.exports = {
     buildPlanProfilePayload,
     buildPaidPlanSnapshot,
     buildRuntimeFeatureSnapshot,
-    buildAdminOverrideSummary,
     buildPlanEntitlements,
     extractBenefitAttributes,
     normalizeBenefitMap,
@@ -1631,10 +1460,6 @@ module.exports = {
     getUserSelfMemory,
     listUserTransactions,
     getLatestValidTransaction,
-    parseAdminOverride,
-    hasActiveAdminOverride,
-    buildAdminOverridePayload,
-    clearAdminOverridePayload,
     selectLatestTransactionFromDocuments,
     selectLatestValidTransactionFromDocuments: selectLatestTransactionFromDocuments,
     resolveEntitlementReplacementDecision,

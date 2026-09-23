@@ -681,8 +681,7 @@ def main(context):
                         _maybe_send_reminder(client, db_id, ig_accounts_collection, account, "repeat", expiry_date, summary)
 
                 if expiry_date and expiry_date < now:
-                    if not _obj_get(account, "expiry_reminder_day1_sent_at"):
-                        _maybe_send_reminder(client, db_id, ig_accounts_collection, account, "day1", expiry_date, summary)
+                    _maybe_send_reminder(client, db_id, ig_accounts_collection, account, "day1", expiry_date, summary)
                     downgraded = _downgrade_account_to_free(client, db_id, ig_accounts_collection, pricing_map, account)
                     if downgraded:
                         summary["downgraded"] += 1

@@ -1130,7 +1130,7 @@ export default function ReplyTemplatesView() {
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
           {/* Form column */}
-          <div className="w-full min-w-0 space-y-4 xl:col-span-8 xl:space-y-6 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
+          <div className="w-full min-w-0 space-y-4 xl:col-span-8 xl:space-y-6 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
             <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
                 <button

@@ -51,7 +51,7 @@ const AutomationActionBar: React.FC<AutomationActionBarProps> = ({
                     <button
                         onClick={() => { void onDelete(); }}
                         disabled={deleteDisabled || isSaving || isDeleting}
-                        className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground border border-destructive/20 transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+                        className="inline-flex min-h-[44px] sm:min-h-[40px] items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground border border-destructive/20 transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
                     >
                         {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         Delete
@@ -61,7 +61,7 @@ const AutomationActionBar: React.FC<AutomationActionBarProps> = ({
                     <button
                         onClick={() => { void onCancel(); }}
                         disabled={isSaving || isDeleting}
-                        className="inline-flex items-center justify-center h-10 px-4 rounded-xl text-sm font-medium border border-border bg-card hover:bg-muted/60 text-foreground transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+                        className="inline-flex min-h-[44px] sm:min-h-[40px] items-center justify-center h-10 px-4 rounded-xl text-sm font-medium border border-border bg-card hover:bg-muted/60 text-foreground transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
                     >
                         {cancelLabel}
                     </button>
@@ -70,7 +70,7 @@ const AutomationActionBar: React.FC<AutomationActionBarProps> = ({
                     <button
                         onClick={() => { void onSave(); }}
                         disabled={saveDisabled || isSaving}
-                        className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+                        className="inline-flex min-h-[44px] sm:min-h-[40px] items-center justify-center gap-2 h-10 px-5 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
                     >
                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         {isSaving ? 'Saving...' : (saveLabel || (hasExisting ? 'Save Changes' : 'Save'))}

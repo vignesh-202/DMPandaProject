@@ -1267,7 +1267,7 @@ const InboxMenu: React.FC = () => {
                     {canShowMainWorkspace && (
                         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                             {/* Editor/List Section */}
-                            <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:space-y-10 xl:overflow-y-auto xl:pr-2 pb-24 md:pb-0">
+                            <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:space-y-10 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
                                 {isCreatingItem ? (
                                     <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 space-y-8 shadow-xs animate-in slide-in-from-left duration-300">
                                         <div className="flex flex-col gap-4 border-b border-border pb-5 md:flex-row md:items-center md:justify-between">
