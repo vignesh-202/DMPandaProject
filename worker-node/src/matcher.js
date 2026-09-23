@@ -57,30 +57,48 @@ class AutomationMatcher {
         }
 
         const normalizedText = text.toUpperCase().trim();
+        const cleanedText = normalizedText.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        const words = new Set(cleanedText.split(' ').filter(Boolean));
 
         // Pass 1: exact match only (highest priority)
         for (const automation of automations) {
             for (const normalizedKeyword of this._getKeywordList(automation)) {
-                // Exact match
-                if (normalizedText === normalizedKeyword) {
+                // Exact match or cleaned match (ignoring emojis/punctuation)
+                if (normalizedText === normalizedKeyword || (cleanedText && cleanedText === normalizedKeyword)) {
                     return automation;
                 }
             }
 
             for (const candidate of this._getDirectReferenceCandidates(automation)) {
-                if (normalizedText === candidate) {
+                if (normalizedText === candidate || (cleanedText && cleanedText === candidate)) {
                     return automation;
                 }
             }
 
             for (const candidate of this._getConversationStarterCandidates(automation)) {
-                if (normalizedText === candidate) {
+                if (normalizedText === candidate || (cleanedText && cleanedText === candidate)) {
                     return automation;
                 }
             }
         }
 
-        // Pass 2: contains match only for automations explicitly configured for it
+        // Pass 2: Word boundary match (e.g. "Price please" matches "PRICE", "Send me link" matches "LINK")
+        for (const automation of automations) {
+            for (const normalizedKeyword of this._getKeywordList(automation)) {
+                if (!normalizedKeyword) continue;
+                if (normalizedKeyword.includes(' ')) {
+                    const escaped = normalizedKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`);
+                    if (regex.test(cleanedText)) {
+                        return automation;
+                    }
+                } else if (words.has(normalizedKeyword)) {
+                    return automation;
+                }
+            }
+        }
+
+        // Pass 3: contains match only for automations explicitly configured for it
         for (const automation of automations) {
             const matchType = String(automation.keyword_match_type || 'exact').toLowerCase();
             const allowContains = matchType === 'contains' || matchType === 'partial' || matchType === 'includes';

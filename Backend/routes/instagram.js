@@ -2831,7 +2831,7 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, {}, { requireFeature: 'super_profile' });
+        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, { automation_type: type || 'post' });
         if (featureAccessError) return res.status(403).json(featureAccessError);
 
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);

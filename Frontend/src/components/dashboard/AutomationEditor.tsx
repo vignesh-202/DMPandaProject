@@ -779,6 +779,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 ...automation,
                 title: currentTitle,
                 type: backendType,
+                automation_type: backendType,
                 keyword: keywordArray,
                 is_active: automation.is_active !== false,
                 comment_reply: automation.comment_reply_text || '',

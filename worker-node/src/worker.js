@@ -264,6 +264,7 @@ class DMWorker {
         return Array.from(new Set(
             [
                 recipientId,
+                igAccount?.$id,
                 igAccount?.ig_user_id,
                 igAccount?.account_id
             ]
@@ -1540,7 +1541,7 @@ class DMWorker {
         const liveAutomations = (automations || []).filter((automation) => String(automation?.automation_type || '').trim().toLowerCase() === 'live');
         const mediaAutomations = (automations || []).filter((automation) => {
             const type = String(automation?.automation_type || '').trim().toLowerCase();
-            return type === 'post' || type === 'reel';
+            return type === 'post' || type === 'reel' || type === 'comment';
         });
         const globalAutomations = (automations || []).filter((automation) => String(automation?.automation_type || '').trim().toLowerCase() === 'global');
         const result = {
@@ -1636,6 +1637,9 @@ class DMWorker {
         const instagram = this._createInstagramClient(igAccount.access_token, accountBudgetKey, options?.metaApiUsageTracker, executionProfile);
         const primaryAccountId = String(igAccount.ig_user_id || igAccount.account_id || commentEvent.recipientId).trim() || String(commentEvent.recipientId || '').trim();
         const automationAccountIds = this.getAutomationAccountIds(igAccount, primaryAccountId);
+        if (commentEvent.senderId && (commentEvent.senderId === commentEvent.recipientId || automationAccountIds.includes(commentEvent.senderId))) {
+            return { handled: false, retryable: false, automationType: 'self_authored_comment' };
+        }
         const moderationRules = this.appwrite && typeof this.appwrite.getCommentModerationRules === 'function'
             ? await this.appwrite.getCommentModerationRules({
                 userId: igAccount.user_id,
@@ -1687,7 +1691,7 @@ class DMWorker {
         }
         const conversationKey = `${commentEvent.recipientId}:${commentEvent.senderId}`;
         const conversationState = await this._getConversationState(primaryAccountId, conversationKey);
-        const automations = await this.appwrite.getActiveAutomations(automationAccountIds, ['post', 'reel', 'live', 'global']);
+        const automations = await this.appwrite.getActiveAutomations(automationAccountIds, ['post', 'reel', 'live', 'global', 'comment']);
         if (!automations || automations.length === 0) {
             return { handled: false, automationType: 'automation_inactive' };
         }
@@ -1795,8 +1799,15 @@ class DMWorker {
             }
 
             // Send private DM reply
-            const hasDmTemplate = Boolean(matchedAutomation.template || matchedAutomation.template_id);
-            if (hasDmTemplate) {
+            const hasDmTemplate = Boolean(
+                matchedAutomation.template
+                || matchedAutomation.template_id
+                || matchedAutomation.template_content
+                || matchedAutomation.template_elements
+                || matchedAutomation.template_type
+            );
+            const shouldSendDmReply = matchedAutomation.private_reply_enabled !== false && hasDmTemplate;
+            if (shouldSendDmReply) {
                 const dmSuccess = await this._sendAutomationReply({
                     instagram,
                     senderId: commentEvent.senderId,
@@ -1806,6 +1817,8 @@ class DMWorker {
                     automationAccountIds,
                     watermarkPolicy,
                     chainState,
+                    commentId: commentEvent.commentId,
+                    commentReplySent,
                     ownerUserId: igAccount.user_id,
                     eventType: 'comment',
                     accountId: primaryAccountId

@@ -495,6 +495,21 @@ class AppwriteClient {
                     context: { account_id: safeAccountId }
                 });
             }
+            if (response.documents.length === 0) {
+                try {
+                    const doc = await withAppwriteRetry(() => this.databases.getDocument(
+                        this.databaseId,
+                        process.env.IG_ACCOUNTS_COLLECTION_ID,
+                        safeAccountId
+                    ), {
+                        operationName: 'get_ig_account_by_doc_id',
+                        context: { account_id: safeAccountId }
+                    });
+                    if (doc) {
+                        response = { documents: [doc] };
+                    }
+                } catch (_) { }
+            }
 
             if (response.documents.length > 0) {
                 const normalized = this._normalizeAccountAccess(response.documents[0]);
