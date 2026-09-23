@@ -213,7 +213,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
         }
 
         // Use cached data if available for this specific account/type combination (only for 'all' filter)
-        if (activeAccountID && mediaCache[cacheKey] && mediaDateFilter === 'all') {
+        if (activeAccountID && mediaCache[cacheKey] && mediaCache[cacheKey].length > 0 && mediaDateFilter === 'all') {
             setMediaItems(mediaCache[cacheKey]);
             setLoading(false);
 
@@ -270,7 +270,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
     };
 
     const filteredItems = mediaItems.filter(item => {
-        if (!item.media_url) return false;
+        if (!item.media_url && !item.thumbnail_url) return false;
         if (!filterDate) return true;
         const itemDate = new Date(item.timestamp).toISOString().split('T')[0];
         return itemDate === filterDate;

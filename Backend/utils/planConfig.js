@@ -1013,15 +1013,28 @@ const syncUserIgAccountLimitSnapshots = async (databases, userId, limits = {}) =
     }));
 };
 
-const parseRuntimeLimitOverrides = (profile = null) => ({
-    instagram_connections_limit: toFiniteNumber(profile?.instagram_connections_limit) ?? DEFAULT_FREE_PROFILE_LIMITS.instagram_connections_limit,
-    hourly_action_limit: toFiniteNumber(profile?.hourly_action_limit) ?? DEFAULT_FREE_PROFILE_LIMITS.hourly_action_limit,
-    daily_action_limit: toFiniteNumber(profile?.daily_action_limit) ?? DEFAULT_FREE_PROFILE_LIMITS.daily_action_limit,
-    monthly_action_limit: normalizeStoredLimit(profile?.monthly_action_limit)
-});
+const parseRuntimeLimitOverrides = (profile = null) => {
+    const overrides = {};
+    if (profile?.instagram_connections_limit !== undefined && profile?.instagram_connections_limit !== null) {
+        overrides.instagram_connections_limit = toFiniteNumber(profile.instagram_connections_limit);
+    }
+    if (profile?.hourly_action_limit !== undefined && profile?.hourly_action_limit !== null) {
+        overrides.hourly_action_limit = toFiniteNumber(profile.hourly_action_limit);
+    }
+    if (profile?.daily_action_limit !== undefined && profile?.daily_action_limit !== null) {
+        overrides.daily_action_limit = toFiniteNumber(profile.daily_action_limit);
+    }
+    if (profile?.monthly_action_limit !== undefined && profile?.monthly_action_limit !== null) {
+        overrides.monthly_action_limit = normalizeStoredLimit(profile.monthly_action_limit);
+    }
+    return overrides;
+};
 
 const parseRuntimeFeatureFlags = (profile = null) => BENEFIT_KEYS.reduce((acc, key) => {
-    acc[key] = profile?.[benefitFieldForKey(key)] === true;
+    const field = benefitFieldForKey(key);
+    if (profile && Object.prototype.hasOwnProperty.call(profile, field) && profile[field] !== null && profile[field] !== undefined) {
+        acc[key] = normalizeBooleanEntitlement(profile[field]);
+    }
     return acc;
 }, {});
 

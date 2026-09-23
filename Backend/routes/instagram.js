@@ -2831,8 +2831,6 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
 
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const featureAccessError = await enforceAutomationFeatureAccess(databases, req.user.$id, { automation_type: type || 'post' });
-        if (featureAccessError) return res.status(403).json(featureAccessError);
 
         const accounts = await listOwnedIgAccounts(databases, req.user.$id);
 
@@ -2914,7 +2912,7 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
                 ? 'id,status'
                 : 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,shortcode',
             access_token: accessToken,
-            limit: 25
+            limit: Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 100))
         };
         if (after) params.after = after;
 
