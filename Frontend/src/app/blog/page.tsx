@@ -65,19 +65,19 @@ const BlogIndexPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white dark:bg-[#09090b] text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
       {/* Editorial Header Section */}
-      <section className="relative pt-20 sm:pt-24 pb-12 sm:pb-16 border-b border-gray-100 dark:border-white/[0.06] overflow-hidden">
+      <section className="relative pt-16 sm:pt-20 md:pt-24 pb-8 sm:pb-12 md:pb-16 border-b border-gray-100 dark:border-white/[0.06] overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[250px] bg-gradient-to-b from-[#833AB4]/10 via-[#4F46E5]/10 to-transparent blur-3xl pointer-events-none" />
 
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl relative z-10">
           <div className="max-w-3xl">
             {/* Eyebrow */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#405DE6]/10 via-[#833AB4]/10 to-[#FCAF45]/10 border border-purple-500/20 text-[#833AB4] dark:text-purple-300 text-xs font-bold uppercase tracking-wider mb-5">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#405DE6]/10 via-[#833AB4]/10 to-[#FCAF45]/10 border border-purple-500/20 text-[#833AB4] dark:text-purple-300 text-[11px] sm:text-xs font-bold uppercase tracking-wider mb-4 sm:mb-5">
               <Newspaper className="w-3.5 h-3.5" />
               DM Panda Editorial Playbooks
             </div>
 
             {/* Headline - Max 2 lines per taste-skill */}
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-[1.1] mb-5">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-[1.15] sm:leading-[1.1] mb-4 sm:mb-5">
               Instagram Automation <br className="hidden sm:inline" />
               <span className="bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] bg-clip-text text-transparent">
                 Playbooks That Drive Revenue.
@@ -85,7 +85,7 @@ const BlogIndexPage: React.FC = () => {
             </h1>
 
             {/* Subtext - Under 20 words per taste-skill */}
-            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 leading-relaxed max-w-xl">
+            <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 leading-relaxed max-w-xl">
               Proven strategies, templates, and compliance guides to automate comments, DMs, Stories, and Reels without spamming.
             </p>
           </div>
@@ -93,18 +93,18 @@ const BlogIndexPage: React.FC = () => {
       </section>
 
       {/* Filter and Search Navigation Bar */}
-      <section className="py-6 border-b border-gray-100 dark:border-white/[0.06] sticky top-0 z-30 bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-md">
+      <section className="py-4 sm:py-6 border-b border-gray-100 dark:border-white/[0.06] sticky top-0 z-30 bg-white/95 dark:bg-[#09090b]/95 backdrop-blur-md">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-            {/* Category Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto w-full lg:w-auto pb-2 lg:pb-0 scrollbar-none">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 sm:gap-4">
+            {/* Category Pills - Smooth touch scroll */}
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x">
               {categories.map((cat) => {
                 const isSelected = selectedCategory === cat;
                 return (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap active:scale-[0.98] ${
+                    className={`px-3 sm:px-3.5 py-1.5 sm:py-2 min-h-[38px] sm:min-h-[42px] rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap shrink-0 active:scale-[0.98] ${
                       isSelected
                         ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm'
                         : 'bg-gray-100 dark:bg-white/[0.04] text-gray-600 dark:text-gray-400 hover:bg-gray-200/70 dark:hover:bg-white/[0.08]'
@@ -117,19 +117,19 @@ const BlogIndexPage: React.FC = () => {
             </div>
 
             {/* Search Input */}
-            <div className="relative w-full lg:w-72">
+            <div className="relative w-full lg:w-72 shrink-0">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search playbooks & topics..."
-                className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-50 dark:bg-white/[0.04] border border-gray-200/80 dark:border-white/[0.08] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#833AB4]/30 focus:border-[#833AB4] transition-all"
+                className="w-full pl-10 pr-4 py-2 sm:py-2.5 min-h-[40px] sm:min-h-[44px] rounded-xl bg-gray-50 dark:bg-white/[0.04] border border-gray-200/80 dark:border-white/[0.08] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#833AB4]/30 focus:border-[#833AB4] transition-all"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 px-1 py-1"
                 >
                   Clear
                 </button>

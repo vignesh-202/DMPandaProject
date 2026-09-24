@@ -115,24 +115,24 @@ const BlogPostPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#09090b] text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-      <article className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl pt-20 sm:pt-24 pb-16 sm:pb-24">
+    <div className="min-h-screen bg-white dark:bg-[#09090b] text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300 overflow-x-hidden">
+      <article className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl pt-16 sm:pt-20 md:pt-24 pb-12 sm:pb-16 md:pb-24">
           {/* Breadcrumb */}
-          <nav aria-label="Breadcrumb" className="mb-6">
-            <ol className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <li>
+          <nav aria-label="Breadcrumb" className="mb-4 sm:mb-6">
+            <ol className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 overflow-hidden">
+              <li className="shrink-0">
                 <Link to="/" className="hover:text-gray-900 dark:hover:text-white transition-colors">
                   Home
                 </Link>
               </li>
-              <li className="text-gray-300 dark:text-gray-600">/</li>
-              <li>
+              <li className="text-gray-300 dark:text-gray-600 shrink-0">/</li>
+              <li className="shrink-0">
                 <Link to="/blog" className="hover:text-gray-900 dark:hover:text-white transition-colors">
                   Blog
                 </Link>
               </li>
-              <li className="text-gray-300 dark:text-gray-600">/</li>
-              <li className="text-gray-900 dark:text-gray-200 font-medium truncate max-w-[200px] sm:max-w-md">
+              <li className="text-gray-300 dark:text-gray-600 shrink-0">/</li>
+              <li className="text-gray-900 dark:text-gray-200 font-medium truncate max-w-[120px] sm:max-w-xs md:max-w-md">
                 {post.title}
               </li>
             </ol>
@@ -141,16 +141,16 @@ const BlogPostPage: React.FC = () => {
           {/* Back to blog */}
           <Link
             to="/blog"
-            className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-6"
+            className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-4 sm:mb-6"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             Back to playbooks
           </Link>
 
           {/* Header */}
-          <header className="mb-10">
-            <div className="flex flex-wrap items-center gap-2.5 mb-4 text-xs font-semibold text-gray-500 dark:text-gray-400">
-              <span className="px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/20">
+          <header className="mb-8 sm:mb-10">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 mb-3 sm:mb-4 text-[11px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <span className="px-2.5 sm:px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/20">
                 {post.category}
               </span>
               <span className="flex items-center gap-1">
@@ -162,17 +162,17 @@ const BlogPostPage: React.FC = () => {
                 {post.readTime}
               </span>
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 dark:text-white leading-[1.15] tracking-tight mb-5">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 dark:text-white leading-[1.15] tracking-tight mb-3 sm:mb-5">
               {post.title}
             </h1>
-            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-400 leading-relaxed">
               {post.excerpt}
             </p>
           </header>
 
           {/* Featured 16:9 Editorial Cover */}
-          <figure className="mb-10 sm:mb-12">
-            <div className="rounded-2xl sm:rounded-3xl overflow-hidden bg-neutral-900 border border-gray-200/80 dark:border-white/[0.08] aspect-[16/9] shadow-xl">
+          <figure className="mb-8 sm:mb-12">
+            <div className="rounded-xl sm:rounded-2xl md:rounded-3xl overflow-hidden bg-neutral-900 border border-gray-200/80 dark:border-white/[0.08] aspect-[16/9] shadow-xl">
               <picture className="w-full h-full block">
                 {post.image && post.image.endsWith('.png') && (
                   <source srcSet={post.image.replace(/\.png$/, '.webp')} type="image/webp" />
@@ -227,16 +227,16 @@ const BlogPostPage: React.FC = () => {
           <BlogContent sections={post.content} />
 
           {/* Bottom CTA */}
-          <div className="mt-14 sm:mt-16 p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-[#405DE6]/5 via-[#833AB4]/5 to-[#FCAF45]/5 border border-[#833AB4]/10 dark:border-[#833AB4]/20">
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3">
+          <div className="mt-12 sm:mt-16 p-6 sm:p-8 md:p-10 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-[#405DE6]/5 via-[#833AB4]/5 to-[#FCAF45]/5 border border-[#833AB4]/10 dark:border-[#833AB4]/20">
+            <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3">
               {post.cta.title}
             </h3>
-            <p className="text-base text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
               {post.cta.text}
             </p>
             <Link
               to={post.cta.href}
-              className="inline-block bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold px-8 py-3.5 rounded-2xl hover:bg-gray-800 dark:hover:bg-gray-200 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
+              className="inline-flex items-center justify-center w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold px-7 py-3.5 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-200 transition-all duration-300 min-h-[44px] text-center active:scale-[0.98]"
             >
               {post.cta.buttonText}
             </Link>
