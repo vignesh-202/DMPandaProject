@@ -17,7 +17,9 @@ const AUTOMATION_TYPE_SCHEMAS = Object.freeze({
     mentions: { mode: 'config', singleton: true, triggerType: 'config', titleFallback: 'Mentions' },
     suggest_more: { mode: 'config', singleton: true, triggerType: 'config', titleFallback: 'Suggest More' },
     inbox_menu: { mode: 'config', singleton: false, triggerType: 'config', titleFallback: 'Inbox Menu' },
-    convo_starter: { mode: 'config', singleton: false, triggerType: 'config', titleFallback: 'Conversation Starter' }
+    convo_starter: { mode: 'config', singleton: false, triggerType: 'config', titleFallback: 'Conversation Starter' },
+    welcome_message: { mode: 'config', singleton: true, triggerType: 'config', titleFallback: 'Welcome Message' },
+    welcome: { mode: 'config', singleton: true, triggerType: 'config', titleFallback: 'Welcome Message' }
 });
 
 const normalizeAutomationType = (value) => String(value || '').trim().toLowerCase();

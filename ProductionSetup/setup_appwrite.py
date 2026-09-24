@@ -575,7 +575,10 @@ def parse_numeric(value, value_type):
     if value is None:
         return None
     if value_type == "integer":
-        return int(value)
+        v = int(value)
+        if abs(v) >= 9223372036854775800:
+            return None
+        return v
     if value_type == "double":
         return float(value)
     return value
@@ -588,7 +591,11 @@ def load_schema_definitions():
     with SCHEMA_PATH.open("r", encoding="utf-8") as handle:
         base = json.load(handle)
 
-    merged = {collection["id"]: deepcopy(collection) for collection in base}
+    merged = {
+        (collection.get("id") or collection.get("$id")): deepcopy(collection)
+        for collection in base
+        if isinstance(collection, dict) and (collection.get("id") or collection.get("$id"))
+    }
     for extra in (
         EMAIL_CAMPAIGNS_COLLECTION,
         JOB_LOCKS_COLLECTION,
@@ -1158,9 +1165,9 @@ def build_pricing_seed_documents():
             "comparison_json": json.dumps(feature_items),
             "monthly_duration_days": 30,
             "yearly_duration_days": 364,
-            "actions_per_hour_limit": int(limits.get("actions_per_hour_limit") or 0),
-            "actions_per_day_limit": int(limits.get("actions_per_day_limit")) if limits.get("actions_per_day_limit") is not None else None,
-            "actions_per_month_limit": int(limits.get("actions_per_month_limit")) if limits.get("actions_per_month_limit") is not None else None,
+            "actions_per_hour_limit": str(limits.get("actions_per_hour_limit") or "unlimited"),
+            "actions_per_day_limit": str(limits.get("actions_per_day_limit") or "unlimited"),
+            "actions_per_month_limit": str(limits.get("actions_per_month_limit") or "unlimited"),
         }
         for key, enabled_value in entitlements.items():
             payload[benefit_attribute_key(key)] = bool(enabled_value)

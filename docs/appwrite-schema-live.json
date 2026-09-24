@@ -2393,7 +2393,8 @@
         ],
         "orders": []
       }
-    ]
+    ],
+    "id": "ig_accounts"
   },
   {
     "id": "keyword_index",
@@ -3490,42 +3491,39 @@
       },
       {
         "key": "actions_per_hour_limit",
-        "type": "integer",
+        "type": "string",
         "status": "available",
         "error": "",
         "required": false,
         "array": false,
         "$createdAt": "2026-03-16T18:56:19.038+00:00",
         "$updatedAt": "2026-03-16T18:56:19.065+00:00",
-        "min": -9223372036854776000,
-        "max": 9223372036854776000,
-        "default": null
+        "default": null,
+        "size": 128
       },
       {
         "key": "actions_per_day_limit",
-        "type": "integer",
+        "type": "string",
         "status": "available",
         "error": "",
         "required": false,
         "array": false,
         "$createdAt": "2026-03-16T18:56:19.762+00:00",
         "$updatedAt": "2026-03-16T18:56:19.785+00:00",
-        "min": -9223372036854776000,
-        "max": 9223372036854776000,
-        "default": null
+        "default": null,
+        "size": 128
       },
       {
         "key": "actions_per_month_limit",
-        "type": "integer",
+        "type": "string",
         "status": "available",
         "error": "",
         "required": false,
         "array": false,
         "$createdAt": "2026-03-16T18:56:20.465+00:00",
         "$updatedAt": "2026-03-16T18:56:20.498+00:00",
-        "min": -9223372036854776000,
-        "max": 9223372036854776000,
-        "default": null
+        "default": null,
+        "size": 128
       },
       {
         "key": "comparison_json",
