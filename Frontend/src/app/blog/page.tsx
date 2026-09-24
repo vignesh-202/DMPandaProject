@@ -27,18 +27,41 @@ const BlogIndexPage: React.FC = () => {
     keywords: 'instagram automation blog, instagram comment automation guide, dm automation tips, instagram marketing blog, instagram auto reply tutorial',
     canonical: `${SITE_ORIGIN}/blog`,
     ogType: 'website',
-    schema: {
-      '@context': 'https://schema.org',
-      '@type': 'Blog',
-      name: 'DM Panda Blog & Automation Playbooks',
-      description: 'Practical guides and tutorials for Instagram automation, comment replies, DM flows, and lead generation.',
-      url: `${SITE_ORIGIN}/blog`,
-      publisher: {
-        '@type': 'Organization',
-        name: 'DM Panda',
-        logo: `${SITE_ORIGIN}/images/logo.png`,
+    schema: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Blog',
+        name: 'DM Panda Blog & Automation Playbooks',
+        description: 'Practical guides and tutorials for Instagram automation, comment replies, DM flows, and lead generation.',
+        url: `${SITE_ORIGIN}/blog`,
+        publisher: {
+          '@type': 'Organization',
+          name: 'DM Panda',
+          logo: {
+            '@type': 'ImageObject',
+            url: `${SITE_ORIGIN}/images/logo.png`,
+          },
+        },
       },
-    },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: `${SITE_ORIGIN}/`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: 'Blog',
+            item: `${SITE_ORIGIN}/blog`,
+          },
+        ],
+      },
+    ],
   });
 
   const filteredPosts = useMemo(() => {

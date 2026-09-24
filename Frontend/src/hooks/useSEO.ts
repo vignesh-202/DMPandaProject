@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 
+const DEFAULT_ORIGIN = String(import.meta.env.VITE_PUBLIC_SITE_URL || 'https://dmpanda.com').replace(/\/+$/, '');
+
 interface SEOProps {
   title: string;
   description: string;
@@ -12,6 +14,28 @@ interface SEOProps {
   twitterCard?: string;
   schema?: Record<string, any> | Record<string, any>[];
   noIndex?: boolean;
+  googleSiteVerification?: string;
+}
+
+function resolveAbsoluteUrl(url?: string): string {
+  if (!url) return `${DEFAULT_ORIGIN}/images/logo.png`;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `${DEFAULT_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function formatCanonical(canonical?: string): string {
+  if (canonical) {
+    if (canonical.startsWith('http://') || canonical.startsWith('https://')) {
+      return canonical;
+    }
+    return `${DEFAULT_ORIGIN}${canonical.startsWith('/') ? '' : '/'}${canonical}`;
+  }
+  if (typeof window !== 'undefined') {
+    const pathname = window.location.pathname || '/';
+    const cleanPath = pathname === '/' ? '' : pathname.replace(/\/+$/, '');
+    return `${DEFAULT_ORIGIN}${cleanPath}`;
+  }
+  return DEFAULT_ORIGIN;
 }
 
 export function useSEO({
@@ -26,6 +50,7 @@ export function useSEO({
   twitterCard = 'summary_large_image',
   schema,
   noIndex = false,
+  googleSiteVerification,
 }: SEOProps) {
   useEffect(() => {
     // 1. Document Title
@@ -56,17 +81,20 @@ export function useSEO({
       }
     }
 
-    // 4. Meta Robots
+    // 4. Meta Robots (Optimized for Google Search Console & Discover)
     let metaRobots = document.querySelector('meta[name="robots"]');
     if (!metaRobots) {
       metaRobots = document.createElement('meta');
       metaRobots.setAttribute('name', 'robots');
       document.head.appendChild(metaRobots);
     }
-    metaRobots.setAttribute('content', noIndex ? 'noindex,nofollow' : 'index,follow');
+    metaRobots.setAttribute(
+      'content',
+      noIndex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'
+    );
 
-    // 5. Canonical Link URL
-    const finalCanonical = canonical || window.location.href;
+    // 5. Canonical Link URL (Strips query params, prevents duplicate content issues in GSC)
+    const finalCanonical = formatCanonical(canonical);
     let linkCanonical = document.querySelector('link[rel="canonical"]');
     if (!linkCanonical) {
       linkCanonical = document.createElement('link');
@@ -75,11 +103,24 @@ export function useSEO({
     }
     linkCanonical.setAttribute('href', finalCanonical);
 
-    // 6. Open Graph (OG) Tags
+    // 6. Google Search Console Verification Meta Tag (if configured)
+    const verificationCode = googleSiteVerification || import.meta.env.VITE_GOOGLE_SITE_VERIFICATION;
+    if (verificationCode && verificationCode.trim() !== '' && !verificationCode.includes('%VITE_')) {
+      let gMeta = document.querySelector('meta[name="google-site-verification"]');
+      if (!gMeta) {
+        gMeta = document.createElement('meta');
+        gMeta.setAttribute('name', 'google-site-verification');
+        document.head.appendChild(gMeta);
+      }
+      gMeta.setAttribute('content', verificationCode.trim());
+    }
+
+    // 7. Open Graph (OG) Tags (Absolute image paths required by Google)
+    const absoluteImage = resolveAbsoluteUrl(ogImage);
     const ogTags = {
       'og:title': ogTitle || title,
       'og:description': ogDescription || description,
-      'og:image': ogImage || `${window.location.origin}/images/logo.png`,
+      'og:image': absoluteImage,
       'og:url': finalCanonical,
       'og:type': ogType,
     };
@@ -94,12 +135,12 @@ export function useSEO({
       ogMeta.setAttribute('content', content);
     });
 
-    // 7. Twitter Card Tags
+    // 8. Twitter Card Tags
     const twitterTags = {
       'twitter:card': twitterCard,
       'twitter:title': ogTitle || title,
       'twitter:description': ogDescription || description,
-      'twitter:image': ogImage || `${window.location.origin}/images/logo.png`,
+      'twitter:image': absoluteImage,
     };
 
     Object.entries(twitterTags).forEach(([name, content]) => {
@@ -112,7 +153,7 @@ export function useSEO({
       twMeta.setAttribute('content', content);
     });
 
-    // 8. JSON-LD Structured Data Schema
+    // 9. JSON-LD Structured Data Schema
     let schemaScript = document.querySelector('#jsonld-schema');
     if (schema) {
       if (!schemaScript) {
@@ -133,5 +174,18 @@ export function useSEO({
         script.remove();
       }
     };
-  }, [title, description, keywords, canonical, ogTitle, ogDescription, ogImage, ogType, twitterCard, schema, noIndex]);
+  }, [
+    title,
+    description,
+    keywords,
+    canonical,
+    ogTitle,
+    ogDescription,
+    ogImage,
+    ogType,
+    twitterCard,
+    schema,
+    noIndex,
+    googleSiteVerification,
+  ]);
 }

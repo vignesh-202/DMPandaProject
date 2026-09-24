@@ -282,13 +282,33 @@ export const FeaturesPage: React.FC = () => {
     title: 'Features | DM Panda - Smart Instagram Automation Suite',
     description: 'Explore all 23 powerful features: automated comment DMs, viral Reel auto-replies, interactive carousels, follow gates, and AI spam protection.',
     keywords: 'instagram automation features, comment reply bot, story mention auto reply, follow gate instagram dms, link in bio creator, carousel templates',
-    schema: {
-      '@context': 'https://schema.org',
-      '@type': 'WebPage',
-      name: 'Instagram Automation Features | DM Panda',
-      description: 'Explore DM Panda\'s full suite of 23 Instagram automation features.',
-      url: 'https://dmpanda.com/features',
-    },
+    schema: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        name: 'Instagram Automation Features | DM Panda',
+        description: 'Explore DM Panda\'s full suite of 23 Instagram automation features.',
+        url: 'https://dmpanda.com/features',
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: 'https://dmpanda.com/',
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: 'Features',
+            item: 'https://dmpanda.com/features',
+          },
+        ],
+      },
+    ],
   });
 
   const filteredFeatures = useMemo(() => {

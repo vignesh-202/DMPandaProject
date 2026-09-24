@@ -1,135 +1,200 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://dmpanda.com/</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/logo.png</image:loc>
+      <image:title>DM Panda - Official Meta Certified Instagram DM Automation</image:title>
+      <image:caption>Automate Instagram DMs, post comments, reels, and stories with DM Panda.</image:caption>
+    </image:image>
   </url>
   <url>
     <loc>https://dmpanda.com/features</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/features/instagram_comment_auto_reply.png</image:loc>
+      <image:title>DM Panda Features - Instagram Automation Suite</image:title>
+      <image:caption>Full suite of 23 certified Instagram automation features for creators and businesses.</image:caption>
+    </image:image>
   </url>
   <url>
     <loc>https://dmpanda.com/pricing</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/logo.png</image:loc>
+      <image:title>DM Panda Pricing Plans</image:title>
+      <image:caption>Transparent and affordable Instagram automation plans for individuals and agencies.</image:caption>
+    </image:image>
   </url>
   <url>
     <loc>https://dmpanda.com/blog</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://dmpanda.com/blog/how-to-auto-reply-to-instagram-comments</loc>
-    <lastmod>2026-07-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://dmpanda.com/blog/instagram-dm-automation-guide</loc>
-    <lastmod>2026-07-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://dmpanda.com/blog/instagram-story-mention-auto-reply</loc>
-    <lastmod>2026-07-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://dmpanda.com/blog/instagram-auto-reply-message-templates</loc>
-    <lastmod>2026-07-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://dmpanda.com/blog/instagram-comment-lead-generation</loc>
-    <lastmod>2026-07-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://dmpanda.com/blog/instagram-comment-moderation-guide</loc>
-    <lastmod>2026-07-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://dmpanda.com/blog/reel-comment-automation</loc>
-    <lastmod>2026-07-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://dmpanda.com/blog/instagram-live-automation</loc>
-    <lastmod>2026-07-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://dmpanda.com/blog/super-profile-link-in-bio</loc>
-    <lastmod>2026-07-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://dmpanda.com/blog/instagram-giveaway-auto-dm</loc>
-    <lastmod>2026-07-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/blog_auto_reply_comments.png</image:loc>
+      <image:title>DM Panda Growth &amp; Automation Blog</image:title>
+      <image:caption>Latest strategies, guides, and tutorials for Instagram DM automation and lead generation.</image:caption>
+    </image:image>
   </url>
   <url>
     <loc>https://dmpanda.com/about</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://dmpanda.com/contact</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://dmpanda.com/privacy</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://dmpanda.com/terms</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://dmpanda.com/disclaimer</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://dmpanda.com/refund-policy</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://dmpanda.com/delete-account-guide</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://dmpanda.com/login</loc>
-    <lastmod>2026-07-20</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <loc>https://dmpanda.com/blog/how-to-auto-reply-to-instagram-comments</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/blog_auto_reply_comments.png</image:loc>
+      <image:title>How to Auto-Reply to Instagram Comments: A Complete Guide for 2025</image:title>
+      <image:caption>Turn every Instagram comment into a conversation. Learn how to set up comment auto-replies that feel personal, follow Instagram\</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://dmpanda.com/blog/instagram-dm-automation-guide</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/blog_dm_automation_guide.png</image:loc>
+      <image:title>Instagram DM Automation: How to Send Auto DMs Without Spamming</image:title>
+      <image:caption>Auto DMs can feel like magic or spam. Learn how to build Instagram DM automations that respond to real intent, follow Meta\</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://dmpanda.com/blog/instagram-story-mention-auto-reply</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/blog_story_mention_auto_reply.png</image:loc>
+      <image:title>Instagram Story Mention Auto Reply: Turn Shoutouts Into Sales</image:title>
+      <image:caption>Every Story mention is free word-of-mouth marketing. Learn how to respond instantly with Instagram Story mention auto replies that reward fans and drive sales.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://dmpanda.com/blog/instagram-auto-reply-message-templates</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/blog_auto_reply_templates.png</image:loc>
+      <image:title>15 Instagram Auto Reply Message Templates That Actually Convert</image:title>
+      <image:caption>Stop staring at a blank message box. Use these 15 Instagram auto reply templates for comments, DMs, Stories, and Reels to engage faster and convert better.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://dmpanda.com/blog/instagram-comment-lead-generation</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/blog_comment_lead_generation.png</image:loc>
+      <image:title>How to Generate Leads from Instagram Comments Automatically</image:title>
+      <image:caption>Your comments section is a lead goldmine. Learn how to generate leads from Instagram comments automatically using DM flows, email capture, and webhooks.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://dmpanda.com/blog/instagram-comment-moderation-guide</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/blog_comment_moderation.png</image:loc>
+      <image:title>Instagram Comment Moderation: Protect Your Brand in 2025</image:title>
+      <image:caption>Toxic comments hurt your brand and scare away customers. Learn how to automate Instagram comment moderation with keyword lists that hide or delete unwanted content.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://dmpanda.com/blog/reel-comment-automation</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/blog_reel_comment_automation.png</image:loc>
+      <image:title>Reel Comment Automation: Convert Viral Views Into Conversations</image:title>
+      <image:caption>A viral Reel can bring thousands of comments. Reel comment automation helps you reply to every commenter instantly, so viral views do not go to waste.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://dmpanda.com/blog/instagram-live-automation</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/blog_live_automation.png</image:loc>
+      <image:title>Instagram Live Automation: Engage Viewers While You Stream</image:title>
+      <image:caption>Instagram Live moves fast. Live automation helps you welcome viewers, answer repeated questions, and capture leads without taking your eyes off the stream.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://dmpanda.com/blog/super-profile-link-in-bio</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/blog_super_profile.png</image:loc>
+      <image:title>Super Profile: The Link-in-Bio Tool Built for Instagram Automation</image:title>
+      <image:caption>A generic link-in-bio page is not enough. Learn how DM Panda Super Profile turns your Instagram bio link into a branded, conversion-focused landing page.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://dmpanda.com/blog/instagram-giveaway-auto-dm</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://dmpanda.com/images/blog_giveaway_auto_dm.png</image:loc>
+      <image:title>How to Run an Instagram Giveaway With Auto DMs (Step-by-Step)</image:title>
+      <image:caption>Instagram giveaways can explode your engagement. Learn how to run them with auto DMs that confirm entries, reward shares, and capture leads without manual work.</image:caption>
+    </image:image>
   </url>
 </urlset>

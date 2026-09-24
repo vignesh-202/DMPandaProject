@@ -1,10 +1,47 @@
+# ==============================================================================
+# DM Panda - robots.txt
+# Official Meta Business Partner - Instagram DM & Comment Automation
+# Optimized for Google Search Console, Googlebot & Image Search
+# ==============================================================================
+
 User-agent: *
 Allow: /
+Allow: /images/
+Allow: /assets/
+Disallow: /dashboard/
 Disallow: /dashboard
 Disallow: /auth/
 Disallow: /api/
+Disallow: /admin/
+Disallow: /reset-password
+Disallow: /verify-email
 
-# Crawl-delay for polite bots
-Crawl-delay: 1
+# Googlebot Standard Crawler
+User-agent: Googlebot
+Allow: /
+Allow: /images/
+Allow: /assets/
+Disallow: /dashboard/
+Disallow: /dashboard
+Disallow: /auth/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /reset-password
+Disallow: /verify-email
 
+# Googlebot Image Crawler (Indexes Feature & Blog Graphics)
+User-agent: Googlebot-Image
+Allow: /images/
+Allow: /assets/
+Allow: /favicon.ico
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /admin/
+
+# Googlebot Mobile Crawler
+User-agent: Googlebot-Mobile
+Allow: /
+
+# Canonical XML Sitemap
 Sitemap: https://dmpanda.com/sitemap.xml
+

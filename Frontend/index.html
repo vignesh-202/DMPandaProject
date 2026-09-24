@@ -7,9 +7,16 @@
     <title>DM Panda | Certified Instagram DM Automation Tool</title>
     <meta name="description" content="Automate Instagram DMs, comments, shares, and stories with DM Panda. Certified Meta Business Partner. Safe, simple, and affordable automation for creators." />
     <meta name="keywords" content="instagram automation, instagram dm automation, comment auto reply, auto send message instagram, link in bio page, dm panda" />
+    <!-- Google Search Console Verification -->
+    <meta name="google-site-verification" content="%VITE_GOOGLE_SITE_VERIFICATION%" />
+
+    <!-- Crawlers & Indexing Directives -->
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="bingbot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="author" content="DM Panda" />
     <meta name="theme-color" content="#833AB4" />
+    <meta name="format-detection" content="telephone=no" />
     <link rel="canonical" href="https://dmpanda.com/" />
 
     <!-- Open Graph / Facebook -->
@@ -38,50 +45,69 @@
           "@type": "SoftwareApplication",
           "@id": "https://dmpanda.com/#software",
           "name": "DM Panda",
-          "operatingSystem": "Cloud, Web, Instagram Graph API",
-          "applicationCategory": "BusinessApplication, MarketingApplication",
-          "url": "https://dmpanda.com",
+          "operatingSystem": "All (Web, Cloud, Instagram API)",
+          "applicationCategory": "BusinessApplication",
+          "applicationSubCategory": "SocialMediaAutomation",
+          "url": "https://dmpanda.com/",
           "description": "Official Meta Certified Instagram DM and Comment Automation Tool for creators, businesses, and influencers.",
           "offers": {
             "@type": "AggregateOffer",
             "priceCurrency": "USD",
             "lowPrice": "0",
+            "highPrice": "49",
             "offerCount": "4"
           },
           "aggregateRating": {
             "@type": "AggregateRating",
             "ratingValue": "4.9",
-            "reviewCount": "1250",
-            "bestRating": "5"
+            "ratingCount": "1250",
+            "bestRating": "5",
+            "worstRating": "1"
           }
         },
         {
           "@type": "Organization",
           "@id": "https://dmpanda.com/#organization",
           "name": "DM Panda",
-          "url": "https://dmpanda.com",
+          "url": "https://dmpanda.com/",
           "logo": {
             "@type": "ImageObject",
-            "url": "https://dmpanda.com/images/logo.png"
+            "url": "https://dmpanda.com/images/logo.png",
+            "width": "512",
+            "height": "512"
+          },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer service",
+            "availableLanguage": ["English", "Hindi"],
+            "url": "https://dmpanda.com/contact"
           },
           "sameAs": [
-            "https://instagram.com/dmpanda",
-            "https://twitter.com/dmpanda"
+            "https://www.instagram.com/dmpanda",
+            "https://twitter.com/dmpanda",
+            "https://www.facebook.com/dmpanda",
+            "https://www.linkedin.com/company/dmpanda"
           ]
         },
         {
           "@type": "WebSite",
           "@id": "https://dmpanda.com/#website",
-          "url": "https://dmpanda.com",
+          "url": "https://dmpanda.com/",
           "name": "DM Panda",
+          "alternateName": "DMPanda",
+          "description": "Official Meta Certified Instagram Automation Platform",
           "publisher": {
             "@id": "https://dmpanda.com/#organization"
           },
           "potentialAction": {
             "@type": "SearchAction",
-            "target": "https://dmpanda.com/blog?q={search_term_string}",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://dmpanda.com/blog?q={search_term_string}"
+            },
             "query-input": "required name=search_term_string"
-          }
+          },
+          "inLanguage": "en-US"
         }
       ]
     }

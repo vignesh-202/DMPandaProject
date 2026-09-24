@@ -269,7 +269,10 @@ const HomePage: React.FC = () => {
         'url': 'https://dmpanda.com',
         'potentialAction': {
           '@type': 'SearchAction',
-          'target': 'https://dmpanda.com/login',
+          'target': {
+            '@type': 'EntryPoint',
+            'urlTemplate': 'https://dmpanda.com/blog?q={search_term_string}'
+          },
           'query-input': 'required name=search_term_string'
         }
       },

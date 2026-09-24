@@ -27,20 +27,78 @@ const PricingPage: React.FC = () => {
     title: 'Pricing Plans | DM Panda - Flexible Instagram Automation',
     description: 'Find the best pricing plan for automating your Instagram DMs. Start free, upgrade as you grow. Safe, certified, and compliant pricing.',
     keywords: 'dm panda pricing, instagram dm bot pricing, cheap instagram dm automations, instagram auto reply cost',
-    schema: {
-      '@context': 'https://schema.org',
-      '@type': 'Product',
-      'name': 'DM Panda Instagram Automation Subscription',
-      'description': 'Certified Instagram direct message, comment, share, and story automation service.',
-      'image': 'https://dmpanda.com/images/logo.png',
-      'offers': {
-        '@type': 'AggregateOffer',
-        'priceCurrency': 'INR',
-        'lowPrice': '0.00',
-        'highPrice': '499.00',
-        'offerCount': '4'
+    schema: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        'name': 'DM Panda Instagram Automation Subscription',
+        'description': 'Certified Instagram direct message, comment, share, and story automation service.',
+        'image': 'https://dmpanda.com/images/logo.png',
+        'offers': {
+          '@type': 'AggregateOffer',
+          'priceCurrency': 'INR',
+          'lowPrice': '0.00',
+          'highPrice': '499.00',
+          'offerCount': '4'
+        }
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        'itemListElement': [
+          {
+            '@type': 'ListItem',
+            'position': 1,
+            'name': 'Home',
+            'item': 'https://dmpanda.com/'
+          },
+          {
+            '@type': 'ListItem',
+            'position': 2,
+            'name': 'Pricing',
+            'item': 'https://dmpanda.com/pricing'
+          }
+        ]
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        'mainEntity': [
+          {
+            '@type': 'Question',
+            'name': 'How does pricing per Instagram account work?',
+            'acceptedAnswer': {
+              '@type': 'Answer',
+              'text': 'Every DMPanda subscription tier is dedicated to a single connected Instagram Professional account. If you manage multiple Instagram accounts for different brands or clients, each account has its own independent subscription and separate action quota.'
+            }
+          },
+          {
+            '@type': 'Question',
+            'name': 'What does "Unlimited Actions" on the Pro plan mean?',
+            'acceptedAnswer': {
+              '@type': 'Answer',
+              'text': 'DMPanda does not place any artificial monthly, daily, or hourly action caps on Pro plan subscriptions. You can automate as many comments, direct messages, and story replies as your traffic generates, safe within Meta rate limits.'
+            }
+          },
+          {
+            '@type': 'Question',
+            'name': 'Is there a free trial or free tier available?',
+            'acceptedAnswer': {
+              '@type': 'Answer',
+              'text': 'Yes! We offer a Free Plan that is 100% free forever. It includes up to 1,000 actions every month, allowing you to test comment-to-DM replies and story automations without a credit card.'
+            }
+          },
+          {
+            '@type': 'Question',
+            'name': 'Can I upgrade, downgrade, or cancel my subscription anytime?',
+            'acceptedAnswer': {
+              '@type': 'Answer',
+              'text': 'Yes, absolutely. You have complete flexibility to upgrade, downgrade, or cancel your subscription at any time directly from the dashboard.'
+            }
+          }
+        ]
       }
-    }
+    ]
   });
 
   const [isYearly, setIsYearly] = useState(true);
