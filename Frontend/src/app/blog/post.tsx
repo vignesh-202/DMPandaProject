@@ -115,8 +115,8 @@ const BlogPostPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500">
-      <article className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl pt-28 sm:pt-32 pb-16 sm:pb-24">
+    <div className="min-h-screen bg-white dark:bg-[#09090b] text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
+      <article className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl pt-20 sm:pt-24 pb-16 sm:pb-24">
           {/* Breadcrumb */}
           <nav aria-label="Breadcrumb" className="mb-6">
             <ol className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -144,13 +144,13 @@ const BlogPostPage: React.FC = () => {
             className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to blog
+            Back to playbooks
           </Link>
 
           {/* Header */}
           <header className="mb-10">
-            <div className="flex flex-wrap items-center gap-3 mb-4 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">
-              <span className="px-3 py-1 rounded-full bg-gradient-to-r from-[#405DE6]/10 via-[#833AB4]/10 to-[#FCAF45]/10 text-[#833AB4] dark:text-purple-300">
+            <div className="flex flex-wrap items-center gap-2.5 mb-4 text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <span className="px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/20">
                 {post.category}
               </span>
               <span className="flex items-center gap-1">
@@ -162,7 +162,7 @@ const BlogPostPage: React.FC = () => {
                 {post.readTime}
               </span>
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight mb-5">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 dark:text-white leading-[1.15] tracking-tight mb-5">
               {post.title}
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 leading-relaxed">
@@ -170,9 +170,9 @@ const BlogPostPage: React.FC = () => {
             </p>
           </header>
 
-          {/* Featured image */}
+          {/* Featured 16:9 Editorial Cover */}
           <figure className="mb-10 sm:mb-12">
-            <div className="rounded-2xl sm:rounded-3xl overflow-hidden bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.06] aspect-[16/9] shadow-lg">
+            <div className="rounded-2xl sm:rounded-3xl overflow-hidden bg-neutral-900 border border-gray-200/80 dark:border-white/[0.08] aspect-[16/9] shadow-xl">
               <picture className="w-full h-full block">
                 {post.image && post.image.endsWith('.png') && (
                   <source srcSet={post.image.replace(/\.png$/, '.webp')} type="image/webp" />

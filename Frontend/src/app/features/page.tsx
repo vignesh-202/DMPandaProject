@@ -1,258 +1,559 @@
 "use client";
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { useSEO } from '../../hooks/useSEO';
+import {
+  Sparkles,
+  Zap,
+  MessageSquare,
+  ShieldCheck,
+  TrendingUp,
+  Layers,
+  Search,
+  ArrowRight,
+  CheckCircle2,
+  SlidersHorizontal,
+} from 'lucide-react';
 
-const features = [
+interface FeatureItem {
+  id: string;
+  name: string;
+  category: 'all' | 'automations' | 'templates' | 'growth' | 'safety';
+  categoryLabel: string;
+  badge?: string;
+  description: string;
+  benefit: string;
+  image: string;
+  featured?: boolean;
+  stat?: string;
+}
+
+const allFeatures: FeatureItem[] = [
+  // --- AUTOMATIONS ---
   {
-    name: 'Inbox Menu',
-    description: 'Offer your followers a menu-driven experience in their DMs. Let them choose their path and get instant information about your products or services.',
-    useCase: 'Benefit: Provide a structured and interactive way for users to discover what you offer, leading to higher engagement.',
-    image: '/images/inbox_menu.png',
-  },
-  {
-    name: 'Super Profile',
-    description: 'Create a high-converting link-in-bio page directly from DM Panda. A central hub for all your important links, products, and content.',
-    useCase: 'Benefit: Maximize your Instagram traffic by providing a sleek, professional landing page that converts followers into customers.',
-    image: '/images/super_profile.png',
-  },
-  {
-    name: 'Conversation Starters',
-    description: 'Guide users with pre-set buttons in your Instagram DM inbox, helping them find information or start a conversation effortlessly.',
-    useCase: 'Benefit: Act as a 24/7 virtual assistant, answering common questions and guiding potential customers to the right place.',
-    image: '/images/conversation_starter.png',
-  },
-  {
-    name: 'Follow-Gated DMs',
-    description: 'Make following your account a required step for users to receive your automated DM. A powerful tool for explosive follower growth.',
-    useCase: 'Benefit: Convert commenters into loyal followers by making it a prerequisite to receive your giveaway entry or special offer.',
-    image: '/images/follow_gated_dm.png',
-  },
-  {
-    name: 'Global Keyword Triggers',
-    description: 'Set universal keywords that trigger a specific Auto DM from anywhere on your Instagram—be it a post, Reel, or Story.',
-    useCase: 'Benefit: Create powerful, account-wide calls-to-action. A single keyword can now be your master key for lead generation.',
-    image: '/images/global_triggers.png',
-  },
-  {
-    name: 'Text Template',
-    description: 'Simplicity at its finest. Send a direct, personalized text message response to your users.',
-    useCase: 'Benefit: Perfect for quick answers, simple confirmations, or starting a conversation with a warm welcome.',
-    image: '/images/text_template.png',
-  },
-  {
-    name: 'Carousel Template',
-    description: 'Create stunning visual experiences with carousels of images and buttons. Show off your products in style.',
-    useCase: 'Benefit: Drive higher engagement and sales by showcasing your offerings visually with direct links to purchase.',
-    image: '/images/carousel_template.png',
-  },
-  {
-    name: 'Button Template',
-    description: 'Guide your users with up to three actionable buttons accompanied by a text message.',
-    useCase: 'Benefit: Streamline the user journey by offering clear choices, leading them exactly where they want to go.',
-    image: '/images/button_template.png',
-  },
-  {
-    name: 'Media Template',
-    description: 'Send high-quality images directly in the DM to grab attention instantly.',
-    useCase: 'Benefit: Deliver exclusive content, product demos, or special offers in a format that users love to consume.',
-    image: '/images/media_template.png',
-  },
-  {
-    name: 'Quick Replies Template',
-    description: 'Offer predefined reply options to your users to keep the conversation flowing effortlessly.',
-    useCase: 'Benefit: Reduce friction and encourage users to continue engaging with your brand by making it easy to respond.',
-    image: '/images/quick_replies_template.png',
-  },
-  {
-    name: 'Share Template',
-    description: 'Automatically share your existing Instagram posts or Reels directly in the DM conversation.',
-    useCase: 'Benefit: Boost engagement on your latest content by automatically sharing relevant posts or Reels when users engage with your automation.',
-    image: '/images/share_template.png',
-  },
-  {
-    name: 'Welcome Message',
-    description: 'Automatically greet first-time messengers with a personalized welcome card, navigation buttons, and exclusive entry offers.',
-    useCase: 'Benefit: Make an unforgettable first impression and instantly orient new followers without any manual intervention.',
-    image: '/images/welcome_message.png',
-  },
-  {
-    name: 'Post Comment Automation',
-    description: 'Automatically respond to comments on your Instagram posts. Turn your comments section into an automated lead-capture machine.',
-    useCase: 'Benefit: Instantly send a private welcome message or a special link to every user who comments on your Instagram posts.',
-    image: '/images/post_comment_dm_reply.png',
-  },
-  {
-    name: 'Post Share Automation',
-    description: 'Automatically send a reply from your admin account whenever a user shares one of your posts with you via DM.',
-    useCase: 'Benefit: When a user shares your post with you, DMPanda recognizes the interaction and instantly sends an automated reply, perfect for reward delivery and lead capture.',
-    image: '/images/post_share_automation.png',
-  },
-  {
+    id: 'reel-comment',
     name: 'Reel Comment Automation',
-    description: 'Never miss an opportunity on your viral Reels. DMPanda sends an automated, personalized DM to every single commenter.',
-    useCase: 'Benefit: Maximize the impact of your Reels by engaging every commenter, driving traffic and sales directly from your most popular content.',
+    category: 'automations',
+    categoryLabel: 'Viral Content',
+    badge: 'Most Popular',
+    stat: '10x Engagement Rate',
+    featured: true,
+    description: 'Instantly send a targeted, personalized DM to every viewer who comments on your viral Instagram Reels.',
+    benefit: 'Turns viral Reels into high-converting sales funnels without manual community management.',
     image: '/images/reel_comment_dm_reply.png',
   },
   {
-    name: 'Reel Share Automation',
-    description: 'Engage instantly when users share your Reels with you. DMPanda sends an automatic reply from your account to every user who shares your Reel via DM.',
-    useCase: 'Benefit: Turn Reel shares into conversations. When someone shares your Reel to your DMs, they receive an immediate automated response from your account.',
-    image: '/images/reel_share_automation.png',
+    id: 'post-comment',
+    name: 'Post Comment Automation',
+    category: 'automations',
+    categoryLabel: 'Feed Automation',
+    description: 'Automatically trigger private DMs and public replies the moment someone comments on your Instagram feed posts.',
+    benefit: 'Captures hot buyer intent in under 0.4 seconds while commenters are still active on your post.',
+    image: '/images/post_comment_dm_reply.png',
   },
   {
-    name: 'Ad Comment Automation',
-    description: 'Automatically sends a private DM to every user who comments on your Instagram sponsored posts and ads.',
-    useCase: 'Benefit: Get the most out of your ad budget by turning expensive ad comments into valuable, one-on-one sales conversations.',
-    image: '/images/sponsored_ad_comment_reply.png',
-  },
-  {
-    name: 'Public Comment Replies',
-    description: 'After sending a DM, this feature posts a public reply to the user\'s original comment, creating social proof and encouraging more comments.',
-    useCase: 'Benefit: Amplify your engagement by showing everyone that you respond to comments, leading to even more interactions.',
-    image: '/images/comment_auto_reply.png',
-  },
-  {
-    name: 'Abusive Comment Moderation',
-    description: 'Keep your comments section clean and professional. Automatically hide or delete offensive comments based on your custom keywords.',
-    useCase: 'Benefit: Maintain a positive brand image and protect your community from spam and hate speech without manual monitoring.',
-    image: '/images/comment_moderation.png',
-  },
-  {
-    name: 'Story Mention Automation',
-    description: 'When a user @mentions your account in their Instagram Story, DMPanda instantly sends them a customized thank you DM.',
-    useCase: 'Benefit: Encourage more user-generated content by showing instant appreciation whenever someone gives your brand a shoutout.',
-    image: '/images/story_mention_dm_reply.png',
-  },
-  {
-    name: 'Story Reply Automation',
-    description: 'Send an instant automated direct message when a user reacts or replies directly to any of your active Instagram Stories.',
-    useCase: 'Benefit: Convert temporary 24-hour Story views into permanent, automated customer relationships and immediate conversions.',
-    image: '/images/story_reply_dm_reply.png',
-  },
-  {
+    id: 'live-automation',
     name: 'Instagram Live Automation',
-    description: 'Trigger automated direct messages with links, promo codes, and resources when viewers comment live triggers while you stream.',
-    useCase: 'Benefit: Monetize live broadcasts effortlessly without losing viewer attention or manually typing links in the chat.',
+    category: 'automations',
+    categoryLabel: 'Live Streaming',
+    badge: 'High Conversion',
+    stat: 'Zero Viewer Dropoff',
+    featured: true,
+    description: 'Deliver instant checkout links, discount codes, and resources when live viewers type your trigger keyword in the stream chat.',
+    benefit: 'Monetize broadcasts effortlessly without typing links in the live comments or losing viewer attention.',
     image: '/images/live_automation.png',
   },
   {
-    name: 'Suggest More',
-    description: 'The "Suggest More" feature lets you auto-send predefined templates, offering users extra product recommendations or information with a simple tap.',
-    useCase: 'Benefit: Increase average order value and user satisfaction by proactively offering relevant alternatives or complementary products.',
+    id: 'story-mention',
+    name: 'Story Mention Automation',
+    category: 'automations',
+    categoryLabel: 'UGC & Loyalty',
+    description: 'Automatically thank followers with customized VIP discounts whenever they @mention your account in their Stories.',
+    benefit: 'Incentivizes viral user-generated content and rewards genuine brand advocates automatically.',
+    image: '/images/story_mention_dm_reply.png',
+  },
+  {
+    id: 'story-reply',
+    name: 'Story Reply Automation',
+    category: 'automations',
+    categoryLabel: 'Stories',
+    description: 'Deliver instant direct message responses whenever users react or reply directly to your active 24-hour Stories.',
+    benefit: 'Converts ephemeral Story interactions into permanent, automated customer relationships.',
+    image: '/images/story_reply_dm_reply.png',
+  },
+  {
+    id: 'ad-comment',
+    name: 'Sponsored Ad Comment Automation',
+    category: 'automations',
+    categoryLabel: 'Paid Media',
+    description: 'Send private, personalized direct messages to high-intent users who comment on your Meta sponsored ads.',
+    benefit: 'Maximizes ROAS by converting expensive paid ad commenters into one-on-one sales discussions.',
+    image: '/images/sponsored_ad_comment_reply.png',
+  },
+
+  // --- TEMPLATES ---
+  {
+    id: 'welcome-message',
+    name: 'Welcome Message',
+    category: 'templates',
+    categoryLabel: 'Onboarding',
+    badge: 'Essential',
+    stat: '85% First-Touch Open Rate',
+    featured: true,
+    description: 'Greet new followers and first-time messengers with a tailored welcome card, orientation links, and starter discounts.',
+    benefit: 'Establishes a premium first impression and guides new leads to your highest-value offers instantly.',
+    image: '/images/welcome_message.png',
+  },
+  {
+    id: 'carousel-template',
+    name: 'Carousel Template',
+    category: 'templates',
+    categoryLabel: 'Visual Commerce',
+    badge: 'Multi-Card',
+    stat: '3x Click-Throughs',
+    featured: true,
+    description: 'Showcase up to 10 swipeable cards in the DM with product imagery, titles, pricing, and direct checkout buttons.',
+    benefit: 'Creates an interactive shopping experience inside Instagram chat with direct links to purchase.',
+    image: '/images/carousel_template.png',
+  },
+  {
+    id: 'button-template',
+    name: 'Button Template',
+    category: 'templates',
+    categoryLabel: 'Navigation',
+    description: 'Pair clear text messages with up to three actionable CTA buttons leading to URLs or automated sub-flows.',
+    benefit: 'Streamlines customer journeys with frictionless decision paths that eliminate typing friction.',
+    image: '/images/button_template.png',
+  },
+  {
+    id: 'quick-replies',
+    name: 'Quick Replies Template',
+    category: 'templates',
+    categoryLabel: 'Interactive Chips',
+    description: 'Provide horizontal scrollable tap chips for quick answers, product preferences, and guided diagnostics.',
+    benefit: 'Reduces user effort to a single tap, dramatically boosting survey and quiz completion rates.',
+    image: '/images/quick_replies_template.png',
+  },
+  {
+    id: 'share-template',
+    name: 'Share Template',
+    category: 'templates',
+    categoryLabel: 'Feed Amplification',
+    description: 'Directly embed your native Instagram posts or Reels into the DM conversation with full thumbnail previews.',
+    benefit: 'Revives catalog content and directs engaged chat users back to your top feed assets.',
+    image: '/images/share_template.png',
+  },
+  {
+    id: 'media-template',
+    name: 'Media Template',
+    category: 'templates',
+    categoryLabel: 'Rich Media',
+    description: 'Deliver high-resolution images, lookbooks, and video attachments directly in direct messages.',
+    benefit: 'Captures visual attention immediately and delivers lead magnets or lookbooks in native formats.',
+    image: '/images/media_template.png',
+  },
+  {
+    id: 'text-template',
+    name: 'Text Template',
+    category: 'templates',
+    categoryLabel: 'Direct Message',
+    description: 'Lightning-fast, personalized plain text responses engineered for natural 1-on-1 human conversations.',
+    benefit: 'Perfect for concise answers, personal confirmations, or warm conversational touchpoints.',
+    image: '/images/text_template.png',
+  },
+
+  // --- GROWTH ---
+  {
+    id: 'follow-gated',
+    name: 'Follow-Gated DMs',
+    category: 'growth',
+    categoryLabel: 'Follower Growth',
+    badge: 'Viral Engine',
+    stat: 'Verified Follow Check',
+    featured: true,
+    description: 'Require users to follow your Instagram account before your automation releases exclusive links or promo codes.',
+    benefit: 'Directly converts comment traffic and giveaway participants into permanent, loyal followers.',
+    image: '/images/follow_gated_dm.png',
+  },
+  {
+    id: 'super-profile',
+    name: 'Super Profile (Link in Bio)',
+    category: 'growth',
+    categoryLabel: 'Traffic Hub',
+    badge: 'High Conversion',
+    stat: '14k Clicks/Month Average',
+    featured: true,
+    description: 'Build a blazing-fast, mobile-optimized link-in-bio page directly inside DM Panda with built-in analytics.',
+    benefit: 'Replaces generic link-in-bio tools with a branded, trackable conversion engine for all Instagram traffic.',
+    image: '/images/super_profile.png',
+  },
+  {
+    id: 'post-share',
+    name: 'Post Share Automation',
+    category: 'growth',
+    categoryLabel: 'Virality',
+    description: 'Automatically recognize when a user shares your post into DMs and trigger an instant reward or entry ticket.',
+    benefit: 'Incentivizes peer-to-peer sharing and viral word-of-mouth distribution.',
+    image: '/images/post_share_automation.png',
+  },
+  {
+    id: 'reel-share',
+    name: 'Reel Share Automation',
+    category: 'growth',
+    categoryLabel: 'Virality',
+    description: 'Send an immediate automated thank you and resource link whenever a viewer forwards your Reel via DM.',
+    benefit: 'Turns passive content shares into active one-on-one business conversations.',
+    image: '/images/reel_share_automation.png',
+  },
+  {
+    id: 'suggest-more',
+    name: 'Suggest More (Upsells)',
+    category: 'growth',
+    categoryLabel: 'E-commerce',
+    description: 'Intelligently propose relevant alternative items or complementary accessories with one-tap bundle savings.',
+    benefit: 'Increases average order value and customer satisfaction with contextual product discovery.',
     image: '/images/suggest_more.png',
+  },
+
+  // --- SAFETY & CONTROL ---
+  {
+    id: 'comment-moderation',
+    name: 'Abusive Comment Moderation',
+    category: 'safety',
+    categoryLabel: 'Brand Protection',
+    badge: 'Automated Shield',
+    stat: '0.18s Response Speed',
+    featured: true,
+    description: 'Automatically filter, hide, or delete spam, offensive words, and malicious phishing links in real time.',
+    benefit: 'Maintains a clean brand reputation and safeguards your community 24/7 without manual moderation.',
+    image: '/images/comment_moderation.png',
+  },
+  {
+    id: 'global-triggers',
+    name: 'Global Keyword Triggers',
+    category: 'safety',
+    categoryLabel: 'Master Engine',
+    description: 'Set account-wide keywords that activate auto-replies across all posts, Reels, Stories, and inbound DMs.',
+    benefit: 'Run synchronized omni-channel campaigns using a single memorable call to action.',
+    image: '/images/global_triggers.png',
+  },
+  {
+    id: 'inbox-menu',
+    name: 'Inbox Menu',
+    category: 'safety',
+    categoryLabel: 'Customer Support',
+    description: 'A permanent, structured navigation menu inside direct messages that helps customers self-serve 24/7.',
+    benefit: 'Resolves common support queries instantly, reducing manual workload by over 70%.',
+    image: '/images/inbox_menu.png',
+  },
+  {
+    id: 'convo-starters',
+    name: 'Conversation Starters',
+    category: 'safety',
+    categoryLabel: 'Inbound Inquiries',
+    description: 'Prompt first-time visitors with clickable FAQ buttons before they type their first question.',
+    benefit: 'Directs prospects down structured conversion pathways the moment they open your chat window.',
+    image: '/images/conversation_starter.png',
+  },
+  {
+    id: 'public-comment-replies',
+    name: 'Public Comment Auto-Replies',
+    category: 'safety',
+    categoryLabel: 'Social Proof',
+    description: 'Post a public reply confirming that a DM was delivered, demonstrating responsiveness to the algorithm.',
+    benefit: 'Doubles comment thread volume, triggering Instagram explore recommendations and community trust.',
+    image: '/images/comment_auto_reply.png',
   },
 ];
 
-/* Scroll reveal hook — optimised */
-const useReveal = (threshold = 0.1) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          obs.disconnect();
-        }
-      },
-      { threshold, rootMargin: '80px' }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [threshold]);
-  return { ref, visible };
-};
+const categoryTabs = [
+  { id: 'all', label: 'All Features', count: allFeatures.length, icon: Layers },
+  { id: 'automations', label: 'Automations', count: 6, icon: Zap },
+  { id: 'templates', label: 'Interactive Templates', count: 7, icon: MessageSquare },
+  { id: 'growth', label: 'Growth Engines', count: 5, icon: TrendingUp },
+  { id: 'safety', label: 'Safety & Control', count: 5, icon: ShieldCheck },
+];
 
-const FeatureSection = ({ feature, index }: { feature: (typeof features)[0], index: number }) => {
-  const { ref, visible } = useReveal();
-  const isEven = index % 2 === 0;
+export const FeaturesPage: React.FC = () => {
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
-  return (
-    <div ref={ref} className="group grid md:grid-cols-2 gap-8 sm:gap-12 md:gap-20 lg:gap-32 items-center mb-20 sm:mb-32 lg:mb-40 last:mb-0">
-      <div
-        className={`transition-[opacity,transform] duration-700 ease-out ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${isEven ? 'md:order-1' : 'md:order-2'}`}
-      >
-        <div className="inline-block px-4 py-1.5 mb-4 sm:mb-6 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-bold tracking-[0.15em] uppercase">
-          Feature {index + 1}
-        </div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 text-gray-900 dark:text-white leading-tight tracking-tight">{feature.name}</h2>
-        <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400 mb-6 sm:mb-8 leading-relaxed">{feature.description}</p>
-
-        <div className="relative p-5 sm:p-6 bg-gray-50 dark:bg-white/[0.04] border border-gray-100 dark:border-white/[0.06] rounded-2xl overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 dark:bg-blue-400 rounded-r" />
-          <p className="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed italic pl-3">"{feature.useCase}"</p>
-        </div>
-      </div>
-
-      <div
-        className={`transition-[opacity,transform] duration-700 ease-out delay-200 ${visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'} ${isEven ? 'md:order-2' : 'md:order-1'}`}
-      >
-        <div className="relative aspect-[4/3] md:aspect-square flex items-center justify-center rounded-2xl sm:rounded-3xl overflow-hidden bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.06] group-hover:border-blue-500/20 dark:group-hover:border-blue-400/20 transition-all duration-500 p-6 sm:p-8 md:p-12 shadow-lg group-hover:shadow-xl dark:shadow-black/20">
-          <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/[0.03] via-transparent to-purple-500/[0.03] opacity-0 group-hover:opacity-100 transition-opacity duration-700 dark:from-blue-500/[0.05] dark:to-purple-500/[0.05]" />
-          <div className="relative z-10 w-full h-full flex items-center justify-center">
-            <picture className="max-w-full max-h-full flex items-center justify-center">
-              {feature.image.endsWith('.png') && (
-                <source srcSet={feature.image.replace(/\.png$/, '.webp')} type="image/webp" />
-              )}
-              <img
-                src={feature.image}
-                alt={feature.name}
-                loading="lazy"
-                decoding="async"
-                width={600}
-                height={600}
-                className="max-w-full max-h-full object-contain drop-shadow-lg group-hover:scale-[1.03] transition-transform duration-500 ease-out"
-              />
-            </picture>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-import { useSEO } from '../../hooks/useSEO';
-
-const FeaturesPage: React.FC = () => {
   useSEO({
     title: 'Features | DM Panda - Smart Instagram Automation Suite',
-    description: 'Explore DM Panda\'s powerful features: inbox menus, link-in-bio super profiles, automated DM replies, follow-gates, email capture, and comment auto-replies.',
-    keywords: 'instagram automation features, comment reply bot, story mention auto reply, follow gate instagram dms, link in bio creator',
+    description: 'Explore all 23 powerful features: automated comment DMs, viral Reel auto-replies, interactive carousels, follow gates, and AI spam protection.',
+    keywords: 'instagram automation features, comment reply bot, story mention auto reply, follow gate instagram dms, link in bio creator, carousel templates',
     schema: {
       '@context': 'https://schema.org',
       '@type': 'WebPage',
-      'name': 'Instagram Automation Features | DM Panda',
-      'description': 'Explore DM Panda\'s full suite of Instagram automation features.',
-      'url': 'https://dmpanda.com/features'
-    }
+      name: 'Instagram Automation Features | DM Panda',
+      description: 'Explore DM Panda\'s full suite of 23 Instagram automation features.',
+      url: 'https://dmpanda.com/features',
+    },
   });
 
+  const filteredFeatures = useMemo(() => {
+    return allFeatures.filter((f) => {
+      const matchesCategory = selectedCategory === 'all' || f.category === selectedCategory;
+      const matchesSearch =
+        searchQuery.trim() === '' ||
+        f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        f.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        f.categoryLabel.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [selectedCategory, searchQuery]);
+
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-500">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-16 sm:pb-24">
-        <div className="text-center mb-16 sm:mb-24 lg:mb-32 max-w-4xl mx-auto px-4">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 sm:mb-6 text-gray-900 dark:text-white tracking-tight leading-[1.1]">
-            Your Instagram Automation Powerhouse
-          </h1>
-          <p className="text-base sm:text-lg md:text-xl text-gray-500 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">
-            DMPanda is the ultimate toolkit for growing your brand, capturing leads, and providing 24/7 support—all on Instagram.
+    <div className="min-h-screen bg-white dark:bg-[#09090b] text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
+      {/* Hero Section */}
+      <section className="relative pt-20 sm:pt-24 pb-12 sm:pb-16 border-b border-gray-100 dark:border-white/[0.06] overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-gradient-to-b from-[#833AB4]/10 via-[#4F46E5]/10 to-transparent blur-3xl pointer-events-none" />
+
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl relative z-10">
+          <div className="max-w-3xl mx-auto text-center">
+            {/* Eyebrow */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#405DE6]/10 via-[#833AB4]/10 to-[#FCAF45]/10 border border-purple-500/20 text-[#833AB4] dark:text-purple-300 text-xs font-bold uppercase tracking-wider mb-6">
+              <Sparkles className="w-3.5 h-3.5" />
+              Instagram Automation Suite
+            </div>
+
+            {/* Headline - Max 2 lines per taste-skill */}
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-[1.1] mb-6">
+              Everything you need to turn <br className="hidden sm:inline" />
+              <span className="bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] bg-clip-text text-transparent">
+                Instagram into revenue.
+              </span>
+            </h1>
+
+            {/* Subtext - Under 20 words per taste-skill */}
+            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 leading-relaxed mb-8 max-w-xl mx-auto">
+              Automate DMs, comments, Stories, and Reels without losing personal connection or violating Meta guidelines.
+            </p>
+
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link
+                to="/login"
+                className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold text-sm sm:text-base hover:opacity-95 active:scale-[0.98] transition-all duration-200 shadow-md flex items-center justify-center gap-2"
+              >
+                Start Free Trial
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <a
+                href="#catalog"
+                className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gray-100 dark:bg-white/[0.05] border border-gray-200/80 dark:border-white/[0.08] text-gray-700 dark:text-gray-200 font-semibold text-sm sm:text-base hover:bg-gray-200/60 dark:hover:bg-white/[0.08] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                Browse All 23 Features
+              </a>
+            </div>
+
+            {/* Trust Micro-Metrics Wall */}
+            <div className="mt-12 pt-8 border-t border-gray-100 dark:border-white/[0.06] grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              <div>
+                <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">0.38s</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Average Response</p>
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">100%</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Meta Approved API</p>
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">23 Tools</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Included in Pro</p>
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">24/7</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Zero-Latency Uptime</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Catalog & Filter Navigation Bar */}
+      <section id="catalog" className="py-8 border-b border-gray-100 dark:border-white/[0.06] sticky top-0 z-30 bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-md">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+            {/* Category Tabs */}
+            <div className="flex items-center gap-2 overflow-x-auto w-full lg:w-auto pb-2 lg:pb-0 scrollbar-none">
+              {categoryTabs.map((tab) => {
+                const IconComponent = tab.icon;
+                const isSelected = selectedCategory === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSelectedCategory(tab.id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap active:scale-[0.98] ${
+                      isSelected
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm'
+                        : 'bg-gray-100 dark:bg-white/[0.04] text-gray-600 dark:text-gray-400 hover:bg-gray-200/70 dark:hover:bg-white/[0.08]'
+                    }`}
+                  >
+                    <IconComponent className="w-3.5 h-3.5" />
+                    {tab.label}
+                    <span
+                      className={`text-[11px] px-1.5 py-0.5 rounded-md ${
+                        isSelected
+                          ? 'bg-white/20 dark:bg-black/10 text-white dark:text-gray-900'
+                          : 'bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick Search */}
+            <div className="relative w-full lg:w-72">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search 23 features..."
+                className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-50 dark:bg-white/[0.04] border border-gray-200/80 dark:border-white/[0.08] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#833AB4]/30 focus:border-[#833AB4] transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Bento Grid Content Section */}
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+          {filteredFeatures.length === 0 ? (
+            <div className="text-center py-24 bg-gray-50 dark:bg-white/[0.02] rounded-3xl border border-gray-100 dark:border-white/[0.06]">
+              <SlidersHorizontal className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No features found</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Try searching for something else like "Reel", "Template", or "Story".
+              </p>
+              <button
+                onClick={() => {
+                  setSelectedCategory('all');
+                  setSearchQuery('');
+                }}
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900"
+              >
+                Reset Filters
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 sm:gap-8">
+              {filteredFeatures.map((feature) => {
+                const isFeatured = feature.featured && (selectedCategory === 'all' || filteredFeatures.length <= 8);
+
+                return (
+                  <div
+                    key={feature.id}
+                    className={`group relative flex flex-col justify-between rounded-3xl overflow-hidden bg-gray-50 dark:bg-[#121214] border border-gray-200/80 dark:border-white/[0.07] hover:border-gray-300 dark:hover:border-white/[0.15] transition-all duration-300 shadow-sm hover:shadow-xl dark:shadow-none ${
+                      isFeatured ? 'lg:col-span-12 xl:col-span-8 p-6 sm:p-8 lg:p-10' : 'lg:col-span-6 xl:col-span-4 p-5 sm:p-6'
+                    }`}
+                  >
+                    {/* Top Content Row */}
+                    <div>
+                      <div className="flex items-center justify-between gap-3 mb-4">
+                        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/20">
+                          {feature.categoryLabel}
+                        </span>
+                        {feature.badge && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-500/20">
+                            <Sparkles className="w-3 h-3" />
+                            {feature.badge}
+                          </span>
+                        )}
+                      </div>
+
+                      <h3
+                        className={`font-bold tracking-tight text-gray-900 dark:text-white mb-3 group-hover:text-[#833AB4] dark:group-hover:text-purple-300 transition-colors ${
+                          isFeatured ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'
+                        }`}
+                      >
+                        {feature.name}
+                      </h3>
+
+                      <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
+                        {feature.description}
+                      </p>
+                    </div>
+
+                    {/* Image Mockup Presentation Frame */}
+                    <div
+                      className={`relative w-full overflow-hidden rounded-2xl bg-neutral-900 border border-white/[0.08] p-4 flex items-center justify-center shadow-inner my-2 ${
+                        isFeatured ? 'aspect-[16/10] sm:aspect-[16/9]' : 'aspect-[16/10]'
+                      }`}
+                    >
+                      {/* Ambient background bloom */}
+                      <div className="absolute inset-0 bg-gradient-to-tr from-[#405DE6]/10 via-transparent to-[#833AB4]/10 opacity-70 group-hover:opacity-100 transition-opacity duration-500" />
+
+                      <picture className="w-full h-full flex items-center justify-center relative z-10">
+                        {feature.image.endsWith('.png') && (
+                          <source srcSet={feature.image.replace(/\.png$/, '.webp')} type="image/webp" />
+                        )}
+                        <img
+                          src={feature.image}
+                          alt={feature.name}
+                          loading="lazy"
+                          decoding="async"
+                          width={isFeatured ? 900 : 600}
+                          height={isFeatured ? 600 : 400}
+                          className="max-w-full max-h-full object-contain filter drop-shadow-2xl transition-transform duration-500 group-hover:scale-[1.03]"
+                        />
+                      </picture>
+                    </div>
+
+                    {/* Bottom Value-Add / Benefit Banner */}
+                    <div className="mt-5 pt-4 border-t border-gray-100 dark:border-white/[0.06] flex items-start gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-medium leading-normal">
+                        {feature.benefit}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Bottom CTA Banner */}
+      <section className="py-16 sm:py-24 border-t border-gray-100 dark:border-white/[0.06] bg-gray-50 dark:bg-[#0c0c0e]">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-5xl text-center">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-4">
+            Ready to deploy all 23 automations?
+          </h2>
+          <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
+            Connect your Instagram professional account in 60 seconds. No credit card required to start your 14-day free trial.
           </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              to="/login"
+              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white font-bold text-base hover:opacity-95 active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2"
+            >
+              Get Started for Free
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/pricing"
+              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-white dark:bg-white/[0.06] border border-gray-200 dark:border-white/[0.08] text-gray-800 dark:text-white font-semibold text-base hover:bg-gray-100 dark:hover:bg-white/[0.1] active:scale-[0.98] transition-all"
+            >
+              Compare Plans & Limits
+            </Link>
+          </div>
         </div>
-
-        <div className="space-y-0">
-          {features.map((feature, index) => (
-            <FeatureSection key={index} feature={feature} index={index} />
-          ))}
-        </div>
-
-        <div className="mt-20 sm:mt-32 lg:mt-40 text-center">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-6 sm:mb-8 text-gray-900 dark:text-white">Ready to automate your growth?</h2>
-          <a href="/login" className="inline-block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 sm:px-12 py-4 sm:py-5 rounded-2xl font-bold text-base sm:text-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-all shadow-lg hover:-translate-y-0.5 active:translate-y-0">
-            Get Started for Free
-          </a>
-        </div>
-      </div>
+      </section>
     </div>
   );
 };
