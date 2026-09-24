@@ -66,7 +66,13 @@ const features = [
     name: 'Share Template',
     description: 'Automatically share your existing Instagram posts or Reels directly in the DM conversation.',
     useCase: 'Benefit: Boost engagement on your latest content by automatically sharing relevant posts or Reels when users engage with your automation.',
-    image: '/images/post_share_automation.png',
+    image: '/images/share_template.png',
+  },
+  {
+    name: 'Welcome Message',
+    description: 'Automatically greet first-time messengers with a personalized welcome card, navigation buttons, and exclusive entry offers.',
+    useCase: 'Benefit: Make an unforgettable first impression and instantly orient new followers without any manual intervention.',
+    image: '/images/welcome_message.png',
   },
   {
     name: 'Post Comment Automation',
@@ -115,6 +121,18 @@ const features = [
     description: 'When a user @mentions your account in their Instagram Story, DMPanda instantly sends them a customized thank you DM.',
     useCase: 'Benefit: Encourage more user-generated content by showing instant appreciation whenever someone gives your brand a shoutout.',
     image: '/images/story_mention_dm_reply.png',
+  },
+  {
+    name: 'Story Reply Automation',
+    description: 'Send an instant automated direct message when a user reacts or replies directly to any of your active Instagram Stories.',
+    useCase: 'Benefit: Convert temporary 24-hour Story views into permanent, automated customer relationships and immediate conversions.',
+    image: '/images/story_reply_dm_reply.png',
+  },
+  {
+    name: 'Instagram Live Automation',
+    description: 'Trigger automated direct messages with links, promo codes, and resources when viewers comment live triggers while you stream.',
+    useCase: 'Benefit: Monetize live broadcasts effortlessly without losing viewer attention or manually typing links in the chat.',
+    image: '/images/live_automation.png',
   },
   {
     name: 'Suggest More',
