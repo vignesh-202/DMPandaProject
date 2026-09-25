@@ -48,7 +48,8 @@ api.interceptors.response.use(
         return response;
     },
     async (error) => {
-        if (error.response?.status === 401 && window.location.pathname !== '/login') {
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+        if (error.response?.status === 401 && pathname !== '/login' && !pathname.startsWith('/auth/callback')) {
             const requestUrl = String(error.config?.url || '');
             const isSessionActive = requestUrl.includes('/api/me')
                 ? false

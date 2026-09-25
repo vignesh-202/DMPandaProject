@@ -500,8 +500,7 @@ router.get('/auth/google', async (req, res) => {
         const account = new Account(client);
         const origin = resolveOAuthClientOrigin(req);
         const appContext = normalizeAppContext(req.query.target || getAppContextFromRequest(req));
-        const frontendBridgeOrigin = normalizeOrigin(process.env.FRONTEND_ORIGIN) || origin;
-        const callbackOrigin = appContext === 'admin' ? frontendBridgeOrigin : origin;
+        const callbackOrigin = origin;
 
         if (!origin || !callbackOrigin) {
             return res.status(500).json({ error: 'OAuth origin is not configured.' });

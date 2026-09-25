@@ -16,6 +16,7 @@ env/
 **/.env.*
 !**/.env.example
 !*.example
+client_secret*.json
 
 # Deployment Archives
 deploy-*.tar.gz

@@ -6,7 +6,7 @@ interface AuthContextType {
     user: Models.User<Models.Preferences> | null;
     loading: boolean;
     isAdmin: boolean;
-    checkUser: () => Promise<Models.User<Models.Preferences> | null>;
+    checkUser: (force?: boolean) => Promise<Models.User<Models.Preferences> | null>;
     logout: () => Promise<void>;
 }
 
@@ -18,8 +18,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isAdmin, setIsAdmin] = useState(false);
     const checkUserPromiseRef = useRef<Promise<Models.User<Models.Preferences> | null> | null>(null);
 
-    const checkUser = useCallback(async () => {
-        if (checkUserPromiseRef.current) {
+    const checkUser = useCallback(async (force = false) => {
+        if (!force && checkUserPromiseRef.current) {
             return checkUserPromiseRef.current;
         }
 
@@ -63,7 +63,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     useEffect(() => {
-        void checkUser();
+        const isCallback = typeof window !== 'undefined' && (window.location.pathname || '').startsWith('/auth/callback');
+        if (!isCallback) {
+            void checkUser();
+        }
     }, [checkUser]);
 
     return (

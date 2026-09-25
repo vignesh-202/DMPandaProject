@@ -14,6 +14,7 @@ const normalizeOrigin = (value) => String(value || '').trim().replace(/\/+$/, ''
 // Middleware
 app.use('/api/razorpay/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // CORS Configuration
@@ -59,9 +60,11 @@ const paymentRoutes = require('./routes/payment');
 const instagramRoutes = require('./routes/instagram');
 const adminRoutes = require('./routes/admin');
 const seoRoutes = require('./routes/seo');
+const metaComplianceRoutes = require('./routes/metaCompliance');
 
 app.use('/', authRoutes); // Mount at root to allow /api/register and /auth/google
 app.use('/', seoRoutes);  // Mount sitemap.xml and robots.txt at root
+app.use('/', metaComplianceRoutes); // Meta deauthorization and data deletion callbacks
 app.use('/api/account', accountRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api', paymentRoutes);

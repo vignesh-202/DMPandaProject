@@ -44,7 +44,18 @@ export const AuthCallback: React.FC = () => {
                     throw new Error(data.error || 'Failed to finalize Google sign-in.');
                 }
 
-                const session = await checkUser();
+                // Force a fresh session check now that the cookie is set.
+                // If browser has minor cookie write propagation delay, retry once.
+                let session = await checkUser(true);
+                if (!session) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    session = await checkUser(true);
+                }
+
+                if (!session) {
+                    throw new Error('Google sign-in completed, but session could not be verified. Please try again.');
+                }
+
                 const hasAdminLabel = Boolean(session?.labels?.includes('admin'));
 
                 if (!hasAdminLabel) {
@@ -53,7 +64,6 @@ export const AuthCallback: React.FC = () => {
                     return;
                 }
 
-                await checkUser();
                 navigate('/', { replace: true });
             } catch (err: any) {
                 setError(err.message || 'Authentication failed.');
