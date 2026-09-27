@@ -745,9 +745,9 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
           <X className="h-4 w-4" />
         </button>
 
-        <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden flex flex-col lg:grid lg:grid-cols-[1.15fr_0.85fr] gap-0 custom-scrollbar">
           {/* Left Column: Accounts & Plan Selector */}
-          <div className="min-h-0 overflow-y-auto border-b border-border/80 p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-7">
+          <div className="min-h-0 lg:overflow-y-auto border-b border-border/80 p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-7">
             <div className="max-w-2xl space-y-6">
               <div>
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
@@ -1074,7 +1074,7 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
           </div>
 
           {/* Right Column: Order Summary */}
-          <div className="min-h-0 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-7 flex flex-col justify-between">
+          <div className="min-h-0 lg:overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-7 flex flex-col justify-between">
             <div className="space-y-5">
               <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Order Summary</p>

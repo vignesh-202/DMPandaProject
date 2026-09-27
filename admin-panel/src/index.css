@@ -175,16 +175,12 @@
     }
   }
 
-  /* Ensure touch targets are at least 44px on mobile */
+  /* Ensure inputs have accessible touch targets and proper font-size to prevent iOS zoom */
   @media (max-width: 639px) {
-    button, a, [role="button"] {
-      min-height: 44px;
-    }
-    
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
     textarea,
     select {
-      min-height: 44px;
+      min-height: 42px;
       font-size: 16px; /* Prevents iOS zoom on focus */
     }
   }

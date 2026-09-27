@@ -277,10 +277,10 @@ const DashboardOverviewView: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <div className="mt-2.5">
+                <div className="mt-2.5 min-w-0">
                   <p className="truncate text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{label}</p>
-                  <p className="text-[11px] text-muted-foreground font-medium">
-                    {isReplyTemplateCard ? 'Saved templates' : (isConfigured ? 'Automation configured' : 'Click to setup')}
+                  <p className="truncate text-[11px] text-muted-foreground font-medium">
+                    {isReplyTemplateCard ? 'Saved templates' : (isConfigured ? 'Active' : 'Click to setup')}
                   </p>
                 </div>
               </button>

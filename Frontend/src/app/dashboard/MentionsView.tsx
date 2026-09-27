@@ -290,11 +290,11 @@ const MentionsView: React.FC = () => {
     const seenTypingGate = getPlanGate('seen_typing', 'Upgrade your plan to enable seen and typing reactions.');
 
     return (
-        <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
             {/* Main Content */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                 {/* Editor Section */}
-                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
+                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2 pb-6 sm:pb-8 xl:pb-8">
                     <div className="pb-2">
                         <AutomationActionBar
                             hasExisting={Boolean(config.is_setup)}
@@ -315,7 +315,7 @@ const MentionsView: React.FC = () => {
                             centerContent={
                                 <div className="min-w-0">
                                     <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Mentions</h1>
-                                    <p className="text-muted-foreground text-sm font-normal">Auto-reply when someone mentions you.</p>
+                                    <p className="text-muted-foreground text-xs sm:text-sm font-normal truncate">Auto-reply when someone mentions you.</p>
                                 </div>
                             }
                         />

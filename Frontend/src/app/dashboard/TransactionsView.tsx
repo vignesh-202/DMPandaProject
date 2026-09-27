@@ -169,14 +169,14 @@ const TransactionsView: React.FC = () => {
   }
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
         <div className="p-2 rounded-xl bg-muted text-foreground border border-border">
           <Landmark className="w-5 h-5" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-xl font-bold text-foreground">Transactions</h2>
-          <p className="text-xs text-muted-foreground">Subscription charges, discounts, and billing-cycle details from your verified payments.</p>
+          <p className="text-xs text-muted-foreground truncate">Subscription charges, discounts, and billing-cycle details from your verified payments.</p>
         </div>
       </div>
 

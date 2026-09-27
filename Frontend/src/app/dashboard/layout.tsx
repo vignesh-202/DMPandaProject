@@ -425,11 +425,11 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             </button>
 
             {/* Breadcrumb - Clean & refined */}
-            <nav className="flex min-w-0 items-center text-sm font-medium">
+            <nav className="flex min-w-0 items-center text-xs sm:text-sm font-medium">
               <button
                 onClick={() => setCurrentView('Overview')}
                 className={cn(
-                  "transition-colors duration-150 hover:text-foreground",
+                  "transition-colors duration-150 hover:text-foreground shrink-0",
                   currentView === 'Overview'
                     ? "text-foreground font-semibold"
                     : "text-muted-foreground"
@@ -439,8 +439,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               </button>
               {currentView !== 'Overview' && (
                 <>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground/60 mx-2 flex-shrink-0" />
-                  <span className="text-foreground font-semibold truncate">
+                  <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground/60 mx-1.5 sm:mx-2 shrink-0" />
+                  <span className="text-foreground font-semibold truncate min-w-0">
                     {currentView}
                   </span>
                 </>
@@ -672,7 +672,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         <div className="relative flex-1 min-h-0">
           <main
             ref={mainRef}
-            className="h-full overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] p-3 pb-24 sm:p-4 sm:pb-28 lg:p-6 lg:pb-6"
+            className="h-full overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] p-3 pb-8 sm:p-4 sm:pb-10 lg:p-6 lg:pb-6"
             data-dashboard-section-scroll-root
           >
             <div className="animate-fadeIn relative min-h-full">

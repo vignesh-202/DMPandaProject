@@ -196,14 +196,14 @@ const AutomationPreviewPanel: React.FC<AutomationPreviewPanelProps> = ({
             </div>
 
             {showMobileTrigger && createPortal(
-                <div className={`fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[110] w-auto max-w-[calc(100%-2rem)] -translate-x-1/2 px-1 ${breakpointClasses.trigger}`}>
+                <div className={`fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-3 z-[110] sm:right-4 ${breakpointClasses.trigger}`}>
                     <button
                         type="button"
                         onClick={() => setShowModal(true)}
-                        className={`inline-flex min-h-11 min-w-[12rem] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-ig-purple via-ig-pink to-ig-orange px-5 py-3 text-white shadow-xl ${FAST_TRANSITION} hover:shadow-2xl active:scale-[0.99] hover:scale-105 transition-all`}
+                        className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-ig-purple via-ig-pink to-ig-orange px-3.5 text-white shadow-lg ${FAST_TRANSITION} hover:shadow-xl active:scale-95 transition-all`}
                     >
-                        <Eye className="h-[18px] w-[18px] flex-shrink-0" />
-                        <span className="whitespace-nowrap text-sm font-bold leading-none">{mobileTriggerLabel}</span>
+                        <Eye className="h-4 w-4 flex-shrink-0" />
+                        <span className="whitespace-nowrap text-xs font-bold leading-none">{mobileTriggerLabel}</span>
                     </button>
                 </div>,
                 document.body

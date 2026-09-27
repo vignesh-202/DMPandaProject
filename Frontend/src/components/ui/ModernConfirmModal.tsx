@@ -98,17 +98,17 @@ const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
       />
 
       {/* Modal */}
-      <div className="ig-topline relative bg-card w-full max-w-md rounded-2xl shadow-lg border border-border overflow-hidden animate-fadeInScale">
+      <div className="ig-topline relative bg-card w-full max-w-md max-h-[min(90dvh,38rem)] overflow-y-auto rounded-2xl shadow-lg border border-border animate-fadeInScale custom-scrollbar">
         {/* Close Button */}
         <button
           onClick={onClose}
           disabled={isLoading}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors z-10"
+          className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors z-10"
         >
           <X className="w-4 h-4" />
         </button>
 
-        <div className="p-6 sm:p-8">
+        <div className="p-5 sm:p-7">
           {/* Header */}
           <div className="flex flex-col items-center text-center space-y-4 mb-6">
             {/* Icon */}

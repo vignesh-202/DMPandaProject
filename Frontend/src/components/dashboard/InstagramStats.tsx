@@ -42,12 +42,12 @@ const StatItem = ({
 }) => (
   <button
     onClick={onToggle}
-    className="flex-1 text-center group/stat cursor-pointer min-w-0 py-1 sm:py-1.5 px-0.5 sm:px-1 rounded-full hover:bg-secondary transition-colors"
+    className="flex-1 text-center group/stat cursor-pointer min-w-0 py-1.5 px-0.5 sm:px-1 rounded-lg hover:bg-secondary active:bg-secondary/80 transition-colors"
   >
-    <span className="block font-semibold text-foreground text-xs sm:text-base leading-tight transition-all duration-200">
+    <span className="block font-semibold text-foreground text-xs sm:text-sm md:text-base leading-tight transition-all duration-200 truncate">
       {showExact ? value.toLocaleString() : formatNumber(value)}
     </span>
-    <span className="text-[9px] sm:text-2xs uppercase font-medium tracking-tight sm:tracking-wider text-muted-foreground group-hover/stat:text-foreground transition-colors">
+    <span className="text-[9px] sm:text-2xs uppercase font-medium tracking-tight sm:tracking-wider text-muted-foreground group-hover/stat:text-foreground transition-colors truncate block mt-0.5">
       {label}
     </span>
   </button>
@@ -99,12 +99,13 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
         onClick={handleRefresh}
         disabled={loading || isRefreshing}
         className={cn(
-          "absolute top-3 right-3 p-2 rounded-lg transition-all duration-200 z-10",
+          "absolute top-2.5 right-2.5 sm:top-3 sm:right-3 p-2 rounded-xl transition-all duration-200 z-10",
           "text-muted-foreground hover:text-primary hover:bg-secondary",
-          "active:scale-95 disabled:opacity-50",
+          "active:scale-95 disabled:opacity-50 min-h-[36px] min-w-[36px] flex items-center justify-center",
           (loading || isRefreshing) && "animate-spin text-primary"
         )}
         title="Refresh Stats"
+        aria-label="Refresh Stats"
       >
         <RefreshCw className="w-4 h-4" />
       </button>
@@ -140,10 +141,10 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
           </div>
 
           {/* User Info */}
-          <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex-1 min-w-0 flex flex-col pr-8 sm:pr-0">
             {/* Username & Verified */}
             <div className="flex items-center gap-2 mb-0.5">
-              <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
+              <h2 className="truncate text-base sm:text-lg font-semibold tracking-tight text-foreground">
                 {stats?.username || activeAccount?.username || "username"}
               </h2>
               {stats?.is_verified && (
@@ -161,8 +162,8 @@ export const InstagramBioCard: React.FC<{ stats: InstagramStatsData | null; load
             )}
 
             {/* Bio */}
-            <div className="custom-scrollbar min-h-0 max-h-14 flex-1 overflow-y-auto lg:max-h-12">
-              <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-secondary-foreground lg:text-[13px]">
+            <div className="custom-scrollbar min-h-0 max-h-24 sm:max-h-16 lg:max-h-12 flex-1 overflow-y-auto">
+              <p className="break-words whitespace-pre-wrap text-xs sm:text-sm leading-relaxed text-secondary-foreground lg:text-[13px]">
                 {stats?.biography || "No biography available."}
               </p>
             </div>
@@ -227,12 +228,12 @@ export const LiveStatusCard: React.FC<{ stats: InstagramStatsData | null; loadin
     <Card
       variant="interactive"
       padding="none"
-      className="relative flex h-full min-h-[104px] items-center justify-center ig-card lg:min-h-[84px]"
+      className="relative flex h-full min-h-[84px] sm:min-h-[104px] items-center justify-center ig-card lg:min-h-[84px]"
       onClick={() => setCurrentView('Live Automation')}
     >
-      <div className="flex flex-col items-center justify-center gap-2.5 p-3.5 lg:gap-2 lg:px-4 lg:py-3">
+      <div className="flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 p-2.5 sm:p-3.5 lg:gap-2 lg:px-4 lg:py-3">
         {/* Icon with Animation */}
-        <div className="relative w-14 h-14 flex items-center justify-center">
+        <div className="relative w-10 h-10 sm:w-14 sm:h-14 flex items-center justify-center">
           {/* Radio Wave Animations */}
           {(loading || isLive) && (
             <>
@@ -245,7 +246,7 @@ export const LiveStatusCard: React.FC<{ stats: InstagramStatsData | null; loadin
               />
               <div 
                 className={cn(
-                  "absolute inset-2 rounded-full animate-radio-wave opacity-0",
+                  "absolute inset-1 sm:inset-2 rounded-full animate-radio-wave opacity-0",
                   loading ? "bg-primary" : "bg-destructive"
                 )} 
                 style={{ animationDelay: '1s' }} 
@@ -255,7 +256,7 @@ export const LiveStatusCard: React.FC<{ stats: InstagramStatsData | null; loadin
 
           {/* Icon Container */}
           <div className={cn(
-            "relative z-10 w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300",
+            "relative z-10 w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all duration-300",
             loading 
               ? "bg-primary shadow-lg shadow-primary/30" 
               : isLive 
@@ -263,7 +264,7 @@ export const LiveStatusCard: React.FC<{ stats: InstagramStatsData | null; loadin
                 : "bg-secondary group-hover:scale-110"
           )}>
             <Radio className={cn(
-              "w-6 h-6",
+              "w-4 h-4 sm:w-6 sm:h-6",
               loading || isLive ? "text-white" : "text-muted-foreground"
             )} />
           </div>
@@ -271,7 +272,7 @@ export const LiveStatusCard: React.FC<{ stats: InstagramStatsData | null; loadin
 
         {/* Label */}
         <span className={cn(
-          "text-sm font-semibold tracking-tight transition-colors",
+          "text-[11px] sm:text-xs font-semibold tracking-tight transition-colors text-center truncate max-w-full px-1",
           loading 
             ? "text-primary" 
             : isLive 
@@ -295,12 +296,12 @@ export const InstagramStoriesCard: React.FC<{ stats: InstagramStatsData | null; 
     <Card
       variant="interactive"
       padding="none"
-      className="relative flex h-full min-h-[104px] items-center justify-center ig-card lg:min-h-[84px]"
+      className="relative flex h-full min-h-[84px] sm:min-h-[104px] items-center justify-center ig-card lg:min-h-[84px]"
       onClick={() => setCurrentView('Story Automation')}
     >
-      <div className="flex flex-col items-center justify-center gap-2.5 p-3.5 lg:gap-2 lg:px-4 lg:py-3">
+      <div className="flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 p-2.5 sm:p-3.5 lg:gap-2 lg:px-4 lg:py-3">
         {/* Profile with Story Ring */}
-        <div className="relative w-14 h-14 flex items-center justify-center">
+        <div className="relative w-10 h-10 sm:w-14 sm:h-14 flex items-center justify-center">
           {/* Gradient Animation for Loading */}
           {loading && (
             <div className="absolute inset-0 rounded-full animate-gradient-pulse opacity-70 blur-[2px]" />
@@ -308,12 +309,12 @@ export const InstagramStoriesCard: React.FC<{ stats: InstagramStatsData | null; 
 
           {/* Profile Container - Instagram Story Ring */}
           <div className={cn(
-            "relative z-10 w-12 h-12 rounded-full p-[2px] transition-all duration-300 group-hover:scale-110",
+            "relative z-10 w-8 h-8 sm:w-12 sm:h-12 rounded-full p-[1.5px] sm:p-[2px] transition-all duration-300 group-hover:scale-110",
             storyCount > 0 
               ? "bg-gradient-to-tr from-ig-yellow via-ig-pink to-ig-purple group-hover:shadow-lg group-hover:shadow-primary/30" 
               : "bg-border"
           )}>
-            <div className="w-full h-full rounded-full bg-card p-[2px] flex items-center justify-center">
+            <div className="w-full h-full rounded-full bg-card p-[1.5px] sm:p-[2px] flex items-center justify-center">
               {profileUrl ? (
                 <img
                   src={profileUrl}
@@ -322,14 +323,14 @@ export const InstagramStoriesCard: React.FC<{ stats: InstagramStatsData | null; 
                 />
               ) : (
                 <div className="w-full h-full rounded-full bg-muted flex items-center justify-center">
-                  <Instagram className="w-5 h-5 text-muted-foreground" />
+                  <Instagram className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                 </div>
               )}
             </div>
 
             {/* Story Count Badge */}
             {!loading && storyCount > 0 && (
-              <div className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-2xs font-bold px-1.5 py-0.5 rounded-full border-2 border-card shadow-sm">
+              <div className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[9px] sm:text-2xs font-bold px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded-full border border-card shadow-sm">
                 {storyCount}
               </div>
             )}
@@ -338,7 +339,7 @@ export const InstagramStoriesCard: React.FC<{ stats: InstagramStatsData | null; 
 
         {/* Label */}
         <span className={cn(
-          "text-sm font-semibold tracking-tight transition-colors",
+          "text-[11px] sm:text-xs font-semibold tracking-tight transition-colors text-center truncate max-w-full px-1",
           loading 
             ? "text-primary" 
             : storyCount > 0 

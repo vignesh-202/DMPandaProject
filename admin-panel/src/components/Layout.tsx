@@ -298,35 +298,34 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
             )}
 
             <main className="ig-topline relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background/55 transition-colors duration-300">
-                <header className="sticky top-0 z-20 border-b border-white/10 bg-[#23282f]/94 px-3 py-3 shadow-[0_18px_42px_-32px_rgba(15,23,42,0.85)] backdrop-blur-xl sm:px-6 sm:py-4 lg:px-8">
-                    <div className="mx-auto flex w-full max-w-[1480px] flex-wrap items-center justify-between gap-2 sm:gap-4">
-                        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
-                            <div className="flex items-center gap-2 sm:gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setMobileNavOpen(true)}
-                                    className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center overflow-hidden rounded-[12px] sm:rounded-[16px] border border-border bg-card shadow-sm lg:hidden"
-                                >
-                                    <Menu className="h-5 w-5 text-foreground" />
-                                </button>
-                            </div>
+                <header className="sticky top-0 z-20 border-b border-border/80 bg-card/92 px-3 py-2.5 sm:px-6 sm:py-3.5 lg:px-8 shadow-xs backdrop-blur-xl">
+                    <div className="mx-auto flex w-full max-w-[1480px] items-center justify-between gap-2 sm:gap-4">
+                        <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setMobileNavOpen(true)}
+                                className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-xs transition hover:bg-muted/60 lg:hidden shrink-0"
+                                aria-label="Open navigation menu"
+                            >
+                                <Menu className="h-4.5 w-4.5" />
+                            </button>
                             <div className="min-w-0">
-                                <p className="truncate text-[9px] sm:text-[10px] font-black text-muted-foreground sm:tracking-[0.28em]">Admin Panel</p>
-                                <h2 className="mt-0.5 sm:mt-1 truncate text-sm sm:text-base lg:text-lg font-extrabold text-foreground">{headerMeta.title}</h2>
+                                <p className="truncate text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Admin Panel</p>
+                                <h2 className="mt-0.5 truncate text-sm sm:text-base lg:text-lg font-extrabold text-foreground">{headerMeta.title}</h2>
                             </div>
                         </div>
-                        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-                            <div className="status-pill status-pill-success shrink-0">
-                                <span className="h-2 w-2 rounded-full bg-success" />
+                        <div className="flex items-center justify-end gap-2 sm:gap-3 shrink-0">
+                            <div className="status-pill status-pill-success shrink-0 py-1 px-2.5 text-[11px]">
+                                <span className="h-1.5 w-1.5 rounded-full bg-success" />
                                 Live
                             </div>
-                            <div className="hidden sm:block max-w-full truncate rounded-full border border-border/80 bg-card/80 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-muted-foreground">
+                            <div className="hidden sm:block max-w-full truncate rounded-full border border-border/80 bg-card/80 px-3 sm:px-4 py-1.5 text-xs font-semibold text-muted-foreground">
                                 {headerMeta.subtitle}
                             </div>
                         </div>
                     </div>
                 </header>
-                <div className="custom-scrollbar relative mx-auto min-h-0 w-full max-w-[1480px] flex-1 overflow-x-clip overflow-y-auto px-3 pb-10 pt-4 sm:px-6 sm:pb-12 sm:pt-7 lg:px-8">
+                <div className="custom-scrollbar relative mx-auto min-h-0 w-full max-w-[1480px] flex-1 overflow-x-clip overflow-y-auto px-3 pb-6 pt-3.5 sm:px-6 sm:pb-10 sm:pt-6 lg:px-8">
                     {children || <Outlet />}
                 </div>
                 <div className="pointer-events-none absolute inset-0 z-[120]" data-admin-section-overlay-root />

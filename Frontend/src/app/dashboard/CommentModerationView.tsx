@@ -238,7 +238,7 @@ const CommentModerationView: React.FC = () => {
     }
 
     return (
-        <div className="w-full max-w-7xl mx-auto space-y-6 p-4 sm:p-6 lg:p-8 pb-16">
+        <div className="w-full max-w-7xl mx-auto space-y-6 pb-16">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border/70">
                 <div className="flex items-center gap-3.5">

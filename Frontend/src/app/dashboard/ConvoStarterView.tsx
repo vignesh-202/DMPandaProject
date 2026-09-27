@@ -751,7 +751,7 @@ const ConvoStarterView: React.FC = () => {
     const canShowMainWorkspace = status === 'match' || isCreatingItem;
 
     return (
-        <div className="mx-auto max-w-7xl space-y-6 px-3 sm:space-y-8 sm:px-4 md:px-6">
+        <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8">
 
             {!isCreatingItem && (
                 <>
@@ -766,18 +766,20 @@ const ConvoStarterView: React.FC = () => {
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-sm font-normal text-muted-foreground">Help new visitors start a conversation. You can keep up to 4 quick starter prompts live on Instagram.</p>
+                                <p className="text-xs sm:text-sm font-normal text-muted-foreground">Help new visitors start a conversation. You can keep up to 4 quick starter prompts live on Instagram.</p>
                             </div>
-                            {/* Top row on mobile: Delete left, Refresh+Grid right */}
-                            <div className="flex items-center justify-between gap-2 md:justify-end md:gap-2.5">
+                            {/* Top action row: neatly right-aligned */}
+                            <div className="flex items-center justify-end gap-2 md:gap-2.5">
                                 {status === 'match' && convoStarters.length > 0 && (
                                     <button
                                         onClick={handleDeleteAll}
                                         disabled={isDeleting}
-                                        className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground transition-all duration-150 active:scale-[0.98] disabled:opacity-50"
+                                        className="inline-flex items-center justify-center gap-1.5 h-10 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-semibold bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground transition-all duration-150 active:scale-95 disabled:opacity-50"
+                                        title="Delete all starters"
+                                        aria-label="Delete all starters"
                                     >
                                         {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                        Delete
+                                        <span>Delete All</span>
                                     </button>
                                 )}
                                 <div className="flex items-center gap-2">
@@ -914,7 +916,7 @@ const ConvoStarterView: React.FC = () => {
             {canShowMainWorkspace && (
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                     {/* Left: Form */}
-                    <div className="order-2 space-y-6 xl:order-1 xl:col-span-8 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
+                    <div className="order-2 space-y-6 xl:order-1 xl:col-span-8 xl:overflow-y-auto xl:pr-2 pb-6 sm:pb-8 xl:pb-8">
                         {isCreatingItem && newItem ? (
                             /* Edit Form */
                             <div className="space-y-8 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-xs">
@@ -1211,17 +1213,19 @@ const ConvoStarterView: React.FC = () => {
                                                         <div className="flex items-center gap-1 shrink-0">
                                                             <button
                                                                 onClick={() => void handleEditStarter(starter, index)}
-                                                                className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-all"
-                                                                title="Edit"
+                                                                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-lg transition-all"
+                                                                title="Edit starter"
+                                                                aria-label="Edit starter"
                                                             >
-                                                                <Pencil className="w-3.5 h-3.5" />
+                                                                <Pencil className="w-4 h-4" />
                                                             </button>
                                                             <button
                                                                 onClick={() => handleRemove(index)}
-                                                                className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive-muted/30 rounded-md transition-all"
-                                                                title="Remove"
+                                                                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive-muted/30 rounded-lg transition-all"
+                                                                title="Remove starter"
+                                                                aria-label="Remove starter"
                                                             >
-                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                <Trash2 className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     </div>

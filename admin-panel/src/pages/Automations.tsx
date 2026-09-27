@@ -81,16 +81,16 @@ export const AutomationsPage: React.FC = () => {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3 sm:gap-4 xl:grid-cols-1">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-4 xl:grid-cols-1">
                         {summaryCards.map((card) => (
-                            <div key={card.label} className="rounded-xl border border-border bg-background/70 p-3 sm:p-4 shadow-xs">
-                                <div className="flex items-start justify-between gap-2 sm:gap-4">
-                                    <div className={cn('flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg', card.tone)}>
-                                        <card.icon className="h-4 w-4" />
+                            <div key={card.label} className="rounded-xl border border-border bg-background/70 p-2.5 sm:p-4 shadow-xs">
+                                <div className="flex items-start justify-between gap-1.5 sm:gap-4">
+                                    <div className={cn('flex h-7 w-7 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg', card.tone)}>
+                                        <card.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                     </div>
-                                    <p className="text-right text-xs font-medium text-muted-foreground">{card.label}</p>
+                                    <p className="text-right text-[10px] sm:text-xs font-medium text-muted-foreground">{card.label}</p>
                                 </div>
-                                <p className="mt-2 sm:mt-3 text-lg sm:text-2xl font-bold tracking-tight text-foreground">{card.value}</p>
+                                <p className="mt-2 sm:mt-3 text-base sm:text-2xl font-bold tracking-tight text-foreground">{card.value}</p>
                             </div>
                         ))}
                     </div>

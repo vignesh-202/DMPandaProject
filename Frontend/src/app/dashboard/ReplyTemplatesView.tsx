@@ -1117,7 +1117,7 @@ export default function ReplyTemplatesView() {
   // Editor page (new page in section instead of popup)
   if (editorMode !== null) {
     return (
-      <div className="relative mx-auto max-w-7xl p-3 sm:p-4 md:p-6 lg:p-8">
+      <div className="relative mx-auto max-w-7xl">
         {/* Loading overlay */}
         {editorLoading && (
           <div className="absolute inset-0 bg-card/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-3xl">
@@ -1130,35 +1130,40 @@ export default function ReplyTemplatesView() {
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
           {/* Form column */}
-          <div className="w-full min-w-0 space-y-4 xl:col-span-8 xl:space-y-6 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
-            <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex min-w-0 items-center gap-4">
+          <div className="w-full min-w-0 space-y-4 xl:col-span-8 xl:space-y-6 xl:overflow-y-auto xl:pr-2 pb-6 sm:pb-8 xl:pb-8">
+            <div className="flex flex-row items-center justify-between gap-2.5 sm:gap-4 rounded-2xl border border-border bg-card p-3 sm:px-4 sm:py-3.5 shadow-sm flex-wrap">
+              <div className="flex min-w-0 items-center gap-2.5 sm:gap-3 flex-1">
                 <button
+                  type="button"
                   onClick={requestBack}
                   disabled={editorLoading}
-                  className="shrink-0 p-3 rounded-2xl border-2 border-border hover:bg-muted/40 text-foreground transition-all hover:scale-105 disabled:opacity-50"
+                  className="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-border bg-card hover:bg-muted/60 text-foreground transition-all active:scale-[0.98] shrink-0 disabled:opacity-50"
+                  title="Back to templates"
+                  aria-label="Back to templates"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <div className="min-w-0">
-                  <h1 className="truncate text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                <div className="min-w-0 flex-1">
+                  <h1 className="truncate text-base sm:text-xl font-bold tracking-tight text-foreground">
                     {editorMode === 'create' ? 'Create New Template' : 'Edit Template'}
                   </h1>
-                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground font-medium">
+                  <p className="text-xs text-muted-foreground truncate hidden sm:block">
                     {editorMode === 'create' ? 'Build a reusable template for your automations' : 'Update your template settings'}
                   </p>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center justify-start gap-2.5 sm:justify-end">
+              <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
                 {isEditorEdit && currentEditedTemplate && (
                   <button
                     type="button"
                     onClick={() => requestDelete(currentEditedTemplate)}
                     disabled={saving || editorLoading}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-2 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
+                    title="Delete template"
+                    aria-label="Delete template"
+                    className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 px-2.5 sm:px-3.5 rounded-xl border border-destructive/25 bg-destructive/10 text-xs sm:text-sm font-semibold text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50 active:scale-95"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    <span>Delete</span>
+                    <Trash2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Delete</span>
                   </button>
                 )}
                 {shouldShowSave && (
@@ -1166,7 +1171,7 @@ export default function ReplyTemplatesView() {
                     type="button"
                     onClick={async () => { const ok = await handleSave(); if (ok) goBack(); }}
                     disabled={saving || editorLoading}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-5 py-2 text-xs font-semibold text-white shadow-xs transition-all hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-3.5 sm:px-5 text-xs sm:text-sm font-semibold text-white shadow-xs transition-all hover:opacity-95 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 shrink-0"
                   >
                     {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     <span>{editorMode === 'create' ? 'Create Template' : 'Save Changes'}</span>
@@ -1347,7 +1352,7 @@ export default function ReplyTemplatesView() {
 
   // List view
   return (
-    <div className="mx-auto max-w-7xl p-3 sm:p-4 md:p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -1358,8 +1363,8 @@ export default function ReplyTemplatesView() {
             Create reusable templates for DM, Post, Reel, Story, and Live automations
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2.5 sm:justify-end lg:flex-nowrap">
-          <div className="relative w-full min-w-0 md:w-[300px] lg:w-[340px]">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-end">
+          <div className="relative w-full min-w-0 sm:w-64 md:w-72 lg:w-80">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
@@ -1379,47 +1384,51 @@ export default function ReplyTemplatesView() {
               </button>
             )}
           </div>
-          {/* View Mode Toggle */}
-          <div className="h-10 flex flex-1 sm:flex-none items-center gap-1 p-1 bg-muted/60 rounded-xl border border-border/50">
+          <div className="flex items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="h-10 flex items-center gap-0.5 p-1 bg-muted/60 rounded-xl border border-border/50 shrink-0">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid'
+                  ? 'bg-card text-primary shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                title="Grid view"
+                aria-label="Grid view"
+              >
+                <Grid3x3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list'
+                  ? 'bg-card text-primary shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                title="List view"
+                aria-label="List view"
+              >
+                <ListIcon className="w-4 h-4" />
+              </button>
+            </div>
+            {/* Refresh Button */}
             <button
-              onClick={() => setViewMode('grid')}
-              className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid'
-                ? 'bg-card text-primary shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-                }`}
-              title="Grid view"
+              onClick={() => fetchList(true)}
+              disabled={loading}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-card text-foreground hover:bg-muted/60 transition-colors shadow-xs shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Refresh templates"
+              aria-label="Refresh templates"
             >
-              <Grid3x3 className="w-4 h-4" />
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
+            {/* Create Button */}
             <button
-              onClick={() => setViewMode('list')}
-              className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list'
-                ? 'bg-card text-primary shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-                }`}
-              title="List view"
+              onClick={() => openCreate()}
+              className="flex-1 sm:flex-none flex h-10 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-3.5 sm:px-5 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:opacity-95 active:scale-[0.98] shrink-0"
             >
-              <ListIcon className="w-4 h-4" />
+              <Plus className="w-4 h-4" />
+              <span>Create Template</span>
             </button>
           </div>
-          {/* Refresh Button */}
-          <button
-            onClick={() => fetchList(true)}
-            disabled={loading}
-            className="flex h-10 flex-1 sm:flex-none items-center justify-center gap-2 px-3.5 rounded-xl border border-border/80 bg-card text-foreground hover:bg-muted/60 transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Refresh templates"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="sm:hidden text-sm font-medium">Refresh</span>
-          </button>
-          {/* Create Button - Clean, modern, high-contrast */}
-          <button
-            onClick={() => openCreate()}
-            className="flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] px-4 sm:px-5 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-95 active:scale-[0.98]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create Template</span>
-          </button>
         </div>
       </div>
 
@@ -1474,47 +1483,47 @@ export default function ReplyTemplatesView() {
               >
                 {viewMode === 'list' ? (
                   <>
-                    {/* Serial Number */}
-                    <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-muted text-muted-foreground font-semibold text-xs">
-                      {index + 1}
-                    </div>
-                    {/* Icon */}
-                    <div className="flex-shrink-0 p-2.5 bg-primary/10 rounded-lg text-primary">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-semibold text-foreground truncate capitalize">
-                        {t.name}
-                      </h3>
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {typeLabel(t.template_type)}
-                      </span>
-                      <div className="mt-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openLinkedAutomations(t)}
-                          disabled={getAutomationCount(t) === 0}
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/15 transition-colors"
-                          title={getAutomationCount(t) === 0 ? 'No linked automations' : 'View linked automations'}
-                        >
-                          {getAutomationCount(t)} {getAutomationCount(t) === 1 ? 'Automation' : 'Automations'}
-                        </button>
+                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                      <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg bg-muted text-muted-foreground font-semibold text-xs">
+                        {index + 1}
+                      </div>
+                      <div className="flex-shrink-0 p-2 sm:p-2.5 bg-primary/10 rounded-lg text-primary">
+                        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-sm sm:text-base font-semibold text-foreground truncate capitalize">
+                            {t.name}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => openLinkedAutomations(t)}
+                            disabled={getAutomationCount(t) === 0}
+                            className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-primary/10 text-primary border border-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/15 transition-colors shrink-0"
+                            title={getAutomationCount(t) === 0 ? 'No linked automations' : 'View linked automations'}
+                          >
+                            {getAutomationCount(t)} {getAutomationCount(t) === 1 ? 'Auto' : 'Autos'}
+                          </button>
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground block truncate">
+                          {typeLabel(t.template_type)}
+                        </span>
                       </div>
                     </div>
                     {/* Actions */}
-                    <div className="grid flex-shrink-0 grid-cols-2 gap-2 sm:flex sm:items-center">
+                    <div className="flex items-center justify-end gap-2 shrink-0 pt-2 border-t border-border/50 sm:border-0 sm:pt-0">
                       <button
                         onClick={() => openEdit(t)}
-                        className="rounded-lg border border-border/80 bg-card px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/60 shadow-xs flex items-center justify-center gap-1.5"
+                        className="flex-1 sm:flex-none rounded-lg border border-border/80 bg-card px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/60 shadow-xs flex items-center justify-center gap-1.5"
                       >
                         <Pencil className="w-3.5 h-3.5" />
                         <span>Edit</span>
                       </button>
                       <button
                         onClick={() => requestDelete(t)}
-                        className="rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-1.5 text-destructive transition-colors hover:bg-destructive/20 flex items-center justify-center"
+                        className="rounded-lg border border-destructive/25 bg-destructive/10 p-2 text-destructive transition-colors hover:bg-destructive/20 flex items-center justify-center"
                         title="Delete template"
+                        aria-label="Delete template"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1523,56 +1532,48 @@ export default function ReplyTemplatesView() {
                 ) : (
                   <>
                     <div>
-                      <div className="mb-3.5 flex items-start justify-between gap-3">
+                      <div className="mb-3 flex items-start justify-between gap-2.5">
                         <div className="flex min-w-0 items-center gap-2.5">
                           <div className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-muted text-muted-foreground font-semibold text-xs">
                             {index + 1}
                           </div>
-                          <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                          <div className="p-2 bg-primary/10 rounded-lg text-primary shrink-0">
                             <Icon className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
-                            <h3 className="truncate text-base font-semibold text-foreground capitalize">
+                            <h3 className="truncate text-sm sm:text-base font-semibold text-foreground capitalize">
                               {t.name}
                             </h3>
-                            <span className="text-xs font-medium text-muted-foreground">
+                            <span className="text-xs font-medium text-muted-foreground block truncate">
                               {typeLabel(t.template_type)}
                             </span>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Usage Count Badge */}
-                      <div className="mb-4 border-t border-border/60 pt-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-medium text-muted-foreground">
-                            Used by
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => openLinkedAutomations(t)}
-                            disabled={getAutomationCount(t) === 0}
-                            className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/15 transition-colors"
-                            title={getAutomationCount(t) === 0 ? 'No linked automations' : 'View linked automations'}
-                          >
-                            {getAutomationCount(t)} {getAutomationCount(t) === 1 ? 'Automation' : 'Automations'}
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openLinkedAutomations(t)}
+                          disabled={getAutomationCount(t) === 0}
+                          className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-primary/10 text-primary border border-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/15 transition-colors shrink-0"
+                          title={getAutomationCount(t) === 0 ? 'No linked automations' : 'View linked automations'}
+                        >
+                          {getAutomationCount(t)} {getAutomationCount(t) === 1 ? 'Auto' : 'Autos'}
+                        </button>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-[1fr_auto] gap-2 pt-2">
+                    <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-border/60">
                       <button
                         onClick={() => openEdit(t)}
-                        className="flex-1 rounded-xl border border-border/80 bg-card px-4 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/60 shadow-xs flex items-center justify-center gap-1.5"
+                        className="flex-1 sm:flex-none rounded-xl border border-border/80 bg-card px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/60 shadow-xs flex items-center justify-center gap-1.5"
                       >
                         <Pencil className="w-3.5 h-3.5" />
                         <span>Edit</span>
                       </button>
                       <button
                         onClick={() => requestDelete(t)}
-                        className="px-3 py-2 rounded-xl border border-destructive/25 bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex items-center justify-center"
+                        className="p-2 rounded-xl border border-destructive/25 bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex items-center justify-center"
                         title="Delete template"
+                        aria-label="Delete template"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

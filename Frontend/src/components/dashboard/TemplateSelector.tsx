@@ -368,7 +368,7 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
                             writeTransientState('replyTemplateEditId', template.id);
                             setCurrentView('Reply Templates');
                           }}
-                          className="inline-flex items-center gap-1 font-bold text-primary transition-colors hover:text-primary/80"
+                          className="inline-flex items-center gap-1 font-bold text-primary transition-colors hover:text-primary/80 py-1 px-2.5 -mr-1 rounded-lg hover:bg-primary/10 active:bg-primary/20"
                         >
                           <Pencil className="w-3 h-3" />
                           Edit

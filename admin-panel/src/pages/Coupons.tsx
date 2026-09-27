@@ -735,38 +735,59 @@ export const CouponsPage: React.FC = () => {
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 space-y-8 duration-700">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-                <div>
-                    <p className="text-[10px] font-black text-muted-foreground">Billing Operations</p>
-                    <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-                        {editorMode ? editorTitle : 'Coupons & Redemptions'}
-                    </h1>
-                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Billing Operations</p>
+                    <div className="flex items-center justify-between gap-3 sm:block">
+                        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl lg:text-4xl truncate">
+                            {editorMode ? editorTitle : 'Coupons & Redemptions'}
+                        </h1>
+                        <div className="sm:hidden shrink-0">
+                            {editorMode ? (
+                                <Link
+                                    to="/coupons"
+                                    onClick={() => resetForm()}
+                                    className="btn-secondary h-9 px-3 text-xs font-semibold inline-flex items-center gap-1.5"
+                                >
+                                    <ArrowLeft className="h-3.5 w-3.5" />
+                                    List
+                                </Link>
+                            ) : (
+                                <Link to="/coupons/create" className="btn-primary h-9 px-3 text-xs font-semibold shadow-xs inline-flex items-center gap-1.5">
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Create
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+                    <p className="mt-1.5 max-w-2xl text-xs sm:text-sm text-muted-foreground">
                         {editorMode
                             ? editorDescription
-                            : 'Create promo codes, target plans, manage expiration, and verify recent redemption activity in one place.'}
+                            : 'Create promo codes, target plans, manage expiration, and verify recent redemption activity.'}
                     </p>
                 </div>
-                {editorMode ? (
-                    <Link
-                        to="/coupons"
-                        onClick={() => resetForm()}
-                        className="btn-secondary px-5 py-3 text-xs"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        List
-                    </Link>
-                ) : (
-                    <Link to="/coupons/create" className="btn-primary px-6 py-3 text-xs shadow-[0_18px_44px_rgba(131,58,180,0.26)]">
-                        <Plus className="h-4 w-4" />
-                        Create Coupon
-                    </Link>
-                )}
+                <div className="hidden sm:block shrink-0">
+                    {editorMode ? (
+                        <Link
+                            to="/coupons"
+                            onClick={() => resetForm()}
+                            className="btn-secondary h-10 px-4 text-xs font-semibold inline-flex items-center gap-1.5"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            List
+                        </Link>
+                    ) : (
+                        <Link to="/coupons/create" className="btn-primary h-10 px-5 text-xs font-semibold shadow-xs inline-flex items-center gap-1.5">
+                            <Plus className="h-4 w-4" />
+                            Create Coupon
+                        </Link>
+                    )}
+                </div>
             </div>
 
             {(error || notice) && (
                 <div className={cn(
-                    'glass-card rounded-[24px] px-5 py-4 text-sm animate-in fade-in slide-in-from-top-2 duration-300',
+                    'glass-card rounded-[24px] px-4 py-3 sm:px-5 sm:py-4 text-xs sm:text-sm animate-in fade-in slide-in-from-top-2 duration-300',
                     error ? 'border-destructive/25 text-destructive' : 'border-success/25 text-success'
                 )}>
                     <div className="inline-flex items-center gap-2 font-semibold">
@@ -777,21 +798,21 @@ export const CouponsPage: React.FC = () => {
             )}
 
             {!editorMode && (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-4">
                 {[
                     { label: 'Total Coupons', value: data?.stats?.coupons_total || 0, icon: TicketPercent, tone: 'text-primary' },
                     { label: 'Active Codes', value: data?.stats?.active_coupons || 0, icon: CheckCircle2, tone: 'text-emerald-500' },
                     { label: 'Redemptions', value: data?.stats?.redemptions_total || 0, icon: Layers, tone: 'text-amber-500' },
                     { label: 'Gross Revenue', value: revenueLabel, icon: Sparkles, tone: 'text-violet-500' }
                 ].map(({ label, value, icon: Icon, tone }) => (
-                    <div key={label} className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card p-5 shadow-xs transition-all hover:border-primary/30 hover:shadow-sm">
+                    <div key={label} className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card p-3.5 sm:p-5 shadow-xs transition-all hover:border-primary/30 hover:shadow-sm">
                         <div className="flex items-center justify-between">
-                            <p className="text-xs font-medium text-muted-foreground">{label}</p>
-                            <div className={cn('rounded-xl bg-muted/60 p-2.5 transition-colors group-hover:bg-primary/10', tone)}>
-                                <Icon className="h-4 w-4" />
+                            <p className="text-[11px] sm:text-xs font-medium text-muted-foreground truncate">{label}</p>
+                            <div className={cn('rounded-xl bg-muted/60 p-2 sm:p-2.5 transition-colors group-hover:bg-primary/10 shrink-0 ml-1', tone)}>
+                                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </div>
                         </div>
-                        <p className="mt-3 text-2xl font-black tracking-tight text-foreground">{value}</p>
+                        <p className="mt-2 sm:mt-3 text-lg sm:text-2xl font-black tracking-tight text-foreground truncate">{value}</p>
                     </div>
                 ))}
             </div>

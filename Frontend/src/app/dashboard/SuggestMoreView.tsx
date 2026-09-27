@@ -230,11 +230,11 @@ const SuggestMoreView: React.FC = () => {
     const previewItem = buildPreviewAutomationFromTemplate(selectedTemplate);
 
     return (
-        <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
             {/* Main Content */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
                 {/* Editor Section */}
-                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
+                <div className="xl:col-span-8 w-full min-w-0 space-y-6 xl:overflow-y-auto xl:pr-2 pb-6 sm:pb-8 xl:pb-8">
                     <div className="pb-2">
                         <AutomationActionBar
                             hasExisting={Boolean(config.is_setup)}
@@ -255,7 +255,7 @@ const SuggestMoreView: React.FC = () => {
                             centerContent={
                                 <div className="min-w-0">
                                     <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">Suggest More</h1>
-                                    <p className="text-muted-foreground text-xs sm:text-sm font-normal mt-0.5">Show additional reply suggestions to users when an automation finishes.</p>
+                                    <p className="text-muted-foreground text-xs sm:text-sm font-normal mt-0.5 truncate">Show additional reply suggestions to users when an automation finishes.</p>
                                 </div>
                             }
                         />

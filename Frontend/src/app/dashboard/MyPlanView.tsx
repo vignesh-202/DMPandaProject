@@ -508,7 +508,7 @@ const MyPlanView: React.FC = () => {
         />
       )}
 
-      <div className="mx-auto max-w-7xl space-y-8 p-3 sm:p-5 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8">
         {/* Modern Minimal Banner for Payment / Upgrade Success */}
         {upgradeSuccessMessage && (
           <div className="relative overflow-hidden flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/5 dark:bg-emerald-500/10 backdrop-blur-md px-4 py-3 text-foreground shadow-xs animate-in fade-in-50 slide-in-from-top-2 duration-300">

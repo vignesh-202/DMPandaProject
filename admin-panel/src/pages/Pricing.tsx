@@ -54,9 +54,9 @@ const numericFields: Array<{ key: keyof PricingPlan; label: string }> = [
 ];
 
 const StatTile = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-xl border border-border/70 bg-background/60 px-4 py-3 shadow-xs">
-    <p className="text-xs font-medium text-muted-foreground">{label}</p>
-    <p className="mt-1 text-xl font-bold tracking-tight text-foreground">{value}</p>
+  <div className="rounded-xl border border-border/70 bg-background/60 p-3 sm:px-4 sm:py-3 shadow-xs min-w-0">
+    <p className="text-[11px] sm:text-xs font-medium text-muted-foreground truncate">{label}</p>
+    <p className="mt-1 text-base sm:text-xl font-bold tracking-tight text-foreground truncate">{value}</p>
   </div>
 );
 

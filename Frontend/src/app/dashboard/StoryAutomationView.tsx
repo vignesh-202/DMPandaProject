@@ -249,9 +249,9 @@ const StoryAutomationView: React.FC = () => {
   if (selectedMedia && activeAccountID) {
     return (
       <>
-        <div className="mx-auto max-w-7xl min-h-screen space-y-6 px-3 sm:space-y-8 sm:px-4 md:px-6">
+        <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8">
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-            <div className="w-full min-w-0 space-y-6 xl:col-span-8 xl:space-y-8 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
+            <div className="w-full min-w-0 space-y-6 xl:col-span-8 xl:space-y-8 xl:overflow-y-auto xl:pr-2 pb-6 sm:pb-8 xl:pb-8">
               <section className="space-y-6 rounded-[28px] border border-content bg-card p-4 shadow-sm sm:space-y-8 sm:rounded-[34px] sm:p-6 lg:rounded-[40px] lg:p-8 xl:min-h-0">
                 <AutomationEditor
                   type="story"

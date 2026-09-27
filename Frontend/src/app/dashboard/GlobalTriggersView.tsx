@@ -413,12 +413,12 @@ const GlobalTriggersView: React.FC = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto min-h-screen space-y-8 px-3 sm:px-4 md:px-6">
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
             {/* Editor Mode */}
             {editingTrigger ? (
                 <>
                     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-                        <div className="w-full min-w-0 space-y-6 xl:col-span-8 xl:space-y-8 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
+                        <div className="w-full min-w-0 space-y-6 xl:col-span-8 xl:space-y-8 xl:overflow-y-auto xl:pr-2 pb-6 sm:pb-8 xl:pb-8">
                             <section className="space-y-6 rounded-[28px] border border-content bg-card p-4 shadow-sm sm:space-y-8 sm:rounded-[34px] sm:p-6 lg:rounded-[40px] lg:p-8 xl:min-h-0">
                                     <AutomationEditor
                                         type="global"
@@ -532,7 +532,7 @@ const GlobalTriggersView: React.FC = () => {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/80 pb-6 mb-6">
                         <div className="space-y-1">
                             <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Global Triggers</h1>
-                            <p className="text-sm text-muted-foreground max-w-xl">
+                            <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
                                 Automatically respond to keywords across all your Instagram content in comments, stories, or live sessions.
                             </p>
                         </div>
@@ -577,7 +577,7 @@ const GlobalTriggersView: React.FC = () => {
                                 const isDeleting = deletingIds.has(trigger.$id);
                                 const t = trigger.template_type || 'template_text';
                                 return (
-                                    <div key={trigger.$id} className="relative group bg-card border border-border/80 rounded-2xl p-5 shadow-xs hover:border-primary/40 hover:shadow-sm transition-all overflow-hidden">
+                                    <div key={trigger.$id} className="relative group bg-card border border-border/80 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-primary/40 hover:shadow-sm transition-all overflow-hidden">
                                         {isDeleting && (
                                             <div className="absolute inset-0 z-20 bg-card/80 backdrop-blur-md rounded-2xl flex items-center justify-center animate-in fade-in duration-200">
                                                 <div className="flex flex-col items-center gap-2">
@@ -586,9 +586,9 @@ const GlobalTriggersView: React.FC = () => {
                                                 </div>
                                             </div>
                                         )}
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                            <div className="flex items-center gap-3.5">
-                                                <div className="w-12 h-12 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                                            <div className="flex items-start sm:items-center gap-3">
+                                                <div className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center text-primary mt-0.5 sm:mt-0">
                                                     {t === 'template_text' && <FileText className="w-5 h-5" />}
                                                     {t === 'template_carousel' && <Smartphone className="w-5 h-5" />}
                                                     {t === 'template_buttons' && <MousePointerClick className="w-5 h-5" />}
@@ -597,8 +597,8 @@ const GlobalTriggersView: React.FC = () => {
                                                     {t === 'template_share_post' && <Share2 className="w-5 h-5" />}
                                                     {!['template_text', 'template_carousel', 'template_buttons', 'template_media', 'template_quick_replies', 'template_share_post'].includes(t) && <Globe className="w-5 h-5" />}
                                                 </div>
-                                                <div>
-                                                    <h4 className="text-base font-semibold text-foreground">{trigger.title || 'Untitled Trigger'}</h4>
+                                                <div className="min-w-0 flex-1">
+                                                    <h4 className="text-sm sm:text-base font-semibold text-foreground truncate">{trigger.title || 'Untitled Trigger'}</h4>
                                                     {trigger.template_content && t === 'template_text' && (
                                                         <p className="text-[10px] text-muted-foreground line-clamp-1 mb-1 font-medium italic">&quot;{trigger.template_content}&quot;</p>
                                                     )}
@@ -618,7 +618,7 @@ const GlobalTriggersView: React.FC = () => {
                                                     {trigger.template_content && t === 'template_media' && (
                                                         <p className="text-[10px] text-muted-foreground line-clamp-1 mb-1 font-medium italic">Image/Video Attachment</p>
                                                     )}
-                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
                                                         {(Array.isArray(trigger.keyword) ? trigger.keyword : [trigger.keyword]).filter(Boolean).map((kw: string, ki: number) => (
                                                             <span key={ki} className="px-2 py-0.5 bg-primary/10 text-primary text-[9px] font-black rounded-lg tracking-wider">{kw}</span>
                                                         ))}
@@ -631,21 +631,25 @@ const GlobalTriggersView: React.FC = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-3 shrink-0">
+                                            <div className="flex items-center justify-end gap-2 shrink-0 pt-2 border-t border-border/50 sm:border-0 sm:pt-0">
                                                 <button
                                                     onClick={() => void handleEdit(trigger)}
-                                                    className="p-3 bg-muted/40 text-muted-foreground hover:text-primary rounded-xl transition-all"
+                                                    className="p-2 sm:p-2.5 bg-muted/40 text-muted-foreground hover:text-primary rounded-xl transition-all"
+                                                    title="Edit trigger"
+                                                    aria-label="Edit trigger"
                                                 >
-                                                    <Pencil className="w-5 h-5" />
+                                                    <Pencil className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(trigger.$id)}
                                                     disabled={isDeleting}
-                                                    className="p-3 bg-destructive-muted/40 text-destructive hover:bg-destructive hover:text-destructive-foreground rounded-xl transition-all"
+                                                    className="p-2 sm:p-2.5 bg-destructive-muted/40 text-destructive hover:bg-destructive hover:text-destructive-foreground rounded-xl transition-all disabled:opacity-50"
+                                                    title="Delete trigger"
+                                                    aria-label="Delete trigger"
                                                 >
-                                                    <Trash2 className="w-5 h-5" />
+                                                    <Trash2 className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                                                 </button>
-                                                <div className="h-8 w-[1px] bg-border mx-2" />
+                                                <div className="h-6 w-[1px] bg-border mx-1" />
                                                 {isToggling ? (
                                                     <div className="w-[44px] h-[24px] flex items-center justify-center bg-muted rounded-full">
                                                         <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />

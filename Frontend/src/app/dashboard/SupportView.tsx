@@ -108,7 +108,7 @@ const SupportView: React.FC<SupportViewProps> = ({ mode = 'support' }) => {
   const visibleFaqs = useMemo(() => (isContactMode ? faqs.slice(0, 6) : faqs), [isContactMode]);
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
         <h2 className="text-xl font-bold text-foreground mb-1.5">{title}</h2>
         <p className="text-xs text-muted-foreground">{description}</p>

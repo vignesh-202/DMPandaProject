@@ -1147,7 +1147,7 @@ const AnalyticsView: React.FC = () => {
 
     if (!activeAccountID) {
         return (
-            <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+            <div className="max-w-7xl mx-auto">
                 <Card className="p-8 border border-content rounded-3xl text-center">
                     <p className="text-sm font-bold text-muted-foreground">Select an Instagram account to view analytics.</p>
                 </Card>
@@ -1166,7 +1166,7 @@ const AnalyticsView: React.FC = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
                     <p className="text-xs font-semibold text-primary">Analytics</p>

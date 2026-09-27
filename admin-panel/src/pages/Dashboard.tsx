@@ -251,16 +251,16 @@ export const Dashboard: React.FC = () => {
                 </div>
             </section>
 
-            <section className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
+            <section className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
                 {overviewCards.map((card) => (
-                    <div key={card.label} className={`${surfaceClass} px-4 py-4`}>
-                        <div className="flex items-start justify-between gap-2 sm:gap-4">
-                            <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', card.tone)}>
+                    <div key={card.label} className={`${surfaceClass} px-3 py-3 sm:px-4 sm:py-4`}>
+                        <div className="flex items-start justify-between gap-1.5 sm:gap-3">
+                            <div className={cn('flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl', card.tone)}>
                                 <card.icon className="h-4 w-4" />
                             </div>
-                            <p className="text-right text-xs font-medium text-muted-foreground">{card.label}</p>
+                            <p className="text-right text-[11px] sm:text-xs font-medium text-muted-foreground line-clamp-1">{card.label}</p>
                         </div>
-                        <p className="mt-3 text-lg sm:text-2xl font-bold tracking-tight text-foreground">{card.value}</p>
+                        <p className="mt-2 sm:mt-3 text-base sm:text-xl lg:text-2xl font-bold tracking-tight text-foreground">{card.value}</p>
                     </div>
                 ))}
             </section>

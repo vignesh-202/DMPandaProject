@@ -947,7 +947,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                         {/* CASE 3: Active Automations view */}
                         {hasAnyAutomation && viewMode === 'list' && (
                             <div className={cn(
-                                'grid gap-6',
+                                'grid gap-3.5 sm:gap-6',
                                 useShowcaseCards
                                     ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
                                     : 'grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
@@ -1024,7 +1024,7 @@ const MediaSection: React.FC<MediaSectionProps> = ({ title, type, onCreateAutoma
                                         <div
                                             key={type + mediaDateFilter}
                                             className={cn(
-                                                'grid gap-3 sm:gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 overflow-y-auto pr-2 max-h-[800px] scrollbar-thin',
+                                                'grid gap-3.5 sm:gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 overflow-visible sm:overflow-y-auto sm:pr-2 sm:max-h-[800px] scrollbar-thin',
                                                 useShowcaseCards
                                                     ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
                                                     : 'grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'

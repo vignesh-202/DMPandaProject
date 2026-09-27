@@ -1163,7 +1163,7 @@ const AccountSettingsView = () => {
       {/* PORTALS & MODALS */}
       {showDeleteModal && typeof document !== 'undefined' && createPortal(
         <div className={sectionModalClass}>
-          <Card className="w-full max-w-md p-6 shadow-xl border border-border bg-card rounded-2xl relative">
+          <Card className="w-full max-w-md max-h-[min(90dvh,42rem)] overflow-y-auto custom-scrollbar p-5 sm:p-6 shadow-xl border border-border bg-card rounded-2xl relative">
             <button onClick={closeDeleteModal} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
               <X className="h-5 w-5" />
             </button>
@@ -1227,7 +1227,7 @@ const AccountSettingsView = () => {
       {/* Unlink Confirmation Modal */}
       {showUnlinkConfirm && typeof document !== 'undefined' && createPortal(
         <div className={sectionModalClass}>
-          <Card className="w-full max-w-md p-6 shadow-xl border border-border bg-card rounded-2xl relative">
+          <Card className="w-full max-w-md max-h-[min(90dvh,42rem)] overflow-y-auto custom-scrollbar p-5 sm:p-6 shadow-xl border border-border bg-card rounded-2xl relative">
             <button onClick={() => setShowUnlinkConfirm(null)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
               <X className="h-5 w-5" />
             </button>
@@ -1280,7 +1280,7 @@ const AccountSettingsView = () => {
       {/* Permanent IG Delete Confirmation Modal */}
       {showDeleteIGConfirm && typeof document !== 'undefined' && createPortal(
         <div className={sectionModalClass}>
-          <Card className="w-full max-w-md p-6 shadow-xl border border-border bg-card rounded-2xl relative">
+          <Card className="w-full max-w-md max-h-[min(90dvh,42rem)] overflow-y-auto custom-scrollbar p-5 sm:p-6 shadow-xl border border-border bg-card rounded-2xl relative">
             <button onClick={() => { setShowDeleteIGConfirm(null); setDeleteIGPassword(''); }} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
               <X className="h-5 w-5" />
             </button>
@@ -1348,7 +1348,7 @@ const AccountSettingsView = () => {
       {/* Set Password Modal */}
       {showSetPassword && typeof document !== 'undefined' && createPortal(
         <div className={sectionModalClass}>
-          <Card className="w-full max-w-md p-6 shadow-xl border border-border bg-card rounded-2xl relative">
+          <Card className="w-full max-w-md max-h-[min(90dvh,42rem)] overflow-y-auto custom-scrollbar p-5 sm:p-6 shadow-xl border border-border bg-card rounded-2xl relative">
             <button onClick={() => { setShowSetPassword(false); setNewPassword(''); setConfirmPassword(''); }} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
               <X className="h-5 w-5" />
             </button>
@@ -1415,7 +1415,7 @@ const AccountSettingsView = () => {
       {/* Change Email Modal */}
       {showEmailModal && typeof document !== 'undefined' && createPortal(
         <div className={sectionModalClass}>
-          <Card className="w-full max-w-md p-6 shadow-xl border border-border bg-card rounded-2xl relative">
+          <Card className="w-full max-w-md max-h-[min(90dvh,42rem)] overflow-y-auto custom-scrollbar p-5 sm:p-6 shadow-xl border border-border bg-card rounded-2xl relative">
             <button onClick={() => { setShowEmailModal(false); setNewEmail(''); setEmailChangePassword(''); }} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
               <X className="h-5 w-5" />
             </button>

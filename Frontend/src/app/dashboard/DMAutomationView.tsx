@@ -1485,9 +1485,9 @@ const DMAutomationView: React.FC = () => {
             || !!fieldErrors['template'];
 
         return (
-            <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-8 min-h-screen">
+            <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 xl:h-[calc(100vh-7rem)] xl:overflow-hidden">
-                    <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2 pb-28 sm:pb-32 xl:pb-8">
+                    <div className="xl:col-span-8 w-full min-w-0 space-y-8 xl:overflow-y-auto xl:pr-2 pb-6 sm:pb-8 xl:pb-8">
                         <section className="bg-card rounded-2xl border border-border/70 shadow-xs">
                             <div className="rounded-t-2xl border-b border-border/60 bg-card/95 px-6 py-4">
                                 <AutomationActionBar
@@ -3136,7 +3136,7 @@ const DMAutomationView: React.FC = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 space-y-12">
+        <div className="max-w-7xl mx-auto space-y-8 sm:space-y-12">
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/60 pb-6">
                 <div className="space-y-1">
