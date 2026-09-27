@@ -1,0 +1,69 @@
+name: Deploy Frontend and Admin Panel to Hostinger
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Frontend/**'
+      - 'admin-panel/**'
+      - '.github/workflows/deploy-hostinger.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            Frontend/package-lock.json
+            admin-panel/package-lock.json
+
+      - name: Build Frontend SPA
+        run: |
+          cd Frontend
+          npm ci
+          npm run build
+        env:
+          VITE_API_BASE_URL: https://api.dmpanda.com
+          VITE_RAZORPAY_KEY_ID: rzp_test_TX8pe4YJUI8Iz2
+
+      - name: Build Admin Panel SPA
+        run: |
+          cd admin-panel
+          npm ci
+          npm run build
+        env:
+          VITE_API_BASE_URL: https://api.dmpanda.com
+          VITE_APPWRITE_ENDPOINT: https://appwrite.dmpanda.com/v1
+          VITE_APPWRITE_PROJECT_ID: 698b02ba00099a63b1f1
+          VITE_APPWRITE_DATABASE_ID: 698b09ff002b91aff785
+
+      # Deploy Frontend to Hostinger public_html (dmpanda.com)
+      # Uncomment and configure secrets in your GitHub repository:
+      # HOSTINGER_FTP_SERVER, HOSTINGER_FTP_USERNAME, HOSTINGER_FTP_PASSWORD
+      #
+      # - name: Deploy Frontend to Hostinger via FTP
+      #   uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      #   with:
+      #     server: ${{ secrets.HOSTINGER_FTP_SERVER }}
+      #     username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+      #     password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+      #     local-dir: ./Frontend/dist/
+      #     server-dir: ./public_html/
+      #
+      # - name: Deploy Admin Panel to Hostinger via FTP
+      #   uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      #   with:
+      #     server: ${{ secrets.HOSTINGER_FTP_SERVER }}
+      #     username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+      #     password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+      #     local-dir: ./admin-panel/dist/
+      #     server-dir: ./domains/admin.dmpanda.com/public_html/
