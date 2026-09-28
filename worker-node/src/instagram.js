@@ -11,6 +11,33 @@ class InstagramAPI {
         this.onRequestComplete = typeof options?.onRequestComplete === 'function'
             ? options.onRequestComplete
             : null;
+        this.onAuthError = typeof options?.onAuthError === 'function'
+            ? options.onAuthError
+            : null;
+    }
+
+    _checkAndEmitAuthError(error) {
+        if (!error) return;
+        const errObj = error.response?.data?.error || {};
+        const code = Number(errObj.code);
+        const subcode = Number(errObj.error_subcode);
+        const type = String(errObj.type || '').toLowerCase();
+        const msg = String(errObj.message || error.message || '').toLowerCase();
+        const isAuth = code === 190
+            || (code === 102 && subcode === 459)
+            || type.includes('oauthexception')
+            || error.response?.status === 401
+            || msg.includes('access token')
+            || msg.includes('revoked')
+            || msg.includes('deauthorized');
+
+        if (isAuth && this.onAuthError) {
+            try {
+                this.onAuthError(error);
+            } catch (emitErr) {
+                console.warn('Error in onAuthError callback:', emitErr?.message || emitErr);
+            }
+        }
     }
 
     async _ensureRequestAllowed(details = {}) {
@@ -45,6 +72,9 @@ class InstagramAPI {
             const response = await axios.post(`${this.baseUrl}${path}`, data, { params });
             success = response.status >= 200 && response.status < 300 && !response.data?.error;
             return response;
+        } catch (error) {
+            this._checkAndEmitAuthError(error);
+            throw error;
         } finally {
             if (allowed) {
                 await this._notifyRequestComplete({
@@ -70,6 +100,9 @@ class InstagramAPI {
             const response = await axios.get(`${this.baseUrl}${path}`, { params });
             success = response.status >= 200 && response.status < 300 && !response.data?.error;
             return response;
+        } catch (error) {
+            this._checkAndEmitAuthError(error);
+            throw error;
         } finally {
             if (allowed) {
                 await this._notifyRequestComplete({
@@ -95,6 +128,9 @@ class InstagramAPI {
             const response = await axios.delete(`${this.baseUrl}${path}`, { params });
             success = response.status >= 200 && response.status < 300 && !response.data?.error;
             return response;
+        } catch (error) {
+            this._checkAndEmitAuthError(error);
+            throw error;
         } finally {
             if (allowed) {
                 await this._notifyRequestComplete({

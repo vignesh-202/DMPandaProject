@@ -10,6 +10,7 @@ const {
     FUNCTION_REMOVE_INSTAGRAM
 } = require('../utils/appwrite');
 const { parseSignedRequest } = require('../utils/metaSignedRequest');
+const { sendReauthRequiredEmail, sendAccountRemovedEmail } = require('../utils/reauthEmail');
 
 const getMetaAppSecret = () =>
     process.env.INSTAGRAM_APP_SECRET
@@ -90,14 +91,18 @@ const handleDeauthorize = async (req, res) => {
 
         for (const account of accounts) {
             try {
-                // Mark account inactive and clear active tokens
+                // Mark account inactive and flag reconnect required
+                const nowIso = new Date().toISOString();
                 await databases.updateDocument(
                     APPWRITE_DATABASE_ID,
                     IG_ACCOUNTS_COLLECTION_ID,
                     account.$id,
                     {
                         status: 'inactive',
-                        permissions: 'deauthorized'
+                        permissions: 'deauthorized,dm_panda_reconnect_required',
+                        reauth_required: true,
+                        reauth_email_sent_at: nowIso,
+                        deactivation_reason: 'The DM Panda app was disconnected from your Instagram account settings.'
                     }
                 );
 
@@ -121,7 +126,19 @@ const handleDeauthorize = async (req, res) => {
                     }
                 }
 
-                console.log(`[Meta Deauthorize] Successfully deactivated account ${account.$id} (@${account.username || metaUserId})`);
+                // Send email to user notifying them of deauthorization and how to re-authorize
+                if (account.user_id) {
+                    sendReauthRequiredEmail({
+                        userId: account.user_id,
+                        username: account.username || metaUserId,
+                        reason: 'The DM Panda app was disconnected from your Instagram account settings.',
+                        force: true
+                    }).catch((emailErr) => {
+                        console.error(`[Meta Deauthorize] Failed to send email for @${account.username}:`, emailErr.message);
+                    });
+                }
+
+                console.log(`[Meta Deauthorize] Successfully deactivated account ${account.$id} (@${account.username || metaUserId}) and sent notification email`);
             } catch (accErr) {
                 console.error(`[Meta Deauthorize] Error deactivating account ${account.$id}:`, accErr.message);
             }
@@ -173,12 +190,29 @@ const handleDeleteData = async (req, res) => {
 
         for (const account of accounts) {
             try {
+                // Send account removal email to the user
+                if (account.user_id) {
+                    sendAccountRemovedEmail({
+                        userId: account.user_id,
+                        username: account.username || metaUserId,
+                        action: 'removed',
+                        reason: 'The DM Panda app was removed from your Instagram account settings.'
+                    }).catch((emailErr) => {
+                        console.error(`[Meta Data Deletion] Failed to send email for @${account.username}:`, emailErr.message);
+                    });
+                }
+
                 if (FUNCTION_REMOVE_INSTAGRAM) {
                     const functions = new Functions(serverClient);
                     await functions.createExecution(
                         FUNCTION_REMOVE_INSTAGRAM,
-                        JSON.stringify({ action: 'delete', account_doc_id: account.$id }),
-                        false
+                        JSON.stringify({
+                            action: 'delete',
+                            account_doc_id: account.$id,
+                            user_id: account.user_id,
+                            username: account.username
+                        }),
+                        true
                     );
                 } else {
                     await databases.deleteDocument(

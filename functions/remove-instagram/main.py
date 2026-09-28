@@ -2,7 +2,9 @@ import os
 import json
 import time
 from appwrite.client import Client
+from appwrite.id import ID
 from appwrite.query import Query
+from appwrite.services.messaging import Messaging
 
 PAGE_SIZE = 100
 MAX_RETRIES = 3
@@ -181,6 +183,116 @@ def _recompute_account_access(client, db_id, user_id, profile_doc, dry_run=False
     )
 
 
+def _resolve_frontend_origin(client=None, db_id: str = "") -> str:
+    if client and db_id:
+        try:
+            document = _call_appwrite(
+                client,
+                "get",
+                f"/databases/{db_id}/collections/system_config/documents/frontend_runtime_origin",
+            )
+            runtime_origin = str(_obj_get(document, "updated_by", "") or "").rstrip("/")
+            if runtime_origin.startswith(("http://", "https://")):
+                return runtime_origin
+        except Exception:
+            pass
+    return str(_env("FRONTEND_ORIGIN") or "https://dmpanda.com").rstrip("/")
+
+
+def _send_account_removed_email(client, db_id, user_id, username, action="delete", context=None):
+    if not user_id:
+        if context:
+            context.log("Skipping removal email: no user_id found")
+        return
+    try:
+        messaging = Messaging(client)
+        frontend_origin = _resolve_frontend_origin(client, db_id)
+        account_settings_url = f"{frontend_origin}/dashboard/account-settings" if frontend_origin else ""
+        safe_username = str(username or "your Instagram account").strip() or "your Instagram account"
+        action_verb = "removed" if action == "delete" else "unlinked"
+        subject = f"Your Instagram account @{safe_username} has been {action_verb} from DM Panda"
+
+        cta_html = (
+            f'<div style="margin:24px 0 16px;">'
+            f'<a href="{account_settings_url}" style="display:inline-block;padding:12px 24px;background:#0f172a;border-radius:8px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.01em;">Open Account Settings</a>'
+            f'</div>'
+            if account_settings_url
+            else ""
+        )
+
+        html = f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Instagram Account {action_verb.capitalize()} — DM Panda</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Instagram account @{safe_username} has been {action_verb} from your DM Panda workspace.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(15,23,42,0.04);">
+            <tr>
+              <td style="padding:28px 32px 20px;border-bottom:1px solid #f1f5f9;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td align="left" style="vertical-align:middle;">
+                      <span style="font-size:16px;font-weight:800;color:#0f172a;letter-spacing:-0.02em;">DM Panda</span>
+                    </td>
+                    <td align="right" style="vertical-align:middle;">
+                      <span style="display:inline-block;padding:3px 8px;border-radius:6px;background:#f1f5f9;border:1px solid #e2e8f0;color:#64748b;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Account Update</span>
+                    </td>
+                  </tr>
+                </table>
+                <h1 style="margin:18px 0 0;color:#0f172a;font-size:21px;font-weight:700;line-height:1.3;letter-spacing:-0.015em;">Instagram Account {action_verb.capitalize()}</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 32px 20px;">
+                <p style="margin:0 0 14px;color:#334155;font-size:14px;line-height:1.65;">Your Instagram account <strong>@{safe_username}</strong> has been {action_verb} from DM Panda.</p>
+                <div style="margin:0 0 18px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+                  <p style="margin:0 0 8px;color:#0f172a;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">What happens now</p>
+                  <ul style="margin:0;padding-left:18px;color:#475569;font-size:13px;line-height:1.65;">
+                    <li style="margin-bottom:6px;">Automations, triggers, and scheduled tasks for @{safe_username} have been safely stopped.</li>
+                    <li style="margin-bottom:6px;">DM Panda has stopped processing direct messages, comments, and mentions for this account.</li>
+                    <li>You can reconnect this account or link another profile at any time.</li>
+                  </ul>
+                </div>
+                <p style="margin:0 0 14px;color:#334155;font-size:14px;line-height:1.65;">If you removed this account intentionally, no further action is needed. If this was unexpected, you can re-link your Instagram account directly from your settings.</p>
+                {cta_html}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 28px;">
+                <div style="border-top:1px solid #f1f5f9;padding-top:20px;color:#94a3b8;font-size:12px;line-height:1.65;">
+                  <p style="margin:0 0 6px;">Questions? Contact support@dmpanda.com.</p>
+                  <p style="margin:0;color:#94a3b8;">DM Panda &bull; Instagram automation & lead capture</p>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>"""
+
+        messaging.create_email(
+            message_id=ID.unique(),
+            subject=subject,
+            content=html,
+            users=[user_id],
+            html=True,
+        )
+        if context:
+            context.log(f"Sent account {action_verb} email to user {user_id} for @{safe_username}")
+    except Exception as email_err:
+        if context:
+            context.error(f"Failed to send account removal email for user {user_id}: {str(email_err)}")
+
+
+
 # Handle Instagram account unlink (soft delete) and delete (hard delete with cascade).
 def main(context):
     try:
@@ -208,17 +320,21 @@ def main(context):
         IG_ACCOUNTS_COLLECTION = 'ig_accounts'
 
         # Get account details first
+        account = {}
         try:
             account = _call_appwrite(
                 client,
                 "get",
                 f"/databases/{db_id}/collections/{IG_ACCOUNTS_COLLECTION}/documents/{account_doc_id}",
             )
-            ig_user_id = account.get('ig_user_id')
-            account_id = account.get('account_id')
-            user_id = account.get('user_id')
         except Exception as e:
-            return context.res.json({"error": f"Account not found: {str(e)}"}, 404)
+            if not payload.get('user_id'):
+                return context.res.json({"error": f"Account not found: {str(e)}"}, 404)
+
+        ig_user_id = account.get('ig_user_id') or payload.get('ig_user_id')
+        account_id = account.get('account_id') or payload.get('account_id')
+        user_id = account.get('user_id') or payload.get('user_id')
+        username = account.get('username') or payload.get('username')
 
         profile = None
         if user_id:
@@ -240,6 +356,7 @@ def main(context):
                     {"data": {"status": "inactive"}},
                 )
                 _recompute_account_access(client, db_id, user_id, profile, dry_run=False)
+                _send_account_removed_email(client, db_id, user_id, username, action="unlink", context=context)
             context.log(f"Account unlinked: {account_doc_id}")
             return context.res.json({"status": "success", "dry_run": dry_run, "message": "Account unlinked"})
 
@@ -319,6 +436,7 @@ def main(context):
                     f"/databases/{db_id}/collections/{IG_ACCOUNTS_COLLECTION}/documents/{account_doc_id}",
                 )
                 _recompute_account_access(client, db_id, user_id, profile, dry_run=False)
+                _send_account_removed_email(client, db_id, user_id, username, action="delete", context=context)
             context.log(f"Account deleted: {account_doc_id}")
             
             return context.res.json({"status": "success", "dry_run": dry_run, "checked_collections": checked_collections, "deleted_counts": deleted_counts, "message": "Account and related data deleted"})

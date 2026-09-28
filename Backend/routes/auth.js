@@ -423,9 +423,15 @@ router.get('/api/me', loginRequired, async (req, res) => {
         const databases = new Databases(serverClient);
         const planContext = await resolveUserPlanContext(databases, user.$id, user);
 
+        const igAccountsCollection = IG_ACCOUNTS_COLLECTION_ID || process.env.IG_ACCOUNTS_COLLECTION_ID || 'ig_accounts';
+        const { validateUserInstagramAccounts } = require('../utils/instagramAuthHandler');
+        await validateUserInstagramAccounts(databases, user.$id).catch(err => {
+            console.error('[Auth /me] IG account auto-validation error:', err?.message || err);
+        });
+
         const igAccounts = await databases.listDocuments(
             process.env.APPWRITE_DATABASE_ID,
-            IG_ACCOUNTS_COLLECTION_ID,
+            igAccountsCollection,
             [Query.equal('user_id', user.$id)]
         );
         const accountAccessState = await recomputeAccountAccessStateForUser(

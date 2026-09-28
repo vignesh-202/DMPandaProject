@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { Client, Databases, Query, ID } = require('node-appwrite');
+const { Client, Databases, Query, ID, Functions } = require('node-appwrite');
 require('dotenv').config();
 const { withAppwriteRetry } = require('./appwriteSafety');
 const { buildActionUsageIncrementPatch } = require('../../shared/actionRateLimiter');
@@ -124,6 +124,7 @@ class AppwriteClient {
             .setProject(process.env.APPWRITE_PROJECT_ID)
             .setKey(process.env.APPWRITE_API_KEY);
         this.databases = new Databases(this.client);
+        this.functions = new Functions(this.client);
         this.databaseId = process.env.APPWRITE_DATABASE_ID;
 
         // Bounded Tiny-LRU Caches (<5 MB RAM total for 1GB-4GB VPS safety)
@@ -148,6 +149,25 @@ class AppwriteClient {
             || process.env.HOSTNAME
             || `worker-${process.pid}`
         ).trim();
+    }
+
+    async reportInvalidToken({ accountId, accountDocId, reason } = {}) {
+        try {
+            const functionId = process.env.FUNCTION_REFRESH_INSTAGRAM_TOKENS || 'refresh-instagram-tokens';
+            await this.functions.createExecution(
+                functionId,
+                JSON.stringify({
+                    action: 'validate_account',
+                    account_id: accountId || '',
+                    account_doc_id: accountDocId || '',
+                    reported_reason: reason || 'Worker detected invalid Instagram access token'
+                }),
+                true
+            );
+            console.info(`[Worker] Asynchronously triggered token validation function for account ${accountId || accountDocId}`);
+        } catch (err) {
+            console.warn(`[Worker] Failed to report invalid token to Appwrite function: ${err.message}`);
+        }
     }
 
     normalizeAccountIds(accountIds) {
@@ -765,17 +785,25 @@ class AppwriteClient {
     _normalizeAccountAccess(account = null) {
         const normalizedStatus = String(account?.status || 'active').trim().toLowerCase() || 'active';
         const normalizedAdminStatus = String(account?.admin_status || 'active').trim().toLowerCase() || 'active';
+        const isExpired = account?.token_expires_at
+            ? new Date(account.token_expires_at).getTime() <= Date.now()
+            : false;
+        const permissions = String(account?.permissions || '').toLowerCase();
+        const isReauthRequired = account?.reauth_required === true ||
+            permissions.includes('dm_panda_reconnect_required') ||
+            isExpired;
         const adminActive = normalizedAdminStatus === 'active';
-        const userActive = normalizedStatus === 'active';
+        const userActive = normalizedStatus === 'active' && !isReauthRequired;
         const linkedActive = adminActive && userActive;
         const effectiveAccess = linkedActive;
-        const accessReason = !adminActive ? 'admin_inactive' : (!userActive ? 'inactive' : null);
+        const accessReason = !adminActive ? 'admin_inactive' : (isReauthRequired ? 'reconnect_required' : (!userActive ? 'inactive' : null));
         const accessState = linkedActive ? 'active' : 'inactive';
 
         return {
             ...account,
-            status: normalizedStatus,
+            status: isReauthRequired ? 'inactive' : normalizedStatus,
             admin_status: normalizedAdminStatus,
+            reauth_required: isReauthRequired,
             effective_access: effectiveAccess,
             access_state: accessState,
             access_reason: effectiveAccess ? null : accessReason,
@@ -783,7 +811,7 @@ class AppwriteClient {
             admin_is_active: adminActive,
             user_is_active: userActive,
             disabled_by_admin: !adminActive,
-            disabled_by_user: !userActive
+            disabled_by_user: !userActive && !isReauthRequired
         };
     }
 
@@ -822,8 +850,15 @@ class AppwriteClient {
         const safeAccountId = String(account?.$id || '').trim();
         const normalizedStatus = String(account?.status || 'active').trim().toLowerCase() || 'active';
         const normalizedAdminStatus = String(account?.admin_status || 'active').trim().toLowerCase() || 'active';
+        const isExpired = account?.token_expires_at
+            ? new Date(account.token_expires_at).getTime() <= Date.now()
+            : false;
+        const permissions = String(account?.permissions || '').toLowerCase();
+        const isReauthRequired = account?.reauth_required === true ||
+            permissions.includes('dm_panda_reconnect_required') ||
+            isExpired;
         const adminActive = normalizedAdminStatus === 'active';
-        const userActive = normalizedStatus === 'active';
+        const userActive = normalizedStatus === 'active' && !isReauthRequired;
         const linkedActive = adminActive && userActive;
         return {
             admin_active: adminActive,
@@ -831,7 +866,8 @@ class AppwriteClient {
             linked_active: linkedActive,
             plan_locked: false,
             effective_access: linkedActive,
-            access_reason: !adminActive ? 'admin_inactive' : (linkedActive ? null : (normalizedStatus || 'inactive'))
+            reauth_required: isReauthRequired,
+            access_reason: !adminActive ? 'admin_inactive' : (isReauthRequired ? 'reconnect_required' : (linkedActive ? null : (normalizedStatus || 'inactive')))
         };
     }
 

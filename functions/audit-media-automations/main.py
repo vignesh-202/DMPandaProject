@@ -225,6 +225,23 @@ def _get_ig_account(client: Client, db_id: str, ig_collection: str, account_id: 
     return docs[0] if docs else None
 
 
+def _is_ig_account_active(ig_account: dict) -> bool:
+    if not ig_account:
+        return False
+    status = str(_obj_get(ig_account, "status", "active") or "active").strip().lower()
+    admin_status = str(_obj_get(ig_account, "admin_status", "active") or "active").strip().lower()
+    reauth_required = _obj_get(ig_account, "reauth_required") is True
+    permissions = str(_obj_get(ig_account, "permissions", "") or "").lower()
+    if status != "active" or admin_status != "active" or reauth_required or "dm_panda_reconnect_required" in permissions:
+        return False
+    token_expires_at = str(_obj_get(ig_account, "token_expires_at", "") or "").strip()
+    if token_expires_at:
+        dt = _parse_iso_datetime(token_expires_at)
+        if dt and dt <= datetime.now(timezone.utc):
+            return False
+    return True
+
+
 def _media_exists(media_id: str, ig_account: dict):
     safe_media_id = str(media_id or "").strip()
     token = str(_obj_get(ig_account, "access_token", "") or "").strip()
@@ -455,6 +472,12 @@ def main(context):
             ig_account = ig_cache.get(account_id)
             exists = True
             if ig_account:
+                if not _is_ig_account_active(ig_account):
+                    context.log(
+                        f"Skipped Instagram automation because linked account is inactive. "
+                        f"(account_id={account_id}, automation_id={automation_id})"
+                    )
+                    continue
                 if automation_type == "story":
                     exists = _story_should_exist(automation, ig_account, active_story_cache, now, context)
                 else:

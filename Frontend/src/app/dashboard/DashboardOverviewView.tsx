@@ -4,7 +4,8 @@ import { useDashboard } from '../../contexts/DashboardContext';
 import InstagramStats from '../../components/dashboard/InstagramStats';
 import Gauge, { getGaugeLevelStyle } from '../../components/ui/gauge';
 import Card from '../../components/ui/card';
-import { AtSign, Check, ChevronRight, FileStack, Lightbulb as SuggestIcon, Sparkles, X } from 'lucide-react';
+import { Button } from '../../components/ui/button';
+import { AlertTriangle, AtSign, Check, ChevronRight, FileStack, Info, Lightbulb as SuggestIcon, Sparkles, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 type CountsKey = 'reply_templates' | 'mention' | 'welcome_message' | 'suggest_more';
@@ -111,7 +112,7 @@ const overviewCache: Record<string, CachedOverviewData> = {};
 
 const DashboardOverviewView: React.FC = () => {
   const { authenticatedFetch } = useAuth();
-  const { activeAccountID, setCurrentView } = useDashboard();
+  const { activeAccountID, setCurrentView, activeAccount } = useDashboard();
   const cacheKey = activeAccountID || 'all';
   const initialCache = overviewCache[cacheKey];
 
@@ -235,14 +236,89 @@ const DashboardOverviewView: React.FC = () => {
       updatedText: (gaugeMetrics.allocated_monthly_credits ?? gaugeMetrics.monthly_action_limit ?? 0) <= 0
         ? 'Unlimited actions'
         : `out of ${(gaugeMetrics.allocated_monthly_credits ?? gaugeMetrics.monthly_action_limit ?? 0).toLocaleString()}`
-    },
+    }
   ];
 
-  return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:gap-6 lg:gap-8">
-      <section>
-        <InstagramStats />
-      </section>
+  const isTokenExpired = activeAccount?.token_expires_at
+      ? new Date(activeAccount.token_expires_at).getTime() <= Date.now()
+      : false;
+    const isReconnectRequired = Boolean(
+      activeAccount && (
+        activeAccount.status === 'reconnect_required' ||
+        activeAccount.access_reason === 'reconnect_required' ||
+        activeAccount.reauth_required === true ||
+        isTokenExpired
+      )
+    );
+    const isUserInactive = Boolean(
+      activeAccount &&
+      !isReconnectRequired &&
+      (activeAccount.disabled_by_user === true || activeAccount.status === 'inactive')
+    );
+
+    return (
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:gap-6 lg:gap-8">
+        {isReconnectRequired && (
+          <section>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-destructive/40 bg-destructive/10 p-4 sm:p-5 text-destructive shadow-sm">
+              <div className="flex items-start gap-3.5">
+                <div className="rounded-xl bg-destructive/15 p-2 shrink-0">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="text-sm font-bold text-destructive">Instagram account needs re-authorization</h4>
+                  <p className="text-xs text-destructive/90 leading-relaxed">
+                    Your Instagram connection for @{activeAccount?.username} is no longer authorized. Re-authorize your account to continue running automations.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    setCurrentView('Account Settings');
+                    window.location.hash = '#instagram-accounts-section';
+                  }}
+                  className="h-9 px-4 bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs font-semibold w-full sm:w-auto shadow-xs"
+                >
+                  Re-authorize Instagram
+                </Button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {isUserInactive && (
+          <section>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-600 dark:text-amber-400">
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <h4 className="text-sm font-semibold">Instagram account is currently paused</h4>
+                  <p className="text-xs opacity-90 leading-relaxed">
+                    You have intentionally turned off @{activeAccount?.username}. Automations are paused until you activate it again in Account Settings.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCurrentView('Account Settings');
+                  window.location.hash = '#instagram-accounts-section';
+                }}
+                className="h-8 px-3 text-xs w-full sm:w-auto border-amber-500/40 hover:bg-amber-500/10 shrink-0"
+              >
+                Account Settings
+              </Button>
+            </div>
+          </section>
+        )}
+
+        <section>
+          <InstagramStats />
+        </section>
 
       <section>
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">

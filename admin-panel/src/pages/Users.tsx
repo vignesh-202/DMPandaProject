@@ -1402,9 +1402,12 @@ export const UsersPage: React.FC = () => {
                                                 </div>
                                             ) : (
                                                 <div className="space-y-3">
-                                                    {detailData.instagram_accounts.map((acc: any) => {
+                                                  {detailData.instagram_accounts.map((acc: any) => {
                                                         const isAdminActive = String(acc.admin_status || 'active').trim().toLowerCase() === 'active';
                                                         const isUserActive = String(acc.status || 'active').trim().toLowerCase() === 'active';
+                                                        const isReauthRequired = acc.reauth_required === true ||
+                                                            String(acc.permissions || '').includes('dm_panda_reconnect_required') ||
+                                                            acc.status === 'reconnect_required';
                                                         const tokenValidity = getInstagramTokenValidity(acc.token_expires_at);
                                                         const planDetails = getAccountPlanDetails(acc, detailData, pricingPlans);
                                                         const dpUrl = acc.profile_picture_url || acc.avatar_url || acc.profile_pic || acc.profile_picture || acc.profile_picture_url_hd;
@@ -1424,7 +1427,12 @@ export const UsersPage: React.FC = () => {
                                                         return (
                                                             <div
                                                                 key={acc.$id}
-                                                                className="group relative flex flex-col gap-3 rounded-2xl border border-border/80 bg-card/70 hover:bg-card p-4 shadow-2xs hover:border-border transition-all duration-150"
+                                                                className={cn(
+                                                                    "group relative flex flex-col gap-3 rounded-2xl border p-4 shadow-2xs transition-all duration-150",
+                                                                    isReauthRequired
+                                                                        ? "border-destructive/40 bg-destructive/[0.03] shadow-destructive/5"
+                                                                        : "border-border/80 bg-card/70 hover:bg-card hover:border-border"
+                                                                )}
                                                             >
                                                                 {/* Top Row: Identity, Badges, and Account Controls */}
                                                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -1477,6 +1485,14 @@ export const UsersPage: React.FC = () => {
                                                                                 )}>
                                                                                     Token: {tokenValidity.label}
                                                                                 </span>
+
+                                                                                {/* Re-authorization required badge */}
+                                                                                {isReauthRequired && (
+                                                                                    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold border border-destructive/40 bg-destructive/15 text-destructive shadow-2xs">
+                                                                                        <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                                                                                        Re-auth Required
+                                                                                    </span>
+                                                                                )}
                                                                             </div>
 
                                                                             <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
@@ -1554,6 +1570,27 @@ export const UsersPage: React.FC = () => {
                                                                         </button>
                                                                     </div>
                                                                 </div>
+
+                                                                {/* Re-authorization Status Callout */}
+                                                                {isReauthRequired && (
+                                                                    <div className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                                                                        <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-destructive" />
+                                                                        <div className="space-y-1 flex-1 min-w-0">
+                                                                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                                                <p className="font-bold text-destructive">Re-authorization Required</p>
+                                                                                {acc.reauth_email_sent_at && (
+                                                                                    <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
+                                                                                        <Clock className="h-3 w-3" />
+                                                                                        Notified: {new Date(acc.reauth_email_sent_at).toLocaleString()}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <p className="text-[11px] leading-relaxed text-foreground/80 break-words font-medium">
+                                                                                {acc.deactivation_reason || 'Instagram access token is invalid, revoked, or expired. User must reconnect from their dashboard.'}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
 
                                                                 {/* Bottom Row: 3-Column Token Telemetry (Hourly, Daily, Monthly Consumed vs Total Credits) */}
                                                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2.5 border-t border-border/50">

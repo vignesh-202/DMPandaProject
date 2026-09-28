@@ -57,6 +57,7 @@ const DashboardOverviewView = lazy(() => import('./DashboardOverviewView'));
 
 import AccountBarrier from '../../components/dashboard/AccountBarrier';
 import LockedFeatureModal from '../../components/ui/LockedFeatureModal';
+import InstagramLinkErrorModal from '../../components/dashboard/InstagramLinkErrorModal';
 
 // Page Loader Component
 const PageLoader = ({ title = 'Loading view', description = 'Preparing the latest dashboard data before this section opens.' }: { title?: string; description?: string }) => (
@@ -207,8 +208,23 @@ const DashboardPage = () => {
   const [isLockedModalOpen, setIsLockedModalOpen] = useState(false);
   const [lockedFeatureName, setLockedFeatureName] = useState('');
   const [lockedMessage, setLockedMessage] = useState('');
+  const [isLinkErrorModalOpen, setIsLinkErrorModalOpen] = useState(false);
+  const [linkErrorMessage, setLinkErrorMessage] = useState('');
   const [showSoftBanPopup, setShowSoftBanPopup] = useState(false);
   const softBanPopupKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get('error');
+    const msgParam = params.get('message') || params.get('reason');
+
+    if (errorParam === 'instagram_link_failed' || errorParam === 'instagram_auth_failed') {
+      setLinkErrorMessage(msgParam ? decodeURIComponent(msgParam) : 'Failed to connect Instagram account. Please verify permissions and account type on Meta.');
+      setIsLinkErrorModalOpen(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -253,6 +269,12 @@ const DashboardPage = () => {
         onClose={() => setIsLockedModalOpen(false)}
         onConnect={handleInstagramLink}
         featureName={lockedMessage || lockedFeatureName}
+      />
+      <InstagramLinkErrorModal
+        isOpen={isLinkErrorModalOpen}
+        errorMessage={linkErrorMessage}
+        onClose={() => setIsLinkErrorModalOpen(false)}
+        onRetry={handleInstagramLink}
       />
       {showSoftBanPopup && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4">

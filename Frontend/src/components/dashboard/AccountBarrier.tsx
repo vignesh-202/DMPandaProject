@@ -12,13 +12,14 @@ const AccountBarrier: React.FC = () => {
     : false;
   const isReconnectRequired = activeAccount?.status === 'reconnect_required' ||
     activeAccount?.access_reason === 'reconnect_required' ||
+    activeAccount?.reauth_required === true ||
     isTokenExpired;
   const isUserInactive = !isReconnectRequired && (activeAccount?.status === 'inactive' || activeAccount?.disabled_by_user === true);
   const isInactive = activeAccount && (isAdminDisabled || isUserInactive);
   const isPlanLocked = activeAccount && activeAccount.plan_locked === true;
   const isAutomationLocked = activeAccount && activeAccount.effective_access === false;
   const title = isReconnectRequired
-    ? 'Reconnect Instagram To Resume Automation'
+    ? 'Re-authorization Required To Resume Automations'
     : isInactive
     ? 'Automation Paused For This Account'
     : isPlanLocked
@@ -27,7 +28,7 @@ const AccountBarrier: React.FC = () => {
         ? 'Automation Access Restricted'
         : 'No Instagram Account Linked';
   const description = isReconnectRequired
-    ? `@${activeAccount.username} needs to be linked again before DM Panda can continue automations. Open account settings to reconnect this account, or run 'Check Connection' to verify if the token is still valid.`
+    ? `@${activeAccount.username} needs to be re-authorized before DM Panda can continue automations. Open account settings to re-authorize your account.`
     : isInactive
     ? (isAdminDisabled
       ? `@${activeAccount.username} is still linked, but this account has been paused by the Security Team of DM Panda. Automation is suspended for security review. Please contact support to reactivate your account.`
@@ -78,7 +79,7 @@ const AccountBarrier: React.FC = () => {
           leftIcon={(isInactive || isPlanLocked || isAutomationLocked) ? <Settings className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           rightIcon={<ChevronRight className="w-4 h-4" />}
         >
-          {isReconnectRequired ? 'Go to Settings to Verify / Reconnect' : ((isInactive || isPlanLocked || isAutomationLocked) ? 'Go to Settings' : 'Link Account')}
+          {isReconnectRequired ? 'Re-authorize Instagram in Settings' : ((isInactive || isPlanLocked || isAutomationLocked) ? 'Go to Settings' : 'Link Account')}
         </Button>
       </div>
 

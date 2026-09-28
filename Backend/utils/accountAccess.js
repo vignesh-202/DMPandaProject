@@ -79,6 +79,17 @@ const isUserLinkedAccountActive = (account = null) =>
 
 const isLinkedAccountActive = (account = null) => {
     if (!account) return false;
+    const isTokenExpired = account?.token_expires_at
+        ? new Date(account.token_expires_at).getTime() <= Date.now()
+        : false;
+    const permissionValues = String(account?.permissions || '')
+        .split(',')
+        .map((value) => String(value || '').trim().toLowerCase())
+        .filter(Boolean);
+    const hasReconnectMarker = permissionValues.includes(RECONNECT_PERMISSION_MARKER) || account?.reauth_required === true;
+    if (hasReconnectMarker || isTokenExpired) {
+        return false;
+    }
     return isAdminLinkedAccountActive(account) && isUserLinkedAccountActive(account);
 };
 
@@ -96,17 +107,20 @@ const compareAccountsByLinkedOrder = (left, right) => {
 
 const normalizeAccountAccess = (account = null) => {
     const planLocked = toBoolean(account?.__plan_locked, false);
-    const linkedActive = isLinkedAccountActive(account);
     const normalizedStatus = normalizeLinkedAccountStatus(account?.status, 'active');
     const normalizedAdminStatus = normalizeLinkedAccountStatus(account?.admin_status, 'active');
     const adminActive = normalizedAdminStatus === 'active';
     const userActive = normalizedStatus === 'active';
-    const storedAccessReason = String(account?.access_reason || '').trim().toLowerCase();
+    const storedAccessReason = String(account?.access_reason || account?.deactivation_reason || '').trim().toLowerCase();
     const permissionValues = String(account?.permissions || '')
         .split(',')
         .map((value) => String(value || '').trim().toLowerCase())
         .filter(Boolean);
-    const hasReconnectMarker = permissionValues.includes(RECONNECT_PERMISSION_MARKER);
+    const isTokenExpired = account?.token_expires_at
+        ? new Date(account.token_expires_at).getTime() <= Date.now()
+        : false;
+    const hasReconnectMarker = permissionValues.includes(RECONNECT_PERMISSION_MARKER) || account?.reauth_required === true || isTokenExpired;
+    const linkedActive = isLinkedAccountActive(account);
 
     let accessState = 'active';
     let accessReason = '';
@@ -131,13 +145,15 @@ const normalizeAccountAccess = (account = null) => {
     }
 
     return {
-        status: normalizedStatus,
+        status: hasReconnectMarker ? 'inactive' : normalizedStatus,
         admin_status: normalizedAdminStatus,
         is_active: linkedActive,
         admin_is_active: adminActive,
-        user_is_active: userActive,
+        user_is_active: userActive && !hasReconnectMarker,
         disabled_by_admin: !adminActive,
-        disabled_by_user: !userActive,
+        disabled_by_user: !userActive && !hasReconnectMarker,
+        reauth_required: hasReconnectMarker,
+        is_token_expired: isTokenExpired,
         plan_locked: planLocked,
         effective_access: effectiveAccess,
         access_state: accessState,

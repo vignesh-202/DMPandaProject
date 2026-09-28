@@ -36,6 +36,13 @@ const {
     recomputeAccountAccessStateForUser,
     recomputeAccountAccessForUser
 } = require('../utils/accountAccess');
+const { sendReauthRequiredEmail } = require('../utils/reauthEmail');
+const {
+    isInstagramAuthError,
+    handleInstagramAuthorizationFailure,
+    validateInstagramAccountToken,
+    validateUserInstagramAccounts
+} = require('../utils/instagramAuthHandler');
 const {
     getAutomationSchema,
     inspectAutomationDependencies,
@@ -640,30 +647,30 @@ const isUnknownAttributeError = (error) => {
 
 const updateIgAccountDocument = async (databases, documentId, payload) => {
     try {
-        return await databases.updateDocument(process.env.APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, documentId, payload);
+        return await retryAppwriteOperation(() => databases.updateDocument(process.env.APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, documentId, payload));
     } catch (error) {
         if (!isUnknownAttributeError(error)) throw error;
-        return databases.updateDocument(
+        return await retryAppwriteOperation(() => databases.updateDocument(
             process.env.APPWRITE_DATABASE_ID,
             IG_ACCOUNTS_COLLECTION_ID,
             documentId,
             stripIgAccountActionFields(payload)
-        );
+        ));
     }
 };
 
 const createIgAccountDocument = async (databases, documentId, payload, permissions) => {
     try {
-        return await databases.createDocument(process.env.APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, documentId, payload, permissions);
+        return await retryAppwriteOperation(() => databases.createDocument(process.env.APPWRITE_DATABASE_ID, IG_ACCOUNTS_COLLECTION_ID, documentId, payload, permissions));
     } catch (error) {
         if (!isUnknownAttributeError(error)) throw error;
-        return databases.createDocument(
+        return await retryAppwriteOperation(() => databases.createDocument(
             process.env.APPWRITE_DATABASE_ID,
             IG_ACCOUNTS_COLLECTION_ID,
             documentId,
             stripIgAccountActionFields(payload),
             permissions
-        );
+        ));
     }
 };
 
@@ -687,7 +694,7 @@ const serializeIgAccount = (account, profileLimits = {}, pricingPlans = null) =>
         plan_name: planName,
         billing_cycle: account?.billing_cycle || 'monthly',
         expires_at: account?.expires_at || null,
-        status: normalizedStatus,
+        status: access.status || normalizedStatus,
         admin_status: normalizedAdminStatus,
         api_enabled: Boolean(account.api_enabled),
         webhook_url: account.webhook_url || '',
@@ -705,6 +712,9 @@ const serializeIgAccount = (account, profileLimits = {}, pricingPlans = null) =>
         effective_access: access.effective_access,
         access_state: access.access_state,
         access_reason: access.access_reason,
+        reauth_required: Boolean(account?.reauth_required || access.reauth_required || access.access_reason === 'reconnect_required'),
+        deactivation_reason: account?.deactivation_reason || (access.access_reason === 'reconnect_required' ? 'Instagram token invalid or expired' : null),
+        reauth_email_sent_at: account?.reauth_email_sent_at || null,
         hourly_action_limit: Number(actionState.hourly_action_limit || 0),
         daily_action_limit: Number(actionState.daily_action_limit || 0),
         monthly_action_limit: Number(actionState.monthly_action_limit || 0),
@@ -783,33 +793,15 @@ const hasReconnectPermissionMarker = (permissions) =>
         .map((value) => String(value || '').trim())
         .includes(RECONNECT_PERMISSION_MARKER);
 
-const isInstagramAuthError = (error) => {
-    if (!error) return false;
-    const responseData = error.response?.data;
-    const errObj = responseData?.error || {};
-    const code = Number(errObj.code);
-    const subcode = Number(errObj.error_subcode);
-    const message = String(errObj.message || error.message || '').toLowerCase();
-
-    if (code === 190) return true;
-    if (code === 102 && subcode === 459) return true;
-    if (message.includes('oauth') || message.includes('access token') || message.includes('session has expired') || message.includes('revoked') || message.includes('deauthorized')) {
-        return true;
-    }
-    return false;
-};
 
 const handleInstagramApiError = async (err, databases, account) => {
     if (isInstagramAuthError(err) && account) {
-        try {
-            await updateIgAccountDocument(databases, account.$id || account.id, {
-                status: 'inactive',
-                permissions: appendReconnectPermissionMarker(account.permissions)
-            });
-            console.log(`[Reconciliation] Automatically flagged account ${account.$id || account.id} (@${account.username}) as reconnect-required due to Meta auth error: ${err.message}`);
-        } catch (e) {
-            console.error(`[Reconciliation] Failed to mark account ${account.$id || account.id} as reconnect-required:`, e.message);
-        }
+        return await handleInstagramAuthorizationFailure({
+            databases,
+            account,
+            accountId: account.$id || account.id,
+            error: err
+        });
     }
 };
 
@@ -2081,22 +2073,25 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
         // Step 4: Check for duplicates and Save
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
-        const profileContext = await resolveUserPlanContext(databases, user.$id);
+        const [profileContext, pricingPlans] = await Promise.all([
+            retryAppwriteOperation(() => resolveUserPlanContext(databases, user.$id)),
+            retryAppwriteOperation(() => listPricingPlans(databases))
+        ]);
         const windowStartedAt = new Date().toISOString();
 
-        const existingAccounts = await databases.listDocuments(
+        const existingAccounts = await retryAppwriteOperation(() => databases.listDocuments(
             process.env.APPWRITE_DATABASE_ID,
             IG_ACCOUNTS_COLLECTION_ID,
             [Query.equal('account_id', igProfessionalAccountId)]
-        );
+        ));
         let relinkTargetAccount = null;
         if (relinkAccountDocId) {
             try {
-                relinkTargetAccount = await databases.getDocument(
+                relinkTargetAccount = await retryAppwriteOperation(() => databases.getDocument(
                     process.env.APPWRITE_DATABASE_ID,
                     IG_ACCOUNTS_COLLECTION_ID,
                     relinkAccountDocId
-                );
+                ));
             } catch (_) {
                 relinkTargetAccount = null;
             }
@@ -2125,8 +2120,11 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                         profile_picture_url: profilePicUrl,
                         access_token: longLivedToken,
                         token_expires_at: tokenExpiresAt,
-                        permissions: permissionsText,
+                        permissions: removeReconnectPermissionMarker(permissionsText),
                         status: 'active',
+                        reauth_required: false,
+                        reauth_email_sent_at: null,
+                        deactivation_reason: null,
                         admin_status: String(existingAccount?.admin_status || 'active').trim().toLowerCase() || 'active',
                         linked_at: existingAccount?.linked_at || new Date().toISOString(),
                         hourly_actions_used: Number(existingAccount?.hourly_actions_used || 0),
@@ -2142,7 +2140,7 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                         permissions: appendReconnectPermissionMarker(relinkTargetAccount?.permissions)
                     });
                 }
-                await recomputeAccountAccessForUser(databases, user.$id, profileContext.profile);
+                await retryAppwriteOperation(() => recomputeAccountAccessForUser(databases, user.$id, profileContext.profile));
                 return res.json({
                     message: relinkMatchesSameAccount
                         ? `Instagram account @${igUsername} reconnected successfully.`
@@ -2181,6 +2179,9 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                     permissions: permissionsText,
                     linked_at: new Date().toISOString(),
                     status: 'active',
+                    reauth_required: false,
+                    reauth_email_sent_at: null,
+                    deactivation_reason: null,
                     admin_status: 'active',
                     plan_code: 'free',
                     plan_name: 'Free Plan',
@@ -2207,7 +2208,7 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                     permissions: appendReconnectPermissionMarker(relinkTargetAccount?.permissions)
                 });
             }
-            await recomputeAccountAccessForUser(databases, user.$id, profileContext.profile);
+            await retryAppwriteOperation(() => recomputeAccountAccessForUser(databases, user.$id, profileContext.profile));
             return res.json({
                 message: relinkTargetAccount
                     ? `Instagram account @${igUsername} linked successfully. Reconnect the original paused account separately to reactivate it.`
@@ -2216,9 +2217,12 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
         }
 
     } catch (err) {
-        console.error(`Instagram Auth Error: ${err.message}`, err.response?.data);
+        console.error(`Instagram Auth Error: ${err.message}`, err.cause || '', err.stack || '');
         const metaError = err.response?.data?.error;
-        const errorMessage = metaError?.message || err.message || '';
+        let errorMessage = metaError?.message || err.message || '';
+        if (err.message === 'fetch failed' || String(err.message || '').includes('fetch failed')) {
+            errorMessage = 'A temporary network connection issue occurred while connecting to the database. Please try again.';
+        }
         const isOffMeta = errorMessage.toLowerCase().includes('off meta technologies') ||
                           errorMessage.toLowerCase().includes('future activity history') ||
                           metaError?.code === 200 ||
@@ -2244,6 +2248,11 @@ router.get('/account/ig-accounts', loginRequired, async (req, res) => {
     try {
         const serverClient = getAppwriteClient({ useApiKey: true });
         const databases = new Databases(serverClient);
+
+        // Immediate validation of user's Instagram accounts on dashboard load
+        await validateUserInstagramAccounts(databases, req.user.$id).catch(err => {
+            console.error('[IG Accounts] Token validation error on fetch:', err?.message || err);
+        });
 
         const [profileContext, pricingPlans] = await Promise.all([
             resolveUserPlanContext(databases, req.user.$id),
@@ -2315,11 +2324,21 @@ const unlinkIgAccountHandler = async (req, res) => {
         if (!['active', 'inactive'].includes(nextStatus)) {
             return res.status(400).json({ error: 'A valid account status is required.' });
         }
-        if (nextStatus === 'active' && hasReconnectPermissionMarker(account?.permissions)) {
-            return res.status(409).json({
-                error: 'This Instagram account must be reconnected before automation can be activated again.',
-                reconnect_required: true
-            });
+        if (nextStatus === 'active') {
+            if (hasReconnectPermissionMarker(account?.permissions) || account?.reauth_required === true) {
+                return res.status(409).json({
+                    error: 'This Instagram account must be reconnected before automation can be activated again.',
+                    reconnect_required: true
+                });
+            }
+            const validation = await validateInstagramAccountToken(databases, account, { force: true });
+            if (!validation.valid) {
+                return res.status(409).json({
+                    error: 'Cannot activate account: Instagram access token is invalid or expired. Re-authorization required.',
+                    reconnect_required: true,
+                    reason: validation.reason
+                });
+            }
         }
 
         await databases.updateDocument(
@@ -2394,7 +2413,10 @@ router.post('/account/ig-accounts/:accountId/verify-connection', loginRequired, 
                 const updatedPermissions = removeReconnectPermissionMarker(account.permissions);
                 await updateIgAccountDocument(databases, account.$id, {
                     status: 'active',
-                    permissions: updatedPermissions
+                    permissions: updatedPermissions,
+                    reauth_required: false,
+                    reauth_email_sent_at: null,
+                    deactivation_reason: null
                 });
 
                 const profileContext = await resolveUserPlanContext(databases, req.user.$id);
@@ -2420,9 +2442,14 @@ router.post('/account/ig-accounts/:accountId/verify-connection', loginRequired, 
                               errorMessage.toLowerCase().includes('future activity history');
 
             // Token is INVALID or Off-Meta is disabled
-            const updatedPermissions = appendReconnectPermissionMarker(account.permissions);
-            await updateIgAccountDocument(databases, account.$id, {
-                permissions: updatedPermissions
+            await handleInstagramAuthorizationFailure({
+                databases,
+                account,
+                accountId: account.$id,
+                error: apiErr,
+                reason: isOffMeta
+                    ? "Future activity history off Meta technologies is turned off. Re-authorization required."
+                    : (errorMessage || 'Meta access token is invalid or expired. Reconnection required.')
             });
 
             return res.json({
@@ -2581,6 +2608,15 @@ router.post('/account/ig-accounts/relink/:accountId', loginRequired, async (req,
             return res.status(400).json({ error: 'Token expired. OAuth login required.' });
         }
 
+        const validation = await validateInstagramAccountToken(databases, account, { force: true });
+        if (!validation.valid) {
+            return res.status(400).json({
+                error: 'Token is invalid or revoked. Full OAuth re-authorization required.',
+                reconnect_required: true,
+                reason: validation.reason
+            });
+        }
+
         await databases.updateDocument(
             process.env.APPWRITE_DATABASE_ID,
             IG_ACCOUNTS_COLLECTION_ID,
@@ -2588,6 +2624,9 @@ router.post('/account/ig-accounts/relink/:accountId', loginRequired, async (req,
             {
                 status: 'active',
                 permissions: removeReconnectPermissionMarker(account?.permissions),
+                reauth_required: false,
+                reauth_email_sent_at: null,
+                deactivation_reason: null,
                 linked_at: account?.linked_at || new Date().toISOString()
             }
         );

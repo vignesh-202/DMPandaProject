@@ -77,8 +77,27 @@ def _normalize_account_status(account: Dict) -> str:
     return str(account.get("status") or "active").strip().lower() or "active"
 
 
+def _is_account_active(account: Dict) -> bool:
+    status = str(account.get("status") or "active").strip().lower()
+    admin_status = str(account.get("admin_status") or "active").strip().lower()
+    reauth_required = account.get("reauth_required") is True
+    permissions = str(account.get("permissions") or "").lower()
+    if status != "active" or admin_status != "active" or reauth_required or "dm_panda_reconnect_required" in permissions:
+        return False
+    token_expires_at = str(account.get("token_expires_at") or "").strip()
+    if token_expires_at:
+        try:
+            from datetime import datetime, timezone
+            dt = datetime.fromisoformat(token_expires_at.replace("Z", "+00:00"))
+            if dt <= datetime.now(timezone.utc):
+                return False
+        except Exception:
+            pass
+    return bool(account.get("access_token"))
+
+
 def _should_sync_account(account: Dict) -> bool:
-    return _normalize_account_status(account) in {"active", "inactive"} and bool(account.get("access_token"))
+    return _is_account_active(account)
 
 
 def _fetch_profile_snapshot(access_token: str) -> Dict:
@@ -135,8 +154,15 @@ def main(context):
         collection_id = _env("IG_ACCOUNTS_COLLECTION_ID", "ig_accounts")
 
         accounts = _fetch_all_documents(client, db_id, collection_id)
-        candidates = [account for account in accounts if _should_sync_account(account)]
-        context.log(f"Found {len(candidates)} Instagram accounts eligible for profile sync.")
+        candidates = []
+        for account in accounts:
+            username = str(account.get("username") or "").strip() or account.get("$id")
+            if not _should_sync_account(account):
+                context.log(f"Skipped Instagram automation because linked account is inactive. (username=@{username})")
+                continue
+            candidates.append(account)
+
+        context.log(f"Found {len(candidates)} active Instagram accounts eligible for profile sync.")
 
         synced = 0
         updated = 0
@@ -161,6 +187,43 @@ def main(context):
                     "error": str(err),
                 })
                 context.error(f"Failed syncing Instagram profile for @{username}: {err}")
+
+                # Check if it's an authorization failure
+                is_auth_error = False
+                err_resp = getattr(err, "response", None)
+                if err_resp is not None:
+                    try:
+                        err_body = err_resp.json() or {}
+                        meta_err = err_body.get("error", {})
+                        code = meta_err.get("code")
+                        msg = str(meta_err.get("message") or "").lower()
+                        if code in (190, 102) or "oauthexception" in str(meta_err.get("type", "")).lower() or "access token" in msg:
+                            is_auth_error = True
+                    except Exception:
+                        pass
+
+                if is_auth_error:
+                    try:
+                        raw_perms = str(account.get("permissions") or "")
+                        parts = [p.strip() for p in raw_perms.split(",") if p.strip()]
+                        if "dm_panda_reconnect_required" not in parts:
+                            parts.append("dm_panda_reconnect_required")
+                        new_perms = ",".join(parts)[:1024]
+
+                        deact_patch = {
+                            "status": "inactive",
+                            "reauth_required": True,
+                            "permissions": new_perms,
+                            "deactivation_reason": f"Meta profile sync auth failure: {err}"[:255]
+                        }
+                        if not account.get("reauth_email_sent_at"):
+                            from datetime import datetime, timezone
+                            deact_patch["reauth_email_sent_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+                        _update_document(client, db_id, collection_id, account["$id"], deact_patch)
+                        context.log(f"Deactivated account @{username} due to Instagram auth failure.")
+                    except Exception as deact_err:
+                        context.error(f"Failed deactivating account @{username}: {deact_err}")
 
         return context.res.json(
             {

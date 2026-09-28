@@ -2300,6 +2300,35 @@
         "size": 5000,
         "default": null,
         "encrypt": false
+      },
+      {
+        "key": "reauth_required",
+        "type": "boolean",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "default": false
+      },
+      {
+        "key": "reauth_email_sent_at",
+        "type": "datetime",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "default": null
+      },
+      {
+        "key": "deactivation_reason",
+        "type": "string",
+        "status": "available",
+        "error": "",
+        "required": false,
+        "array": false,
+        "size": 255,
+        "default": null,
+        "encrypt": false
       }
     ],
     "indexes": [

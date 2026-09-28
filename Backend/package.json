@@ -14,7 +14,7 @@
         "razorpay": "^2.9.2"
     },
     "scripts": {
-        "test": "node -e \"console.log('No backend tests configured')\"",
+        "test": "node tests/instagramAuth.test.js",
         "start": "node app.js",
         "dev": "node --watch app.js"
     }

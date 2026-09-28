@@ -577,7 +577,7 @@ const GlobalTriggersView: React.FC = () => {
                                 const isDeleting = deletingIds.has(trigger.$id);
                                 const t = trigger.template_type || 'template_text';
                                 return (
-                                    <div key={trigger.$id} className="relative group bg-card border border-border/80 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-primary/40 hover:shadow-sm transition-all overflow-hidden">
+                                    <div key={trigger.$id} className="relative group bg-card border border-border/80 rounded-2xl p-3.5 sm:p-5 shadow-xs hover:border-primary/40 hover:shadow-sm transition-all overflow-hidden">
                                         {isDeleting && (
                                             <div className="absolute inset-0 z-20 bg-card/80 backdrop-blur-md rounded-2xl flex items-center justify-center animate-in fade-in duration-200">
                                                 <div className="flex flex-col items-center gap-2">

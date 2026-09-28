@@ -29,6 +29,7 @@ import { Skeleton } from '../../components/ui/skeleton';
 import LoadingOverlay from '../../components/ui/LoadingOverlay';
 import { toBrowserPreviewUrl } from '../../lib/templatePreview';
 import { OffMetaActivityModal } from '../../components/dashboard/OffMetaActivityModal';
+import { InstagramLinkErrorModal } from '../../components/dashboard/InstagramLinkErrorModal';
 
 const calculateStrength = (pwd: string) => {
   let strength = 0;
@@ -236,6 +237,7 @@ const AccountSettingsView = () => {
   useEffect(() => {
     const activeAccountNeedsReconnect = activeAccount?.status === 'reconnect_required' ||
       activeAccount?.access_reason === 'reconnect_required' ||
+      activeAccount?.reauth_required === true ||
       (activeAccount?.token_expires_at && new Date(activeAccount.token_expires_at).getTime() <= Date.now());
 
     if (window.location.hash === '#instagram-accounts-section' || activeAccountNeedsReconnect) {
@@ -244,6 +246,8 @@ const AccountSettingsView = () => {
   }, [activeAccount]);
 
   const [showOffMetaModal, setShowOffMetaModal] = useState(false);
+  const [showLinkErrorModal, setShowLinkErrorModal] = useState(false);
+  const [linkErrorMessage, setLinkErrorMessage] = useState('');
   const [isVerifyingConnection, setIsVerifyingConnection] = useState<string | null>(null);
 
   useEffect(() => {
@@ -266,7 +270,10 @@ const AccountSettingsView = () => {
       window.history.replaceState({}, '', window.location.pathname);
     } else if (errorParam === 'instagram_auth_failed' || errorParam === 'instagram_link_failed') {
       setActiveTab('instagram');
-      setMsg('instagram', 'error', msgParam ? decodeURIComponent(msgParam) : 'Failed to connect Instagram account.');
+      const decoded = msgParam ? decodeURIComponent(msgParam) : 'Failed to connect Instagram account. Please verify permissions and account type on Meta.';
+      setMsg('instagram', 'error', decoded);
+      setLinkErrorMessage(decoded);
+      setShowLinkErrorModal(true);
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
@@ -867,13 +874,14 @@ const AccountSettingsView = () => {
                           : false;
                         const isReconnectRequired = account.status === 'reconnect_required' ||
                           account.access_reason === 'reconnect_required' ||
+                          account.reauth_required === true ||
                           isTokenExpired;
                         const isUserInactive = !isReconnectRequired && (account.disabled_by_user === true || account.status === 'inactive');
-                        const isActive = account.status === 'active';
+                        const isActive = account.status === 'active' && !isReconnectRequired;
                         const statusLabel = isActive
                           ? (account.plan_locked === true ? 'Active • plan locked' : 'Active')
                           : (isAdminDisabled ? 'Disabled by Security Team • Contact Support' : 'Inactive by you');
-                        const displayStatusLabel = isReconnectRequired ? 'Reconnect required' : statusLabel;
+                        const displayStatusLabel = isReconnectRequired ? 'Re-authorization required' : statusLabel;
 
                         return (
                           <div
@@ -886,7 +894,7 @@ const AccountSettingsView = () => {
                                   ? "border-primary/40 bg-primary/[0.02]"
                                   : "border-border hover:border-primary/20",
                               !isActive && !isAdminDisabled && "opacity-80 border-dashed",
-                              isReconnectRequired && "border-destructive/30 bg-destructive/[0.02]"
+                              isReconnectRequired && "border-destructive/40 bg-destructive/[0.03] shadow-destructive/5"
                             )}
                           >
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -944,9 +952,9 @@ const AccountSettingsView = () => {
                                       </span>
                                     )}
                                     {isReconnectRequired && (
-                                      <span className="inline-flex items-center rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+                                      <span className="inline-flex items-center rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
                                         <AlertTriangle className="mr-1 h-2.5 w-2.5 shrink-0" />
-                                        Automations Stopped
+                                        Automations Paused
                                       </span>
                                     )}
                                     {isAdminDisabled && (
@@ -971,6 +979,18 @@ const AccountSettingsView = () => {
                                     )}
                                   </div>
 
+                                  {isReconnectRequired && (
+                                    <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-destructive" />
+                                      <div className="space-y-0.5">
+                                        <p className="font-bold">Instagram account needs re-authorization</p>
+                                        <p className="text-[11px] leading-relaxed text-destructive/90">
+                                          Your Instagram connection is no longer authorized. Re-authorize your account to continue running automations.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {isAdminDisabled && (
                                     <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300">
                                       <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-rose-500" />
@@ -994,14 +1014,14 @@ const AccountSettingsView = () => {
                                       size="sm"
                                       onClick={() => handleInstagramLink(account.id)}
                                       disabled={linkingAccountID === account.id}
-                                      className="h-8 px-3 transition-all bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm rounded-lg flex items-center justify-center text-xs font-medium flex-1 sm:flex-initial whitespace-nowrap"
+                                      className="h-8 px-3 transition-all bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm rounded-lg flex items-center justify-center text-xs font-semibold flex-1 sm:flex-initial whitespace-nowrap"
                                     >
                                       {linkingAccountID === account.id ? (
                                         <Loader2 className="mr-1.5 h-3 w-3 animate-spin shrink-0" />
                                       ) : (
                                         <RefreshCw className="mr-1.5 h-3 w-3 shrink-0" />
                                       )}
-                                      <span>Reconnect</span>
+                                      <span>Re-authorize Instagram</span>
                                     </Button>
                                     <Button
                                       variant="outline"
@@ -1065,16 +1085,17 @@ const AccountSettingsView = () => {
                                     </Button>
                                   )}
 
-                                  {(!isActive || isAdminDisabled) && (
+                                  {(!isActive || isAdminDisabled || isReconnectRequired) && (
                                     <Button
                                       variant="destructive"
                                       size="sm"
                                       onClick={() => setShowDeleteIGConfirm(account.id)}
                                       disabled={isDeletingIG === account.id}
                                       className="h-8 border-0 bg-destructive/10 px-2.5 font-medium text-destructive hover:bg-destructive/20 rounded-lg text-xs flex-1 sm:flex-initial whitespace-nowrap"
+                                      title="Remove this Instagram account"
                                     >
                                       {isDeletingIG === account.id ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin shrink-0" /> : <Trash2 className="mr-1.5 h-3 w-3 shrink-0" />}
-                                      <span>Delete</span>
+                                      <span>Remove account</span>
                                     </Button>
                                   )}
                                 </div>
@@ -1486,6 +1507,13 @@ const AccountSettingsView = () => {
       <OffMetaActivityModal
         isOpen={showOffMetaModal}
         onClose={() => setShowOffMetaModal(false)}
+        onRetry={() => handleInstagramLink(activeAccountID || 'new')}
+      />
+
+      <InstagramLinkErrorModal
+        isOpen={showLinkErrorModal}
+        errorMessage={linkErrorMessage}
+        onClose={() => setShowLinkErrorModal(false)}
         onRetry={() => handleInstagramLink(activeAccountID || 'new')}
       />
 

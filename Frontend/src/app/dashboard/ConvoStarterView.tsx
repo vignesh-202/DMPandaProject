@@ -774,12 +774,12 @@ const ConvoStarterView: React.FC = () => {
                                     <button
                                         onClick={handleDeleteAll}
                                         disabled={isDeleting}
-                                        className="inline-flex items-center justify-center gap-1.5 h-10 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-semibold bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground transition-all duration-150 active:scale-95 disabled:opacity-50"
+                                        className="inline-flex items-center justify-center gap-1.5 h-10 w-10 sm:w-auto px-0 sm:px-4 rounded-xl text-xs sm:text-sm font-semibold bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-destructive-foreground transition-all duration-150 active:scale-95 disabled:opacity-50"
                                         title="Delete all starters"
                                         aria-label="Delete all starters"
                                     >
                                         {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                        <span>Delete All</span>
+                                        <span className="hidden sm:inline">Delete All</span>
                                     </button>
                                 )}
                                 <div className="flex items-center gap-2">
@@ -1213,7 +1213,7 @@ const ConvoStarterView: React.FC = () => {
                                                         <div className="flex items-center gap-1 shrink-0">
                                                             <button
                                                                 onClick={() => void handleEditStarter(starter, index)}
-                                                                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-lg transition-all"
+                                                                className="p-2 sm:p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-lg transition-all"
                                                                 title="Edit starter"
                                                                 aria-label="Edit starter"
                                                             >
@@ -1221,7 +1221,7 @@ const ConvoStarterView: React.FC = () => {
                                                             </button>
                                                             <button
                                                                 onClick={() => handleRemove(index)}
-                                                                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive-muted/30 rounded-lg transition-all"
+                                                                className="p-2 sm:p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive-muted/30 rounded-lg transition-all"
                                                                 title="Remove starter"
                                                                 aria-label="Remove starter"
                                                             >

@@ -340,6 +340,9 @@ ADDITIONAL_ATTRIBUTES = {
         {"key": "webhook_secret", "type": "string", "required": False, "array": False, "default": None, "size": 128},
         {"key": "api_created_at", "type": "datetime", "required": False, "array": False, "default": None},
         {"key": "api_last_used_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "reauth_required", "type": "boolean", "required": False, "array": False, "default": False},
+        {"key": "reauth_email_sent_at", "type": "datetime", "required": False, "array": False, "default": None},
+        {"key": "deactivation_reason", "type": "string", "size": 255, "required": False, "array": False, "default": None},
     ],
     "coupons": [
         {
@@ -379,6 +382,7 @@ ADDITIONAL_INDEXES = {
     "ig_accounts": [
         {"key": "idx_ig_user_linked_at", "type": "key", "attributes": ["user_id", "linked_at"], "orders": []},
         {"key": "idx_ig_api_token", "type": "key", "attributes": ["api_token"], "orders": []},
+        {"key": "idx_ig_reauth_status", "type": "key", "attributes": ["reauth_required", "status"], "orders": []},
     ],
     "payment_attempts": [
         {"key": "idx_payment_attempt_status_created", "type": "key", "attributes": ["status", "created_at"], "orders": []},
@@ -423,6 +427,7 @@ ACTIVE_COLLECTION_IDS = {
     "inactive_user_cleanup_audit",
     "system_config",
     "email_change_tokens",
+    "subscription_slots",
 }
 
 DEPRECATED_COLLECTIONS = {
@@ -602,6 +607,7 @@ def load_schema_definitions():
         INACTIVE_USER_CLEANUP_AUDIT_COLLECTION,
         SYSTEM_CONFIG_COLLECTION,
         EMAIL_CHANGE_TOKENS_COLLECTION,
+        SUBSCRIPTION_SLOTS_COLLECTION,
     ):
         if extra["id"] not in merged:
             merged[extra["id"]] = deepcopy(extra)
@@ -1201,12 +1207,34 @@ def parse_args():
     parser.add_argument("--inventory", action="store_true", help="Print the current collection, attribute, and index inventory.")
     parser.add_argument("--cleanup-report", action="store_true", help="Print deprecated and unmanaged schema objects without deleting them.")
     parser.add_argument("--apply-cleanup", action="store_true", help="Delete deprecated collections, attributes, and indexes.")
+    parser.add_argument("--env-file", default=None, help="Path to custom .env file (e.g. .env.production).")
     return parser.parse_args()
 
 
 def main():
+    global APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_API_KEY, DATABASE_ID, REQUIRED_ENV
     args = parse_args()
+    if args.env_file:
+        env_target = Path(args.env_file).resolve()
+        if not env_target.exists():
+            raise SystemExit(f"Specified env file not found: {env_target}")
+        load_dotenv(env_target, override=True)
+        APPWRITE_ENDPOINT = os.getenv("APPWRITE_ENDPOINT")
+        APPWRITE_PROJECT_ID = os.getenv("APPWRITE_PROJECT_ID")
+        APPWRITE_API_KEY = os.getenv("APPWRITE_API_KEY")
+        DATABASE_ID = os.getenv("DATABASE_ID") or os.getenv("APPWRITE_DATABASE_ID")
+        REQUIRED_ENV = {
+            "APPWRITE_ENDPOINT": APPWRITE_ENDPOINT,
+            "APPWRITE_PROJECT_ID": APPWRITE_PROJECT_ID,
+            "APPWRITE_API_KEY": APPWRITE_API_KEY,
+            "DATABASE_ID": DATABASE_ID,
+        }
+
     require_env()
+    print(f"Targeting Appwrite Endpoint : {APPWRITE_ENDPOINT}")
+    print(f"Targeting Project ID        : {APPWRITE_PROJECT_ID}")
+    print(f"Targeting Database ID       : {DATABASE_ID}")
+
     client = build_client()
     databases = Databases(client)
 

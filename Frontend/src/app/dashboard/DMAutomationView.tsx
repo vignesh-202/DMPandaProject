@@ -3189,7 +3189,7 @@ const DMAutomationView: React.FC = () => {
             ) : (
                 <div className="grid grid-cols-1 gap-3">
                     {dmAutomations.map((auto) => (
-                        <div key={auto.$id} className="relative group bg-card border border-border/70 hover:border-border rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-sm transition-all duration-150 overflow-hidden">
+                        <div key={auto.$id} className="relative group bg-card border border-border/70 hover:border-border rounded-xl p-3.5 sm:p-5 shadow-xs hover:shadow-sm transition-all duration-150 overflow-hidden">
                             {deletingIds.has(auto.$id!) && (
                                 <div className="absolute inset-0 z-20 bg-card/80 backdrop-blur-sm rounded-xl flex items-center justify-center animate-in fade-in duration-200">
                                     <div className="flex flex-col items-center gap-2">
@@ -3198,9 +3198,9 @@ const DMAutomationView: React.FC = () => {
                                     </div>
                                 </div>
                             )}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="flex items-start sm:items-center gap-4 min-w-0">
-                                    <div className="w-11 h-11 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                                <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
+                                    <div className="w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                                         {auto.template_type === 'template_text' && <FileText className="w-5 h-5" />}
                                         {auto.template_type === 'template_carousel' && <Smartphone className="w-5 h-5" />}
                                         {auto.template_type === 'template_buttons' && <MousePointerClick className="w-5 h-5" />}
@@ -3209,7 +3209,7 @@ const DMAutomationView: React.FC = () => {
                                         {auto.template_type === 'template_share_post' && <Share2 className="w-5 h-5" />}
                                     </div>
                                     <div className="min-w-0 space-y-1">
-                                        <h4 className="text-base font-semibold text-foreground truncate">{auto.title || 'Untitled Rule'}</h4>
+                                        <h4 className="text-sm sm:text-base font-semibold text-foreground truncate">{auto.title || 'Untitled Rule'}</h4>
                                         {auto.template_content && auto.template_type === 'template_text' && (
                                             <p className="text-xs text-muted-foreground line-clamp-1 italic">"{auto.template_content}"</p>
                                         )}
@@ -3243,17 +3243,17 @@ const DMAutomationView: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                                <div className="flex items-center justify-end gap-2 shrink-0 pt-2 border-t border-border/50 sm:border-0 sm:pt-0 w-full sm:w-auto">
                                     <button
                                         onClick={() => handleEdit(auto)}
-                                        className="inline-flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-lg transition-all"
+                                        className="inline-flex items-center justify-center h-9 w-9 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-lg transition-all"
                                         title="Edit"
                                     >
                                         <Pencil className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleDelete(auto.$id!)}
-                                        className="inline-flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive-muted/30 rounded-lg transition-all"
+                                        className="inline-flex items-center justify-center h-9 w-9 sm:h-8 sm:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive-muted/30 rounded-lg transition-all"
                                         title="Delete"
                                     >
                                         <Trash2 className="w-4 h-4" />

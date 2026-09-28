@@ -78,7 +78,16 @@ const AutomationActionBar: React.FC<AutomationActionBarProps> = ({
                         className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 px-3.5 sm:px-5 rounded-xl text-xs sm:text-sm font-semibold bg-gradient-to-r from-[#405DE6] via-[#833AB4] to-[#FD1D1D] text-white hover:opacity-95 shadow-sm transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
                     >
                         {isSaving ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                        <span>{isSaving ? 'Saving...' : (saveLabel || (hasExisting ? 'Save Changes' : 'Save'))}</span>
+                        <span>
+                            {isSaving ? 'Saving...' : (
+                                saveLabel || (
+                                    <>
+                                        <span>Save</span>
+                                        {hasExisting && <span className="hidden sm:inline"> Changes</span>}
+                                    </>
+                                )
+                            )}
+                        </span>
                     </button>
                 )}
             </div>

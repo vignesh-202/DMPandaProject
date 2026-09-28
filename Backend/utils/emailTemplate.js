@@ -4,24 +4,29 @@ const DEFAULT_EYEBROW = 'DM Panda';
 const DEFAULT_PREHEADER = 'Important update from DM Panda.';
 
 const COLORS = {
-    canvas: '#eef2f7',
+    canvas: '#f8fafc',
     card: '#ffffff',
-    border: '#d7deea',
+    border: '#e2e8f0',
+    borderLight: '#f1f5f9',
     ink: '#0f172a',
+    body: '#334155',
     muted: '#475569',
     subtle: '#64748b',
-    accent: '#f97316',
-    accentDark: '#ea580c',
-    accentSoft: '#fff3e8',
-    infoBg: '#eff6ff',
-    infoBorder: '#bfdbfe',
-    infoText: '#1d4ed8',
-    warningBg: '#fff7ed',
-    warningBorder: '#fdba74',
-    warningText: '#c2410c',
-    criticalBg: '#fff1f2',
-    criticalBorder: '#fda4af',
-    criticalText: '#be123c'
+    faint: '#94a3b8',
+    primary: '#0f172a',
+    primaryText: '#ffffff',
+    accent: '#0f172a',
+    accentDark: '#1e293b',
+    accentSoft: '#f1f5f9',
+    infoBg: '#f8fafc',
+    infoBorder: '#e2e8f0',
+    infoText: '#0f172a',
+    warningBg: '#fffbeb',
+    warningBorder: '#fde68a',
+    warningText: '#92400e',
+    criticalBg: '#fef2f2',
+    criticalBorder: '#fecdd3',
+    criticalText: '#9f1239'
 };
 
 const escapeHtml = (value = '') => String(value || '')
@@ -63,12 +68,12 @@ const renderHtmlFooter = ({
     ];
 
     return `
-        <div style="border-top:1px solid ${COLORS.border};padding-top:18px;color:${COLORS.subtle};font-size:13px;line-height:1.7;">
-            <p style="margin:0 0 8px;">${escapeHtml(lines[0])}</p>
+        <div style="border-top:1px solid ${COLORS.borderLight};padding-top:20px;color:${COLORS.faint};font-size:12px;line-height:1.65;">
+            <p style="margin:0 0 6px;">${escapeHtml(lines[0])}</p>
             <p style="margin:0 0 8px;">${escapeHtml(lines[1])}</p>
-            ${dashboardUrl ? `<p style="margin:0 0 8px;"><a href="${escapeHtml(dashboardUrl)}" style="color:${COLORS.accentDark};text-decoration:none;font-weight:700;">Open your DM Panda dashboard</a></p>` : ''}
+            ${dashboardUrl ? `<p style="margin:0 0 8px;"><a href="${escapeHtml(dashboardUrl)}" style="color:${COLORS.ink};text-decoration:underline;font-weight:600;">Open your DM Panda dashboard &rarr;</a></p>` : ''}
             ${footerNote ? `<p style="margin:0 0 8px;">${escapeHtml(footerNote)}</p>` : ''}
-            <p style="margin:0;">DM Panda, Instagram automation and lead capture for growing teams.</p>
+            <p style="margin:0;color:${COLORS.faint};">DM Panda &bull; Instagram automation & lead capture</p>
         </div>
     `;
 };
@@ -76,7 +81,7 @@ const renderHtmlFooter = ({
 const renderParagraphs = (paragraphs = []) => paragraphs
     .filter((paragraph) => String(paragraph || '').trim())
     .map((paragraph) => (
-        `<p style="margin:0 0 16px;color:${COLORS.muted};font-size:15px;line-height:1.75;">${escapeHtml(paragraph)}</p>`
+        `<p style="margin:0 0 14px;color:${COLORS.body};font-size:14px;line-height:1.65;">${escapeHtml(paragraph)}</p>`
     ))
     .join('');
 
@@ -84,9 +89,9 @@ const renderList = (items = []) => {
     const safeItems = items.filter((item) => String(item || '').trim());
     if (!safeItems.length) return '';
     const renderedItems = safeItems
-        .map((item) => `<li style="margin:0 0 10px;">${escapeHtml(item)}</li>`)
+        .map((item) => `<li style="margin:0 0 8px;">${escapeHtml(item)}</li>`)
         .join('');
-    return `<ul style="margin:0 0 18px 20px;padding:0;color:${COLORS.muted};font-size:15px;line-height:1.7;">${renderedItems}</ul>`;
+    return `<ul style="margin:0 0 16px 20px;padding:0;color:${COLORS.body};font-size:14px;line-height:1.65;">${renderedItems}</ul>`;
 };
 
 const renderCallout = ({ tone = 'info', title = '', lines = [] } = {}) => {
@@ -98,9 +103,9 @@ const renderCallout = ({ tone = 'info', title = '', lines = [] } = {}) => {
     const safeLines = lines.filter((line) => String(line || '').trim());
     if (!title && !safeLines.length) return '';
     return [
-        `<div style="margin:0 0 20px;padding:16px 18px;background:${palette.bg};border:1px solid ${palette.border};border-radius:16px;">`,
-        title ? `<p style="margin:0 0 8px;color:${palette.text};font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">${escapeHtml(title)}</p>` : '',
-        safeLines.map((line) => `<p style="margin:0 0 10px;color:${palette.text};font-size:14px;line-height:1.7;">${escapeHtml(line)}</p>`).join(''),
+        `<div style="margin:0 0 18px;padding:14px 16px;background:${palette.bg};border:1px solid ${palette.border};border-radius:12px;">`,
+        title ? `<p style="margin:0 0 6px;color:${palette.text};font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">${escapeHtml(title)}</p>` : '',
+        safeLines.map((line) => `<p style="margin:0 0 6px;color:${palette.text};font-size:13px;line-height:1.6;">${escapeHtml(line)}</p>`).join(''),
         '</div>'
     ].join('');
 };
@@ -110,12 +115,12 @@ const renderSummary = (rows = []) => {
     if (!safeRows.length) return '';
     const renderedRows = safeRows.map(([label, value]) => (
         `<tr>
-            <td style="padding:10px 0;color:${COLORS.subtle};font-size:13px;font-weight:600;vertical-align:top;">${escapeHtml(label)}</td>
-            <td style="padding:10px 0;color:${COLORS.ink};font-size:14px;font-weight:600;vertical-align:top;text-align:right;">${escapeHtml(value)}</td>
+            <td style="padding:8px 0;color:${COLORS.subtle};font-size:13px;font-weight:500;vertical-align:top;">${escapeHtml(label)}</td>
+            <td style="padding:8px 0;color:${COLORS.ink};font-size:13px;font-weight:600;vertical-align:top;text-align:right;">${escapeHtml(value)}</td>
         </tr>`
     )).join('');
     return `
-        <div style="margin:0 0 22px;padding:18px 20px;background:#f8fafc;border:1px solid ${COLORS.border};border-radius:18px;">
+        <div style="margin:0 0 20px;padding:14px 18px;background:${COLORS.infoBg};border:1px solid ${COLORS.border};border-radius:12px;">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                 ${renderedRows}
             </table>
@@ -126,8 +131,8 @@ const renderSummary = (rows = []) => {
 const renderPrimaryButton = (label = '', url = '') => {
     if (!String(label || '').trim() || !String(url || '').trim()) return '';
     return `
-        <div style="margin:28px 0 16px;">
-            <a href="${escapeHtml(url)}" style="display:inline-block;padding:14px 22px;background:${COLORS.accent};border:1px solid ${COLORS.accentDark};border-radius:999px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">
+        <div style="margin:24px 0 16px;">
+            <a href="${escapeHtml(url)}" style="display:inline-block;padding:12px 24px;background:${COLORS.primary};border-radius:8px;color:${COLORS.primaryText};text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.01em;">
                 ${escapeHtml(label)}
             </a>
         </div>
@@ -138,9 +143,9 @@ const renderSecondaryLinks = (links = []) => {
     const safeLinks = links.filter((link) => String(link?.label || '').trim() && String(link?.url || '').trim());
     if (!safeLinks.length) return '';
     return `
-        <div style="margin:0 0 18px;">
+        <div style="margin:0 0 16px;">
             ${safeLinks.map((link) => (
-                `<a href="${escapeHtml(link.url)}" style="display:inline-block;margin-right:16px;color:${COLORS.accentDark};text-decoration:none;font-size:14px;font-weight:700;">${escapeHtml(link.label)}</a>`
+                `<a href="${escapeHtml(link.url)}" style="display:inline-block;margin-right:16px;color:${COLORS.subtle};text-decoration:underline;font-size:13px;font-weight:600;">${escapeHtml(link.label)}</a>`
             )).join('')}
         </div>
     `;
@@ -167,8 +172,8 @@ const renderEmailLayout = ({
 } = {}) => {
     const logoUrl = buildLogoUrl(frontendOrigin);
     const logoMarkup = logoUrl
-        ? `<img src="${escapeHtml(logoUrl)}" alt="${BRAND_NAME}" width="52" height="52" style="display:block;border-radius:14px;background:#ffffff;padding:6px;object-fit:contain;border:1px solid rgba(255,255,255,0.16);" />`
-        : `<div style="display:inline-block;border-radius:14px;background:#ffffff;padding:12px 14px;color:${COLORS.ink};font-size:18px;font-weight:900;letter-spacing:0.02em;">DM Panda</div>`;
+        ? `<img src="${escapeHtml(logoUrl)}" alt="${BRAND_NAME}" width="38" height="38" style="display:block;border-radius:8px;object-fit:contain;" />`
+        : `<span style="font-size:16px;font-weight:800;color:${COLORS.ink};letter-spacing:-0.02em;">DM Panda</span>`;
     const dashboardUrl = frontendOrigin ? `${trimTrailingSlash(frontendOrigin)}/dashboard` : '';
     const resolvedSupportNote = String(supportNote || '').trim();
 
@@ -180,31 +185,43 @@ const renderEmailLayout = ({
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${escapeHtml(title || BRAND_NAME)}</title>
   </head>
-  <body style="margin:0;padding:0;background:${COLORS.canvas};font-family:Arial,Helvetica,sans-serif;">
+  <body style="margin:0;padding:0;background:${COLORS.canvas};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
       ${escapeHtml(preheader)}
     </div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${COLORS.canvas};padding:24px 12px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${COLORS.canvas};padding:32px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:28px;overflow:hidden;box-shadow:0 18px 48px rgba(15,23,42,0.08);">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(15,23,42,0.04);">
             <tr>
-              <td style="padding:30px 32px 26px;background:linear-gradient(135deg,#0f172a 0%,#162033 42%,#22314b 100%);">
-                ${logoMarkup}
-                <div style="margin-top:18px;display:inline-block;padding:7px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#e2e8f0;font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;">${escapeHtml(eyebrow)}</div>
-                <h1 style="margin:16px 0 0;color:#ffffff;font-size:31px;line-height:1.2;">${escapeHtml(title)}</h1>
-                <p style="margin:10px 0 0;color:#cbd5e1;font-size:14px;line-height:1.7;">Clear updates from DM Panda, designed to be easy to scan on any device.</p>
+              <td style="padding:28px 32px 20px;border-bottom:1px solid ${COLORS.borderLight};">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td align="left" style="vertical-align:middle;">
+                      ${logoMarkup}
+                    </td>
+                    ${eyebrow ? `
+                    <td align="right" style="vertical-align:middle;">
+                      <span style="display:inline-block;padding:3px 8px;border-radius:6px;background:#f1f5f9;border:1px solid #e2e8f0;color:#64748b;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">
+                        ${escapeHtml(eyebrow)}
+                      </span>
+                    </td>` : ''}
+                  </tr>
+                </table>
+                <h1 style="margin:18px 0 0;color:${COLORS.ink};font-size:21px;font-weight:700;line-height:1.3;letter-spacing:-0.015em;">
+                  ${escapeHtml(title)}
+                </h1>
               </td>
             </tr>
             <tr>
-              <td style="padding:30px 32px 18px;">
-                ${greeting ? `<p style="margin:0 0 14px;color:${COLORS.ink};font-size:15px;font-weight:700;">${escapeHtml(greeting)}</p>` : ''}
-                ${intro ? `<p style="margin:0 0 22px;color:${COLORS.ink};font-size:16px;line-height:1.75;">${escapeHtml(intro)}</p>` : ''}
+              <td style="padding:28px 32px 20px;">
+                ${greeting ? `<p style="margin:0 0 12px;color:${COLORS.ink};font-size:14px;font-weight:600;">${escapeHtml(greeting)}</p>` : ''}
+                ${intro ? `<p style="margin:0 0 18px;color:${COLORS.body};font-size:14px;line-height:1.65;">${escapeHtml(intro)}</p>` : ''}
                 ${callouts.map((callout) => renderCallout(callout)).join('')}
                 ${renderSummary(summaryRows)}
                 ${renderParagraphs(paragraphs)}
                 ${renderList(bullets)}
-                ${bodyHtml ? `<div style="margin:0 0 8px;padding:20px 22px;background:${COLORS.accentSoft};border:1px solid #fed7aa;border-radius:22px;color:${COLORS.ink};font-size:15px;line-height:1.75;">${bodyHtml}</div>` : ''}
+                ${bodyHtml ? `<div style="margin:0 0 16px;padding:16px 18px;background:${COLORS.infoBg};border:1px solid ${COLORS.border};border-radius:12px;color:${COLORS.body};font-size:14px;line-height:1.65;">${bodyHtml}</div>` : ''}
                 ${renderPrimaryButton(ctaLabel, ctaUrl)}
                 ${renderSecondaryLinks(secondaryLinks)}
               </td>

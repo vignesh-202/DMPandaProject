@@ -384,6 +384,9 @@ class DMWorker {
     }
 
     _logAutomationDecision(eventType, details = {}) {
+        if (details?.reason === 'inactive' || details?.reason === 'reconnect_required' || details?.gate_stage === 'account_user') {
+            console.log('Skipped Instagram automation because linked account is inactive.');
+        }
         try {
             console.log(JSON.stringify({
                 scope: 'automation_gate',
@@ -584,7 +587,7 @@ class DMWorker {
         return safeTracker;
     }
 
-    _createInstagramClient(accessToken, budgetKey, tracker = null, executionProfile = null) {
+    _createInstagramClient(accessToken, budgetKey, tracker = null, executionProfile = null, igAccount = null) {
         const safeBudgetKey = String(budgetKey || '').trim();
         const safeTracker = this._ensureMetaApiUsageTracker(tracker);
         this._initializeMetaApiBudget(safeTracker, safeBudgetKey, executionProfile);
@@ -606,6 +609,17 @@ class DMWorker {
                     return;
                 }
                 this._trackMetaApiAction(safeTracker, safeBudgetKey, details);
+            },
+            onAuthError: (authErr) => {
+                const errorMsg = authErr.response?.data?.error?.message || authErr.message;
+                console.warn(`[Worker] Detected Instagram auth/token failure (Code 190 / OAuthException) for account ${igAccount?.$id || budgetKey}: ${errorMsg}`);
+                if (this.appwrite && typeof this.appwrite.reportInvalidToken === 'function') {
+                    this.appwrite.reportInvalidToken({
+                        accountId: igAccount?.account_id || igAccount?.ig_user_id || budgetKey,
+                        accountDocId: igAccount?.$id || '',
+                        reason: errorMsg
+                    }).catch(() => null);
+                }
             }
         });
     }
@@ -1634,7 +1648,7 @@ class DMWorker {
         }
 
         const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || commentEvent.recipientId).trim();
-        const instagram = this._createInstagramClient(igAccount.access_token, accountBudgetKey, options?.metaApiUsageTracker, executionProfile);
+        const instagram = this._createInstagramClient(igAccount.access_token, accountBudgetKey, options?.metaApiUsageTracker, executionProfile, igAccount);
         const primaryAccountId = String(igAccount.ig_user_id || igAccount.account_id || commentEvent.recipientId).trim() || String(commentEvent.recipientId || '').trim();
         const automationAccountIds = this.getAutomationAccountIds(igAccount, primaryAccountId);
         if (commentEvent.senderId && (commentEvent.senderId === commentEvent.recipientId || automationAccountIds.includes(commentEvent.senderId))) {
@@ -1888,7 +1902,7 @@ class DMWorker {
         }
 
         const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || mentionEvent.recipientId).trim();
-        const instagram = this._createInstagramClient(igAccount.access_token, accountBudgetKey, options?.metaApiUsageTracker, executionProfile);
+        const instagram = this._createInstagramClient(igAccount.access_token, accountBudgetKey, options?.metaApiUsageTracker, executionProfile, igAccount);
         const primaryAccountId = String(igAccount.ig_user_id || igAccount.account_id || mentionEvent.recipientId).trim() || String(mentionEvent.recipientId || '').trim();
         const automationAccountIds = this.getAutomationAccountIds(igAccount, primaryAccountId);
         const conversationKey = `${mentionEvent.recipientId}:${mentionEvent.senderId}`;
@@ -2130,7 +2144,7 @@ class DMWorker {
             }
 
             const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || recipientId).trim();
-            const instagram = this._createInstagramClient(accessToken, accountBudgetKey, options?.metaApiUsageTracker, executionProfile);
+            const instagram = this._createInstagramClient(accessToken, accountBudgetKey, options?.metaApiUsageTracker, executionProfile, igAccount);
             const conversationState = await this._getConversationState(primaryAccountId, conversationKey);
             let nextConversationState = this._normalizeConversationState(conversationState);
 
