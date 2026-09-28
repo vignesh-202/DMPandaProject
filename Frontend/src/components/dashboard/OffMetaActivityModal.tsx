@@ -73,7 +73,7 @@ export const OffMetaActivityModal: React.FC<OffMetaActivityModalProps> = ({
         {/* Actions */}
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
           <a
-            href="https://accountscenter.facebook.com/"
+            href="https://accountscenter.instagram.com/"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex w-full sm:flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-sm font-semibold text-black transition-all hover:bg-amber-400 active:scale-[0.98]"

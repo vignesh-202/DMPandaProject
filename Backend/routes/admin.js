@@ -52,6 +52,7 @@ const {
 const { setSessionCookie } = require('../utils/sessionContext');
 const { touchUserActivity } = require('../utils/userActivity');
 const { wrapAdminCampaignEmail } = require('../utils/emailTemplate');
+const { sendAccountRemovedEmail } = require('../utils/reauthEmail');
 const {
     DEFAULT_WATERMARK_POLICY,
     readWatermarkPolicy,
@@ -2582,13 +2583,28 @@ router.post('/users/:userId/instagram-accounts/:accountId/delete', loginRequired
         const functions = new Functions(getAppwriteClient({ useApiKey: true }));
         const execution = await functions.createExecution(
             FUNCTION_REMOVE_INSTAGRAM,
-            JSON.stringify({ action: 'delete', account_doc_id: accountId }),
+            JSON.stringify({
+                action: 'delete',
+                account_doc_id: accountId,
+                user_id: userId,
+                username: String(account?.username || '').trim()
+            }),
             false
         );
 
         if (execution.status === 'failed') {
             throw new Error(`Function execution failed: ${execution.response || execution.errors || 'Unknown failure'}`);
         }
+
+        // Guaranteed email dispatch to user
+        sendAccountRemovedEmail({
+            userId,
+            username: String(account?.username || '').trim(),
+            action: 'removed',
+            reason: 'Your Instagram account was unlinked by an administrator from the admin console.'
+        }).catch((emailErr) => {
+            console.error('[Admin IG Delete] Failed to send account removal email:', emailErr.message);
+        });
 
         await writeAdminAuditLog(databases, {
             adminId: req.user.$id,

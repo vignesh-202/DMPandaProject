@@ -43,6 +43,7 @@ const {
     validateInstagramAccountToken,
     validateUserInstagramAccounts
 } = require('../utils/instagramAuthHandler');
+const { sendAccountRemovedEmail } = require('../utils/reauthEmail');
 const {
     getAutomationSchema,
     inspectAutomationDependencies,
@@ -2565,13 +2566,28 @@ router.post('/account/ig-accounts/:accountId/delete', loginRequired, async (req,
         const functions = new Functions(serverClient);
         const execution = await functions.createExecution(
             FUNCTION_REMOVE_INSTAGRAM,
-            JSON.stringify({ action: 'delete', account_doc_id: accountId }),
+            JSON.stringify({
+                action: 'delete',
+                account_doc_id: accountId,
+                user_id: req.user.$id,
+                username: String(account?.username || '').trim()
+            }),
             false
         );
 
         if (execution.status === 'failed') {
             throw new Error(`Function execution failed: ${execution.response || execution.errors || 'Unknown failure'}`);
         }
+
+        // Guaranteed email dispatch to user
+        sendAccountRemovedEmail({
+            userId: req.user.$id,
+            username: String(account?.username || '').trim(),
+            action: 'removed',
+            reason: 'You deleted this Instagram account from your DM Panda account settings.'
+        }).catch((emailErr) => {
+            console.error('[User IG Delete] Failed to send account removal email:', emailErr.message);
+        });
 
         return res.json({ message: 'Instagram account and related data deleted successfully.' });
     } catch (err) {

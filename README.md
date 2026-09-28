@@ -51,7 +51,6 @@ APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
 APPWRITE_PROJECT_ID=your_project_id
 APPWRITE_API_KEY=your_api_key
 APPWRITE_DATABASE_ID=your_database_id
-APPWRITE_STORAGE_ID=your_storage_id
 FRONTEND_ORIGIN=https://app.yourdomain.com
 ADMIN_PANEL_ORIGIN=https://admin.yourdomain.com
 BACKEND_PUBLIC_ORIGIN=https://api.yourdomain.com

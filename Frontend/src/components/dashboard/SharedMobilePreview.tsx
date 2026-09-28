@@ -1163,7 +1163,7 @@ const SharedMobilePreview: React.FC<SharedMobilePreviewProps> = ({
                                                                     {item.title || 'Visit Website'}
                                                                 </div>
                                                                 <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
-                                                                    {item.url ? (item.url.startsWith('http') ? new URL(item.url).hostname.replace('www.', '') : item.url) : 'facebook.com'}
+                                                                    {item.url ? (item.url.startsWith('http') ? new URL(item.url).hostname.replace('www.', '') : item.url) : 'instagram.com'}
                                                                 </div>
                                                             </div>
                                                         ))}
