@@ -177,9 +177,11 @@ def _remove_reconnect_permission_marker(raw_permissions) -> str:
 def _send_reconnect_email(messaging: Messaging, user_id: str, username: str, client=None, db_id: str = ""):
     account_settings_url = _build_dashboard_account_settings_url(client, db_id)
     safe_username = str(username or "your Instagram account").strip() or "your Instagram account"
+    frontend_origin = _resolve_frontend_origin(client, db_id)
+    logo_url = f"{frontend_origin}/images/logo.png" if frontend_origin else "https://dmpanda.com/images/logo.png"
     cta_html = (
-        f'<div style="margin:24px 0 16px;">'
-        f'<a href="{account_settings_url}" style="display:inline-block;padding:12px 24px;background:#0f172a;border-radius:8px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.01em;">Reconnect Instagram</a>'
+        f'<div style="margin:20px 0 14px;">'
+        f'<a href="{account_settings_url}" style="display:inline-block;padding:11px 22px;background:#09090b;border-radius:7px;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;letter-spacing:0.01em;">Reconnect Instagram</a>'
         f'</div>'
         if account_settings_url
         else ""
@@ -191,45 +193,54 @@ def _send_reconnect_email(messaging: Messaging, user_id: str, username: str, cli
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Reconnect Instagram — DM Panda</title>
   </head>
-  <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Action required: Reconnect your Instagram account @{safe_username} to resume automations.</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;padding:32px 16px;">
+  <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Reconnect your Instagram account @{safe_username} to resume automations.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f5;padding:32px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(15,23,42,0.04);">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
             <tr>
-              <td style="padding:28px 32px 20px;border-bottom:1px solid #f1f5f9;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+              <td style="padding:22px 28px 16px;border-bottom:1px solid #f4f4f5;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                   <tr>
                     <td align="left" style="vertical-align:middle;">
-                      <span style="font-size:16px;font-weight:800;color:#0f172a;letter-spacing:-0.02em;">DM Panda</span>
+                      <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:middle;padding-right:10px;">
+                            <img src="{logo_url}" alt="DM Panda" width="28" height="28" style="display:block;border-radius:6px;object-fit:contain;" />
+                          </td>
+                          <td style="vertical-align:middle;">
+                            <span style="font-size:15px;font-weight:700;color:#09090b;letter-spacing:-0.01em;">DM Panda</span>
+                          </td>
+                        </tr>
+                      </table>
                     </td>
                     <td align="right" style="vertical-align:middle;">
-                      <span style="display:inline-block;padding:3px 8px;border-radius:6px;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Action Required</span>
+                      <span style="display:inline-block;padding:2px 8px;border-radius:5px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:11px;font-weight:600;letter-spacing:0.02em;">Action Required</span>
                     </td>
                   </tr>
                 </table>
-                <h1 style="margin:18px 0 0;color:#0f172a;font-size:21px;font-weight:700;line-height:1.3;letter-spacing:-0.015em;">Instagram Reconnection Needed</h1>
+                <h1 style="margin:16px 0 0;color:#09090b;font-size:18px;font-weight:700;line-height:1.35;letter-spacing:-0.015em;">Instagram Reconnection Needed</h1>
               </td>
             </tr>
             <tr>
-              <td style="padding:28px 32px 20px;">
-                <p style="margin:0 0 14px;color:#334155;font-size:14px;line-height:1.65;">DM Panda was unable to access your connected Instagram account due to an expired or revoked session token.</p>
-                <div style="margin:0 0 18px;padding:14px 16px;background:#fef2f2;border:1px solid #fecdd3;border-radius:12px;">
-                  <p style="margin:0 0 6px;color:#9f1239;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">Account Details</p>
-                  <p style="margin:0 0 4px;color:#9f1239;font-size:13px;line-height:1.6;"><strong>Instagram Account:</strong> @{safe_username}</p>
-                  <p style="margin:0;color:#9f1239;font-size:13px;line-height:1.6;">Automations and message listeners for this account are paused until you re-authenticate.</p>
+              <td style="padding:22px 28px 18px;">
+                <p style="margin:0 0 12px;color:#27272a;font-size:14px;line-height:1.6;">DM Panda lost access to your connected Instagram account because the access token expired or was revoked.</p>
+                <div style="margin:0 0 16px;padding:12px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;">
+                  <p style="margin:0 0 4px;color:#991b1b;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">Account Details</p>
+                  <p style="margin:0 0 3px;color:#991b1b;font-size:13px;line-height:1.5;"><strong>Instagram Account:</strong> @{safe_username}</p>
+                  <p style="margin:0;color:#991b1b;font-size:13px;line-height:1.5;">Automations, DMs, and comment triggers are paused until re-authorized.</p>
                 </div>
-                <p style="margin:0 0 14px;color:#334155;font-size:14px;line-height:1.65;">Please reconnect this Instagram account from your account settings to restore your automations immediately.</p>
+                <p style="margin:0 0 12px;color:#27272a;font-size:14px;line-height:1.6;">To resume your automations, reconnect this account from your account settings.</p>
                 {cta_html}
-                <p style="margin:0;color:#64748b;font-size:12px;line-height:1.6;">If you connect a different Instagram account, DM Panda will keep the paused account inactive and treat the new one as a separate linked profile.</p>
+                <p style="margin:12px 0 0;color:#71717a;font-size:12px;line-height:1.5;">If you link a different Instagram account, this account remains inactive.</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:0 32px 28px;">
-                <div style="border-top:1px solid #f1f5f9;padding-top:20px;color:#94a3b8;font-size:12px;line-height:1.65;">
-                  <p style="margin:0 0 6px;">Need assistance? Contact support@dmpanda.com.</p>
-                  <p style="margin:0;color:#94a3b8;">DM Panda &bull; Instagram automation & lead capture</p>
+              <td style="padding:0 28px 22px;">
+                <div style="border-top:1px solid #f4f4f5;padding-top:18px;color:#a1a1aa;font-size:12px;line-height:1.6;">
+                  <p style="margin:0 0 6px;">Questions? Contact support@dmpanda.com.</p>
+                  <p style="margin:8px 0 0;color:#a1a1aa;font-size:11px;">DM Panda &bull; Instagram Automation</p>
                 </div>
               </td>
             </tr>

@@ -830,25 +830,24 @@ const sendSubscriptionSuccessEmail = async (userId, plan, pricing, appliedCoupon
         const expiryText = subscriptionExpires ? new Date(subscriptionExpires).toISOString().split('T')[0] : 'Unknown';
         
         const html = renderEmailLayout({
-            title: 'Your Subscription is Active!',
-            preheader: `You have successfully subscribed to the ${planName} plan for ${linkedAccountNames}.`,
+            title: 'Subscription Active',
+            preheader: `Your ${planName} subscription is active for ${linkedAccountNames}.`,
             greeting: 'Hello,',
-            intro: `Great news! Your subscription to the ${planName} plan has been successfully activated for ${linkedAccountNames}.`,
+            intro: `Your subscription to the ${planName} plan is now active for ${linkedAccountNames}.`,
             summaryRows: [
                 ['Plan', planName],
                 ['Linked Instagram Account(s)', linkedAccountNames],
                 ['Instagram accounts billed', String(pricing?.accounts_count || 1)],
                 ['Per-account rate', `${pricing.currency} ${Number(pricing?.unit_base_amount || 0).toLocaleString('en-IN')}`],
                 ['Billing Cycle', String(pricing.billing_cycle).toUpperCase()],
-                ['Effective until', expiryText],
+                ['Renews / Expires', expiryText],
                 ...(appliedCoupon ? [['Coupon applied', appliedCoupon.code]] : [])
             ],
             paragraphs: [
-                `Your subscription is active for linked Instagram account(s): ${linkedAccountNames}.`,
-                `This purchase covers ${pricing?.accounts_count || 1} connected Instagram account(s), with plan action limits applied separately to each account.`,
-                'If you have any questions or need help setting up your automations, feel free to reach out to our support team.'
+                `This plan covers ${pricing?.accounts_count || 1} connected Instagram account(s). Plan limits and quotas apply per account.`,
+                'You can view your automations, logs, and account settings from your dashboard.'
             ],
-            ctaLabel: 'Go to Dashboard',
+            ctaLabel: 'Open Dashboard',
             ctaUrl: process.env.FRONTEND_ORIGIN ? `${process.env.FRONTEND_ORIGIN}/dashboard` : 'https://dmpanda.com/dashboard',
             frontendOrigin: process.env.FRONTEND_ORIGIN || ''
         });

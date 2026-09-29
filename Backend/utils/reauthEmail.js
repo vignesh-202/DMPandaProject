@@ -64,26 +64,26 @@ const sendReauthRequiredEmail = async ({
 
         const emailHtml = renderEmailLayout({
             title: 'Instagram Re-authorization Needed',
-            preheader: `Re-authorization is required for @${safeUsername} to continue your DM Panda automations.`,
-            eyebrow: 'DM Panda Alert',
+            preheader: `Re-authorization is required for @${safeUsername} to continue DM Panda automations.`,
+            eyebrow: 'Account Alert',
             greeting: 'Hello,',
-            intro: `DM Panda was unable to access your connected Instagram account @${safeUsername}.`,
+            intro: `DM Panda lost access to your connected Instagram account @${safeUsername}.`,
             callouts: [{
                 tone: 'critical',
                 title: 'Automations Paused',
                 lines: [
                     `Instagram account: @${safeUsername}`,
-                    'Automations (DMs, comment replies, story triggers) for this account are currently stopped until you re-authorize it.',
-                    reason ? `Reason: ${reason}` : 'Your Meta Instagram access token is invalid, expired, or disconnected.'
+                    'Automations (DMs, comment replies, and story triggers) are paused until re-authorized.',
+                    reason ? `Reason: ${reason}` : 'The Instagram access token is invalid, expired, or disconnected.'
                 ]
             }],
             paragraphs: [
-                'To resume your lead capture and automated workflows, please open DM Panda settings and click "Re-authorize" on this account.',
-                'Re-authorizing is secure, takes just a few seconds, and will not alter or delete any of your existing automation rules or templates.'
+                'To resume your automations, open account settings and click "Re-authorize" on this account.',
+                'Existing rules, templates, and analytics remain saved.'
             ],
-            ctaLabel: 'Re-authorize Instagram',
+            ctaLabel: 'Re-authorize Account',
             ctaUrl: accountSettingsUrl,
-            footerNote: 'If you connect a different Instagram account, DM Panda will keep the paused account inactive and treat the new one as a separate linked account.',
+            footerNote: 'If you reconnect a different account, this account remains inactive.',
             frontendOrigin: resolvedOrigin
         });
 
@@ -161,7 +161,7 @@ const sendAccountRemovedEmail = async ({
         const emailHtml = renderEmailLayout({
             title: `Instagram Account ${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)}`,
             preheader: `Instagram account @${safeUsername} is no longer connected to DM Panda.`,
-            eyebrow: 'DM Panda Account Update',
+            eyebrow: 'Account Update',
             greeting: 'Hello,',
             intro: `Your Instagram account @${safeUsername} has been ${actionVerb} from DM Panda.`,
             callouts: [{
@@ -169,17 +169,17 @@ const sendAccountRemovedEmail = async ({
                 title: 'Account Disconnected',
                 lines: [
                     `Instagram account: @${safeUsername}`,
-                    'All automations, triggers, and scheduled tasks for this account have been paused/stopped.',
-                    reason ? `Reason: ${reason}` : 'The account was unlinked or disconnected from DM Panda.'
+                    'All automations, triggers, and scheduled tasks for this account have ended.',
+                    reason ? `Reason: ${reason}` : 'The account was unlinked from DM Panda.'
                 ]
             }],
             paragraphs: [
-                'DM Panda has ceased processing direct messages, comments, and mentions for this account.',
-                'If you disconnected this account intentionally, no further action is required. If this was unexpected or you wish to resume automations, you can reconnect or link a new Instagram account at any time.'
+                'DM Panda is no longer monitoring direct messages, comments, or mentions for this account.',
+                'If this action was expected, no further steps are necessary. To resume automations, you can reconnect this account or link a new one from your dashboard.'
             ],
             ctaLabel: 'Manage Connected Accounts',
             ctaUrl: accountSettingsUrl,
-            footerNote: 'Need help? Contact our support team at support@dmpanda.com.',
+            footerNote: 'Need assistance? Contact support@dmpanda.com.',
             frontendOrigin: resolvedOrigin
         });
 

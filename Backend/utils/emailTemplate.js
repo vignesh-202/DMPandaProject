@@ -1,32 +1,31 @@
 const SUPPORT_EMAIL = 'support@dmpanda.com';
 const BRAND_NAME = 'DM Panda';
-const DEFAULT_EYEBROW = 'DM Panda';
+const DEFAULT_EYEBROW = '';
 const DEFAULT_PREHEADER = 'Important update from DM Panda.';
+const DEFAULT_LOGO_URL = 'https://dmpanda.com/images/logo.png';
 
 const COLORS = {
-    canvas: '#f8fafc',
+    canvas: '#f4f4f5',
     card: '#ffffff',
-    border: '#e2e8f0',
-    borderLight: '#f1f5f9',
-    ink: '#0f172a',
-    body: '#334155',
-    muted: '#475569',
-    subtle: '#64748b',
-    faint: '#94a3b8',
-    primary: '#0f172a',
+    border: '#e4e4e7',
+    borderLight: '#f4f4f5',
+    ink: '#09090b',
+    body: '#27272a',
+    muted: '#52525b',
+    subtle: '#71717a',
+    faint: '#a1a1aa',
+    primary: '#09090b',
     primaryText: '#ffffff',
-    accent: '#0f172a',
-    accentDark: '#1e293b',
-    accentSoft: '#f1f5f9',
-    infoBg: '#f8fafc',
-    infoBorder: '#e2e8f0',
-    infoText: '#0f172a',
+    accentSoft: '#f4f4f5',
+    infoBg: '#fafafa',
+    infoBorder: '#e4e4e7',
+    infoText: '#09090b',
     warningBg: '#fffbeb',
-    warningBorder: '#fde68a',
-    warningText: '#92400e',
+    warningBorder: '#fef08a',
+    warningText: '#854d0e',
     criticalBg: '#fef2f2',
-    criticalBorder: '#fecdd3',
-    criticalText: '#9f1239'
+    criticalBorder: '#fecaca',
+    criticalText: '#991b1b'
 };
 
 const escapeHtml = (value = '') => String(value || '')
@@ -53,7 +52,7 @@ const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, ''
 
 const buildLogoUrl = (frontendOrigin = '') => {
     const base = trimTrailingSlash(frontendOrigin);
-    return base ? `${base}/images/logo.png` : '';
+    return base ? `${base}/images/logo.png` : DEFAULT_LOGO_URL;
 };
 
 const renderHtmlFooter = ({
@@ -62,18 +61,13 @@ const renderHtmlFooter = ({
     footerNote = '',
     dashboardUrl = ''
 } = {}) => {
-    const lines = [
-        supportNote || `Need a hand? Contact ${supportEmail}.`,
-        'You are receiving this email because you use DM Panda or recently interacted with your account settings, billing, or automation activity.'
-    ];
-
+    const contactLine = supportNote || `Questions? Contact ${supportEmail}.`;
     return `
-        <div style="border-top:1px solid ${COLORS.borderLight};padding-top:20px;color:${COLORS.faint};font-size:12px;line-height:1.65;">
-            <p style="margin:0 0 6px;">${escapeHtml(lines[0])}</p>
-            <p style="margin:0 0 8px;">${escapeHtml(lines[1])}</p>
-            ${dashboardUrl ? `<p style="margin:0 0 8px;"><a href="${escapeHtml(dashboardUrl)}" style="color:${COLORS.ink};text-decoration:underline;font-weight:600;">Open your DM Panda dashboard &rarr;</a></p>` : ''}
-            ${footerNote ? `<p style="margin:0 0 8px;">${escapeHtml(footerNote)}</p>` : ''}
-            <p style="margin:0;color:${COLORS.faint};">DM Panda &bull; Instagram automation & lead capture</p>
+        <div style="border-top:1px solid ${COLORS.borderLight};padding-top:18px;color:${COLORS.faint};font-size:12px;line-height:1.6;">
+            <p style="margin:0 0 6px;">${escapeHtml(contactLine)}</p>
+            ${dashboardUrl ? `<p style="margin:0 0 6px;"><a href="${escapeHtml(dashboardUrl)}" style="color:${COLORS.ink};text-decoration:none;font-weight:600;">Go to dashboard &rarr;</a></p>` : ''}
+            ${footerNote ? `<p style="margin:0 0 6px;">${escapeHtml(footerNote)}</p>` : ''}
+            <p style="margin:8px 0 0;color:${COLORS.faint};font-size:11px;">DM Panda &bull; Instagram Automation</p>
         </div>
     `;
 };
@@ -81,7 +75,7 @@ const renderHtmlFooter = ({
 const renderParagraphs = (paragraphs = []) => paragraphs
     .filter((paragraph) => String(paragraph || '').trim())
     .map((paragraph) => (
-        `<p style="margin:0 0 14px;color:${COLORS.body};font-size:14px;line-height:1.65;">${escapeHtml(paragraph)}</p>`
+        `<p style="margin:0 0 12px;color:${COLORS.body};font-size:14px;line-height:1.6;">${escapeHtml(paragraph)}</p>`
     ))
     .join('');
 
@@ -89,9 +83,9 @@ const renderList = (items = []) => {
     const safeItems = items.filter((item) => String(item || '').trim());
     if (!safeItems.length) return '';
     const renderedItems = safeItems
-        .map((item) => `<li style="margin:0 0 8px;">${escapeHtml(item)}</li>`)
+        .map((item) => `<li style="margin:0 0 6px;">${escapeHtml(item)}</li>`)
         .join('');
-    return `<ul style="margin:0 0 16px 20px;padding:0;color:${COLORS.body};font-size:14px;line-height:1.65;">${renderedItems}</ul>`;
+    return `<ul style="margin:0 0 14px 18px;padding:0;color:${COLORS.body};font-size:13px;line-height:1.6;">${renderedItems}</ul>`;
 };
 
 const renderCallout = ({ tone = 'info', title = '', lines = [] } = {}) => {
@@ -103,9 +97,9 @@ const renderCallout = ({ tone = 'info', title = '', lines = [] } = {}) => {
     const safeLines = lines.filter((line) => String(line || '').trim());
     if (!title && !safeLines.length) return '';
     return [
-        `<div style="margin:0 0 18px;padding:14px 16px;background:${palette.bg};border:1px solid ${palette.border};border-radius:12px;">`,
-        title ? `<p style="margin:0 0 6px;color:${palette.text};font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">${escapeHtml(title)}</p>` : '',
-        safeLines.map((line) => `<p style="margin:0 0 6px;color:${palette.text};font-size:13px;line-height:1.6;">${escapeHtml(line)}</p>`).join(''),
+        `<div style="margin:0 0 16px;padding:12px 14px;background:${palette.bg};border:1px solid ${palette.border};border-radius:8px;">`,
+        title ? `<p style="margin:0 0 4px;color:${palette.text};font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">${escapeHtml(title)}</p>` : '',
+        safeLines.map((line) => `<p style="margin:0 0 3px;color:${palette.text};font-size:13px;line-height:1.5;">${escapeHtml(line)}</p>`).join(''),
         '</div>'
     ].join('');
 };
@@ -115,12 +109,12 @@ const renderSummary = (rows = []) => {
     if (!safeRows.length) return '';
     const renderedRows = safeRows.map(([label, value]) => (
         `<tr>
-            <td style="padding:8px 0;color:${COLORS.subtle};font-size:13px;font-weight:500;vertical-align:top;">${escapeHtml(label)}</td>
-            <td style="padding:8px 0;color:${COLORS.ink};font-size:13px;font-weight:600;vertical-align:top;text-align:right;">${escapeHtml(value)}</td>
+            <td style="padding:6px 0;color:${COLORS.subtle};font-size:13px;font-weight:500;vertical-align:top;">${escapeHtml(label)}</td>
+            <td style="padding:6px 0;color:${COLORS.ink};font-size:13px;font-weight:600;vertical-align:top;text-align:right;">${escapeHtml(value)}</td>
         </tr>`
     )).join('');
     return `
-        <div style="margin:0 0 20px;padding:14px 18px;background:${COLORS.infoBg};border:1px solid ${COLORS.border};border-radius:12px;">
+        <div style="margin:0 0 16px;padding:12px 16px;background:${COLORS.infoBg};border:1px solid ${COLORS.borderLight};border-radius:8px;">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                 ${renderedRows}
             </table>
@@ -131,8 +125,8 @@ const renderSummary = (rows = []) => {
 const renderPrimaryButton = (label = '', url = '') => {
     if (!String(label || '').trim() || !String(url || '').trim()) return '';
     return `
-        <div style="margin:24px 0 16px;">
-            <a href="${escapeHtml(url)}" style="display:inline-block;padding:12px 24px;background:${COLORS.primary};border-radius:8px;color:${COLORS.primaryText};text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.01em;">
+        <div style="margin:20px 0 16px;">
+            <a href="${escapeHtml(url)}" style="display:inline-block;padding:10px 20px;background:${COLORS.primary};border-radius:7px;color:${COLORS.primaryText};text-decoration:none;font-size:13px;font-weight:600;letter-spacing:0.01em;">
                 ${escapeHtml(label)}
             </a>
         </div>
@@ -143,9 +137,9 @@ const renderSecondaryLinks = (links = []) => {
     const safeLinks = links.filter((link) => String(link?.label || '').trim() && String(link?.url || '').trim());
     if (!safeLinks.length) return '';
     return `
-        <div style="margin:0 0 16px;">
+        <div style="margin:0 0 14px;">
             ${safeLinks.map((link) => (
-                `<a href="${escapeHtml(link.url)}" style="display:inline-block;margin-right:16px;color:${COLORS.subtle};text-decoration:underline;font-size:13px;font-weight:600;">${escapeHtml(link.label)}</a>`
+                `<a href="${escapeHtml(link.url)}" style="display:inline-block;margin-right:14px;color:${COLORS.subtle};text-decoration:none;font-size:12px;font-weight:500;">${escapeHtml(link.label)} &rarr;</a>`
             )).join('')}
         </div>
     `;
@@ -155,7 +149,7 @@ const renderEmailLayout = ({
     title,
     preheader = DEFAULT_PREHEADER,
     eyebrow = DEFAULT_EYEBROW,
-    greeting = 'Hello,',
+    greeting = '',
     intro = '',
     paragraphs = [],
     bullets = [],
@@ -171,9 +165,6 @@ const renderEmailLayout = ({
     supportEmail = SUPPORT_EMAIL
 } = {}) => {
     const logoUrl = buildLogoUrl(frontendOrigin);
-    const logoMarkup = logoUrl
-        ? `<img src="${escapeHtml(logoUrl)}" alt="${BRAND_NAME}" width="38" height="38" style="display:block;border-radius:8px;object-fit:contain;" />`
-        : `<span style="font-size:16px;font-weight:800;color:${COLORS.ink};letter-spacing:-0.02em;">DM Panda</span>`;
     const dashboardUrl = frontendOrigin ? `${trimTrailingSlash(frontendOrigin)}/dashboard` : '';
     const resolvedSupportNote = String(supportNote || '').trim();
 
@@ -192,42 +183,51 @@ const renderEmailLayout = ({
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${COLORS.canvas};padding:32px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(15,23,42,0.04);">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
             <tr>
-              <td style="padding:28px 32px 20px;border-bottom:1px solid ${COLORS.borderLight};">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+              <td style="padding:22px 28px 16px;border-bottom:1px solid ${COLORS.borderLight};">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                   <tr>
                     <td align="left" style="vertical-align:middle;">
-                      ${logoMarkup}
+                      <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td style="vertical-align:middle;padding-right:10px;">
+                            <img src="${escapeHtml(logoUrl)}" alt="${BRAND_NAME}" width="28" height="28" style="display:block;border-radius:6px;object-fit:contain;" />
+                          </td>
+                          <td style="vertical-align:middle;">
+                            <span style="font-size:15px;font-weight:700;color:${COLORS.ink};letter-spacing:-0.01em;">${BRAND_NAME}</span>
+                          </td>
+                        </tr>
+                      </table>
                     </td>
                     ${eyebrow ? `
                     <td align="right" style="vertical-align:middle;">
-                      <span style="display:inline-block;padding:3px 8px;border-radius:6px;background:#f1f5f9;border:1px solid #e2e8f0;color:#64748b;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">
+                      <span style="display:inline-block;padding:2px 8px;border-radius:5px;background:${COLORS.accentSoft};border:1px solid ${COLORS.border};color:${COLORS.subtle};font-size:11px;font-weight:600;letter-spacing:0.02em;">
                         ${escapeHtml(eyebrow)}
                       </span>
                     </td>` : ''}
                   </tr>
                 </table>
-                <h1 style="margin:18px 0 0;color:${COLORS.ink};font-size:21px;font-weight:700;line-height:1.3;letter-spacing:-0.015em;">
+                <h1 style="margin:16px 0 0;color:${COLORS.ink};font-size:18px;font-weight:700;line-height:1.35;letter-spacing:-0.015em;">
                   ${escapeHtml(title)}
                 </h1>
               </td>
             </tr>
             <tr>
-              <td style="padding:28px 32px 20px;">
-                ${greeting ? `<p style="margin:0 0 12px;color:${COLORS.ink};font-size:14px;font-weight:600;">${escapeHtml(greeting)}</p>` : ''}
-                ${intro ? `<p style="margin:0 0 18px;color:${COLORS.body};font-size:14px;line-height:1.65;">${escapeHtml(intro)}</p>` : ''}
+              <td style="padding:22px 28px 18px;">
+                ${greeting ? `<p style="margin:0 0 10px;color:${COLORS.ink};font-size:14px;font-weight:600;">${escapeHtml(greeting)}</p>` : ''}
+                ${intro ? `<p style="margin:0 0 14px;color:${COLORS.body};font-size:14px;line-height:1.6;">${escapeHtml(intro)}</p>` : ''}
                 ${callouts.map((callout) => renderCallout(callout)).join('')}
                 ${renderSummary(summaryRows)}
                 ${renderParagraphs(paragraphs)}
                 ${renderList(bullets)}
-                ${bodyHtml ? `<div style="margin:0 0 16px;padding:16px 18px;background:${COLORS.infoBg};border:1px solid ${COLORS.border};border-radius:12px;color:${COLORS.body};font-size:14px;line-height:1.65;">${bodyHtml}</div>` : ''}
+                ${bodyHtml ? `<div style="margin:0 0 14px;padding:12px 14px;background:${COLORS.infoBg};border:1px solid ${COLORS.border};border-radius:8px;color:${COLORS.body};font-size:13px;line-height:1.6;">${bodyHtml}</div>` : ''}
                 ${renderPrimaryButton(ctaLabel, ctaUrl)}
                 ${renderSecondaryLinks(secondaryLinks)}
               </td>
             </tr>
             <tr>
-              <td style="padding:0 32px 28px;">
+              <td style="padding:0 28px 22px;">
                 ${renderHtmlFooter({
                     supportEmail,
                     supportNote: resolvedSupportNote,
@@ -247,7 +247,7 @@ const renderEmailLayout = ({
 
 const buildPlainTextEmail = ({
     title,
-    greeting = 'Hello,',
+    greeting = '',
     intro = '',
     paragraphs = [],
     bullets = [],
@@ -280,8 +280,7 @@ const buildPlainTextEmail = ({
     if (ctaLabel && ctaUrl) {
         lines.push(`${ctaLabel}: ${ctaUrl}`, '');
     }
-    lines.push(supportNote || `Need a hand? Contact ${SUPPORT_EMAIL}.`);
-    lines.push('You are receiving this email because you use DM Panda or recently interacted with your account settings, billing, or automation activity.');
+    lines.push(supportNote || `Questions? Contact ${SUPPORT_EMAIL}.`);
     if (footerNote) lines.push(footerNote);
     lines.push('DM Panda');
     return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -293,29 +292,23 @@ const wrapAdminCampaignEmail = ({
     format = 'html',
     frontendOrigin = process.env.FRONTEND_ORIGIN || ''
 } = {}) => {
-    const safeSubject = String(subject || '').trim() || 'DM Panda update';
+    const safeSubject = String(subject || '').trim() || 'DM Panda Update';
     const safeContent = String(content || '').trim();
     const isHtml = format === 'html';
     const bodyHtml = isHtml
-        ? `<div style="margin:0 0 18px;color:${COLORS.muted};font-size:15px;line-height:1.75;">${safeContent}</div>`
+        ? `<div style="margin:0 0 14px;color:${COLORS.body};font-size:14px;line-height:1.6;">${safeContent}</div>`
         : renderParagraphs(safeContent.split(/\r?\n\r?\n/));
     const plainTextSource = isHtml ? stripHtml(safeContent) : safeContent;
     return {
         html: renderEmailLayout({
             title: safeSubject,
-            preheader: 'A DM Panda campaign update for your account.',
-            greeting: 'Hello,',
-            intro: 'You are receiving this email because your account matches a campaign audience selected by the DM Panda team.',
+            preheader: 'A message from the DM Panda team.',
             bodyHtml,
-            footerNote: 'This message was sent from the DM Panda admin campaign tool.',
             frontendOrigin
         }),
         text: buildPlainTextEmail({
             title: safeSubject,
-            greeting: 'Hello,',
-            intro: 'You are receiving this email because your account matches a campaign audience selected by the DM Panda team.',
-            bodyText: plainTextSource,
-            footerNote: 'This message was sent from the DM Panda admin campaign tool.'
+            bodyText: plainTextSource
         })
     };
 };
