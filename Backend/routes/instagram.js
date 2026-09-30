@@ -1978,7 +1978,7 @@ router.get('/auth/instagram', (req, res) => {
         return res.status(500).json({ error: 'Instagram integration is not configured.' });
     }
 
-    const scopes = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_insights';
+    const scopes = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_manage_insights';
     const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${INSTAGRAM_APP_ID}&redirect_uri=${INSTAGRAM_REDIRECT_URI}&response_type=code&scope=${scopes}`;
 
     res.json({ url: authUrl });
@@ -3096,7 +3096,7 @@ router.get('/instagram/media', loginRequired, async (req, res) => {
 // AUTH: Instagram URL (sidebar connect button)
 // ============================================================================
 router.get('/auth/instagram/url', loginRequired, async (req, res) => {
-    const scopes = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights';
+    const scopes = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_manage_insights';
     const relinkAccountId = String(req.query?.relink_account_id || '').trim();
     let stateSuffix = '';
 

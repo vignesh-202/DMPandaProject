@@ -104,10 +104,6 @@ const PrivacyPage: React.FC = () => {
                     <td className="py-3 px-4 font-mono font-medium text-purple-600 dark:text-purple-400">instagram_business_manage_insights</td>
                     <td className="py-3 px-4">Provide aggregate engagement analytics and trigger performance summaries on your private dashboard.</td>
                   </tr>
-                  <tr>
-                    <td className="py-3 px-4 font-mono font-medium text-purple-600 dark:text-purple-400">instagram_business_content_publish</td>
-                    <td className="py-3 px-4">Publish automated post/reel updates if explicitly enabled by the user in campaign settings.</td>
-                  </tr>
                 </tbody>
               </table>
             </div>
