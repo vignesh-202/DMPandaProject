@@ -4,6 +4,7 @@
   "description": "Meta webhook streamer service for DM Panda workers",
   "main": "index.js",
   "scripts": {
+    "build": "node -e \"console.log('Streamer-node build: ready')\"",
     "start": "node index.js",
     "dev": "node --watch index.js",
     "test": "node -e \"console.log('No streamer-node tests configured')\""
