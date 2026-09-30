@@ -1,7 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-require('dotenv').config(); // backend restart trigger 3
+const path = require('path');
+const dotenv = require('dotenv');
+dotenv.config({ path: path.join(__dirname, '.env.production') });
+dotenv.config({ path: path.join(__dirname, '.env') });
 const { Databases } = require('node-appwrite');
 const { getAppwriteClient } = require('./utils/appwrite');
 const { saveRuntimeFrontendOrigin, normalizeRuntimeOrigin } = require('./utils/systemConfig');

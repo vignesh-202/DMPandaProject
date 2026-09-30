@@ -1,7 +1,10 @@
 const http = require('http');
 const express = require('express');
 const morgan = require('morgan');
-require('dotenv').config();
+const path = require('path');
+const dotenv = require('dotenv');
+dotenv.config({ path: path.join(__dirname, '.env.production') });
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const { registerWebhookRoutes } = require('./src/webhook-server');
 const { splitWebhookPayload } = require('./src/meta-parser');
