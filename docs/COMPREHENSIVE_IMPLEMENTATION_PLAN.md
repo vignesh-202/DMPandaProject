@@ -50,12 +50,11 @@ The team ran Appwrite CLI (`appwrite databases list-collections`, `list-attribut
   * *Verdict (RE & BE)*: **DO NOT DROP.** In production, existing legacy records and financial webhook handlers reference `userId`. Dropping columns in financial audit tables risks unrecoverable data loss or broken queries during payment reconciliation. Both must be retained. The database orphan sweeper must anonymize `userId` to `deleted:<hash>` upon user deletion.
 * **Index Audit**: 9 indexes (`idx_transaction_id_unique`, `idx_gateway_payment_unique`, `idx_gateway_order`, `idx_user_transaction_date`, `idx_user_status`, `idx_payment_attempt`, `idx_user_status_transaction_date`, `idx_transactions_user_id`, `idx_transactions_user_created_at`). All 9 are highly targeted for receipt lookup and financial reconciliation. **Retain 100%**.
 
-#### Collection 2: `users` (14 attributes, 4 indexes)
-* **Live Attributes**: `name`, `email`, `first_login`, `last_login`, `status`, `ban_mode`, `ban_reason`, `banned_at`, `banned_by`, `last_active_at`, `cleanup_protected`, `cleanup_state_json`, `kill_switch_enabled`, `admin_override_json`.
+#### Collection 2: `users` (13 attributes, 4 indexes)
+* **Live Attributes**: `name`, `email`, `first_login`, `last_login`, `status`, `ban_mode`, `ban_reason`, `banned_at`, `banned_by`, `last_active_at`, `cleanup_protected`, `cleanup_state_json`, `kill_switch_enabled`.
 * **Agent Debate**:
   * *SE*: `kill_switch_enabled` and `ban_mode` are essential for immediate platform-level abuse containment.
-  * *BE*: `admin_override_json` stores administrative grants without mutating historical billing records.
-* **Verdict**: **100% Useful & Production Ready**. Keep all 14 attributes and 4 fulltext/key indexes.
+* **Verdict**: **100% Useful & Production Ready**. Keep all 13 attributes and 4 fulltext/key indexes.
 
 #### Collection 3: `pricing` (25 attributes, 2 indexes)
 * **Live Attributes**: `name`, `price_monthly_inr`, `price_yearly_inr`, `is_custom`, `is_popular`, `features`, `display_order`, `button_text`, `yearly_bonus`, `plan_code`, `comparison_json`, `price_yearly_monthly_inr`, `monthly_duration_days`, `yearly_duration_days`, plus 11 `benefit_*` boolean toggles.

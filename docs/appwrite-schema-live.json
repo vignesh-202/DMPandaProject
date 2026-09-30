@@ -4602,19 +4602,6 @@
         "$createdAt": "2026-04-20T08:17:26.994+00:00",
         "$updatedAt": "2026-04-20T08:17:27.196+00:00",
         "default": true
-      },
-      {
-        "key": "admin_override_json",
-        "type": "string",
-        "status": "available",
-        "error": "",
-        "required": false,
-        "array": false,
-        "$createdAt": "2026-09-04T10:00:00.000+00:00",
-        "$updatedAt": "2026-09-04T10:00:00.000+00:00",
-        "size": 2000,
-        "default": null,
-        "encrypt": false
       }
     ],
     "indexes": [

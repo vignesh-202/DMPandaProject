@@ -24,12 +24,10 @@
 - Self-subscription:
   - read selected plan from `pricing`
   - persist successful transaction/subscription state
-  - write effective entitlements to `profiles`
 - Admin plan change:
   - read selected plan template from `pricing`
-  - store compact replacement-state metadata in `profiles.admin_override_json`
   - write effective entitlements to `profiles`
-  - custom limits and benefit toggles persist on the runtime `profiles` fields, not inside `admin_override_json`
+  - custom limits and benefit toggles persist directly on the runtime `profiles` fields
 - Reset plan limits:
   - read effective plan defaults from `pricing`
   - reapply limits and features to `profiles`
