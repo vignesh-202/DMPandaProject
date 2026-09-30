@@ -154,14 +154,14 @@ const WelcomeMessageView: React.FC = () => {
                 template_id: selectedTemplate.id,
                 template_type: selectedTemplate.template_type,
                 is_active: isActive,
-                followers_only: followersOnly,
+                followers_only: !getPlanGate('followers_only').isLocked && followersOnly,
                 followers_only_message: followersOnly ? followersOnlyMessage : '',
                 followers_only_primary_button_text: followersOnlyPrimaryButtonText,
                 followers_only_secondary_button_text: followersOnlySecondaryButtonText,
-                suggest_more_enabled: suggestMoreEnabled,
+                suggest_more_enabled: !getPlanGate('suggest_more').isLocked && suggestMoreEnabled,
                 private_reply_enabled: true,
                 automation_type: 'welcome_message',
-                once_per_user_24h: true
+                once_per_user_24h: !getPlanGate('once_per_user_24h').isLocked
             };
 
             const url = automationId

@@ -60,7 +60,7 @@ const createBlankStarter = (): ConvoStarter => ({
     followers_only_primary_button_text: FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
     followers_only_secondary_button_text: FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
     suggest_more_enabled: false,
-    once_per_user_24h: true,
+    once_per_user_24h: false,
     seen_typing_enabled: false
 });
 const normalizeQuestion = (value: string) => (value || '').trim().toLowerCase();
@@ -590,13 +590,13 @@ const ConvoStarterView: React.FC = () => {
                     payload: templateId,
                     template_id: templateId || undefined,
                     template_type: starter.template_type,
-                    followers_only: starter.followers_only === true,
-                    followers_only_message: starter.followers_only ? (starter.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT) : '',
+                    followers_only: !getPlanGate('followers_only').isLocked && starter.followers_only === true,
+                    followers_only_message: (!getPlanGate('followers_only').isLocked && starter.followers_only) ? (starter.followers_only_message || FOLLOWERS_ONLY_MESSAGE_DEFAULT) : '',
                     followers_only_primary_button_text: starter.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
                     followers_only_secondary_button_text: starter.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
-                    suggest_more_enabled: starter.suggest_more_enabled === true,
-                    once_per_user_24h: starter.once_per_user_24h === true,
-                    seen_typing_enabled: starter.seen_typing_enabled === true
+                    suggest_more_enabled: !getPlanGate('suggest_more').isLocked && starter.suggest_more_enabled === true,
+                    once_per_user_24h: !getPlanGate('once_per_user_24h').isLocked && starter.once_per_user_24h === true,
+                    seen_typing_enabled: !getPlanGate('seen_typing').isLocked && starter.seen_typing_enabled === true
                 };
             });
 

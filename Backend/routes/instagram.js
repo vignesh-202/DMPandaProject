@@ -262,7 +262,32 @@ const collectLockedAutomationFeatures = (payload) => {
     return Array.from(new Set(locked));
 };
 
+const sanitizeOptionalTogglesForPlan = (payload, entitlements) => {
+    if (!payload || typeof payload !== 'object') return payload;
+    const toggles = USE_NEW_GATING ? GATED_AUTOMATION_FEATURES : LEGACY_GATED_AUTOMATION_FEATURES;
+    for (const [field, featureKey] of Object.entries(toggles)) {
+        if (payload[field] === true && !hasPlanEntitlement(entitlements, featureKey)) {
+            payload[field] = false;
+            if (field === 'followers_only') {
+                payload.followers_only_message = '';
+            }
+        }
+    }
+    if (payload.share_to_admin_enabled === true) {
+        const automationType = String(payload.automation_type || payload.type || '').trim().toLowerCase();
+        const shareFeature = SHARE_TRIGGER_FEATURES[automationType] || 'share_post_to_admin';
+        if (!hasPlanEntitlement(entitlements, shareFeature)) {
+            payload.share_to_admin_enabled = false;
+        }
+    }
+    return payload;
+};
+
 const enforceAutomationFeatureAccess = async (databases, userId, payload, options = {}) => {
+    const { entitlements } = await loadUserPlanAccess(databases, userId);
+    if (payload && typeof payload === 'object' && !options.skipToggleSanitization) {
+        sanitizeOptionalTogglesForPlan(payload, entitlements);
+    }
     const requestedFeatures = new Set(collectLockedAutomationFeatures(payload));
     if (options.requireFeature) {
         requestedFeatures.add(String(options.requireFeature).trim());
@@ -270,7 +295,6 @@ const enforceAutomationFeatureAccess = async (databases, userId, payload, option
 
     if (requestedFeatures.size === 0) return null;
 
-    const { entitlements } = await loadUserPlanAccess(databases, userId);
     const lockedFeatures = Array.from(requestedFeatures).filter((featureKey) => !hasPlanEntitlement(entitlements, featureKey));
     if (lockedFeatures.length === 0) return null;
 

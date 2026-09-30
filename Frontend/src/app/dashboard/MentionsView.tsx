@@ -49,7 +49,7 @@ const MentionsView: React.FC = () => {
     const [followersOnlyPrimaryButtonText, setFollowersOnlyPrimaryButtonText] = useState(FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT);
     const [followersOnlySecondaryButtonText, setFollowersOnlySecondaryButtonText] = useState(FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT);
     const [suggestMoreEnabled, setSuggestMoreEnabled] = useState(false);
-    const [oncePerUser, setOncePerUser] = useState(true);
+    const [oncePerUser, setOncePerUser] = useState(false);
     const [seenTypingEnabled, setSeenTypingEnabled] = useState(false);
     const [followersOnlyCollapsed, setFollowersOnlyCollapsed] = useState(false);
     const { showSuccess, showError } = useNotification();
@@ -94,7 +94,7 @@ const MentionsView: React.FC = () => {
                 setFollowersOnlyPrimaryButtonText(String(data.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT));
                 setFollowersOnlySecondaryButtonText(String(data.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT));
                 setSuggestMoreEnabled(Boolean(data.suggest_more_enabled));
-                setOncePerUser(data.once_per_user_24h !== undefined ? Boolean(data.once_per_user_24h) : true);
+                setOncePerUser(Boolean(data.once_per_user_24h));
                 setSeenTypingEnabled(Boolean(data.seen_typing_enabled));
                 lastFetchedAccountIdRef.current = activeAccountID;
 
@@ -164,7 +164,7 @@ const MentionsView: React.FC = () => {
             followers_only_primary_button_text: String(config.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT),
             followers_only_secondary_button_text: String(config.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT),
             suggest_more_enabled: Boolean(config.suggest_more_enabled),
-            once_per_user_24h: config.once_per_user_24h !== undefined ? Boolean(config.once_per_user_24h) : true,
+            once_per_user_24h: Boolean(config.once_per_user_24h),
             seen_typing_enabled: Boolean(config.seen_typing_enabled)
         }));
     }, [config]);
@@ -193,13 +193,13 @@ const MentionsView: React.FC = () => {
                     template_id: selectedTemplate.id,
                     template_type: selectedTemplate.template_type,
                     is_active: isActive,
-                    followers_only: followersOnly,
+                    followers_only: !getPlanGate('followers_only').isLocked && followersOnly,
                     followers_only_message: followersOnly ? followersOnlyMessage : '',
                     followers_only_primary_button_text: followersOnlyPrimaryButtonText,
                     followers_only_secondary_button_text: followersOnlySecondaryButtonText,
-                    suggest_more_enabled: suggestMoreEnabled,
-                    once_per_user_24h: oncePerUser,
-                    seen_typing_enabled: seenTypingEnabled
+                    suggest_more_enabled: !getPlanGate('suggest_more').isLocked && suggestMoreEnabled,
+                    once_per_user_24h: !getPlanGate('once_per_user_24h').isLocked && oncePerUser,
+                    seen_typing_enabled: !getPlanGate('seen_typing').isLocked && seenTypingEnabled
                 })
             });
 
@@ -232,7 +232,7 @@ const MentionsView: React.FC = () => {
             setFollowersOnlyPrimaryButtonText(String(config.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT));
             setFollowersOnlySecondaryButtonText(String(config.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT));
             setSuggestMoreEnabled(Boolean(config.suggest_more_enabled));
-            setOncePerUser(config.once_per_user_24h !== undefined ? Boolean(config.once_per_user_24h) : true);
+            setOncePerUser(Boolean(config.once_per_user_24h));
             setSeenTypingEnabled(Boolean(config.seen_typing_enabled));
             const restoredTemplate = config.template_id ? (templateCacheRef.current[config.template_id] || null) : null;
             setSelectedTemplate(restoredTemplate);

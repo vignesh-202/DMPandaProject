@@ -210,7 +210,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
         suggest_more_enabled: false,
         private_reply_enabled: true,
         share_to_admin_enabled: false,
-        once_per_user_24h: true,
+        once_per_user_24h: false,
         story_scope: 'shown',
         followers_only_primary_button_text: FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
         followers_only_secondary_button_text: FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
@@ -529,7 +529,7 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 suggest_more_enabled: false,
                 private_reply_enabled: true,
                 share_to_admin_enabled: false,
-                once_per_user_24h: true,
+                once_per_user_24h: false,
                 story_scope: 'shown',
                 followers_only_primary_button_text: FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
                 followers_only_secondary_button_text: FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
@@ -775,6 +775,12 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 return false;
             }
 
+            const hasOncePerUser = !getPlanGate('once_per_user_24h').isLocked;
+            const hasSeenTyping = !getPlanGate('seen_typing').isLocked;
+            const hasFollowersOnly = !getPlanGate('followers_only').isLocked;
+            const hasSuggestMore = !getPlanGate('suggest_more').isLocked;
+            const hasShareToAdmin = !getPlanGate('share_post_to_admin').isLocked && !getPlanGate('share_reel_to_admin').isLocked;
+
             const payload: any = {
                 ...automation,
                 title: currentTitle,
@@ -784,15 +790,17 @@ const AutomationEditor: React.FC<AutomationEditorProps> = ({
                 is_active: automation.is_active !== false,
                 comment_reply: automation.comment_reply_text || '',
                 trigger_type: automation.trigger_type || 'keywords',
-                followers_only_message: automation.followers_only
+                followers_only: hasFollowersOnly && Boolean(automation.followers_only),
+                followers_only_message: (hasFollowersOnly && automation.followers_only)
                     ? (followersOnlyMessage || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
                     : '',
-                share_to_admin_enabled: automation.share_to_admin_enabled === true,
-                once_per_user_24h: automation.once_per_user_24h === true,
+                share_to_admin_enabled: hasShareToAdmin && (automation.share_to_admin_enabled === true),
+                once_per_user_24h: hasOncePerUser && (automation.once_per_user_24h === true),
                 story_scope: automation.story_scope || 'shown',
                 followers_only_primary_button_text: automation.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
                 followers_only_secondary_button_text: automation.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
-                seen_typing_enabled: automation.seen_typing_enabled === true,
+                seen_typing_enabled: hasSeenTyping && (automation.seen_typing_enabled === true),
+                suggest_more_enabled: hasSuggestMore && (automation.suggest_more_enabled === true),
             };
             if (selectedTemplate) {
                 payload.template_id = selectedTemplate.id;

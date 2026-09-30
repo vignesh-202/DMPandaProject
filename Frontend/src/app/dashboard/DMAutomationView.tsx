@@ -541,7 +541,7 @@ const DMAutomationView: React.FC = () => {
                     ],
                     active: true,
                     is_active: true,
-                    seen_typing_enabled: true,
+                    seen_typing_enabled: false,
                     followers_only: false,
                     case_sensitive: false,
                     is_global: false,
@@ -550,7 +550,7 @@ const DMAutomationView: React.FC = () => {
                     global_live: false,
                     global_stories: false,
                     automation_type: 'dm',
-                    once_per_user_24h: true
+                    once_per_user_24h: false
                 };
                 setEditingAutomation(loaded);
                 setOriginalAutomation(JSON.parse(JSON.stringify(loaded)));
@@ -808,12 +808,13 @@ const DMAutomationView: React.FC = () => {
                 keyword: kws,
                 type: 'dm',
                 is_active: editingAutomation.is_active !== false,
-                suggest_more_enabled: editingAutomation.suggest_more_enabled === true,
-                once_per_user_24h: editingAutomation.once_per_user_24h === true,
-                seen_typing_enabled: editingAutomation.seen_typing_enabled === true,
+                suggest_more_enabled: !getPlanGate('suggest_more').isLocked && editingAutomation.suggest_more_enabled === true,
+                once_per_user_24h: !getPlanGate('once_per_user_24h').isLocked && editingAutomation.once_per_user_24h === true,
+                seen_typing_enabled: !getPlanGate('seen_typing').isLocked && editingAutomation.seen_typing_enabled === true,
+                followers_only: !getPlanGate('followers_only').isLocked && editingAutomation.followers_only === true,
                 followers_only_primary_button_text: editingAutomation.followers_only_primary_button_text || FOLLOWERS_ONLY_PRIMARY_BUTTON_DEFAULT,
                 followers_only_secondary_button_text: editingAutomation.followers_only_secondary_button_text || FOLLOWERS_ONLY_SECONDARY_BUTTON_DEFAULT,
-                followers_only_message: editingAutomation.followers_only
+                followers_only_message: (!getPlanGate('followers_only').isLocked && editingAutomation.followers_only)
                     ? (String(editingAutomation.followers_only_message || '').trim() || FOLLOWERS_ONLY_MESSAGE_DEFAULT)
                     : ''
             };

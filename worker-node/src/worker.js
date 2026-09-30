@@ -329,13 +329,11 @@ class DMWorker {
 
     _requiredFeaturesForAutomation(automation) {
         const type = String(automation?.automation_type || 'dm').trim().toLowerCase();
-        const toggleMap = USE_NEW_GATING ? TOGGLE_FEATURE_MAP : LEGACY_TOGGLE_FEATURE_MAP;
         const typeMap = USE_NEW_GATING ? AUTOMATION_TYPE_FEATURE_MAP : LEGACY_AUTOMATION_TYPE_FEATURE_MAP;
         const required = [];
         if (typeMap[type]) required.push(typeMap[type]);
-        Object.entries(toggleMap).forEach(([toggleField, featureKey]) => {
-            if (automation?.[toggleField] === true) required.push(featureKey);
-        });
+        // Note: Optional feature toggles (once_per_user_24h, seen_typing, followers_only, suggest_more)
+        // degrade gracefully at runtime if not in the current plan and do not prevent the automation from running.
         if (!USE_NEW_GATING) {
             if (automation?.private_reply_enabled === false && ['comment', 'post'].includes(type)) {
                 required.push('post_comment_reply_automation');
@@ -952,8 +950,9 @@ class DMWorker {
         };
     }
 
-    async _maybeSendSeenTypingPrelude(instagram, senderId, automation, chainState = null) {
+    async _maybeSendSeenTypingPrelude(instagram, senderId, automation, chainState = null, profile = null) {
         if (automation?.seen_typing_enabled !== true) return;
+        if (profile && !this._hasPlanFeature(profile, 'seen_typing')) return;
         if (chainState && chainState.preReplyHintsSent === true) return;
 
         try {
@@ -1059,7 +1058,8 @@ class DMWorker {
         ownerUserId = null,
         eventType = 'message',
         accountId = null,
-        commentReplySent = false
+        commentReplySent = false,
+        profile = null
     }) {
         const commentReplyText = String(automation?.comment_reply || automation?.comment_reply_text || '').trim();
         if (commentId && commentReplyText && !commentReplySent) {
@@ -1085,7 +1085,7 @@ class DMWorker {
             return false;
         }
 
-        await this._maybeSendSeenTypingPrelude(instagram, senderId, automation, chainState);
+        await this._maybeSendSeenTypingPrelude(instagram, senderId, automation, chainState, profile);
         const success = await this.sendRenderedTemplate(
             instagram,
             senderId,
@@ -1781,7 +1781,8 @@ class DMWorker {
                 return { handled: false, retryable: false, automationType: creditGate.reason };
             }
 
-            if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
+            const has24hCooldown = this._hasPlanFeature(profile, 'once_per_user_24h');
+            if (has24hCooldown && matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
                 continue;
             }
 
@@ -1810,7 +1811,7 @@ class DMWorker {
                 }
             }
 
-            if (matchedAutomation.followers_only === true) {
+            if (this._hasPlanFeature(profile, 'followers_only') && matchedAutomation.followers_only === true) {
                 if (!followStatusProfile) {
                     followStatusProfile = await instagram.getUserProfile(commentEvent.senderId);
                 }
@@ -1847,7 +1848,8 @@ class DMWorker {
                     commentReplySent,
                     ownerUserId: igAccount.user_id,
                     eventType: 'comment',
-                    accountId: primaryAccountId
+                    accountId: primaryAccountId,
+                    profile
                 });
                 if (dmSuccess) handled = true;
             } else if (commentReplySent) {
@@ -1861,7 +1863,7 @@ class DMWorker {
                 if (automationType === 'welcome_message') {
                     this._rememberWelcomeReply(conversationKey);
                 }
-                if (matchedAutomation.once_per_user_24h === true) {
+                if (has24hCooldown && matchedAutomation.once_per_user_24h === true) {
                     nextConversationState = this._withAutomationCooldown(nextConversationState, matchedAutomation.$id);
                 }
             }
@@ -1960,7 +1962,8 @@ class DMWorker {
             });
             return { handled: false, retryable: false, automationType: creditGate.reason };
         }
-        if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
+        const has24hCooldown = this._hasPlanFeature(profile, 'once_per_user_24h');
+        if (has24hCooldown && matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
             return { handled: true, automationType, retryable: false };
         }
 
@@ -1969,7 +1972,7 @@ class DMWorker {
             return { handled: true, automationType, retryable: false };
         }
 
-        if (matchedAutomation.followers_only === true) {
+        if (this._hasPlanFeature(profile, 'followers_only') && matchedAutomation.followers_only === true) {
             const profile = await instagram.getUserProfile(mentionEvent.senderId);
             if (profile?.is_user_follow_business !== true) {
                 await this._sendFollowersOnlyPrompt(instagram, mentionEvent.senderId, igAccount, matchedAutomation);
@@ -1989,7 +1992,8 @@ class DMWorker {
             chainState: { preReplyHintsSent: false },
             ownerUserId: igAccount.user_id,
             eventType: 'mention',
-            accountId: primaryAccountId
+            accountId: primaryAccountId,
+            profile
         });
 
         if (success) {
@@ -1999,7 +2003,7 @@ class DMWorker {
             if (automationType === 'welcome_message') {
                 this._rememberWelcomeReply(conversationKey);
             }
-            if (matchedAutomation.once_per_user_24h === true) {
+            if (has24hCooldown && matchedAutomation.once_per_user_24h === true) {
                 nextConversationState = this._withAutomationCooldown(nextConversationState, matchedAutomation.$id);
             }
         }
@@ -2356,7 +2360,8 @@ class DMWorker {
                 };
             }
 
-            if (matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
+            const has24hCooldown = this._hasPlanFeature(profile, 'once_per_user_24h');
+            if (has24hCooldown && matchedAutomation.once_per_user_24h === true && this._isAutomationCoolingDown(nextConversationState, matchedAutomation.$id)) {
                 console.log(`Skipping automation ${matchedAutomation.$id || matchedAutomation.title || automationType} due to 24h cooldown.`);
                 return {
                     handled: true,
@@ -2374,7 +2379,7 @@ class DMWorker {
 
             // Followers-only guard:
             // Use Instagram User Profile API to verify whether sender follows business account.
-            if (matchedAutomation.followers_only === true) {
+            if (this._hasPlanFeature(profile, 'followers_only') && matchedAutomation.followers_only === true) {
                 console.log(`Followers-only automation enabled. Checking follow status for sender ${senderId}...`);
                 const profile = await instagram.getUserProfile(senderId);
                 const followsBusiness = profile?.is_user_follow_business === true;
@@ -2407,7 +2412,7 @@ class DMWorker {
             };
             const watermarkPolicy = await this._getWatermarkPolicyForUser(igAccount.user_id);
             const chainState = { preReplyHintsSent: false };
-            await this._maybeSendSeenTypingPrelude(instagram, senderId, matchedAutomation, chainState);
+            await this._maybeSendSeenTypingPrelude(instagram, senderId, matchedAutomation, chainState, profile);
 
             // 6. Send the message via Instagram API
             const success = await this.sendRenderedTemplate(
@@ -2437,7 +2442,7 @@ class DMWorker {
                 if (automationType === 'welcome_message') {
                     this._rememberWelcomeReply(conversationKey);
                 }
-                if (matchedAutomation.once_per_user_24h === true) {
+                if (has24hCooldown && matchedAutomation.once_per_user_24h === true) {
                     nextConversationState = this._withAutomationCooldown(nextConversationState, matchedAutomation.$id);
                 }
             }

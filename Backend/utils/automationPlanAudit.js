@@ -27,9 +27,8 @@ const requiredFeaturesForAutomation = (automation = {}) => {
     const type = String(automation.automation_type || automation.type || 'dm').trim().toLowerCase();
     const required = [];
     if (AUTOMATION_TYPE_FEATURE_MAP[type]) required.push(AUTOMATION_TYPE_FEATURE_MAP[type]);
-    Object.entries(TOGGLE_FEATURE_MAP).forEach(([field, featureKey]) => {
-        if (automation?.[field] === true) required.push(featureKey);
-    });
+    // Optional toggles (once_per_user_24h, seen_typing, followers_only, suggest_more) degrade gracefully
+    // and should not cause the entire automation to be marked invalid_due_to_plan on plan expiry.
     const commentReplyFeature = COMMENT_REPLY_FEATURE_MAP[type] || (type === 'global' ? 'post_comment_reply_automation' : '');
     if (String(automation.comment_reply || automation.comment_reply_text || '').trim() && commentReplyFeature) {
         required.push(commentReplyFeature);

@@ -113,7 +113,7 @@ const InboxMenu: React.FC = () => {
         title: '',
         type: 'postback',
         followers_only: false,
-        once_per_user_24h: true,
+        once_per_user_24h: false,
         seen_typing_enabled: false,
         webview_height_ratio: 'full',
         template_type: 'template_text',
@@ -304,7 +304,7 @@ const InboxMenu: React.FC = () => {
             title: '',
             type: 'postback',
             followers_only: false,
-            once_per_user_24h: true,
+            once_per_user_24h: false,
             seen_typing_enabled: false,
             webview_height_ratio: 'full',
             template_type: 'template_text',
@@ -558,7 +558,7 @@ const InboxMenu: React.FC = () => {
             title: '',
             type: 'postback',
             followers_only: false,
-            once_per_user_24h: true,
+            once_per_user_24h: false,
             seen_typing_enabled: false,
             webview_height_ratio: 'full',
             template_type: 'template_text',
@@ -645,8 +645,8 @@ const InboxMenu: React.FC = () => {
                     const item: any = {
                         type: m.type,
                         title: m.title,
-                        followers_only: m.followers_only || false,
-                        once_per_user_24h: m.once_per_user_24h === true
+                        followers_only: !getPlanGate('followers_only').isLocked && (m.followers_only || false),
+                        once_per_user_24h: !getPlanGate('once_per_user_24h').isLocked && (m.once_per_user_24h === true)
                     };
 
                     if (m.type === 'web_url') {
@@ -660,7 +660,7 @@ const InboxMenu: React.FC = () => {
                         // Task 4: Include template data for backend to create/update
                         item.template_type = m.template_type;
                         item.template_data = m.template_data;
-                        item.seen_typing_enabled = m.seen_typing_enabled === true;
+                        item.seen_typing_enabled = !getPlanGate('seen_typing').isLocked && (m.seen_typing_enabled === true);
                     }
 
                     return item;
@@ -789,7 +789,7 @@ const InboxMenu: React.FC = () => {
             title: '',
             type: 'postback',
             followers_only: false,
-            once_per_user_24h: true,
+            once_per_user_24h: false,
             seen_typing_enabled: false,
             webview_height_ratio: 'full',
             template_type: 'template_text',
@@ -872,7 +872,7 @@ const InboxMenu: React.FC = () => {
                 title: '',
                 type: 'postback',
                 followers_only: false,
-                once_per_user_24h: true,
+                once_per_user_24h: false,
                 seen_typing_enabled: false,
                 webview_height_ratio: 'full',
                 template_type: 'template_text',
