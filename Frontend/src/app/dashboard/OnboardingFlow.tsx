@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Check, X, Eye, EyeOff, Instagram, CheckCircle, Mail, Lock, RefreshCw, LogOut, Trash2, Pencil, Loader2 } from 'lucide-react';
+import { Check, X, Instagram, CheckCircle, Mail, Lock, RefreshCw, LogOut, Trash2, Pencil, Loader2 } from 'lucide-react';
 import PasswordStrengthIndicator from '../../components/ui/PasswordStrength';
 
 // Modern spinning loader component
@@ -53,8 +53,6 @@ const OnboardingFlow: React.FC = () => {
     // Form states
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -486,43 +484,27 @@ const OnboardingFlow: React.FC = () => {
             </div>
 
             <form onSubmit={handlePasswordSubmit} className="space-y-3 sm:space-y-4">
-                <div className="relative">
-                    <Input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="New Password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className="w-full pr-10 text-black dark:text-white transition-all focus:ring-2 focus:ring-black dark:focus:ring-white text-sm sm:text-base"
-                    />
-                    <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-                    >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                </div>
+                <Input
+                    type="password"
+                    placeholder="New Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="w-full text-black dark:text-white transition-all focus:ring-2 focus:ring-black dark:focus:ring-white text-sm sm:text-base"
+                />
                 <PasswordStrengthIndicator password={password} />
 
                 <div className="relative">
                     <Input
-                        type={showConfirmPassword ? "text" : "password"}
+                        type="password"
                         placeholder="Confirm Password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         required
-                        className="w-full pr-10 text-black dark:text-white transition-all focus:ring-2 focus:ring-black dark:focus:ring-white text-sm sm:text-base"
+                        className="w-full text-black dark:text-white transition-all focus:ring-2 focus:ring-black dark:focus:ring-white text-sm sm:text-base"
                     />
-                    <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-                    >
-                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
                     {confirmPassword && (
-                        <div className="absolute right-10 top-1/2 -translate-y-1/2 mr-1 transition-all">
+                        <div className="absolute right-12 top-1/2 -translate-y-1/2 transition-all pointer-events-none">
                             {password === confirmPassword ? (
                                 <Check size={18} className="text-green-500" />
                             ) : (
