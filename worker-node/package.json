@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "node -e \"console.log('Worker-node build: ready')\"",
+    "build": "npm install --no-workspaces --install-strategy=nested --omit=dev",
     "test": "node -e \"console.log('No worker-node tests configured')\"",
     "start": "node index.js",
     "dev": "node --watch index.js"
