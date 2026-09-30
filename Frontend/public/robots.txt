@@ -29,11 +29,14 @@ Disallow: /admin/
 Disallow: /reset-password
 Disallow: /verify-email
 
-# Googlebot Image Crawler (Indexes Feature & Blog Graphics)
+# Googlebot Image Crawler (Indexes Feature & Blog Graphics, Favicons)
 User-agent: Googlebot-Image
 Allow: /images/
 Allow: /assets/
-Allow: /favicon.ico
+Allow: /favicon*
+Allow: /apple-touch-icon.png
+Allow: /android-chrome-*
+Allow: /site.webmanifest
 Disallow: /dashboard/
 Disallow: /auth/
 Disallow: /admin/
