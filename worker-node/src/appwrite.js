@@ -1251,7 +1251,8 @@ class AppwriteClient {
                 : 'secondary_message',
             opacity: Number.isFinite(Number(process.env.DEFAULT_WATERMARK_OPACITY))
                 ? Math.max(0, Math.min(1, Number(process.env.DEFAULT_WATERMARK_OPACITY)))
-                : 1
+                : 1,
+            default_text: String(process.env.DEFAULT_WATERMARK_TEXT || 'Automation made by DMPanda').trim() || 'Automation made by DMPanda'
         };
 
         try {
@@ -1268,7 +1269,10 @@ class AppwriteClient {
                     : fallback.position,
                 opacity: Number.isFinite(Number(document.opacity))
                     ? Math.max(0, Math.min(1, Number(document.opacity)))
-                    : fallback.opacity
+                    : fallback.opacity,
+                default_text: document.default_text !== undefined && String(document.default_text).trim() !== ''
+                    ? String(document.default_text).trim()
+                    : fallback.default_text
             };
             this._watermarkPolicyCache = policy;
             this._watermarkPolicyExpiresAt = now + (30 * 1000);
