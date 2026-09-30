@@ -1,5 +1,11 @@
 const { Query } = require('node-appwrite');
-const sharedPlanFeatures = require('../../shared/planFeatures.json');
+const sharedPlanFeatures = (() => {
+    try {
+        return require('../shared/planFeatures.json');
+    } catch {
+        return require('../../shared/planFeatures.json');
+    }
+})();
 const {
     APPWRITE_DATABASE_ID,
     AUTOMATIONS_COLLECTION_ID,

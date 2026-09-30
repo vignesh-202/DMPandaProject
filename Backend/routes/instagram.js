@@ -26,8 +26,20 @@ const {
     buildAccountPlanSnapshot,
     listPricingPlans
 } = require('../utils/planConfig');
-const sharedPlanFeatures = require('../../shared/planFeatures.json');
-const { evaluateActionRateLimit } = require('../../shared/actionRateLimiter');
+const sharedPlanFeatures = (() => {
+    try {
+        return require('../shared/planFeatures.json');
+    } catch {
+        return require('../../shared/planFeatures.json');
+    }
+})();
+const { evaluateActionRateLimit } = (() => {
+    try {
+        return require('../shared/actionRateLimiter');
+    } catch {
+        return require('../../shared/actionRateLimiter');
+    }
+})();
 const { Account, Databases, Query, ID, Permission, Role, ExecutionMethod, Users } = require('node-appwrite');
 const { buildAccessDeniedPayload } = require('../utils/accessControl');
 const {

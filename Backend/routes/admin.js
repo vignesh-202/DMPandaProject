@@ -58,7 +58,13 @@ const {
     readWatermarkPolicy,
     saveWatermarkPolicy
 } = require('../utils/systemConfig');
-const sharedPlanFeatures = require('../../shared/planFeatures.json');
+const sharedPlanFeatures = (() => {
+    try {
+        return require('../shared/planFeatures.json');
+    } catch {
+        return require('../../shared/planFeatures.json');
+    }
+})();
 
 const router = express.Router();
 

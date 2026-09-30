@@ -2,8 +2,20 @@ const crypto = require('crypto');
 const { Client, Databases, Query, ID, Functions } = require('node-appwrite');
 require('dotenv').config();
 const { withAppwriteRetry } = require('./appwriteSafety');
-const { buildActionUsageIncrementPatch } = require('../../shared/actionRateLimiter');
-const sharedPlanFeatures = require('../../shared/planFeatures.json');
+const { buildActionUsageIncrementPatch } = (() => {
+    try {
+        return require('../shared/actionRateLimiter');
+    } catch {
+        return require('../../shared/actionRateLimiter');
+    }
+})();
+const sharedPlanFeatures = (() => {
+    try {
+        return require('../shared/planFeatures.json');
+    } catch {
+        return require('../../shared/planFeatures.json');
+    }
+})();
 
 const CHAT_STATES_COLLECTION_ID = process.env.CHAT_STATES_COLLECTION_ID || 'chat_states';
 const CONVO_STARTERS_COLLECTION_ID = process.env.CONVO_STARTERS_COLLECTION_ID || 'convo_starters';

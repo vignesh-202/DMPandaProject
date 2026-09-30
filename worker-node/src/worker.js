@@ -3,8 +3,20 @@ const AppwriteClient = require('./appwrite');
 const InstagramAPI = require('./instagram');
 const AutomationMatcher = require('./matcher');
 const TemplateRenderer = require('./renderer');
-const sharedPlanFeatures = require('../../shared/planFeatures.json');
-const { evaluateActionRateLimit, normalizeActionLimits } = require('../../shared/actionRateLimiter');
+const sharedPlanFeatures = (() => {
+    try {
+        return require('../shared/planFeatures.json');
+    } catch {
+        return require('../../shared/planFeatures.json');
+    }
+})();
+const { evaluateActionRateLimit, normalizeActionLimits } = (() => {
+    try {
+        return require('../shared/actionRateLimiter');
+    } catch {
+        return require('../../shared/actionRateLimiter');
+    }
+})();
 const { planWatermark, resolveWatermarkPolicy } = require('./watermark');
 
 const DEFAULT_FOLLOWERS_ONLY_MESSAGE = 'Please follow this account first, then send your message again.';
