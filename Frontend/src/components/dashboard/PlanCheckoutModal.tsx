@@ -638,7 +638,7 @@ export const PlanCheckoutModal: React.FC<PlanCheckoutModalProps> = ({
       await loadRazorpay();
 
       const rzp = new (window as any).Razorpay({
-        key: orderPayload?.key || import.meta.env.VITE_RAZORPAY_KEY_ID,
+        key: orderPayload?.key,
         amount: orderPayload.order.amount,
         currency: orderPayload.order.currency,
         name: 'DM Panda',
