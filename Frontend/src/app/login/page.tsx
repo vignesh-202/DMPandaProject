@@ -14,13 +14,7 @@ const LoginPage: React.FC = () => {
     title: 'Login & Register | DM Panda',
     description: 'Access your DM Panda dashboard or register a new account to configure your Instagram DM automations, custom reply templates, and analytics.',
     keywords: 'login dm panda, signup dm panda, dm panda register, instagram automation console',
-    schema: {
-      '@context': 'https://schema.org',
-      '@type': 'WebPage',
-      'name': 'Login / Registration | DM Panda',
-      'description': 'Sign in or register a new account on DM Panda.',
-      'url': 'https://dmpanda.com/login'
-    }
+    noIndex: true,
   });
 
   const { isAuthenticated, authHint, isLoading, login } = useAuth();

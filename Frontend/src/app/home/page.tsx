@@ -251,30 +251,17 @@ const HomePage: React.FC = () => {
     schema: [
       {
         '@context': 'https://schema.org',
-        '@type': 'Organization',
+        '@type': 'WebSite',
         'name': 'DM Panda',
-        'url': 'https://dmpanda.com',
-        'logo': 'https://dmpanda.com/images/logo.png',
-        'sameAs': [
-          'https://www.facebook.com/dmpanda',
-          'https://twitter.com/dmpanda',
-          'https://www.instagram.com/dmpanda',
-          'https://www.linkedin.com/company/dmpanda'
-        ]
+        'url': 'https://dmpanda.com/',
+        'description': 'Instagram DM and Comment Automation Tool for creators and businesses.'
       },
       {
         '@context': 'https://schema.org',
-        '@type': 'WebSite',
+        '@type': 'Organization',
         'name': 'DM Panda',
-        'url': 'https://dmpanda.com',
-        'potentialAction': {
-          '@type': 'SearchAction',
-          'target': {
-            '@type': 'EntryPoint',
-            'urlTemplate': 'https://dmpanda.com/blog?q={search_term_string}'
-          },
-          'query-input': 'required name=search_term_string'
-        }
+        'url': 'https://dmpanda.com/',
+        'logo': 'https://dmpanda.com/images/logo.png'
       },
       {
         '@context': 'https://schema.org',
@@ -283,16 +270,7 @@ const HomePage: React.FC = () => {
         'operatingSystem': 'Web-based',
         'applicationCategory': 'BusinessApplication',
         'description': 'Certified Meta Partner Instagram automation platform for DMs, comments, reels, stories, and link-in-bio.',
-        'offers': {
-          '@type': 'Offer',
-          'price': '0',
-          'priceCurrency': 'INR'
-        },
-        'aggregateRating': {
-          '@type': 'AggregateRating',
-          'ratingValue': '4.9',
-          'ratingCount': '22000'
-        }
+        'url': 'https://dmpanda.com/'
       }
     ]
   });

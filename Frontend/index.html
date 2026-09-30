@@ -50,28 +50,13 @@
       "@context": "https://schema.org",
       "@graph": [
         {
-          "@type": "SoftwareApplication",
-          "@id": "https://dmpanda.com/#software",
-          "name": "DM Panda",
-          "operatingSystem": "All (Web, Cloud, Instagram API)",
-          "applicationCategory": "BusinessApplication",
-          "applicationSubCategory": "SocialMediaAutomation",
+          "@type": "WebSite",
+          "@id": "https://dmpanda.com/#website",
           "url": "https://dmpanda.com/",
-          "description": "Official Meta Certified Instagram DM and Comment Automation Tool for creators, businesses, and influencers.",
-          "offers": {
-            "@type": "AggregateOffer",
-            "priceCurrency": "USD",
-            "lowPrice": "0",
-            "highPrice": "49",
-            "offerCount": "4"
-          },
-          "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": "4.9",
-            "ratingCount": "1250",
-            "bestRating": "5",
-            "worstRating": "1"
-          }
+          "name": "DM Panda",
+          "alternateName": "DMPanda",
+          "description": "Instagram DM and Comment Automation Tool for creators and businesses.",
+          "inLanguage": "en-US"
         },
         {
           "@type": "Organization",
@@ -83,39 +68,17 @@
             "url": "https://dmpanda.com/images/logo.png",
             "width": "512",
             "height": "512"
-          },
-          "contactPoint": {
-            "@type": "ContactPoint",
-            "contactType": "customer service",
-            "availableLanguage": ["English", "Hindi"],
-            "url": "https://dmpanda.com/contact"
-          },
-          "sameAs": [
-            "https://www.instagram.com/dmpanda",
-            "https://twitter.com/dmpanda",
-            "https://www.facebook.com/dmpanda",
-            "https://www.linkedin.com/company/dmpanda"
-          ]
+          }
         },
         {
-          "@type": "WebSite",
-          "@id": "https://dmpanda.com/#website",
-          "url": "https://dmpanda.com/",
+          "@type": "SoftwareApplication",
+          "@id": "https://dmpanda.com/#software",
           "name": "DM Panda",
-          "alternateName": "DMPanda",
-          "description": "Official Meta Certified Instagram Automation Platform",
-          "publisher": {
-            "@id": "https://dmpanda.com/#organization"
-          },
-          "potentialAction": {
-            "@type": "SearchAction",
-            "target": {
-              "@type": "EntryPoint",
-              "urlTemplate": "https://dmpanda.com/blog?q={search_term_string}"
-            },
-            "query-input": "required name=search_term_string"
-          },
-          "inLanguage": "en-US"
+          "operatingSystem": "Web-based",
+          "applicationCategory": "BusinessApplication",
+          "applicationSubCategory": "SocialMediaAutomation",
+          "url": "https://dmpanda.com/",
+          "description": "Certified Meta Partner Instagram automation platform for DMs, comments, reels, stories, and link-in-bio."
         }
       ]
     }

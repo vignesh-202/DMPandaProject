@@ -77,13 +77,15 @@ const AppContent: React.FC = () => {
     if (isDashboardLike) {
       document.title = getRouteTitle(path);
 
-      let robotsTag = document.querySelector('meta[name="robots"]');
-      if (!robotsTag) {
-        robotsTag = document.createElement('meta');
-        robotsTag.setAttribute('name', 'robots');
-        document.head.appendChild(robotsTag);
-      }
-      robotsTag.setAttribute('content', 'noindex,nofollow');
+      ['robots', 'googlebot', 'bingbot'].forEach((name) => {
+        let crawlerMeta = document.querySelector(`meta[name="${name}"]`);
+        if (!crawlerMeta) {
+          crawlerMeta = document.createElement('meta');
+          crawlerMeta.setAttribute('name', name);
+          document.head.appendChild(crawlerMeta);
+        }
+        crawlerMeta.setAttribute('content', 'noindex,nofollow');
+      });
 
       let canonicalTag = document.querySelector('link[rel="canonical"]');
       if (!canonicalTag) {
@@ -91,7 +93,7 @@ const AppContent: React.FC = () => {
         canonicalTag.setAttribute('rel', 'canonical');
         document.head.appendChild(canonicalTag);
       }
-      canonicalTag.setAttribute('href', `${SITE_ORIGIN}${path === '/' ? '' : path}`);
+      canonicalTag.setAttribute('href', `https://dmpanda.com${path === '/' ? '' : path}`);
     }
   }, [location.pathname]);
 

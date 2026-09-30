@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
-const DEFAULT_ORIGIN = String(import.meta.env.VITE_PUBLIC_SITE_URL || 'https://dmpanda.com').replace(/\/+$/, '');
+// Production canonical origin must strictly be https://dmpanda.com
+export const CANONICAL_ORIGIN = 'https://dmpanda.com';
 
 interface SEOProps {
   title: string;
@@ -18,24 +19,37 @@ interface SEOProps {
 }
 
 function resolveAbsoluteUrl(url?: string): string {
-  if (!url) return `${DEFAULT_ORIGIN}/images/logo.png`;
+  if (!url) return `${CANONICAL_ORIGIN}/images/logo.png`;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return `${DEFAULT_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
+  return `${CANONICAL_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-function formatCanonical(canonical?: string): string {
+export function formatCanonical(canonical?: string): string {
   if (canonical) {
-    if (canonical.startsWith('http://') || canonical.startsWith('https://')) {
-      return canonical;
+    let clean = canonical.trim();
+    // Normalize any http/https or www prefix to exactly https://dmpanda.com
+    clean = clean.replace(/^https?:\/\/(?:www\.)?dmpanda\.com/i, CANONICAL_ORIGIN);
+    if (!clean.startsWith('http')) {
+      clean = `${CANONICAL_ORIGIN}${clean.startsWith('/') ? '' : '/'}${clean}`;
     }
-    return `${DEFAULT_ORIGIN}${canonical.startsWith('/') ? '' : '/'}${canonical}`;
+    // Remove query params or hashes if present
+    clean = clean.split('?')[0].split('#')[0];
+    if (clean === CANONICAL_ORIGIN) {
+      return `${CANONICAL_ORIGIN}/`;
+    }
+    return clean.replace(/\/+$/, '');
   }
+
   if (typeof window !== 'undefined') {
     const pathname = window.location.pathname || '/';
-    const cleanPath = pathname === '/' ? '' : pathname.replace(/\/+$/, '');
-    return `${DEFAULT_ORIGIN}${cleanPath}`;
+    if (!pathname || pathname === '/') {
+      return `${CANONICAL_ORIGIN}/`;
+    }
+    const cleanPath = pathname.replace(/\/+$/, '');
+    return `${CANONICAL_ORIGIN}${cleanPath}`;
   }
-  return DEFAULT_ORIGIN;
+
+  return `${CANONICAL_ORIGIN}/`;
 }
 
 export function useSEO({
@@ -81,19 +95,22 @@ export function useSEO({
       }
     }
 
-    // 4. Meta Robots (Optimized for Google Search Console & Discover)
-    let metaRobots = document.querySelector('meta[name="robots"]');
-    if (!metaRobots) {
-      metaRobots = document.createElement('meta');
-      metaRobots.setAttribute('name', 'robots');
-      document.head.appendChild(metaRobots);
-    }
-    metaRobots.setAttribute(
-      'content',
-      noIndex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'
-    );
+    // 4. Meta Robots & Search Engine Crawler Directives (Synchronized)
+    const robotsContent = noIndex
+      ? 'noindex,nofollow'
+      : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1';
 
-    // 5. Canonical Link URL (Strips query params, prevents duplicate content issues in GSC)
+    ['robots', 'googlebot', 'bingbot'].forEach((name) => {
+      let crawlerMeta = document.querySelector(`meta[name="${name}"]`);
+      if (!crawlerMeta) {
+        crawlerMeta = document.createElement('meta');
+        crawlerMeta.setAttribute('name', name);
+        document.head.appendChild(crawlerMeta);
+      }
+      crawlerMeta.setAttribute('content', robotsContent);
+    });
+
+    // 5. Canonical Link URL (Strips query params, enforces https://dmpanda.com)
     const finalCanonical = formatCanonical(canonical);
     let linkCanonical = document.querySelector('link[rel="canonical"]');
     if (!linkCanonical) {
@@ -115,7 +132,7 @@ export function useSEO({
       gMeta.setAttribute('content', verificationCode.trim());
     }
 
-    // 7. Open Graph (OG) Tags (Absolute image paths required by Google)
+    // 7. Open Graph (OG) Tags (Absolute image paths required by Google & Social crawlers)
     const absoluteImage = resolveAbsoluteUrl(ogImage);
     const ogTags = {
       'og:title': ogTitle || title,
@@ -168,7 +185,7 @@ export function useSEO({
     }
 
     return () => {
-      // Clean up script tag on unmount to prevent page bleeding
+      // Clean up dynamic schema script tag on unmount to prevent page bleeding
       const script = document.querySelector('#jsonld-schema');
       if (script) {
         script.remove();

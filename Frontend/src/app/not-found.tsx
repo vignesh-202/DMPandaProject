@@ -1,7 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 
 const NotFoundPage = () => {
+  useSEO({
+    title: 'Page Not Found (404) | DM Panda',
+    description: 'The requested page could not be found.',
+    noIndex: true,
+  });
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-white dark:bg-neutral-950 transition-colors duration-500 p-4">
       <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
