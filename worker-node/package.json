@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "npm install --no-workspaces --install-strategy=nested --omit=dev",
+    "build": "npm install --no-workspaces --omit=dev",
     "test": "node -e \"console.log('No worker-node tests configured')\"",
     "start": "node index.js",
     "dev": "node --watch index.js"
@@ -15,6 +15,7 @@
   "type": "commonjs",
   "dependencies": {
     "axios": "^1.13.5",
+    "bignumber.js": "^9.1.2",
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
     "dotenv": "^17.2.4",
