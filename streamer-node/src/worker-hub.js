@@ -187,11 +187,12 @@ class WorkerHub extends EventEmitter {
 
     _handleClose(ws) {
         const workerId = this.socketToWorkerId.get(ws);
-        if (!workerId) return;
-        const worker = this.workers.get(workerId);
-        this.workers.delete(workerId);
         this.socketToWorkerId.delete(ws);
-        if (worker) {
+        if (!workerId) return;
+
+        const worker = this.workers.get(workerId);
+        if (worker && worker.ws === ws) {
+            this.workers.delete(workerId);
             this.callbacks.onDisconnected?.({
                 workerId,
                 activeJobIds: Array.from(worker.activeJobs)

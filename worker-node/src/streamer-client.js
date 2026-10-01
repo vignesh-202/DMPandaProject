@@ -30,6 +30,14 @@ class StreamerClient {
         this.ws = null;
         this.closed = false;
         this.connected = false;
+        this.registered = false;
+        this.lastConnectedAt = null;
+        this.lastRegisteredAt = null;
+        this.lastDisconnectedAt = null;
+        this.lastError = null;
+        this.lastCloseCode = null;
+        this.lastCloseReason = null;
+        this.reconnectAttempts = 0;
         this.reconnectTimer = null;
         this.activeJobs = new Map();
         this.deviceMetadata = {
@@ -37,6 +45,26 @@ class StreamerClient {
             platform: os.platform(),
             cpus: this.profiler.hardwareSpecs.cpus,
             memoryMb: this.profiler.hardwareSpecs.totalRamMb
+        };
+    }
+
+    getStatus() {
+        return {
+            workerId: this.workerId,
+            url: this.url ? this.url.replace(/\/\/[^:]+:[^@]+@/, '//') : null,
+            connected: this.connected === true,
+            registered: this.registered === true,
+            capacity: this.capacity,
+            activeJobs: this.activeJobs.size,
+            reconnectAttempts: this.reconnectAttempts || 0,
+            lastConnectedAt: this.lastConnectedAt,
+            lastRegisteredAt: this.lastRegisteredAt,
+            lastDisconnectedAt: this.lastDisconnectedAt,
+            lastPongAt: this.lastPongAt,
+            lastError: this.lastError,
+            lastCloseCode: this.lastCloseCode,
+            lastCloseReason: this.lastCloseReason,
+            hasSharedSecret: !!this.sharedSecret
         };
     }
 
@@ -124,9 +152,11 @@ class StreamerClient {
 
         ws.on('open', () => {
             this.connected = true;
+            this.lastConnectedAt = Date.now();
             this.reconnectAttempts = 0;
             this.lastErrorWas403 = false;
             this.lastPongAt = Date.now();
+            this.lastError = null;
             this.logger.log(`Connected to streamer at ${this.url}`);
 
             if (this.pingTimer) clearInterval(this.pingTimer);
@@ -135,7 +165,7 @@ class StreamerClient {
             this._send({
                 type: 'worker.register',
                 workerId: this.workerId,
-                version: '1.0.0',
+                version: '1.0.2',
                 capacity: this.capacity,
                 activeJobs: this.activeJobs.size,
                 metadata: {
@@ -162,20 +192,26 @@ class StreamerClient {
             this._handleMessage(data);
         });
 
-        ws.on('close', () => {
+        ws.on('close', (code, reason) => {
             this.connected = false;
+            this.registered = false;
+            this.lastDisconnectedAt = Date.now();
+            this.lastCloseCode = code;
+            this.lastCloseReason = reason ? reason.toString() : '';
             if (this.pingTimer) {
                 clearInterval(this.pingTimer);
                 this.pingTimer = null;
             }
-            this.logger.warn('Streamer connection closed.');
+            this.logger.warn(`Streamer connection closed (code: ${code}, reason: ${this.lastCloseReason}).`);
             if (this.ws === ws) this.ws = null;
             this._scheduleReconnect();
         });
 
         ws.on('error', (error) => {
             this.connected = false;
-            const errMsg = error?.message || error;
+            this.registered = false;
+            const errMsg = error?.message || String(error);
+            this.lastError = errMsg;
             this.logger.error('Streamer connection error:', errMsg);
             // If server returned 403 Forbidden (e.g. rate limit), record it so backoff cools down cleanly
             if (String(errMsg).includes('403')) {
@@ -372,6 +408,8 @@ class StreamerClient {
         if (!message || typeof message !== 'object') return;
 
         if (message.type === 'worker.registered') {
+            this.registered = true;
+            this.lastRegisteredAt = Date.now();
             this.logger.log(`Streamer registered worker ${this.workerId}.`);
             return;
         }
@@ -382,7 +420,9 @@ class StreamerClient {
         }
 
         if (message.type === 'error') {
-            this.logger.error('Streamer protocol error:', message.message || 'unknown');
+            const errMsg = String(message.message || 'unknown');
+            this.lastError = `Streamer protocol error: ${errMsg}`;
+            this.logger.error('Streamer protocol error:', errMsg);
         }
     }
 

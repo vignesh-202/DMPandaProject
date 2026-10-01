@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
+const os = require('os');
 const dotenv = require('dotenv');
 dotenv.config({ path: path.join(__dirname, '.env.production') });
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -115,13 +116,18 @@ function isAuthorizedInternalWorkerRequest(req) {
 // Health check endpoint
 app.get('/health', (req, res) => {
     logRequestDetails(req);
+    const streamerStatus = streamerClient.getStatus();
     return sendLoggedJson(res, 200, {
         status: 'ok',
         service: 'worker-node',
-        version: '1.0.1',
+        version: '1.0.2',
+        worker_id: streamerClient.workerId,
+        hostname: os.hostname(),
         role: streamerClient.isEnabled() ? 'slave' : 'standalone',
         streamer_attached: streamerClient.isEnabled(),
         streamer_connected: streamerClient.isConnected(),
+        streamer_registered: streamerStatus.registered,
+        streamer: streamerStatus,
         direct_webhook_processing_enabled: directWebhookProcessingEnabled
     });
 });
