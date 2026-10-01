@@ -118,6 +118,7 @@ app.get('/health', (req, res) => {
     return sendLoggedJson(res, 200, {
         status: 'ok',
         service: 'worker-node',
+        version: '1.0.1',
         role: streamerClient.isEnabled() ? 'slave' : 'standalone',
         streamer_attached: streamerClient.isEnabled(),
         streamer_connected: streamerClient.isConnected(),
