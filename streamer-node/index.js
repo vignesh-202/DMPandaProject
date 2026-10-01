@@ -12,6 +12,11 @@ const JobStore = require('./src/job-store');
 const WorkerHub = require('./src/worker-hub');
 const Dispatcher = require('./src/dispatcher');
 
+const dns = require('dns');
+if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+}
+
 const app = express();
 const server = http.createServer(app);
 const port = process.env.PORT || 3010;

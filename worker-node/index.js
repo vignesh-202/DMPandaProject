@@ -7,6 +7,11 @@ const dotenv = require('dotenv');
 dotenv.config({ path: path.join(__dirname, '.env.production') });
 dotenv.config({ path: path.join(__dirname, '.env') });
 
+const dns = require('dns');
+if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+}
+
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const DMWorker = require('./src/worker');

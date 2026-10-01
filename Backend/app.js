@@ -9,6 +9,11 @@ const { Databases } = require('node-appwrite');
 const { getAppwriteClient } = require('./utils/appwrite');
 const { saveRuntimeFrontendOrigin, normalizeRuntimeOrigin } = require('./utils/systemConfig');
 
+const dns = require('dns');
+if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 

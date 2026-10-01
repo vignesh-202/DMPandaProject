@@ -116,12 +116,16 @@ class StreamerClient {
         if (this.sharedSecret) {
             headers['x-worker-secret'] = this.sharedSecret;
         }
-        const ws = new WebSocket(this.url, { headers });
+        const ws = new WebSocket(this.url, {
+            family: 4,
+            headers
+        });
         this.ws = ws;
 
         ws.on('open', () => {
             this.connected = true;
             this.reconnectAttempts = 0;
+            this.lastErrorWas403 = false;
             this.lastPongAt = Date.now();
             this.logger.log(`Connected to streamer at ${this.url}`);
 
@@ -173,9 +177,12 @@ class StreamerClient {
             this.connected = false;
             const errMsg = error?.message || error;
             this.logger.error('Streamer connection error:', errMsg);
-            // If server returned 403 Forbidden (e.g. rate limit), bump attempts so backoff cools down
+            // If server returned 403 Forbidden (e.g. rate limit), record it so backoff cools down cleanly
             if (String(errMsg).includes('403')) {
+                this.lastErrorWas403 = true;
                 this.reconnectAttempts = Math.max(this.reconnectAttempts || 0, 5);
+            } else {
+                this.lastErrorWas403 = false;
             }
             if (this.ws === ws) {
                 try {
@@ -189,11 +196,18 @@ class StreamerClient {
     _scheduleReconnect() {
         if (this.closed || this.reconnectTimer) return;
         this.reconnectAttempts = (this.reconnectAttempts || 0) + 1;
-        // Jittered exponential backoff to prevent reconnection storm against Server 2
-        const exponentialDelay = Math.min(30000, 1500 * Math.pow(1.4, Math.min(10, this.reconnectAttempts)));
-        const jitter = Math.floor(Math.random() * 2000);
-        const delay = Math.max(this.reconnectDelayMs, Math.round(exponentialDelay + jitter));
-        this.logger.log(`Waiting for streamer-node to become active. Retrying in ${delay}ms...`);
+
+        let delay;
+        if (this.lastErrorWas403) {
+            delay = 65000;
+            this.logger.warn(`Received 403 from streamer edge. Waiting ${delay}ms for rate-limit cooldown...`);
+        } else {
+            // Jittered exponential backoff to prevent reconnection storm against Server 2
+            const exponentialDelay = Math.min(30000, 1500 * Math.pow(1.4, Math.min(10, this.reconnectAttempts)));
+            const jitter = Math.floor(Math.random() * 2000);
+            delay = Math.max(this.reconnectDelayMs, Math.round(exponentialDelay + jitter));
+            this.logger.log(`Waiting for streamer-node to become active. Retrying in ${delay}ms...`);
+        }
 
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
