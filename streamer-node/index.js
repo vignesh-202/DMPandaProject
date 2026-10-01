@@ -150,6 +150,23 @@ dispatcher = new Dispatcher({ store, hub });
 
 app.use(morgan(':date[iso] :method :url :status :response-time ms - :res[content-length]'));
 
+const workerWakeUrl = String(process.env.WORKER_HEALTH_URL || 'https://wheat-magpie-432276.hostingersite.com/health').trim();
+let lastWakeAttempt = 0;
+function maybeWakeWorker() {
+    if (!workerWakeUrl) return;
+    const now = Date.now();
+    if (now - lastWakeAttempt < 15_000) return;
+    lastWakeAttempt = now;
+    fetch(workerWakeUrl, { signal: AbortSignal.timeout(5000) }).catch(() => {});
+}
+
+// Keepalive: check every 2 minutes; if no workers connected, wake worker
+setInterval(() => {
+    if (hub.getAvailableWorkers().length === 0) {
+        maybeWakeWorker();
+    }
+}, 120_000);
+
 registerWebhookRoutes(app, {
     verifyToken: process.env.META_VERIFY_TOKEN || '',
     hub,
@@ -166,6 +183,9 @@ registerWebhookRoutes(app, {
         const accepted = store.enqueueMany(internalJobs);
         if (accepted.length > 0) {
             dispatcher.trigger();
+            if (hub.getAvailableWorkers().length === 0) {
+                maybeWakeWorker();
+            }
         }
         return { accepted: accepted.length, forwarded: 0 };
     },
