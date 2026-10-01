@@ -72,9 +72,16 @@ export const ClusterTelemetryWidget: React.FC<{ className?: string }> = ({ class
             const data = res.data?.cluster || res.data;
             if (data && typeof data === 'object') {
                 const isOfflinePayload = data.status === 'offline';
-                setCluster({
-                    ...data,
-                    workers: isOfflinePayload ? [] : (Array.isArray(data.workers) ? data.workers : [])
+                setCluster((prev) => {
+                    const rawWorkers = Array.isArray(data.workers) ? data.workers : [];
+                    const nextWorkers = isOfflinePayload
+                        ? (data.degraded && prev?.workers?.length ? prev.workers : [])
+                        : rawWorkers;
+                    return {
+                        ...(prev || {}),
+                        ...data,
+                        workers: nextWorkers
+                    };
                 });
                 setLastUpdated(new Date());
             }

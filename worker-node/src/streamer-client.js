@@ -24,6 +24,9 @@ class StreamerClient {
 
         this.heartbeatIntervalMs = Math.max(1000, Number(process.env.WORKER_JOB_HEARTBEAT_INTERVAL_MS || 10000) || 10000);
         this.reconnectDelayMs = Math.max(1000, Number(process.env.WORKER_STREAM_RECONNECT_DELAY_MS || 2000) || 2000);
+        this.pingIntervalMs = Math.max(5000, Number(process.env.WORKER_PING_INTERVAL_MS || 15000) || 15000);
+        this.pingTimer = null;
+        this.lastPongAt = Date.now();
         this.ws = null;
         this.closed = false;
         this.connected = false;
@@ -54,6 +57,10 @@ class StreamerClient {
     stop() {
         this.closed = true;
         this.connected = false;
+        if (this.pingTimer) {
+            clearInterval(this.pingTimer);
+            this.pingTimer = null;
+        }
         if (this.profiler) {
             this.profiler.stop();
         }
@@ -85,13 +92,27 @@ class StreamerClient {
         });
     }
 
+    _sendPing() {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+        try {
+            this.ws.ping();
+        } catch (_) {}
+        this._send({
+            type: 'worker.ping',
+            workerId: this.workerId,
+            timestamp: Date.now()
+        });
+    }
+
     isConnected() {
         return this.connected === true;
     }
 
     _connect() {
         if (this.closed || !this.url) return;
-        const headers = {};
+        const headers = {
+            'User-Agent': 'DMPanda-Worker-Node/1.0'
+        };
         if (this.sharedSecret) {
             headers['x-worker-secret'] = this.sharedSecret;
         }
@@ -101,7 +122,12 @@ class StreamerClient {
         ws.on('open', () => {
             this.connected = true;
             this.reconnectAttempts = 0;
+            this.lastPongAt = Date.now();
             this.logger.log(`Connected to streamer at ${this.url}`);
+
+            if (this.pingTimer) clearInterval(this.pingTimer);
+            this.pingTimer = setInterval(() => this._sendPing(), this.pingIntervalMs);
+
             this._send({
                 type: 'worker.register',
                 workerId: this.workerId,
@@ -118,12 +144,26 @@ class StreamerClient {
             });
         });
 
+        ws.on('ping', () => {
+            try {
+                ws.pong();
+            } catch (_) {}
+        });
+
+        ws.on('pong', () => {
+            this.lastPongAt = Date.now();
+        });
+
         ws.on('message', (data) => {
             this._handleMessage(data);
         });
 
         ws.on('close', () => {
             this.connected = false;
+            if (this.pingTimer) {
+                clearInterval(this.pingTimer);
+                this.pingTimer = null;
+            }
             this.logger.warn('Streamer connection closed.');
             if (this.ws === ws) this.ws = null;
             this._scheduleReconnect();
@@ -131,14 +171,18 @@ class StreamerClient {
 
         ws.on('error', (error) => {
             this.connected = false;
-            this.logger.error('Streamer connection error:', error?.message || error);
+            const errMsg = error?.message || error;
+            this.logger.error('Streamer connection error:', errMsg);
+            // If server returned 403 Forbidden (e.g. rate limit), bump attempts so backoff cools down
+            if (String(errMsg).includes('403')) {
+                this.reconnectAttempts = Math.max(this.reconnectAttempts || 0, 5);
+            }
             if (this.ws === ws) {
                 try {
                     ws.terminate();
                 } catch (_) { }
                 this.ws = null;
             }
-            this._scheduleReconnect();
         });
     }
 

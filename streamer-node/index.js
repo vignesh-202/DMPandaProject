@@ -160,12 +160,12 @@ function maybeWakeWorker() {
     fetch(workerWakeUrl, { signal: AbortSignal.timeout(5000) }).catch(() => {});
 }
 
-// Keepalive: check every 2 minutes; if no workers connected, wake worker
+// Keepalive: check every 25 seconds; if no workers connected, wake worker
 setInterval(() => {
     if (hub.getAvailableWorkers().length === 0) {
         maybeWakeWorker();
     }
-}, 120_000);
+}, 25_000);
 
 registerWebhookRoutes(app, {
     verifyToken: process.env.META_VERIFY_TOKEN || '',

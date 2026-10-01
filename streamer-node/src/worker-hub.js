@@ -10,6 +10,22 @@ class WorkerHub extends EventEmitter {
         this.workers = new Map();
         this.socketToWorkerId = new WeakMap();
         this.wss = new WebSocketServer({ server, path });
+        this.heartbeatIntervalMs = Math.max(5000, Number(process.env.STREAMER_PING_INTERVAL_MS || 20000) || 20000);
+        this.heartbeatTimer = setInterval(() => {
+            for (const [workerId, worker] of this.workers.entries()) {
+                if (!worker.ws || worker.ws.readyState !== 1) continue;
+                if (worker.isAlive === false) {
+                    this.logger.warn(`Worker ${workerId} failed WebSocket ping heartbeat. Terminating dead socket.`);
+                    try { worker.ws.terminate(); } catch (_) {}
+                    continue;
+                }
+                worker.isAlive = false;
+                try {
+                    worker.ws.ping();
+                } catch (_) {}
+            }
+        }, this.heartbeatIntervalMs);
+
         this.wss.on('connection', (ws, req) => {
             if (this.sharedSecret) {
                 const provided = String(req?.headers?.['x-worker-secret'] || '').trim();
@@ -18,6 +34,20 @@ class WorkerHub extends EventEmitter {
                     return;
                 }
             }
+            ws.isAlive = true;
+            ws.on('pong', () => {
+                ws.isAlive = true;
+                const workerId = this.socketToWorkerId.get(ws);
+                if (workerId) {
+                    const worker = this.workers.get(workerId);
+                    if (worker) worker.lastSeenAt = Date.now();
+                }
+            });
+            ws.on('ping', () => {
+                try {
+                    ws.pong();
+                } catch (_) {}
+            });
             ws.on('message', (data) => this._handleMessage(ws, data));
             ws.on('close', () => this._handleClose(ws));
             ws.on('error', (error) => {
@@ -35,6 +65,19 @@ class WorkerHub extends EventEmitter {
             return;
         }
         if (!message || typeof message !== 'object') return;
+
+        if (message.type === 'worker.ping') {
+            const workerId = this.socketToWorkerId.get(ws);
+            if (workerId) {
+                const worker = this.workers.get(workerId);
+                if (worker) {
+                    worker.lastSeenAt = Date.now();
+                    worker.isAlive = true;
+                }
+            }
+            this._send(ws, { type: 'worker.pong', timestamp: Date.now() });
+            return;
+        }
 
         if (message.type === 'worker.register') {
             this._registerWorker(ws, message);

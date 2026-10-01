@@ -2830,11 +2830,15 @@ router.get('/impersonation-login', async (req, res) => {
     }
 });
 
+let lastKnownClusterState = null;
+let lastKnownClusterStateAt = 0;
+
 router.get('/cluster/status', loginRequired, adminRequired, async (req, res) => {
+    const isProd = process.env.NODE_ENV === 'production';
     const candidates = [
         process.env.STREAMER_URL,
-        'http://localhost:3000',
-        'http://localhost:3010'
+        !isProd ? 'http://localhost:3000' : null,
+        !isProd ? 'http://localhost:3010' : null
     ].filter(Boolean);
 
     let lastError = null;
@@ -2844,19 +2848,39 @@ router.get('/cluster/status', loginRequired, adminRequired, async (req, res) => 
                 headers: {
                     'x-streamer-key': process.env.STREAMER_API_KEY || ''
                 },
-                signal: AbortSignal.timeout(2500)
+                signal: AbortSignal.timeout(6000)
             });
 
             if (response.ok) {
                 const metrics = await response.json();
+                const clusterPayload = {
+                    status: 'online',
+                    ...metrics
+                };
+                lastKnownClusterState = clusterPayload;
+                lastKnownClusterStateAt = Date.now();
                 return ok(res, {
-                    cluster: metrics,
+                    cluster: clusterPayload,
                     checked_at: new Date().toISOString()
                 });
             }
         } catch (err) {
             lastError = err;
         }
+    }
+
+    // Graceful fallback: If we had a healthy cluster state within the last 30s,
+    // serve it with degraded: true to prevent UI jitter/flashing offline during transient network dips
+    if (lastKnownClusterState && (Date.now() - lastKnownClusterStateAt < 30_000)) {
+        return ok(res, {
+            cluster: {
+                ...lastKnownClusterState,
+                status: 'online',
+                degraded: true,
+                warning: 'Serving cached telemetry during temporary network latency'
+            },
+            checked_at: new Date().toISOString()
+        });
     }
 
     console.warn('Failed to fetch streamer cluster metrics:', lastError?.message || lastError);
@@ -2873,10 +2897,11 @@ router.get('/cluster/status', loginRequired, adminRequired, async (req, res) => 
 });
 
 router.get('/cluster/stream', loginRequired, adminRequired, async (req, res) => {
+    const isProd = process.env.NODE_ENV === 'production';
     const candidates = [
         process.env.STREAMER_URL,
-        'http://localhost:3000',
-        'http://localhost:3010'
+        !isProd ? 'http://localhost:3000' : null,
+        !isProd ? 'http://localhost:3010' : null
     ].filter(Boolean);
 
     res.setHeader('Content-Type', 'text/event-stream');
