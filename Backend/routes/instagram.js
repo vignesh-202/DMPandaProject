@@ -2181,7 +2181,9 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
                 return res.json({
                     message: relinkMatchesSameAccount
                         ? `Instagram account @${igUsername} reconnected successfully.`
-                        : `Instagram account @${igUsername} linked successfully. Reconnect the original paused account separately to reactivate it.`
+                        : `Instagram account @${igUsername} linked successfully. Reconnect the original paused account separately to reactivate it.`,
+                    account_id: igProfessionalAccountId,
+                    username: igUsername
                 });
             }
         } else {
@@ -2249,7 +2251,9 @@ router.post('/auth/instagram-callback', loginRequired, async (req, res) => {
             return res.json({
                 message: relinkTargetAccount
                     ? `Instagram account @${igUsername} linked successfully. Reconnect the original paused account separately to reactivate it.`
-                    : `Instagram account @${igUsername} linked successfully.`
+                    : `Instagram account @${igUsername} linked successfully.`,
+                account_id: igProfessionalAccountId,
+                username: igUsername
             });
         }
 

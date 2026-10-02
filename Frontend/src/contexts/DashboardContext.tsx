@@ -254,8 +254,25 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     }, [sortAccountsOldToNew]);
     const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
     const [activeAccountID, setActiveAccountIDState] = useState<string | null>(() => {
-        if (typeof localStorage !== 'undefined') {
-            return localStorage.getItem('dm_panda_active_account_id') || null;
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlAccountId = urlParams.get('account_id');
+            if (urlAccountId) {
+                try {
+                    localStorage.setItem('dm_panda_active_account_id', urlAccountId);
+                } catch (_) {}
+                return urlAccountId;
+            }
+            const pendingId = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('dm_panda_pending_select_account_id') : null;
+            if (pendingId) {
+                try {
+                    localStorage.setItem('dm_panda_active_account_id', pendingId);
+                } catch (_) {}
+                return pendingId;
+            }
+            if (typeof localStorage !== 'undefined') {
+                return localStorage.getItem('dm_panda_active_account_id') || null;
+            }
         }
         return null;
     });
@@ -622,14 +639,28 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
 
                 if (accounts.length > 0) {
                     // Logic to determine ID for initial load
+                    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+                    const requestedAccountId = urlParams?.get('account_id') || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('dm_panda_pending_select_account_id') : null);
+                    if (requestedAccountId && typeof sessionStorage !== 'undefined') {
+                        sessionStorage.removeItem('dm_panda_pending_select_account_id');
+                    }
+
+                    const requestedMatch = requestedAccountId ? accounts.find((a: any) => matchesAccountId(a, requestedAccountId)) : null;
                     const savedId = typeof localStorage !== 'undefined' ? localStorage.getItem('dm_panda_active_account_id') : null;
                     const savedMatch = savedId ? accounts.find((a: any) => matchesAccountId(a, savedId)) : null;
                     const firstActive = accounts.find((a: any) => a.status === 'active' && a.effective_access !== false);
-                    const defaultTarget = savedMatch || firstActive || accounts[0];
+                    const defaultTarget = requestedMatch || savedMatch || firstActive || accounts[0];
                     const initialTargetID = getAccountId(defaultTarget);
 
                     // Update state carefully
                     setActiveAccountIDState(prevID => {
+                        // If a specific account was requested (e.g. freshly linked), prioritize it over previous ID
+                        if (requestedMatch && initialTargetID) {
+                            if (typeof localStorage !== 'undefined') {
+                                localStorage.setItem('dm_panda_active_account_id', initialTargetID);
+                            }
+                            return initialTargetID;
+                        }
                         // If we already have a valid ID in state that exists in the new list, keep it
                         if (prevID && accounts.some((a: any) => matchesAccountId(a, prevID))) {
                             return prevID;
@@ -742,6 +773,24 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
             lastFetchedStatsAccountID.current = null;
         }
     }, [activeAccountID, fetchStats, isInitialLoadComplete]);
+
+    // Automatically switch to newly linked account when URL query param or session storage indicates it
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const targetAccountId = params.get('account_id') || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('dm_panda_pending_select_account_id') : null);
+        if (targetAccountId && igAccounts.length > 0) {
+            const match = igAccounts.find((a: any) => matchesAccountId(a, targetAccountId));
+            if (match) {
+                if (typeof sessionStorage !== 'undefined') {
+                    sessionStorage.removeItem('dm_panda_pending_select_account_id');
+                }
+                const targetId = getAccountId(match);
+                if (targetId && targetId !== activeAccountID) {
+                    setActiveAccountID(targetId);
+                }
+            }
+        }
+    }, [location.search, igAccounts, activeAccountID, setActiveAccountID]);
 
     // Clear caches when switching accounts to ensure no data bleed
     useEffect(() => {

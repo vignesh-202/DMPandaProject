@@ -144,7 +144,18 @@ const AccountSettingsView = () => {
   const { igAccounts, setIgAccounts, fetchIgAccounts, isLoadingAccounts, setActiveAccountID, activeAccountID, planLimits, activeAccount } = useDashboard();
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'instagram' | 'danger'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'instagram' | 'danger'>(() => {
+    if (typeof window !== 'undefined') {
+      if (window.location.hash === '#instagram-accounts-section') {
+        return 'instagram';
+      }
+      const search = new URLSearchParams(window.location.search);
+      if (search.get('tab') === 'instagram') {
+        return 'instagram';
+      }
+    }
+    return 'profile';
+  });
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -251,14 +262,38 @@ const AccountSettingsView = () => {
   const [isVerifyingConnection, setIsVerifyingConnection] = useState<string | null>(null);
 
   useEffect(() => {
-    if (window.location.hash === '#instagram-accounts-section') {
+    const handleSwitchToInstagram = () => {
       setActiveTab('instagram');
+      window.requestAnimationFrame(() => {
+        const el = document.getElementById('instagram-accounts-section');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    };
+
+    const handleHashChange = () => {
+      if (window.location.hash === '#instagram-accounts-section') {
+        handleSwitchToInstagram();
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('open-instagram-tab', handleSwitchToInstagram);
+
+    if (window.location.hash === '#instagram-accounts-section') {
+      handleSwitchToInstagram();
     }
 
     const search = new URLSearchParams(window.location.search);
     const errorParam = search.get('error');
     const infoParam = search.get('info');
     const msgParam = search.get('msg');
+    const tabParam = search.get('tab');
+
+    if (tabParam === 'instagram') {
+      handleSwitchToInstagram();
+    }
 
     if (infoParam === 'instagram_link_cancelled') {
       setActiveTab('instagram');
@@ -276,6 +311,11 @@ const AccountSettingsView = () => {
       setShowLinkErrorModal(true);
       window.history.replaceState({}, '', window.location.pathname);
     }
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('open-instagram-tab', handleSwitchToInstagram);
+    };
   }, []);
 
   const handleVerifyConnection = async (accountId: string) => {

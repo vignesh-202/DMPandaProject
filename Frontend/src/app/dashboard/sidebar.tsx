@@ -453,7 +453,14 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                             className="p-1 rounded-md hover:bg-primary/20 text-primary transition-colors cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleNavigation('Account Settings');
+                              window.location.hash = 'instagram-accounts-section';
+                              window.dispatchEvent(new Event('open-instagram-tab'));
+                              try {
+                                window.dispatchEvent(new HashChangeEvent('hashchange'));
+                              } catch (_) {}
+                              if (currentView !== 'Account Settings') {
+                                handleNavigation('Account Settings');
+                              }
                               setProfileMenuOpen(false);
                             }}
                             title="Open account settings"
@@ -484,7 +491,14 @@ const Sidebar = ({ isCollapsed, onItemClick }: SidebarProps) => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleNavigation('Account Settings');
+                    window.location.hash = 'instagram-accounts-section';
+                    window.dispatchEvent(new Event('open-instagram-tab'));
+                    try {
+                      window.dispatchEvent(new HashChangeEvent('hashchange'));
+                    } catch (_) {}
+                    if (currentView !== 'Account Settings') {
+                      handleNavigation('Account Settings');
+                    }
                     setProfileMenuOpen(false);
                   }}
                   className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-medium transition-all active:scale-[0.98]"
