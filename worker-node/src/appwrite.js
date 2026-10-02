@@ -1,6 +1,10 @@
 const crypto = require('crypto');
 const { Client, Databases, Query, ID, Functions } = require('node-appwrite');
-require('dotenv').config();
+const path = require('path');
+const isProduction = process.env.NODE_ENV === 'production';
+require('dotenv').config({
+    path: path.resolve(__dirname, '..', isProduction ? '.env.production' : '.env')
+});
 const { withAppwriteRetry } = require('./appwriteSafety');
 const { buildActionUsageIncrementPatch } = (() => {
     try {

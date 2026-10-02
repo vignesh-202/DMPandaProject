@@ -1,5 +1,9 @@
 const { Client, Account, Databases, Users, Storage, Functions, Messaging } = require('node-appwrite');
-require('dotenv').config();
+const path = require('path');
+const isProduction = process.env.NODE_ENV === 'production';
+require('dotenv').config({
+    path: path.resolve(__dirname, '..', isProduction ? '.env.production' : '.env')
+});
 
 const APPWRITE_ENDPOINT = process.env.APPWRITE_ENDPOINT;
 const APPWRITE_PROJECT_ID = process.env.APPWRITE_PROJECT_ID;

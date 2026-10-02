@@ -5,8 +5,14 @@ const morgan = require('morgan');
 const path = require('path');
 const os = require('os');
 const dotenv = require('dotenv');
-dotenv.config({ path: path.join(__dirname, '.env.production') });
-dotenv.config({ path: path.join(__dirname, '.env') });
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction) {
+    dotenv.config({ path: path.join(__dirname, '.env.production') });
+    dotenv.config({ path: path.join(__dirname, '.env') });
+} else {
+    dotenv.config({ path: path.join(__dirname, '.env') });
+    dotenv.config({ path: path.join(__dirname, '.env.production') });
+}
 
 const dns = require('dns');
 if (typeof dns.setDefaultResultOrder === 'function') {

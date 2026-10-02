@@ -26,10 +26,6 @@ import {
     CartesianGrid
 } from 'recharts';
 import AdminLoadingState from '../components/AdminLoadingState';
-import AdminGauge from '../components/ui/AdminGauge';
-import ClusterTelemetryWidget from '../components/ui/ClusterTelemetryWidget';
-import MetaRadarWidget from '../components/ui/MetaRadarWidget';
-import AutomationFunnelWidget from '../components/ui/AutomationFunnelWidget';
 
 const CHART_COLORS = [
     'rgb(59 130 246)',
@@ -689,15 +685,6 @@ export const AnalyticsPage: React.FC = () => {
     const revenueSummaryLabel = revenueWindow === 'custom'
         ? `${revenueFilterMeta.start_date || revenueCustomRange.start} to ${revenueFilterMeta.end_date || revenueCustomRange.end}`
         : selectedRevenueWindow;
-    const planHourlyCapacity = Number(displayData?.plan_pools?.hourly?.capacity || displayData?.pool?.capacity_per_hour || 0);
-    const planHourlyUsage = Number(displayData?.plan_pools?.hourly?.usage || displayData?.pool?.usage_last_hour || 0);
-    const planHourlyUsagePercent = Number(displayData?.plan_pools?.hourly?.usage_percent || displayData?.pool?.usage_percent || 0);
-    const planDailyCapacity = Number(displayData?.plan_pools?.daily?.capacity || 0);
-    const planDailyUsage = Number(displayData?.plan_pools?.daily?.usage || 0);
-    const planDailyUsagePercent = Number(displayData?.plan_pools?.daily?.usage_percent || 0);
-    const planMonthlyCapacity = Number(displayData?.plan_pools?.monthly?.capacity || 0);
-    const planMonthlyUsage = Number(displayData?.plan_pools?.monthly?.usage || 0);
-    const planMonthlyUsagePercent = Number(displayData?.plan_pools?.monthly?.usage_percent || 0);
     const peakTrafficPoint = trafficChartData.reduce((peak: any, row: any) => {
         if (!peak || Number(row.value || 0) > Number(peak.value || 0)) return row;
         return peak;
@@ -820,59 +807,6 @@ export const AnalyticsPage: React.FC = () => {
                         accent={item.accent}
                     />
                 ))}
-            </section>
-
-            <ClusterTelemetryWidget className="mb-2" />
-
-            <section className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                <AdminGauge
-                    label="User Plan Hourly Pool"
-                    sublabel="Linked users' hourly consumption against allocated hourly limits"
-                    value={planHourlyUsage}
-                    max={Math.max(planHourlyCapacity, 1)}
-                    helper={`${planHourlyUsagePercent}% of hourly profile capacity is in use.`}
-                    infoDescription="This gauge shows total hourly usage against the hourly limits allocated to each linked Instagram account."
-                    infoFormula="Numerator: sum of hourly_actions_used across ig_accounts. Denominator: for each linked ig_account, add the owning profile.hourly_action_limit."
-                    infoNotes={[
-                        'Usage is tracked per Instagram account.',
-                        'Profile limits are counted once for every linked account owned by that profile.'
-                    ]}
-                />
-                <AdminGauge
-                    label="User Plan Daily Pool"
-                    sublabel="Linked users' daily consumption against allocated daily limits"
-                    value={planDailyUsage}
-                    max={Math.max(planDailyCapacity, 1)}
-                    helper={`${planDailyUsagePercent}% of daily profile capacity is in use.`}
-                    infoDescription="This gauge shows total daily usage against daily limits allocated to linked Instagram accounts."
-                    infoFormula="Numerator: sum of daily_actions_used across ig_accounts. Denominator: for each linked ig_account, add the owning profile.daily_action_limit."
-                    infoNotes={[
-                        'Daily usage is stored on ig_accounts.',
-                        'Daily capacity is derived from owner profiles and counted per linked account.'
-                    ]}
-                />
-                <AdminGauge
-                    label="User Plan Monthly Pool"
-                    sublabel="Linked users' monthly consumption against allocated monthly limits"
-                    value={planMonthlyUsage}
-                    max={Math.max(planMonthlyCapacity, 1)}
-                    helper={`${planMonthlyUsagePercent}% of monthly profile capacity is in use.`}
-                    infoDescription="This gauge shows total monthly usage against monthly limits allocated to linked Instagram accounts."
-                    infoFormula="Numerator: sum of monthly_actions_used across ig_accounts. Denominator: for each linked ig_account, add the owning profile.monthly_action_limit."
-                    infoNotes={[
-                        'Monthly usage is stored on ig_accounts.',
-                        'Monthly capacity is derived from owner profiles and counted per linked account.'
-                    ]}
-                />
-            </section>
-
-            {/* Meta Rate-Limit Radar & Automation Conversion Funnel */}
-            <section className="grid grid-cols-1 gap-7 lg:grid-cols-2">
-                <MetaRadarWidget metaPool={displayData?.meta_pool} />
-                <AutomationFunnelWidget
-                    logStatusBreakdown={displayData?.log_status_breakdown}
-                    totalLogs={displayData?.totals?.logs_total}
-                />
             </section>
 
             <section className="grid grid-cols-1 gap-7">

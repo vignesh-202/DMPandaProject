@@ -7,7 +7,7 @@ const WATERMARK_POLICY_CONFIG_KEY = 'watermark_policy';
 const FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY = 'frontend_runtime_origin';
 const SYSTEM_CONFIG_CACHE_TTL_MS = 30000;
 const VALID_WATERMARK_TYPES = new Set(['text']);
-const VALID_WATERMARK_POSITIONS = new Set(['secondary_message', 'inline_when_possible']);
+const VALID_WATERMARK_POSITIONS = new Set(['secondary_message', 'inline_when_possible', 'dynamic']);
 const systemConfigCache = new Map();
 
 const clampOpacity = (value, fallback = 1) => {

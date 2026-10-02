@@ -7,7 +7,7 @@ import { cn } from '../lib/utils';
 type WatermarkPolicy = {
     enabled: boolean;
     type: 'text';
-    position: 'inline_when_possible' | 'secondary_message';
+    position: 'dynamic' | 'inline_when_possible' | 'secondary_message';
     default_text: string;
     updated_at?: string | null;
 };
@@ -19,7 +19,7 @@ export const SettingsPage: React.FC = () => {
     const [policy, setPolicy] = useState<WatermarkPolicy>({
         enabled: true,
         type: 'text',
-        position: 'secondary_message',
+        position: 'dynamic',
         default_text: 'Automation made by DMPanda'
     });
 
@@ -29,10 +29,13 @@ export const SettingsPage: React.FC = () => {
                 setLoading(true);
                 const response = await httpClient.get('/api/admin/settings/watermark');
                 if (response.data?.policy) {
+                    const pos = response.data.policy.position;
                     setPolicy({
                         enabled: response.data.policy.enabled !== false,
                         type: 'text',
-                        position: response.data.policy.position === 'inline_when_possible' ? 'inline_when_possible' : 'secondary_message',
+                        position: ['dynamic', 'inline_when_possible', 'secondary_message'].includes(pos)
+                            ? pos
+                            : 'dynamic',
                         default_text: response.data.policy.default_text || 'Automation made by DMPanda',
                         updated_at: response.data.policy.updated_at
                     });
@@ -77,16 +80,22 @@ export const SettingsPage: React.FC = () => {
         return <AdminLoadingState title="Loading settings" description="Fetching platform-wide watermark policy settings." />;
     }
 
-    const positionOptions: Array<{ value: WatermarkPolicy['position']; label: string; description: string }> = [
+    const positionOptions: Array<{ value: WatermarkPolicy['position']; label: string; description: string; badge?: string }> = [
+        {
+            value: 'dynamic',
+            label: 'Dynamic Smart Delivery (Automatic)',
+            description: 'Automatically inserts inline (0 extra actions) when the reply text is concise (<500 chars), or sends as an individual follow-up message (counts 1 action) if the template is long or incompatible (media, carousels).',
+            badge: 'Recommended'
+        },
         {
             value: 'secondary_message',
-            label: 'Secondary Message (Follow-up)',
-            description: 'Send watermark as a separate follow-up message after the primary response.'
+            label: 'Always Secondary Message (Follow-up)',
+            description: 'Always send watermark as a separate follow-up message after the primary response. Counts as 1 billable action against the user limit.'
         },
         {
             value: 'inline_when_possible',
-            label: 'Inline (Appended to Message)',
-            description: 'Insert the watermark directly into the main reply body when character limits permit.'
+            label: 'Inline When Possible',
+            description: 'Insert the watermark directly into the main reply body when character limits permit (0 extra actions). Falls back to secondary message if it exceeds limits.'
         }
     ];
 
@@ -210,8 +219,15 @@ export const SettingsPage: React.FC = () => {
                                         className={cn('segmented-option w-full justify-start rounded-xl px-4 py-3 text-left', active ? 'is-active' : '')}
                                     >
                                         <span className="segmented-dot" />
-                                        <div>
-                                            <p className="text-xs font-bold text-foreground">{option.label}</p>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-xs font-bold text-foreground">{option.label}</p>
+                                                {option.badge && (
+                                                    <span className="rounded-full bg-primary/15 text-primary border border-primary/25 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide">
+                                                        {option.badge}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="mt-0.5 text-xs font-medium text-muted-foreground">{option.description}</p>
                                         </div>
                                     </button>
@@ -324,11 +340,18 @@ export const SettingsPage: React.FC = () => {
                                                     https://dmpanda.com/sale
                                                 </p>
 
-                                                {/* Below Message Watermark Position */}
-                                                {policy.enabled && policy.position === 'inline_when_possible' && (
-                                                    <div className="mt-2.5 pt-2 border-t border-black/10 dark:border-white/10 text-[10px] text-muted-foreground font-medium flex items-center gap-1.5 animate-in fade-in">
-                                                        <span className="text-primary font-bold">⚡</span>
-                                                        <span>{watermarkText}</span>
+                                                {/* Below Message Watermark Position (Inline or Dynamic-Inline) */}
+                                                {policy.enabled && (policy.position === 'inline_when_possible' || policy.position === 'dynamic') && (
+                                                    <div className="mt-2.5 pt-2 border-t border-black/10 dark:border-white/10 text-[10px] text-muted-foreground font-medium flex items-center justify-between gap-1.5 animate-in fade-in">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="text-primary font-bold">⚡</span>
+                                                            <span>{watermarkText}</span>
+                                                        </div>
+                                                        {policy.position === 'dynamic' && (
+                                                            <span className="text-[8.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                                                Inline (0 extra actions)
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -338,6 +361,9 @@ export const SettingsPage: React.FC = () => {
                                                 <div className="flex items-center gap-1.5 w-fit rounded-[16px] rounded-bl-[4px] bg-[#EFEFEF] dark:bg-[#262626] text-muted-foreground px-3 py-1.5 text-[10px] font-medium shadow-2xs animate-in fade-in slide-in-from-bottom-1">
                                                     <span className="text-primary font-bold">⚡</span>
                                                     <span>{watermarkText}</span>
+                                                    <span className="text-[8.5px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded ml-1">
+                                                        Counts 1 action
+                                                    </span>
                                                 </div>
                                             )}
                                         </div>

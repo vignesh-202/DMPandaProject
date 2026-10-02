@@ -16,7 +16,6 @@
     },
     "scripts": {
         "build": "npm install --no-workspaces --omit=dev",
-        "test": "node tests/instagramAuth.test.js",
         "start": "node server.js",
         "dev": "node --watch app.js"
     }

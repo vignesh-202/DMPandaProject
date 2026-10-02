@@ -3,8 +3,14 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const dotenv = require('dotenv');
-dotenv.config({ path: path.join(__dirname, '.env.production') });
-dotenv.config({ path: path.join(__dirname, '.env') });
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction) {
+    dotenv.config({ path: path.join(__dirname, '.env.production') });
+    dotenv.config({ path: path.join(__dirname, '.env') });
+} else {
+    dotenv.config({ path: path.join(__dirname, '.env') });
+    dotenv.config({ path: path.join(__dirname, '.env.production') });
+}
 const { Databases } = require('node-appwrite');
 const { getAppwriteClient } = require('./utils/appwrite');
 const { saveRuntimeFrontendOrigin, normalizeRuntimeOrigin } = require('./utils/systemConfig');
@@ -42,6 +48,8 @@ const isDevOrigin = (origin) => {
     if (normalized.startsWith('http://localhost:') || normalized.startsWith('http://127.0.0.1:')) return true;
     // Allow dmpanda.com and any official subdomain (*.dmpanda.com)
     if (normalized === 'https://dmpanda.com' || normalized === 'http://dmpanda.com' || normalized.endsWith('.dmpanda.com')) return true;
+    // Allow devtunnels.ms domains
+    if (normalized.endsWith('.devtunnels.ms')) return true;
     return false;
 };
 

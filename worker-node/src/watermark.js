@@ -1,7 +1,7 @@
 const DEFAULT_WATERMARK_POLICY = {
     enabled: String(process.env.DEFAULT_WATERMARK_ENABLED || 'true').trim().toLowerCase() !== 'false',
     type: 'text',
-    position: ['inline_when_possible', 'secondary_message'].includes(String(process.env.DEFAULT_WATERMARK_POSITION || '').trim().toLowerCase())
+    position: ['inline_when_possible', 'secondary_message', 'dynamic'].includes(String(process.env.DEFAULT_WATERMARK_POSITION || '').trim().toLowerCase())
         ? String(process.env.DEFAULT_WATERMARK_POSITION).trim().toLowerCase()
         : 'secondary_message',
     opacity: Number.isFinite(Number(process.env.DEFAULT_WATERMARK_OPACITY))
@@ -74,13 +74,33 @@ const planWatermark = ({ templateType, payload, policy }) => {
         return { inline: false, value: textValue };
     };
 
+    // Dynamic mode evaluates whether the watermark can be seamlessly embedded into the message
+    // without cluttering long messages (base text <= 500 chars) or exceeding safe limits (<= 800 chars).
+    // If the message is already long or incompatible, it delivers it as a separate follow-up message.
+    const dynamicInlineIfFits = (textValue, limit = 800, maxBaseLength = 500) => {
+        const raw = String(textValue || '').trim();
+        if (raw.length > maxBaseLength) {
+            return { inline: false, value: textValue };
+        }
+        const candidate = appendWatermark(raw, watermarkText);
+        if (candidate.length <= limit) {
+            return { inline: true, value: candidate };
+        }
+        return { inline: false, value: textValue };
+    };
+
+    const isDynamic = activePolicy.position === 'dynamic';
+
     if (type === 'template_text' || type === 'template_quick_replies') {
         if (hasWatermark(safePayload.text, watermarkText)) {
             return { primaryPayload: safePayload, secondaryPayload: null, mode: 'none' };
         }
-        const result = activePolicy.position === 'inline_when_possible'
-            ? inlineIfFits(safePayload.text, 1000)
-            : { inline: false, value: safePayload.text };
+        let result = { inline: false, value: safePayload.text };
+        if (isDynamic) {
+            result = dynamicInlineIfFits(safePayload.text, 800, 500);
+        } else if (activePolicy.position === 'inline_when_possible') {
+            result = inlineIfFits(safePayload.text, 1000);
+        }
         if (result.inline) {
             return {
                 primaryPayload: { ...safePayload, text: result.value },
@@ -99,9 +119,13 @@ const planWatermark = ({ templateType, payload, policy }) => {
         if (hasWatermark(safePayload.text, watermarkText)) {
             return { primaryPayload: safePayload, secondaryPayload: null, mode: 'none' };
         }
-        const result = activePolicy.position === 'inline_when_possible'
-            ? inlineIfFits(safePayload.text, 640)
-            : { inline: false, value: safePayload.text };
+        let result = { inline: false, value: safePayload.text };
+        if (isDynamic) {
+            // For buttons, only embed dynamically if body is concise (<= 300 chars)
+            result = dynamicInlineIfFits(safePayload.text, 500, 300);
+        } else if (activePolicy.position === 'inline_when_possible') {
+            result = inlineIfFits(safePayload.text, 640);
+        }
         if (result.inline) {
             return {
                 primaryPayload: { ...safePayload, text: result.value },
@@ -118,15 +142,15 @@ const planWatermark = ({ templateType, payload, policy }) => {
 
     if (type === 'template_carousel') {
         const elements = Array.isArray(safePayload.elements) ? safePayload.elements.slice() : [];
-        if (elements.length > 0) {
+        // In dynamic mode, carousel cards have strict 80-char subtitle limits. 
+        // Adding watermark inline ruins card layout, so dynamic mode sends as a separate message.
+        if (elements.length > 0 && activePolicy.position === 'inline_when_possible') {
             const first = elements[0] && typeof elements[0] === 'object' ? { ...elements[0] } : {};
             const baseText = first.subtitle || first.title || '';
             if (hasWatermark(baseText, watermarkText)) {
                 return { primaryPayload: safePayload, secondaryPayload: null, mode: 'none' };
             }
-            const result = activePolicy.position === 'inline_when_possible'
-                ? inlineIfFits(baseText, 80)
-                : { inline: false, value: baseText };
+            const result = inlineIfFits(baseText, 80);
             if (result.inline) {
                 first.subtitle = result.value;
                 elements[0] = first;

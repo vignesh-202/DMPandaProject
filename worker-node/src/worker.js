@@ -847,7 +847,7 @@ class DMWorker {
                 senderId,
                 'template_text',
                 watermarkPlan.secondaryPayload,
-                { billable: false }
+                { billable: true }
             );
             if (logContext?.accountId) {
                 await this._recordAutomationLog({

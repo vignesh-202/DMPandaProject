@@ -3,8 +3,14 @@ const express = require('express');
 const morgan = require('morgan');
 const path = require('path');
 const dotenv = require('dotenv');
-dotenv.config({ path: path.join(__dirname, '.env.production') });
-dotenv.config({ path: path.join(__dirname, '.env') });
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction) {
+    dotenv.config({ path: path.join(__dirname, '.env.production') });
+    dotenv.config({ path: path.join(__dirname, '.env') });
+} else {
+    dotenv.config({ path: path.join(__dirname, '.env') });
+    dotenv.config({ path: path.join(__dirname, '.env.production') });
+}
 
 const { registerWebhookRoutes } = require('./src/webhook-server');
 const { splitWebhookPayload } = require('./src/meta-parser');
