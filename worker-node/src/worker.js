@@ -17,7 +17,7 @@ const { evaluateActionRateLimit, normalizeActionLimits } = (() => {
         return require('../../shared/actionRateLimiter');
     }
 })();
-const { planWatermark, resolveWatermarkPolicy, DEFAULT_WATERMARK_POLICY } = require('./watermark');
+const { planWatermark, planCommentWatermark, resolveWatermarkPolicy, DEFAULT_WATERMARK_POLICY } = require('./watermark');
 
 const DEFAULT_FOLLOWERS_ONLY_MESSAGE = 'Please follow this account first, then send your message again.';
 const AUTOMATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -835,23 +835,18 @@ class DMWorker {
 
         if (!success && options?.commentId) {
             console.info(`Private message failed. Attempting public comment reply fallback.`);
-            const plainText = this._getPlainTextsFromTemplate(renderedTemplate.type, primaryPayloadToSend || cleanPayload);
+            const plainText = this._getPlainTextsFromTemplate(renderedTemplate.type, cleanPayload || primaryPayloadToSend);
             if (plainText) {
-                success = await instagram.replyToComment(options.commentId, plainText);
-                if (success && logContext?.accountId) {
-                    await this._recordAutomationLog({
-                        accountId: logContext.accountId,
-                        recipientId: logContext.recipientId || senderId,
-                        senderName: logContext.senderName || senderId,
-                        automationId: logContext.automationId || null,
-                        automationType: logContext.automationType || null,
-                        eventType: logContext.eventType || 'comment',
-                        source: 'worker_node_public_fallback',
-                        message: 'Sent public comment reply fallback',
-                        payload: { comment_id: options.commentId, text: plainText },
-                        status: 'success'
-                    });
-                }
+                success = await this._sendCommentReply({
+                    instagram,
+                    commentId: options.commentId,
+                    commentReplyText: plainText,
+                    watermarkPolicy: effectivePolicy,
+                    accountId: logContext?.accountId,
+                    senderId,
+                    automationId: logContext?.automationId,
+                    automationType: logContext?.automationType || 'fallback'
+                });
             }
         }
 
@@ -937,6 +932,74 @@ class DMWorker {
             watermarkPolicy,
             options
         );
+    }
+
+    async _sendCommentReply({
+        instagram,
+        commentId,
+        commentReplyText,
+        watermarkPolicy,
+        accountId = null,
+        userId = null,
+        senderId = null,
+        automationId = null,
+        automationType = 'comment'
+    }) {
+        const rawText = String(commentReplyText || '').trim();
+        if (!commentId || !rawText) return false;
+
+        const effectivePolicy = watermarkPolicy || DEFAULT_WATERMARK_POLICY;
+        const { primaryText, secondaryText } = planCommentWatermark({
+            text: rawText,
+            policy: effectivePolicy
+        });
+
+        // 1. Send primary comment reply (includes inline watermark if dynamic mode and space permits)
+        const primarySent = await instagram.replyToComment(commentId, primaryText);
+        if (accountId) {
+            await this._recordAutomationLog({
+                userId: userId || undefined,
+                accountId,
+                automationId: automationId || null,
+                automationType: automationType || 'comment',
+                eventType: 'comment',
+                recipientId: senderId || commentId,
+                senderName: senderId || commentId,
+                status: primarySent ? 'success' : 'failed',
+                message: primaryText,
+                source: 'worker_node_comment_reply',
+                payload: { comment_id: commentId, text: primaryText }
+            });
+        }
+
+        if (!primarySent) return false;
+
+        // 2. If secondary watermark is required (secondary mode or dynamic overflow)
+        if (secondaryText) {
+            try {
+                await this._sleep(350);
+                const secondarySent = await instagram.replyToComment(commentId, secondaryText);
+                if (accountId) {
+                    await this._recordAutomationLog({
+                        userId: userId || undefined,
+                        accountId,
+                        automationId: automationId || null,
+                        automationType: automationType || 'comment',
+                        eventType: 'comment',
+                        recipientId: senderId || commentId,
+                        senderName: senderId || commentId,
+                        status: secondarySent ? 'success' : 'failed',
+                        message: secondaryText,
+                        source: 'worker_node_comment_watermark',
+                        payload: { comment_id: commentId, text: secondaryText, is_watermark: true }
+                    });
+                }
+            } catch (secErr) {
+                console.warn(`[Worker] Failed to send secondary comment watermark reply to comment ${commentId}:`, secErr?.message || secErr);
+            }
+        }
+
+        return true;
     }
 
     _isReelMedia(item = {}) {
@@ -1108,20 +1171,19 @@ class DMWorker {
     }) {
         const commentReplyText = String(automation?.comment_reply || automation?.comment_reply_text || '').trim();
         if (commentId && commentReplyText && !commentReplySent) {
-            const commentReplySentResult = await instagram.replyToComment(commentId, commentReplyText);
-            if (accountId) {
-                await this._recordAutomationLog({
-                    accountId,
-                    recipientId: senderId,
-                    senderName: senderId,
-                    automationId: automation?.$id || null,
-                    automationType: automation?.automation_type || 'comment',
-                    eventType: 'comment',
-                    source: 'worker_node_comment_reply',
-                    message: commentReplySentResult ? 'Sent public comment reply' : 'Failed public comment reply',
-                    payload: { comment_id: commentId, text: commentReplyText },
-                    status: commentReplySentResult ? 'success' : 'failed'
-                });
+            const commentReplySentResult = await this._sendCommentReply({
+                instagram,
+                commentId,
+                commentReplyText,
+                watermarkPolicy,
+                accountId,
+                userId: ownerUserId,
+                senderId,
+                automationId: automation?.$id || null,
+                automationType: automation?.automation_type || 'comment'
+            });
+            if (commentReplySentResult) {
+                commentReplySent = true;
             }
         }
 
@@ -1523,7 +1585,18 @@ class DMWorker {
 
         if (!sent && commentId) {
             console.info(`Private reply failed for followers-only prompt. Attempting public comment reply fallback.`);
-            sent = await instagram.replyToComment(commentId, promptText);
+            const promptPolicy = await this._getWatermarkPolicyForUser(igAccount.user_id);
+            sent = await this._sendCommentReply({
+                instagram,
+                commentId,
+                commentReplyText: promptText,
+                watermarkPolicy: promptPolicy,
+                accountId,
+                userId: igAccount.user_id,
+                senderId,
+                automationId: automation?.$id,
+                automationType: automation?.automation_type || 'followers_only'
+            });
         }
 
         const accountId = String(igAccount?.ig_user_id || igAccount?.account_id || '').trim();
@@ -1839,21 +1912,17 @@ class DMWorker {
             // Send public comment reply first (if configured and commentId is present)
             const commentReplyText = String(matchedAutomation.comment_reply || matchedAutomation.comment_reply_text || '').trim();
             if (commentEvent.commentId && commentReplyText && !commentReplySent) {
-                commentReplySent = await instagram.replyToComment(commentEvent.commentId, commentReplyText);
-                if (primaryAccountId) {
-                    await this._recordAutomationLog({
-                        userId: igAccount.user_id,
-                        accountId: primaryAccountId,
-                        automationId: matchedAutomation.$id,
-                        automationType: 'comment_public_reply',
-                        eventType: 'comment',
-                        recipientId: commentEvent.senderId,
-                        senderName: commentEvent.senderId,
-                        status: commentReplySent ? 'success' : 'failed',
-                        message: commentReplyText,
-                        source: 'worker_node'
-                    });
-                }
+                commentReplySent = await this._sendCommentReply({
+                    instagram,
+                    commentId: commentEvent.commentId,
+                    commentReplyText,
+                    watermarkPolicy,
+                    accountId: primaryAccountId,
+                    userId: igAccount.user_id,
+                    senderId: commentEvent.senderId,
+                    automationId: matchedAutomation.$id,
+                    automationType: matchedAutomation.automation_type || 'comment_public_reply'
+                });
             }
 
             if (this._hasPlanFeature(profile, 'followers_only') && matchedAutomation.followers_only === true) {

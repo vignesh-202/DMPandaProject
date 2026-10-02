@@ -157,8 +157,67 @@ const planWatermark = ({ templateType, payload, policy }) => {
     };
 };
 
+const planCommentWatermark = ({ text, policy }) => {
+    const rawText = String(text || '').trim();
+    if (!rawText) {
+        return { primaryText: '', secondaryText: null, mode: 'none' };
+    }
+
+    const activePolicy = {
+        ...DEFAULT_WATERMARK_POLICY,
+        ...(policy && typeof policy === 'object' ? policy : {})
+    };
+
+    if (!activePolicy.enabled || activePolicy.position === 'off') {
+        return { primaryText: rawText, secondaryText: null, mode: 'disabled' };
+    }
+
+    const watermarkText = String(activePolicy.default_text || DEFAULT_WATERMARK_POLICY.default_text).trim();
+    const isSecondaryOnly = activePolicy.position === 'secondary' || activePolicy.position === 'secondary_message';
+
+    // Secondary mode: clean primary reply + separate watermark reply to same comment
+    if (isSecondaryOnly) {
+        const escapedWatermark = watermarkText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const strippedText = rawText
+            .replace(new RegExp(`\\n*${escapedWatermark}\\s*$`, 'i'), '')
+            .trim();
+        return {
+            primaryText: strippedText || rawText,
+            secondaryText: watermarkText,
+            mode: 'secondary'
+        };
+    }
+
+    // Dynamic mode:
+    // If text already contains watermark, keep it as is
+    if (hasWatermark(rawText, watermarkText)) {
+        return { primaryText: rawText, secondaryText: null, mode: 'none' };
+    }
+
+    // Check safe length for Instagram comment (Meta limit: 300 chars)
+    const spacing = 3; // '\n\n\n'
+    const candidateLength = rawText.length + spacing + watermarkText.length;
+    const maxInlineLimit = 280; // Safe threshold within Meta's 300-char comment limit
+
+    if (candidateLength <= maxInlineLimit) {
+        return {
+            primaryText: appendWatermark(rawText, watermarkText),
+            secondaryText: null,
+            mode: 'inline'
+        };
+    }
+
+    // If comment text is too long for inline watermark, deliver clean reply + secondary watermark reply
+    return {
+        primaryText: rawText,
+        secondaryText: watermarkText,
+        mode: 'secondary'
+    };
+};
+
 module.exports = {
     DEFAULT_WATERMARK_POLICY,
     resolveWatermarkPolicy,
-    planWatermark
+    planWatermark,
+    planCommentWatermark
 };

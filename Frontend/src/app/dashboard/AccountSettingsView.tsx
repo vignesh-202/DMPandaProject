@@ -146,6 +146,13 @@ const AccountSettingsView = () => {
   // Tab State
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'instagram' | 'danger'>(() => {
     if (typeof window !== 'undefined') {
+      try {
+        const storedTab = sessionStorage.getItem('dm_panda_open_settings_tab');
+        if (storedTab === 'instagram') {
+          sessionStorage.removeItem('dm_panda_open_settings_tab');
+          return 'instagram';
+        }
+      } catch (_) {}
       if (window.location.hash === '#instagram-accounts-section') {
         return 'instagram';
       }
@@ -284,6 +291,14 @@ const AccountSettingsView = () => {
     if (window.location.hash === '#instagram-accounts-section') {
       handleSwitchToInstagram();
     }
+
+    try {
+      const storedTab = sessionStorage.getItem('dm_panda_open_settings_tab');
+      if (storedTab === 'instagram') {
+        sessionStorage.removeItem('dm_panda_open_settings_tab');
+        handleSwitchToInstagram();
+      }
+    } catch (_) {}
 
     const search = new URLSearchParams(window.location.search);
     const errorParam = search.get('error');
