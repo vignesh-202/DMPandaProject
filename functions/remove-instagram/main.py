@@ -142,6 +142,7 @@ def _delete_automation_artifacts(client, db_id, automation_id, dry_run=False):
     if not safe_automation_id:
         return {}
 
+    deleted_counts = {}
     for coll in ('keywords',):
         try:
             deleted_counts[coll] = _delete_by_queries(
