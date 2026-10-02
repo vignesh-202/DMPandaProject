@@ -7,7 +7,7 @@ const WATERMARK_POLICY_CONFIG_KEY = 'watermark_policy';
 const FRONTEND_RUNTIME_ORIGIN_CONFIG_KEY = 'frontend_runtime_origin';
 const SYSTEM_CONFIG_CACHE_TTL_MS = 30000;
 const VALID_WATERMARK_TYPES = new Set(['text']);
-const VALID_WATERMARK_POSITIONS = new Set(['secondary_message', 'inline_when_possible', 'dynamic']);
+const VALID_WATERMARK_POSITIONS = new Set(['dynamic', 'secondary', 'secondary_message', 'off']);
 const systemConfigCache = new Map();
 
 const clampOpacity = (value, fallback = 1) => {
@@ -23,7 +23,7 @@ const DEFAULT_WATERMARK_POLICY = Object.freeze({
         : 'text',
     position: VALID_WATERMARK_POSITIONS.has(String(process.env.DEFAULT_WATERMARK_POSITION || '').trim().toLowerCase())
         ? String(process.env.DEFAULT_WATERMARK_POSITION).trim().toLowerCase()
-        : 'secondary_message',
+        : 'dynamic',
     default_text: String(process.env.DEFAULT_WATERMARK_TEXT || 'Automation made by DMPanda').trim() || 'Automation made by DMPanda',
     opacity: clampOpacity(process.env.DEFAULT_WATERMARK_OPACITY, 1),
     updated_by: null,
@@ -34,12 +34,18 @@ const sanitizeWatermarkPolicy = (value = {}, fallback = DEFAULT_WATERMARK_POLICY
     const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     const fallbackPolicy = fallback && typeof fallback === 'object' ? fallback : DEFAULT_WATERMARK_POLICY;
     const type = String(source.type || fallbackPolicy.type || DEFAULT_WATERMARK_POLICY.type).trim().toLowerCase();
-    const position = String(source.position || fallbackPolicy.position || DEFAULT_WATERMARK_POLICY.position).trim().toLowerCase();
+    let position = String(source.position || fallbackPolicy.position || DEFAULT_WATERMARK_POLICY.position).trim().toLowerCase();
+    if (position === 'secondary_message') position = 'secondary';
+    if (!VALID_WATERMARK_POSITIONS.has(position)) {
+        position = DEFAULT_WATERMARK_POLICY.position;
+    }
+    const isOff = position === 'off';
+    const enabled = isOff ? false : (source.enabled !== undefined ? Boolean(source.enabled) : fallbackPolicy.enabled !== false);
     const default_text = String(source.default_text || fallbackPolicy.default_text || DEFAULT_WATERMARK_POLICY.default_text).trim();
     return {
-        enabled: source.enabled !== undefined ? source.enabled !== false : fallbackPolicy.enabled !== false,
+        enabled,
         type: VALID_WATERMARK_TYPES.has(type) ? type : DEFAULT_WATERMARK_POLICY.type,
-        position: VALID_WATERMARK_POSITIONS.has(position) ? position : DEFAULT_WATERMARK_POLICY.position,
+        position: isOff ? 'off' : position,
         default_text: default_text || DEFAULT_WATERMARK_POLICY.default_text,
         opacity: clampOpacity(source.opacity, fallbackPolicy.opacity ?? DEFAULT_WATERMARK_POLICY.opacity),
         updated_by: source.updated_by || fallbackPolicy.updated_by || null,

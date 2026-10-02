@@ -790,10 +790,15 @@ class DMWorker {
                 renderedTemplate.type = 'template_text';
             }
         }
+        const isFollowUp = Boolean(options?.suppressWatermark || options?.isFollowUp);
+        const effectivePolicy = isFollowUp
+            ? { ...(watermarkPolicy || {}), enabled: false, position: 'off' }
+            : watermarkPolicy;
+
         const watermarkPlan = planWatermark({
             templateType: renderedTemplate.type,
             payload: renderedTemplate.payload,
-            policy: watermarkPolicy
+            policy: effectivePolicy
         });
 
         let success = await instagram.sendMessage(
@@ -1030,6 +1035,8 @@ class DMWorker {
             watermarkPolicy,
             {
                 actionUserId,
+                suppressWatermark: true,
+                isFollowUp: true,
                 logContext: {
                     accountId: primaryAccountId || null,
                     recipientId: senderId,
@@ -2228,6 +2235,8 @@ class DMWorker {
                             context,
                             watermarkPolicy,
                             {
+                                suppressWatermark: true,
+                                isFollowUp: true,
                                 actionUserId: igAccount.user_id,
                                 logContext: {
                                     accountId: primaryAccountId,
@@ -2415,6 +2424,7 @@ class DMWorker {
             await this._maybeSendSeenTypingPrelude(instagram, senderId, matchedAutomation, chainState, profile);
 
             // 6. Send the message via Instagram API
+            const isClickEvent = Boolean(quickReplyPayload || postback);
             const success = await this.sendRenderedTemplate(
                 instagram,
                 senderId,
@@ -2422,6 +2432,8 @@ class DMWorker {
                 context,
                 watermarkPolicy,
                 {
+                    suppressWatermark: isClickEvent,
+                    isFollowUp: isClickEvent,
                     actionUserId: igAccount.user_id,
                     logContext: {
                         accountId: primaryAccountId,
