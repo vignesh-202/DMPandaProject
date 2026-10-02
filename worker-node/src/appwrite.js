@@ -1247,12 +1247,12 @@ class AppwriteClient {
             return { ...this._watermarkPolicyCache };
         }
 
+        const VALID_POSITIONS = new Set(['dynamic', 'secondary', 'secondary_message', 'off', 'inline_when_possible']);
+        const rawEnvPos = String(process.env.DEFAULT_WATERMARK_POSITION || '').trim().toLowerCase();
         const fallback = {
             enabled: String(process.env.DEFAULT_WATERMARK_ENABLED || 'true').trim().toLowerCase() !== 'false',
             type: 'text',
-            position: ['inline_when_possible', 'secondary_message', 'dynamic'].includes(String(process.env.DEFAULT_WATERMARK_POSITION || '').trim().toLowerCase())
-                ? String(process.env.DEFAULT_WATERMARK_POSITION).trim().toLowerCase()
-                : 'dynamic',
+            position: VALID_POSITIONS.has(rawEnvPos) ? (rawEnvPos === 'secondary_message' ? 'secondary' : rawEnvPos) : 'dynamic',
             opacity: Number.isFinite(Number(process.env.DEFAULT_WATERMARK_OPACITY))
                 ? Math.max(0, Math.min(1, Number(process.env.DEFAULT_WATERMARK_OPACITY)))
                 : 1,
@@ -1265,12 +1265,14 @@ class AppwriteClient {
                 SYSTEM_CONFIG_COLLECTION_ID,
                 WATERMARK_POLICY_DOCUMENT_ID
             );
+            const rawDocPos = String(document.position || '').trim().toLowerCase();
+            let parsedPos = VALID_POSITIONS.has(rawDocPos) ? rawDocPos : fallback.position;
+            if (parsedPos === 'secondary_message') parsedPos = 'secondary';
+            const isOff = parsedPos === 'off';
             const policy = {
-                enabled: document.enabled !== false,
+                enabled: isOff ? false : (document.enabled !== false),
                 type: 'text',
-                position: ['inline_when_possible', 'secondary_message', 'dynamic'].includes(String(document.position || '').trim().toLowerCase())
-                    ? String(document.position).trim().toLowerCase()
-                    : fallback.position,
+                position: isOff ? 'off' : parsedPos,
                 opacity: Number.isFinite(Number(document.opacity))
                     ? Math.max(0, Math.min(1, Number(document.opacity)))
                     : fallback.opacity,
@@ -1279,11 +1281,11 @@ class AppwriteClient {
                     : fallback.default_text
             };
             this._watermarkPolicyCache = policy;
-            this._watermarkPolicyExpiresAt = now + (30 * 1000);
+            this._watermarkPolicyExpiresAt = now + (10 * 1000); // 10s fast fresh cache
             return { ...policy };
         } catch (_) {
             this._watermarkPolicyCache = fallback;
-            this._watermarkPolicyExpiresAt = now + (30 * 1000);
+            this._watermarkPolicyExpiresAt = now + (10 * 1000);
             return { ...fallback };
         }
     }
