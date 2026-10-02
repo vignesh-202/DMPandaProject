@@ -17,7 +17,7 @@ const { evaluateActionRateLimit, normalizeActionLimits } = (() => {
         return require('../../shared/actionRateLimiter');
     }
 })();
-const { planWatermark, resolveWatermarkPolicy } = require('./watermark');
+const { planWatermark, resolveWatermarkPolicy, DEFAULT_WATERMARK_POLICY } = require('./watermark');
 
 const DEFAULT_FOLLOWERS_ONLY_MESSAGE = 'Please follow this account first, then send your message again.';
 const AUTOMATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -801,16 +801,41 @@ class DMWorker {
             policy: effectivePolicy
         });
 
+        let primaryPayloadToSend = watermarkPlan.primaryPayload;
+        let secondaryPayloadToSend = watermarkPlan.secondaryPayload;
+        const cleanPayload = renderedTemplate.payload;
+
         let success = await instagram.sendMessage(
             senderId,
             renderedTemplate.type,
-            watermarkPlan.primaryPayload,
+            primaryPayloadToSend,
             { commentId: options?.commentId }
         );
 
+        // Fallback / Retry: If sending template with inline watermark failed with Meta API,
+        // resend the reply template by removing the inline watermark (using clean payload).
+        // If the clean template succeeds, convert watermark to an individual follow-up message after the reply template.
+        if (!success && watermarkPlan.mode === 'inline') {
+            console.warn(`[Worker] Template delivery with inline watermark failed with Meta API. Removing inline watermark and retrying clean template...`);
+            const retrySuccess = await instagram.sendMessage(
+                senderId,
+                renderedTemplate.type,
+                cleanPayload,
+                { commentId: options?.commentId }
+            );
+
+            if (retrySuccess) {
+                success = true;
+                primaryPayloadToSend = cleanPayload;
+                const fallbackWatermarkText = String(effectivePolicy?.default_text || DEFAULT_WATERMARK_POLICY.default_text).trim();
+                secondaryPayloadToSend = { text: fallbackWatermarkText };
+                console.info(`[Worker] Clean reply template succeeded without inline watermark. Watermark scheduled as individual follow-up bubble.`);
+            }
+        }
+
         if (!success && options?.commentId) {
             console.info(`Private message failed. Attempting public comment reply fallback.`);
-            const plainText = this._getPlainTextsFromTemplate(renderedTemplate.type, watermarkPlan.primaryPayload);
+            const plainText = this._getPlainTextsFromTemplate(renderedTemplate.type, primaryPayloadToSend || cleanPayload);
             if (plainText) {
                 success = await instagram.replyToComment(options.commentId, plainText);
                 if (success && logContext?.accountId) {
@@ -842,31 +867,44 @@ class DMWorker {
                 message: success
                     ? `Sent ${String(renderedTemplate?.type || 'template').trim() || 'template'} reply`
                     : `Failed to send ${String(renderedTemplate?.type || 'template').trim() || 'template'} reply`,
-                payload: watermarkPlan.primaryPayload,
+                payload: primaryPayloadToSend,
                 status: success ? 'success' : 'failed'
             });
         }
 
-        if (success && watermarkPlan.secondaryPayload) {
-            const secondarySent = await instagram.sendMessage(
-                senderId,
-                'template_text',
-                watermarkPlan.secondaryPayload,
-                { billable: true }
-            );
-            if (logContext?.accountId) {
-                await this._recordAutomationLog({
-                    accountId: logContext.accountId,
-                    recipientId: logContext.recipientId || senderId,
-                    senderName: logContext.senderName || senderId,
-                    automationId: logContext.automationId || null,
-                    automationType: logContext.automationType || null,
-                    eventType: logContext.eventType || 'message',
-                    source: logContext.source || 'worker_node',
-                    message: secondarySent ? 'Sent watermark follow-up' : 'Failed watermark follow-up',
-                    payload: watermarkPlan.secondaryPayload,
-                    status: secondarySent ? 'success' : 'failed'
-                });
+        // Secondary / Individual Follow-up watermark delivery:
+        // "when the individual watermark msg shows error while sending by meta api then no need to resend water mark text as the reply template is important."
+        if (success && secondaryPayloadToSend) {
+            await this._delay(350); // Pacing delay to ensure Meta edge servers sequence messages correctly
+
+            try {
+                const secondarySent = await instagram.sendMessage(
+                    senderId,
+                    'template_text',
+                    secondaryPayloadToSend,
+                    { billable: false }
+                );
+
+                if (logContext?.accountId) {
+                    await this._recordAutomationLog({
+                        accountId: logContext.accountId,
+                        recipientId: logContext.recipientId || senderId,
+                        senderName: logContext.senderName || senderId,
+                        automationId: logContext.automationId || null,
+                        automationType: logContext.automationType || null,
+                        eventType: logContext.eventType || 'message',
+                        source: 'worker_node',
+                        message: secondarySent ? 'Sent watermark follow-up' : 'Watermark follow-up skipped or unavailable',
+                        payload: secondaryPayloadToSend,
+                        status: secondarySent ? 'success' : 'failed'
+                    });
+                }
+
+                if (!secondarySent) {
+                    console.info('[Worker] Individual watermark message returned error or was not reachable on Meta API. Skipping watermark retry since the primary reply template was successfully delivered.');
+                }
+            } catch (secErr) {
+                console.warn('[Worker] Non-critical error delivering individual watermark:', secErr?.message || secErr);
             }
         }
 
