@@ -177,7 +177,8 @@ class InstagramAPI {
             // Remove legacy provider watermark if present in stored template text.
             return text
                 .replace(/\s*Automation Powered by\s*@replyruch\s*/ig, ' ')
-                .replace(/\s{2,}/g, ' ')
+                .replace(/[^\S\r\n]{2,}/g, ' ')
+                .replace(/\n{4,}/g, '\n\n\n')
                 .trim();
         };
 

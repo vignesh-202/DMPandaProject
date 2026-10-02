@@ -14,11 +14,12 @@ const hasWatermark = (textValue, watermarkText) =>
     String(textValue || '').toLowerCase().includes(String(watermarkText || '').toLowerCase());
 
 const appendWatermark = (textValue, watermarkText) => {
-    const base = String(textValue || '').trim();
+    const base = String(textValue || '').trimEnd();
     const suffix = String(watermarkText || DEFAULT_WATERMARK_POLICY.default_text).trim();
     if (!base) return suffix;
     if (hasWatermark(base, suffix)) return base;
-    return `${base}\n\n${suffix}`;
+    // Leave 2 lines before watermark and then start from the next line
+    return `${base}\n\n\n${suffix}`;
 };
 
 const resolveWatermarkPolicy = ({ globalPolicy, profile }) => {
@@ -62,7 +63,7 @@ const planWatermark = ({ templateType, payload, policy }) => {
     const watermarkText = String(activePolicy.default_text || DEFAULT_WATERMARK_POLICY.default_text).trim();
     const type = String(templateType || '').trim().toLowerCase();
 
-    // Secondary mode: always send watermark as a separate follow-up message bubble
+    // Secondary mode: always send watermark as a separate individual follow-up message bubble
     const isSecondaryOnly = activePolicy.position === 'secondary' || activePolicy.position === 'secondary_message';
     if (isSecondaryOnly) {
         return {
@@ -72,48 +73,34 @@ const planWatermark = ({ templateType, payload, policy }) => {
         };
     }
 
-    const inlineIfFits = (textValue, limit) => {
-        const candidate = appendWatermark(textValue, watermarkText);
-        if (candidate.length <= limit) {
-            return { inline: true, value: candidate };
-        }
-        return { inline: false, value: textValue };
-    };
+    // Dynamic mode:
+    // 1. Identify reply template type and length of watermark
+    // 2. If inline text is possible and has enough space, leave 2 lines and start watermark from next line
+    // 3. If template cannot take text (media, carousel, shares) or text is already too long (insufficient space),
+    //    send watermark as an individual follow-up text message bubble.
+    const watermarkLength = watermarkText.length;
+    const spacing = 3; // '\n\n\n' (leaves 2 lines before watermark)
 
-    // Dynamic mode: evaluates whether the watermark can be seamlessly embedded into the message
-    // without cluttering long messages (base text <= 500 chars) or exceeding safe limits (<= 800 chars).
-    // If the message is already long or incompatible, it delivers it as a separate follow-up message.
-    const dynamicInlineIfFits = (textValue, limit = 800, maxBaseLength = 500) => {
-        const raw = String(textValue || '').trim();
-        if (raw.length > maxBaseLength) {
-            return { inline: false, value: textValue };
-        }
-        const candidate = appendWatermark(raw, watermarkText);
-        if (candidate.length <= limit) {
-            return { inline: true, value: candidate };
-        }
-        return { inline: false, value: textValue };
-    };
-
-    const isDynamic = activePolicy.position === 'dynamic' || !activePolicy.position;
-
-    if (type === 'template_text' || type === 'template_quick_replies') {
-        if (hasWatermark(safePayload.text, watermarkText)) {
+    // Text & Quick Replies: Max 1,000 chars on Instagram Messenger API
+    if (type === 'template_text' || type === 'text' || type === 'template_quick_replies' || type === 'quick_replies') {
+        const rawText = String(safePayload.text || '').trim();
+        if (hasWatermark(rawText, watermarkText)) {
             return { primaryPayload: safePayload, secondaryPayload: null, mode: 'none' };
         }
-        let result = { inline: false, value: safePayload.text };
-        if (isDynamic) {
-            result = dynamicInlineIfFits(safePayload.text, 800, 500);
-        } else if (activePolicy.position === 'inline_when_possible') {
-            result = inlineIfFits(safePayload.text, 1000);
-        }
-        if (result.inline) {
+
+        const candidateLength = rawText.length + spacing + watermarkLength;
+        const maxInlineLimit = 850; // Instagram safe limit allowing buffer
+
+        // If template has valid text and sufficient space, insert inline leaving 2 lines
+        if (rawText.length > 0 && candidateLength <= maxInlineLimit) {
             return {
-                primaryPayload: { ...safePayload, text: result.value },
+                primaryPayload: { ...safePayload, text: appendWatermark(rawText, watermarkText) },
                 secondaryPayload: null,
                 mode: 'inline'
             };
         }
+
+        // Insufficient space or no text body: deliver as an individual follow-up text message
         return {
             primaryPayload: safePayload,
             secondaryPayload: { text: watermarkText },
@@ -121,23 +108,26 @@ const planWatermark = ({ templateType, payload, policy }) => {
         };
     }
 
-    if (type === 'template_buttons') {
-        if (hasWatermark(safePayload.text, watermarkText)) {
+    // Button Template: Meta enforces a strict 640-character limit on the message body text.
+    if (type === 'template_buttons' || type === 'button') {
+        const rawText = String(safePayload.text || '').trim();
+        if (hasWatermark(rawText, watermarkText)) {
             return { primaryPayload: safePayload, secondaryPayload: null, mode: 'none' };
         }
-        let result = { inline: false, value: safePayload.text };
-        if (isDynamic) {
-            result = dynamicInlineIfFits(safePayload.text, 500, 300);
-        } else if (activePolicy.position === 'inline_when_possible') {
-            result = inlineIfFits(safePayload.text, 640);
-        }
-        if (result.inline) {
+
+        const candidateLength = rawText.length + spacing + watermarkLength;
+        const maxInlineLimit = 550; // Safely below Meta's 640-char limit
+
+        // If text has enough space for watermark, insert inline leaving 2 blank lines
+        if (rawText.length > 0 && candidateLength <= maxInlineLimit) {
             return {
-                primaryPayload: { ...safePayload, text: result.value },
+                primaryPayload: { ...safePayload, text: appendWatermark(rawText, watermarkText) },
                 secondaryPayload: null,
                 mode: 'inline'
             };
         }
+
+        // Insufficient space: send watermark as an individual follow-up text message
         return {
             primaryPayload: safePayload,
             secondaryPayload: { text: watermarkText },
@@ -145,32 +135,9 @@ const planWatermark = ({ templateType, payload, policy }) => {
         };
     }
 
-    if (type === 'template_carousel') {
-        const elements = Array.isArray(safePayload.elements) ? safePayload.elements.slice() : [];
-        if (elements.length > 0 && activePolicy.position === 'inline_when_possible') {
-            const first = elements[0] && typeof elements[0] === 'object' ? { ...elements[0] } : {};
-            const baseText = first.subtitle || first.title || '';
-            if (hasWatermark(baseText, watermarkText)) {
-                return { primaryPayload: safePayload, secondaryPayload: null, mode: 'none' };
-            }
-            const result = inlineIfFits(baseText, 80);
-            if (result.inline) {
-                first.subtitle = result.value;
-                elements[0] = first;
-                return {
-                    primaryPayload: { ...safePayload, elements },
-                    secondaryPayload: null,
-                    mode: 'inline'
-                };
-            }
-        }
-        return {
-            primaryPayload: safePayload,
-            secondaryPayload: { text: watermarkText },
-            mode: 'secondary'
-        };
-    }
-
+    // Carousel Templates (generic templates: cards have 80-char title/subtitle limits; inline text breaks cards)
+    // Media Templates (images, videos, reels, posts: attachments cannot take text captions in direct message payloads)
+    // In all these cases, inline text is not possible or has no space -> send as an individual text message
     return {
         primaryPayload: safePayload,
         secondaryPayload: { text: watermarkText },

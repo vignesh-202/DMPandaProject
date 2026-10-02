@@ -37,7 +37,11 @@ export const SettingsPage: React.FC = () => {
     const [notice, setNotice] = useState<string | null>(null);
     const [selectedMode, setSelectedMode] = useState<WatermarkMode>('dynamic');
     const [watermarkText, setWatermarkText] = useState('Automation made by DMPanda');
+    const [initialMode, setInitialMode] = useState<WatermarkMode>('dynamic');
+    const [initialText, setInitialText] = useState('Automation made by DMPanda');
     const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+
+    const isDirty = selectedMode !== initialMode || watermarkText.trim() !== initialText.trim();
 
     useEffect(() => {
         const load = async () => {
@@ -47,16 +51,19 @@ export const SettingsPage: React.FC = () => {
                 if (response.data?.policy) {
                     const pol: WatermarkPolicy = response.data.policy;
                     const pos = pol.position;
+                    let loadedMode: WatermarkMode = 'dynamic';
                     if (pol.enabled === false || pos === 'off') {
-                        setSelectedMode('off');
+                        loadedMode = 'off';
                     } else if (pos === 'secondary' || pos === 'secondary_message') {
-                        setSelectedMode('secondary');
+                        loadedMode = 'secondary';
                     } else {
-                        setSelectedMode('dynamic');
+                        loadedMode = 'dynamic';
                     }
-                    if (pol.default_text) {
-                        setWatermarkText(pol.default_text);
-                    }
+                    const loadedText = pol.default_text ? pol.default_text : 'Automation made by DMPanda';
+                    setSelectedMode(loadedMode);
+                    setInitialMode(loadedMode);
+                    setWatermarkText(loadedText);
+                    setInitialText(loadedText);
                     setUpdatedAt(pol.updated_at || null);
                 }
             } catch (err) {
@@ -75,6 +82,7 @@ export const SettingsPage: React.FC = () => {
     }, [notice]);
 
     const save = async () => {
+        if (!isDirty || saving) return;
         try {
             setSaving(true);
             const isOff = selectedMode === 'off';
@@ -91,14 +99,19 @@ export const SettingsPage: React.FC = () => {
             if (response.data?.policy) {
                 const pol = response.data.policy;
                 const pos = pol.position;
+                let savedMode: WatermarkMode = 'dynamic';
                 if (pol.enabled === false || pos === 'off') {
-                    setSelectedMode('off');
+                    savedMode = 'off';
                 } else if (pos === 'secondary' || pos === 'secondary_message') {
-                    setSelectedMode('secondary');
+                    savedMode = 'secondary';
                 } else {
-                    setSelectedMode('dynamic');
+                    savedMode = 'dynamic';
                 }
-                setWatermarkText(pol.default_text || textToSave);
+                const savedText = pol.default_text || textToSave;
+                setSelectedMode(savedMode);
+                setInitialMode(savedMode);
+                setWatermarkText(savedText);
+                setInitialText(savedText);
                 setUpdatedAt(pol.updated_at || new Date().toISOString());
                 setNotice('Watermark settings saved successfully.');
             }
@@ -136,7 +149,7 @@ export const SettingsPage: React.FC = () => {
             badgeType: 'primary',
             icon: Sparkles,
             description: 'Intelligently determines delivery on the first reply. Embeds watermark inline when text is concise (0 extra messages), or sends a follow-up bubble if text is long or contains media/carousels.',
-            behaviorNote: 'Sends on first reply only • Suppressed on subsequent button/quick reply selections.',
+            behaviorNote: 'Leaves 2 lines before inline watermark • First reply only • Suppressed on follow-ups.',
             colorClasses: {
                 border: 'border-emerald-500/40 dark:border-emerald-500/50',
                 bg: 'bg-emerald-500/[0.04] dark:bg-emerald-500/[0.08]',
@@ -335,15 +348,27 @@ export const SettingsPage: React.FC = () => {
                         <p className="text-xs text-muted-foreground">
                             Last saved: {updatedAt ? new Date(updatedAt).toLocaleString() : 'System default'}
                         </p>
-                        <button
-                            type="button"
-                            onClick={save}
-                            disabled={saving}
-                            className="btn-primary inline-flex items-center justify-center gap-2 h-10 px-6 rounded-xl text-xs font-semibold disabled:opacity-60 shadow-xs"
-                        >
-                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            Save Watermark Policy
-                        </button>
+                        <div className="flex items-center gap-3">
+                            {!isDirty && (
+                                <span className="text-[11px] font-medium text-muted-foreground/70 hidden sm:inline-block">
+                                    No changes to save
+                                </span>
+                            )}
+                            <button
+                                type="button"
+                                onClick={save}
+                                disabled={!isDirty || saving}
+                                className={cn(
+                                    "inline-flex items-center justify-center gap-2 h-10 px-6 rounded-xl text-xs font-semibold shadow-xs transition-all duration-200",
+                                    isDirty
+                                        ? "btn-primary hover:shadow-md cursor-pointer"
+                                        : "border border-border/60 bg-muted/60 text-muted-foreground/60 cursor-not-allowed opacity-60 shadow-none pointer-events-none"
+                                )}
+                            >
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                Save Watermark Policy
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -442,15 +467,15 @@ export const SettingsPage: React.FC = () => {
                                                     https://dmpanda.com/sale
                                                 </p>
 
-                                                {/* Dynamic Inline Watermark */}
+                                                {/* Dynamic Inline Watermark (leaving 2 lines before watermark) */}
                                                 {selectedMode === 'dynamic' && (
-                                                    <div className="mt-2.5 pt-2 border-t border-black/10 dark:border-white/10 text-[10px] text-muted-foreground font-medium flex items-center justify-between gap-1.5 animate-in fade-in">
+                                                    <div className="mt-5 pt-2 border-t border-dashed border-black/10 dark:border-white/10 text-[10px] text-muted-foreground font-medium flex items-center justify-between gap-1.5 animate-in fade-in">
                                                         <div className="flex items-center gap-1.5 truncate">
                                                             <span className="text-emerald-500 font-bold">⚡</span>
                                                             <span className="truncate">{currentText}</span>
                                                         </div>
                                                         <span className="shrink-0 text-[8.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                                                            Inline
+                                                            Inline (+2 lines)
                                                         </span>
                                                     </div>
                                                 )}
