@@ -882,7 +882,7 @@ class DMWorker {
                     senderId,
                     'template_text',
                     secondaryPayloadToSend,
-                    { billable: false }
+                    { billable: true }
                 );
 
                 if (logContext?.accountId) {

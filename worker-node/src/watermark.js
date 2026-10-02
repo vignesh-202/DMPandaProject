@@ -2,7 +2,7 @@ const DEFAULT_WATERMARK_POLICY = {
     enabled: String(process.env.DEFAULT_WATERMARK_ENABLED || 'true').trim().toLowerCase() !== 'false',
     type: 'text',
     position: ['dynamic', 'secondary', 'secondary_message', 'off'].includes(String(process.env.DEFAULT_WATERMARK_POSITION || '').trim().toLowerCase())
-        ? String(process.env.DEFAULT_WATERMARK_POSITION).trim().toLowerCase()
+        ? (String(process.env.DEFAULT_WATERMARK_POSITION).trim().toLowerCase() === 'secondary_message' ? 'secondary' : String(process.env.DEFAULT_WATERMARK_POSITION).trim().toLowerCase())
         : 'dynamic',
     opacity: Number.isFinite(Number(process.env.DEFAULT_WATERMARK_OPACITY))
         ? Math.max(0, Math.min(1, Number(process.env.DEFAULT_WATERMARK_OPACITY)))
@@ -43,6 +43,10 @@ const resolveWatermarkPolicy = ({ globalPolicy, profile }) => {
         ...(adminPolicy || {})
     };
 
+    let normalizedPos = String(basePolicy.position || 'dynamic').trim().toLowerCase();
+    if (normalizedPos === 'secondary_message') normalizedPos = 'secondary';
+    basePolicy.position = normalizedPos;
+
     if (basePolicy.position === 'off' || basePolicy.enabled === false || runtimeFeatures.no_watermark === true) {
         return { ...basePolicy, enabled: false, position: 'off' };
     }
@@ -66,8 +70,16 @@ const planWatermark = ({ templateType, payload, policy }) => {
     // Secondary mode: always send watermark as a separate individual follow-up message bubble
     const isSecondaryOnly = activePolicy.position === 'secondary' || activePolicy.position === 'secondary_message';
     if (isSecondaryOnly) {
+        let cleanPrimaryPayload = safePayload;
+        if (safePayload?.text && typeof safePayload.text === 'string') {
+            const escapedWatermark = watermarkText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const strippedText = safePayload.text
+                .replace(new RegExp(`\\n*${escapedWatermark}\\s*$`, 'i'), '')
+                .trimEnd();
+            cleanPrimaryPayload = { ...safePayload, text: strippedText };
+        }
         return {
-            primaryPayload: safePayload,
+            primaryPayload: cleanPrimaryPayload,
             secondaryPayload: { text: watermarkText },
             mode: 'secondary'
         };

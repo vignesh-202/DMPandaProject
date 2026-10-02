@@ -148,7 +148,7 @@ export const SettingsPage: React.FC = () => {
             badge: 'Recommended • Default',
             badgeType: 'primary',
             icon: Sparkles,
-            description: 'Intelligently determines delivery on the first reply. Embeds watermark inline when text is concise (0 extra messages), or sends a follow-up bubble if text is long or contains media/carousels.',
+            description: 'Intelligently determines delivery on the first reply. Embeds watermark inline when text is concise (no extra action limit consumed), or sends a follow-up bubble if text is long or contains media/carousels.',
             behaviorNote: 'Leaves 2 lines before inline watermark • First reply only • Suppressed on follow-ups.',
             colorClasses: {
                 border: 'border-emerald-500/40 dark:border-emerald-500/50',
@@ -164,8 +164,8 @@ export const SettingsPage: React.FC = () => {
             badge: 'Follow-up Bubble',
             badgeType: 'neutral',
             icon: MessageSquare,
-            description: 'Always sends the watermark as a clean, individual follow-up message bubble immediately following the primary reply message.',
-            behaviorNote: 'Sends 1 follow-up on first reply • Never repeats when users interact with buttons.',
+            description: 'Always sends the watermark as a clean, individual follow-up message bubble immediately following the primary reply message (consumes action limit as an individual message).',
+            behaviorNote: 'Sends 1 follow-up bubble on first reply • Primary message remains 100% clean.',
             colorClasses: {
                 border: 'border-sky-500/40 dark:border-sky-500/50',
                 bg: 'bg-sky-500/[0.04] dark:bg-sky-500/[0.08]',

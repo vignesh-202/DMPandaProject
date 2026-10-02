@@ -1283,7 +1283,8 @@ class AppwriteClient {
             this._watermarkPolicyCache = policy;
             this._watermarkPolicyExpiresAt = now + (10 * 1000); // 10s fast fresh cache
             return { ...policy };
-        } catch (_) {
+        } catch (err) {
+            console.warn('[Worker] Failed to load watermark policy from Appwrite, using fallback:', err?.message || err);
             this._watermarkPolicyCache = fallback;
             this._watermarkPolicyExpiresAt = now + (10 * 1000);
             return { ...fallback };

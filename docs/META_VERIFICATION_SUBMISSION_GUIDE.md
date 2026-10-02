@@ -28,9 +28,10 @@ Without this permission, users cannot see or select their connected Instagram ac
 STEP-BY-STEP TESTING INSTRUCTIONS FOR APP REVIEWER:
 
 1. Log in to DMPanda:
-   - URL: https://dmpanda.com/login
-   - Email: viganesh202@gmail.com
-   - Password: Vigu@123456
+      URL: https://dmpanda.com/login
+      User ID: test_prod_kQpDJy2duT
+      Email: test.kqpdjy2dut@dmpanda.test
+      Password: DmPanda!kQpDJy2duT9x
 
 2. Connect your Instagram Professional Account:
    - Go to Dashboard: https://dmpanda.com/dashboard
@@ -43,9 +44,9 @@ STEP-BY-STEP TESTING INSTRUCTIONS FOR APP REVIEWER:
    - You will see your Instagram handle (@username) and profile avatar clearly displayed.
 
 4. Test Automation Trigger:
-   - Click "Automations" -> "+ New Automation"
-   - Select your connected Instagram account from the dropdown.
-   - Choose a trigger (e.g. Keyword DM) and save.
+   - Select your connected Instagram account from the left menu dropdown.
+   - Click "Reply Template" on left menu "Automations" section and then add reply template.
+   - Choose a trigger (e.g. DM, post, reel etc) and save automation with reply template.
    - The basic account ID connects this trigger directly to your Instagram profile.
 
 Note: instagram_business_basic is also requested as a required dependent permission for instagram_business_manage_messages and instagram_business_manage_comments.
