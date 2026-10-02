@@ -37,3 +37,12 @@ This document lists the authoritative URLs for production and local development 
 | **Frontend (5173)** | `https://k4871fhm-5173.inc1.devtunnels.ms` |
 | **Admin Panel (5174)** | `https://k4871fhm-5174.inc1.devtunnels.ms` |
 | **Backend API (5000)** | `https://k4871fhm-5000.inc1.devtunnels.ms` |
+
+---
+
+## 4. Coolify Infrastructure & Distributed Workers
+
+| Service / Node | Dashboard / Access URL | Purpose / Notes |
+| :--- | :--- | :--- |
+| **Coolify Dashboard** | `http://13.233.7.21:8000/` | Coolify management portal where `worker-node` is deployed and running as `worker-2`. Use this URL to access container settings, logs, environment variables, or worker scaling. |
+

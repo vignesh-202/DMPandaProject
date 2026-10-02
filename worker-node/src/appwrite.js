@@ -1250,9 +1250,9 @@ class AppwriteClient {
         const fallback = {
             enabled: String(process.env.DEFAULT_WATERMARK_ENABLED || 'true').trim().toLowerCase() !== 'false',
             type: 'text',
-            position: ['inline_when_possible', 'secondary_message'].includes(String(process.env.DEFAULT_WATERMARK_POSITION || '').trim().toLowerCase())
+            position: ['inline_when_possible', 'secondary_message', 'dynamic'].includes(String(process.env.DEFAULT_WATERMARK_POSITION || '').trim().toLowerCase())
                 ? String(process.env.DEFAULT_WATERMARK_POSITION).trim().toLowerCase()
-                : 'secondary_message',
+                : 'dynamic',
             opacity: Number.isFinite(Number(process.env.DEFAULT_WATERMARK_OPACITY))
                 ? Math.max(0, Math.min(1, Number(process.env.DEFAULT_WATERMARK_OPACITY)))
                 : 1,
@@ -1268,7 +1268,7 @@ class AppwriteClient {
             const policy = {
                 enabled: document.enabled !== false,
                 type: 'text',
-                position: ['inline_when_possible', 'secondary_message'].includes(String(document.position || '').trim().toLowerCase())
+                position: ['inline_when_possible', 'secondary_message', 'dynamic'].includes(String(document.position || '').trim().toLowerCase())
                     ? String(document.position).trim().toLowerCase()
                     : fallback.position,
                 opacity: Number.isFinite(Number(document.opacity))
