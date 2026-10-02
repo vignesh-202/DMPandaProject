@@ -249,9 +249,12 @@ EMAIL_CHANGE_TOKENS_COLLECTION = {
         {"key": "created_at", "type": "datetime", "required": True, "array": False, "default": None},
     ],
     "indexes": [
-        {"key": "idx_token_value", "type": "unique", "attributes": ["token"], "orders": []},
-        {"key": "idx_token_user_status", "type": "key", "attributes": ["user_id", "status"], "orders": []},
+        {"key": "idx_token", "type": "unique", "attributes": ["token"], "orders": []},
+        {"key": "idx_user_id", "type": "key", "attributes": ["user_id"], "orders": []},
+        {"key": "idx_status", "type": "key", "attributes": ["status"], "orders": []},
+        {"key": "idx_user_status", "type": "key", "attributes": ["user_id", "status"], "orders": []},
         {"key": "idx_token_expires_at", "type": "key", "attributes": ["expires_at"], "orders": []},
+        {"key": "idx_tokens_created_at", "type": "key", "attributes": ["created_at"], "orders": []},
     ],
 }
 
@@ -387,7 +390,6 @@ ADDITIONAL_INDEXES = {
     "payment_attempts": [
         {"key": "idx_payment_attempt_status_created", "type": "key", "attributes": ["status", "created_at"], "orders": []},
         {"key": "idx_pay_att_user_status_created", "type": "key", "attributes": ["user_id", "status", "created_at"], "orders": []},
-        {"key": "idx_pay_att_gateway_payment", "type": "key", "attributes": ["gateway_payment_id"], "orders": []},
     ],
     "transactions": [
         {"key": "idx_payment_attempt", "type": "key", "attributes": ["paymentAttemptId"], "orders": []},
@@ -398,7 +400,6 @@ ADDITIONAL_INDEXES = {
     ],
     "coupons": [
         {"key": "idx_coupons_code_search", "type": "fulltext", "attributes": ["code"], "orders": []},
-        {"key": "idx_coupons_active_expiry", "type": "key", "attributes": ["active", "expires_at"], "orders": []},
     ],
 }
 
@@ -551,7 +552,20 @@ DEPRECATED_INDEXES = {
         "idx_ig_user_admin_plan_lock",
         "idx_account_api_enabled",
         "idx_ig_api_token",
-    }
+    },
+    "super_profiles": {
+        "idx_slug",
+    },
+    "coupons": {
+        "idx_coupons_active_expiry",
+    },
+    "payment_attempts": {
+        "idx_pay_att_gateway_payment",
+    },
+    "email_change_tokens": {
+        "idx_token_value",
+        "idx_token_user_status",
+    },
 }
 
 
