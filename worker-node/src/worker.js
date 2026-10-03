@@ -948,25 +948,6 @@ class DMWorker {
         const rawText = String(commentReplyText || '').trim();
         if (!commentId || !rawText) return false;
 
-        // If another platform (e.g. ManyChat) or admin already replied to this comment, do not duplicate
-        if (typeof instagram?.getComment === 'function' && accountId) {
-            try {
-                const commentData = await instagram.getComment(commentId);
-                const existingReplies = Array.isArray(commentData?.replies?.data) ? commentData.replies.data : [];
-                const accountIdentifiers = new Set([String(accountId).trim()]);
-                const alreadyReplied = existingReplies.some((r) => {
-                    const replyAuthorId = String(r?.from?.id || '').trim();
-                    return replyAuthorId && accountIdentifiers.has(replyAuthorId);
-                });
-                if (alreadyReplied) {
-                    console.log(`[Worker] Comment ${commentId} already has an existing business reply from ManyChat/Admin. Skipping duplicate reply.`);
-                    return true;
-                }
-            } catch (checkErr) {
-                // If comment lookup fails (e.g. rate limits), proceed safely
-            }
-        }
-
         const effectivePolicy = watermarkPolicy || DEFAULT_WATERMARK_POLICY;
         const { primaryText, secondaryText } = planCommentWatermark({
             text: rawText,
@@ -2447,28 +2428,19 @@ class DMWorker {
                 );
                 if (isHumanReadableClickReply) {
                     const clickType = postback ? 'postback_text_reply' : 'quick_reply_payload_reply';
-                    console.log(`Processing direct text reply from ${postback ? 'button' : 'quick reply'}: "${inboundText}"`);
+                    const replyText = String(inboundText || '').trim();
+                    if (!replyText) {
+                        console.warn(`[Worker] Click reply from ${postback ? 'button' : 'quick reply'} has empty text payload.`);
+                        return { handled: false, retryable: false, automationType: clickType };
+                    }
+                    console.log(`Processing direct text reply from ${postback ? 'button' : 'quick reply'}: "${replyText}"`);
 
-                    const watermarkPolicy = await this._getWatermarkPolicyForUser(igAccount.user_id);
                     const chainState = { preReplyHintsSent: false };
                     await this._maybeSendSeenTypingPrelude(instagram, senderId, null, chainState, profile);
 
-                    const { primaryText, secondaryText } = planWatermark({
-                        text: inboundText,
-                        policy: watermarkPolicy,
-                        channel: 'dm'
-                    });
-
                     const primarySent = await instagram.sendMessage(senderId, 'template_text', {
-                        text: primaryText
+                        text: replyText
                     });
-
-                    if (primarySent && secondaryText) {
-                        await this._sleep(350);
-                        await instagram.sendMessage(senderId, 'template_text', {
-                            text: secondaryText
-                        }).catch(() => false);
-                    }
 
                     if (primaryAccountId) {
                         await this._recordAutomationLog({
