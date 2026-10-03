@@ -6,7 +6,13 @@ class StreamerClient {
     constructor({ worker, logger = console } = {}) {
         this.worker = worker;
         this.logger = logger;
-        this.url = String(process.env.STREAMER_WS_URL || '').trim();
+        let streamerUrl = String(process.env.STREAMER_WS_URL || '').trim();
+        const isProduction = process.env.NODE_ENV === 'production';
+        if (!isProduction && streamerUrl.includes('webhook.dmpanda.com') && process.env.ALLOW_REMOTE_STREAMER !== 'true') {
+            this.logger.warn('[StreamerClient] Local dev worker prevented from connecting to PRODUCTION streamer at ' + streamerUrl + ' to avoid dev/prod conflict. Using ws://localhost:3000/workers (set ALLOW_REMOTE_STREAMER=true to override).');
+            streamerUrl = 'ws://localhost:3000/workers';
+        }
+        this.url = streamerUrl;
         this.sharedSecret = String(process.env.WORKER_SHARED_SECRET || '').trim();
         const detectedHostname = (os.hostname() || 'worker').replace(/[^a-zA-Z0-9_-]/g, '');
         this.workerId = String(

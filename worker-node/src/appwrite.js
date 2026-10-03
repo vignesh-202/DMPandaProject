@@ -160,6 +160,9 @@ class AppwriteClient {
         this._watermarkPolicyCache = null;
         this._watermarkPolicyExpiresAt = 0;
         this._convoStarterFallbackUnavailable = false;
+        this._scopedSenderCache = new TinyCache({ max: 500, ttlMs: 3600000 });
+        this._managedIdentifiersCache = null;
+        this._managedIdentifiersExpiresAt = 0;
         this.workerInstanceId = String(
             process.env.WORKER_INSTANCE_ID
             || process.env.HOSTNAME
@@ -239,6 +242,8 @@ class AppwriteClient {
         if (token.length > 128) return false;
         if (token.startsWith('_')) return false;
         if (/\s/.test(token)) return false;
+        // Purely numeric strings (IGSIDs or account numbers) are not Appwrite document IDs
+        if (/^\d+$/.test(token)) return false;
         return /^[A-Za-z0-9_-]+$/.test(token);
     }
 
@@ -531,7 +536,7 @@ class AppwriteClient {
                     context: { account_id: safeAccountId }
                 });
             }
-            if (response.documents.length === 0) {
+            if (response.documents.length === 0 && this._isLikelyDocumentId(safeAccountId)) {
                 try {
                     const doc = await withAppwriteRetry(() => this.databases.getDocument(
                         this.databaseId,
@@ -552,6 +557,7 @@ class AppwriteClient {
                 this._accountCache.set(safeAccountId, normalized);
                 if (normalized.ig_user_id) this._accountCache.set(normalized.ig_user_id, normalized);
                 if (normalized.account_id) this._accountCache.set(normalized.account_id, normalized);
+                if (normalized.username) this._accountCache.set(String(normalized.username).toLowerCase().trim(), normalized);
                 return normalized;
             }
 
@@ -564,11 +570,67 @@ class AppwriteClient {
         }
     }
 
-    async isManagedInstagramAccount(accountId) {
+    async getManagedAccountIdentifiers() {
+        const now = Date.now();
+        if (this._managedIdentifiersCache && now < this._managedIdentifiersExpiresAt) {
+            return this._managedIdentifiersCache;
+        }
+        try {
+            const response = await this.databases.listDocuments(
+                this.databaseId,
+                process.env.IG_ACCOUNTS_COLLECTION_ID,
+                [Query.limit(100), Query.select(['$id', 'account_id', 'ig_user_id', 'username'])]
+            );
+            const ids = new Set();
+            const usernames = new Set();
+            for (const doc of response.documents || []) {
+                if (doc.$id) ids.add(String(doc.$id).trim());
+                if (doc.account_id) ids.add(String(doc.account_id).trim());
+                if (doc.ig_user_id) ids.add(String(doc.ig_user_id).trim());
+                if (doc.username) usernames.add(String(doc.username).trim().toLowerCase());
+            }
+            this._managedIdentifiersCache = { ids, usernames };
+            this._managedIdentifiersExpiresAt = now + 120000;
+            return this._managedIdentifiersCache;
+        } catch (_) {
+            return this._managedIdentifiersCache || { ids: new Set(), usernames: new Set() };
+        }
+    }
+
+    async isManagedInstagramAccount(accountId, options = {}) {
         const safeAccountId = String(accountId || '').trim();
         if (!safeAccountId) return false;
+
+        const { ids, usernames } = await this.getManagedAccountIdentifiers();
+        if (ids.has(safeAccountId)) {
+            return true;
+        }
+
+        const cachedResolution = this._scopedSenderCache.get(safeAccountId);
+        if (typeof cachedResolution === 'boolean') {
+            return cachedResolution;
+        }
+
+        const instagram = options?.instagram;
+        if (instagram && typeof instagram.getUserProfile === 'function') {
+            try {
+                const profile = await instagram.getUserProfile(safeAccountId);
+                const senderUsername = String(profile?.username || '').trim().toLowerCase();
+                if (senderUsername && usernames.has(senderUsername)) {
+                    this._scopedSenderCache.set(safeAccountId, true);
+                    return true;
+                }
+                if (senderUsername) {
+                    this._scopedSenderCache.set(safeAccountId, false);
+                    return false;
+                }
+            } catch (_) { }
+        }
+
         const account = await this.getIGAccount(safeAccountId);
-        return Boolean(account);
+        const isManaged = Boolean(account);
+        this._scopedSenderCache.set(safeAccountId, isManaged);
+        return isManaged;
     }
 
     async getCommentModerationRules({ userId, accountIds }) {

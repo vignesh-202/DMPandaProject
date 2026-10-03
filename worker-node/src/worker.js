@@ -128,6 +128,30 @@ class DMWorker {
         this.localWelcomeCooldown = new Map();
         this.localConversationStates = new Map();
         this.localProcessedEvents = new Map();
+        this.recentOutboundMessageHashes = new Map();
+    }
+
+    _rememberOutboundMessage(recipientId, text) {
+        const safeRecipient = String(recipientId || '').trim();
+        const safeText = String(text || '').trim().toLowerCase();
+        if (!safeRecipient || !safeText) return;
+        const now = Date.now();
+        for (const [key, ts] of this.recentOutboundMessageHashes.entries()) {
+            if (now - ts > 120000) {
+                this.recentOutboundMessageHashes.delete(key);
+            }
+        }
+        const key = `${safeRecipient}:${this._hashToken(safeText, 32)}`;
+        this.recentOutboundMessageHashes.set(key, now);
+    }
+
+    _isRecentOutboundMessage(senderId, text) {
+        const safeSender = String(senderId || '').trim();
+        const safeText = String(text || '').trim().toLowerCase();
+        if (!safeSender || !safeText) return false;
+        const key = `${safeSender}:${this._hashToken(safeText, 32)}`;
+        const ts = this.recentOutboundMessageHashes.get(key);
+        return Boolean(ts && (Date.now() - ts < 120000));
     }
 
     _hashToken(value, length = 24) {
@@ -847,6 +871,13 @@ class DMWorker {
                     automationId: logContext?.automationId,
                     automationType: logContext?.automationType || 'fallback'
                 });
+            }
+        }
+
+        if (success) {
+            const outboundText = this._getPlainTextsFromTemplate(renderedTemplate.type, cleanPayload || primaryPayloadToSend);
+            if (outboundText) {
+                this._rememberOutboundMessage(senderId, outboundText);
             }
         }
 
@@ -2285,8 +2316,11 @@ class DMWorker {
                 return { handled: false, retryable: false, automationType: 'self_authored_event' };
             }
 
+            const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || recipientId).trim();
+            const instagram = this._createInstagramClient(accessToken, accountBudgetKey, options?.metaApiUsageTracker, executionProfile, igAccount);
+
             if (!isShareEvent && typeof this.appwrite?.isManagedInstagramAccount === 'function') {
-                const senderIsManagedAccount = await this.appwrite.isManagedInstagramAccount(String(senderId || '').trim());
+                const senderIsManagedAccount = await this.appwrite.isManagedInstagramAccount(String(senderId || '').trim(), { instagram });
                 if (senderIsManagedAccount) {
                     console.log(
                         `Ignoring DM from managed Instagram account ${senderId} to avoid cross-account automation loops.`
@@ -2295,8 +2329,11 @@ class DMWorker {
                 }
             }
 
-            const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || recipientId).trim();
-            const instagram = this._createInstagramClient(accessToken, accountBudgetKey, options?.metaApiUsageTracker, executionProfile, igAccount);
+            if (inboundText && this._isRecentOutboundMessage(senderId, inboundText)) {
+                console.log(`Ignoring inbound message "${inboundText}" from ${senderId} matching recent bot outbound reply to prevent bot loop.`);
+                return { handled: false, retryable: false, automationType: 'reflected_outbound_echo' };
+            }
+
             const conversationState = await this._getConversationState(primaryAccountId, conversationKey);
             let nextConversationState = this._normalizeConversationState(conversationState);
 
@@ -2376,6 +2413,14 @@ class DMWorker {
                         const chainState = { preReplyHintsSent: false };
                         await this._maybeSendSeenTypingPrelude(instagram, senderId, associatedAutomation || null, chainState);
                         
+                        const isInitialMenuOrStarter = Boolean(
+                            isPrefixedInboxMenu ||
+                            isPrefixedConvoStarter ||
+                            effectiveAutomationType === 'inbox_menu' ||
+                            effectiveAutomationType === 'convo_starter'
+                        );
+                        const shouldSuppressWatermark = !isInitialMenuOrStarter;
+
                         const success = await this.sendRenderedTemplate(
                             instagram,
                             senderId,
@@ -2383,8 +2428,8 @@ class DMWorker {
                             context,
                             watermarkPolicy,
                             {
-                                suppressWatermark: true,
-                                isFollowUp: true,
+                                suppressWatermark: shouldSuppressWatermark,
+                                isFollowUp: shouldSuppressWatermark,
                                 actionUserId: igAccount.user_id,
                                 logContext: {
                                     accountId: primaryAccountId,
@@ -2441,6 +2486,10 @@ class DMWorker {
                     const primarySent = await instagram.sendMessage(senderId, 'template_text', {
                         text: replyText
                     });
+
+                    if (primarySent) {
+                        this._rememberOutboundMessage(senderId, replyText);
+                    }
 
                     if (primaryAccountId) {
                         await this._recordAutomationLog({
@@ -2588,6 +2637,13 @@ class DMWorker {
 
             // 6. Send the message via Instagram API
             const isClickEvent = Boolean(quickReplyPayload || postback);
+            const isInitialMenuOrStarter = Boolean(
+                isPrefixedInboxMenu ||
+                isPrefixedConvoStarter ||
+                matchedAutomation?.automation_type === 'inbox_menu' ||
+                matchedAutomation?.automation_type === 'convo_starter'
+            );
+            const shouldSuppressWatermark = isClickEvent && !isInitialMenuOrStarter;
             const success = await this.sendRenderedTemplate(
                 instagram,
                 senderId,
@@ -2595,8 +2651,8 @@ class DMWorker {
                 context,
                 watermarkPolicy,
                 {
-                    suppressWatermark: isClickEvent,
-                    isFollowUp: isClickEvent,
+                    suppressWatermark: shouldSuppressWatermark,
+                    isFollowUp: shouldSuppressWatermark,
                     actionUserId: igAccount.user_id,
                     logContext: {
                         accountId: primaryAccountId,

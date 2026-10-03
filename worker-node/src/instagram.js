@@ -143,6 +143,23 @@ class InstagramAPI {
         }
     }
 
+    async getUserProfile(userId) {
+        const safeUserId = String(userId || '').trim();
+        if (!safeUserId) return null;
+        try {
+            const response = await this._get(`/${safeUserId}`, {
+                fields: 'id,username,name',
+                access_token: this.accessToken
+            }, {
+                endpointCategory: 'user_profile',
+                source: 'worker_node_profile'
+            });
+            return response.data || null;
+        } catch (_) {
+            return null;
+        }
+    }
+
     async sendMessage(recipientId, messageType, payload, options = {}) {
         const params = { access_token: this.accessToken };
 
