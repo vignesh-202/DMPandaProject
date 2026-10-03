@@ -166,7 +166,13 @@ class InstagramAPI {
             }
             return false;
         } catch (error) {
-            console.error('Failed to send message:', error.response ? error.response.data : error.message);
+            const errData = error.response ? error.response.data : null;
+            const subcode = Number(errData?.error?.error_subcode);
+            if (subcode === 2534015) {
+                console.warn(`[InstagramAPI] Private reply already sent to comment ${options?.commentId} by another platform (e.g. ManyChat). Skipping without error.`);
+                return true;
+            }
+            console.error('Failed to send message:', errData || error.message);
             return false;
         }
     }
@@ -474,7 +480,7 @@ class InstagramAPI {
         if (!safeCommentId) return null;
 
         const params = {
-            fields: 'id,hidden,text,username',
+            fields: 'id,hidden,text,username,replies{id,from,text}',
             access_token: this.accessToken
         };
 

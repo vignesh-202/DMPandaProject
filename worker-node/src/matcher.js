@@ -20,20 +20,37 @@ class AutomationMatcher {
 
     static _getConversationStarterCandidates(automation) {
         const automationType = String(automation?.automation_type || '').trim().toLowerCase();
-        if (!['convo_starter', 'inbox_menu'].includes(automationType)) {
+        const triggerType = String(automation?.trigger_type || '').trim().toLowerCase();
+        if (!['convo_starter', 'inbox_menu'].includes(automationType) && !['ice_breakers', 'menu_config'].includes(triggerType)) {
             return [];
         }
-        return Array.from(new Set([
+        const candidates = [
             automation?.title,
             automation?.title_normalized,
-            automation?.question,
-            automation?.payload,
-            automation?.template_content,
-            automation?.template_id
-        ].map((value) => this._normalizeToken(value)).filter(Boolean)));
+            automation?.question
+        ];
+        if (automationType === 'inbox_menu' || triggerType === 'menu_config') {
+            if (automation?.template_id) candidates.push(`inbox_menu:${automation.template_id}`);
+            if (automation?.payload) candidates.push(`inbox_menu:${automation.payload}`);
+            if (automation?.$id) candidates.push(`inbox_menu:${automation.$id}`);
+        }
+        if (automationType === 'convo_starter' || triggerType === 'ice_breakers') {
+            if (automation?.template_id) candidates.push(`convo_starter:${automation.template_id}`);
+            if (automation?.payload) candidates.push(`convo_starter:${automation.payload}`);
+            if (automation?.question) candidates.push(`convo_starter:${automation.question}`);
+            if (automation?.$id) candidates.push(`convo_starter:${automation.$id}`);
+        }
+        return Array.from(new Set(candidates.map((value) => this._normalizeToken(value)).filter(Boolean)));
     }
 
     static _getDirectReferenceCandidates(automation) {
+        const automationType = String(automation?.automation_type || '').trim().toLowerCase();
+        const triggerType = String(automation?.trigger_type || '').trim().toLowerCase();
+        // Inbox menu and convo starters must only be matched via _getConversationStarterCandidates (with tags or title),
+        // NEVER via raw template_id reference, so button and carousel raw payloads are never hijacked.
+        if (['convo_starter', 'inbox_menu'].includes(automationType) || ['ice_breakers', 'menu_config'].includes(triggerType)) {
+            return [];
+        }
         return Array.from(new Set([
             automation?.payload,
             automation?.template_id,

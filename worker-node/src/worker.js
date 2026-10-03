@@ -948,6 +948,25 @@ class DMWorker {
         const rawText = String(commentReplyText || '').trim();
         if (!commentId || !rawText) return false;
 
+        // If another platform (e.g. ManyChat) or admin already replied to this comment, do not duplicate
+        if (typeof instagram?.getComment === 'function' && accountId) {
+            try {
+                const commentData = await instagram.getComment(commentId);
+                const existingReplies = Array.isArray(commentData?.replies?.data) ? commentData.replies.data : [];
+                const accountIdentifiers = new Set([String(accountId).trim()]);
+                const alreadyReplied = existingReplies.some((r) => {
+                    const replyAuthorId = String(r?.from?.id || '').trim();
+                    return replyAuthorId && accountIdentifiers.has(replyAuthorId);
+                });
+                if (alreadyReplied) {
+                    console.log(`[Worker] Comment ${commentId} already has an existing business reply from ManyChat/Admin. Skipping duplicate reply.`);
+                    return true;
+                }
+            } catch (checkErr) {
+                // If comment lookup fails (e.g. rate limits), proceed safely
+            }
+        }
+
         const effectivePolicy = watermarkPolicy || DEFAULT_WATERMARK_POLICY;
         const { primaryText, secondaryText } = planCommentWatermark({
             text: rawText,
@@ -1486,7 +1505,9 @@ class DMWorker {
         const convoStarterAutomations = await this.appwrite.getActiveAutomations(automationAccountIds, ['convo_starter', 'inbox_menu']);
         matchedAutomation = this._matchAutomationCandidates(inboundCandidates, convoStarterAutomations);
         if (matchedAutomation) {
-            console.log(`Recovered automation match from targeted convo-starter lookup: ${matchedAutomation.title || matchedAutomation.$id}`);
+            const autoType = String(matchedAutomation.automation_type || '').toLowerCase();
+            const typeLabel = autoType === 'inbox_menu' ? 'inbox menu (persistent menu)' : 'convo starter';
+            console.log(`Recovered automation match from targeted ${typeLabel} lookup: ${matchedAutomation.title || matchedAutomation.$id}`);
             return matchedAutomation;
         }
 
@@ -2217,17 +2238,37 @@ class DMWorker {
             }
 
             const quickReplyPayload = message?.quick_reply?.payload;
+            const rawPostbackPayload = String(postback?.payload || '').trim();
+            const isPrefixedInboxMenu = rawPostbackPayload.startsWith('inbox_menu:');
+            const isPrefixedConvoStarter = rawPostbackPayload.startsWith('convo_starter:');
+            const strippedPostbackPayload = isPrefixedInboxMenu
+                ? rawPostbackPayload.slice('inbox_menu:'.length).trim()
+                : isPrefixedConvoStarter
+                    ? rawPostbackPayload.slice('convo_starter:'.length).trim()
+                    : rawPostbackPayload;
+
             const inboundCandidates = postback
-                ? uniqueNonEmptyStrings([postback?.payload, postback?.title, quickReplyPayload, message?.text])
+                ? uniqueNonEmptyStrings([
+                    rawPostbackPayload,
+                    strippedPostbackPayload,
+                    postback?.title,
+                    quickReplyPayload,
+                    message?.text
+                  ])
                 : uniqueNonEmptyStrings([quickReplyPayload, message?.text, postback?.payload, postback?.title]);
-            const inboundText = inboundCandidates[0] || '';
+            const inboundText = strippedPostbackPayload || inboundCandidates[0] || '';
 
             if (!inboundText && !isShareEvent) {
                 console.log('No message or postback text found, skipping.');
                 return { handled: false, retryable: false, automationType: 'empty_inbound_text' };
             }
 
-            console.log(`Processing message from ${senderId}: "${inboundText || '[Share Event]'}"`);
+            if (postback) {
+                const prefixTag = isPrefixedInboxMenu ? ' [Persistent Menu]' : isPrefixedConvoStarter ? ' [Convo Starter]' : '';
+                console.log(`Processing postback${prefixTag} from ${senderId}: title="${postback?.title || ''}", payload="${postback?.payload || ''}"`);
+            } else {
+                console.log(`Processing message from ${senderId}: "${inboundText || '[Share Event]'}"`);
+            }
 
             // 1. Get the IG Account from Appwrite to get the access token
             console.log(`Fetching IG account for recipient: ${recipientId}`);
@@ -2326,6 +2367,25 @@ class DMWorker {
                     if (directTemplate) {
                         console.log(`Found direct template for ID "${inboundText}": ${directTemplate.title || directTemplate.$id}`);
                         
+                        // Check if this click corresponds to an inbox_menu or convo_starter automation
+                        const associatedAutomation = (automations || []).find((a) => {
+                            const type = String(a?.automation_type || '').trim().toLowerCase();
+                            if (isPrefixedInboxMenu && type !== 'inbox_menu') return false;
+                            if (isPrefixedConvoStarter && type !== 'convo_starter') return false;
+                            if (!isPrefixedInboxMenu && !isPrefixedConvoStarter) {
+                                // For un-prefixed postbacks, only match if title explicitly matches
+                                return postback?.title && String(a?.title || '').trim().toUpperCase() === String(postback.title).trim().toUpperCase();
+                            }
+                            const matchesTpl = String(a?.template_id || a?.template_content || '').trim() === String(strippedPostbackPayload || inboundText).trim();
+                            const matchesTitle = postback?.title && String(a?.title || '').trim().toUpperCase() === String(postback.title).trim().toUpperCase();
+                            return matchesTpl || matchesTitle;
+                        });
+                        const effectiveAutomationType = isPrefixedInboxMenu
+                            ? 'inbox_menu'
+                            : isPrefixedConvoStarter
+                                ? 'convo_starter'
+                                : (associatedAutomation?.automation_type || (postback ? 'template_postback' : 'quick_reply_template'));
+
                         const context = {
                             sender_id: senderId,
                             recipient_id: recipientId,
@@ -2333,7 +2393,7 @@ class DMWorker {
                         };
                         const watermarkPolicy = await this._getWatermarkPolicyForUser(igAccount.user_id);
                         const chainState = { preReplyHintsSent: false };
-                        await this._maybeSendSeenTypingPrelude(instagram, senderId, null, chainState);
+                        await this._maybeSendSeenTypingPrelude(instagram, senderId, associatedAutomation || null, chainState);
                         
                         const success = await this.sendRenderedTemplate(
                             instagram,
@@ -2349,8 +2409,8 @@ class DMWorker {
                                     accountId: primaryAccountId,
                                     recipientId: senderId,
                                     senderName: senderId,
-                                    automationId: null,
-                                    automationType: 'quick_reply_template',
+                                    automationId: associatedAutomation?.$id || null,
+                                    automationType: effectiveAutomationType,
                                     eventType: String(options?.meta?.eventType || 'message').trim() || 'message',
                                     source: 'worker_node'
                                 }
@@ -2375,44 +2435,63 @@ class DMWorker {
                         
                         return {
                             handled: success,
-                            automationType: 'quick_reply_template'
+                            automationType: effectiveAutomationType
                         };
                     }
                 }
 
-                const isHumanReadablePostbackReply = Boolean(
-                    postback
+                const isHumanReadableClickReply = Boolean(
+                    (postback || quickReplyPayload)
                     && inboundText
                     && !looksLikeInternalReference(inboundText)
                 );
-                if (isHumanReadablePostbackReply) {
-                    const fallbackSent = await instagram.sendMessage(senderId, 'template_text', {
-                        text: inboundText
-                    });
-                    if (fallbackSent) {
-                        console.log(`Sent button postback payload back as text reply: "${inboundText}"`);
-                    }
-                    return {
-                        handled: fallbackSent,
-                        automationType: 'postback_text_reply'
-                    };
-                }
+                if (isHumanReadableClickReply) {
+                    const clickType = postback ? 'postback_text_reply' : 'quick_reply_payload_reply';
+                    console.log(`Processing direct text reply from ${postback ? 'button' : 'quick reply'}: "${inboundText}"`);
 
-                const isHumanReadableQuickReplyReply = Boolean(
-                    quickReplyPayload
-                    && inboundText
-                    && !looksLikeInternalReference(inboundText)
-                );
-                if (isHumanReadableQuickReplyReply) {
-                    const fallbackSent = await instagram.sendMessage(senderId, 'template_text', {
-                        text: inboundText
+                    const watermarkPolicy = await this._getWatermarkPolicyForUser(igAccount.user_id);
+                    const chainState = { preReplyHintsSent: false };
+                    await this._maybeSendSeenTypingPrelude(instagram, senderId, null, chainState, profile);
+
+                    const { primaryText, secondaryText } = planWatermark({
+                        text: inboundText,
+                        policy: watermarkPolicy,
+                        channel: 'dm'
                     });
-                    if (fallbackSent) {
-                        console.log(`Sent quick reply payload back as text reply: "${inboundText}"`);
+
+                    const primarySent = await instagram.sendMessage(senderId, 'template_text', {
+                        text: primaryText
+                    });
+
+                    if (primarySent && secondaryText) {
+                        await this._sleep(350);
+                        await instagram.sendMessage(senderId, 'template_text', {
+                            text: secondaryText
+                        }).catch(() => false);
                     }
+
+                    if (primaryAccountId) {
+                        await this._recordAutomationLog({
+                            accountId: primaryAccountId,
+                            recipientId: senderId,
+                            senderName: senderId,
+                            automationId: null,
+                            automationType: clickType,
+                            eventType: String(options?.meta?.eventType || 'message').trim() || 'message',
+                            source: 'worker_node_click_text_reply',
+                            message: primarySent ? `Delivered ${postback ? 'button' : 'quick reply'} text response` : `Failed to deliver ${postback ? 'button' : 'quick reply'} text response`,
+                            payload: { text: inboundText, clickType },
+                            status: primarySent ? 'success' : 'failed'
+                        });
+                    }
+
+                    if (primarySent) {
+                        await this._clearConversationState(primaryAccountId, conversationKey);
+                    }
+
                     return {
-                        handled: fallbackSent,
-                        automationType: 'quick_reply_payload_reply'
+                        handled: primarySent,
+                        automationType: clickType
                     };
                 }
 
@@ -2443,7 +2522,12 @@ class DMWorker {
             }
 
             const automationType = String(matchedAutomation.automation_type || 'dm').trim() || 'dm';
-            console.log(`Matched automation: ${matchedAutomation.title || matchedAutomation.$id}`);
+            const typeLabel = automationType === 'inbox_menu'
+                ? 'Persistent Menu / Inbox Menu'
+                : automationType === 'convo_starter'
+                    ? 'Conversation Starter / Ice Breakers'
+                    : automationType.toUpperCase();
+            console.log(`Matched automation [${typeLabel}]: ${matchedAutomation.title || matchedAutomation.$id}`);
             const planGate = this._isAutomationAllowedByPlan(profile, matchedAutomation);
             if (!planGate.allowed) {
                 this._logBlockedFeatures({

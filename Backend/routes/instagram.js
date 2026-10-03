@@ -5154,7 +5154,8 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
                             item.url = m.url;
                             item.webview_height_ratio = m.webview_height_ratio || 'full';
                         } else if (m.type === 'postback') {
-                            item.payload = m.payload || m.template_id || '';
+                            const rawPayload = String(m.payload || m.template_id || '').trim();
+                            item.payload = rawPayload.startsWith('inbox_menu:') ? rawPayload : `inbox_menu:${rawPayload}`;
                         }
                         return item;
                     });
@@ -5302,7 +5303,8 @@ router.post('/instagram/inbox-menu', loginRequired, async (req, res) => {
                             item.url = m.url;
                             item.webview_height_ratio = m.webview_height_ratio || 'full';
                         } else if (m.type === 'postback') {
-                            item.payload = m.payload || m.template_id || '';
+                            const rawPayload = String(m.payload || m.template_id || '').trim();
+                            item.payload = rawPayload.startsWith('inbox_menu:') ? rawPayload : `inbox_menu:${rawPayload}`;
                         }
                         return item;
                     });
@@ -5508,10 +5510,13 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
             if (dbStarters.length > 0 && igAccount) {
                 try {
                     await axios.post(`https://graph.instagram.com/v24.0/me/messenger_profile`, {
-                        ice_breakers: dbStarters.map((starter) => ({
-                            question: starter.question,
-                            payload: starter.payload || starter.template_id || starter.question
-                        }))
+                        ice_breakers: dbStarters.map((starter) => {
+                            const rawPayload = String(starter.payload || starter.template_id || starter.question || '').trim();
+                            return {
+                                question: starter.question,
+                                payload: rawPayload.startsWith('convo_starter:') ? rawPayload : `convo_starter:${rawPayload}`
+                            };
+                        })
                     }, {
                         params: { access_token: igAccount.access_token }
                     });
@@ -5660,10 +5665,13 @@ router.post('/instagram/convo-starters', loginRequired, async (req, res) => {
             try {
                 if (igAccount) {
                     await axios.post(`https://graph.instagram.com/v24.0/me/messenger_profile`, {
-                        ice_breakers: normalizedStarters.map((starter) => ({
-                            question: starter.question,
-                            payload: starter.payload || starter.question
-                        }))
+                        ice_breakers: normalizedStarters.map((starter) => {
+                            const rawPayload = String(starter.payload || starter.template_id || starter.question || '').trim();
+                            return {
+                                question: starter.question,
+                                payload: rawPayload.startsWith('convo_starter:') ? rawPayload : `convo_starter:${rawPayload}`
+                            };
+                        })
                     }, {
                         params: { access_token: igAccount.access_token }
                     });

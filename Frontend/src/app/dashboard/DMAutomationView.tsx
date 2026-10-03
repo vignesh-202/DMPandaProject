@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../contexts/DashboardContext';
 import {
-    MessageSquare, Plus, Trash2, Save, AlertCircle, Radio, BookText,
+    MessageSquare, Plus, Trash2, Save, AlertCircle, AlertTriangle, Radio, BookText,
     MousePointerClick, Smartphone, Loader2, Instagram, CheckCircle2, Globe, Pencil, Lightbulb, PencilLine, HelpCircle, Film, RefreshCcw, Calendar, ChevronDown, Check, Info, ArrowLeft, MoreHorizontal, Settings, X, Search,
     Image as ImageIcon, Video, Music, FileText, Share2, Reply, Link as LinkIcon, Power, LayoutTemplate
 } from 'lucide-react';
@@ -1841,6 +1841,20 @@ const DMAutomationView: React.FC = () => {
                                         </button>
                                     )}
                                 </div>
+
+                                {/* Multi-Platform Notice (taste-skill compliant) */}
+                                <div className="mx-4 mb-4 flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-3 text-xs transition-colors dark:border-amber-500/25 dark:bg-amber-500/[0.07] md:mx-8 lg:mx-10">
+                                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                    <div className="min-w-0 space-y-0.5 leading-relaxed">
+                                        <p className="font-semibold text-xs text-amber-950 dark:text-amber-100">
+                                            Multi-Platform Notice
+                                        </p>
+                                        <p className="text-[11px] sm:text-xs text-amber-900/80 dark:text-amber-300/80">
+                                            If this Instagram account is also connected to another tool (like ManyChat), disable comment automations there to prevent duplicate replies to your followers.
+                                        </p>
+                                    </div>
+                                </div>
+
                                 {(!selectedTemplateData || showTemplateSelector) && (
                                     <TemplateSelector
                                         selectedTemplateId={selectedTemplateId || undefined}
