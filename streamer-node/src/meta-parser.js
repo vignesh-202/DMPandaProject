@@ -104,6 +104,16 @@ function splitWebhookPayload(webhookData) {
 
         const changes = Array.isArray(entry?.changes) ? entry.changes : [];
         for (const change of changes) {
+            const field = String(change?.field || '').trim().toLowerCase();
+            const value = change?.value || {};
+            // Only root comments on posts/reels are valid for automations; drop replies to existing comments
+            if (field === 'comments' || field === 'live_comments') {
+                const parentId = value?.parent_id || value?.parent?.id || value?.parent_comment_id || value?.reply_to_comment_id;
+                if (parentId) {
+                    continue;
+                }
+            }
+
             const meta = extractChangeMeta(entry, change);
             if (!meta) continue;
             jobs.push({

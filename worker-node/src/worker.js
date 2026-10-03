@@ -1668,11 +1668,20 @@ class DMWorker {
             || ''
         ).trim();
 
+        const parentId = String(
+            value?.parent_id
+            || value?.parent?.id
+            || value?.parent_comment_id
+            || value?.reply_to_comment_id
+            || ''
+        ).trim() || null;
+
         return {
             field,
             recipientId,
             senderId,
             commentId: String(value?.id || value?.comment_id || '').trim(),
+            parentId,
             mediaId: String(value?.media?.id || value?.media_id || '').trim(),
             text: String(value?.text || value?.message || '').trim()
         };
@@ -1790,6 +1799,12 @@ class DMWorker {
         const commentEvent = this._extractCommentEvent(webhookData);
         if (!commentEvent?.recipientId || !commentEvent?.senderId || !commentEvent?.text) {
             return { handled: false, retryable: false, automationType: 'invalid_comment_event' };
+        }
+
+        // Only reply to root comments on media/posts. Ignore replies to existing comments (child comments).
+        if (commentEvent.parentId) {
+            console.log(`Ignoring reply to existing comment ${commentEvent.commentId} (parent_id: ${commentEvent.parentId}). Automations only reply to root comments.`);
+            return { handled: false, retryable: false, automationType: 'child_comment_ignored' };
         }
 
         const igAccount = await this.appwrite.getIGAccount(commentEvent.recipientId);
@@ -2319,16 +2334,6 @@ class DMWorker {
             const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || recipientId).trim();
             const instagram = this._createInstagramClient(accessToken, accountBudgetKey, options?.metaApiUsageTracker, executionProfile, igAccount);
 
-            if (!isShareEvent && typeof this.appwrite?.isManagedInstagramAccount === 'function') {
-                const senderIsManagedAccount = await this.appwrite.isManagedInstagramAccount(String(senderId || '').trim(), { instagram });
-                if (senderIsManagedAccount) {
-                    console.log(
-                        `Ignoring DM from managed Instagram account ${senderId} to avoid cross-account automation loops.`
-                    );
-                    return { handled: false, retryable: false, automationType: 'managed_account_event' };
-                }
-            }
-
             if (inboundText && this._isRecentOutboundMessage(senderId, inboundText)) {
                 console.log(`Ignoring inbound message "${inboundText}" from ${senderId} matching recent bot outbound reply to prevent bot loop.`);
                 return { handled: false, retryable: false, automationType: 'reflected_outbound_echo' };
@@ -2336,6 +2341,13 @@ class DMWorker {
 
             const conversationState = await this._getConversationState(primaryAccountId, conversationKey);
             let nextConversationState = this._normalizeConversationState(conversationState);
+
+            // Loop Breaker: If 3 automated replies occurred in <8s in this conversation, throttle to prevent runaway bot ping-pong
+            const recentBotTimestamps = (nextConversationState.botReplyTimestamps || []).filter((ts) => Date.now() - ts < 8000);
+            if (recentBotTimestamps.length >= 3) {
+                console.warn(`[LoopBreaker] Throttling runaway bot reply loop on ${conversationKey} (${recentBotTimestamps.length} replies in 8s).`);
+                return { handled: false, retryable: false, automationType: 'loop_breaker_throttled' };
+            }
 
             // 2. Get active automations for this account
             console.log(`Fetching active automations for account identifiers: ${automationAccountIds.join(', ')}`);
@@ -2676,6 +2688,7 @@ class DMWorker {
                 if (has24hCooldown && matchedAutomation.once_per_user_24h === true) {
                     nextConversationState = this._withAutomationCooldown(nextConversationState, matchedAutomation.$id);
                 }
+                nextConversationState.botReplyTimestamps = [...recentBotTimestamps, Date.now()];
             }
 
             if (success) {
@@ -2696,7 +2709,8 @@ class DMWorker {
             if (success) {
                 const hasCooldowns = Object.keys(nextConversationState.automationCooldowns || {}).length > 0;
                 const hasMediaShare = nextConversationState.mediaShareSent === true;
-                if (hasCooldowns || hasMediaShare) {
+                const hasRecentBotTimestamps = (nextConversationState.botReplyTimestamps || []).length > 0;
+                if (hasCooldowns || hasMediaShare || hasRecentBotTimestamps) {
                     await this._saveConversationState({
                         userId: igAccount.user_id,
                         accountId: primaryAccountId,
