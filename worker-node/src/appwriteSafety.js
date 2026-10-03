@@ -34,7 +34,8 @@ const withAppwriteRetry = async (operation, {
     retryDelayMs = 250,
     scope = 'worker_appwrite',
     operationName = 'unknown',
-    context = {}
+    context = {},
+    silent404 = false
 } = {}) => {
     let attempt = 0;
     while (attempt <= retries) {
@@ -42,8 +43,11 @@ const withAppwriteRetry = async (operation, {
             return await operation();
         } catch (error) {
             const errorClass = classifyAppwriteError(error);
+            const isNotFound = errorClass === 'not_found';
             const isRetryable = errorClass === 'runtime_bug' && attempt < retries;
-            logAppwriteError(scope, operationName, error, { ...context, attempt: attempt + 1, retrying: isRetryable });
+            if (!(silent404 && isNotFound)) {
+                logAppwriteError(scope, operationName, error, { ...context, attempt: attempt + 1, retrying: isRetryable });
+            }
             if (!isRetryable) throw error;
             await wait(retryDelayMs * (attempt + 1));
             attempt += 1;

@@ -135,9 +135,11 @@ class DMWorker {
         const safeRecipient = String(recipientId || '').trim();
         const safeText = String(text || '').trim().toLowerCase();
         if (!safeRecipient || !safeText) return;
+        // Do not register short words (e.g. "hi", "ok", "yes") as outbound echo traps
+        if (safeText.length < 15 && !safeText.includes('http')) return;
         const now = Date.now();
         for (const [key, ts] of this.recentOutboundMessageHashes.entries()) {
-            if (now - ts > 120000) {
+            if (now - ts > 30000) {
                 this.recentOutboundMessageHashes.delete(key);
             }
         }
@@ -149,9 +151,10 @@ class DMWorker {
         const safeSender = String(senderId || '').trim();
         const safeText = String(text || '').trim().toLowerCase();
         if (!safeSender || !safeText) return false;
+        if (safeText.length < 15 && !safeText.includes('http')) return false;
         const key = `${safeSender}:${this._hashToken(safeText, 32)}`;
         const ts = this.recentOutboundMessageHashes.get(key);
-        return Boolean(ts && (Date.now() - ts < 120000));
+        return Boolean(ts && (Date.now() - ts < 30000));
     }
 
     _hashToken(value, length = 24) {
@@ -2334,7 +2337,8 @@ class DMWorker {
             const accountBudgetKey = String(igAccount.ig_user_id || igAccount.account_id || igAccount.$id || recipientId).trim();
             const instagram = this._createInstagramClient(accessToken, accountBudgetKey, options?.metaApiUsageTracker, executionProfile, igAccount);
 
-            if (inboundText && this._isRecentOutboundMessage(senderId, inboundText)) {
+            const isClickEvent = Boolean(postback || quickReplyPayload);
+            if (!isClickEvent && inboundText && this._isRecentOutboundMessage(senderId, inboundText)) {
                 console.log(`Ignoring inbound message "${inboundText}" from ${senderId} matching recent bot outbound reply to prevent bot loop.`);
                 return { handled: false, retryable: false, automationType: 'reflected_outbound_echo' };
             }
@@ -2648,7 +2652,6 @@ class DMWorker {
             await this._maybeSendSeenTypingPrelude(instagram, senderId, matchedAutomation, chainState, profile);
 
             // 6. Send the message via Instagram API
-            const isClickEvent = Boolean(quickReplyPayload || postback);
             const isInitialMenuOrStarter = Boolean(
                 isPrefixedInboxMenu ||
                 isPrefixedConvoStarter ||

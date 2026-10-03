@@ -451,7 +451,8 @@ class AppwriteClient {
                 ]
             ), {
                 operationName: 'get_convo_starter_fallbacks',
-                context: { account_ids: normalizedAccountIds }
+                context: { account_ids: normalizedAccountIds },
+                silent404: true
             });
 
             const documents = Array.isArray(response?.documents) ? response.documents : [];
