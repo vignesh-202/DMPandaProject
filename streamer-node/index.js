@@ -57,6 +57,28 @@ function rememberWelcomeReply(conversationKey, now = Date.now()) {
     recentWelcomeReplies.set(safeConversationKey, now + welcomeWindowMs);
 }
 
+const recentSentMessageIds = new Map();
+function pruneRecentSentMessageIds(now = Date.now()) {
+    for (const [id, expiresAt] of recentSentMessageIds.entries()) {
+        if (!Number.isFinite(expiresAt) || expiresAt <= now) {
+            recentSentMessageIds.delete(id);
+        }
+    }
+}
+function rememberSentMessageId(messageId, now = Date.now()) {
+    const safeId = String(messageId || '').trim();
+    if (!safeId) return;
+    pruneRecentSentMessageIds(now);
+    recentSentMessageIds.set(safeId, now + 300_000); // 5 min TTL
+}
+function isRecentSentMessageId(messageId, now = Date.now()) {
+    const safeId = String(messageId || '').trim();
+    if (!safeId) return false;
+    pruneRecentSentMessageIds(now);
+    const expiresAt = recentSentMessageIds.get(safeId);
+    return Number.isFinite(expiresAt) && expiresAt > now;
+}
+
 const NON_RETRY_AUTOMATION_TYPES = new Set([
     'invalid_due_to_plan',
     'plan_feature_blocked',
@@ -85,7 +107,8 @@ const NON_RETRY_AUTOMATION_TYPES = new Set([
     'rate_limited',
     'read_receipt',
     'delivery_receipt',
-    'echo_message'
+    'echo_message',
+    'outbound_echo'
 ]);
 
 let dispatcher = null;
@@ -95,6 +118,9 @@ const hub = new WorkerHub({
     sharedSecret: process.env.WORKER_SHARED_SECRET || '',
     callbacks: {
         onRegistered: () => dispatcher?.trigger(),
+        onMessageSent: ({ messageId }) => {
+            rememberSentMessageId(messageId);
+        },
         onAccepted: ({ jobId }) => {
             store.markAccepted(jobId);
         },
@@ -183,7 +209,10 @@ registerWebhookRoutes(app, {
     hub,
     onWebhook: async (payload) => {
         pruneRecentWelcomeReplies();
-        const allJobs = splitWebhookPayload(payload);
+        pruneRecentSentMessageIds();
+        const allJobs = splitWebhookPayload(payload, {
+            isSentMessageId: (id) => isRecentSentMessageId(id)
+        });
         const internalJobs = allJobs.map((job) => ({
             ...job,
             meta: {

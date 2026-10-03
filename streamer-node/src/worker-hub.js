@@ -122,6 +122,15 @@ class WorkerHub extends EventEmitter {
             return;
         }
 
+        if (message.type === 'worker.sent_message_id') {
+            const messageId = String(message.messageId || '').trim();
+            if (messageId) {
+                this.callbacks.onMessageSent?.({ workerId, messageId });
+                this.emit('message_sent', { workerId, messageId });
+            }
+            return;
+        }
+
         if (message.type === 'job.accepted') {
             this.callbacks.onAccepted?.({ workerId, jobId: message.jobId });
             return;

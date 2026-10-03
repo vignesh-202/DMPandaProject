@@ -71,7 +71,7 @@ function extractChangeMeta(entry, change) {
     };
 }
 
-function splitWebhookPayload(webhookData) {
+function splitWebhookPayload(webhookData, options = {}) {
     const entries = Array.isArray(webhookData?.entry) ? webhookData.entry : [];
     const jobs = [];
 
@@ -83,6 +83,12 @@ function splitWebhookPayload(webhookData) {
             // 2. Delivery receipts (messaging.delivery)
             // 3. Outbound message echoes (message.is_echo)
             if (messaging?.read || messaging?.delivery || messaging?.message?.is_echo === true) {
+                continue;
+            }
+
+            const mid = String(messaging?.message?.mid || messaging?.postback?.mid || '').trim();
+            if (mid && typeof options?.isSentMessageId === 'function' && options.isSentMessageId(mid)) {
+                console.log(`[Streamer] Dropping outbound echo message ${mid} at edge.`);
                 continue;
             }
 

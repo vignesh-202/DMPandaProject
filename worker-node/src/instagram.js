@@ -14,6 +14,9 @@ class InstagramAPI {
         this.onAuthError = typeof options?.onAuthError === 'function'
             ? options.onAuthError
             : null;
+        this.onMessageSent = typeof options?.onMessageSent === 'function'
+            ? options.onMessageSent
+            : null;
     }
 
     _checkAndEmitAuthError(error) {
@@ -178,7 +181,15 @@ class InstagramAPI {
                 commentId: options?.commentId || null
             });
             if (response.status === 200 && !response.data?.error) {
-                console.info(`Message sent successfully: ${response.data.message_id || response.data.id}`);
+                const sentMessageId = String(response.data.message_id || response.data.id || '').trim();
+                console.info(`Message sent successfully: ${sentMessageId}`);
+                if (sentMessageId && typeof this.onMessageSent === 'function') {
+                    try {
+                        this.onMessageSent(sentMessageId, { recipientId, messageType });
+                    } catch (cbErr) {
+                        console.warn('Error in onMessageSent callback:', cbErr?.message || cbErr);
+                    }
+                }
                 return true;
             }
             return false;

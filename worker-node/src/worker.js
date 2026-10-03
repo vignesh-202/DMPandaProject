@@ -129,6 +129,26 @@ class DMWorker {
         this.localConversationStates = new Map();
         this.localProcessedEvents = new Map();
         this.recentOutboundMessageHashes = new Map();
+        this.recentOutboundMessageIds = new Map();
+    }
+
+    _rememberOutboundMessageId(messageId) {
+        const safeId = String(messageId || '').trim();
+        if (!safeId) return;
+        const now = Date.now();
+        for (const [id, ts] of this.recentOutboundMessageIds.entries()) {
+            if (now - ts > 300000) {
+                this.recentOutboundMessageIds.delete(id);
+            }
+        }
+        this.recentOutboundMessageIds.set(safeId, now);
+    }
+
+    _isRecentOutboundMessageId(messageId) {
+        const safeId = String(messageId || '').trim();
+        if (!safeId) return false;
+        const ts = this.recentOutboundMessageIds.get(safeId);
+        return Boolean(ts && (Date.now() - ts < 300000));
     }
 
     _rememberOutboundMessage(recipientId, text) {
@@ -656,6 +676,12 @@ class DMWorker {
                         accountDocId: igAccount?.$id || '',
                         reason: errorMsg
                     }).catch(() => null);
+                }
+            },
+            onMessageSent: (sentMessageId) => {
+                this._rememberOutboundMessageId(sentMessageId);
+                if (this.streamerClient && typeof this.streamerClient.reportSentMessageId === 'function') {
+                    this.streamerClient.reportSentMessageId(sentMessageId);
                 }
             }
         });
@@ -2236,6 +2262,20 @@ class DMWorker {
             if (message?.is_echo === true) {
                 console.log('Ignoring echoed outbound Instagram message.');
                 return { handled: false, retryable: false, automationType: 'echo_message' };
+            }
+
+            const incomingMid = String(
+                message?.mid
+                || messaging?.message?.mid
+                || messaging?.postback?.mid
+                || options?.meta?.eventKey
+                || meta?.eventKey
+                || ''
+            ).trim();
+
+            if (incomingMid && this._isRecentOutboundMessageId(incomingMid)) {
+                console.log(`Ignoring outbound echo message ID "${incomingMid}" for recipient ${recipientId}.`);
+                return { handled: false, retryable: false, automationType: 'outbound_echo' };
             }
 
             // Extract share event info early

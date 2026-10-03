@@ -268,6 +268,16 @@ class StreamerClient {
         }
     }
 
+    reportSentMessageId(messageId) {
+        const safeId = String(messageId || '').trim();
+        if (!safeId || !this.connected) return;
+        this._send({
+            type: 'worker.sent_message_id',
+            workerId: this.workerId,
+            messageId: safeId
+        });
+    }
+
     _extractDerivedMeta(payload) {
         const entry = Array.isArray(payload?.entry) ? payload.entry[0] : null;
         if (!entry || typeof entry !== 'object') return null;

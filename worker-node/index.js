@@ -37,6 +37,7 @@ app.use(bodyParser.json({ limit: jsonBodyLimit }));
 
 const worker = new DMWorker();
 const streamerClient = new StreamerClient({ worker });
+worker.streamerClient = streamerClient;
 const directWebhookProcessingEnabled =
     String(process.env.WORKER_ACCEPT_DIRECT_WEBHOOKS || '').trim().toLowerCase() === 'true'
     || !streamerClient.isEnabled();
@@ -119,11 +120,10 @@ function isAuthorizedInternalWorkerRequest(req) {
     return false;
 }
 
-// Health check endpoint
+// Health check endpoint (quiet in production to avoid log flooding)
 app.get('/health', (req, res) => {
-    logRequestDetails(req);
     const streamerStatus = streamerClient.getStatus();
-    return sendLoggedJson(res, 200, {
+    return res.status(200).json({
         status: 'ok',
         service: 'worker-node',
         version: '1.0.2',
